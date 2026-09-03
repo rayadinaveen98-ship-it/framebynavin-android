@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.3.1-reminder-core-fix"
+        versionCode = 5
+        versionName = "0.4.0-reliability"
     }
 
     compileOptions {

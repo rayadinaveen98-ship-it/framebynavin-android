@@ -33,6 +33,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 } else {
                     tasks.clear()
                     tasks.addAll(saved)
+                    reconcileSnapshot(saved)
                 }
             }
         }
@@ -92,7 +93,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             priority = priority,
             notes = notes.trim(),
         )
-        scheduler.cancel(task.id)
+        // Scheduling the same task id replaces the previous PendingIntent. The
+        // alarm ledger makes any stale delivery harmless even on OEM devices.
         scheduler.schedule(updated)
         updated
     }
@@ -133,6 +135,22 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun skipTask(id: String) = updateTask(id) { task ->
         scheduler.cancel(task.id)
         task.copy(status = TaskStatus.SKIPPED, reminderEnabled = false)
+    }
+
+    /** Safe to call repeatedly; identical task IDs replace existing alarms. */
+    fun reconcileReminders() {
+        reconcileSnapshot(tasks.toList())
+    }
+
+    private fun reconcileSnapshot(snapshot: List<CreatorTask>) {
+        val now = System.currentTimeMillis()
+        snapshot.forEach { task ->
+            val shouldBeScheduled = task.reminderEnabled &&
+                task.reminderAtMillis > now &&
+                task.status != TaskStatus.DONE &&
+                task.status != TaskStatus.SKIPPED
+            if (shouldBeScheduled) scheduler.schedule(task) else scheduler.cancel(task.id)
+        }
     }
 
     private fun updateTask(id: String, transform: (CreatorTask) -> CreatorTask) {

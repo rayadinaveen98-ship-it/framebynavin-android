@@ -10,6 +10,11 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val taskId = intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID) ?: return
         val scheduledAt = intent.getLongExtra(ReminderConstants.EXTRA_SCHEDULED_AT, 0L)
+
+        // Reject any alarm that is no longer the current authoritative schedule
+        // for this task (edited, cancelled, completed, duplicate, etc.).
+        if (!AlarmLedger(context.applicationContext).consumeIfCurrent(taskId, scheduledAt)) return
+
         val firedAt = System.currentTimeMillis()
         val priority = runCatching {
             TaskPriority.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_PRIORITY).orEmpty())
