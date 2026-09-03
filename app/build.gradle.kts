@@ -8,6 +8,15 @@ android {
     namespace = "com.framebynavin.app"
     compileSdk = 35
 
+    signingConfigs {
+        create("dev") {
+            storeFile = rootProject.file("keystore/framebynavin-dev.jks")
+            storePassword = "framebynavin-dev"
+            keyAlias = "framebynavin-dev"
+            keyPassword = "framebynavin-dev"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.framebynavin.app"
         minSdk = 26
@@ -19,6 +28,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("dev")
+        }
     }
 
     buildFeatures {

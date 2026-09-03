@@ -17,6 +17,10 @@ The V0 cinematic theme is frozen. This milestone adds the first real Android rem
 - custom date + time picker
 - priority and notes stored with each creator task
 
+### Development signing
+
+Debug APKs from v0.3 onward use the repository-local `keystore/framebynavin-dev.jks` so test builds have a stable Android signature across GitHub Actions runners. This key is **development-only** and must never be used for a Play Store / production release.
+
 ### V0.3 acceptance test
 
 1. Install the APK.
