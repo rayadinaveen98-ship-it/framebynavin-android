@@ -24,17 +24,9 @@ class ReminderScheduler(private val context: Context) {
         ledger.markScheduled(task.id, task.reminderAtMillis)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                task.reminderAtMillis,
-                pendingIntent,
-            )
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.reminderAtMillis, pendingIntent)
         } else {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                task.reminderAtMillis,
-                pendingIntent,
-            )
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.reminderAtMillis, pendingIntent)
         }
     }
 
@@ -53,6 +45,9 @@ class ReminderScheduler(private val context: Context) {
             .putExtra(ReminderConstants.EXTRA_PRIORITY, task.priority.name)
             .putExtra(ReminderConstants.EXTRA_NOTES, task.notes)
             .putExtra(ReminderConstants.EXTRA_SCHEDULED_AT, task.reminderAtMillis)
+            .putExtra(ReminderConstants.EXTRA_ALERT_TYPE, task.alertType.name)
+            .putExtra(ReminderConstants.EXTRA_ALARM_SOUND_URI, task.alarmSoundUri)
+            .putExtra(ReminderConstants.EXTRA_VOICE_ENABLED, task.voiceEnabled)
 
         return PendingIntent.getBroadcast(
             context,
