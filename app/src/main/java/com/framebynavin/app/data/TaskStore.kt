@@ -65,6 +65,9 @@ class TaskStore(private val context: Context) {
                     .put("voiceRepeatCount", task.voiceRepeatCount)
                     .put("voiceRepeatIntervalSeconds", task.voiceRepeatIntervalSeconds)
                     .put("alarmTimeoutSeconds", task.alarmTimeoutSeconds)
+                    .put("scheduleSlotId", task.scheduleSlotId)
+                    .put("scheduleOccurrenceKey", task.scheduleOccurrenceKey)
+                    .put("autoStageReminder", task.autoStageReminder)
             )
         }
         return array.toString()
@@ -134,6 +137,9 @@ class TaskStore(private val context: Context) {
                         voiceRepeatCount = item.optInt("voiceRepeatCount", 3).coerceIn(1, 3),
                         voiceRepeatIntervalSeconds = item.optInt("voiceRepeatIntervalSeconds", 20).coerceIn(10, 60),
                         alarmTimeoutSeconds = item.optInt("alarmTimeoutSeconds", 120).coerceIn(30, 300),
+                        scheduleSlotId = item.optString("scheduleSlotId", ""),
+                        scheduleOccurrenceKey = item.optString("scheduleOccurrenceKey", ""),
+                        autoStageReminder = item.optBoolean("autoStageReminder", false),
                     )
                 )
             }
