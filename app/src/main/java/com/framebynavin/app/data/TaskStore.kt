@@ -46,6 +46,7 @@ class TaskStore(private val context: Context) {
                     .put("platform", task.platform)
                     .put("contentType", task.contentType)
                     .put("dueLabel", task.dueLabel)
+                    .put("dueAtMillis", task.dueAtMillis)
                     .put("status", task.status.name)
                     .put("progress", task.progress)
                     .put("reminderEnabled", task.reminderEnabled)
@@ -58,6 +59,11 @@ class TaskStore(private val context: Context) {
                     .put("smartEscalationEnabled", task.smartEscalationEnabled)
                     .put("snoozeCount", task.snoozeCount)
                     .put("workingUntilMillis", task.workingUntilMillis)
+                    .put("reminderMode", task.reminderMode.name)
+                    .put("voicePersona", task.voicePersona.name)
+                    .put("voiceRepeatCount", task.voiceRepeatCount)
+                    .put("voiceRepeatIntervalSeconds", task.voiceRepeatIntervalSeconds)
+                    .put("alarmTimeoutSeconds", task.alarmTimeoutSeconds)
             )
         }
         return array.toString()
@@ -68,6 +74,24 @@ class TaskStore(private val context: Context) {
         return buildList {
             for (i in 0 until array.length()) {
                 val item = array.getJSONObject(i)
+                val legacyAlertType = runCatching {
+                    ReminderAlertType.valueOf(item.optString("alertType", ReminderAlertType.NOTIFICATION.name))
+                }.getOrDefault(ReminderAlertType.NOTIFICATION)
+                val legacyVoice = item.optBoolean("voiceEnabled", false)
+                val legacySmart = item.optBoolean("smartEscalationEnabled", false)
+                val reminderEnabled = item.optBoolean("reminderEnabled", false)
+                val migratedMode = when {
+                    !reminderEnabled -> ReminderMode.NONE
+                    legacySmart -> ReminderMode.SMART
+                    legacyAlertType == ReminderAlertType.ALARM -> ReminderMode.ALARM
+                    legacyVoice -> ReminderMode.VOICE
+                    else -> ReminderMode.SIMPLE
+                }
+                val reminderMode = runCatching {
+                    ReminderMode.valueOf(item.optString("reminderMode", migratedMode.name))
+                }.getOrDefault(migratedMode)
+                val reminderAt = item.optLong("reminderAtMillis", 0L)
+
                 add(
                     CreatorTask(
                         id = item.getString("id"),
@@ -75,24 +99,30 @@ class TaskStore(private val context: Context) {
                         platform = item.optString("platform", "Instagram"),
                         contentType = item.optString("contentType", "Content"),
                         dueLabel = item.optString("dueLabel", "Today"),
+                        dueAtMillis = item.optLong("dueAtMillis", reminderAt),
                         status = runCatching {
                             TaskStatus.valueOf(item.optString("status", TaskStatus.PLANNED.name))
                         }.getOrDefault(TaskStatus.PLANNED),
                         progress = item.optInt("progress", 0).coerceIn(0, 100),
-                        reminderEnabled = item.optBoolean("reminderEnabled", false),
-                        reminderAtMillis = item.optLong("reminderAtMillis", 0L),
+                        reminderEnabled = reminderEnabled && reminderMode != ReminderMode.NONE,
+                        reminderAtMillis = reminderAt,
                         priority = runCatching {
                             TaskPriority.valueOf(item.optString("priority", TaskPriority.IMPORTANT.name))
                         }.getOrDefault(TaskPriority.IMPORTANT),
                         notes = item.optString("notes", ""),
-                        alertType = runCatching {
-                            ReminderAlertType.valueOf(item.optString("alertType", ReminderAlertType.NOTIFICATION.name))
-                        }.getOrDefault(ReminderAlertType.NOTIFICATION),
+                        alertType = legacyAlertType,
                         alarmSoundUri = item.optString("alarmSoundUri", ""),
-                        voiceEnabled = item.optBoolean("voiceEnabled", false),
-                        smartEscalationEnabled = item.optBoolean("smartEscalationEnabled", false),
+                        voiceEnabled = legacyVoice,
+                        smartEscalationEnabled = legacySmart,
                         snoozeCount = item.optInt("snoozeCount", 0).coerceAtLeast(0),
                         workingUntilMillis = item.optLong("workingUntilMillis", 0L),
+                        reminderMode = reminderMode,
+                        voicePersona = runCatching {
+                            VoicePersona.valueOf(item.optString("voicePersona", VoicePersona.WARM.name))
+                        }.getOrDefault(VoicePersona.WARM),
+                        voiceRepeatCount = item.optInt("voiceRepeatCount", 3).coerceIn(1, 3),
+                        voiceRepeatIntervalSeconds = item.optInt("voiceRepeatIntervalSeconds", 20).coerceIn(10, 60),
+                        alarmTimeoutSeconds = item.optInt("alarmTimeoutSeconds", 120).coerceIn(30, 300),
                     )
                 )
             }
