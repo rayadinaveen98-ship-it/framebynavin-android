@@ -17,6 +17,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private val smartScheduler = SmartEscalationScheduler(application)
     private val weeklyStore = WeeklyScheduleStore(application)
     private val ideaStore = IdeaVaultStore(application)
+    private val settingsStore = CreatorOsSettingsStore(application)
 
     val tasks = mutableStateListOf<CreatorTask>()
     val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
@@ -99,6 +100,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         smartEscalationEnabled: Boolean = false,
     ) {
         val mode = legacyMode(reminderEnabled, alertType, voiceEnabled, smartEscalationEnabled)
+        val defaults = settingsStore.snapshot()
         saveTaskConfiguration(
             id = null,
             title = title,
@@ -111,10 +113,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             priority = priority,
             notes = notes,
             alarmSoundUri = alarmSoundUri,
-            voicePersona = VoicePersona.WARM,
+            voicePersona = defaults.defaultVoicePersona,
             voiceRepeatCount = 3,
             voiceRepeatIntervalSeconds = 20,
-            alarmTimeoutSeconds = 120,
+            alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
         )
     }
 
@@ -355,6 +357,35 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
+    fun publishLate(id: String, delayMinutes: Int = 30) = updateTask(id) { task ->
+        val now = System.currentTimeMillis()
+        val due = now + delayMinutes.coerceIn(10, 180) * 60_000L
+        val updated = task.copy(
+            dueAtMillis = due,
+            dueLabel = WeeklyScheduleEngine.dueLabel(due),
+            reminderAtMillis = if (task.reminderEnabled && task.reminderMode != ReminderMode.NONE) due else 0L,
+            snoozeCount = 0,
+            workingUntilMillis = 0L,
+            autoStageReminder = false,
+        )
+        scheduleTask(updated)
+        updated
+    }
+
+    fun rescheduleDeadline(id: String, atMillis: Long) = updateTask(id) { task ->
+        if (atMillis <= System.currentTimeMillis()) return@updateTask task
+        val updated = task.copy(
+            dueAtMillis = atMillis,
+            dueLabel = WeeklyScheduleEngine.dueLabel(atMillis),
+            reminderAtMillis = if (task.reminderEnabled && task.reminderMode != ReminderMode.NONE) atMillis else 0L,
+            snoozeCount = 0,
+            workingUntilMillis = 0L,
+            autoStageReminder = false,
+        )
+        scheduleTask(updated)
+        updated
+    }
+
     fun saveIdea(idea: CreatorIdea): String? {
         if (idea.title.isBlank()) return null
         val now = System.currentTimeMillis()
@@ -388,6 +419,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val ideaIndex = ideas.indexOfFirst { it.id == id }
         if (ideaIndex == -1) return null
         val idea = ideas[ideaIndex]
+        if (idea.projectTaskId.isNotBlank()) {
+            tasks.firstOrNull { it.id == idea.projectTaskId }?.let { return it.id }
+        }
+
         val now = System.currentTimeMillis()
         val due = dueAtMillis.coerceAtLeast(now + 5 * 60_000L)
         val template = CreatorWorkflowEngine.templateFor(platform, contentType)
@@ -396,6 +431,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             platform == "Instagram" && contentType == "Reel" -> ReminderMode.SMART
             else -> ReminderMode.SIMPLE
         }
+        val defaults = settingsStore.snapshot()
         val taskId = UUID.randomUUID().toString()
         val task = CreatorTask(
             id = taskId,
@@ -419,7 +455,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             voiceEnabled = mode == ReminderMode.SMART,
             smartEscalationEnabled = mode == ReminderMode.SMART,
             reminderMode = mode,
-            voicePersona = VoicePersona.WARM,
+            voicePersona = defaults.defaultVoicePersona,
+            alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
             origin = CreatorTaskOrigin.IDEA_VAULT,
             sourceRefId = idea.id,
         )
@@ -442,6 +479,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val batchId = "release-${UUID.randomUUID()}"
         val now = System.currentTimeMillis()
         val created = mutableListOf<CreatorTask>()
+        val defaults = settingsStore.snapshot()
 
         ReleaseDayEngine.specs(request).forEach { spec ->
             val due = now + spec.dueOffsetMinutes * 60_000L
@@ -469,7 +507,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,
                 smartEscalationEnabled = mode == ReminderMode.SMART,
                 reminderMode = mode,
-                voicePersona = VoicePersona.WARM,
+                voicePersona = defaults.defaultVoicePersona,
+                alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
                 origin = CreatorTaskOrigin.RELEASE_DAY,
                 sourceRefId = batchId,
             )
@@ -587,6 +626,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val internalAlert = if (slot.reminderMode == ReminderMode.ALARM || slot.reminderMode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION
         val internalVoice = slot.reminderMode == ReminderMode.VOICE || slot.reminderMode == ReminderMode.SMART
         val internalSmart = slot.reminderMode == ReminderMode.SMART
+        val defaults = settingsStore.snapshot()
 
         var task = CreatorTask(
             id = UUID.randomUUID().toString(),
@@ -606,10 +646,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             voiceEnabled = internalVoice,
             smartEscalationEnabled = internalSmart,
             reminderMode = slot.reminderMode,
-            voicePersona = VoicePersona.WARM,
+            voicePersona = defaults.defaultVoicePersona,
             voiceRepeatCount = 3,
             voiceRepeatIntervalSeconds = 20,
-            alarmTimeoutSeconds = 120,
+            alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
             scheduleSlotId = slot.id,
             scheduleOccurrenceKey = occurrence.key,
             autoStageReminder = enabled,
@@ -632,6 +672,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val mode = slot.reminderMode
         val enabled = mode != ReminderMode.NONE
         var updated = task.copy(
+            title = slot.title,
             platform = slot.platform,
             contentType = slot.contentType,
             dueLabel = WeeklyScheduleEngine.dueLabel(occurrence.publishAtMillis),
