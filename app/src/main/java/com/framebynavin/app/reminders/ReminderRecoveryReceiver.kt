@@ -9,11 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** Rebuilds future reminder alarms after reboot or package replacement. */
 class ReminderRecoveryReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val supported = intent.action == Intent.ACTION_BOOT_COMPLETED ||
-            intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
+        val supported = intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
         if (!supported) return
 
         val pendingResult = goAsync()
@@ -21,13 +19,18 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
             try {
                 val appContext = context.applicationContext
                 val scheduler = ReminderScheduler(appContext)
+                val smart = SmartEscalationScheduler(appContext)
                 val now = System.currentTimeMillis()
                 TaskStore(appContext).load().forEach { task ->
+                    scheduler.cancel(task.id)
+                    smart.cancel(task.id)
                     val shouldBeScheduled = task.reminderEnabled &&
                         task.reminderAtMillis > now &&
                         task.status != TaskStatus.DONE &&
                         task.status != TaskStatus.SKIPPED
-                    if (shouldBeScheduled) scheduler.schedule(task) else scheduler.cancel(task.id)
+                    if (shouldBeScheduled) {
+                        if (task.smartEscalationEnabled) smart.schedule(task) else scheduler.schedule(task)
+                    }
                 }
             } finally {
                 pendingResult.finish()
