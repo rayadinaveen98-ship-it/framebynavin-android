@@ -22,6 +22,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             store.tasksFlow.collectLatest { saved ->
                 if (saved.isEmpty() && tasks.isEmpty()) {
+                    val starterTemplate = CreatorWorkflowEngine.templateFor("Instagram", "Reel")
+                    val starterStage = CreatorWorkflowEngine.stageIndexFromProgress(72, starterTemplate.stages.size)
                     val starter = CreatorTask(
                         id = "starter-frame-breakdown",
                         title = "Frame Breakdown",
@@ -29,7 +31,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                         contentType = "Reel",
                         dueLabel = "Today · 7:00 PM",
                         status = TaskStatus.WORKING,
-                        progress = 72,
+                        progress = CreatorWorkflowEngine.progressForStage(starterStage, starterTemplate.stages.size),
+                        workflowStageIndex = starterStage,
                         reminderMode = ReminderMode.NONE,
                     )
                     tasks += starter
@@ -126,6 +129,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 dueAtMillis = dueAtMillis,
                 status = TaskStatus.PLANNED,
                 progress = 0,
+                workflowStageIndex = 0,
                 reminderEnabled = enabled,
                 reminderAtMillis = normalizedReminderAt,
                 priority = priority,
@@ -150,12 +154,24 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         if (index == -1) return null
         cancelTaskAlerts(id)
         val current = tasks[index]
+        val formatChanged = current.platform != platform || current.contentType != contentType
+        val newTemplate = CreatorWorkflowEngine.templateFor(platform, contentType)
+        val nextStageIndex = if (formatChanged) {
+            CreatorWorkflowEngine.stageIndexFromProgress(current.progress, newTemplate.stages.size)
+        } else {
+            CreatorWorkflowEngine.stageIndex(current).coerceIn(0, newTemplate.stages.lastIndex)
+        }
+        val nextProgress = if (current.status == TaskStatus.DONE) 100
+        else CreatorWorkflowEngine.progressForStage(nextStageIndex, newTemplate.stages.size)
+
         val updated = current.copy(
             title = title.trim(),
             platform = platform,
             contentType = contentType,
             dueLabel = dueLabel.ifBlank { current.dueLabel },
             dueAtMillis = dueAtMillis,
+            progress = nextProgress,
+            workflowStageIndex = nextStageIndex,
             reminderEnabled = enabled,
             reminderAtMillis = normalizedReminderAt,
             priority = priority,
@@ -221,9 +237,12 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     fun startTask(id: String) = updateTask(id) { task ->
         val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled
+        val template = CreatorWorkflowEngine.templateFor(task)
+        val stageIndex = CreatorWorkflowEngine.stageIndex(task)
         val updated = task.copy(
             status = TaskStatus.WORKING,
-            progress = maxOf(task.progress, 15),
+            workflowStageIndex = stageIndex,
+            progress = CreatorWorkflowEngine.progressForStage(stageIndex, template.stages.size),
             workingUntilMillis = if (isSmart && task.reminderEnabled)
                 System.currentTimeMillis() + ReminderConstants.WORKING_QUIET_MINUTES * 60_000L
             else task.workingUntilMillis,
@@ -232,33 +251,56 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         updated
     }
 
-    fun advanceTask(id: String) = updateTask(id) { task ->
-        val next = when {
-            task.progress < 20 -> 20
-            task.progress < 40 -> 40
-            task.progress < 55 -> 55
-            task.progress < 70 -> 70
-            task.progress < 85 -> 85
-            task.progress < 95 -> 95
-            else -> 100
+    fun advanceTask(id: String) = advanceWorkflow(id)
+
+    fun advanceWorkflow(id: String) = updateTask(id) { task ->
+        val template = CreatorWorkflowEngine.templateFor(task)
+        val currentIndex = CreatorWorkflowEngine.stageIndex(task)
+        if (currentIndex >= template.stages.lastIndex) {
+            cancelTaskAlerts(task.id)
+            return@updateTask task.copy(
+                status = TaskStatus.DONE,
+                progress = 100,
+                workflowStageIndex = template.stages.lastIndex,
+                reminderEnabled = false,
+                smartEscalationEnabled = false,
+                voiceEnabled = false,
+                reminderMode = ReminderMode.NONE,
+                workingUntilMillis = 0L,
+            )
         }
+
+        val nextIndex = currentIndex + 1
         val updated = task.copy(
-            status = if (next >= 100) TaskStatus.DONE else TaskStatus.WORKING,
-            progress = next,
-            reminderEnabled = if (next >= 100) false else task.reminderEnabled,
-            smartEscalationEnabled = if (next >= 100) false else task.smartEscalationEnabled,
-            reminderMode = if (next >= 100) ReminderMode.NONE else task.reminderMode,
-            workingUntilMillis = if (next >= 100) 0L else task.workingUntilMillis,
+            status = TaskStatus.WORKING,
+            workflowStageIndex = nextIndex,
+            progress = CreatorWorkflowEngine.progressForStage(nextIndex, template.stages.size),
         )
-        if (next >= 100) cancelTaskAlerts(task.id) else scheduleTask(updated)
+        scheduleTask(updated)
+        updated
+    }
+
+    fun moveWorkflowBack(id: String) = updateTask(id) { task ->
+        if (task.status == TaskStatus.DONE) return@updateTask task
+        val template = CreatorWorkflowEngine.templateFor(task)
+        val currentIndex = CreatorWorkflowEngine.stageIndex(task)
+        val previous = (currentIndex - 1).coerceAtLeast(0)
+        val updated = task.copy(
+            status = TaskStatus.WORKING,
+            workflowStageIndex = previous,
+            progress = CreatorWorkflowEngine.progressForStage(previous, template.stages.size),
+        )
+        scheduleTask(updated)
         updated
     }
 
     fun completeTask(id: String) = updateTask(id) { task ->
         cancelTaskAlerts(task.id)
+        val template = CreatorWorkflowEngine.templateFor(task)
         task.copy(
             status = TaskStatus.DONE,
             progress = 100,
+            workflowStageIndex = template.stages.lastIndex,
             reminderEnabled = false,
             smartEscalationEnabled = false,
             voiceEnabled = false,
