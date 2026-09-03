@@ -25,7 +25,6 @@ data class CreatorTask(
     val platform: String,
     val contentType: String,
     val dueLabel: String,
-    val dueAtMillis: Long = 0L,
     val status: TaskStatus = TaskStatus.PLANNED,
     val progress: Int = 0,
     val reminderEnabled: Boolean = false,
@@ -43,4 +42,5 @@ data class CreatorTask(
     val voiceRepeatCount: Int = 3,
     val voiceRepeatIntervalSeconds: Int = 20,
     val alarmTimeoutSeconds: Int = 120,
+    val dueAtMillis: Long = 0L,
 )
