@@ -10,6 +10,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.CreatorOsSettingsStore
+import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.data.TaskStore
@@ -156,67 +159,71 @@ private fun VoiceReminderScreen(
     BackHandler(enabled = true) { }
     val transition = rememberInfiniteTransition(label = "voice")
     val pulse = transition.animateFloat(
-        initialValue = 0.82f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(tween(850), RepeatMode.Reverse),
+        initialValue = 0.88f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
         label = "voicePulse"
     )
+    val stage = CreatorWorkflowEngine.currentStage(task)
 
     Box(
         Modifier
             .fillMaxSize()
-            .background(CinemaBlack)
+            .background(Brush.radialGradient(listOf(MutedGold.copy(alpha = .10f), CinemaBlack), radius = 900f))
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(24.dp)
     ) {
+        Text("FRAMEBYNAVIN", color = RecRed, fontSize = 9.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.align(Alignment.TopCenter))
+
         Column(
             Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
                 Modifier
-                    .size(92.dp)
+                    .size(104.dp)
                     .scale(pulse.value)
-                    .background(MutedGold.copy(alpha = 0.13f), CircleShape),
+                    .background(MutedGold.copy(alpha = 0.10f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                    listOf(22.dp, 38.dp, 28.dp, 44.dp, 20.dp).forEach { height ->
-                        Box(
-                            Modifier
-                                .width(4.dp)
-                                .height(height)
-                                .background(MutedGold, RoundedCornerShape(10.dp))
-                        )
+                    listOf(20.dp, 37.dp, 27.dp, 46.dp, 24.dp).forEach { height ->
+                        Box(Modifier.width(4.dp).height(height).background(MutedGold, RoundedCornerShape(10.dp)))
                     }
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
-            Text("FRAMEBYNAVIN · VOICE REMINDER", color = MutedGold, fontSize = 10.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
-            Text(task.title, color = ProjectorIvory, fontSize = 32.sp, lineHeight = 36.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(8.dp))
-            Text("${task.platform} · ${task.contentType}", color = MutedText, fontSize = 12.sp)
-            Text(task.dueLabel, color = MutedGold, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "${VoicePersonaEngine.label(task.voicePersona)} voice · ${task.voiceRepeatCount} announcement${if (task.voiceRepeatCount == 1) "" else "s"}",
-                color = Color(0xFF817B74),
-                fontSize = 10.sp,
-            )
-            if (task.notes.isNotBlank()) {
-                Spacer(Modifier.height(12.dp))
-                Text(task.notes, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(26.dp))
+            Text("VOICE REMINDER", color = MutedGold, fontSize = 9.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(11.dp))
+            Text("Time to move this forward.", color = MutedText, fontSize = 11.sp)
+            Spacer(Modifier.height(7.dp))
+            Text(task.title, color = ProjectorIvory, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(13.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = RoundedCornerShape(100.dp), color = Color(0xFF17130F), border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f))) {
+                    Text(task.dueLabel, color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp))
+                }
+                Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                    Text(stage.label.uppercase(), color = ProjectorIvory, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp))
+                }
             }
 
-            Spacer(Modifier.height(34.dp))
+            if (task.notes.isNotBlank()) {
+                Spacer(Modifier.height(18.dp))
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                    Text(task.notes, color = MutedText, fontSize = 11.sp, lineHeight = 17.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(13.dp))
+                }
+            }
+
+            Spacer(Modifier.height(31.dp))
             Button(
                 onClick = onWorking,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(17.dp),
             ) {
                 Icon(Icons.Outlined.Work, null)
                 Spacer(Modifier.width(8.dp))
@@ -224,32 +231,16 @@ private fun VoiceReminderScreen(
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    onClick = onRepeat,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory)
-                    Spacer(Modifier.width(5.dp))
-                    Text("REPEAT", color = ProjectorIvory, fontSize = 10.sp)
+                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(5.dp)); Text("REPEAT", color = ProjectorIvory, fontSize = 9.5.sp)
                 }
-                OutlinedButton(
-                    onClick = onSnooze,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory)
-                    Spacer(Modifier.width(5.dp))
-                    Text("SNOOZE ${snoozeMinutes}m", color = ProjectorIvory, fontSize = 10.sp)
+                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(5.dp)); Text("SNOOZE ${snoozeMinutes}m", color = ProjectorIvory, fontSize = 9.5.sp)
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(9.dp))
             TextButton(onClick = onDone) {
-                Icon(Icons.Outlined.Check, null, tint = SuccessGreen)
-                Spacer(Modifier.width(6.dp))
-                Text("DONE", color = SuccessGreen, fontWeight = FontWeight.Bold)
+                Icon(Icons.Outlined.Check, null, tint = SuccessGreen); Spacer(Modifier.width(6.dp)); Text("DONE", color = SuccessGreen, fontWeight = FontWeight.Bold)
             }
         }
     }
