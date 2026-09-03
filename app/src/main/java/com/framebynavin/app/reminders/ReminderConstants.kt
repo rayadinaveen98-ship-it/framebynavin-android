@@ -9,6 +9,7 @@ object ReminderConstants {
     const val EXTRA_CONTENT_TYPE = "content_type"
     const val EXTRA_DUE_LABEL = "due_label"
     const val EXTRA_PRIORITY = "priority"
+    const val EXTRA_PROGRESS = "progress"
     const val EXTRA_NOTES = "notes"
     const val EXTRA_SCHEDULED_AT = "scheduled_at"
     const val EXTRA_TARGET_AT = "target_at"
