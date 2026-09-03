@@ -52,6 +52,9 @@ class TaskStore(private val context: Context) {
                     .put("reminderAtMillis", task.reminderAtMillis)
                     .put("priority", task.priority.name)
                     .put("notes", task.notes)
+                    .put("alertType", task.alertType.name)
+                    .put("alarmSoundUri", task.alarmSoundUri)
+                    .put("voiceEnabled", task.voiceEnabled)
             )
         }
         return array.toString()
@@ -79,6 +82,11 @@ class TaskStore(private val context: Context) {
                             TaskPriority.valueOf(item.optString("priority", TaskPriority.IMPORTANT.name))
                         }.getOrDefault(TaskPriority.IMPORTANT),
                         notes = item.optString("notes", ""),
+                        alertType = runCatching {
+                            ReminderAlertType.valueOf(item.optString("alertType", ReminderAlertType.NOTIFICATION.name))
+                        }.getOrDefault(ReminderAlertType.NOTIFICATION),
+                        alarmSoundUri = item.optString("alarmSoundUri", ""),
+                        voiceEnabled = item.optBoolean("voiceEnabled", false),
                     )
                 )
             }
