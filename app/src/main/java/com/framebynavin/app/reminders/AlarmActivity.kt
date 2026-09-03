@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.ui.theme.*
@@ -56,6 +57,7 @@ class AlarmActivity : ComponentActivity() {
             finish()
             return
         }
+        val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
         setContent {
             FrameByNavinTheme {
@@ -63,6 +65,7 @@ class AlarmActivity : ComponentActivity() {
                     title = task.title,
                     dueLabel = task.dueLabel,
                     notes = task.notes,
+                    snoozeMinutes = snoozeMinutes,
                     onDone = { acknowledgeDone(task.id) },
                     onWorking = { acknowledgeWorking(task.id) },
                     onSnooze = { snooze(task.id) },
@@ -111,10 +114,11 @@ class AlarmActivity : ComponentActivity() {
 
     private fun snooze(taskId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
+            val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
             val updated = store.updateTask(taskId) { task ->
                 task.copy(
                     reminderEnabled = true,
-                    reminderAtMillis = System.currentTimeMillis() + ReminderConstants.SNOOZE_MINUTES * 60_000L,
+                    reminderAtMillis = System.currentTimeMillis() + snoozeMinutes * 60_000L,
                     snoozeCount = task.snoozeCount + 1,
                     workingUntilMillis = 0L,
                 )
@@ -159,6 +163,7 @@ class AlarmActivity : ComponentActivity() {
                     reminderAtMillis = atMillis,
                     snoozeCount = 0,
                     workingUntilMillis = 0L,
+                    autoStageReminder = false,
                 )
             }
             scheduler.cancel(taskId)
@@ -184,6 +189,7 @@ private fun NativeAlarmScreen(
     title: String,
     dueLabel: String,
     notes: String,
+    snoozeMinutes: Int,
     onDone: () -> Unit,
     onWorking: () -> Unit,
     onSnooze: () -> Unit,
@@ -241,7 +247,7 @@ private fun NativeAlarmScreen(
                 ) {
                     Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory)
                     Spacer(Modifier.width(6.dp))
-                    Text("SNOOZE 10m", color = ProjectorIvory, fontSize = 10.sp)
+                    Text("SNOOZE ${snoozeMinutes}m", color = ProjectorIvory, fontSize = 10.sp)
                 }
                 OutlinedButton(
                     onClick = onReschedule,
