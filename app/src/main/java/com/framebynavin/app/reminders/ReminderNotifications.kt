@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.TaskPriority
+import java.util.Locale
 
 object ReminderNotifications {
     fun ensureChannel(context: Context) {
@@ -26,10 +27,10 @@ object ReminderNotifications {
         }
     }
 
-    fun show(context: Context, task: CreatorTask) {
+    fun show(context: Context, task: CreatorTask, deliveryDelayMillis: Long? = null) {
         ensureChannel(context)
         val manager = context.getSystemService(NotificationManager::class.java)
-        val notification = NotificationCompat.Builder(context, ReminderConstants.CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, ReminderConstants.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(task.title)
             .setContentText(notificationText(task))
@@ -48,8 +49,14 @@ object ReminderNotifications {
             .addAction(0, "STARTED", actionIntent(context, task.id, ReminderConstants.ACTION_STARTED, 1))
             .addAction(0, "SNOOZE 10m", actionIntent(context, task.id, ReminderConstants.ACTION_SNOOZE, 2))
             .addAction(0, "DONE", actionIntent(context, task.id, ReminderConstants.ACTION_DONE, 3))
-            .build()
-        manager.notify(task.id.hashCode(), notification)
+
+        if (deliveryDelayMillis != null) {
+            builder.setSubText(
+                "Timing +${String.format(Locale.US, "%.1fs", deliveryDelayMillis / 1000.0)}"
+            )
+        }
+
+        manager.notify(task.id.hashCode(), builder.build())
     }
 
     fun cancel(context: Context, taskId: String) {
