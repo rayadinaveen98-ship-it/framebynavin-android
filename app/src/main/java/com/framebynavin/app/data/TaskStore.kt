@@ -55,6 +55,9 @@ class TaskStore(private val context: Context) {
                     .put("alertType", task.alertType.name)
                     .put("alarmSoundUri", task.alarmSoundUri)
                     .put("voiceEnabled", task.voiceEnabled)
+                    .put("smartEscalationEnabled", task.smartEscalationEnabled)
+                    .put("snoozeCount", task.snoozeCount)
+                    .put("workingUntilMillis", task.workingUntilMillis)
             )
         }
         return array.toString()
@@ -87,6 +90,9 @@ class TaskStore(private val context: Context) {
                         }.getOrDefault(ReminderAlertType.NOTIFICATION),
                         alarmSoundUri = item.optString("alarmSoundUri", ""),
                         voiceEnabled = item.optBoolean("voiceEnabled", false),
+                        smartEscalationEnabled = item.optBoolean("smartEscalationEnabled", false),
+                        snoozeCount = item.optInt("snoozeCount", 0).coerceAtLeast(0),
+                        workingUntilMillis = item.optLong("workingUntilMillis", 0L),
                     )
                 )
             }
