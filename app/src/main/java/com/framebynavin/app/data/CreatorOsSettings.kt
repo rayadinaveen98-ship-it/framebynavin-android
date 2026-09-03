@@ -7,6 +7,7 @@ data class CreatorOsSettings(
     val defaultVoicePersona: VoicePersona = VoicePersona.WARM,
     val defaultAlarmTimeoutSeconds: Int = 120,
     val snoozeMinutes: Int = 10,
+    val weeklyAutoPlanEnabled: Boolean = false,
 )
 
 class CreatorOsSettingsStore(context: Context) {
@@ -19,6 +20,7 @@ class CreatorOsSettingsStore(context: Context) {
         }.getOrDefault(VoicePersona.WARM),
         defaultAlarmTimeoutSeconds = prefs.getInt(KEY_ALARM_TIMEOUT, 120).coerceIn(30, 300),
         snoozeMinutes = prefs.getInt(KEY_SNOOZE_MINUTES, 10).coerceIn(5, 30),
+        weeklyAutoPlanEnabled = prefs.getBoolean(KEY_WEEKLY_AUTO_PLAN, false),
     )
 
     fun setOnboardingComplete(value: Boolean) {
@@ -37,11 +39,16 @@ class CreatorOsSettingsStore(context: Context) {
         prefs.edit().putInt(KEY_SNOOZE_MINUTES, value.coerceIn(5, 30)).apply()
     }
 
+    fun setWeeklyAutoPlanEnabled(value: Boolean) {
+        prefs.edit().putBoolean(KEY_WEEKLY_AUTO_PLAN, value).apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "creator_os_settings_v1"
         private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
         private const val KEY_DEFAULT_VOICE = "default_voice_persona"
         private const val KEY_ALARM_TIMEOUT = "default_alarm_timeout_seconds"
         private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
+        private const val KEY_WEEKLY_AUTO_PLAN = "weekly_auto_plan_enabled"
     }
 }
