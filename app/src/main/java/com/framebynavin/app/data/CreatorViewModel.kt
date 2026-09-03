@@ -26,8 +26,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
     val ideas = mutableStateListOf<CreatorIdea>()
 
-    var weeklyAutoPlanEnabled by mutableStateOf(settingsStore.snapshot().weeklyAutoPlanEnabled)
-        private set
+    private var weeklyAutoPlanState by mutableStateOf(settingsStore.snapshot().weeklyAutoPlanEnabled)
+    val weeklyAutoPlanEnabled: Boolean get() = weeklyAutoPlanState
 
     private var tasksLoaded = false
     private var weeklyLoaded = false
@@ -561,7 +561,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setWeeklyAutoPlanEnabled(enabled: Boolean) {
-        weeklyAutoPlanEnabled = enabled
+        weeklyAutoPlanState = enabled
         settingsStore.setWeeklyAutoPlanEnabled(enabled)
         if (enabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
     }
