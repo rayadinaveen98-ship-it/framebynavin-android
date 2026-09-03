@@ -43,4 +43,5 @@ data class CreatorTask(
     val voiceRepeatIntervalSeconds: Int = 20,
     val alarmTimeoutSeconds: Int = 120,
     val dueAtMillis: Long = 0L,
+    val workflowStageIndex: Int = -1,
 )
