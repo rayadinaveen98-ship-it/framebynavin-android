@@ -137,6 +137,7 @@ internal fun V07ReminderComposer(
     onRemoveReminder: () -> Unit,
 ) {
     val context = LocalContext.current
+    val creatorDefaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
     val now = System.currentTimeMillis()
     val fallbackDue = now + 60 * 60_000L
 
@@ -149,10 +150,10 @@ internal fun V07ReminderComposer(
     var priority by rememberSaveable(task?.id) { mutableStateOf(task?.priority ?: TaskPriority.IMPORTANT) }
     var notes by rememberSaveable(task?.id) { mutableStateOf(task?.notes.orEmpty()) }
     var soundUri by rememberSaveable(task?.id) { mutableStateOf(task?.alarmSoundUri?.takeIf { it.isNotBlank() } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString()) }
-    var persona by rememberSaveable(task?.id) { mutableStateOf(task?.voicePersona ?: VoicePersona.WARM) }
+    var persona by rememberSaveable(task?.id) { mutableStateOf(task?.voicePersona ?: creatorDefaults.defaultVoicePersona) }
     var repeatCount by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatCount ?: 3) }
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 20) }
-    var alarmTimeout by rememberSaveable(task?.id) { mutableIntStateOf(task?.alarmTimeoutSeconds ?: 120) }
+    var alarmTimeout by rememberSaveable(task?.id) { mutableIntStateOf(task?.alarmTimeoutSeconds ?: creatorDefaults.defaultAlarmTimeoutSeconds) }
 
     val formats = v07FormatsFor(platform)
     fun changePlatform(value: String) {
@@ -260,7 +261,7 @@ internal fun V07ReminderComposer(
                                 RadioButton(persona == value, { persona = value }, colors = RadioButtonDefaults.colors(selectedColor = MutedGold))
                                 Column(Modifier.weight(1f)) {
                                     Text(VoicePersonaEngine.label(value), color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-                                    if (value == VoicePersona.WARM) Text("Recommended", color = MutedGold, fontSize = 8.sp)
+                                    if (value == creatorDefaults.defaultVoicePersona) Text("Default", color = MutedGold, fontSize = 8.sp)
                                 }
                                 TextButton(onClick = { v07PreviewVoice(context, value) }) { Text("PREVIEW", color = RecRed, fontSize = 8.sp) }
                             }
