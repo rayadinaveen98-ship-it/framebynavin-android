@@ -33,6 +33,15 @@
             android:turnScreenOn="true"
             android:theme="@style/Theme.FrameByNavin" />
 
+        <activity
+            android:name=".reminders.VoiceReminderActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.FrameByNavin" />
+
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.EscalationReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderActionReceiver" android:exported="false" />
