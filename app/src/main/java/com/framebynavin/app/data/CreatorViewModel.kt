@@ -1,7 +1,10 @@
 package com.framebynavin.app.data
 
 import android.app.Application
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.framebynavin.app.reminders.ReminderConstants
@@ -23,6 +26,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
     val ideas = mutableStateListOf<CreatorIdea>()
 
+    var weeklyAutoPlanEnabled by mutableStateOf(settingsStore.snapshot().weeklyAutoPlanEnabled)
+        private set
+
     private var tasksLoaded = false
     private var weeklyLoaded = false
 
@@ -32,7 +38,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             weeklySlots.clear()
             weeklySlots.addAll(slots)
             weeklyLoaded = true
-            if (tasksLoaded) syncWeeklyScheduleInternal()
+            if (tasksLoaded) {
+                if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
+            }
         }
 
         viewModelScope.launch {
@@ -66,7 +74,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                     reconcileSnapshot(saved)
                 }
                 tasksLoaded = true
-                if (weeklyLoaded) syncWeeklyScheduleInternal()
+                if (weeklyLoaded) {
+                    if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
+                }
             }
         }
     }
@@ -115,7 +125,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             alarmSoundUri = alarmSoundUri,
             voicePersona = defaults.defaultVoicePersona,
             voiceRepeatCount = 3,
-            voiceRepeatIntervalSeconds = 20,
+            voiceRepeatIntervalSeconds = 10,
             alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
         )
     }
@@ -167,7 +177,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 reminderMode = reminderMode,
                 voicePersona = voicePersona,
                 voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
-                voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(10, 60),
+                voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
                 alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
                 autoStageReminder = false,
                 origin = CreatorTaskOrigin.MANUAL,
@@ -213,7 +223,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             reminderMode = reminderMode,
             voicePersona = voicePersona,
             voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
-            voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(10, 60),
+            voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
             alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
             autoStageReminder = false,
         )
@@ -456,6 +466,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             smartEscalationEnabled = mode == ReminderMode.SMART,
             reminderMode = mode,
             voicePersona = defaults.defaultVoicePersona,
+            voiceRepeatIntervalSeconds = 10,
             alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
             origin = CreatorTaskOrigin.IDEA_VAULT,
             sourceRefId = idea.id,
@@ -508,6 +519,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 smartEscalationEnabled = mode == ReminderMode.SMART,
                 reminderMode = mode,
                 voicePersona = defaults.defaultVoicePersona,
+                voiceRepeatIntervalSeconds = 10,
                 alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
                 origin = CreatorTaskOrigin.RELEASE_DAY,
                 sourceRefId = batchId,
@@ -548,6 +560,12 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         return ReleaseLaunchResult(created.size, ideaSaved)
     }
 
+    fun setWeeklyAutoPlanEnabled(enabled: Boolean) {
+        weeklyAutoPlanEnabled = enabled
+        settingsStore.setWeeklyAutoPlanEnabled(enabled)
+        if (enabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
+    }
+
     fun saveWeeklySlot(slot: WeeklyScheduleSlot) {
         val normalized = slot.copy(
             id = slot.id.ifBlank { "custom-${UUID.randomUUID()}" },
@@ -558,7 +576,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val index = weeklySlots.indexOfFirst { it.id == normalized.id }
         if (index >= 0) weeklySlots[index] = normalized else weeklySlots += normalized
         persistWeeklySlots()
-        syncWeeklyScheduleInternal()
+        if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal()
     }
 
     fun setWeeklySlotEnabled(id: String, enabled: Boolean) {
@@ -566,7 +584,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         if (index == -1) return
         weeklySlots[index] = weeklySlots[index].copy(enabled = enabled)
         persistWeeklySlots()
-        if (enabled) syncWeeklyScheduleInternal()
+        if (weeklyAutoPlanEnabled && enabled) syncWeeklyScheduleInternal()
     }
 
     fun deleteWeeklySlot(id: String) {
@@ -578,15 +596,25 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         weeklySlots.clear()
         weeklySlots.addAll(WeeklyScheduleEngine.defaultSlots())
         persistWeeklySlots()
-        syncWeeklyScheduleInternal()
+        if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal()
     }
 
-    fun refreshWeeklySchedule() = syncWeeklyScheduleInternal()
+    fun refreshWeeklySchedule() {
+        if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal()
+    }
 
     fun reconcileReminders() = reconcileSnapshot(tasks.toList())
 
+    private fun removeUnstartedWeeklyProjects() {
+        val removed = tasks.filter { it.origin == CreatorTaskOrigin.WEEKLY && it.status == TaskStatus.PLANNED }
+        if (removed.isEmpty()) return
+        removed.forEach { cancelTaskAlerts(it.id) }
+        tasks.removeAll { it.origin == CreatorTaskOrigin.WEEKLY && it.status == TaskStatus.PLANNED }
+        persist()
+    }
+
     private fun syncWeeklyScheduleInternal() {
-        if (!tasksLoaded || !weeklyLoaded) return
+        if (!weeklyAutoPlanEnabled || !tasksLoaded || !weeklyLoaded) return
         val occurrences = WeeklyScheduleEngine.upcomingOccurrences(weeklySlots, daysAhead = 8)
         var changed = false
         val toSchedule = mutableListOf<CreatorTask>()
@@ -641,14 +669,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             reminderEnabled = enabled,
             reminderAtMillis = 0L,
             priority = slot.priority,
-            notes = "Auto-planned by Weekly Schedule",
+            notes = "Weekly plan",
             alertType = internalAlert,
             voiceEnabled = internalVoice,
             smartEscalationEnabled = internalSmart,
             reminderMode = slot.reminderMode,
             voicePersona = defaults.defaultVoicePersona,
             voiceRepeatCount = 3,
-            voiceRepeatIntervalSeconds = 20,
+            voiceRepeatIntervalSeconds = 10,
             alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
             scheduleSlotId = slot.id,
             scheduleOccurrenceKey = occurrence.key,
