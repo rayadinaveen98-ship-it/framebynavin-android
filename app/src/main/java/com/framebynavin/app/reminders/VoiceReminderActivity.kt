@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.data.TaskStore
@@ -56,11 +57,13 @@ class VoiceReminderActivity : ComponentActivity() {
             finish()
             return
         }
+        val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
         setContent {
             FrameByNavinTheme {
                 VoiceReminderScreen(
                     task = task,
+                    snoozeMinutes = snoozeMinutes,
                     onWorking = { working(task.id) },
                     onRepeat = { VoiceReminderService.start(applicationContext, task.copy(voiceRepeatCount = 1)) },
                     onSnooze = { snooze(task.id) },
@@ -94,10 +97,11 @@ class VoiceReminderActivity : ComponentActivity() {
 
     private fun snooze(taskId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
+            val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
             val updated = store.updateTask(taskId) { task ->
                 task.copy(
                     reminderEnabled = true,
-                    reminderAtMillis = System.currentTimeMillis() + ReminderConstants.SNOOZE_MINUTES * 60_000L,
+                    reminderAtMillis = System.currentTimeMillis() + snoozeMinutes * 60_000L,
                     snoozeCount = task.snoozeCount + 1,
                     workingUntilMillis = 0L,
                 )
@@ -143,6 +147,7 @@ class VoiceReminderActivity : ComponentActivity() {
 @Composable
 private fun VoiceReminderScreen(
     task: com.framebynavin.app.data.CreatorTask,
+    snoozeMinutes: Int,
     onWorking: () -> Unit,
     onRepeat: () -> Unit,
     onSnooze: () -> Unit,
@@ -237,7 +242,7 @@ private fun VoiceReminderScreen(
                 ) {
                     Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory)
                     Spacer(Modifier.width(5.dp))
-                    Text("SNOOZE 10m", color = ProjectorIvory, fontSize = 10.sp)
+                    Text("SNOOZE ${snoozeMinutes}m", color = ProjectorIvory, fontSize = 10.sp)
                 }
             }
             Spacer(Modifier.height(10.dp))
