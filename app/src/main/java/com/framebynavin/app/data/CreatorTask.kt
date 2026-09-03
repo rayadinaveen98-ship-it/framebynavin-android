@@ -44,4 +44,7 @@ data class CreatorTask(
     val alarmTimeoutSeconds: Int = 120,
     val dueAtMillis: Long = 0L,
     val workflowStageIndex: Int = -1,
+    val scheduleSlotId: String = "",
+    val scheduleOccurrenceKey: String = "",
+    val autoStageReminder: Boolean = false,
 )
