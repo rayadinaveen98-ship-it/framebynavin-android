@@ -3,7 +3,6 @@ package com.framebynavin.app.data
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.WeekFields
@@ -122,8 +121,12 @@ object WeeklyScheduleEngine {
     fun reminderTargetForStage(task: CreatorTask, stageIndex: Int, nowMillis: Long = System.currentTimeMillis()): Long {
         val checkpoint = checkpoints(task).getOrNull(stageIndex)?.dueAtMillis ?: task.dueAtMillis
         if (checkpoint > nowMillis) return checkpoint
-        val fallback = (nowMillis + 10 * 60_000L).coerceAtMost(task.dueAtMillis.takeIf { it > nowMillis } ?: nowMillis + 10 * 60_000L)
-        return fallback
+        val recovery = task.dueAtMillis - 15 * 60_000L
+        return when {
+            recovery > nowMillis -> recovery
+            task.dueAtMillis > nowMillis -> task.dueAtMillis
+            else -> checkpoint
+        }
     }
 
     fun nextOccurrence(slots: List<WeeklyScheduleSlot>, nowMillis: Long = System.currentTimeMillis()): ScheduleOccurrence? =
