@@ -61,6 +61,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         reminderAtMillis: Long,
         priority: TaskPriority,
         notes: String,
+        alertType: ReminderAlertType = ReminderAlertType.NOTIFICATION,
+        alarmSoundUri: String = "",
+        voiceEnabled: Boolean = false,
     ) {
         if (title.isBlank()) return
         val task = CreatorTask(
@@ -75,6 +78,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             reminderAtMillis = if (reminderEnabled) reminderAtMillis else 0L,
             priority = priority,
             notes = notes.trim(),
+            alertType = alertType,
+            alarmSoundUri = alarmSoundUri,
+            voiceEnabled = voiceEnabled,
         )
         tasks.add(0, task)
         persist()
@@ -86,15 +92,19 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         reminderAtMillis: Long,
         priority: TaskPriority,
         notes: String,
+        alertType: ReminderAlertType = ReminderAlertType.NOTIFICATION,
+        alarmSoundUri: String = "",
+        voiceEnabled: Boolean = false,
     ) = updateTask(id) { task ->
         val updated = task.copy(
             reminderEnabled = true,
             reminderAtMillis = reminderAtMillis,
             priority = priority,
             notes = notes.trim(),
+            alertType = alertType,
+            alarmSoundUri = alarmSoundUri,
+            voiceEnabled = voiceEnabled,
         )
-        // Scheduling the same task id replaces the previous PendingIntent. The
-        // alarm ledger makes any stale delivery harmless even on OEM devices.
         scheduler.schedule(updated)
         updated
     }
@@ -137,7 +147,6 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         task.copy(status = TaskStatus.SKIPPED, reminderEnabled = false)
     }
 
-    /** Safe to call repeatedly; identical task IDs replace existing alarms. */
     fun reconcileReminders() {
         reconcileSnapshot(tasks.toList())
     }
