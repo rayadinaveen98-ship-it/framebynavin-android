@@ -15,34 +15,61 @@ class ReminderActionReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val store = TaskStore(context.applicationContext)
-                val scheduler = ReminderScheduler(context.applicationContext)
+                val appContext = context.applicationContext
+                val store = TaskStore(appContext)
+                val scheduler = ReminderScheduler(appContext)
+                val smart = SmartEscalationScheduler(appContext)
+
                 when (intent.action) {
                     ReminderConstants.ACTION_STARTED -> {
-                        store.updateTask(taskId) { task ->
-                            task.copy(status = TaskStatus.WORKING, progress = maxOf(task.progress, 15))
+                        val updated = store.updateTask(taskId) { task ->
+                            task.copy(
+                                status = TaskStatus.WORKING,
+                                progress = maxOf(task.progress, 15),
+                                workingUntilMillis = if (task.smartEscalationEnabled)
+                                    System.currentTimeMillis() + ReminderConstants.WORKING_QUIET_MINUTES * 60_000L
+                                else task.workingUntilMillis,
+                            )
+                        }
+                        scheduler.cancel(taskId)
+                        smart.cancel(taskId)
+                        if (updated?.reminderEnabled == true) {
+                            if (updated.smartEscalationEnabled) smart.schedule(updated) else scheduler.schedule(updated)
                         }
                         ReminderNotifications.cancel(context, taskId)
                     }
+
                     ReminderConstants.ACTION_DONE -> {
                         store.updateTask(taskId) { task ->
                             task.copy(
                                 status = TaskStatus.DONE,
                                 progress = 100,
                                 reminderEnabled = false,
+                                smartEscalationEnabled = false,
+                                workingUntilMillis = 0L,
                             )
                         }
                         scheduler.cancel(taskId)
+                        smart.cancel(taskId)
+                        AlarmRingingService.stop(appContext)
                         ReminderNotifications.cancel(context, taskId)
                     }
+
                     ReminderConstants.ACTION_SNOOZE -> {
                         val snoozed = store.updateTask(taskId) { task ->
                             task.copy(
                                 reminderEnabled = true,
                                 reminderAtMillis = System.currentTimeMillis() + ReminderConstants.SNOOZE_MINUTES * 60_000L,
+                                snoozeCount = task.snoozeCount + 1,
+                                workingUntilMillis = 0L,
                             )
                         }
-                        if (snoozed != null) scheduler.schedule(snoozed)
+                        scheduler.cancel(taskId)
+                        smart.cancel(taskId)
+                        if (snoozed != null) {
+                            if (snoozed.smartEscalationEnabled) smart.schedule(snoozed) else scheduler.schedule(snoozed)
+                        }
+                        AlarmRingingService.stop(appContext)
                         ReminderNotifications.cancel(context, taskId)
                     }
                 }
