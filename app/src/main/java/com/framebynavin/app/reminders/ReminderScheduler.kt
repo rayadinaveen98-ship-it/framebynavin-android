@@ -5,7 +5,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorTask
+import com.framebynavin.app.data.ReminderAlertType
 
 class ReminderScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
@@ -21,12 +23,58 @@ class ReminderScheduler(private val context: Context) {
         }
 
         val pendingIntent = alarmPendingIntent(task)
-        ledger.markScheduled(task.id, task.reminderAtMillis)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.reminderAtMillis, pendingIntent)
-        } else {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.reminderAtMillis, pendingIntent)
+        if (task.alertType == ReminderAlertType.ALARM) {
+            if (!canScheduleExact()) {
+                existingPendingIntent(task.id)?.let { alarmManager.cancel(it) }
+                ledger.clear(task.id)
+                return
+            }
+
+            val showIntent = PendingIntent.getActivity(
+                context,
+                task.id.hashCode() xor 0x51A1,
+                Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+            runCatching {
+                alarmManager.setAlarmClock(
+                    AlarmManager.AlarmClockInfo(task.reminderAtMillis, showIntent),
+                    pendingIntent,
+                )
+            }.onSuccess {
+                ledger.markScheduled(task.id, task.reminderAtMillis)
+            }.onFailure {
+                ledger.clear(task.id)
+            }
+            return
+        }
+
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                !alarmManager.canScheduleExactAlarms()
+            ) {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    task.reminderAtMillis,
+                    pendingIntent,
+                )
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    task.reminderAtMillis,
+                    pendingIntent,
+                )
+            }
+        }.onSuccess {
+            ledger.markScheduled(task.id, task.reminderAtMillis)
+        }.onFailure {
+            ledger.clear(task.id)
         }
     }
 

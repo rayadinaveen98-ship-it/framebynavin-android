@@ -12,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,8 +36,6 @@ fun FrameByNavinV031App(vm: CreatorViewModel = viewModel()) {
     Box(Modifier.fillMaxSize()) {
         FrameByNavinV03App(vm)
 
-        // V0.3.1 compatibility hit-target over the existing header + button.
-        // The next UI refactor will merge this picker directly into the shared Quick Add component.
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -69,6 +66,7 @@ fun FrameByNavinV031App(vm: CreatorViewModel = viewModel()) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FunctionalQuickAddDialog(
     onDismiss: () -> Unit,
@@ -80,6 +78,13 @@ private fun FunctionalQuickAddDialog(
     var contentType by rememberSaveable { mutableStateOf("Reel") }
     var dueAtMillis by rememberSaveable { mutableLongStateOf(defaultQuickAddDueMillis()) }
     var reminderEnabled by rememberSaveable { mutableStateOf(true) }
+
+    val formats = quickAddFormatsFor(platform)
+
+    fun changePlatform(newPlatform: String) {
+        platform = newPlatform
+        contentType = quickAddFormatsFor(newPlatform).first()
+    }
 
     fun openDateTimePicker() {
         val initial = Calendar.getInstance().apply { timeInMillis = dueAtMillis }
@@ -136,20 +141,28 @@ private fun FunctionalQuickAddDialog(
 
                 Spacer(Modifier.height(14.dp))
                 Text("PLATFORM", color = MutedText, fontSize = 9.sp, letterSpacing = 1.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Spacer(Modifier.height(5.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     listOf("Instagram", "YouTube", "X").forEach { option ->
                         FilterChip(
                             selected = platform == option,
-                            onClick = { platform = option },
+                            onClick = { changePlatform(option) },
                             label = { Text(option) },
                         )
                     }
                 }
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 Text("FORMAT", color = MutedText, fontSize = 9.sp, letterSpacing = 1.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("Reel", "Long-form", "Post").forEach { option ->
+                Spacer(Modifier.height(5.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    formats.forEach { option ->
                         FilterChip(
                             selected = contentType == option,
                             onClick = { contentType = option },
@@ -164,7 +177,10 @@ private fun FunctionalQuickAddDialog(
                 OutlinedButton(
                     onClick = { openDateTimePicker() },
                     modifier = Modifier.fillMaxWidth().height(58.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, if (dueIsFuture) CinemaLine else RecRed),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (dueIsFuture) CinemaLine else RecRed
+                    ),
                     shape = RoundedCornerShape(14.dp),
                 ) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -176,7 +192,10 @@ private fun FunctionalQuickAddDialog(
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                SimpleDateFormat("EEE, d MMM yyyy · h:mm a", Locale.getDefault()).format(Date(dueAtMillis)),
+                                SimpleDateFormat(
+                                    "EEE, d MMM yyyy · h:mm a",
+                                    Locale.getDefault()
+                                ).format(Date(dueAtMillis)),
                                 color = MutedText,
                                 fontSize = 9.5.sp,
                             )
@@ -196,13 +215,25 @@ private fun FunctionalQuickAddDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("REMIND AT PUBLISH TIME", color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-                        Text("Uses the native reminder engine.", color = MutedText, fontSize = 9.5.sp)
+                        Text(
+                            "REMIND AT PUBLISH TIME",
+                            color = ProjectorIvory,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Uses the native reminder engine.",
+                            color = MutedText,
+                            fontSize = 9.5.sp
+                        )
                     }
                     Switch(
                         checked = reminderEnabled,
                         onCheckedChange = { reminderEnabled = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = ProjectorIvory, checkedTrackColor = RecRed),
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = ProjectorIvory,
+                            checkedTrackColor = RecRed
+                        ),
                     )
                 }
             }
@@ -210,16 +241,33 @@ private fun FunctionalQuickAddDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onAdd(title, platform, contentType, dueLabel, dueAtMillis, reminderEnabled)
+                    onAdd(
+                        title,
+                        platform,
+                        contentType,
+                        dueLabel,
+                        dueAtMillis,
+                        reminderEnabled
+                    )
                 },
                 enabled = title.isNotBlank() && dueIsFuture,
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-            ) { Text("ADD") }
+            ) {
+                Text("ADD")
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("CANCEL", color = MutedText) }
+            TextButton(onClick = onDismiss) {
+                Text("CANCEL", color = MutedText)
+            }
         },
     )
+}
+
+private fun quickAddFormatsFor(platform: String): List<String> = when (platform) {
+    "YouTube" -> listOf("Long-form", "Short", "Cinematic Moment")
+    "X" -> listOf("Post", "Video", "Update")
+    else -> listOf("Reel", "Post", "Story")
 }
 
 private fun defaultQuickAddDueMillis(): Long = Calendar.getInstance().apply {
