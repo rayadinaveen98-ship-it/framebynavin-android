@@ -1,6 +1,7 @@
 package com.framebynavin.app.data
 
 enum class TaskStatus { PLANNED, WORKING, DONE, SKIPPED }
+enum class TaskPriority { NORMAL, IMPORTANT, CRITICAL }
 
 data class CreatorTask(
     val id: String,
@@ -10,4 +11,8 @@ data class CreatorTask(
     val dueLabel: String,
     val status: TaskStatus = TaskStatus.PLANNED,
     val progress: Int = 0,
+    val reminderEnabled: Boolean = false,
+    val reminderAtMillis: Long = 0L,
+    val priority: TaskPriority = TaskPriority.IMPORTANT,
+    val notes: String = "",
 )

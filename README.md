@@ -1,19 +1,30 @@
 # FrameByNavin Android
 
-Native Kotlin + Jetpack Compose creator command-center app.
+## v0.3.0 — Native Reminder Core
 
-## V0 Functional milestone — 0.2.0
+The V0 cinematic theme is frozen. This milestone adds the first real Android reminder foundation:
 
-The approved cinematic editorial visual direction is frozen for V0. This milestone makes the shell interactive:
+- task-linked reminders with saved exact timestamp
+- Android 13+ notification permission setup
+- Android 12+ exact-alarm access setup
+- `AlarmManager.setExactAndAllowWhileIdle` when exact-alarm access is granted
+- high-importance notification channel
+- reminder notification survives app closure / lock screen scheduling path
+- notification actions: **STARTED**, **SNOOZE 10m**, **DONE**
+- action state changes persist back to the local DataStore
+- completing/skipping a task cancels its pending alarm
+- one-minute / five-minute / fifteen-minute test shortcuts
+- custom date + time picker
+- priority and notes stored with each creator task
 
-- Working bottom navigation: Today / Plan / Studio / Insights
-- Quick Add from the + button
-- Persistent local task storage with Android DataStore
-- Start and complete task actions
-- Production pipeline advancement in Studio
-- 25-minute Focus Mode with pause/resume and Done
-- Local progress insights
-- Scroll-safe Today layout so lower cards are reachable on real devices
-- GitHub Actions APK build
+### V0.3 acceptance test
 
-The next engineering milestone is the reliability stack: exact reminders/alarms, permission-state handling, reboot recovery, acknowledgement/snooze actions, and escalation rules. Core production data will move to Room/SQLite as that domain layer is introduced; DataStore is used in this V0 interaction milestone to keep the first functional loop small and testable.
+1. Install the APK.
+2. Tap the red alarm button above the bottom navigation.
+3. Enable Notifications and Allow Exact Alarms if shown.
+4. Select a task, choose `1 MIN`, then Set Reminder.
+5. Completely close FrameByNavin and lock the phone.
+6. The reminder should arrive near the selected exact time.
+7. Test STARTED, SNOOZE 10m, and DONE from the notification.
+
+Boot recovery, voice TTS, alarm/full-screen escalation, and smart escalation are intentionally deferred to later milestones.
