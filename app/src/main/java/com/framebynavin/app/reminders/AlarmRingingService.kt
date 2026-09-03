@@ -11,7 +11,9 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -21,7 +23,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderAlertType
+import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
+import com.framebynavin.app.data.VoicePersona
 import java.util.Locale
 
 class AlarmRingingService : Service() {
@@ -29,6 +33,7 @@ class AlarmRingingService : Service() {
     private var vibrator: Vibrator? = null
     private var tts: TextToSpeech? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -43,15 +48,25 @@ class AlarmRingingService : Service() {
             return START_NOT_STICKY
         }
 
+        handler.removeCallbacksAndMessages(null)
         acquireWakeLock()
         startForeground(notificationId(task.id), buildNotification(task))
         startAlarmSound(task)
         startVibration()
         if (task.voiceEnabled) startVoice(task)
+
+        val timeoutMillis = task.alarmTimeoutSeconds.coerceIn(30, 300) * 1000L
+        handler.postDelayed({
+            stopAlertHardware()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }, timeoutMillis)
+
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
         stopAlertHardware()
         super.onDestroy()
     }
@@ -144,6 +159,7 @@ class AlarmRingingService : Service() {
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 tts?.language = Locale.getDefault()
+                tts?.let { VoicePersonaEngine.apply(it, task.voicePersona) }
                 val urgency = when (task.priority) {
                     TaskPriority.NORMAL -> "reminder"
                     TaskPriority.IMPORTANT -> "important reminder"
@@ -163,7 +179,7 @@ class AlarmRingingService : Service() {
         if (wakeLock?.isHeld == true) return
         val power = getSystemService(PowerManager::class.java)
         wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FrameByNavin:NativeAlarm").apply {
-            acquire(10 * 60 * 1000L)
+            acquire(6 * 60 * 1000L)
         }
     }
 
@@ -200,12 +216,19 @@ internal fun Intent.putTask(task: CreatorTask): Intent =
         .putExtra(ReminderConstants.EXTRA_PLATFORM, task.platform)
         .putExtra(ReminderConstants.EXTRA_CONTENT_TYPE, task.contentType)
         .putExtra(ReminderConstants.EXTRA_DUE_LABEL, task.dueLabel)
+        .putExtra(ReminderConstants.EXTRA_DUE_AT, task.dueAtMillis)
         .putExtra(ReminderConstants.EXTRA_PRIORITY, task.priority.name)
+        .putExtra(ReminderConstants.EXTRA_PROGRESS, task.progress)
         .putExtra(ReminderConstants.EXTRA_NOTES, task.notes)
         .putExtra(ReminderConstants.EXTRA_SCHEDULED_AT, task.reminderAtMillis)
         .putExtra(ReminderConstants.EXTRA_ALERT_TYPE, task.alertType.name)
         .putExtra(ReminderConstants.EXTRA_ALARM_SOUND_URI, task.alarmSoundUri)
         .putExtra(ReminderConstants.EXTRA_VOICE_ENABLED, task.voiceEnabled)
+        .putExtra(ReminderConstants.EXTRA_REMINDER_MODE, task.reminderMode.name)
+        .putExtra(ReminderConstants.EXTRA_VOICE_PERSONA, task.voicePersona.name)
+        .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, task.voiceRepeatCount)
+        .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, task.voiceRepeatIntervalSeconds)
+        .putExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, task.alarmTimeoutSeconds)
 
 internal fun Intent.toTask(): CreatorTask? {
     val taskId = getStringExtra(ReminderConstants.EXTRA_TASK_ID) ?: return null
@@ -214,20 +237,34 @@ internal fun Intent.toTask(): CreatorTask? {
     }.getOrDefault(TaskPriority.IMPORTANT)
     val alertType = runCatching {
         ReminderAlertType.valueOf(getStringExtra(ReminderConstants.EXTRA_ALERT_TYPE).orEmpty())
-    }.getOrDefault(ReminderAlertType.ALARM)
+    }.getOrDefault(ReminderAlertType.NOTIFICATION)
+    val reminderMode = runCatching {
+        ReminderMode.valueOf(getStringExtra(ReminderConstants.EXTRA_REMINDER_MODE).orEmpty())
+    }.getOrDefault(if (alertType == ReminderAlertType.ALARM) ReminderMode.ALARM else ReminderMode.SIMPLE)
+    val persona = runCatching {
+        VoicePersona.valueOf(getStringExtra(ReminderConstants.EXTRA_VOICE_PERSONA).orEmpty())
+    }.getOrDefault(VoicePersona.WARM)
 
     return CreatorTask(
         id = taskId,
-        title = getStringExtra(ReminderConstants.EXTRA_TITLE).orEmpty().ifBlank { "FrameByNavin alarm" },
+        title = getStringExtra(ReminderConstants.EXTRA_TITLE).orEmpty().ifBlank { "FrameByNavin reminder" },
         platform = getStringExtra(ReminderConstants.EXTRA_PLATFORM).orEmpty(),
         contentType = getStringExtra(ReminderConstants.EXTRA_CONTENT_TYPE).orEmpty(),
         dueLabel = getStringExtra(ReminderConstants.EXTRA_DUE_LABEL).orEmpty(),
+        dueAtMillis = getLongExtra(ReminderConstants.EXTRA_DUE_AT, 0L),
+        progress = getIntExtra(ReminderConstants.EXTRA_PROGRESS, 0).coerceIn(0, 100),
         reminderEnabled = true,
         reminderAtMillis = getLongExtra(ReminderConstants.EXTRA_SCHEDULED_AT, 0L),
         priority = priority,
         notes = getStringExtra(ReminderConstants.EXTRA_NOTES).orEmpty(),
         alertType = alertType,
         alarmSoundUri = getStringExtra(ReminderConstants.EXTRA_ALARM_SOUND_URI).orEmpty(),
-        voiceEnabled = getBooleanExtra(ReminderConstants.EXTRA_VOICE_ENABLED, false),
+        voiceEnabled = getBooleanExtra(ReminderConstants.EXTRA_VOICE_ENABLED, reminderMode == ReminderMode.VOICE || reminderMode == ReminderMode.SMART),
+        smartEscalationEnabled = reminderMode == ReminderMode.SMART,
+        reminderMode = reminderMode,
+        voicePersona = persona,
+        voiceRepeatCount = getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, 3).coerceIn(1, 3),
+        voiceRepeatIntervalSeconds = getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 20).coerceIn(10, 60),
+        alarmTimeoutSeconds = getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
     )
 }
