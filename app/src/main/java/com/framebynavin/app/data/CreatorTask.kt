@@ -19,6 +19,13 @@ enum class VoicePersona {
     WOMAN,
 }
 
+enum class CreatorTaskOrigin {
+    MANUAL,
+    WEEKLY,
+    RELEASE_DAY,
+    IDEA_VAULT,
+}
+
 data class CreatorTask(
     val id: String,
     val title: String,
@@ -47,4 +54,6 @@ data class CreatorTask(
     val scheduleSlotId: String = "",
     val scheduleOccurrenceKey: String = "",
     val autoStageReminder: Boolean = false,
+    val origin: CreatorTaskOrigin = CreatorTaskOrigin.MANUAL,
+    val sourceRefId: String = "",
 )
