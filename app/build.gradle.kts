@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.4.0-reliability"
+        versionCode = 6
+        versionName = "0.5.0-native-alarm"
     }
 
     compileOptions {
@@ -60,6 +60,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.0")
     implementation("androidx.datastore:datastore-preferences:1.1.7")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
