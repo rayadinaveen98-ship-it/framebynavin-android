@@ -14,6 +14,7 @@ val MutedText = Color(0xFF918C85)
 val RecRed = Color(0xFFFF3D3D)
 val RecRedDeep = Color(0xFF311010)
 val MutedGold = Color(0xFFD8B56B)
+val SuccessGreen = Color(0xFF6BAF83)
 
 private val FrameByNavinColors = darkColorScheme(
     primary = RecRed,
@@ -27,8 +28,5 @@ private val FrameByNavinColors = darkColorScheme(
 
 @Composable
 fun FrameByNavinTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = FrameByNavinColors,
-        content = content
-    )
+    MaterialTheme(colorScheme = FrameByNavinColors, content = content)
 }
