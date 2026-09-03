@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -13,13 +15,25 @@ private val Context.creatorDataStore by preferencesDataStore(name = "creator_v0"
 class TaskStore(private val context: Context) {
     private val tasksKey = stringPreferencesKey("tasks_json")
 
-    suspend fun load(): List<CreatorTask> {
-        val raw = context.creatorDataStore.data.first()[tasksKey] ?: return emptyList()
-        return runCatching { decode(raw) }.getOrDefault(emptyList())
+    val tasksFlow: Flow<List<CreatorTask>> = context.creatorDataStore.data.map { prefs ->
+        val raw = prefs[tasksKey] ?: return@map emptyList()
+        runCatching { decode(raw) }.getOrDefault(emptyList())
     }
+
+    suspend fun load(): List<CreatorTask> = tasksFlow.first()
 
     suspend fun save(tasks: List<CreatorTask>) {
         context.creatorDataStore.edit { prefs -> prefs[tasksKey] = encode(tasks) }
+    }
+
+    suspend fun updateTask(id: String, transform: (CreatorTask) -> CreatorTask): CreatorTask? {
+        val current = load().toMutableList()
+        val index = current.indexOfFirst { it.id == id }
+        if (index == -1) return null
+        val updated = transform(current[index])
+        current[index] = updated
+        save(current)
+        return updated
     }
 
     private fun encode(tasks: List<CreatorTask>): String {
@@ -34,6 +48,10 @@ class TaskStore(private val context: Context) {
                     .put("dueLabel", task.dueLabel)
                     .put("status", task.status.name)
                     .put("progress", task.progress)
+                    .put("reminderEnabled", task.reminderEnabled)
+                    .put("reminderAtMillis", task.reminderAtMillis)
+                    .put("priority", task.priority.name)
+                    .put("notes", task.notes)
             )
         }
         return array.toString()
@@ -55,6 +73,12 @@ class TaskStore(private val context: Context) {
                             TaskStatus.valueOf(item.optString("status", TaskStatus.PLANNED.name))
                         }.getOrDefault(TaskStatus.PLANNED),
                         progress = item.optInt("progress", 0).coerceIn(0, 100),
+                        reminderEnabled = item.optBoolean("reminderEnabled", false),
+                        reminderAtMillis = item.optLong("reminderAtMillis", 0L),
+                        priority = runCatching {
+                            TaskPriority.valueOf(item.optString("priority", TaskPriority.IMPORTANT.name))
+                        }.getOrDefault(TaskPriority.IMPORTANT),
+                        notes = item.optString("notes", ""),
                     )
                 )
             }

@@ -1,58 +1,105 @@
 package com.framebynavin.app.data
 
 import android.app.Application
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.framebynavin.app.reminders.ReminderScheduler
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.UUID
 
 class CreatorViewModel(application: Application) : AndroidViewModel(application) {
     private val store = TaskStore(application)
+    private val scheduler = ReminderScheduler(application)
 
     val tasks = mutableStateListOf<CreatorTask>()
-    var isLoaded by mutableStateOf(false)
-        private set
 
     init {
         viewModelScope.launch {
-            val saved = store.load()
-            if (saved.isEmpty()) {
-                tasks += CreatorTask(
-                    id = "starter-frame-breakdown",
-                    title = "Frame Breakdown",
-                    platform = "Instagram",
-                    contentType = "Reel",
-                    dueLabel = "Today · 7:00 PM",
-                    status = TaskStatus.WORKING,
-                    progress = 72,
-                )
-                persist()
-            } else {
-                tasks += saved
+            store.tasksFlow.collectLatest { saved ->
+                if (saved.isEmpty() && tasks.isEmpty()) {
+                    val starter = CreatorTask(
+                        id = "starter-frame-breakdown",
+                        title = "Frame Breakdown",
+                        platform = "Instagram",
+                        contentType = "Reel",
+                        dueLabel = "Today · 7:00 PM",
+                        status = TaskStatus.WORKING,
+                        progress = 72,
+                    )
+                    tasks += starter
+                    store.save(tasks.toList())
+                } else {
+                    tasks.clear()
+                    tasks.addAll(saved)
+                }
             }
-            isLoaded = true
         }
     }
 
     fun addTask(title: String, platform: String, contentType: String, dueLabel: String) {
-        if (title.isBlank()) return
-        tasks.add(
-            0,
-            CreatorTask(
-                id = UUID.randomUUID().toString(),
-                title = title.trim(),
-                platform = platform,
-                contentType = contentType,
-                dueLabel = dueLabel.ifBlank { "Today" },
-                status = TaskStatus.PLANNED,
-                progress = 0,
-            )
+        addTask(
+            title = title,
+            platform = platform,
+            contentType = contentType,
+            dueLabel = dueLabel,
+            reminderEnabled = false,
+            reminderAtMillis = 0L,
+            priority = TaskPriority.IMPORTANT,
+            notes = "",
         )
+    }
+
+    fun addTask(
+        title: String,
+        platform: String,
+        contentType: String,
+        dueLabel: String,
+        reminderEnabled: Boolean,
+        reminderAtMillis: Long,
+        priority: TaskPriority,
+        notes: String,
+    ) {
+        if (title.isBlank()) return
+        val task = CreatorTask(
+            id = UUID.randomUUID().toString(),
+            title = title.trim(),
+            platform = platform,
+            contentType = contentType,
+            dueLabel = dueLabel.ifBlank { "Today" },
+            status = TaskStatus.PLANNED,
+            progress = 0,
+            reminderEnabled = reminderEnabled,
+            reminderAtMillis = if (reminderEnabled) reminderAtMillis else 0L,
+            priority = priority,
+            notes = notes.trim(),
+        )
+        tasks.add(0, task)
         persist()
+        if (task.reminderEnabled) scheduler.schedule(task)
+    }
+
+    fun setReminder(
+        id: String,
+        reminderAtMillis: Long,
+        priority: TaskPriority,
+        notes: String,
+    ) = updateTask(id) { task ->
+        val updated = task.copy(
+            reminderEnabled = true,
+            reminderAtMillis = reminderAtMillis,
+            priority = priority,
+            notes = notes.trim(),
+        )
+        scheduler.cancel(task.id)
+        scheduler.schedule(updated)
+        updated
+    }
+
+    fun cancelReminder(id: String) = updateTask(id) { task ->
+        scheduler.cancel(task.id)
+        task.copy(reminderEnabled = false, reminderAtMillis = 0L)
     }
 
     fun startTask(id: String) = updateTask(id) { task ->
@@ -69,18 +116,23 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             task.progress < 95 -> 95
             else -> 100
         }
-        task.copy(
+        val updated = task.copy(
             status = if (next >= 100) TaskStatus.DONE else TaskStatus.WORKING,
             progress = next,
+            reminderEnabled = if (next >= 100) false else task.reminderEnabled,
         )
+        if (next >= 100) scheduler.cancel(task.id)
+        updated
     }
 
     fun completeTask(id: String) = updateTask(id) { task ->
-        task.copy(status = TaskStatus.DONE, progress = 100)
+        scheduler.cancel(task.id)
+        task.copy(status = TaskStatus.DONE, progress = 100, reminderEnabled = false)
     }
 
     fun skipTask(id: String) = updateTask(id) { task ->
-        task.copy(status = TaskStatus.SKIPPED)
+        scheduler.cancel(task.id)
+        task.copy(status = TaskStatus.SKIPPED, reminderEnabled = false)
     }
 
     private fun updateTask(id: String, transform: (CreatorTask) -> CreatorTask) {
