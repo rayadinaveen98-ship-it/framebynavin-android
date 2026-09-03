@@ -4,7 +4,9 @@ import android.app.Application
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.framebynavin.app.reminders.ReminderConstants
 import com.framebynavin.app.reminders.ReminderScheduler
+import com.framebynavin.app.reminders.SmartEscalationScheduler
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -12,6 +14,7 @@ import java.util.UUID
 class CreatorViewModel(application: Application) : AndroidViewModel(application) {
     private val store = TaskStore(application)
     private val scheduler = ReminderScheduler(application)
+    private val smartScheduler = SmartEscalationScheduler(application)
 
     val tasks = mutableStateListOf<CreatorTask>()
 
@@ -49,6 +52,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             reminderAtMillis = 0L,
             priority = TaskPriority.IMPORTANT,
             notes = "",
+            smartEscalationEnabled = false,
         )
     }
 
@@ -64,6 +68,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         alertType: ReminderAlertType = ReminderAlertType.NOTIFICATION,
         alarmSoundUri: String = "",
         voiceEnabled: Boolean = false,
+        smartEscalationEnabled: Boolean = true,
     ) {
         if (title.isBlank()) return
         val task = CreatorTask(
@@ -81,10 +86,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             alertType = alertType,
             alarmSoundUri = alarmSoundUri,
             voiceEnabled = voiceEnabled,
+            smartEscalationEnabled = reminderEnabled && smartEscalationEnabled,
         )
         tasks.add(0, task)
         persist()
-        if (task.reminderEnabled) scheduler.schedule(task)
+        scheduleTask(task)
     }
 
     fun setReminder(
@@ -95,6 +101,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         alertType: ReminderAlertType = ReminderAlertType.NOTIFICATION,
         alarmSoundUri: String = "",
         voiceEnabled: Boolean = false,
+        smartEscalationEnabled: Boolean = true,
     ) = updateTask(id) { task ->
         val updated = task.copy(
             reminderEnabled = true,
@@ -104,18 +111,35 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             alertType = alertType,
             alarmSoundUri = alarmSoundUri,
             voiceEnabled = voiceEnabled,
+            smartEscalationEnabled = smartEscalationEnabled,
+            snoozeCount = 0,
+            workingUntilMillis = 0L,
         )
-        scheduler.schedule(updated)
+        scheduleTask(updated)
         updated
     }
 
     fun cancelReminder(id: String) = updateTask(id) { task ->
-        scheduler.cancel(task.id)
-        task.copy(reminderEnabled = false, reminderAtMillis = 0L)
+        cancelTaskAlerts(task.id)
+        task.copy(
+            reminderEnabled = false,
+            reminderAtMillis = 0L,
+            smartEscalationEnabled = false,
+            snoozeCount = 0,
+            workingUntilMillis = 0L,
+        )
     }
 
     fun startTask(id: String) = updateTask(id) { task ->
-        task.copy(status = TaskStatus.WORKING, progress = maxOf(task.progress, 15))
+        val updated = task.copy(
+            status = TaskStatus.WORKING,
+            progress = maxOf(task.progress, 15),
+            workingUntilMillis = if (task.smartEscalationEnabled && task.reminderEnabled)
+                System.currentTimeMillis() + ReminderConstants.WORKING_QUIET_MINUTES * 60_000L
+            else task.workingUntilMillis,
+        )
+        scheduleTask(updated)
+        updated
     }
 
     fun advanceTask(id: String) = updateTask(id) { task ->
@@ -132,24 +156,35 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             status = if (next >= 100) TaskStatus.DONE else TaskStatus.WORKING,
             progress = next,
             reminderEnabled = if (next >= 100) false else task.reminderEnabled,
+            smartEscalationEnabled = if (next >= 100) false else task.smartEscalationEnabled,
+            workingUntilMillis = if (next >= 100) 0L else task.workingUntilMillis,
         )
-        if (next >= 100) scheduler.cancel(task.id)
+        if (next >= 100) cancelTaskAlerts(task.id) else scheduleTask(updated)
         updated
     }
 
     fun completeTask(id: String) = updateTask(id) { task ->
-        scheduler.cancel(task.id)
-        task.copy(status = TaskStatus.DONE, progress = 100, reminderEnabled = false)
+        cancelTaskAlerts(task.id)
+        task.copy(
+            status = TaskStatus.DONE,
+            progress = 100,
+            reminderEnabled = false,
+            smartEscalationEnabled = false,
+            workingUntilMillis = 0L,
+        )
     }
 
     fun skipTask(id: String) = updateTask(id) { task ->
-        scheduler.cancel(task.id)
-        task.copy(status = TaskStatus.SKIPPED, reminderEnabled = false)
+        cancelTaskAlerts(task.id)
+        task.copy(
+            status = TaskStatus.SKIPPED,
+            reminderEnabled = false,
+            smartEscalationEnabled = false,
+            workingUntilMillis = 0L,
+        )
     }
 
-    fun reconcileReminders() {
-        reconcileSnapshot(tasks.toList())
-    }
+    fun reconcileReminders() = reconcileSnapshot(tasks.toList())
 
     private fun reconcileSnapshot(snapshot: List<CreatorTask>) {
         val now = System.currentTimeMillis()
@@ -158,8 +193,20 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 task.reminderAtMillis > now &&
                 task.status != TaskStatus.DONE &&
                 task.status != TaskStatus.SKIPPED
-            if (shouldBeScheduled) scheduler.schedule(task) else scheduler.cancel(task.id)
+            if (shouldBeScheduled) scheduleTask(task) else cancelTaskAlerts(task.id)
         }
+    }
+
+    private fun scheduleTask(task: CreatorTask) {
+        scheduler.cancel(task.id)
+        smartScheduler.cancel(task.id)
+        if (!task.reminderEnabled || task.reminderAtMillis <= System.currentTimeMillis()) return
+        if (task.smartEscalationEnabled) smartScheduler.schedule(task) else scheduler.schedule(task)
+    }
+
+    private fun cancelTaskAlerts(taskId: String) {
+        scheduler.cancel(taskId)
+        smartScheduler.cancel(taskId)
     }
 
     private fun updateTask(id: String, transform: (CreatorTask) -> CreatorTask) {
