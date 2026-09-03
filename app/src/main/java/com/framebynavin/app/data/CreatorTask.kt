@@ -19,4 +19,7 @@ data class CreatorTask(
     val alertType: ReminderAlertType = ReminderAlertType.NOTIFICATION,
     val alarmSoundUri: String = "",
     val voiceEnabled: Boolean = false,
+    val smartEscalationEnabled: Boolean = false,
+    val snoozeCount: Int = 0,
+    val workingUntilMillis: Long = 0L,
 )
