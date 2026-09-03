@@ -49,6 +49,7 @@ class TaskStore(private val context: Context) {
                     .put("dueAtMillis", task.dueAtMillis)
                     .put("status", task.status.name)
                     .put("progress", task.progress)
+                    .put("workflowStageIndex", task.workflowStageIndex)
                     .put("reminderEnabled", task.reminderEnabled)
                     .put("reminderAtMillis", task.reminderAtMillis)
                     .put("priority", task.priority.name)
@@ -91,19 +92,29 @@ class TaskStore(private val context: Context) {
                     ReminderMode.valueOf(item.optString("reminderMode", migratedMode.name))
                 }.getOrDefault(migratedMode)
                 val reminderAt = item.optLong("reminderAtMillis", 0L)
+                val progress = item.optInt("progress", 0).coerceIn(0, 100)
+                val platform = item.optString("platform", "Instagram")
+                val contentType = item.optString("contentType", "Content")
+                val storedStage = if (item.has("workflowStageIndex")) {
+                    item.optInt("workflowStageIndex", -1)
+                } else {
+                    val template = CreatorWorkflowEngine.templateFor(platform, contentType)
+                    CreatorWorkflowEngine.stageIndexFromProgress(progress, template.stages.size)
+                }
 
                 add(
                     CreatorTask(
                         id = item.getString("id"),
                         title = item.getString("title"),
-                        platform = item.optString("platform", "Instagram"),
-                        contentType = item.optString("contentType", "Content"),
+                        platform = platform,
+                        contentType = contentType,
                         dueLabel = item.optString("dueLabel", "Today"),
                         dueAtMillis = item.optLong("dueAtMillis", reminderAt),
                         status = runCatching {
                             TaskStatus.valueOf(item.optString("status", TaskStatus.PLANNED.name))
                         }.getOrDefault(TaskStatus.PLANNED),
-                        progress = item.optInt("progress", 0).coerceIn(0, 100),
+                        progress = progress,
+                        workflowStageIndex = storedStage,
                         reminderEnabled = reminderEnabled && reminderMode != ReminderMode.NONE,
                         reminderAtMillis = reminderAt,
                         priority = runCatching {
