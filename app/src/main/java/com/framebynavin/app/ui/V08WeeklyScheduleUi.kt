@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -148,7 +149,7 @@ internal fun V08WeeklyScheduleScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            DayOfWeek.entries.forEach { day ->
+            DayOfWeek.values().forEach { day ->
                 val daySlots = slots.filter { it.dayOfWeek == day }.sortedWith(compareBy<WeeklyScheduleSlot> { it.hour }.thenBy { it.minute })
                 if (daySlots.isNotEmpty()) {
                     item(key = "day-${day.name}") {
@@ -285,7 +286,7 @@ private fun V08SlotEditor(
                         OutlinedTextField(title, { title = it }, label = { Text("Slot title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.height(13.dp)); V08Label("DAY")
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            DayOfWeek.entries.forEach { value -> FilterChip(day == value, { day = value }, { Text(value.name.take(3), fontSize = 8.5.sp) }) }
+                            DayOfWeek.values().forEach { value -> FilterChip(day == value, { day = value }, { Text(value.name.take(3), fontSize = 8.5.sp) }) }
                         }
                         Spacer(Modifier.height(12.dp)); V08Label("PUBLISH TIME")
                         OutlinedButton(onClick = { chooseTime() }, modifier = Modifier.fillMaxWidth()) {
