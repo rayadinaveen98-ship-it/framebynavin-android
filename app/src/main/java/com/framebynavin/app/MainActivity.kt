@@ -5,7 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.framebynavin.app.reminders.ReminderNotifications
-import com.framebynavin.app.ui.FrameByNavinV031App
+import com.framebynavin.app.ui.FrameByNavinV04App
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 
 class MainActivity : ComponentActivity() {
@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FrameByNavinTheme {
-                FrameByNavinV031App()
+                FrameByNavinV04App()
             }
         }
     }
