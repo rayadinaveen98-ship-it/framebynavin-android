@@ -36,7 +36,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -391,6 +390,7 @@ private fun V10SettingsScreen(
     onBattery: () -> Unit,
     onRunOnboarding: () -> Unit,
 ) {
+    val context = LocalContext.current
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 40.dp)
@@ -419,7 +419,7 @@ private fun V10SettingsScreen(
                     )
                 }
             }
-            TextButton(onClick = { v10PreviewVoice(LocalContext.current, settings.defaultVoicePersona) }) {
+            TextButton(onClick = { v10PreviewVoice(context, settings.defaultVoicePersona) }) {
                 Icon(Icons.Outlined.VolumeUp, null, tint = MutedGold, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("PREVIEW DEFAULT VOICE", color = MutedGold, fontSize = 8.5.sp)
