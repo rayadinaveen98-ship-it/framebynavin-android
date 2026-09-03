@@ -41,6 +41,7 @@ import java.util.Locale
 class AlarmActivity : ComponentActivity() {
     private val store by lazy { TaskStore(applicationContext) }
     private val scheduler by lazy { ReminderScheduler(applicationContext) }
+    private val smartScheduler by lazy { SmartEscalationScheduler(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,23 +75,36 @@ class AlarmActivity : ComponentActivity() {
     private fun acknowledgeDone(taskId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             store.updateTask(taskId) { task ->
-                task.copy(status = TaskStatus.DONE, progress = 100, reminderEnabled = false)
+                task.copy(
+                    status = TaskStatus.DONE,
+                    progress = 100,
+                    reminderEnabled = false,
+                    smartEscalationEnabled = false,
+                    workingUntilMillis = 0L,
+                )
             }
             scheduler.cancel(taskId)
+            smartScheduler.cancel(taskId)
             finishAlarm()
         }
     }
 
     private fun acknowledgeWorking(taskId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
-            store.updateTask(taskId) { task ->
+            val updated = store.updateTask(taskId) { task ->
                 task.copy(
                     status = TaskStatus.WORKING,
                     progress = maxOf(task.progress, 15),
-                    reminderEnabled = false,
+                    workingUntilMillis = if (task.smartEscalationEnabled)
+                        System.currentTimeMillis() + ReminderConstants.WORKING_QUIET_MINUTES * 60_000L
+                    else task.workingUntilMillis,
                 )
             }
             scheduler.cancel(taskId)
+            smartScheduler.cancel(taskId)
+            if (updated?.reminderEnabled == true) {
+                if (updated.smartEscalationEnabled) smartScheduler.schedule(updated) else scheduler.schedule(updated)
+            }
             finishAlarm()
         }
     }
@@ -101,9 +115,15 @@ class AlarmActivity : ComponentActivity() {
                 task.copy(
                     reminderEnabled = true,
                     reminderAtMillis = System.currentTimeMillis() + ReminderConstants.SNOOZE_MINUTES * 60_000L,
+                    snoozeCount = task.snoozeCount + 1,
+                    workingUntilMillis = 0L,
                 )
             }
-            if (updated != null) scheduler.schedule(updated)
+            scheduler.cancel(taskId)
+            smartScheduler.cancel(taskId)
+            if (updated != null) {
+                if (updated.smartEscalationEnabled) smartScheduler.schedule(updated) else scheduler.schedule(updated)
+            }
             finishAlarm()
         }
     }
@@ -134,16 +154,27 @@ class AlarmActivity : ComponentActivity() {
     private fun reschedule(taskId: String, atMillis: Long) {
         lifecycleScope.launch(Dispatchers.IO) {
             val updated = store.updateTask(taskId) { task ->
-                task.copy(reminderEnabled = true, reminderAtMillis = atMillis)
+                task.copy(
+                    reminderEnabled = true,
+                    reminderAtMillis = atMillis,
+                    snoozeCount = 0,
+                    workingUntilMillis = 0L,
+                )
             }
-            if (updated != null) scheduler.schedule(updated)
+            scheduler.cancel(taskId)
+            smartScheduler.cancel(taskId)
+            if (updated != null) {
+                if (updated.smartEscalationEnabled) smartScheduler.schedule(updated) else scheduler.schedule(updated)
+            }
             finishAlarm()
         }
     }
 
     private suspend fun finishAlarm() {
         AlarmRingingService.stop(applicationContext)
-        getSystemService(NotificationManager::class.java).cancel(AlarmRingingService.notificationId(intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID).orEmpty()))
+        getSystemService(NotificationManager::class.java).cancel(
+            AlarmRingingService.notificationId(intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID).orEmpty())
+        )
         withContext(Dispatchers.Main) { finishAndRemoveTask() }
     }
 }
