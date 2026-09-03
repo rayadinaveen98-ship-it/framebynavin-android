@@ -7,7 +7,7 @@ import android.content.Intent
 import android.os.Build
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorTask
-import com.framebynavin.app.data.ReminderAlertType
+import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
 
 class SmartEscalationScheduler(private val context: Context) {
@@ -18,7 +18,7 @@ class SmartEscalationScheduler(private val context: Context) {
 
     fun schedule(task: CreatorTask) {
         cancel(task.id)
-        if (!task.smartEscalationEnabled || !task.reminderEnabled) return
+        if ((!task.smartEscalationEnabled && task.reminderMode != ReminderMode.SMART) || !task.reminderEnabled) return
         val now = System.currentTimeMillis()
         if (task.reminderAtMillis <= now) return
 
@@ -39,9 +39,7 @@ class SmartEscalationScheduler(private val context: Context) {
         val key = ledgerKey(task.id, stage)
 
         runCatching {
-            if ((stage == Stage.ALARM || stage == Stage.CRITICAL) &&
-                task.alertType == ReminderAlertType.ALARM && canScheduleExact()
-            ) {
+            if ((stage == Stage.ALARM || stage == Stage.CRITICAL) && canScheduleExact()) {
                 val showIntent = PendingIntent.getActivity(
                     context,
                     requestCode(task.id, stage) xor 0x4400,
@@ -106,10 +104,6 @@ class SmartEscalationScheduler(private val context: Context) {
 
         return raw
             .filter { task.workingUntilMillis <= now || it.atMillis > task.workingUntilMillis }
-            .filter { item ->
-                task.alertType == ReminderAlertType.ALARM ||
-                    (item.stage != Stage.ALARM && item.stage != Stage.CRITICAL)
-            }
             .distinctBy { it.stage }
     }
 
@@ -120,14 +114,19 @@ class SmartEscalationScheduler(private val context: Context) {
             .putExtra(ReminderConstants.EXTRA_PLATFORM, task.platform)
             .putExtra(ReminderConstants.EXTRA_CONTENT_TYPE, task.contentType)
             .putExtra(ReminderConstants.EXTRA_DUE_LABEL, task.dueLabel)
+            .putExtra(ReminderConstants.EXTRA_DUE_AT, task.dueAtMillis)
             .putExtra(ReminderConstants.EXTRA_PRIORITY, task.priority.name)
             .putExtra(ReminderConstants.EXTRA_PROGRESS, task.progress)
             .putExtra(ReminderConstants.EXTRA_NOTES, task.notes)
             .putExtra(ReminderConstants.EXTRA_SCHEDULED_AT, atMillis)
             .putExtra(ReminderConstants.EXTRA_TARGET_AT, task.reminderAtMillis)
-            .putExtra(ReminderConstants.EXTRA_ALERT_TYPE, task.alertType.name)
             .putExtra(ReminderConstants.EXTRA_ALARM_SOUND_URI, task.alarmSoundUri)
-            .putExtra(ReminderConstants.EXTRA_VOICE_ENABLED, task.voiceEnabled)
+            .putExtra(ReminderConstants.EXTRA_REMINDER_MODE, ReminderMode.SMART.name)
+            .putExtra(ReminderConstants.EXTRA_VOICE_ENABLED, true)
+            .putExtra(ReminderConstants.EXTRA_VOICE_PERSONA, task.voicePersona.name)
+            .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, task.voiceRepeatCount)
+            .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, task.voiceRepeatIntervalSeconds)
+            .putExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, task.alarmTimeoutSeconds)
             .putExtra(ReminderConstants.EXTRA_ESCALATION_STAGE, stage.name)
 
         return PendingIntent.getBroadcast(
