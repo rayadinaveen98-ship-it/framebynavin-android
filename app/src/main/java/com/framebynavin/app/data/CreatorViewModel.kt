@@ -16,9 +16,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private val scheduler = ReminderScheduler(application)
     private val smartScheduler = SmartEscalationScheduler(application)
     private val weeklyStore = WeeklyScheduleStore(application)
+    private val ideaStore = IdeaVaultStore(application)
 
     val tasks = mutableStateListOf<CreatorTask>()
     val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
+    val ideas = mutableStateListOf<CreatorIdea>()
 
     private var tasksLoaded = false
     private var weeklyLoaded = false
@@ -30,6 +32,13 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             weeklySlots.addAll(slots)
             weeklyLoaded = true
             if (tasksLoaded) syncWeeklyScheduleInternal()
+        }
+
+        viewModelScope.launch {
+            ideaStore.ideasFlow.collectLatest { saved ->
+                ideas.clear()
+                ideas.addAll(saved.sortedByDescending { it.updatedAtMillis })
+            }
         }
 
         viewModelScope.launch {
@@ -159,6 +168,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(10, 60),
                 alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
                 autoStageReminder = false,
+                origin = CreatorTaskOrigin.MANUAL,
             )
             tasks.add(0, task)
             persist()
@@ -345,6 +355,160 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
+    fun saveIdea(idea: CreatorIdea): String? {
+        if (idea.title.isBlank()) return null
+        val now = System.currentTimeMillis()
+        val normalized = idea.copy(
+            id = idea.id.ifBlank { UUID.randomUUID().toString() },
+            title = idea.title.trim(),
+            topic = idea.topic.trim(),
+            notes = idea.notes.trim(),
+            updatedAtMillis = now,
+            createdAtMillis = idea.createdAtMillis.takeIf { it > 0L } ?: now,
+        )
+        val index = ideas.indexOfFirst { it.id == normalized.id }
+        if (index >= 0) ideas[index] = normalized else ideas.add(0, normalized)
+        persistIdeas()
+        return normalized.id
+    }
+
+    fun deleteIdea(id: String) {
+        ideas.removeAll { it.id == id }
+        persistIdeas()
+    }
+
+    fun archiveIdea(id: String) {
+        val index = ideas.indexOfFirst { it.id == id }
+        if (index == -1) return
+        ideas[index] = ideas[index].copy(status = IdeaStatus.ARCHIVED, updatedAtMillis = System.currentTimeMillis())
+        persistIdeas()
+    }
+
+    fun convertIdeaToProject(id: String, platform: String, contentType: String, dueAtMillis: Long): String? {
+        val ideaIndex = ideas.indexOfFirst { it.id == id }
+        if (ideaIndex == -1) return null
+        val idea = ideas[ideaIndex]
+        val now = System.currentTimeMillis()
+        val due = dueAtMillis.coerceAtLeast(now + 5 * 60_000L)
+        val template = CreatorWorkflowEngine.templateFor(platform, contentType)
+        val mode = when {
+            platform == "YouTube" -> ReminderMode.SMART
+            platform == "Instagram" && contentType == "Reel" -> ReminderMode.SMART
+            else -> ReminderMode.SIMPLE
+        }
+        val taskId = UUID.randomUUID().toString()
+        val task = CreatorTask(
+            id = taskId,
+            title = idea.title,
+            platform = platform,
+            contentType = contentType,
+            dueLabel = WeeklyScheduleEngine.dueLabel(due),
+            dueAtMillis = due,
+            status = TaskStatus.PLANNED,
+            progress = 0,
+            workflowStageIndex = 0.coerceAtMost(template.stages.lastIndex),
+            reminderEnabled = true,
+            reminderAtMillis = due,
+            priority = TaskPriority.IMPORTANT,
+            notes = buildString {
+                append("From Idea Vault")
+                if (idea.topic.isNotBlank()) append(" · ${idea.topic}")
+                if (idea.notes.isNotBlank()) append("\n${idea.notes}")
+            },
+            alertType = if (mode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION,
+            voiceEnabled = mode == ReminderMode.SMART,
+            smartEscalationEnabled = mode == ReminderMode.SMART,
+            reminderMode = mode,
+            voicePersona = VoicePersona.WARM,
+            origin = CreatorTaskOrigin.IDEA_VAULT,
+            sourceRefId = idea.id,
+        )
+        tasks.add(0, task)
+        ideas[ideaIndex] = idea.copy(
+            status = IdeaStatus.CONVERTED,
+            projectTaskId = taskId,
+            platformHint = platform,
+            formatHint = contentType,
+            updatedAtMillis = now,
+        )
+        persist()
+        persistIdeas()
+        scheduleTask(task)
+        return taskId
+    }
+
+    fun createReleaseBurst(request: ReleaseBurstRequest): ReleaseLaunchResult {
+        if (request.topic.isBlank()) return ReleaseLaunchResult(0, false)
+        val batchId = "release-${UUID.randomUUID()}"
+        val now = System.currentTimeMillis()
+        val created = mutableListOf<CreatorTask>()
+
+        ReleaseDayEngine.specs(request).forEach { spec ->
+            val due = now + spec.dueOffsetMinutes * 60_000L
+            val template = CreatorWorkflowEngine.templateFor(spec.platform, spec.contentType)
+            val stageIndex = spec.startStageIndex.coerceIn(0, template.stages.lastIndex)
+            val mode = spec.reminderMode
+            val task = CreatorTask(
+                id = UUID.randomUUID().toString(),
+                title = "${request.topic} · ${spec.label}",
+                platform = spec.platform,
+                contentType = spec.contentType,
+                dueLabel = WeeklyScheduleEngine.dueLabel(due),
+                dueAtMillis = due,
+                status = TaskStatus.PLANNED,
+                progress = CreatorWorkflowEngine.progressForStage(stageIndex, template.stages.size),
+                workflowStageIndex = stageIndex,
+                reminderEnabled = mode != ReminderMode.NONE,
+                reminderAtMillis = due,
+                priority = spec.priority,
+                notes = buildString {
+                    append("Release Day · ${ReleaseDayEngine.eventLabel(request.eventType)}")
+                    if (request.details.isNotBlank()) append("\n${request.details.trim()}")
+                },
+                alertType = if (mode == ReminderMode.ALARM || mode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION,
+                voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,
+                smartEscalationEnabled = mode == ReminderMode.SMART,
+                reminderMode = mode,
+                voicePersona = VoicePersona.WARM,
+                origin = CreatorTaskOrigin.RELEASE_DAY,
+                sourceRefId = batchId,
+            )
+            created += task
+        }
+
+        created.asReversed().forEach { tasks.add(0, it) }
+        if (created.isNotEmpty()) {
+            persist()
+            created.forEach(::scheduleTask)
+        }
+
+        var ideaSaved = false
+        if (request.saveDeepDiveIdea) {
+            ideas.add(
+                0,
+                CreatorIdea(
+                    id = UUID.randomUUID().toString(),
+                    title = "Deep dive · ${request.topic.trim()}",
+                    topic = request.topic.trim(),
+                    category = IdeaCategory.CINEMATIC_ANALYSIS,
+                    status = IdeaStatus.INBOX,
+                    potential = IdeaPotential.HIGH,
+                    platformHint = "YouTube",
+                    formatHint = "Long-form",
+                    notes = buildString {
+                        append("Saved from Release Day · ${ReleaseDayEngine.eventLabel(request.eventType)}")
+                        if (request.details.isNotBlank()) append("\n${request.details.trim()}")
+                    },
+                    sourceRefId = batchId,
+                )
+            )
+            persistIdeas()
+            ideaSaved = true
+        }
+
+        return ReleaseLaunchResult(created.size, ideaSaved)
+    }
+
     fun saveWeeklySlot(slot: WeeklyScheduleSlot) {
         val normalized = slot.copy(
             id = slot.id.ifBlank { "custom-${UUID.randomUUID()}" },
@@ -449,6 +613,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             scheduleSlotId = slot.id,
             scheduleOccurrenceKey = occurrence.key,
             autoStageReminder = enabled,
+            origin = CreatorTaskOrigin.WEEKLY,
+            sourceRefId = occurrence.key,
         )
         if (enabled) {
             task = task.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(task, stageIndex))
@@ -479,6 +645,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,
             smartEscalationEnabled = mode == ReminderMode.SMART,
             autoStageReminder = enabled,
+            origin = CreatorTaskOrigin.WEEKLY,
+            sourceRefId = occurrence.key,
         )
         updated = if (enabled) updated.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(updated, stageIndex))
         else updated.copy(reminderAtMillis = 0L)
@@ -550,6 +718,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private fun persistWeeklySlots() {
         val snapshot = weeklySlots.toList()
         viewModelScope.launch { weeklyStore.save(snapshot) }
+    }
+
+    private fun persistIdeas() {
+        val snapshot = ideas.toList()
+        viewModelScope.launch { ideaStore.save(snapshot) }
     }
 
     private fun persist() {
