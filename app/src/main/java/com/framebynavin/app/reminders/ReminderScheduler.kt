@@ -15,7 +15,7 @@ class ReminderScheduler(private val context: Context) {
 
     fun schedule(task: CreatorTask) {
         if (!task.reminderEnabled || task.reminderAtMillis <= System.currentTimeMillis()) return
-        val pendingIntent = alarmPendingIntent(task.id)
+        val pendingIntent = alarmPendingIntent(task)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.reminderAtMillis, pendingIntent)
         } else {
@@ -24,10 +24,28 @@ class ReminderScheduler(private val context: Context) {
     }
 
     fun cancel(taskId: String) {
-        alarmManager.cancel(alarmPendingIntent(taskId))
+        alarmManager.cancel(cancelPendingIntent(taskId))
     }
 
-    private fun alarmPendingIntent(taskId: String): PendingIntent {
+    private fun alarmPendingIntent(task: CreatorTask): PendingIntent {
+        val intent = Intent(context, ReminderReceiver::class.java)
+            .putExtra(ReminderConstants.EXTRA_TASK_ID, task.id)
+            .putExtra(ReminderConstants.EXTRA_TITLE, task.title)
+            .putExtra(ReminderConstants.EXTRA_PLATFORM, task.platform)
+            .putExtra(ReminderConstants.EXTRA_CONTENT_TYPE, task.contentType)
+            .putExtra(ReminderConstants.EXTRA_DUE_LABEL, task.dueLabel)
+            .putExtra(ReminderConstants.EXTRA_PRIORITY, task.priority.name)
+            .putExtra(ReminderConstants.EXTRA_NOTES, task.notes)
+            .putExtra(ReminderConstants.EXTRA_SCHEDULED_AT, task.reminderAtMillis)
+        return PendingIntent.getBroadcast(
+            context,
+            task.id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun cancelPendingIntent(taskId: String): PendingIntent {
         val intent = Intent(context, ReminderReceiver::class.java)
             .putExtra(ReminderConstants.EXTRA_TASK_ID, taskId)
         return PendingIntent.getBroadcast(
