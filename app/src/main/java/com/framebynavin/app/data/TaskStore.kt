@@ -68,6 +68,8 @@ class TaskStore(private val context: Context) {
                     .put("scheduleSlotId", task.scheduleSlotId)
                     .put("scheduleOccurrenceKey", task.scheduleOccurrenceKey)
                     .put("autoStageReminder", task.autoStageReminder)
+                    .put("origin", task.origin.name)
+                    .put("sourceRefId", task.sourceRefId)
             )
         }
         return array.toString()
@@ -104,6 +106,11 @@ class TaskStore(private val context: Context) {
                     val template = CreatorWorkflowEngine.templateFor(platform, contentType)
                     CreatorWorkflowEngine.stageIndexFromProgress(progress, template.stages.size)
                 }
+                val scheduleSlotId = item.optString("scheduleSlotId", "")
+                val migratedOrigin = if (scheduleSlotId.isNotBlank()) CreatorTaskOrigin.WEEKLY else CreatorTaskOrigin.MANUAL
+                val origin = runCatching {
+                    CreatorTaskOrigin.valueOf(item.optString("origin", migratedOrigin.name))
+                }.getOrDefault(migratedOrigin)
 
                 add(
                     CreatorTask(
@@ -137,9 +144,11 @@ class TaskStore(private val context: Context) {
                         voiceRepeatCount = item.optInt("voiceRepeatCount", 3).coerceIn(1, 3),
                         voiceRepeatIntervalSeconds = item.optInt("voiceRepeatIntervalSeconds", 20).coerceIn(10, 60),
                         alarmTimeoutSeconds = item.optInt("alarmTimeoutSeconds", 120).coerceIn(30, 300),
-                        scheduleSlotId = item.optString("scheduleSlotId", ""),
+                        scheduleSlotId = scheduleSlotId,
                         scheduleOccurrenceKey = item.optString("scheduleOccurrenceKey", ""),
                         autoStageReminder = item.optBoolean("autoStageReminder", false),
+                        origin = origin,
+                        sourceRefId = item.optString("sourceRefId", ""),
                     )
                 )
             }
