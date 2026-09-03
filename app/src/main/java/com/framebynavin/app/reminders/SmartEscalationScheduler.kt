@@ -23,8 +23,7 @@ class SmartEscalationScheduler(private val context: Context) {
         if (task.reminderAtMillis <= now) return
 
         buildPlan(task, now).forEach { item ->
-            if (item.atMillis <= now) return@forEach
-            scheduleStage(task, item.stage, item.atMillis)
+            if (item.atMillis > now) scheduleStage(task, item.stage, item.atMillis)
         }
     }
 
@@ -41,35 +40,21 @@ class SmartEscalationScheduler(private val context: Context) {
 
         runCatching {
             if ((stage == Stage.ALARM || stage == Stage.CRITICAL) &&
-                task.alertType == ReminderAlertType.ALARM &&
-                canScheduleExact()
+                task.alertType == ReminderAlertType.ALARM && canScheduleExact()
             ) {
                 val showIntent = PendingIntent.getActivity(
                     context,
                     requestCode(task.id, stage) xor 0x4400,
                     Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
-                alarmManager.setAlarmClock(
-                    AlarmManager.AlarmClockInfo(atMillis, showIntent),
-                    pendingIntent,
-                )
+                alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(atMillis, showIntent), pendingIntent)
             } else if (canScheduleExact()) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    atMillis,
-                    pendingIntent,
-                )
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
             } else {
-                alarmManager.setAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    atMillis,
-                    pendingIntent,
-                )
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
             }
         }.onSuccess {
             ledger.markScheduled(key, atMillis)
@@ -88,9 +73,7 @@ class SmartEscalationScheduler(private val context: Context) {
         }
 
         val raw = when (effectivePriority) {
-            TaskPriority.NORMAL -> listOf(
-                PlanItem(Stage.SOFT, target),
-            )
+            TaskPriority.NORMAL -> listOf(PlanItem(Stage.SOFT, target))
             TaskPriority.IMPORTANT -> if (remaining >= 30 * 60_000L) {
                 listOf(
                     PlanItem(Stage.SOFT, target - 20 * 60_000L),
@@ -99,8 +82,8 @@ class SmartEscalationScheduler(private val context: Context) {
                 )
             } else {
                 listOf(
-                    PlanItem(Stage.SOFT, now + (remaining * 20 / 100)),
-                    PlanItem(Stage.VOICE, now + (remaining * 55 / 100)),
+                    PlanItem(Stage.SOFT, now + remaining * 20 / 100),
+                    PlanItem(Stage.VOICE, now + remaining * 55 / 100),
                     PlanItem(Stage.ALARM, target),
                 )
             }
@@ -113,9 +96,9 @@ class SmartEscalationScheduler(private val context: Context) {
                 )
             } else {
                 listOf(
-                    PlanItem(Stage.SOFT, now + (remaining * 15 / 100)),
-                    PlanItem(Stage.VOICE, now + (remaining * 40 / 100)),
-                    PlanItem(Stage.ALARM, now + (remaining * 70 / 100)),
+                    PlanItem(Stage.SOFT, now + remaining * 15 / 100),
+                    PlanItem(Stage.VOICE, now + remaining * 40 / 100),
+                    PlanItem(Stage.ALARM, now + remaining * 70 / 100),
                     PlanItem(Stage.CRITICAL, target),
                 )
             }
@@ -138,6 +121,7 @@ class SmartEscalationScheduler(private val context: Context) {
             .putExtra(ReminderConstants.EXTRA_CONTENT_TYPE, task.contentType)
             .putExtra(ReminderConstants.EXTRA_DUE_LABEL, task.dueLabel)
             .putExtra(ReminderConstants.EXTRA_PRIORITY, task.priority.name)
+            .putExtra(ReminderConstants.EXTRA_PROGRESS, task.progress)
             .putExtra(ReminderConstants.EXTRA_NOTES, task.notes)
             .putExtra(ReminderConstants.EXTRA_SCHEDULED_AT, atMillis)
             .putExtra(ReminderConstants.EXTRA_TARGET_AT, task.reminderAtMillis)
@@ -162,13 +146,8 @@ class SmartEscalationScheduler(private val context: Context) {
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    private fun requestCode(taskId: String, stage: Stage): Int =
-        ("$taskId:${stage.name}").hashCode()
-
+    private fun requestCode(taskId: String, stage: Stage): Int = ("$taskId:${stage.name}").hashCode()
     private fun ledgerKey(taskId: String, stage: Stage): String = "$taskId#${stage.name}"
-
-    private fun canScheduleExact(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
-
+    private fun canScheduleExact(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
     private data class PlanItem(val stage: Stage, val atMillis: Long)
 }
