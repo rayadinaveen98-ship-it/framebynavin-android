@@ -4,12 +4,28 @@ enum class TaskStatus { PLANNED, WORKING, DONE, SKIPPED }
 enum class TaskPriority { NORMAL, IMPORTANT, CRITICAL }
 enum class ReminderAlertType { NOTIFICATION, ALARM }
 
+enum class ReminderMode {
+    NONE,
+    SIMPLE,
+    VOICE,
+    ALARM,
+    SMART,
+}
+
+enum class VoicePersona {
+    WARM,
+    YOUNG,
+    MAN,
+    WOMAN,
+}
+
 data class CreatorTask(
     val id: String,
     val title: String,
     val platform: String,
     val contentType: String,
     val dueLabel: String,
+    val dueAtMillis: Long = 0L,
     val status: TaskStatus = TaskStatus.PLANNED,
     val progress: Int = 0,
     val reminderEnabled: Boolean = false,
@@ -22,4 +38,9 @@ data class CreatorTask(
     val smartEscalationEnabled: Boolean = false,
     val snoozeCount: Int = 0,
     val workingUntilMillis: Long = 0L,
+    val reminderMode: ReminderMode = ReminderMode.SIMPLE,
+    val voicePersona: VoicePersona = VoicePersona.WARM,
+    val voiceRepeatCount: Int = 3,
+    val voiceRepeatIntervalSeconds: Int = 20,
+    val alarmTimeoutSeconds: Int = 120,
 )
