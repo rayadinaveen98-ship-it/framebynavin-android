@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -200,38 +202,53 @@ private fun NativeAlarmScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(CinemaBlack)
+            .background(Brush.radialGradient(listOf(RecRed.copy(alpha = .13f), CinemaBlack), radius = 900f))
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(24.dp)
     ) {
+        Text(
+            SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date()),
+            color = MutedText,
+            fontSize = 11.sp,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+
         Column(
             Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
-                Modifier.size(74.dp).background(RecRed.copy(alpha = 0.16f), CircleShape),
+                Modifier.size(92.dp).background(RecRed.copy(alpha = 0.13f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.Alarm, null, tint = RecRed, modifier = Modifier.size(38.dp))
+                Box(Modifier.size(62.dp).background(RecRed.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.Alarm, null, tint = RecRed, modifier = Modifier.size(34.dp))
+                }
             }
-            Spacer(Modifier.height(24.dp))
-            Text("FRAMEBYNAVIN ALARM", color = RecRed, fontSize = 10.sp, letterSpacing = 1.6.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(14.dp))
-            Text(title, color = ProjectorIvory, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(25.dp))
+            Text("DEADLINE REMINDER", color = RecRed, fontSize = 9.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(10.dp))
-            Text(dueLabel, color = MutedGold, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            if (notes.isNotBlank()) {
-                Spacer(Modifier.height(12.dp))
-                Text(notes, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
+            Text("This needs your attention.", color = MutedText, fontSize = 11.sp)
+            Spacer(Modifier.height(7.dp))
+            Text(title, color = ProjectorIvory, fontSize = 33.sp, lineHeight = 37.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(13.dp))
+            Surface(shape = RoundedCornerShape(100.dp), color = Color(0xFF1A1110), border = BorderStroke(1.dp, RecRed.copy(alpha = .28f))) {
+                Text(dueLabel, color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
             }
-            Spacer(Modifier.height(34.dp))
+            if (notes.isNotBlank()) {
+                Spacer(Modifier.height(18.dp))
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                    Text(notes, color = MutedText, fontSize = 11.sp, lineHeight = 17.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(13.dp))
+                }
+            }
+            Spacer(Modifier.height(31.dp))
 
             Button(
                 onClick = onWorking,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(17.dp)
             ) {
                 Icon(Icons.Outlined.Work, null)
                 Spacer(Modifier.width(8.dp))
@@ -239,40 +256,17 @@ private fun NativeAlarmScreen(
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(
-                    onClick = onSnooze,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory)
-                    Spacer(Modifier.width(6.dp))
-                    Text("SNOOZE ${snoozeMinutes}m", color = ProjectorIvory, fontSize = 10.sp)
+                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(6.dp)); Text("SNOOZE ${snoozeMinutes}m", color = ProjectorIvory, fontSize = 9.5.sp)
                 }
-                OutlinedButton(
-                    onClick = onReschedule,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Outlined.Schedule, null, tint = ProjectorIvory)
-                    Spacer(Modifier.width(6.dp))
-                    Text("RESCHEDULE", color = ProjectorIvory, fontSize = 10.sp)
+                OutlinedButton(onClick = onReschedule, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Schedule, null, tint = ProjectorIvory); Spacer(Modifier.width(6.dp)); Text("RESCHEDULE", color = ProjectorIvory, fontSize = 9.5.sp)
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(9.dp))
             TextButton(onClick = onDone) {
-                Icon(Icons.Outlined.Check, null, tint = SuccessGreen)
-                Spacer(Modifier.width(6.dp))
-                Text("DONE", color = SuccessGreen, fontWeight = FontWeight.Bold)
+                Icon(Icons.Outlined.Check, null, tint = SuccessGreen); Spacer(Modifier.width(6.dp)); Text("DONE", color = SuccessGreen, fontWeight = FontWeight.Bold)
             }
         }
-
-        Text(
-            SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date()),
-            color = Color(0xFF6F6A65),
-            fontSize = 12.sp,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
     }
 }
