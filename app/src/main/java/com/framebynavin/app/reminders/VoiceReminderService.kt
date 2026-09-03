@@ -15,6 +15,7 @@ import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.data.CreatorTask
+import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskPriority
 import java.util.Locale
 
@@ -70,18 +71,13 @@ class VoiceReminderService : Service() {
             TaskPriority.IMPORTANT -> "important creator reminder"
             TaskPriority.CRITICAL -> "critical creator deadline"
         }
-        val stage = stageForVoice(task.progress)
+        val stage = CreatorWorkflowEngine.currentStage(task).label
         val text = buildString {
             append("FrameByNavin. ${task.title}. This is your $urgency.")
             append(" Current stage: $stage.")
             if (task.notes.isNotBlank() && index == 0) append(" ${task.notes}")
         }
-        tts?.speak(
-            text,
-            TextToSpeech.QUEUE_FLUSH,
-            null,
-            "framebynavin-voice-${task.id}-$index"
-        )
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "framebynavin-voice-${task.id}-$index")
     }
 
     private fun buildNotification(task: CreatorTask): android.app.Notification {
@@ -131,9 +127,7 @@ class VoiceReminderService : Service() {
         val power = getSystemService(PowerManager::class.java)
         val maxWindow = ((task.voiceRepeatCount.coerceIn(1, 3) - 1) * task.voiceRepeatIntervalSeconds.coerceIn(10, 60) * 1000L + 30_000L)
             .coerceAtMost(180_000L)
-        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FrameByNavin:VoiceReminder").apply {
-            acquire(maxWindow)
-        }
+        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FrameByNavin:VoiceReminder").apply { acquire(maxWindow) }
     }
 
     private fun stopVoiceService() {
@@ -161,10 +155,7 @@ class VoiceReminderService : Service() {
 
     companion object {
         fun start(context: Context, task: CreatorTask) {
-            ContextCompat.startForegroundService(
-                context,
-                Intent(context, VoiceReminderService::class.java).putTask(task)
-            )
+            ContextCompat.startForegroundService(context, Intent(context, VoiceReminderService::class.java).putTask(task))
         }
 
         fun stop(context: Context) {
@@ -173,14 +164,4 @@ class VoiceReminderService : Service() {
 
         fun notificationId(taskId: String): Int = taskId.hashCode() xor 0x5600
     }
-}
-
-private fun stageForVoice(progress: Int): String = when {
-    progress >= 95 -> "upload and final check"
-    progress >= 85 -> "thumbnail and metadata"
-    progress >= 70 -> "editing"
-    progress >= 55 -> "voice recording"
-    progress >= 40 -> "script"
-    progress >= 20 -> "research"
-    else -> "planning"
 }
