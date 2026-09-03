@@ -15,10 +15,23 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private val store = TaskStore(application)
     private val scheduler = ReminderScheduler(application)
     private val smartScheduler = SmartEscalationScheduler(application)
+    private val weeklyStore = WeeklyScheduleStore(application)
 
     val tasks = mutableStateListOf<CreatorTask>()
+    val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
+
+    private var tasksLoaded = false
+    private var weeklyLoaded = false
 
     init {
+        viewModelScope.launch {
+            val slots = weeklyStore.loadOrSeed()
+            weeklySlots.clear()
+            weeklySlots.addAll(slots)
+            weeklyLoaded = true
+            if (tasksLoaded) syncWeeklyScheduleInternal()
+        }
+
         viewModelScope.launch {
             store.tasksFlow.collectLatest { saved ->
                 if (saved.isEmpty() && tasks.isEmpty()) {
@@ -42,6 +55,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                     tasks.addAll(saved)
                     reconcileSnapshot(saved)
                 }
+                tasksLoaded = true
+                if (weeklyLoaded) syncWeeklyScheduleInternal()
             }
         }
     }
@@ -143,6 +158,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
                 voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(10, 60),
                 alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
+                autoStageReminder = false,
             )
             tasks.add(0, task)
             persist()
@@ -187,6 +203,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
             voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(10, 60),
             alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
+            autoStageReminder = false,
         )
         tasks[index] = updated
         persist()
@@ -217,6 +234,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             snoozeCount = 0,
             workingUntilMillis = 0L,
             reminderMode = mode,
+            autoStageReminder = false,
         )
         scheduleTask(updated)
         updated
@@ -232,6 +250,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             snoozeCount = 0,
             workingUntilMillis = 0L,
             reminderMode = ReminderMode.NONE,
+            autoStageReminder = false,
         )
     }
 
@@ -267,15 +286,17 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 voiceEnabled = false,
                 reminderMode = ReminderMode.NONE,
                 workingUntilMillis = 0L,
+                autoStageReminder = false,
             )
         }
 
         val nextIndex = currentIndex + 1
-        val updated = task.copy(
+        var updated = task.copy(
             status = TaskStatus.WORKING,
             workflowStageIndex = nextIndex,
             progress = CreatorWorkflowEngine.progressForStage(nextIndex, template.stages.size),
         )
+        updated = applyAutoStageReminder(updated, nextIndex)
         scheduleTask(updated)
         updated
     }
@@ -285,11 +306,12 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val template = CreatorWorkflowEngine.templateFor(task)
         val currentIndex = CreatorWorkflowEngine.stageIndex(task)
         val previous = (currentIndex - 1).coerceAtLeast(0)
-        val updated = task.copy(
+        var updated = task.copy(
             status = TaskStatus.WORKING,
             workflowStageIndex = previous,
             progress = CreatorWorkflowEngine.progressForStage(previous, template.stages.size),
         )
+        updated = applyAutoStageReminder(updated, previous)
         scheduleTask(updated)
         updated
     }
@@ -306,6 +328,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             voiceEnabled = false,
             reminderMode = ReminderMode.NONE,
             workingUntilMillis = 0L,
+            autoStageReminder = false,
         )
     }
 
@@ -318,10 +341,159 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             voiceEnabled = false,
             reminderMode = ReminderMode.NONE,
             workingUntilMillis = 0L,
+            autoStageReminder = false,
         )
     }
 
+    fun saveWeeklySlot(slot: WeeklyScheduleSlot) {
+        val normalized = slot.copy(
+            id = slot.id.ifBlank { "custom-${UUID.randomUUID()}" },
+            title = slot.title.trim().ifBlank { "Creator Slot" },
+            hour = slot.hour.coerceIn(0, 23),
+            minute = slot.minute.coerceIn(0, 59),
+        )
+        val index = weeklySlots.indexOfFirst { it.id == normalized.id }
+        if (index >= 0) weeklySlots[index] = normalized else weeklySlots += normalized
+        persistWeeklySlots()
+        syncWeeklyScheduleInternal()
+    }
+
+    fun setWeeklySlotEnabled(id: String, enabled: Boolean) {
+        val index = weeklySlots.indexOfFirst { it.id == id }
+        if (index == -1) return
+        weeklySlots[index] = weeklySlots[index].copy(enabled = enabled)
+        persistWeeklySlots()
+        if (enabled) syncWeeklyScheduleInternal()
+    }
+
+    fun deleteWeeklySlot(id: String) {
+        weeklySlots.removeAll { it.id == id }
+        persistWeeklySlots()
+    }
+
+    fun resetWeeklySchedule() {
+        weeklySlots.clear()
+        weeklySlots.addAll(WeeklyScheduleEngine.defaultSlots())
+        persistWeeklySlots()
+        syncWeeklyScheduleInternal()
+    }
+
+    fun refreshWeeklySchedule() = syncWeeklyScheduleInternal()
+
     fun reconcileReminders() = reconcileSnapshot(tasks.toList())
+
+    private fun syncWeeklyScheduleInternal() {
+        if (!tasksLoaded || !weeklyLoaded) return
+        val occurrences = WeeklyScheduleEngine.upcomingOccurrences(weeklySlots, daysAhead = 8)
+        var changed = false
+        val toSchedule = mutableListOf<CreatorTask>()
+
+        occurrences.forEach { occurrence ->
+            val existingIndex = tasks.indexOfFirst { it.scheduleOccurrenceKey == occurrence.key }
+            if (existingIndex == -1) {
+                val created = buildScheduledTask(occurrence)
+                tasks.add(0, created)
+                toSchedule += created
+                changed = true
+            } else {
+                val current = tasks[existingIndex]
+                if (current.status != TaskStatus.DONE && current.status != TaskStatus.SKIPPED && current.autoStageReminder) {
+                    val updated = syncScheduledTask(current, occurrence)
+                    if (updated != current) {
+                        tasks[existingIndex] = updated
+                        toSchedule += updated
+                        changed = true
+                    }
+                }
+            }
+        }
+
+        if (changed) {
+            persist()
+            toSchedule.forEach(::scheduleTask)
+        }
+    }
+
+    private fun buildScheduledTask(occurrence: ScheduleOccurrence): CreatorTask {
+        val slot = occurrence.slot
+        val template = CreatorWorkflowEngine.templateFor(slot.platform, slot.contentType)
+        val stageIndex = WeeklyScheduleEngine.suggestedStageIndex(slot.platform, slot.contentType, occurrence.publishAtMillis)
+        val progress = CreatorWorkflowEngine.progressForStage(stageIndex, template.stages.size)
+        val enabled = slot.reminderMode != ReminderMode.NONE
+        val internalAlert = if (slot.reminderMode == ReminderMode.ALARM || slot.reminderMode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION
+        val internalVoice = slot.reminderMode == ReminderMode.VOICE || slot.reminderMode == ReminderMode.SMART
+        val internalSmart = slot.reminderMode == ReminderMode.SMART
+
+        var task = CreatorTask(
+            id = UUID.randomUUID().toString(),
+            title = slot.title,
+            platform = slot.platform,
+            contentType = slot.contentType,
+            dueLabel = WeeklyScheduleEngine.dueLabel(occurrence.publishAtMillis),
+            dueAtMillis = occurrence.publishAtMillis,
+            status = TaskStatus.PLANNED,
+            progress = progress,
+            workflowStageIndex = stageIndex,
+            reminderEnabled = enabled,
+            reminderAtMillis = 0L,
+            priority = slot.priority,
+            notes = "Auto-planned by Weekly Schedule",
+            alertType = internalAlert,
+            voiceEnabled = internalVoice,
+            smartEscalationEnabled = internalSmart,
+            reminderMode = slot.reminderMode,
+            voicePersona = VoicePersona.WARM,
+            voiceRepeatCount = 3,
+            voiceRepeatIntervalSeconds = 20,
+            alarmTimeoutSeconds = 120,
+            scheduleSlotId = slot.id,
+            scheduleOccurrenceKey = occurrence.key,
+            autoStageReminder = enabled,
+        )
+        if (enabled) {
+            task = task.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(task, stageIndex))
+        }
+        return task
+    }
+
+    private fun syncScheduledTask(task: CreatorTask, occurrence: ScheduleOccurrence): CreatorTask {
+        val slot = occurrence.slot
+        val formatChanged = task.platform != slot.platform || task.contentType != slot.contentType
+        val template = CreatorWorkflowEngine.templateFor(slot.platform, slot.contentType)
+        val stageIndex = if (formatChanged) {
+            CreatorWorkflowEngine.stageIndexFromProgress(task.progress, template.stages.size)
+        } else CreatorWorkflowEngine.stageIndex(task).coerceIn(0, template.stages.lastIndex)
+        val mode = slot.reminderMode
+        val enabled = mode != ReminderMode.NONE
+        var updated = task.copy(
+            platform = slot.platform,
+            contentType = slot.contentType,
+            dueLabel = WeeklyScheduleEngine.dueLabel(occurrence.publishAtMillis),
+            dueAtMillis = occurrence.publishAtMillis,
+            workflowStageIndex = stageIndex,
+            progress = CreatorWorkflowEngine.progressForStage(stageIndex, template.stages.size),
+            priority = slot.priority,
+            reminderMode = mode,
+            reminderEnabled = enabled,
+            alertType = if (mode == ReminderMode.ALARM || mode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION,
+            voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,
+            smartEscalationEnabled = mode == ReminderMode.SMART,
+            autoStageReminder = enabled,
+        )
+        updated = if (enabled) updated.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(updated, stageIndex))
+        else updated.copy(reminderAtMillis = 0L)
+        return updated
+    }
+
+    private fun applyAutoStageReminder(task: CreatorTask, stageIndex: Int): CreatorTask {
+        if (!task.autoStageReminder || task.scheduleSlotId.isBlank() || task.reminderMode == ReminderMode.NONE) return task
+        return task.copy(
+            reminderEnabled = true,
+            reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(task, stageIndex),
+            snoozeCount = 0,
+            workingUntilMillis = 0L,
+        )
+    }
 
     private fun reconcileSnapshot(snapshot: List<CreatorTask>) {
         val now = System.currentTimeMillis()
@@ -373,6 +545,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         if (index == -1) return
         tasks[index] = transform(tasks[index])
         persist()
+    }
+
+    private fun persistWeeklySlots() {
+        val snapshot = weeklySlots.toList()
+        viewModelScope.launch { weeklyStore.save(snapshot) }
     }
 
     private fun persist() {
