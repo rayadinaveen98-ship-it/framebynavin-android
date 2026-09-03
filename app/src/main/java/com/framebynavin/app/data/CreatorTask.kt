@@ -2,6 +2,7 @@ package com.framebynavin.app.data
 
 enum class TaskStatus { PLANNED, WORKING, DONE, SKIPPED }
 enum class TaskPriority { NORMAL, IMPORTANT, CRITICAL }
+enum class ReminderAlertType { NOTIFICATION, ALARM }
 
 data class CreatorTask(
     val id: String,
@@ -15,4 +16,7 @@ data class CreatorTask(
     val reminderAtMillis: Long = 0L,
     val priority: TaskPriority = TaskPriority.IMPORTANT,
     val notes: String = "",
+    val alertType: ReminderAlertType = ReminderAlertType.NOTIFICATION,
+    val alarmSoundUri: String = "",
+    val voiceEnabled: Boolean = false,
 )
