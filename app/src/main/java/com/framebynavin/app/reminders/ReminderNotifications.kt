@@ -27,7 +27,12 @@ object ReminderNotifications {
         }
     }
 
-    fun show(context: Context, task: CreatorTask, deliveryDelayMillis: Long? = null) {
+    fun show(
+        context: Context,
+        task: CreatorTask,
+        deliveryDelayMillis: Long? = null,
+        stageLabel: String? = null,
+    ) {
         ensureChannel(context)
         val manager = context.getSystemService(NotificationManager::class.java)
         val builder = NotificationCompat.Builder(context, ReminderConstants.CHANNEL_ID)
@@ -50,8 +55,9 @@ object ReminderNotifications {
             .addAction(0, "SNOOZE 10m", actionIntent(context, task.id, ReminderConstants.ACTION_SNOOZE, 2))
             .addAction(0, "DONE", actionIntent(context, task.id, ReminderConstants.ACTION_DONE, 3))
 
-        if (deliveryDelayMillis != null) {
-            builder.setSubText(
+        when {
+            stageLabel != null -> builder.setSubText(stageLabel)
+            deliveryDelayMillis != null -> builder.setSubText(
                 "Timing +${String.format(Locale.US, "%.1fs", deliveryDelayMillis / 1000.0)}"
             )
         }
