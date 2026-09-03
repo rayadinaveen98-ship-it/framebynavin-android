@@ -48,7 +48,12 @@ import java.util.Locale
 private enum class V07Tab { TODAY, PLAN, STUDIO, INSIGHTS }
 
 @Composable
-fun FrameByNavinV07App(vm: CreatorViewModel = viewModel()) {
+fun FrameByNavinV07App(
+    vm: CreatorViewModel = viewModel(),
+    externalQuickAddRequest: Int = 0,
+    externalReminderCenterRequest: Int = 0,
+    showReminderFab: Boolean = true,
+) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
     val scheduler = remember { ReminderScheduler(context.applicationContext) }
@@ -62,6 +67,16 @@ fun FrameByNavinV07App(vm: CreatorViewModel = viewModel()) {
     var notificationReady by remember { mutableStateOf(v07NotificationsReady(context)) }
     var exactReady by remember { mutableStateOf(scheduler.canScheduleExact()) }
     var fullScreenReady by remember { mutableStateOf(Build.VERSION.SDK_INT < 34 || notificationManager.canUseFullScreenIntent()) }
+
+    LaunchedEffect(externalQuickAddRequest) {
+        if (externalQuickAddRequest > 0) {
+            editTaskId = null
+            showComposer = true
+        }
+    }
+    LaunchedEffect(externalReminderCenterRequest) {
+        if (externalReminderCenterRequest > 0) showCenter = true
+    }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         notificationReady = it
@@ -105,14 +120,16 @@ fun FrameByNavinV07App(vm: CreatorViewModel = viewModel()) {
                 modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
             )
 
-            Surface(
-                onClick = { showCenter = true },
-                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 30.dp, bottom = 100.dp).size(54.dp),
-                shape = CircleShape,
-                color = RecRed,
-                shadowElevation = 10.dp,
-            ) {
-                Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Alarm, "Reminder Center", tint = ProjectorIvory) }
+            if (showReminderFab) {
+                Surface(
+                    onClick = { showCenter = true },
+                    modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 30.dp, bottom = 100.dp).size(54.dp),
+                    shape = CircleShape,
+                    color = RecRed,
+                    shadowElevation = 10.dp,
+                ) {
+                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Alarm, "Reminder Center", tint = ProjectorIvory) }
+                }
             }
         }
     }
