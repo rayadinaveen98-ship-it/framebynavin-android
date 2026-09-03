@@ -34,5 +34,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v0.9-release-vault
+          name: FrameByNavin-v1.0-creator-os
           path: app/build/outputs/apk/debug/app-debug.apk
