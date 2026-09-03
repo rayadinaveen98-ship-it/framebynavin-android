@@ -1,25 +1,19 @@
-# FrameByNavin Android — A2 Today Prototype
+# FrameByNavin Android
 
-Native Android / Kotlin / Jetpack Compose prototype for the locked **A — Cinematic Editorial** direction.
+Native Kotlin + Jetpack Compose creator command-center app.
 
-## What is implemented
-- Real Compose `TodayScreen`
-- Cinema-black + REC-red + warm-ivory + muted-gold visual tokens
-- Editorial hero: `MAKE THE FRAME COUNT.`
-- Publish card + aperture motif
-- Current production task + progress
-- Next action + publishing buffer
-- Focus Mode CTA
-- Weekly completion strip
-- Bottom navigation
-- Android Studio `@Preview` at 390×844dp
-- GitHub Actions workflow that builds a debug APK automatically
+## V0 Functional milestone — 0.2.0
 
-## Production realism
-There are no premium UI assets, remote images, generated fantasy layers, or paid dependencies.
-The visual effects are Compose primitives: gradients, Canvas arcs, borders, shapes, typography, and standard Material icons.
+The approved cinematic editorial visual direction is frozen for V0. This milestone makes the shell interactive:
 
-## Build
-With Android Studio: open this folder and run the `app` configuration.
+- Working bottom navigation: Today / Plan / Studio / Insights
+- Quick Add from the + button
+- Persistent local task storage with Android DataStore
+- Start and complete task actions
+- Production pipeline advancement in Studio
+- 25-minute Focus Mode with pause/resume and Done
+- Local progress insights
+- Scroll-safe Today layout so lower cards are reachable on real devices
+- GitHub Actions APK build
 
-With GitHub: pushes to `main` build `app-debug.apk` and upload it as an Actions artifact.
+The next engineering milestone is the reliability stack: exact reminders/alarms, permission-state handling, reboot recovery, acknowledgement/snooze actions, and escalation rules. Core production data will move to Room/SQLite as that domain layer is introduced; DataStore is used in this V0 interaction milestone to keep the first functional loop small and testable.

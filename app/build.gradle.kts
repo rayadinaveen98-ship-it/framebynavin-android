@@ -12,8 +12,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-a2"
+        versionCode = 2
+        versionName = "0.2.0-v0-functional"
     }
 
     compileOptions {
@@ -42,5 +42,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.0")
+    implementation("androidx.datastore:datastore-preferences:1.1.7")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
