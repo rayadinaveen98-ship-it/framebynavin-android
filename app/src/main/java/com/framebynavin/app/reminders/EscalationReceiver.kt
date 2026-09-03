@@ -12,13 +12,10 @@ class EscalationReceiver : BroadcastReceiver() {
         val taskId = intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID) ?: return
         val scheduledAt = intent.getLongExtra(ReminderConstants.EXTRA_SCHEDULED_AT, 0L)
         val stage = runCatching {
-            SmartEscalationScheduler.Stage.valueOf(
-                intent.getStringExtra(ReminderConstants.EXTRA_ESCALATION_STAGE).orEmpty()
-            )
+            SmartEscalationScheduler.Stage.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_ESCALATION_STAGE).orEmpty())
         }.getOrNull() ?: return
 
-        val ledgerId = "$taskId#${stage.name}"
-        if (!AlarmLedger(context.applicationContext).consumeIfCurrent(ledgerId, scheduledAt)) return
+        if (!AlarmLedger(context.applicationContext).consumeIfCurrent("$taskId#${stage.name}", scheduledAt)) return
 
         val priority = runCatching {
             TaskPriority.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_PRIORITY).orEmpty())
@@ -33,6 +30,7 @@ class EscalationReceiver : BroadcastReceiver() {
             platform = intent.getStringExtra(ReminderConstants.EXTRA_PLATFORM).orEmpty(),
             contentType = intent.getStringExtra(ReminderConstants.EXTRA_CONTENT_TYPE).orEmpty(),
             dueLabel = intent.getStringExtra(ReminderConstants.EXTRA_DUE_LABEL).orEmpty(),
+            progress = intent.getIntExtra(ReminderConstants.EXTRA_PROGRESS, 0).coerceIn(0, 100),
             reminderEnabled = true,
             reminderAtMillis = intent.getLongExtra(ReminderConstants.EXTRA_TARGET_AT, scheduledAt),
             priority = if (stage == SmartEscalationScheduler.Stage.CRITICAL) TaskPriority.CRITICAL else priority,
@@ -48,33 +46,20 @@ class EscalationReceiver : BroadcastReceiver() {
                 ReminderNotifications.show(context.applicationContext, task, stageLabel = "Smart · Gentle")
 
             SmartEscalationScheduler.Stage.VOICE -> {
-                if (task.voiceEnabled) {
-                    VoiceReminderService.start(context.applicationContext, task)
-                } else {
-                    ReminderNotifications.show(context.applicationContext, task, stageLabel = "Smart · Attention")
-                }
+                if (task.voiceEnabled) VoiceReminderService.start(context.applicationContext, task)
+                else ReminderNotifications.show(context.applicationContext, task, stageLabel = "Smart · Attention")
             }
 
             SmartEscalationScheduler.Stage.ALARM -> {
-                if (task.alertType == ReminderAlertType.ALARM) {
-                    AlarmRingingService.start(context.applicationContext, task)
-                } else {
-                    ReminderNotifications.show(context.applicationContext, task, stageLabel = "Smart · Urgent")
-                }
+                if (task.alertType == ReminderAlertType.ALARM) AlarmRingingService.start(context.applicationContext, task)
+                else ReminderNotifications.show(context.applicationContext, task, stageLabel = "Smart · Urgent")
             }
 
             SmartEscalationScheduler.Stage.CRITICAL -> {
                 if (task.alertType == ReminderAlertType.ALARM) {
-                    AlarmRingingService.start(
-                        context.applicationContext,
-                        task.copy(priority = TaskPriority.CRITICAL, voiceEnabled = true)
-                    )
+                    AlarmRingingService.start(context.applicationContext, task.copy(priority = TaskPriority.CRITICAL, voiceEnabled = true))
                 } else {
-                    ReminderNotifications.show(
-                        context.applicationContext,
-                        task.copy(priority = TaskPriority.CRITICAL),
-                        stageLabel = "Smart · Critical"
-                    )
+                    ReminderNotifications.show(context.applicationContext, task.copy(priority = TaskPriority.CRITICAL), stageLabel = "Smart · Critical")
                 }
             }
         }
