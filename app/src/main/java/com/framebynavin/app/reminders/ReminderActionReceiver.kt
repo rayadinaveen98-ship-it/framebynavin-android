@@ -3,6 +3,7 @@ package com.framebynavin.app.reminders
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.data.TaskStore
@@ -64,10 +65,11 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     }
 
                     ReminderConstants.ACTION_SNOOZE -> {
+                        val snoozeMinutes = CreatorOsSettingsStore(appContext).snapshot().snoozeMinutes
                         val snoozed = store.updateTask(taskId) { task ->
                             task.copy(
                                 reminderEnabled = true,
-                                reminderAtMillis = System.currentTimeMillis() + ReminderConstants.SNOOZE_MINUTES * 60_000L,
+                                reminderAtMillis = System.currentTimeMillis() + snoozeMinutes * 60_000L,
                                 snoozeCount = task.snoozeCount + 1,
                                 workingUntilMillis = 0L,
                             )
