@@ -20,10 +20,11 @@ class VoiceReminderService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val task = intent?.toTask() ?: run {
+        val base = intent?.toTask() ?: run {
             stopSelf()
             return START_NOT_STICKY
         }
+        val task = base.copy(progress = intent.getIntExtra(ReminderConstants.EXTRA_PROGRESS, base.progress))
 
         ReminderNotifications.ensureChannel(this)
         startForeground(
@@ -65,13 +66,13 @@ class VoiceReminderService : Service() {
                 @Deprecated("Deprecated in Java")
                 override fun onError(utteranceId: String?) { stopSelf() }
             })
-            val stage = when (task.priority) {
+            val urgency = when (task.priority) {
                 com.framebynavin.app.data.TaskPriority.NORMAL -> "reminder"
                 com.framebynavin.app.data.TaskPriority.IMPORTANT -> "important creator reminder"
                 com.framebynavin.app.data.TaskPriority.CRITICAL -> "critical creator deadline"
             }
             tts?.speak(
-                "FrameByNavin. ${task.title}. This is your $stage. Current stage: ${stageForVoice(task.progress)}.",
+                "FrameByNavin. ${task.title}. This is your $urgency. Current stage: ${stageForVoice(task.progress)}.",
                 TextToSpeech.QUEUE_FLUSH,
                 null,
                 "framebynavin-smart-${task.id}"
@@ -83,7 +84,9 @@ class VoiceReminderService : Service() {
         fun start(context: Context, task: CreatorTask) {
             ContextCompat.startForegroundService(
                 context,
-                Intent(context, VoiceReminderService::class.java).putTask(task)
+                Intent(context, VoiceReminderService::class.java)
+                    .putTask(task)
+                    .putExtra(ReminderConstants.EXTRA_PROGRESS, task.progress)
             )
         }
 
