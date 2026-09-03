@@ -8,6 +8,7 @@ import android.os.Build
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderAlertType
+import com.framebynavin.app.data.ReminderMode
 
 class ReminderScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
@@ -17,14 +18,15 @@ class ReminderScheduler(private val context: Context) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
     fun schedule(task: CreatorTask) {
-        if (!task.reminderEnabled || task.reminderAtMillis <= System.currentTimeMillis()) {
+        if (!task.reminderEnabled || task.reminderMode == ReminderMode.NONE || task.reminderAtMillis <= System.currentTimeMillis()) {
             cancel(task.id)
             return
         }
 
         val pendingIntent = alarmPendingIntent(task)
+        val isNativeAlarm = task.reminderMode == ReminderMode.ALARM || task.alertType == ReminderAlertType.ALARM
 
-        if (task.alertType == ReminderAlertType.ALARM) {
+        if (isNativeAlarm) {
             if (!canScheduleExact()) {
                 existingPendingIntent(task.id)?.let { alarmManager.cancel(it) }
                 ledger.clear(task.id)
@@ -56,16 +58,14 @@ class ReminderScheduler(private val context: Context) {
         }
 
         runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                !alarmManager.canScheduleExactAlarms()
-            ) {
-                alarmManager.setAndAllowWhileIdle(
+            if (canScheduleExact()) {
+                alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     task.reminderAtMillis,
                     pendingIntent,
                 )
             } else {
-                alarmManager.setExactAndAllowWhileIdle(
+                alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     task.reminderAtMillis,
                     pendingIntent,
@@ -90,12 +90,19 @@ class ReminderScheduler(private val context: Context) {
             .putExtra(ReminderConstants.EXTRA_PLATFORM, task.platform)
             .putExtra(ReminderConstants.EXTRA_CONTENT_TYPE, task.contentType)
             .putExtra(ReminderConstants.EXTRA_DUE_LABEL, task.dueLabel)
+            .putExtra(ReminderConstants.EXTRA_DUE_AT, task.dueAtMillis)
             .putExtra(ReminderConstants.EXTRA_PRIORITY, task.priority.name)
+            .putExtra(ReminderConstants.EXTRA_PROGRESS, task.progress)
             .putExtra(ReminderConstants.EXTRA_NOTES, task.notes)
             .putExtra(ReminderConstants.EXTRA_SCHEDULED_AT, task.reminderAtMillis)
             .putExtra(ReminderConstants.EXTRA_ALERT_TYPE, task.alertType.name)
             .putExtra(ReminderConstants.EXTRA_ALARM_SOUND_URI, task.alarmSoundUri)
             .putExtra(ReminderConstants.EXTRA_VOICE_ENABLED, task.voiceEnabled)
+            .putExtra(ReminderConstants.EXTRA_REMINDER_MODE, task.reminderMode.name)
+            .putExtra(ReminderConstants.EXTRA_VOICE_PERSONA, task.voicePersona.name)
+            .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, task.voiceRepeatCount)
+            .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, task.voiceRepeatIntervalSeconds)
+            .putExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, task.alarmTimeoutSeconds)
 
         return PendingIntent.getBroadcast(
             context,
