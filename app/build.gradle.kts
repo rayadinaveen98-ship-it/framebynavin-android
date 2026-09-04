@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "1.3.2-reliability-recovery"
+        versionCode = 24
+        versionName = "1.3.2-reliability-recovery-r2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,5 +78,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.3.2 reliability/recovery hardening: alarm fallback, missed-reminder recovery,
-// Smart escalation idempotency, boot/time recovery, and WorkManager health reconciliation.
+// v1.3.2 repair candidate r2: reliability/recovery hardening plus release-blocker fixes
+// for packaged cinematic assets, deterministic Plan/Reminder interactions, and alarm fallbacks.
