@@ -29,6 +29,16 @@ class WeeklyScheduleStore(private val context: Context) {
         context.weeklyScheduleDataStore.edit { prefs -> prefs[slotsKey] = encode(slots) }
     }
 
+    suspend fun exportJson(): String = encode(loadOrSeed())
+
+    suspend fun importJson(raw: String): List<WeeklyScheduleSlot> {
+        val decoded = decode(raw)
+        save(decoded)
+        return decoded
+    }
+
+    fun validateJson(raw: String): Int = decode(raw).size
+
     private fun encode(slots: List<WeeklyScheduleSlot>): String {
         val array = JSONArray()
         slots.forEach { slot ->
@@ -55,10 +65,13 @@ class WeeklyScheduleStore(private val context: Context) {
         return buildList {
             for (i in 0 until array.length()) {
                 val item = array.getJSONObject(i)
+                val id = item.optString("id").ifBlank { "weekly-$i" }
+                val title = item.optString("title", "Creator Slot").trim()
+                require(title.isNotBlank()) { "Weekly slot $i has no title" }
                 add(
                     WeeklyScheduleSlot(
-                        id = item.optString("id").ifBlank { "weekly-$i" },
-                        title = item.optString("title", "Creator Slot"),
+                        id = id,
+                        title = title,
                         dayOfWeek = runCatching { DayOfWeek.valueOf(item.optString("dayOfWeek", DayOfWeek.MONDAY.name)) }.getOrDefault(DayOfWeek.MONDAY),
                         hour = item.optInt("hour", 19).coerceIn(0, 23),
                         minute = item.optInt("minute", 0).coerceIn(0, 59),
