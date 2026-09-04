@@ -34,6 +34,8 @@ class AlarmRingingService : Service() {
     private var tts: TextToSpeech? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var currentTask: CreatorTask? = null
+    private var currentSmartStage: SmartEscalationScheduler.Stage? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -47,19 +49,32 @@ class AlarmRingingService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        val smartStage = runCatching {
+            SmartEscalationScheduler.Stage.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_ESCALATION_STAGE).orEmpty())
+        }.getOrNull()
+        currentTask = task
+        currentSmartStage = smartStage
 
         handler.removeCallbacksAndMessages(null)
+        stopAlertHardware()
         acquireWakeLock()
-        startForeground(notificationId(task.id), buildNotification(task))
+        startForeground(notificationId(task.id), buildNotification(task, smartStage))
         startAlarmSound(task)
         startVibration()
         if (task.voiceEnabled) startVoice(task)
 
         val timeoutMillis = task.alarmTimeoutSeconds.coerceIn(30, 300) * 1000L
         handler.postDelayed({
+            val endingTask = currentTask
+            val endingStage = currentSmartStage
             stopAlertHardware()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
+            if (endingTask != null && endingTask.reminderMode == ReminderMode.SMART) {
+                val terminal = endingStage == SmartEscalationScheduler.Stage.CRITICAL ||
+                    (endingStage == SmartEscalationScheduler.Stage.ALARM && endingTask.priority != TaskPriority.CRITICAL)
+                if (terminal) SmartEscalationScheduler(applicationContext).finishSession(endingTask.id)
+            }
         }, timeoutMillis)
 
         return START_NOT_STICKY
@@ -68,16 +83,19 @@ class AlarmRingingService : Service() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         stopAlertHardware()
+        currentTask = null
+        currentSmartStage = null
         super.onDestroy()
     }
 
-    private fun buildNotification(task: CreatorTask): android.app.Notification {
+    private fun buildNotification(task: CreatorTask, smartStage: SmartEscalationScheduler.Stage?): android.app.Notification {
         val fullScreen = PendingIntent.getActivity(
             this,
             task.id.hashCode() xor 0x7150,
             Intent(this, AlarmActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 putTask(task)
+                smartStage?.let { putExtra(ReminderConstants.EXTRA_ESCALATION_STAGE, it.name) }
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -197,8 +215,9 @@ class AlarmRingingService : Service() {
     }
 
     companion object {
-        fun start(context: Context, task: CreatorTask) {
+        fun start(context: Context, task: CreatorTask, smartStage: SmartEscalationScheduler.Stage? = null) {
             val intent = Intent(context, AlarmRingingService::class.java).putTask(task)
+            smartStage?.let { intent.putExtra(ReminderConstants.EXTRA_ESCALATION_STAGE, it.name) }
             ContextCompat.startForegroundService(context, intent)
         }
 
@@ -264,7 +283,7 @@ internal fun Intent.toTask(): CreatorTask? {
         reminderMode = reminderMode,
         voicePersona = persona,
         voiceRepeatCount = getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, 3).coerceIn(1, 3),
-        voiceRepeatIntervalSeconds = getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 20).coerceIn(10, 60),
+        voiceRepeatIntervalSeconds = getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 10).coerceIn(5, 60),
         alarmTimeoutSeconds = getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
     )
 }
