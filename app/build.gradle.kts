@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 31
-        versionName = "1.7.0-creator-automation-rc1"
+        versionCode = 32
+        versionName = "1.8.0-creator-copilot-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,6 +78,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.7 RC1: creator automation. Keeps the approved v1.6 UI/reliability baseline,
-// adds 14-day background auto planning, Automation Center, opt-in creator routines,
-// and Daily Brief / Content Calendar home-screen widget shortcuts.
+// v1.8 RC1: optional Creator Copilot on top of the approved v1.7 Creator OS.
+// Adds encrypted BYOK setup, idea/outline/hook/rewrite/packaging drafting, project context,
+// and explicit save-to-project / save-to-Idea-Vault actions. AI never auto-publishes or overwrites creator data.
