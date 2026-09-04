@@ -23,6 +23,7 @@ android {
         targetSdk = 35
         versionCode = 23
         versionName = "1.3.2-reliability-recovery"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -67,7 +68,14 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
 
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.04.01"))
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
 // v1.3.2 reliability/recovery hardening: alarm fallback, missed-reminder recovery,
