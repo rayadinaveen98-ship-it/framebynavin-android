@@ -3,7 +3,10 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "feature/v1.3.2-reliability-recovery" ]
+    branches:
+      - "main"
+      - "feature/v1.3.2-reliability-recovery"
+      - "repair/v1.3.2-release-blockers"
     paths:
       - "app/**"
       - "*.gradle.kts"
@@ -32,14 +35,53 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
+      - name: Verify cinematic hero source assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in $(seq -w 1 10); do
+            test -s "app/src/main/res/drawable/hero_frame_${n}.webp" || {
+              echo "Missing or empty hero_frame_${n}.webp"
+              exit 1
+            }
+          done
+          count=$(find app/src/main/res/drawable -maxdepth 1 -type f -name 'hero_frame_*.webp' | wc -l)
+          test "$count" -eq 10 || {
+            echo "Expected exactly 10 hero frames, found $count"
+            exit 1
+          }
+
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Run Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation test APK
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
+      - name: Verify hero resources inside APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          aapt2=$(find "${ANDROID_HOME}/build-tools" -type f -name aapt2 | sort -V | tail -n 1)
+          test -x "$aapt2"
+          "$aapt2" dump resources "$apk" > /tmp/fbn-resources.txt
+          for n in $(seq -w 1 10); do
+            grep -q "hero_frame_${n}" /tmp/fbn-resources.txt || {
+              echo "APK is missing compiled hero_frame_${n}"
+              exit 1
+            }
+          done
+          echo "Verified all 10 cinematic hero resources in APK"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.3.2-reliability-recovery-dev
+          name: FrameByNavin-v1.3.2-release-blocker-repair
           path: app/build/outputs/apk/debug/app-debug.apk
