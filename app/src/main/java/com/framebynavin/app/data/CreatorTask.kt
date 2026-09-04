@@ -56,4 +56,6 @@ data class CreatorTask(
     val autoStageReminder: Boolean = false,
     val origin: CreatorTaskOrigin = CreatorTaskOrigin.MANUAL,
     val sourceRefId: String = "",
+    /** Non-zero means the project is hidden from active Plan/Studio but retained for history. */
+    val archivedAtMillis: Long = 0L,
 )
