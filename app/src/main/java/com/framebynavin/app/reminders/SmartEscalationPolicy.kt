@@ -79,4 +79,20 @@ object SmartEscalationPolicy {
             SmartEscalationScheduler.Stage.CRITICAL -> 0
         }
     }
+
+    /**
+     * Recovery must not keep postponing an already rebuilt pending stage every time the app resumes.
+     * Prefer the authoritative future pending time, then the original planned time, and only then
+     * apply the recovery fallback delay.
+     */
+    fun recoveredStageAtMillis(
+        plannedAtMillis: Long,
+        preservedPendingAtMillis: Long?,
+        nowMillis: Long,
+        fallbackDelayMillis: Long,
+    ): Long = when {
+        preservedPendingAtMillis != null && preservedPendingAtMillis > nowMillis -> preservedPendingAtMillis
+        plannedAtMillis > nowMillis -> plannedAtMillis
+        else -> nowMillis + fallbackDelayMillis.coerceAtLeast(1L)
+    }
 }
