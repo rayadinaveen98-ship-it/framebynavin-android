@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.cloud.CloudSyncScheduler
 import com.framebynavin.app.reminders.MissedReminderRecovery
+import com.framebynavin.app.reminders.ReminderHealthScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.ui.V131LaunchGate
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ReminderNotifications.ensureChannel(this)
+        ReminderHealthScheduler.ensurePeriodic(this)
         CloudSyncScheduler.ensurePeriodic(this)
         CloudSyncScheduler.enqueueNow(this)
         externalLaunch = widgetLaunch(intent)
