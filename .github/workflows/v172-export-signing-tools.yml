@@ -1,0 +1,34 @@
+name: Export v1.7.2 Signing Tools
+
+on:
+  push:
+    branches:
+      - "feature/v1.7.2-insights-upgrade"
+    paths:
+      - ".github/workflows/v172-export-signing-tools.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v1.7.2-insights-upgrade
+      - name: Collect private signing material and Android build tools
+        run: |
+          set -euo pipefail
+          mkdir -p export/build-tools
+          cp keystore/REMOVED_PRIVATE_SIGNING_VALUE.jks export/REMOVED_PRIVATE_SIGNING_VALUE.jks
+          BUILD_TOOLS_DIR="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          cp -a "$BUILD_TOOLS_DIR"/. export/build-tools/
+      - name: Upload temporary signing bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: framebynavin-v172-signing-bundle
+          path: export
+          retention-days: 1
+          if-no-files-found: error
