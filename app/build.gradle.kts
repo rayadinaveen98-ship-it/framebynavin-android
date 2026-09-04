@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 29
-        versionName = "1.5.0-context-creator-os-rc1"
+        versionCode = 30
+        versionName = "1.6.0-creator-intelligence-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,5 +78,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.5 RC1: creator context upgrade. Keeps the approved branding/Home/slideshow baseline,
-// and adds Daily Brief, 14-day Content Calendar and optional WorkManager context nudges.
+// v1.6 RC1: creator intelligence + focused polish. Keeps reminder reliability and the approved branding,
+// adds post-publish follow-ups, completion-aware creator review and YouTube performance memory,
+// fixes range switching auth state, makes Control icon-only at rest, and simplifies the Home hero.
