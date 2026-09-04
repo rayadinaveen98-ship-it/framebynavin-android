@@ -51,7 +51,7 @@ class CreatorContextNudgeWorker(
 
         val body = "${nudge.message} ${nudge.action}"
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_framebynavin)
+            .setSmallIcon(R.drawable.ic_framebynavin_launcher)
             .setContentTitle("FrameByNavin · ${nudge.title}")
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
