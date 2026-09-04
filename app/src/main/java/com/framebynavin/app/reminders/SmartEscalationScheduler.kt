@@ -38,25 +38,46 @@ class SmartEscalationScheduler(private val context: Context) {
 
     /** Rebuild the one pending stage after reboot/time/package recovery without compressing waits. */
     fun recover(task: CreatorTask) {
-        cancelPending(task.id, clearSession = false)
         if (!isSmartEnabled(task) || !isTargetBeforePublish(task)) {
-            sessions.clear(task.id)
+            cancelPending(task.id, clearSession = true)
             return
         }
 
         val now = System.currentTimeMillis()
         val session = sessions.current(task.id)
+        val pendingStage = when {
+            session == null -> Stage.SOFT
+            session.snoozedStage != null -> session.snoozedStage
+            else -> SmartEscalationPolicy.nextStage(task.priority, session.stage)
+        }
+        // Read the authoritative pending time before clearing OS state. Repeated recovery/resume
+        // then rebuilds the same stage at the same time instead of pushing it farther away.
+        val preservedPendingAt = pendingStage?.let { ledger.scheduledAt(ledgerKey(task.id, it)) }
+
+        cancelPending(task.id, clearSession = false)
+
         if (session == null) {
             val config = configStore.get(task)
             if (!SmartEscalationPolicy.isWindowValid(task.priority, now, task.reminderAtMillis, config)) return
             val firstAt = SmartEscalationPolicy.firstStageAtMillis(task.priority, task.reminderAtMillis, config)
-            if (firstAt > now) scheduleStage(task, Stage.SOFT, firstAt)
+            val recoveredAt = SmartEscalationPolicy.recoveredStageAtMillis(
+                plannedAtMillis = firstAt,
+                preservedPendingAtMillis = preservedPendingAt,
+                nowMillis = now,
+                fallbackDelayMillis = 5_000L,
+            )
+            if (recoveredAt > now) scheduleStage(task, Stage.SOFT, recoveredAt)
             return
         }
 
         session.snoozedStage?.let { snoozedStage ->
-            val resumeAt = if (session.snoozedUntilMillis > now) session.snoozedUntilMillis else now + 5_000L
-            scheduleStage(task, snoozedStage, resumeAt)
+            val recoveredAt = SmartEscalationPolicy.recoveredStageAtMillis(
+                plannedAtMillis = session.snoozedUntilMillis,
+                preservedPendingAtMillis = if (pendingStage == snoozedStage) preservedPendingAt else null,
+                nowMillis = now,
+                fallbackDelayMillis = 5_000L,
+            )
+            scheduleStage(task, snoozedStage, recoveredAt)
             return
         }
 
@@ -66,8 +87,14 @@ class SmartEscalationScheduler(private val context: Context) {
         val planned = session.stageStartedAtMillis + gapMinutes * 60_000L
 
         // If Android/reboot recovery missed the planned point, preserve the full creator-selected
-        // wait instead of squeezing the successor in immediately.
-        val recoveredAt = if (planned > now) planned else now + gapMinutes * 60_000L
+        // wait. If a prior recovery already rebuilt that wait, reuse its exact pending time so
+        // repeated app resumes cannot postpone escalation indefinitely.
+        val recoveredAt = SmartEscalationPolicy.recoveredStageAtMillis(
+            plannedAtMillis = planned,
+            preservedPendingAtMillis = if (pendingStage == next) preservedPendingAt else null,
+            nowMillis = now,
+            fallbackDelayMillis = gapMinutes * 60_000L,
+        )
         scheduleStage(task, next, recoveredAt)
     }
 
