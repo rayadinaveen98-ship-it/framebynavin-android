@@ -157,7 +157,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel()) {
                 )
                 PTab.PLAN -> PPlanScreen(vm.tasks, { openComposer() }, vm::startTask, vm::completeTask)
                 PTab.STUDIO -> PStudioScreen(vm.tasks, { openComposer() }, vm::advanceWorkflow, vm::moveWorkflowBack) { focusTaskId = it }
-                PTab.INSIGHTS -> PInsightsScreen(vm.tasks, vm.ideas, { openComposer() })
+                PTab.INSIGHTS -> V11InsightsScreen(vm.tasks, vm.ideas, { openComposer() })
             }
 
             PBottomNav(
@@ -222,6 +222,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel()) {
                 onPreciseTiming = ::requestPreciseTiming,
                 onFullScreen = ::requestFullScreen,
                 onBattery = ::openBatterySettings,
+                onYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
                 onRunOnboarding = {
                     settingsStore.setOnboardingComplete(false)
                     settings = settingsStore.snapshot()
@@ -901,6 +902,7 @@ private fun PSettingsScreen(
     onPreciseTiming: () -> Unit,
     onFullScreen: () -> Unit,
     onBattery: () -> Unit,
+    onYouTube: () -> Unit,
     onRunOnboarding: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -955,6 +957,29 @@ private fun PSettingsScreen(
                         Text(if (weeklyAutoPlanEnabled) "Recurring projects may be added automatically." else "Nothing is added automatically.", color = MutedText, fontSize = 8.8.sp)
                     }
                     Switch(weeklyAutoPlanEnabled, onWeeklyAutoPlan, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
+            PSettingsHeading("YOUTUBE", "Real channel performance, cached locally after each sync.")
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                onClick = onYouTube,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = CinemaSurface,
+                border = BorderStroke(1.dp, CinemaLine),
+            ) {
+                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(34.dp).background(RecRed.copy(alpha = .10f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.SmartDisplay, null, tint = RecRed, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("YouTube Analytics", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("Connect, sync and link published videos from Insights", color = MutedText, fontSize = 8.7.sp)
+                    }
+                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
                 }
             }
 
