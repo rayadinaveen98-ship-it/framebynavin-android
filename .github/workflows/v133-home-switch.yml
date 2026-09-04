@@ -1,4 +1,4 @@
-name: Switch v1.3.3 Home
+name: Prepare v1.3.3 Home Patch
 
 on:
   push:
@@ -6,51 +6,20 @@ on:
       - "repair/v1.3.2-release-blockers"
     paths:
       - ".github/workflows/v133-home-switch.yml"
+      - "tools/v133_home_switch.py"
   workflow_dispatch:
 
 jobs:
   patch:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: repair/v1.3.2-release-blockers
-          fetch-depth: 0
-      - name: Switch Today to Creator Control Room
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt')
-          s = p.read_text()
-          marker = 'PTab.TODAY -> PTodayScreen('
-          start = s.find(marker)
-          if start < 0:
-              if 'PTab.TODAY -> V133CreatorHome(' in s:
-                  raise SystemExit(0)
-              raise SystemExit('Today screen marker not found; refusing unsafe patch')
-          line_start = s.rfind('\n', 0, start) + 1
-          end_marker = '                PTab.PLAN ->'
-          end = s.find(end_marker, start)
-          if end < 0:
-              raise SystemExit('Plan marker not found; refusing unsafe patch')
-          new = '''                PTab.TODAY -> V133CreatorHome(
-                    tasks = vm.tasks,
-                    onNewProject = { openComposer() },
-                    onIdeas = { overlay = POverlay.IDEAS },
-                    onReminders = { showReminders = true },
-                    onStudio = { tab = PTab.STUDIO },
-                    onStart = vm::startTask,
-                    onAdvance = vm::advanceWorkflow,
-                    onFocus = { focusTaskId = it },
-                )
-'''
-          p.write_text(s[:line_start] + new + s[end:])
-          PY
-          git config user.name "FrameByNavin Build Bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "feat: switch home to creator control room"
-          git push origin HEAD:repair/v1.3.2-release-blockers
+      - name: Prepare patched Home source
+        run: python3 tools/v133_home_switch.py
+      - name: Upload patched source
+        uses: actions/upload-artifact@v4
+        with:
+          name: v133-home-source
+          path: app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
