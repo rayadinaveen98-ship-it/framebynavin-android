@@ -1,0 +1,32 @@
+name: Apply v1.3.3 Home
+
+on:
+  push:
+    branches:
+      - "repair/v1.3.2-release-blockers"
+    paths:
+      - ".github/workflows/v133-apply-home.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/v1.3.2-release-blockers
+          fetch-depth: 0
+      - name: Apply Home switch
+        run: python3 tools/v133_home_switch.py
+      - name: Commit Home switch
+        shell: bash
+        run: |
+          git config user.name "FrameByNavin Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: switch home to creator control room"
+          git push origin HEAD:repair/v1.3.2-release-blockers
