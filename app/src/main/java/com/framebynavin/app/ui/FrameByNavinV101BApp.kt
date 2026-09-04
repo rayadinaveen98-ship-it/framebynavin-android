@@ -169,14 +169,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             )
         } else {
             when (tab) {
-                PTab.TODAY -> V133CreatorHome(
+                PTab.TODAY -> PTodayScreen(
                     tasks = vm.tasks,
-                    onNewProject = { openComposer() },
-                    onIdeas = { overlay = POverlay.IDEAS },
-                    onReminders = { showReminders = true },
-                    onStudio = { tab = PTab.STUDIO },
+                    onAdd = { openComposer() },
                     onStart = vm::startTask,
                     onAdvance = vm::advanceWorkflow,
+                    onViewAllReminders = { showReminders = true },
                     onFocus = { focusTaskId = it },
                 )
                 PTab.PLAN -> V131PlanScreen(
