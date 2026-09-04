@@ -11,6 +11,8 @@ on:
 jobs:
   patch:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,14 +24,17 @@ jobs:
           from pathlib import Path
           p = Path('app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt')
           s = p.read_text()
-          old = '''                PTab.TODAY -> PTodayScreen(
-                    tasks = vm.tasks,
-                    onAdd = { openComposer() },
-                    onStart = vm::startTask,
-                    onAdvance = vm::advanceWorkflow,
-                    onViewAllReminders = { showReminders = true },
-                    onFocus = { focusTaskId = it },
-                )'''
+          marker = 'PTab.TODAY -> PTodayScreen('
+          start = s.find(marker)
+          if start < 0:
+              if 'PTab.TODAY -> V133CreatorHome(' in s:
+                  raise SystemExit(0)
+              raise SystemExit('Today screen marker not found; refusing unsafe patch')
+          line_start = s.rfind('\n', 0, start) + 1
+          end_marker = '                PTab.PLAN ->'
+          end = s.find(end_marker, start)
+          if end < 0:
+              raise SystemExit('Plan marker not found; refusing unsafe patch')
           new = '''                PTab.TODAY -> V133CreatorHome(
                     tasks = vm.tasks,
                     onNewProject = { openComposer() },
@@ -39,13 +44,13 @@ jobs:
                     onStart = vm::startTask,
                     onAdvance = vm::advanceWorkflow,
                     onFocus = { focusTaskId = it },
-                )'''
-          if old not in s:
-              raise SystemExit('Expected Today screen call not found; refusing unsafe patch')
-          p.write_text(s.replace(old, new, 1))
+                )
+'''
+          p.write_text(s[:line_start] + new + s[end:])
           PY
           git config user.name "FrameByNavin Build Bot"
           git config user.email "actions@users.noreply.github.com"
           git add app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          if git diff --cached --quiet; then exit 0; fi
           git commit -m "feat: switch home to creator control room"
           git push origin HEAD:repair/v1.3.2-release-blockers
