@@ -95,6 +95,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
     var showControl by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
+    var showQuickCapture by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -284,6 +285,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 ideas = vm.ideas,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 onNewProject = { showControl = false; openComposer() },
+                onQuickCapture = { showControl = false; showQuickCapture = true },
                 onRelease = { showControl = false; overlay = POverlay.RELEASE },
                 onIdeas = { showControl = false; overlay = POverlay.IDEAS },
                 onWeek = { showControl = false; overlay = POverlay.WEEK },
@@ -303,6 +305,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onNew = { showReminders = false; openComposer() },
             onEdit = { id -> showReminders = false; openComposer(id) },
             onDeleteReminders = vm::cancelReminders,
+        )
+    }
+
+    if (showQuickCapture) {
+        V14QuickCaptureDialog(
+            onDismiss = { showQuickCapture = false },
+            onSave = { idea ->
+                vm.saveIdea(idea)
+                showQuickCapture = false
+            },
         )
     }
 
@@ -530,13 +542,19 @@ private fun PTodayProjectCard(task: CreatorTask) {
 
 @Composable
 private fun PNextMoveCard(task: CreatorTask) {
-    val current = CreatorWorkflowEngine.currentStage(task)
+    val recommendation = CreatorPriorityEngine.recommendation(task)
     val next = CreatorWorkflowEngine.nextStage(task)
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(19.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
-            Text("NEXT MOVE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("NEXT MOVE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                Spacer(Modifier.weight(1f))
+                Text(recommendation.urgencyLabel, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+            }
             Spacer(Modifier.height(5.dp))
-            Text(current.action, color = ProjectorIvory, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text(recommendation.action, color = ProjectorIvory, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(5.dp))
+            Text(recommendation.reason, color = MutedText, fontSize = 9.3.sp, lineHeight = 13.sp)
             next?.let {
                 Spacer(Modifier.height(5.dp))
                 Text("After that · ${it.label}", color = MutedText, fontSize = 9.5.sp)
@@ -813,6 +831,7 @@ private fun PControlCenter(
     ideas: List<CreatorIdea>,
     weeklyAutoPlanEnabled: Boolean,
     onNewProject: () -> Unit,
+    onQuickCapture: () -> Unit,
     onRelease: () -> Unit,
     onIdeas: () -> Unit,
     onWeek: () -> Unit,
@@ -835,6 +854,7 @@ private fun PControlCenter(
             PBigAction("RELEASE DAY", "Move fast", Icons.Outlined.Bolt, RecRed, onRelease, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
+        PControlRow("Quick Capture", "Save an idea to Inbox in seconds", Icons.Outlined.Bolt, onQuickCapture)
         PControlRow("Idea Vault", if (readyIdeas > 0) "$readyIdeas ideas ready to make" else "Capture what you might make later", Icons.Outlined.Lightbulb, onIdeas)
         PControlRow("Weekly Plan", if (weeklyAutoPlanEnabled) "Auto Plan on" else "Auto Plan off", Icons.Outlined.CalendarMonth, onWeek)
         PControlRow("Reminders", "See and edit active reminders", Icons.Outlined.Alarm, onReminders)
@@ -1312,14 +1332,8 @@ private fun PSettingsHeading(title: String, subtitle: String) {
     Text(subtitle, color = MutedText, fontSize = 8.8.sp)
 }
 
-private fun pActiveQueue(tasks: List<CreatorTask>): List<CreatorTask> {
-    val now = System.currentTimeMillis()
-    return tasks.filter { it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING }.sortedWith(
-        compareBy<CreatorTask> { if (it.status == TaskStatus.WORKING) 0 else 1 }
-            .thenBy { if (it.dueAtMillis in 1 until now) 0 else 1 }
-            .thenBy { it.dueAtMillis.takeIf { d -> d > 0 } ?: Long.MAX_VALUE }
-    )
-}
+private fun pActiveQueue(tasks: List<CreatorTask>): List<CreatorTask> =
+    CreatorPriorityEngine.rankActive(tasks)
 
 private fun pDate(millis: Long): LocalDate? = if (millis <= 0L) null else Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
 

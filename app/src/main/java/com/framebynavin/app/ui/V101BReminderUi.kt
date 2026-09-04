@@ -291,6 +291,23 @@ internal fun PProjectComposer(
 
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
                     Spacer(Modifier.height(10.dp))
+                    if (task == null) {
+                        PComposerLabel("START FROM TEMPLATE")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            CreatorProjectTemplates.presets.forEach { preset ->
+                                AssistChip(
+                                    onClick = {
+                                        platform = preset.platform
+                                        contentType = preset.contentType
+                                        priority = preset.priority
+                                        if (notes.isBlank()) notes = preset.suggestedNotes
+                                    },
+                                    label = { Text(preset.label, fontSize = 8.8.sp) },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(18.dp))
+                    }
                     PComposerLabel("PROJECT")
                     OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Project title") }, singleLine = true, shape = RoundedCornerShape(16.dp))
 
