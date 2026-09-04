@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import android.os.SystemClock
+import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -33,6 +34,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -149,22 +151,24 @@ internal fun V131CinematicWelcome() {
 @Composable
 internal fun V131HomeHeroSlideshow() {
     val context = LocalContext.current
-    val resourceIds = remember {
-        (1..10).mapNotNull { index ->
-            val name = "hero_frame_${index.toString().padStart(2, '0')}"
-            context.resources.getIdentifier(name, "drawable", context.packageName).takeIf { it != 0 }
+    val assetImages = remember {
+        (1..10).mapNotNull { frameIndex ->
+            val name = "hero_frame_${frameIndex.toString().padStart(2, '0')}.jpg"
+            runCatching {
+                context.assets.open(name).use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+            }.getOrNull()
         }
     }
     var index by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(resourceIds.size) {
-        if (resourceIds.size > 1) {
+    LaunchedEffect(assetImages.size) {
+        if (assetImages.size > 1) {
             while (true) {
                 delay(4_500L)
-                index = (index + 1) % resourceIds.size
+                index = (index + 1) % assetImages.size
             }
         }
     }
-    val quoteIndex = if (resourceIds.isEmpty()) 0 else index % heroQuotes.size
+    val quoteIndex = if (assetImages.isEmpty()) 0 else index % heroQuotes.size
 
     Surface(
         modifier = Modifier.fillMaxWidth().height(190.dp),
@@ -174,14 +178,14 @@ internal fun V131HomeHeroSlideshow() {
         shadowElevation = 8.dp,
     ) {
         Box(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp))) {
-            if (resourceIds.isNotEmpty()) {
+            if (assetImages.isNotEmpty()) {
                 AnimatedContent(
-                    targetState = index.coerceIn(0, resourceIds.lastIndex),
+                    targetState = index.coerceIn(0, assetImages.lastIndex),
                     transitionSpec = { fadeIn(tween(900)) togetherWith fadeOut(tween(900)) },
                     label = "cinemaHero",
                 ) { visibleIndex ->
                     Image(
-                        painter = painterResource(resourceIds[visibleIndex]),
+                        bitmap = assetImages[visibleIndex],
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
@@ -223,7 +227,7 @@ internal fun V131HomeHeroSlideshow() {
                     modifier = Modifier.fillMaxWidth(.88f),
                 )
             }
-            if (resourceIds.size > 1) {
+            if (assetImages.size > 1) {
                 Row(
                     Modifier.align(Alignment.BottomEnd).padding(15.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
