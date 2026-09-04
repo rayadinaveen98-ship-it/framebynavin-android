@@ -38,9 +38,10 @@ class CreatorCopilotTest {
             "Ee scene lo lighting chala interesting ga undhi.",
             null,
         )
-        assertTrue(prompt.contains("Telugu/English"))
-        assertTrue(prompt.contains("keep the mix natural", ignoreCase = true))
-        assertTrue(prompt.contains("rather than translating everything", ignoreCase = true))
+        val normalized = prompt.replace(Regex("\\s+"), " ")
+        assertTrue(normalized.contains("Telugu/English"))
+        assertTrue(normalized.contains("keep the mix natural", ignoreCase = true))
+        assertTrue(normalized.contains("rather than translating everything", ignoreCase = true))
     }
 
     @Test
