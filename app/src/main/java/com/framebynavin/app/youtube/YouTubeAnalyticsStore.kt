@@ -22,6 +22,8 @@ class YouTubeAnalyticsStore(context: Context) {
     }
 
     fun hasConnection(): Boolean = prefs.getString(KEY_CHANNEL_ID, null).isNullOrBlank().not()
+
+    fun loadAny(): YouTubeAnalyticsSnapshot? = listOf(28, 7, 90).firstNotNullOfOrNull { load(it) }
     fun channelTitle(): String? = prefs.getString(KEY_CHANNEL_TITLE, null)
     fun lastSyncMillis(): Long = prefs.getLong(KEY_LAST_SYNC, 0L)
 

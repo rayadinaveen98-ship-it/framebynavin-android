@@ -282,33 +282,40 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     fun advanceTask(id: String) = advanceWorkflow(id)
 
-    fun advanceWorkflow(id: String) = updateTask(id) { task ->
-        val template = CreatorWorkflowEngine.templateFor(task)
-        val currentIndex = CreatorWorkflowEngine.stageIndex(task)
-        if (currentIndex >= template.stages.lastIndex) {
-            cancelTaskAlerts(task.id)
-            return@updateTask task.copy(
-                status = TaskStatus.DONE,
-                progress = 100,
-                workflowStageIndex = template.stages.lastIndex,
-                reminderEnabled = false,
-                smartEscalationEnabled = false,
-                voiceEnabled = false,
-                reminderMode = ReminderMode.NONE,
-                workingUntilMillis = 0L,
-                autoStageReminder = false,
-            )
+    fun advanceWorkflow(id: String) {
+        var completedParent: CreatorTask? = null
+        updateTask(id) { task ->
+            val template = CreatorWorkflowEngine.templateFor(task)
+            val currentIndex = CreatorWorkflowEngine.stageIndex(task)
+            if (currentIndex >= template.stages.lastIndex) {
+                cancelTaskAlerts(task.id)
+                val completed = task.copy(
+                    status = TaskStatus.DONE,
+                    progress = 100,
+                    workflowStageIndex = template.stages.lastIndex,
+                    reminderEnabled = false,
+                    smartEscalationEnabled = false,
+                    voiceEnabled = false,
+                    reminderMode = ReminderMode.NONE,
+                    workingUntilMillis = 0L,
+                    autoStageReminder = false,
+                    completedAtMillis = task.completedAtMillis.takeIf { it > 0L } ?: System.currentTimeMillis(),
+                )
+                completedParent = completed
+                completed
+            } else {
+                val nextIndex = currentIndex + 1
+                var updated = task.copy(
+                    status = TaskStatus.WORKING,
+                    workflowStageIndex = nextIndex,
+                    progress = CreatorWorkflowEngine.progressForStage(nextIndex, template.stages.size),
+                )
+                updated = applyAutoStageReminder(updated, nextIndex)
+                scheduleTask(updated)
+                updated
+            }
         }
-
-        val nextIndex = currentIndex + 1
-        var updated = task.copy(
-            status = TaskStatus.WORKING,
-            workflowStageIndex = nextIndex,
-            progress = CreatorWorkflowEngine.progressForStage(nextIndex, template.stages.size),
-        )
-        updated = applyAutoStageReminder(updated, nextIndex)
-        scheduleTask(updated)
-        updated
+        completedParent?.let(::ensurePostPublishFollowUps)
     }
 
     fun moveWorkflowBack(id: String) = updateTask(id) { task ->
@@ -326,20 +333,27 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         updated
     }
 
-    fun completeTask(id: String) = updateTask(id) { task ->
-        cancelTaskAlerts(task.id)
-        val template = CreatorWorkflowEngine.templateFor(task)
-        task.copy(
-            status = TaskStatus.DONE,
-            progress = 100,
-            workflowStageIndex = template.stages.lastIndex,
-            reminderEnabled = false,
-            smartEscalationEnabled = false,
-            voiceEnabled = false,
-            reminderMode = ReminderMode.NONE,
-            workingUntilMillis = 0L,
-            autoStageReminder = false,
-        )
+    fun completeTask(id: String) {
+        var completedParent: CreatorTask? = null
+        updateTask(id) { task ->
+            cancelTaskAlerts(task.id)
+            val template = CreatorWorkflowEngine.templateFor(task)
+            val completed = task.copy(
+                status = TaskStatus.DONE,
+                progress = 100,
+                workflowStageIndex = template.stages.lastIndex,
+                reminderEnabled = false,
+                smartEscalationEnabled = false,
+                voiceEnabled = false,
+                reminderMode = ReminderMode.NONE,
+                workingUntilMillis = 0L,
+                autoStageReminder = false,
+                completedAtMillis = task.completedAtMillis.takeIf { it > 0L } ?: System.currentTimeMillis(),
+            )
+            completedParent = completed
+            completed
+        }
+        completedParent?.let(::ensurePostPublishFollowUps)
     }
 
     fun skipTask(id: String) = updateTask(id) { task ->
@@ -674,6 +688,41 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun reconcileReminders() = reconcileSnapshot(tasks.toList())
+
+    private fun ensurePostPublishFollowUps(parent: CreatorTask) {
+        val specs = CreatorPostPublishEngine.specs(parent)
+        if (specs.isEmpty()) return
+        val baseTime = parent.completedAtMillis.takeIf { it > 0L } ?: System.currentTimeMillis()
+        val created = mutableListOf<CreatorTask>()
+        specs.forEach { spec ->
+            val sourceRef = CreatorPostPublishEngine.sourceRef(parent.id, spec.key)
+            if (tasks.any { it.sourceRefId == sourceRef }) return@forEach
+            val due = baseTime + spec.dueOffsetMinutes * 60_000L
+            val template = CreatorWorkflowEngine.templateFor(spec.platform, spec.contentType)
+            created += CreatorTask(
+                id = UUID.randomUUID().toString(),
+                title = spec.title,
+                platform = spec.platform,
+                contentType = spec.contentType,
+                dueLabel = WeeklyScheduleEngine.dueLabel(due),
+                dueAtMillis = due,
+                status = TaskStatus.PLANNED,
+                progress = 0,
+                workflowStageIndex = 0.coerceAtMost(template.stages.lastIndex),
+                reminderEnabled = false,
+                reminderAtMillis = 0L,
+                priority = spec.priority,
+                notes = "Auto follow-up from published project · ${parent.title}",
+                reminderMode = ReminderMode.NONE,
+                origin = CreatorTaskOrigin.MANUAL,
+                sourceRefId = sourceRef,
+            )
+        }
+        if (created.isNotEmpty()) {
+            created.asReversed().forEach { tasks.add(0, it) }
+            persist()
+        }
+    }
 
     private fun removeUnstartedWeeklyProjects() {
         val removed = tasks.filter { it.origin == CreatorTaskOrigin.WEEKLY && it.status == TaskStatus.PLANNED }

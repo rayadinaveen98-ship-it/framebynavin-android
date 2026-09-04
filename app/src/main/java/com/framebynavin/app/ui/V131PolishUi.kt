@@ -168,20 +168,19 @@ internal fun V131HomeHeroSlideshow() {
             index = (index + 1) % resourceIds.size
         }
     }
-    val quoteIndex = index % heroQuotes.size
 
     Surface(
-        modifier = Modifier.fillMaxWidth().height(248.dp),
-        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier.fillMaxWidth().height(206.dp),
+        shape = RoundedCornerShape(20.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine.copy(alpha = .45f)),
-        shadowElevation = 10.dp,
+        border = BorderStroke(1.dp, CinemaLine.copy(alpha = .40f)),
+        shadowElevation = 8.dp,
     ) {
-        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))) {
+        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp))) {
             AnimatedContent(
                 targetState = index.coerceIn(0, resourceIds.lastIndex),
                 transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
-                label = "cinemaHeroNetflix",
+                label = "cinemaHeroImageOnly",
             ) { visibleIndex ->
                 Image(
                     painter = painterResource(resourceIds[visibleIndex]),
@@ -189,93 +188,6 @@ internal fun V131HomeHeroSlideshow() {
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
-            }
-
-            // Netflix-style readable image treatment: image stays untouched; gradients are UI-only.
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            CinemaBlack.copy(alpha = .82f),
-                            CinemaBlack.copy(alpha = .40f),
-                            Color.Transparent,
-                        )
-                    )
-                )
-            )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        listOf(
-                            CinemaBlack.copy(alpha = .08f),
-                            Color.Transparent,
-                            CinemaBlack.copy(alpha = .18f),
-                            CinemaBlack.copy(alpha = .88f),
-                        )
-                    )
-                )
-            )
-
-            Row(
-                Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = 15.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.width(3.dp).height(14.dp).background(RecRed, RoundedCornerShape(4.dp)))
-                Spacer(Modifier.width(7.dp))
-                Text(
-                    "FRAMEBYNAVIN  •  CINEMA WALL",
-                    color = ProjectorIvory,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.1.sp,
-                )
-            }
-
-            Text(
-                "${(index + 1).toString().padStart(2, '0')}  /  ${resourceIds.size.toString().padStart(2, '0')}",
-                modifier = Modifier.align(Alignment.TopEnd).padding(end = 16.dp, top = 15.dp),
-                color = ProjectorIvory.copy(alpha = .72f),
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
-            )
-
-            Column(
-                Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 70.dp, bottom = 17.dp)
-            ) {
-                Text(
-                    "FEATURED FRAME",
-                    color = RecRed,
-                    fontSize = 7.5.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.2.sp,
-                )
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    "“${heroQuotes[quoteIndex]}”",
-                    color = ProjectorIvory,
-                    fontSize = 15.sp,
-                    lineHeight = 19.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    fontStyle = FontStyle.Italic,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Row(
-                Modifier.align(Alignment.BottomEnd).padding(end = 15.dp, bottom = 17.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                repeat(resourceIds.size) { dot ->
-                    Box(
-                        Modifier.width(if (dot == index) 16.dp else 4.dp).height(3.dp)
-                            .background(
-                                if (dot == index) RecRed else ProjectorIvory.copy(alpha = .38f),
-                                RoundedCornerShape(10.dp),
-                            )
-                    )
-                }
             }
         }
     }

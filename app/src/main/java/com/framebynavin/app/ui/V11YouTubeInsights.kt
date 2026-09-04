@@ -54,23 +54,24 @@ internal fun V11InsightsScreen(
     val scope = rememberCoroutineScope()
 
     var windowDays by rememberSaveable { mutableIntStateOf(28) }
-    var snapshot by remember(windowDays) { mutableStateOf(store.load(windowDays)) }
+    var snapshot by remember { mutableStateOf(store.load(windowDays) ?: store.loadAny()) }
+    var pendingSyncDays by rememberSaveable { mutableIntStateOf(windowDays) }
     var syncing by rememberSaveable { mutableStateOf(false) }
     var authError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedVideo by remember { mutableStateOf<YouTubeVideoSnapshot?>(null) }
     var links by remember { mutableStateOf(store.links()) }
 
     LaunchedEffect(windowDays) {
-        snapshot = store.load(windowDays)
+        store.load(windowDays)?.let { snapshot = it }
         authError = null
     }
 
-    fun syncWithToken(token: String) {
+    fun syncWithToken(token: String, days: Int = windowDays) {
         scope.launch {
             syncing = true
             authError = null
             runCatching {
-                withContext(Dispatchers.IO) { api.sync(token, windowDays) }
+                withContext(Dispatchers.IO) { api.sync(token, days) }
             }.onSuccess { fresh ->
                 store.save(fresh)
                 milestoneStore.captureFrom(fresh, store.links())
@@ -94,17 +95,18 @@ internal fun V11InsightsScreen(
             syncing = false
             authError = "Google did not return a YouTube access token."
         } else {
-            syncWithToken(token)
+            syncWithToken(token, pendingSyncDays)
         }
     }
 
-    fun authorize(selectAccount: Boolean = false) {
+    fun authorize(selectAccount: Boolean = false, days: Int = windowDays) {
         val client = authClient ?: run {
             authError = "Google authorization is unavailable on this device."
             return
         }
         syncing = true
         authError = null
+        pendingSyncDays = days
         client.authorize(YouTubeAuthorization.request(selectAccount))
             .addOnSuccessListener { result ->
                 if (result.hasResolution()) {
@@ -121,7 +123,7 @@ internal fun V11InsightsScreen(
                         syncing = false
                         authError = "Google authorization completed without a YouTube access token."
                     } else {
-                        syncWithToken(token)
+                        syncWithToken(token, pendingSyncDays)
                     }
                 }
             }
@@ -184,9 +186,15 @@ internal fun V11InsightsScreen(
                     data = data,
                     syncing = syncing,
                     windowDays = windowDays,
-                    onWindow = { windowDays = it },
-                    onSync = { authorize(false) },
-                    onSwitchAccount = { authorize(true) },
+                    onWindow = { days ->
+                        if (days != windowDays) {
+                            windowDays = days
+                            val cached = store.load(days)
+                            if (cached != null) snapshot = cached else authorize(false, days)
+                        }
+                    },
+                    onSync = { authorize(false, windowDays) },
+                    onSwitchAccount = { authorize(true, windowDays) },
                     onDisconnect = ::disconnect,
                 )
 
@@ -205,6 +213,8 @@ internal fun V11InsightsScreen(
                 YTTopVideos(data, tasks, links) { selectedVideo = it }
                 Spacer(Modifier.height(18.dp))
                 YTFormatSignal(data, tasks, links)
+                Spacer(Modifier.height(18.dp))
+                V16CreatorIntelligenceCard(tasks, ideas, data, links)
                 Spacer(Modifier.height(18.dp))
                 YTRecentVideos(data, tasks, links) { selectedVideo = it }
                 Spacer(Modifier.height(18.dp))
