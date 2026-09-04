@@ -74,7 +74,7 @@ import java.util.Calendar
 import java.util.Locale
 
 private enum class PTab { TODAY, PLAN, STUDIO, INSIGHTS }
-private enum class POverlay { NONE, WEEK, RELEASE, IDEAS, SETTINGS }
+private enum class POverlay { NONE, WEEK, RELEASE, IDEAS, DAILY_BRIEF, CALENDAR, SETTINGS }
 
 private data class PPermissions(
     val notifications: Boolean,
@@ -250,6 +250,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onArchive = vm::archiveIdea,
                 onConvert = vm::convertIdeaToProject,
             )
+            POverlay.DAILY_BRIEF -> V15DailyBriefScreen(
+                tasks = vm.tasks,
+                weeklySlots = vm.weeklySlots,
+                onClose = { overlay = POverlay.NONE },
+            )
+            POverlay.CALENDAR -> V15ContentCalendarScreen(
+                tasks = vm.tasks,
+                weeklySlots = vm.weeklySlots,
+                onClose = { overlay = POverlay.NONE },
+            )
             POverlay.SETTINGS -> PSettingsScreen(
                 settings = settings,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
@@ -259,6 +269,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onAlarmTimeout = { settingsStore.setDefaultAlarmTimeoutSeconds(it); settings = settingsStore.snapshot() },
                 onSnooze = { settingsStore.setSnoozeMinutes(it); settings = settingsStore.snapshot() },
                 onWeeklyAutoPlan = vm::setWeeklyAutoPlanEnabled,
+                onContextNudges = {
+                    settingsStore.setContextNudgesEnabled(it)
+                    settings = settingsStore.snapshot()
+                },
                 onNotifications = ::requestNotifications,
                 onPreciseTiming = ::requestPreciseTiming,
                 onFullScreen = ::requestFullScreen,
@@ -286,6 +300,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 onNewProject = { showControl = false; openComposer() },
                 onQuickCapture = { showControl = false; showQuickCapture = true },
+                onDailyBrief = { showControl = false; overlay = POverlay.DAILY_BRIEF },
+                onCalendar = { showControl = false; overlay = POverlay.CALENDAR },
                 onRelease = { showControl = false; overlay = POverlay.RELEASE },
                 onIdeas = { showControl = false; overlay = POverlay.IDEAS },
                 onWeek = { showControl = false; overlay = POverlay.WEEK },
@@ -832,6 +848,8 @@ private fun PControlCenter(
     weeklyAutoPlanEnabled: Boolean,
     onNewProject: () -> Unit,
     onQuickCapture: () -> Unit,
+    onDailyBrief: () -> Unit,
+    onCalendar: () -> Unit,
     onRelease: () -> Unit,
     onIdeas: () -> Unit,
     onWeek: () -> Unit,
@@ -855,6 +873,8 @@ private fun PControlCenter(
         }
         Spacer(Modifier.height(12.dp))
         PControlRow("Quick Capture", "Save an idea to Inbox in seconds", Icons.Outlined.Bolt, onQuickCapture)
+        PControlRow("Daily Brief", "Focus, risk and the next 7 days", Icons.Outlined.Today, onDailyBrief)
+        PControlRow("Content Calendar", "Projects + weekly plan for 14 days", Icons.Outlined.CalendarMonth, onCalendar)
         PControlRow("Idea Vault", if (readyIdeas > 0) "$readyIdeas ideas ready to make" else "Capture what you might make later", Icons.Outlined.Lightbulb, onIdeas)
         PControlRow("Weekly Plan", if (weeklyAutoPlanEnabled) "Auto Plan on" else "Auto Plan off", Icons.Outlined.CalendarMonth, onWeek)
         PControlRow("Reminders", "See and edit active reminders", Icons.Outlined.Alarm, onReminders)
@@ -969,6 +989,7 @@ private fun PSettingsScreen(
     onAlarmTimeout: (Int) -> Unit,
     onSnooze: (Int) -> Unit,
     onWeeklyAutoPlan: (Boolean) -> Unit,
+    onContextNudges: (Boolean) -> Unit,
     onNotifications: () -> Unit,
     onPreciseTiming: () -> Unit,
     onFullScreen: () -> Unit,
@@ -1001,6 +1022,32 @@ private fun PSettingsScreen(
             Text("Alarm auto-stop", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
                 listOf(30 to "30s", 60 to "1m", 120 to "2m", 300 to "5m").forEach { (value, label) -> FilterChip(settings.defaultAlarmTimeoutSeconds == value, { onAlarmTimeout(value) }, { Text(label, fontSize = 9.sp) }) }
+            }
+
+            Spacer(Modifier.height(22.dp))
+            PSettingsHeading("CONTEXT NUDGES", "Optional gentle alerts when active creator work is at risk.")
+            Spacer(Modifier.height(8.dp))
+            Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Creator context nudges", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            when {
+                                !permissions.notifications -> "Enable notification permission above first."
+                                settings.contextNudgesEnabled -> "On · checks periodically for overdue or at-risk active work."
+                                else -> "Off · exact reminders still work normally."
+                            },
+                            color = MutedText,
+                            fontSize = 8.8.sp,
+                        )
+                    }
+                    Switch(
+                        checked = settings.contextNudgesEnabled,
+                        onCheckedChange = onContextNudges,
+                        enabled = permissions.notifications,
+                        colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                    )
+                }
             }
 
             Spacer(Modifier.height(22.dp))
