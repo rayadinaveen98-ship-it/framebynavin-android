@@ -10,31 +10,113 @@ import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
 
+/**
+ * Smart V2 schedules one stage at a time. A stage schedules only its immediate successor;
+ * any creator acknowledgement cancels that successor. This removes the old percentage-based
+ * compression and prevents an entire chain from being queued into a tiny time window.
+ */
 class SmartEscalationScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
     private val ledger = AlarmLedger(context)
+    private val configStore = SmartEscalationConfigStore(context)
+    private val sessions = SmartSessionStore(context)
 
     enum class Stage { SOFT, VOICE, ALARM, CRITICAL }
 
     fun schedule(task: CreatorTask) {
         cancel(task.id)
-        if ((!task.smartEscalationEnabled && task.reminderMode != ReminderMode.SMART) || !task.reminderEnabled) return
+        if (!isSmartEnabled(task)) return
         val now = System.currentTimeMillis()
         if (task.reminderAtMillis <= now) return
 
-        buildPlan(task, now).forEach { item ->
-            if (item.atMillis > now) scheduleStage(task, item.stage, item.atMillis)
+        // New creator-made invalid Smart configurations are blocked in the composer.
+        // Legacy/generated invalid configs degrade safely to a single gentle stage instead
+        // of compressing Voice/Alarm into seconds.
+        scheduleStage(task, Stage.SOFT, task.reminderAtMillis)
+    }
+
+    /** Rebuild the one pending next stage after reboot/time/package recovery. */
+    fun recover(task: CreatorTask) {
+        cancelPending(task.id, clearSession = false)
+        if (!isSmartEnabled(task)) {
+            sessions.clear(task.id)
+            return
         }
+        val now = System.currentTimeMillis()
+        val session = sessions.current(task.id)
+        if (session == null) {
+            if (task.reminderAtMillis > now) scheduleStage(task, Stage.SOFT, task.reminderAtMillis)
+            return
+        }
+
+        val config = configStore.get(task)
+        if (!SmartEscalationPolicy.isWindowValid(task.priority, task.reminderAtMillis, task.dueAtMillis, config) && task.priority != TaskPriority.NORMAL) {
+            // A pre-V2 invalid reminder already delivered its current stage; do not escalate it.
+            return
+        }
+        val next = SmartEscalationPolicy.nextStage(task.priority, session.stage) ?: return
+        val gapMinutes = SmartEscalationPolicy.gapAfterMinutes(task.priority, session.stage, config)
+        val planned = session.stageStartedAtMillis + gapMinutes * 60_000L
+        val recoveredAt = if (planned > now) planned else now + 5_000L
+        scheduleStage(task, next, recoveredAt)
+    }
+
+    /** Called immediately after a stage fires. The pending successor is cancelled by any user response. */
+    fun scheduleNextIfUnanswered(task: CreatorTask, current: Stage, stageStartedAtMillis: Long = System.currentTimeMillis()) {
+        if (!isSmartEnabled(task)) return
+        if (!sessions.isCurrent(task.id, current)) return
+
+        val config = configStore.get(task)
+        if (!SmartEscalationPolicy.isWindowValid(task.priority, task.reminderAtMillis, task.dueAtMillis, config) && task.priority != TaskPriority.NORMAL) {
+            return
+        }
+        val next = SmartEscalationPolicy.nextStage(task.priority, current) ?: return
+        val gap = SmartEscalationPolicy.gapAfterMinutes(task.priority, current, config)
+        scheduleStage(task, next, stageStartedAtMillis + gap * 60_000L)
+    }
+
+    /** Snooze repeats the stage the creator actually reached; it never restarts the chain at SOFT. */
+    fun snoozeStage(task: CreatorTask, stage: Stage, resumeAtMillis: Long) {
+        cancelPending(task.id, clearSession = false)
+        if (!isSmartEnabled(task) || resumeAtMillis <= System.currentTimeMillis()) return
+        scheduleStage(task, stage, resumeAtMillis)
+    }
+
+    fun activeStage(taskId: String): Stage? = sessions.current(taskId)?.stage
+
+    fun markStageActive(taskId: String, stage: Stage, atMillis: Long = System.currentTimeMillis()) {
+        sessions.markStage(taskId, stage, atMillis)
+    }
+
+    fun finishSession(taskId: String) {
+        cancelPending(taskId, clearSession = true)
     }
 
     fun cancel(taskId: String) {
+        cancelPending(taskId, clearSession = true)
+    }
+
+    fun isWindowValid(task: CreatorTask): Boolean = SmartEscalationPolicy.isWindowValid(
+        task.priority,
+        task.reminderAtMillis,
+        task.dueAtMillis,
+        configStore.get(task),
+    )
+
+    private fun isSmartEnabled(task: CreatorTask): Boolean =
+        (task.smartEscalationEnabled || task.reminderMode == ReminderMode.SMART) && task.reminderEnabled
+
+    private fun cancelPending(taskId: String, clearSession: Boolean) {
         Stage.entries.forEach { stage ->
             existingPendingIntent(taskId, stage)?.let { alarmManager.cancel(it) }
             ledger.clear(ledgerKey(taskId, stage))
         }
+        if (clearSession) sessions.clear(taskId)
     }
 
     private fun scheduleStage(task: CreatorTask, stage: Stage, atMillis: Long) {
+        val now = System.currentTimeMillis()
+        if (atMillis <= now) return
         val pendingIntent = stagePendingIntent(task, stage, atMillis)
         val key = ledgerKey(task.id, stage)
 
@@ -59,52 +141,6 @@ class SmartEscalationScheduler(private val context: Context) {
         }.onFailure {
             ledger.clear(key)
         }
-    }
-
-    private fun buildPlan(task: CreatorTask, now: Long): List<PlanItem> {
-        val target = task.reminderAtMillis
-        val remaining = (target - now).coerceAtLeast(1L)
-        val effectivePriority = when {
-            task.snoozeCount >= 2 && task.priority == TaskPriority.NORMAL -> TaskPriority.IMPORTANT
-            task.snoozeCount >= 2 && task.priority == TaskPriority.IMPORTANT -> TaskPriority.CRITICAL
-            else -> task.priority
-        }
-
-        val raw = when (effectivePriority) {
-            TaskPriority.NORMAL -> listOf(PlanItem(Stage.SOFT, target))
-            TaskPriority.IMPORTANT -> if (remaining >= 30 * 60_000L) {
-                listOf(
-                    PlanItem(Stage.SOFT, target - 20 * 60_000L),
-                    PlanItem(Stage.VOICE, target - 10 * 60_000L),
-                    PlanItem(Stage.ALARM, target),
-                )
-            } else {
-                listOf(
-                    PlanItem(Stage.SOFT, now + remaining * 20 / 100),
-                    PlanItem(Stage.VOICE, now + remaining * 55 / 100),
-                    PlanItem(Stage.ALARM, target),
-                )
-            }
-            TaskPriority.CRITICAL -> if (remaining >= 45 * 60_000L) {
-                listOf(
-                    PlanItem(Stage.SOFT, target - 30 * 60_000L),
-                    PlanItem(Stage.VOICE, target - 15 * 60_000L),
-                    PlanItem(Stage.ALARM, target - 5 * 60_000L),
-                    PlanItem(Stage.CRITICAL, target),
-                )
-            } else {
-                listOf(
-                    PlanItem(Stage.SOFT, now + remaining * 15 / 100),
-                    PlanItem(Stage.VOICE, now + remaining * 40 / 100),
-                    PlanItem(Stage.ALARM, now + remaining * 70 / 100),
-                    PlanItem(Stage.CRITICAL, target),
-                )
-            }
-        }
-
-        return raw
-            .filter { task.workingUntilMillis <= now || it.atMillis > task.workingUntilMillis }
-            .distinctBy { it.stage }
     }
 
     private fun stagePendingIntent(task: CreatorTask, stage: Stage, atMillis: Long): PendingIntent {
@@ -137,16 +173,14 @@ class SmartEscalationScheduler(private val context: Context) {
         )
     }
 
-    private fun existingPendingIntent(taskId: String, stage: Stage): PendingIntent? =
-        PendingIntent.getBroadcast(
-            context,
-            requestCode(taskId, stage),
-            Intent(context, EscalationReceiver::class.java),
-            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
-        )
+    private fun existingPendingIntent(taskId: String, stage: Stage): PendingIntent? = PendingIntent.getBroadcast(
+        context,
+        requestCode(taskId, stage),
+        Intent(context, EscalationReceiver::class.java),
+        PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+    )
 
     private fun requestCode(taskId: String, stage: Stage): Int = ("$taskId:${stage.name}").hashCode()
     private fun ledgerKey(taskId: String, stage: Stage): String = "$taskId#${stage.name}"
     private fun canScheduleExact(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
-    private data class PlanItem(val stage: Stage, val atMillis: Long)
 }
