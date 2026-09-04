@@ -55,27 +55,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             store.tasksFlow.collectLatest { saved ->
-                if (saved.isEmpty() && tasks.isEmpty()) {
-                    val starterTemplate = CreatorWorkflowEngine.templateFor("Instagram", "Reel")
-                    val starterStage = CreatorWorkflowEngine.stageIndexFromProgress(72, starterTemplate.stages.size)
-                    val starter = CreatorTask(
-                        id = "starter-frame-breakdown",
-                        title = "Frame Breakdown",
-                        platform = "Instagram",
-                        contentType = "Reel",
-                        dueLabel = "Today · 7:00 PM",
-                        status = TaskStatus.WORKING,
-                        progress = CreatorWorkflowEngine.progressForStage(starterStage, starterTemplate.stages.size),
-                        workflowStageIndex = starterStage,
-                        reminderMode = ReminderMode.NONE,
-                    )
-                    tasks += starter
-                    store.save(tasks.toList())
-                } else {
-                    tasks.clear()
-                    tasks.addAll(saved)
-                    reconcileSnapshot(saved)
-                }
+                val cleaned = saved.filterNot { it.id == "starter-frame-breakdown" }
+                tasks.clear()
+                tasks.addAll(cleaned)
+                reconcileSnapshot(cleaned)
+                if (cleaned.size != saved.size) store.save(cleaned)
                 tasksLoaded = true
                 if (weeklyLoaded) {
                     if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
@@ -398,6 +382,82 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         scheduleTask(updated)
         updated
     }
+
+    /** Remove alert configuration only. Project/task data remains intact. */
+    fun cancelReminders(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        ids.forEach(::cancelTaskAlerts)
+        var changed = false
+        tasks.indices.forEach { index ->
+            val task = tasks[index]
+            if (task.id in ids && task.reminderEnabled) {
+                tasks[index] = task.copy(
+                    reminderEnabled = false,
+                    reminderAtMillis = 0L,
+                    smartEscalationEnabled = false,
+                    voiceEnabled = false,
+                    snoozeCount = 0,
+                    workingUntilMillis = 0L,
+                    reminderMode = ReminderMode.NONE,
+                    autoStageReminder = false,
+                )
+                changed = true
+            }
+        }
+        if (changed) persist()
+    }
+
+    fun archiveTask(id: String) = updateTask(id) { task ->
+        if (task.status != TaskStatus.DONE) task
+        else task.copy(archivedAtMillis = System.currentTimeMillis())
+    }
+
+    fun unarchiveTask(id: String) = updateTask(id) { task ->
+        task.copy(archivedAtMillis = 0L)
+    }
+
+    /**
+     * Manual/release/idea projects are hard-deleted. A weekly occurrence is retained as a hidden
+     * tombstone (SKIPPED + archivedAtMillis=-1) so the weekly engine cannot immediately recreate
+     * the same occurrence after the creator deliberately deletes it.
+     */
+    fun deleteTasks(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        ids.forEach(::cancelTaskAlerts)
+        val now = System.currentTimeMillis()
+        val hardDelete = mutableSetOf<String>()
+        tasks.indices.forEach { index ->
+            val task = tasks[index]
+            if (task.id !in ids) return@forEach
+            if (task.origin == CreatorTaskOrigin.WEEKLY && task.scheduleOccurrenceKey.isNotBlank()) {
+                tasks[index] = task.copy(
+                    status = TaskStatus.SKIPPED,
+                    reminderEnabled = false,
+                    reminderAtMillis = 0L,
+                    smartEscalationEnabled = false,
+                    voiceEnabled = false,
+                    reminderMode = ReminderMode.NONE,
+                    workingUntilMillis = 0L,
+                    autoStageReminder = false,
+                    archivedAtMillis = -1L,
+                )
+            } else {
+                hardDelete += task.id
+            }
+        }
+        if (hardDelete.isNotEmpty()) tasks.removeAll { it.id in hardDelete }
+        var ideasChanged = false
+        ideas.indices.forEach { index ->
+            if (ideas[index].projectTaskId in ids) {
+                ideas[index] = ideas[index].copy(projectTaskId = "", updatedAtMillis = now)
+                ideasChanged = true
+            }
+        }
+        persist()
+        if (ideasChanged) persistIdeas()
+    }
+
+    fun deleteTask(id: String) = deleteTasks(setOf(id))
 
     fun saveIdea(idea: CreatorIdea): String? {
         if (idea.title.isBlank()) return null
