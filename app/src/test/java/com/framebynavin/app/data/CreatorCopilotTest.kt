@@ -1,6 +1,5 @@
 package com.framebynavin.app.data
 
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -41,7 +40,7 @@ class CreatorCopilotTest {
         )
         assertTrue(prompt.contains("Telugu/English"))
         assertTrue(prompt.contains("keep the mix natural", ignoreCase = true))
-        assertFalse(prompt.contains("translate everything", ignoreCase = true))
+        assertTrue(prompt.contains("rather than translating everything", ignoreCase = true))
     }
 
     @Test
