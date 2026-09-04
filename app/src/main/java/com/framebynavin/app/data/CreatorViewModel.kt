@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.framebynavin.app.reminders.ReminderConstants
+import com.framebynavin.app.reminders.ReminderRecoveryEngine
 import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.SmartEscalationPolicy
@@ -801,29 +802,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    /** Reconciliation is recovery, not a new schedule. Never erase an active Smart session here. */
+    /** Reconciliation is recovery, not a new schedule. Boot, WorkManager and app resume share one engine. */
     private fun reconcileSnapshot(snapshot: List<CreatorTask>) {
         val now = System.currentTimeMillis()
         snapshot.forEach { task ->
-            val active = task.reminderEnabled &&
-                task.reminderMode != ReminderMode.NONE &&
-                task.status != TaskStatus.DONE &&
-                task.status != TaskStatus.SKIPPED
-
-            if (!active) {
-                cancelTaskAlerts(task.id)
-                return@forEach
-            }
-
-            if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) {
-                scheduler.cancel(task.id)
-                smartScheduler.recover(task)
-            } else if (task.reminderAtMillis > now) {
-                smartScheduler.cancel(task.id)
-                scheduler.schedule(task)
-            } else {
-                cancelTaskAlerts(task.id)
-            }
+            ReminderRecoveryEngine.reconcileTask(getApplication<Application>(), task, now)
         }
     }
 
