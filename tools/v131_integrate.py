@@ -235,10 +235,9 @@ patch(
 '''
 )
 
-# 5) Version bump and CI artifact label.
+# 5) Version bump. CI artifact label is updated separately so this app-only workflow never needs
+# GitHub workflow-write permission.
 gradle = "app/build.gradle.kts"
 patch(gradle, '        versionCode = 21\n        versionName = "1.3.0-cloud-sync"\n', '        versionCode = 22\n        versionName = "1.3.1-cinematic-management"\n')
-workflow = ".github/workflows/android-apk.yml"
-patch(workflow, '          name: FrameByNavin-v1.3.0-cloud-sync\n', '          name: FrameByNavin-v1.3.1-cinematic-management\n')
 
 print("v1.3.1 integration complete")
