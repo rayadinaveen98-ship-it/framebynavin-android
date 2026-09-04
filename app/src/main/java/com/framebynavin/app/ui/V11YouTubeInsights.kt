@@ -48,6 +48,7 @@ internal fun V11InsightsScreen(
     val context = LocalContext.current
     val activity = context as? ComponentActivity
     val store = remember { YouTubeAnalyticsStore(context.applicationContext) }
+    val milestoneStore = remember { YouTubeMilestoneStore(context.applicationContext) }
     val api = remember { YouTubeApiClient() }
     val authClient = remember(activity) { activity?.let { Identity.getAuthorizationClient(it) } }
     val scope = rememberCoroutineScope()
@@ -72,6 +73,7 @@ internal fun V11InsightsScreen(
                 withContext(Dispatchers.IO) { api.sync(token, windowDays) }
             }.onSuccess { fresh ->
                 store.save(fresh)
+                milestoneStore.captureFrom(fresh, store.links())
                 snapshot = fresh
             }.onFailure { error ->
                 authError = ytFriendlyError(error)
