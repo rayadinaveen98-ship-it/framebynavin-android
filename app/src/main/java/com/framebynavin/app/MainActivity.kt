@@ -10,7 +10,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.cloud.CloudSyncScheduler
+import com.framebynavin.app.reminders.CreatorAutoPlanWorker
 import com.framebynavin.app.reminders.CreatorContextNudgeWorker
+import com.framebynavin.app.reminders.CreatorRoutineWorker
 import com.framebynavin.app.reminders.MissedReminderRecovery
 import com.framebynavin.app.reminders.ReminderHealthScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
@@ -29,6 +31,8 @@ class MainActivity : ComponentActivity() {
         ReminderNotifications.ensureChannel(this)
         ReminderHealthScheduler.ensurePeriodic(this)
         CreatorContextNudgeWorker.ensurePeriodic(this)
+        CreatorAutoPlanWorker.ensurePeriodic(this)
+        CreatorRoutineWorker.ensurePeriodic(this)
         CloudSyncScheduler.ensurePeriodic(this)
         CloudSyncScheduler.enqueueNow(this)
         externalLaunch = widgetLaunch(intent)
@@ -62,6 +66,11 @@ class MainActivity : ComponentActivity() {
             CreatorWidgetContract.ACTION_OPEN_STUDIO,
             CreatorWidgetContract.ACTION_NEW_PROJECT,
             CreatorWidgetContract.ACTION_RELEASE_DAY,
+            CreatorWidgetContract.ACTION_DAILY_BRIEF,
+            CreatorWidgetContract.ACTION_CONTENT_CALENDAR,
+            CreatorWidgetContract.ACTION_IDEA_VAULT,
+            CreatorWidgetContract.ACTION_OPEN_INSIGHTS,
+            CreatorWidgetContract.ACTION_AUTOMATION_CENTER,
         )
         if (action !in supported) return null
         return CreatorWidgetLaunch(
