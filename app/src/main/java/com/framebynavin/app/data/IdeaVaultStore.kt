@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
@@ -19,9 +20,21 @@ class IdeaVaultStore(private val context: Context) {
         runCatching { decode(raw) }.getOrDefault(emptyList())
     }
 
+    suspend fun load(): List<CreatorIdea> = ideasFlow.first()
+
     suspend fun save(ideas: List<CreatorIdea>) {
         context.ideaVaultDataStore.edit { prefs -> prefs[ideasKey] = encode(ideas) }
     }
+
+    suspend fun exportJson(): String = encode(load())
+
+    suspend fun importJson(raw: String): List<CreatorIdea> {
+        val decoded = decode(raw)
+        save(decoded)
+        return decoded
+    }
+
+    fun validateJson(raw: String): Int = decode(raw).size
 
     private fun encode(ideas: List<CreatorIdea>): String {
         val array = JSONArray()
@@ -51,10 +64,14 @@ class IdeaVaultStore(private val context: Context) {
         return buildList {
             for (i in 0 until array.length()) {
                 val item = array.getJSONObject(i)
+                val id = item.optString("id").trim()
+                val title = item.optString("title").trim()
+                require(id.isNotBlank()) { "Idea $i has no id" }
+                require(title.isNotBlank()) { "Idea $i has no title" }
                 add(
                     CreatorIdea(
-                        id = item.getString("id"),
-                        title = item.optString("title", "Untitled idea"),
+                        id = id,
+                        title = title,
                         topic = item.optString("topic", ""),
                         category = runCatching {
                             IdeaCategory.valueOf(item.optString("category", IdeaCategory.CINEMATIC_ANALYSIS.name))
