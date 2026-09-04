@@ -4,7 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.LocalActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -13,7 +13,7 @@ import com.framebynavin.app.data.CreatorViewModel
 /** V0.4 reliability wrapper: re-arms valid future reminders whenever the app resumes. */
 @Composable
 fun FrameByNavinV04App(vm: CreatorViewModel = viewModel()) {
-    val activity = LocalContext.current as? ComponentActivity
+    val activity = LocalActivity.current as? ComponentActivity
 
     LaunchedEffect(Unit) {
         vm.reconcileReminders()
