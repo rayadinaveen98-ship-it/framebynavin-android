@@ -62,18 +62,21 @@ class EscalationReceiver : BroadcastReceiver() {
             }
 
             SmartEscalationScheduler.Stage.VOICE -> {
+                ReminderSurfaceRegistry.closeAll()
                 AlarmRingingService.stop(appContext)
                 ReminderNotifications.cancel(appContext, taskId)
                 VoiceReminderService.start(appContext, task)
             }
 
             SmartEscalationScheduler.Stage.ALARM -> {
+                ReminderSurfaceRegistry.closeAll()
                 VoiceReminderService.stop(appContext)
                 ReminderNotifications.cancel(appContext, taskId)
                 AlarmRingingService.start(appContext, task.copy(voiceEnabled = false), stage)
             }
 
             SmartEscalationScheduler.Stage.CRITICAL -> {
+                ReminderSurfaceRegistry.closeAll()
                 VoiceReminderService.stop(appContext)
                 AlarmRingingService.stop(appContext)
                 ReminderNotifications.cancel(appContext, taskId)
