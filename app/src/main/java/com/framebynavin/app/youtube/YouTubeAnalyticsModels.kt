@@ -35,6 +35,20 @@ data class YouTubeTrendPoint(
     val netSubscribers: Long get() = subscribersGained - subscribersLost
 }
 
+data class YouTubePeriodSnapshot(
+    val startDate: String,
+    val endDate: String,
+    val views: Long,
+    val watchMinutes: Long,
+    val averageViewDurationSeconds: Long,
+    val subscribersGained: Long,
+    val subscribersLost: Long,
+    val likes: Long,
+    val comments: Long,
+) {
+    val netSubscribers: Long get() = subscribersGained - subscribersLost
+}
+
 data class YouTubeAnalyticsSnapshot(
     val channel: YouTubeChannelSnapshot,
     val windowDays: Int,
@@ -51,6 +65,7 @@ data class YouTubeAnalyticsSnapshot(
     val recentVideos: List<YouTubeVideoSnapshot>,
     val trend: List<YouTubeTrendPoint>,
     val fetchedAtMillis: Long,
+    val previousPeriod: YouTubePeriodSnapshot? = null,
 ) {
     val netSubscribers: Long get() = subscribersGained - subscribersLost
 }
