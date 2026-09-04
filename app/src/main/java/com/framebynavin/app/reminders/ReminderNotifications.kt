@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.framebynavin.app.MainActivity
+import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.TaskPriority
 import java.util.Locale
@@ -35,6 +36,7 @@ object ReminderNotifications {
     ) {
         ensureChannel(context)
         val manager = context.getSystemService(NotificationManager::class.java)
+        val snoozeMinutes = CreatorOsSettingsStore(context.applicationContext).snapshot().snoozeMinutes
         val builder = NotificationCompat.Builder(context, ReminderConstants.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(task.title)
@@ -52,7 +54,7 @@ object ReminderNotifications {
             .setAutoCancel(true)
             .setContentIntent(openAppIntent(context, task.id))
             .addAction(0, "STARTED", actionIntent(context, task.id, ReminderConstants.ACTION_STARTED, 1))
-            .addAction(0, "SNOOZE 10m", actionIntent(context, task.id, ReminderConstants.ACTION_SNOOZE, 2))
+            .addAction(0, "SNOOZE ${snoozeMinutes}m", actionIntent(context, task.id, ReminderConstants.ACTION_SNOOZE, 2))
             .addAction(0, "DONE", actionIntent(context, task.id, ReminderConstants.ACTION_DONE, 3))
 
         when {
