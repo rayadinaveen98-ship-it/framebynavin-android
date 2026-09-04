@@ -72,6 +72,7 @@ class YouTubeAnalyticsStore(context: Context) {
         .put("recentVideos", JSONArray().apply { s.recentVideos.forEach { put(videoToJson(it)) } })
         .put("trend", JSONArray().apply { s.trend.forEach { put(trendToJson(it)) } })
         .put("fetchedAtMillis", s.fetchedAtMillis)
+        .apply { s.previousPeriod?.let { put("previousPeriod", periodToJson(it)) } }
 
     private fun snapshotFromJson(o: JSONObject): YouTubeAnalyticsSnapshot = YouTubeAnalyticsSnapshot(
         channel = channelFromJson(o.getJSONObject("channel")),
@@ -89,6 +90,30 @@ class YouTubeAnalyticsStore(context: Context) {
         recentVideos = jsonArrayToList(o.optJSONArray("recentVideos")) { videoFromJson(it) },
         trend = jsonArrayToList(o.optJSONArray("trend")) { trendFromJson(it) },
         fetchedAtMillis = o.optLong("fetchedAtMillis"),
+        previousPeriod = o.optJSONObject("previousPeriod")?.let { periodFromJson(it) },
+    )
+
+    private fun periodToJson(p: YouTubePeriodSnapshot) = JSONObject()
+        .put("startDate", p.startDate)
+        .put("endDate", p.endDate)
+        .put("views", p.views)
+        .put("watchMinutes", p.watchMinutes)
+        .put("averageViewDurationSeconds", p.averageViewDurationSeconds)
+        .put("subscribersGained", p.subscribersGained)
+        .put("subscribersLost", p.subscribersLost)
+        .put("likes", p.likes)
+        .put("comments", p.comments)
+
+    private fun periodFromJson(o: JSONObject) = YouTubePeriodSnapshot(
+        startDate = o.optString("startDate"),
+        endDate = o.optString("endDate"),
+        views = o.optLong("views"),
+        watchMinutes = o.optLong("watchMinutes"),
+        averageViewDurationSeconds = o.optLong("averageViewDurationSeconds"),
+        subscribersGained = o.optLong("subscribersGained"),
+        subscribersLost = o.optLong("subscribersLost"),
+        likes = o.optLong("likes"),
+        comments = o.optLong("comments"),
     )
 
     private fun channelToJson(c: YouTubeChannelSnapshot) = JSONObject()
