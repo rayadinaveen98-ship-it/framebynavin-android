@@ -6,4 +6,4 @@
     android:previewLayout="@layout/widget_creator_compact"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:updatePeriodMillis="0" />
+    android:updatePeriodMillis="1800000" />
