@@ -20,11 +20,7 @@ class SmartEscalationPolicyTest {
 
     @Test
     fun customCriticalWindow_isSumOfEditableWaits() {
-        val custom = SmartEscalationConfig(
-            notificationToVoiceMinutes = 5,
-            voiceToAlarmMinutes = 10,
-            alarmToCriticalMinutes = 20,
-        )
+        val custom = SmartEscalationConfig(5, 10, 20)
         assertEquals(35, SmartEscalationPolicy.requiredWindowMinutes(TaskPriority.CRITICAL, custom))
     }
 
@@ -37,98 +33,71 @@ class SmartEscalationPolicyTest {
     }
 
     @Test
-    fun importantWindow_rejectsTooLateReminder_andAcceptsExactWindow() {
-        val reminderAt = 1_000_000L
-        val twentyNineMinutesLater = reminderAt + 29 * 60_000L
-        val thirtyMinutesLater = reminderAt + 30 * 60_000L
+    fun availableWindow_isNowToFinalReminderTarget_notReminderToPublish() {
+        val now = 1_000_000L
+        val reminder = now + 10 * 60_000L
+        val publish = reminder + 390 * 60_000L
 
-        assertFalse(
-            SmartEscalationPolicy.isWindowValid(
-                TaskPriority.IMPORTANT,
-                reminderAt,
-                twentyNineMinutesLater,
-                defaultConfig,
-            )
-        )
-        assertTrue(
-            SmartEscalationPolicy.isWindowValid(
-                TaskPriority.IMPORTANT,
-                reminderAt,
-                thirtyMinutesLater,
-                defaultConfig,
-            )
-        )
+        assertEquals(10, SmartEscalationPolicy.availableWindowMinutes(now, reminder))
+        // Publish time is deliberately irrelevant to Smart window calculation.
+        assertEquals(390, (publish - reminder) / 60_000L)
     }
 
     @Test
-    fun criticalCustomWindow_rejectsOneMinuteShort() {
-        val config = SmartEscalationConfig(5, 10, 20)
-        val reminderAt = 2_000_000L
-        assertFalse(
-            SmartEscalationPolicy.isWindowValid(
-                TaskPriority.CRITICAL,
-                reminderAt,
-                reminderAt + 34 * 60_000L,
-                config,
-            )
-        )
-        assertTrue(
-            SmartEscalationPolicy.isWindowValid(
-                TaskPriority.CRITICAL,
-                reminderAt,
-                reminderAt + 35 * 60_000L,
-                config,
-            )
-        )
+    fun screenshotCase_criticalFiveFiveFive_isInvalidWithOnlyTenMinutesToReminder() {
+        val config = SmartEscalationConfig(5, 5, 5)
+        val now = 9 * 60 * 60_000L + 20 * 60_000L // 09:20
+        val reminder = 9 * 60 * 60_000L + 30 * 60_000L // 09:30
+
+        assertEquals(15, SmartEscalationPolicy.requiredWindowMinutes(TaskPriority.CRITICAL, config))
+        assertFalse(SmartEscalationPolicy.isWindowValid(TaskPriority.CRITICAL, now, reminder, config))
+    }
+
+    @Test
+    fun screenshotCase_importantFiveFive_isValidAtExactTenMinutes_andInvalidOneSecondLater() {
+        val config = SmartEscalationConfig(5, 5, 15)
+        val reminder = 9 * 60 * 60_000L + 30 * 60_000L
+        val exactTenMinutesBefore = reminder - 10 * 60_000L
+        val oneSecondInsideWindow = exactTenMinutesBefore + 1_000L
+
+        assertTrue(SmartEscalationPolicy.isWindowValid(TaskPriority.IMPORTANT, exactTenMinutesBefore, reminder, config))
+        assertFalse(SmartEscalationPolicy.isWindowValid(TaskPriority.IMPORTANT, oneSecondInsideWindow, reminder, config))
+    }
+
+    @Test
+    fun firstStage_isScheduledBackwardSoFinalStageLandsOnReminderTarget() {
+        val target = 10_000_000L
+        val important = SmartEscalationConfig(5, 10, 15)
+        val critical = SmartEscalationConfig(5, 10, 20)
+
+        assertEquals(target - 15 * 60_000L, SmartEscalationPolicy.firstStageAtMillis(TaskPriority.IMPORTANT, target, important))
+        assertEquals(target - 35 * 60_000L, SmartEscalationPolicy.firstStageAtMillis(TaskPriority.CRITICAL, target, critical))
+        assertEquals(target, SmartEscalationPolicy.firstStageAtMillis(TaskPriority.NORMAL, target, defaultConfig))
     }
 
     @Test
     fun normalSmart_hasNoEscalationAfterSoftNotification() {
-        assertNull(
-            SmartEscalationPolicy.nextStage(
-                TaskPriority.NORMAL,
-                SmartEscalationScheduler.Stage.SOFT,
-            )
-        )
+        assertNull(SmartEscalationPolicy.nextStage(TaskPriority.NORMAL, SmartEscalationScheduler.Stage.SOFT))
     }
 
     @Test
     fun importantSequence_isSoftVoiceAlarmThenStop() {
-        assertEquals(
-            SmartEscalationScheduler.Stage.VOICE,
-            SmartEscalationPolicy.nextStage(TaskPriority.IMPORTANT, SmartEscalationScheduler.Stage.SOFT),
-        )
-        assertEquals(
-            SmartEscalationScheduler.Stage.ALARM,
-            SmartEscalationPolicy.nextStage(TaskPriority.IMPORTANT, SmartEscalationScheduler.Stage.VOICE),
-        )
-        assertNull(
-            SmartEscalationPolicy.nextStage(TaskPriority.IMPORTANT, SmartEscalationScheduler.Stage.ALARM)
-        )
+        assertEquals(SmartEscalationScheduler.Stage.VOICE, SmartEscalationPolicy.nextStage(TaskPriority.IMPORTANT, SmartEscalationScheduler.Stage.SOFT))
+        assertEquals(SmartEscalationScheduler.Stage.ALARM, SmartEscalationPolicy.nextStage(TaskPriority.IMPORTANT, SmartEscalationScheduler.Stage.VOICE))
+        assertNull(SmartEscalationPolicy.nextStage(TaskPriority.IMPORTANT, SmartEscalationScheduler.Stage.ALARM))
     }
 
     @Test
     fun criticalSequence_isSoftVoiceAlarmCriticalThenStop() {
-        assertEquals(
-            SmartEscalationScheduler.Stage.VOICE,
-            SmartEscalationPolicy.nextStage(TaskPriority.CRITICAL, SmartEscalationScheduler.Stage.SOFT),
-        )
-        assertEquals(
-            SmartEscalationScheduler.Stage.ALARM,
-            SmartEscalationPolicy.nextStage(TaskPriority.CRITICAL, SmartEscalationScheduler.Stage.VOICE),
-        )
-        assertEquals(
-            SmartEscalationScheduler.Stage.CRITICAL,
-            SmartEscalationPolicy.nextStage(TaskPriority.CRITICAL, SmartEscalationScheduler.Stage.ALARM),
-        )
-        assertNull(
-            SmartEscalationPolicy.nextStage(TaskPriority.CRITICAL, SmartEscalationScheduler.Stage.CRITICAL)
-        )
+        assertEquals(SmartEscalationScheduler.Stage.VOICE, SmartEscalationPolicy.nextStage(TaskPriority.CRITICAL, SmartEscalationScheduler.Stage.SOFT))
+        assertEquals(SmartEscalationScheduler.Stage.ALARM, SmartEscalationPolicy.nextStage(TaskPriority.CRITICAL, SmartEscalationScheduler.Stage.VOICE))
+        assertEquals(SmartEscalationScheduler.Stage.CRITICAL, SmartEscalationPolicy.nextStage(TaskPriority.CRITICAL, SmartEscalationScheduler.Stage.ALARM))
+        assertNull(SmartEscalationPolicy.nextStage(TaskPriority.CRITICAL, SmartEscalationScheduler.Stage.CRITICAL))
     }
 
     @Test
     fun availableWindow_neverBecomesNegative() {
         assertEquals(0, SmartEscalationPolicy.availableWindowMinutes(2_000L, 1_000L))
-        assertEquals(0, SmartEscalationPolicy.availableWindowMinutes(0L, 99_000L))
+        assertEquals(0, SmartEscalationPolicy.availableWindowMinutes(99_000L, 99_000L))
     }
 }
