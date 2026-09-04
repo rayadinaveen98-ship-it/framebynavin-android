@@ -9,6 +9,7 @@ data class CreatorOsSettings(
     val defaultAlarmTimeoutSeconds: Int = 120,
     val snoozeMinutes: Int = 10,
     val weeklyAutoPlanEnabled: Boolean = false,
+    val contextNudgesEnabled: Boolean = false,
 )
 
 class CreatorOsSettingsStore(context: Context) {
@@ -22,6 +23,7 @@ class CreatorOsSettingsStore(context: Context) {
         defaultAlarmTimeoutSeconds = prefs.getInt(KEY_ALARM_TIMEOUT, 120).coerceIn(30, 300),
         snoozeMinutes = prefs.getInt(KEY_SNOOZE_MINUTES, 10).coerceIn(5, 30),
         weeklyAutoPlanEnabled = prefs.getBoolean(KEY_WEEKLY_AUTO_PLAN, false),
+        contextNudgesEnabled = prefs.getBoolean(KEY_CONTEXT_NUDGES, false),
     )
 
     fun exportJson(): String {
@@ -32,6 +34,7 @@ class CreatorOsSettingsStore(context: Context) {
             .put("defaultAlarmTimeoutSeconds", value.defaultAlarmTimeoutSeconds)
             .put("snoozeMinutes", value.snoozeMinutes)
             .put("weeklyAutoPlanEnabled", value.weeklyAutoPlanEnabled)
+            .put("contextNudgesEnabled", value.contextNudgesEnabled)
             .toString()
     }
 
@@ -45,6 +48,7 @@ class CreatorOsSettingsStore(context: Context) {
             defaultAlarmTimeoutSeconds = obj.optInt("defaultAlarmTimeoutSeconds", 120).coerceIn(30, 300),
             snoozeMinutes = obj.optInt("snoozeMinutes", 10).coerceIn(5, 30),
             weeklyAutoPlanEnabled = obj.optBoolean("weeklyAutoPlanEnabled", false),
+            contextNudgesEnabled = obj.optBoolean("contextNudgesEnabled", false),
         )
         prefs.edit()
             .putBoolean(KEY_ONBOARDING_COMPLETE, value.onboardingComplete)
@@ -52,6 +56,7 @@ class CreatorOsSettingsStore(context: Context) {
             .putInt(KEY_ALARM_TIMEOUT, value.defaultAlarmTimeoutSeconds)
             .putInt(KEY_SNOOZE_MINUTES, value.snoozeMinutes)
             .putBoolean(KEY_WEEKLY_AUTO_PLAN, value.weeklyAutoPlanEnabled)
+            .putBoolean(KEY_CONTEXT_NUDGES, value.contextNudgesEnabled)
             .commit()
         return value
     }
@@ -85,6 +90,10 @@ class CreatorOsSettingsStore(context: Context) {
         prefs.edit().putBoolean(KEY_WEEKLY_AUTO_PLAN, value).apply()
     }
 
+    fun setContextNudgesEnabled(value: Boolean) {
+        prefs.edit().putBoolean(KEY_CONTEXT_NUDGES, value).apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "creator_os_settings_v1"
         private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
@@ -92,5 +101,6 @@ class CreatorOsSettingsStore(context: Context) {
         private const val KEY_ALARM_TIMEOUT = "default_alarm_timeout_seconds"
         private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
         private const val KEY_WEEKLY_AUTO_PLAN = "weekly_auto_plan_enabled"
+        private const val KEY_CONTEXT_NUDGES = "context_nudges_enabled"
     }
 }
