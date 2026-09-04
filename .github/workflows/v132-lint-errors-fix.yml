@@ -1,0 +1,37 @@
+name: Apply v1.3.2 Blocking Lint Fixes
+
+on:
+  push:
+    branches: [ "repair/v1.3.2-release-blockers" ]
+    paths:
+      - "tools/v132_lint_errors_fix.py"
+      - ".github/workflows/v132-lint-errors-fix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repair branch
+        uses: actions/checkout@v4
+        with:
+          ref: repair/v1.3.2-release-blockers
+          fetch-depth: 0
+
+      - name: Apply blocking lint fixes
+        run: python3 tools/v132_lint_errors_fix.py
+
+      - name: Commit repaired source
+        run: |
+          if git diff --quiet; then
+            echo "No source changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/FrameByNavinV04App.kt \
+                  app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          git commit -m "fix: resolve blocking Android lint errors"
+          git push origin HEAD:repair/v1.3.2-release-blockers
