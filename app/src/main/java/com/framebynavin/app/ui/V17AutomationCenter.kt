@@ -54,7 +54,7 @@ internal fun V17AutomationCenterScreen(
             it.dueAtMillis in (now + 1)..horizon
     }
     val enabledSlots = weeklySlots.count { it.enabled }
-    val postPublish = tasks.count { it.sourceRefId.startsWith("postpublish:") && it.status != TaskStatus.DONE && it.status != TaskStatus.SKIPPED }
+    val postPublish = tasks.count { it.sourceRefId.startsWith("post-publish:") && it.status != TaskStatus.DONE && it.status != TaskStatus.SKIPPED }
     val lastPlannerAt = stateStore.lastPlannerAtMillis()
     val lastCreated = stateStore.lastPlannerCreatedCount()
 
