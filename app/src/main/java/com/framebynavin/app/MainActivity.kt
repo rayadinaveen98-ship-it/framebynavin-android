@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.cloud.CloudSyncScheduler
+import com.framebynavin.app.reminders.CreatorContextNudgeWorker
 import com.framebynavin.app.reminders.MissedReminderRecovery
 import com.framebynavin.app.reminders.ReminderHealthScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
@@ -27,6 +28,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         ReminderNotifications.ensureChannel(this)
         ReminderHealthScheduler.ensurePeriodic(this)
+        CreatorContextNudgeWorker.ensurePeriodic(this)
         CloudSyncScheduler.ensurePeriodic(this)
         CloudSyncScheduler.enqueueNow(this)
         externalLaunch = widgetLaunch(intent)
