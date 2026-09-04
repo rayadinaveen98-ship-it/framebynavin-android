@@ -54,7 +54,7 @@ class VoiceReminderService : Service() {
             VoicePersonaEngine.apply(engine, task.voicePersona)
 
             val count = task.voiceRepeatCount.coerceIn(1, 3)
-            val interval = task.voiceRepeatIntervalSeconds.coerceIn(10, 60) * 1000L
+            val interval = task.voiceRepeatIntervalSeconds.coerceIn(5, 60) * 1000L
             repeat(count) { index ->
                 handler.postDelayed({
                     if (currentTask?.id == task.id) speakOnce(task, index)
@@ -125,7 +125,7 @@ class VoiceReminderService : Service() {
     private fun acquireWakeLock(task: CreatorTask) {
         if (wakeLock?.isHeld == true) return
         val power = getSystemService(PowerManager::class.java)
-        val maxWindow = ((task.voiceRepeatCount.coerceIn(1, 3) - 1) * task.voiceRepeatIntervalSeconds.coerceIn(10, 60) * 1000L + 30_000L)
+        val maxWindow = ((task.voiceRepeatCount.coerceIn(1, 3) - 1) * task.voiceRepeatIntervalSeconds.coerceIn(5, 60) * 1000L + 30_000L)
             .coerceAtMost(180_000L)
         wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FrameByNavin:VoiceReminder").apply { acquire(maxWindow) }
     }
@@ -163,5 +163,11 @@ class VoiceReminderService : Service() {
         }
 
         fun notificationId(taskId: String): Int = taskId.hashCode() xor 0x5600
+
+        fun totalWindowMillis(task: CreatorTask): Long {
+            val count = task.voiceRepeatCount.coerceIn(1, 3)
+            val interval = task.voiceRepeatIntervalSeconds.coerceIn(5, 60) * 1000L
+            return ((count - 1) * interval + 18_000L).coerceAtMost(150_000L)
+        }
     }
 }
