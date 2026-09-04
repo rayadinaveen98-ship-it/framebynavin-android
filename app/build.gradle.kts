@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
-        versionName = "1.3.1-cinematic-management"
+        versionCode = 23
+        versionName = "1.3.2-reliability-recovery"
     }
 
     compileOptions {
@@ -70,5 +70,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
 
-// v1.3.1 hero frames are packaged into the final signed APK after the CI code gate.
-// Final gate rerun after asset-loader compile repair.
+// v1.3.2 reliability/recovery hardening: alarm fallback, missed-reminder recovery,
+// Smart escalation idempotency, boot/time recovery, and WorkManager health reconciliation.
