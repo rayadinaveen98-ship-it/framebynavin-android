@@ -1,0 +1,61 @@
+name: Wire v1.0.2 surfaces
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/workflows/v102-integrate.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire Today reminders and Data Backup
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt")
+          text = path.read_text()
+
+          replacements = [
+              (
+                  'PTab.TODAY -> PTodayScreen(vm.tasks, { openComposer() }, vm::startTask, vm::advanceWorkflow) { focusTaskId = it }',
+                  'PTab.TODAY -> PTodayScreen(\n                    tasks = vm.tasks,\n                    onAdd = { openComposer() },\n                    onStart = vm::startTask,\n                    onAdvance = vm::advanceWorkflow,\n                    onViewAllReminders = { showReminders = true },\n                    onFocus = { focusTaskId = it },\n                )'
+              ),
+              (
+                  '    onAdvance: (String) -> Unit,\n    onFocus: (String) -> Unit,\n) {',
+                  '    onAdvance: (String) -> Unit,\n    onViewAllReminders: () -> Unit,\n    onFocus: (String) -> Unit,\n) {'
+              ),
+              (
+                  '            Spacer(Modifier.height(22.dp))\n            Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {\n                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {',
+                  '            Spacer(Modifier.height(22.dp))\n            PTodayReminders(tasks = tasks, onViewAll = onViewAllReminders)\n\n            Spacer(Modifier.height(22.dp))\n            Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {\n                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {'
+              ),
+              (
+                  '            Spacer(Modifier.height(22.dp))\n            PSettingsHeading("APP", "A few things you may need occasionally.")',
+                  '            Spacer(Modifier.height(22.dp))\n            PSettingsHeading("DATA & BACKUP", "Export or restore your local Creator OS data.")\n            Spacer(Modifier.height(8.dp))\n            Surface(\n                onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },\n                modifier = Modifier.fillMaxWidth(),\n                shape = RoundedCornerShape(16.dp),\n                color = CinemaSurface,\n                border = BorderStroke(1.dp, CinemaLine),\n            ) {\n                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {\n                    Box(Modifier.size(34.dp).background(MutedGold.copy(alpha = .10f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {\n                        Icon(Icons.Outlined.SaveAlt, null, tint = MutedGold, modifier = Modifier.size(18.dp))\n                    }\n                    Spacer(Modifier.width(11.dp))\n                    Column(Modifier.weight(1f)) {\n                        Text("Data & Backup", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)\n                        Text("Projects, reminders, ideas, weekly plan and settings", color = MutedText, fontSize = 8.7.sp)\n                    }\n                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))\n                }\n            }\n\n            Spacer(Modifier.height(22.dp))\n            PSettingsHeading("APP", "A few things you may need occasionally.")'
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match, got {count}: {old[:80]!r}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          git commit -m "feat: wire Today reminders and Data Backup"
+          git push
