@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 24
-        versionName = "1.3.2-reliability-recovery-r2"
+        versionCode = 25
+        versionName = "1.3.3-cinematic-control-room-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,5 +78,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.3.2 repair candidate r2: reliability/recovery hardening plus release-blocker fixes
-// for packaged cinematic assets, deterministic Plan/Reminder interactions, and alarm fallbacks.
+// v1.3.3 RC1: keeps the v1.3.2 reliability/recovery repairs and introduces the
+// production-realistic FrameByNavin cinematic identity, welcome ident and Creator Control Room home.
