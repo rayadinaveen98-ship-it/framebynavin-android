@@ -248,6 +248,7 @@ internal fun V131HomeHeroSlideshow() {
 internal fun V131PlanScreen(
     tasks: List<CreatorTask>,
     onAdd: () -> Unit,
+    onEdit: (String) -> Unit,
     onStart: (String) -> Unit,
     onDone: (String) -> Unit,
     onDeleteSelected: (Set<String>) -> Unit,
@@ -282,7 +283,7 @@ internal fun V131PlanScreen(
         )
         Spacer(Modifier.height(18.dp))
         Text("See the week clearly.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
-        Text("Tap a project to select it. Long-press also works.", color = MutedText, fontSize = 9.4.sp)
+        Text("Tap a project to edit it. Long-press to select one or more.", color = MutedText, fontSize = 9.4.sp)
         Spacer(Modifier.height(18.dp))
 
         if (active.isEmpty() && completed.isEmpty()) {
@@ -290,18 +291,18 @@ internal fun V131PlanScreen(
         } else {
             V131PlanSection("OVERDUE", overdue, RecRed, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-            }, onStart, onDone)
+            }, onEdit, onStart, onDone)
             V131PlanSection("TODAY", today, MutedGold, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-            }, onStart, onDone)
+            }, onEdit, onStart, onDone)
             V131PlanSection("UPCOMING", upcoming, ProjectorIvory, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-            }, onStart, onDone)
+            }, onEdit, onStart, onDone)
             if (completed.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))
                 V131PlanSection("COMPLETED", completed, SuccessGreen, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-                }, onStart, onDone)
+                }, onEdit, onStart, onDone)
             }
         }
     }
@@ -332,6 +333,7 @@ private fun V131PlanSection(
     selected: Set<String>,
     onToggleSelection: (String) -> Unit,
     onHold: (String) -> Unit,
+    onEdit: (String) -> Unit,
     onStart: (String) -> Unit,
     onDone: (String) -> Unit,
 ) {
@@ -343,7 +345,7 @@ private fun V131PlanSection(
         val progress = CreatorWorkflowEngine.progress(task)
         Surface(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).combinedClickable(
-                onClick = { onToggleSelection(task.id) },
+                onClick = { if (selectionMode) onToggleSelection(task.id) else onEdit(task.id) },
                 onLongClick = { onHold(task.id) },
             ),
             shape = RoundedCornerShape(18.dp),
