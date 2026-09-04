@@ -5,6 +5,7 @@ on:
     branches: [ "feature/v1.6-creator-intelligence" ]
     paths:
       - "tools/v16_apply_creator_intelligence.py"
+      - "tools/v16_fix_helper.py"
       - ".github/workflows/v16-apply-creator-intelligence.yml"
   workflow_dispatch:
 
@@ -21,7 +22,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Apply v1.6 wiring
-        run: python tools/v16_apply_creator_intelligence.py
+        run: |
+          python tools/v16_fix_helper.py
+          python tools/v16_apply_creator_intelligence.py
 
       - name: Commit wiring
         run: |
