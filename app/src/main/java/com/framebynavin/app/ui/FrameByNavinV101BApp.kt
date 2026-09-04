@@ -74,7 +74,7 @@ import java.util.Calendar
 import java.util.Locale
 
 private enum class PTab { TODAY, PLAN, STUDIO, INSIGHTS }
-private enum class POverlay { NONE, WEEK, RELEASE, IDEAS, DAILY_BRIEF, CALENDAR, SETTINGS }
+private enum class POverlay { NONE, WEEK, RELEASE, IDEAS, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS }
 
 private data class PPermissions(
     val notifications: Boolean,
@@ -163,6 +163,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             }
             CreatorWidgetContract.ACTION_NEW_PROJECT -> { overlay = POverlay.NONE; openComposer() }
             CreatorWidgetContract.ACTION_RELEASE_DAY -> overlay = POverlay.RELEASE
+            CreatorWidgetContract.ACTION_DAILY_BRIEF -> overlay = POverlay.DAILY_BRIEF
+            CreatorWidgetContract.ACTION_CONTENT_CALENDAR -> overlay = POverlay.CALENDAR
+            CreatorWidgetContract.ACTION_IDEA_VAULT -> overlay = POverlay.IDEAS
+            CreatorWidgetContract.ACTION_OPEN_INSIGHTS -> { overlay = POverlay.NONE; tab = PTab.INSIGHTS }
+            CreatorWidgetContract.ACTION_AUTOMATION_CENTER -> overlay = POverlay.AUTOMATION
         }
     }
 
@@ -273,6 +278,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 weeklySlots = vm.weeklySlots,
                 onClose = { overlay = POverlay.NONE },
             )
+            POverlay.AUTOMATION -> V17AutomationCenterScreen(
+                tasks = vm.tasks,
+                weeklySlots = vm.weeklySlots,
+                weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
+                contextNudgesEnabled = settings.contextNudgesEnabled,
+                onClose = { overlay = POverlay.NONE },
+                onWeeklyAutoPlanChange = vm::setWeeklyAutoPlanEnabled,
+            )
             POverlay.SETTINGS -> PSettingsScreen(
                 settings = settings,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
@@ -319,6 +332,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onIdeas = { showControl = false; overlay = POverlay.IDEAS },
                 onWeek = { showControl = false; overlay = POverlay.WEEK },
                 onReminders = { showControl = false; showReminders = true },
+                onAutomation = { showControl = false; overlay = POverlay.AUTOMATION },
                 onSettings = { showControl = false; overlay = POverlay.SETTINGS },
                 onPublishLate = vm::publishLate,
                 onReschedule = { id -> pPickDateTime(context, vm.tasks.firstOrNull { it.id == id }?.dueAtMillis ?: 0L) { vm.rescheduleDeadline(id, it) } },
@@ -869,6 +883,7 @@ private fun PControlCenter(
     onIdeas: () -> Unit,
     onWeek: () -> Unit,
     onReminders: () -> Unit,
+    onAutomation: () -> Unit,
     onSettings: () -> Unit,
     onPublishLate: (String) -> Unit,
     onReschedule: (String) -> Unit,
@@ -893,6 +908,7 @@ private fun PControlCenter(
         PControlRow("Idea Vault", if (readyIdeas > 0) "$readyIdeas ideas ready to make" else "Capture what you might make later", Icons.Outlined.Lightbulb, onIdeas)
         PControlRow("Weekly Plan", if (weeklyAutoPlanEnabled) "Auto Plan on" else "Auto Plan off", Icons.Outlined.CalendarMonth, onWeek)
         PControlRow("Reminders", "See and edit active reminders", Icons.Outlined.Alarm, onReminders)
+        PControlRow("Automation Center", "Background planning, routines and automatic follow-ups", Icons.Outlined.AutoAwesome, onAutomation)
         PControlRow("Settings", "Voices, reminder setup and defaults", Icons.Outlined.Settings, onSettings)
 
         if (overdue.isNotEmpty()) {

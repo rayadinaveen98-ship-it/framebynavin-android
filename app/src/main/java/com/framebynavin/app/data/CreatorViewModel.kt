@@ -734,7 +734,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     private fun syncWeeklyScheduleInternal() {
         if (!weeklyAutoPlanEnabled || !tasksLoaded || !weeklyLoaded) return
-        val occurrences = WeeklyScheduleEngine.upcomingOccurrences(weeklySlots, daysAhead = 8)
+        val occurrences = WeeklyScheduleEngine.upcomingOccurrences(weeklySlots, daysAhead = CreatorAutoPlanEngine.DEFAULT_HORIZON_DAYS)
         var changed = false
         val toSchedule = mutableListOf<CreatorTask>()
 
