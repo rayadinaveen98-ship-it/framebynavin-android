@@ -53,19 +53,40 @@ class ReminderReceiver : BroadcastReceiver() {
             alarmTimeoutSeconds = intent.getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
         )
 
-        runCatching {
-            when (mode) {
-                ReminderMode.VOICE -> VoiceReminderService.start(context.applicationContext, task)
-                ReminderMode.ALARM -> AlarmRingingService.start(context.applicationContext, task)
-                ReminderMode.NONE -> Unit
-                else -> ReminderNotifications.show(
-                    context = context.applicationContext,
-                    task = task,
-                    deliveryDelayMillis = if (scheduledAt > 0L) (firedAt - scheduledAt).coerceAtLeast(0L) else null,
-                )
+        val appContext = context.applicationContext
+        val exactDelivery = intent.getBooleanExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, false)
+        val delayMillis = if (scheduledAt > 0L) (firedAt - scheduledAt).coerceAtLeast(0L) else null
+
+        fun notificationFallback(label: String? = null): Boolean = runCatching {
+            ReminderNotifications.show(
+                context = appContext,
+                task = task,
+                deliveryDelayMillis = delayMillis,
+                stageLabel = label,
+            )
+        }.isSuccess
+
+        val delivered = when (mode) {
+            ReminderMode.VOICE -> {
+                if (!exactDelivery) {
+                    notificationFallback("Voice reminder · precise timing unavailable")
+                } else {
+                    runCatching { VoiceReminderService.start(appContext, task) }.isSuccess ||
+                        notificationFallback("Voice reminder fallback")
+                }
             }
-        }.onSuccess {
-            if (mode != ReminderMode.NONE) ledger.markDelivered(taskId, scheduledAt)
+            ReminderMode.ALARM -> {
+                if (!exactDelivery) {
+                    notificationFallback("Alarm reminder · precise timing unavailable")
+                } else {
+                    runCatching { AlarmRingingService.start(appContext, task) }.isSuccess ||
+                        notificationFallback("Alarm reminder fallback")
+                }
+            }
+            ReminderMode.NONE -> false
+            else -> notificationFallback()
         }
+
+        if (delivered) ledger.markDelivered(taskId, scheduledAt)
     }
 }

@@ -176,11 +176,12 @@ class SmartEscalationScheduler(private val context: Context) {
     private fun scheduleStage(task: CreatorTask, stage: Stage, atMillis: Long) {
         val now = System.currentTimeMillis()
         if (atMillis <= now) return
-        val pendingIntent = stagePendingIntent(task, stage, atMillis)
+        val exactDelivery = canScheduleExact()
+        val pendingIntent = stagePendingIntent(task, stage, atMillis, exactDelivery)
         val key = ledgerKey(task.id, stage)
 
         runCatching {
-            if ((stage == Stage.ALARM || stage == Stage.CRITICAL) && canScheduleExact()) {
+            if ((stage == Stage.ALARM || stage == Stage.CRITICAL) && exactDelivery) {
                 val showIntent = PendingIntent.getActivity(
                     context,
                     requestCode(task.id, stage) xor 0x4400,
@@ -190,7 +191,7 @@ class SmartEscalationScheduler(private val context: Context) {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
                 alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(atMillis, showIntent), pendingIntent)
-            } else if (canScheduleExact()) {
+            } else if (exactDelivery) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
             } else {
                 alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
@@ -202,7 +203,7 @@ class SmartEscalationScheduler(private val context: Context) {
         }
     }
 
-    private fun stagePendingIntent(task: CreatorTask, stage: Stage, atMillis: Long): PendingIntent {
+    private fun stagePendingIntent(task: CreatorTask, stage: Stage, atMillis: Long, exactDelivery: Boolean): PendingIntent {
         val intent = Intent(context, EscalationReceiver::class.java)
             .putExtra(ReminderConstants.EXTRA_TASK_ID, task.id)
             .putExtra(ReminderConstants.EXTRA_TITLE, task.title)
@@ -223,6 +224,7 @@ class SmartEscalationScheduler(private val context: Context) {
             .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, task.voiceRepeatIntervalSeconds)
             .putExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, task.alarmTimeoutSeconds)
             .putExtra(ReminderConstants.EXTRA_ESCALATION_STAGE, stage.name)
+            .putExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, exactDelivery)
 
         return PendingIntent.getBroadcast(
             context,
