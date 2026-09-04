@@ -258,6 +258,6 @@ object YouTubeInsightEngine {
 
     private fun watch(minutes: Long): String {
         val hours = minutes / 60.0
-        return if (hours >= 1000) String.format(Locale.US, "%.1K h", hours / 1000.0) else String.format(Locale.US, "%.1f h", hours)
+        return if (hours >= 1000) String.format(Locale.US, "%.1fK h", hours / 1000.0) else String.format(Locale.US, "%.1f h", hours)
     }
 }

@@ -166,8 +166,8 @@ internal fun V11InsightsScreen(
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("What is actually working?", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-            Text("Your creator workflow and real YouTube performance in one place.", color = MutedText, fontSize = 10.5.sp)
+            Text("What matters — and what next?", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
+            Text("Performance, causes and creator decisions in one place.", color = MutedText, fontSize = 10.5.sp)
             Spacer(Modifier.height(18.dp))
 
             if (snapshot == null) {
@@ -204,21 +204,13 @@ internal fun V11InsightsScreen(
                 }
 
                 Spacer(Modifier.height(14.dp))
-                YTMetrics(data)
-                Spacer(Modifier.height(18.dp))
-                YTSignalCard(data)
-                Spacer(Modifier.height(18.dp))
-                YTTrendCard(data)
-                Spacer(Modifier.height(18.dp))
-                YTTopVideos(data, tasks, links) { selectedVideo = it }
-                Spacer(Modifier.height(18.dp))
-                YTFormatSignal(data, tasks, links)
-                Spacer(Modifier.height(18.dp))
-                V16CreatorIntelligenceCard(tasks, ideas, data, links)
-                Spacer(Modifier.height(18.dp))
-                YTRecentVideos(data, tasks, links) { selectedVideo = it }
-                Spacer(Modifier.height(18.dp))
-                YTLocalCreatorSection(tasks, ideas)
+                V172InsightsBody(
+                    snapshot = data,
+                    tasks = tasks,
+                    ideas = ideas,
+                    links = links,
+                    onLinkVideo = { selectedVideo = it },
+                )
             }
         }
     }
