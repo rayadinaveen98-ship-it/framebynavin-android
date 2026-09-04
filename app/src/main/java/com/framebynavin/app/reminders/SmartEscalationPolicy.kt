@@ -2,7 +2,7 @@ package com.framebynavin.app.reminders
 
 import com.framebynavin.app.data.TaskPriority
 
-/** Pure Smart V2 timing/sequence rules. Kept Android-free so CI can unit-test it. */
+/** Pure Smart timing/sequence rules. Reminder time is the final Smart target. */
 data class SmartEscalationConfig(
     val notificationToVoiceMinutes: Int = 15,
     val voiceToAlarmMinutes: Int = 15,
@@ -27,21 +27,29 @@ object SmartEscalationPolicy {
         }
     }
 
-    fun availableWindowMinutes(reminderAtMillis: Long, dueAtMillis: Long): Int {
-        if (reminderAtMillis <= 0L || dueAtMillis <= reminderAtMillis) return 0
-        return ((dueAtMillis - reminderAtMillis) / 60_000L).toInt().coerceAtLeast(0)
+    /** Minutes available from now until the creator-selected final reminder target. */
+    fun availableWindowMinutes(nowMillis: Long, reminderAtMillis: Long): Int {
+        if (nowMillis <= 0L || reminderAtMillis <= nowMillis) return 0
+        return ((reminderAtMillis - nowMillis) / 60_000L).toInt().coerceAtLeast(0)
     }
 
     fun isWindowValid(
         priority: TaskPriority,
+        nowMillis: Long,
         reminderAtMillis: Long,
-        dueAtMillis: Long,
         config: SmartEscalationConfig,
     ): Boolean {
-        if (reminderAtMillis <= 0L) return false
+        if (reminderAtMillis <= nowMillis) return false
         if (priority == TaskPriority.NORMAL) return true
-        return availableWindowMinutes(reminderAtMillis, dueAtMillis) >= requiredWindowMinutes(priority, config)
+        return availableWindowMinutes(nowMillis, reminderAtMillis) >= requiredWindowMinutes(priority, config)
     }
+
+    /** Planned first Smart stage so the strongest stage lands at reminderAtMillis. */
+    fun firstStageAtMillis(
+        priority: TaskPriority,
+        reminderAtMillis: Long,
+        config: SmartEscalationConfig,
+    ): Long = reminderAtMillis - requiredWindowMinutes(priority, config) * 60_000L
 
     fun nextStage(priority: TaskPriority, current: SmartEscalationScheduler.Stage): SmartEscalationScheduler.Stage? = when (priority) {
         TaskPriority.NORMAL -> null
