@@ -37,5 +37,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.0.2-stability-smart-v2
+          name: FrameByNavin-v1.0.2.1-smart-target-hotfix
           path: app/build/outputs/apk/debug/app-debug.apk
