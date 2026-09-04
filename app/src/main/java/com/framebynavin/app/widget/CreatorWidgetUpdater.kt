@@ -81,6 +81,8 @@ object CreatorWidgetUpdater {
         views.setOnClickPendingIntent(R.id.widget_large_idea, quickIdeaPendingIntent(context))
         views.setOnClickPendingIntent(R.id.widget_large_project_button, mainPendingIntent(context, CreatorWidgetContract.ACTION_NEW_PROJECT))
         views.setOnClickPendingIntent(R.id.widget_large_release, mainPendingIntent(context, CreatorWidgetContract.ACTION_RELEASE_DAY))
+        views.setOnClickPendingIntent(R.id.widget_large_brief, mainPendingIntent(context, CreatorWidgetContract.ACTION_DAILY_BRIEF))
+        views.setOnClickPendingIntent(R.id.widget_large_calendar, mainPendingIntent(context, CreatorWidgetContract.ACTION_CONTENT_CALENDAR))
         return views
     }
 
