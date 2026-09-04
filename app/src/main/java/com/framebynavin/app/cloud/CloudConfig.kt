@@ -6,9 +6,8 @@ object CloudConfig {
 
     /**
      * Public OAuth client id used only to request a Google ID token on Android.
-     * Filled once the Google Web OAuth client is created for FrameByNavin Cloud Sync.
      */
-    const val GOOGLE_WEB_CLIENT_ID = ""
+    const val GOOGLE_WEB_CLIENT_ID = "792920886199-l5ukj5btvhf00fmc7lohe440lkbonjfl.apps.googleusercontent.com"
 
     const val CLOUD_FORMAT = "FrameByNavinCloudBackup"
     const val CLOUD_SCHEMA_VERSION = 1
