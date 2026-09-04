@@ -164,80 +164,117 @@ internal fun V131HomeHeroSlideshow() {
     var index by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(resourceIds.size) {
         while (resourceIds.size > 1) {
-            delay(4_000L)
+            delay(5_000L)
             index = (index + 1) % resourceIds.size
         }
     }
     val quoteIndex = index % heroQuotes.size
 
     Surface(
-        modifier = Modifier.fillMaxWidth().height(190.dp),
-        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth().height(248.dp),
+        shape = RoundedCornerShape(22.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine.copy(alpha = .7f)),
-        shadowElevation = 8.dp,
+        border = BorderStroke(1.dp, CinemaLine.copy(alpha = .45f)),
+        shadowElevation = 10.dp,
     ) {
-        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp))) {
-            if (resourceIds.isNotEmpty()) {
-                AnimatedContent(
-                    targetState = index.coerceIn(0, resourceIds.lastIndex),
-                    transitionSpec = { fadeIn(tween(900)) togetherWith fadeOut(tween(900)) },
-                    label = "cinemaHero",
-                ) { visibleIndex ->
-                    Image(
-                        painter = painterResource(resourceIds[visibleIndex]),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
-                Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, CinemaBlack.copy(alpha = .12f), CinemaBlack.copy(alpha = .92f))
-                        )
-                    )
+        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp))) {
+            AnimatedContent(
+                targetState = index.coerceIn(0, resourceIds.lastIndex),
+                transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
+                label = "cinemaHeroNetflix",
+            ) { visibleIndex ->
+                Image(
+                    painter = painterResource(resourceIds[visibleIndex]),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
                 )
-            } else {
-                Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.linearGradient(
-                            listOf(Color(0xFF16161A), Color(0xFF0B0B0D), RecRedDeep.copy(alpha = .35f))
-                        )
-                    )
-                )
-                Column(Modifier.align(Alignment.Center).padding(horizontal = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Outlined.Collections, null, tint = MutedGold, modifier = Modifier.size(27.dp))
-                    Spacer(Modifier.height(9.dp))
-                    Text("YOUR CINEMA WALL", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
-                    Text("Ready for your 10 favourite HD frames", color = MutedText, fontSize = 8.5.sp)
-                }
             }
 
-            Column(Modifier.align(Alignment.BottomStart).padding(17.dp)) {
-                Text("FRAME NOTES", color = RecRed, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                Spacer(Modifier.height(4.dp))
+            // Netflix-style readable image treatment: image stays untouched; gradients are UI-only.
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            CinemaBlack.copy(alpha = .82f),
+                            CinemaBlack.copy(alpha = .40f),
+                            Color.Transparent,
+                        )
+                    )
+                )
+            )
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        listOf(
+                            CinemaBlack.copy(alpha = .08f),
+                            Color.Transparent,
+                            CinemaBlack.copy(alpha = .18f),
+                            CinemaBlack.copy(alpha = .88f),
+                        )
+                    )
+                )
+            )
+
+            Row(
+                Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = 15.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.width(3.dp).height(14.dp).background(RecRed, RoundedCornerShape(4.dp)))
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    "FRAMEBYNAVIN  •  CINEMA WALL",
+                    color = ProjectorIvory,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.1.sp,
+                )
+            }
+
+            Text(
+                "${(index + 1).toString().padStart(2, '0')}  /  ${resourceIds.size.toString().padStart(2, '0')}",
+                modifier = Modifier.align(Alignment.TopEnd).padding(end = 16.dp, top = 15.dp),
+                color = ProjectorIvory.copy(alpha = .72f),
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+            )
+
+            Column(
+                Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 70.dp, bottom = 17.dp)
+            ) {
+                Text(
+                    "FEATURED FRAME",
+                    color = RecRed,
+                    fontSize = 7.5.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.2.sp,
+                )
+                Spacer(Modifier.height(5.dp))
                 Text(
                     "“${heroQuotes[quoteIndex]}”",
                     color = ProjectorIvory,
-                    fontSize = 14.sp,
-                    lineHeight = 18.sp,
+                    fontSize = 15.sp,
+                    lineHeight = 19.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontStyle = FontStyle.Italic,
-                    modifier = Modifier.fillMaxWidth(.88f),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (resourceIds.size > 1) {
-                Row(
-                    Modifier.align(Alignment.BottomEnd).padding(15.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    repeat(resourceIds.size) { dot ->
-                        Box(
-                            Modifier.width(if (dot == index) 14.dp else 5.dp).height(3.dp)
-                                .background(if (dot == index) RecRed else ProjectorIvory.copy(alpha = .35f), RoundedCornerShape(10.dp))
-                        )
-                    }
+
+            Row(
+                Modifier.align(Alignment.BottomEnd).padding(end = 15.dp, bottom = 17.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                repeat(resourceIds.size) { dot ->
+                    Box(
+                        Modifier.width(if (dot == index) 16.dp else 4.dp).height(3.dp)
+                            .background(
+                                if (dot == index) RecRed else ProjectorIvory.copy(alpha = .38f),
+                                RoundedCornerShape(10.dp),
+                            )
+                    )
                 }
             }
         }
