@@ -417,8 +417,10 @@ private fun PTodayScreen(
                         },
                     )
                 }) {
-                    AnimatedContent(targetState = selected.id, label = "todayProject") {
-                        PTodayProjectCard(selected)
+                    AnimatedContent(targetState = selected.id, label = "todayProject") { targetId ->
+                        queue.firstOrNull { it.id == targetId }?.let { targetTask ->
+                            PTodayProjectCard(targetTask)
+                        }
                     }
                 }
 
