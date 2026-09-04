@@ -1,9 +1,10 @@
 package com.framebynavin.app.ui
 
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -70,18 +71,31 @@ class V132ReleaseBlockerUiTest {
     }
 
     @Test
+    fun planSelectedDelete_confirmsSelectedProject() {
+        val task = planTask("plan-delete", "Plan delete smoke")
+        var deleted = emptySet<String>()
+
+        composeRule.setContent {
+            V131PlanScreen(
+                tasks = listOf(task),
+                onAdd = {},
+                onEdit = {},
+                onStart = {},
+                onDone = {},
+                onDeleteSelected = { deleted = it },
+            )
+        }
+
+        composeRule.onNodeWithText(task.title).performTouchInput { longClick() }
+        composeRule.onNodeWithContentDescription("Delete selected").performClick()
+        composeRule.onNodeWithText("Delete 1 project?").assertIsDisplayed()
+        composeRule.onNodeWithText("DELETE").performClick()
+        composeRule.runOnIdle { assertEquals(setOf(task.id), deleted) }
+    }
+
+    @Test
     fun reminderTap_opensReminderEditor() {
-        val task = CreatorTask(
-            id = "reminder-tap",
-            title = "Reminder tap smoke",
-            platform = "YouTube",
-            contentType = "Video",
-            dueLabel = "Today · later",
-            status = TaskStatus.PLANNED,
-            reminderEnabled = true,
-            reminderMode = ReminderMode.SIMPLE,
-            reminderAtMillis = System.currentTimeMillis() + 60 * 60_000L,
-        )
+        val task = reminderTask("reminder-tap", "Reminder tap smoke")
         var editedId: String? = null
 
         composeRule.setContent {
@@ -98,6 +112,46 @@ class V132ReleaseBlockerUiTest {
         composeRule.runOnIdle { assertEquals(task.id, editedId) }
     }
 
+    @Test
+    fun reminderLongPress_entersSelectionMode() {
+        val task = reminderTask("reminder-select", "Reminder selection smoke")
+
+        composeRule.setContent {
+            V131ReminderCenter(
+                tasks = listOf(task),
+                onDismiss = {},
+                onNew = {},
+                onEdit = {},
+                onDeleteReminders = {},
+            )
+        }
+
+        composeRule.onNodeWithText(task.title).performTouchInput { longClick() }
+        composeRule.onNodeWithText("1 SELECTED").assertIsDisplayed()
+    }
+
+    @Test
+    fun reminderSelectedDelete_confirmsReminderOnly() {
+        val task = reminderTask("reminder-delete", "Reminder delete smoke")
+        var deleted = emptySet<String>()
+
+        composeRule.setContent {
+            V131ReminderCenter(
+                tasks = listOf(task),
+                onDismiss = {},
+                onNew = {},
+                onEdit = {},
+                onDeleteReminders = { deleted = it },
+            )
+        }
+
+        composeRule.onNodeWithText(task.title).performTouchInput { longClick() }
+        composeRule.onNodeWithContentDescription("Delete selected").performClick()
+        composeRule.onNodeWithText("Delete 1 reminder?").assertIsDisplayed()
+        composeRule.onNodeWithText("DELETE REMINDERS").performClick()
+        composeRule.runOnIdle { assertEquals(setOf(task.id), deleted) }
+    }
+
     private fun planTask(id: String, title: String) = CreatorTask(
         id = id,
         title = title,
@@ -106,5 +160,17 @@ class V132ReleaseBlockerUiTest {
         dueLabel = "Today · later",
         status = TaskStatus.PLANNED,
         dueAtMillis = System.currentTimeMillis() + 60 * 60_000L,
+    )
+
+    private fun reminderTask(id: String, title: String) = CreatorTask(
+        id = id,
+        title = title,
+        platform = "YouTube",
+        contentType = "Video",
+        dueLabel = "Today · later",
+        status = TaskStatus.PLANNED,
+        reminderEnabled = true,
+        reminderMode = ReminderMode.SIMPLE,
+        reminderAtMillis = System.currentTimeMillis() + 60 * 60_000L,
     )
 }
