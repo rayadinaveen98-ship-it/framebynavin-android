@@ -100,4 +100,37 @@ class SmartEscalationPolicyTest {
         assertEquals(0, SmartEscalationPolicy.availableWindowMinutes(2_000L, 1_000L))
         assertEquals(0, SmartEscalationPolicy.availableWindowMinutes(99_000L, 99_000L))
     }
+
+    @Test
+    fun recovery_preservesAlreadyRebuiltFutureStageTime() {
+        val now = 1_000_000L
+        val preserved = now + 4 * 60_000L
+        val originalPlanAlreadyMissed = now - 60_000L
+
+        assertEquals(
+            preserved,
+            SmartEscalationPolicy.recoveredStageAtMillis(
+                plannedAtMillis = originalPlanAlreadyMissed,
+                preservedPendingAtMillis = preserved,
+                nowMillis = now,
+                fallbackDelayMillis = 15 * 60_000L,
+            )
+        )
+    }
+
+    @Test
+    fun recovery_usesFallbackOnlyWhenPlanAndPriorPendingAreBothPast() {
+        val now = 1_000_000L
+        val fallback = 10 * 60_000L
+
+        assertEquals(
+            now + fallback,
+            SmartEscalationPolicy.recoveredStageAtMillis(
+                plannedAtMillis = now - 20_000L,
+                preservedPendingAtMillis = now - 10_000L,
+                nowMillis = now,
+                fallbackDelayMillis = fallback,
+            )
+        )
+    }
 }
