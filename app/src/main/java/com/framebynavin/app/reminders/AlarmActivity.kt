@@ -50,6 +50,7 @@ class AlarmActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ReminderSurfaceRegistry.attachAlarm(this)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
         window.addFlags(
@@ -87,6 +88,11 @@ class AlarmActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        ReminderSurfaceRegistry.detachAlarm(this)
+        super.onDestroy()
     }
 
     private fun acknowledgeDone(taskId: String) {
@@ -133,9 +139,10 @@ class AlarmActivity : ComponentActivity() {
             val reachedStage = smartScheduler.activeStage(taskId)
             val resumeAt = System.currentTimeMillis() + snoozeMinutes * 60_000L
             val updated = store.updateTask(taskId) { task ->
+                val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled
                 task.copy(
                     reminderEnabled = true,
-                    reminderAtMillis = resumeAt,
+                    reminderAtMillis = if (isSmart) task.reminderAtMillis else resumeAt,
                     snoozeCount = task.snoozeCount + 1,
                     workingUntilMillis = 0L,
                 )

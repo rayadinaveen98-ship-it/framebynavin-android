@@ -50,6 +50,7 @@ class VoiceReminderActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ReminderSurfaceRegistry.attachVoice(this)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
         window.addFlags(
@@ -87,6 +88,11 @@ class VoiceReminderActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        ReminderSurfaceRegistry.detachVoice(this)
+        super.onDestroy()
+    }
+
     private fun working(taskId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             val updated = store.updateTask(taskId) { task ->
@@ -112,9 +118,10 @@ class VoiceReminderActivity : ComponentActivity() {
             val reachedStage = smartScheduler.activeStage(taskId)
             val resumeAt = System.currentTimeMillis() + snoozeMinutes * 60_000L
             val updated = store.updateTask(taskId) { task ->
+                val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled
                 task.copy(
                     reminderEnabled = true,
-                    reminderAtMillis = resumeAt,
+                    reminderAtMillis = if (isSmart) task.reminderAtMillis else resumeAt,
                     snoozeCount = task.snoozeCount + 1,
                     workingUntilMillis = 0L,
                 )

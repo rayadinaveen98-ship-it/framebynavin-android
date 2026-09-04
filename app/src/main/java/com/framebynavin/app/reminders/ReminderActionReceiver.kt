@@ -64,9 +64,10 @@ class ReminderActionReceiver : BroadcastReceiver() {
                         val reachedSmartStage = smart.activeStage(taskId)
                         val resumeAt = System.currentTimeMillis() + snoozeMinutes * 60_000L
                         val snoozed = store.updateTask(taskId) { task ->
+                            val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled
                             task.copy(
                                 reminderEnabled = true,
-                                reminderAtMillis = resumeAt,
+                                reminderAtMillis = if (isSmart) task.reminderAtMillis else resumeAt,
                                 snoozeCount = task.snoozeCount + 1,
                                 workingUntilMillis = 0L,
                             )
@@ -91,6 +92,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
     }
 
     private fun stopAllSurfaces(context: Context, taskId: String) {
+        ReminderSurfaceRegistry.closeAll()
         AlarmRingingService.stop(context)
         VoiceReminderService.stop(context)
         ReminderNotifications.cancel(context, taskId)

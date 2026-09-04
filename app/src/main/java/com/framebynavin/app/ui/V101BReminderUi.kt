@@ -80,8 +80,16 @@ internal fun PReminderCenter(
         }
         .sortedBy { it.reminderAtMillis.takeIf { time -> time > 0L } ?: Long.MAX_VALUE }
 
-    val remindingNow = activeReminders.filter { sessionStore.current(it.id) != null }
-    val snoozed = activeReminders.filter { it !in remindingNow && it.snoozeCount > 0 && it.reminderAtMillis > now }
+    val remindingNow = activeReminders.filter { task ->
+        val session = sessionStore.current(task.id)
+        session != null && session.snoozedStage == null
+    }
+    val snoozed = activeReminders.filter { task ->
+        val session = sessionStore.current(task.id)
+        val smartSnoozed = session?.snoozedStage != null && session.snoozedUntilMillis > now
+        val regularSnoozed = task.reminderMode != ReminderMode.SMART && task.snoozeCount > 0 && task.reminderAtMillis > now
+        (smartSnoozed || regularSnoozed) && task !in remindingNow
+    }
     val upcoming = activeReminders.filter {
         it !in remindingNow && it !in snoozed && it.reminderAtMillis >= now && it.reminderAtMillis <= now + 24 * 60 * 60_000L
     }
