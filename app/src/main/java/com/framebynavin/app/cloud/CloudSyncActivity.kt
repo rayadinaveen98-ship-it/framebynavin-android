@@ -207,7 +207,7 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                     }
                     if (state.settings.lastError.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
-                        Text(state.settings.lastError, color = WarningAmber, fontSize = 8.7.sp, lineHeight = 13.sp)
+                        Text(state.settings.lastError, color = MutedGold, fontSize = 8.7.sp, lineHeight = 13.sp)
                     }
                 }
 
@@ -266,7 +266,7 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
             containerColor = CinemaSurfaceRaised,
             title = { Text("Delete cloud data?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
             text = { Text("Cloud backups and device records will be removed. Nothing stored locally on this phone will be deleted.", color = MutedText, fontSize = 10.sp) },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; runOperation { manager.deleteCloudData() } }) { Text("DELETE CLOUD DATA", color = CriticalRed, fontWeight = FontWeight.Black) } },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; runOperation { manager.deleteCloudData() } }) { Text("DELETE CLOUD DATA", color = RecRed, fontWeight = FontWeight.Black) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("CANCEL", color = MutedText) } },
         )
     }
