@@ -30,10 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.CreatorOsSettingsStore
+import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -61,6 +63,16 @@ class AlarmActivity : ComponentActivity() {
         }
         val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
+        // The full-screen surface now ends with the configured alarm hardware timeout.
+        lifecycleScope.launch {
+            delay(task.alarmTimeoutSeconds.coerceIn(30, 300) * 1000L + 750L)
+            if (!isFinishing && !isDestroyed) {
+                AlarmRingingService.stop(applicationContext)
+                getSystemService(NotificationManager::class.java).cancel(AlarmRingingService.notificationId(task.id))
+                finishAndRemoveTask()
+            }
+        }
+
         setContent {
             FrameByNavinTheme {
                 NativeAlarmScreen(
@@ -85,6 +97,8 @@ class AlarmActivity : ComponentActivity() {
                     progress = 100,
                     reminderEnabled = false,
                     smartEscalationEnabled = false,
+                    voiceEnabled = false,
+                    reminderMode = ReminderMode.NONE,
                     workingUntilMillis = 0L,
                 )
             }
@@ -97,19 +111,18 @@ class AlarmActivity : ComponentActivity() {
     private fun acknowledgeWorking(taskId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             val updated = store.updateTask(taskId) { task ->
+                val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled
                 task.copy(
                     status = TaskStatus.WORKING,
                     progress = maxOf(task.progress, 15),
-                    workingUntilMillis = if (task.smartEscalationEnabled)
+                    workingUntilMillis = if (isSmart)
                         System.currentTimeMillis() + ReminderConstants.WORKING_QUIET_MINUTES * 60_000L
                     else task.workingUntilMillis,
                 )
             }
             scheduler.cancel(taskId)
             smartScheduler.cancel(taskId)
-            if (updated?.reminderEnabled == true) {
-                if (updated.smartEscalationEnabled) smartScheduler.schedule(updated) else scheduler.schedule(updated)
-            }
+            if (updated?.reminderEnabled == true && updated.reminderMode != ReminderMode.SMART) scheduler.schedule(updated)
             finishAlarm()
         }
     }
@@ -117,18 +130,24 @@ class AlarmActivity : ComponentActivity() {
     private fun snooze(taskId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
+            val reachedStage = smartScheduler.activeStage(taskId)
+            val resumeAt = System.currentTimeMillis() + snoozeMinutes * 60_000L
             val updated = store.updateTask(taskId) { task ->
                 task.copy(
                     reminderEnabled = true,
-                    reminderAtMillis = System.currentTimeMillis() + snoozeMinutes * 60_000L,
+                    reminderAtMillis = resumeAt,
                     snoozeCount = task.snoozeCount + 1,
                     workingUntilMillis = 0L,
                 )
             }
             scheduler.cancel(taskId)
-            smartScheduler.cancel(taskId)
             if (updated != null) {
-                if (updated.smartEscalationEnabled) smartScheduler.schedule(updated) else scheduler.schedule(updated)
+                if (updated.reminderMode == ReminderMode.SMART || updated.smartEscalationEnabled) {
+                    smartScheduler.snoozeStage(updated, reachedStage ?: SmartEscalationScheduler.Stage.ALARM, resumeAt)
+                } else {
+                    smartScheduler.cancel(taskId)
+                    scheduler.schedule(updated)
+                }
             }
             finishAlarm()
         }
@@ -148,9 +167,7 @@ class AlarmActivity : ComponentActivity() {
                         }.timeInMillis
                         if (atMillis > System.currentTimeMillis()) reschedule(taskId, atMillis)
                     },
-                    initial.get(Calendar.HOUR_OF_DAY),
-                    initial.get(Calendar.MINUTE),
-                    false,
+                    initial.get(Calendar.HOUR_OF_DAY), initial.get(Calendar.MINUTE), false,
                 ).show()
             },
             initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH)
@@ -171,7 +188,8 @@ class AlarmActivity : ComponentActivity() {
             scheduler.cancel(taskId)
             smartScheduler.cancel(taskId)
             if (updated != null) {
-                if (updated.smartEscalationEnabled) smartScheduler.schedule(updated) else scheduler.schedule(updated)
+                if (updated.reminderMode == ReminderMode.SMART || updated.smartEscalationEnabled) smartScheduler.schedule(updated)
+                else scheduler.schedule(updated)
             }
             finishAlarm()
         }
@@ -182,7 +200,7 @@ class AlarmActivity : ComponentActivity() {
         getSystemService(NotificationManager::class.java).cancel(
             AlarmRingingService.notificationId(intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID).orEmpty())
         )
-        withContext(Dispatchers.Main) { finishAndRemoveTask() }
+        withContext(Dispatchers.Main) { if (!isFinishing) finishAndRemoveTask() }
     }
 }
 
@@ -207,21 +225,10 @@ private fun NativeAlarmScreen(
             .navigationBarsPadding()
             .padding(24.dp)
     ) {
-        Text(
-            SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date()),
-            color = MutedText,
-            fontSize = 11.sp,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
+        Text(SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date()), color = MutedText, fontSize = 11.sp, modifier = Modifier.align(Alignment.TopCenter))
 
-        Column(
-            Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                Modifier.size(92.dp).background(RecRed.copy(alpha = 0.13f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
+        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(92.dp).background(RecRed.copy(alpha = 0.13f), CircleShape), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(62.dp).background(RecRed.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) {
                     Icon(Icons.Outlined.Alarm, null, tint = RecRed, modifier = Modifier.size(34.dp))
                 }
@@ -244,15 +251,8 @@ private fun NativeAlarmScreen(
             }
             Spacer(Modifier.height(31.dp))
 
-            Button(
-                onClick = onWorking,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                shape = RoundedCornerShape(17.dp)
-            ) {
-                Icon(Icons.Outlined.Work, null)
-                Spacer(Modifier.width(8.dp))
-                Text("I'M WORKING ON IT", fontWeight = FontWeight.Black)
+            Button(onClick = onWorking, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(17.dp)) {
+                Icon(Icons.Outlined.Work, null); Spacer(Modifier.width(8.dp)); Text("I'M WORKING ON IT", fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
