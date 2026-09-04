@@ -26,6 +26,7 @@ class SmartEscalationScheduler(private val context: Context) {
     fun schedule(task: CreatorTask) {
         cancel(task.id)
         if (!isSmartEnabled(task)) return
+        if (!isTargetBeforePublish(task)) return
         val now = System.currentTimeMillis()
         val config = configStore.get(task)
         if (!SmartEscalationPolicy.isWindowValid(task.priority, now, task.reminderAtMillis, config)) return
@@ -38,7 +39,7 @@ class SmartEscalationScheduler(private val context: Context) {
     /** Rebuild the one pending stage after reboot/time/package recovery without compressing waits. */
     fun recover(task: CreatorTask) {
         cancelPending(task.id, clearSession = false)
-        if (!isSmartEnabled(task)) {
+        if (!isSmartEnabled(task) || !isTargetBeforePublish(task)) {
             sessions.clear(task.id)
             return
         }
@@ -112,16 +113,21 @@ class SmartEscalationScheduler(private val context: Context) {
     }
 
     /** Initial-save/recovery validation only: enough time must remain BEFORE the final target. */
-    fun isWindowValid(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): Boolean =
-        SmartEscalationPolicy.isWindowValid(
+    fun isWindowValid(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): Boolean {
+        if (!isTargetBeforePublish(task)) return false
+        return SmartEscalationPolicy.isWindowValid(
             task.priority,
             nowMillis,
             task.reminderAtMillis,
             configStore.get(task),
         )
+    }
 
     private fun isSmartEnabled(task: CreatorTask): Boolean =
         (task.smartEscalationEnabled || task.reminderMode == ReminderMode.SMART) && task.reminderEnabled
+
+    private fun isTargetBeforePublish(task: CreatorTask): Boolean =
+        task.dueAtMillis <= 0L || task.reminderAtMillis <= task.dueAtMillis
 
     private fun cancelPending(taskId: String, clearSession: Boolean) {
         Stage.entries.forEach { stage ->
