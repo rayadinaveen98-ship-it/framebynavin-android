@@ -30,8 +30,8 @@ class YouTubeInsightEngineV172Test {
 
     @Test
     fun formatPerformanceNormalizesPerUpload() {
-        val taskA = CreatorTask(id = "a", title = "Review one", platform = "YouTube", contentType = "Short", dueLabel = "")
-        val taskB = CreatorTask(id = "b", title = "Review two", platform = "YouTube", contentType = "Short", dueLabel = "")
+        val taskA = CreatorTask(id = "a", title = "Quick cinema thought one", platform = "YouTube", contentType = "Short", dueLabel = "")
+        val taskB = CreatorTask(id = "b", title = "Quick cinema thought two", platform = "YouTube", contentType = "Short", dueLabel = "")
         val taskC = CreatorTask(id = "c", title = "Deep analysis", platform = "YouTube", contentType = "Long-form", dueLabel = "")
         val videos = listOf(
             video("v1", 1000, 100, 10),
