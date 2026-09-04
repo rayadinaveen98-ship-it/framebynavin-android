@@ -16,7 +16,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.framebynavin.app.data.CreatorAutomationPreferences
 import com.framebynavin.app.data.CreatorAutomationPreferencesStore
 import com.framebynavin.app.data.CreatorAutomationStateStore
 import com.framebynavin.app.data.CreatorRoutine
@@ -117,7 +116,7 @@ internal fun V17AutomationCenterScreen(
                                 when {
                                     runRequested -> "Planner refresh requested"
                                     lastPlannerAt > 0L -> "Last background check · ${v17Time(lastPlannerAt)} · $lastCreated added"
-                                    else -> "Background planner is scheduled automatically",
+                                    else -> "Background planner is scheduled automatically"
                                 },
                                 color = MutedText,
                                 fontSize = 8.5.sp,
