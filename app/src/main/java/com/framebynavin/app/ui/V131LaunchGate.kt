@@ -9,8 +9,8 @@ import kotlinx.coroutines.delay
 import com.framebynavin.app.widget.CreatorWidgetLaunch
 
 /**
- * Three-second cinematic welcome on normal cold launches.
- * Widget/deep-link launches stay instant so Quick Project/Release Day never inherit a splash delay.
+ * Short cinematic studio-ident on normal cold launches.
+ * Widget/deep-link launches stay instant so creator shortcuts never inherit a splash delay.
  */
 @Composable
 fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
@@ -19,7 +19,7 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         if (externalLaunch != null) {
             welcomeDone = true
         } else if (!welcomeDone) {
-            delay(3_000L)
+            delay(2_350L)
             welcomeDone = true
         }
     }
@@ -28,6 +28,6 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         transitionSpec = { fadeIn() togetherWith fadeOut() },
         label = "launchGate",
     ) { ready ->
-        if (ready) FrameByNavinV101BApp(externalLaunch = externalLaunch) else V131CinematicWelcome()
+        if (ready) FrameByNavinV101BApp(externalLaunch = externalLaunch) else V133CinematicWelcome()
     }
 }
