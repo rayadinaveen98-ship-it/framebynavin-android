@@ -12,8 +12,7 @@ import kotlinx.coroutines.launch
 
 class ReminderRecoveryReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val supported = intent.action in SUPPORTED_ACTIONS
-        if (!supported) return
+        if (intent.action !in SUPPORTED_ACTIONS) return
 
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
@@ -24,15 +23,23 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
                 val now = System.currentTimeMillis()
                 TaskStore(appContext).load().forEach { task ->
                     scheduler.cancel(task.id)
-                    smart.cancel(task.id)
-                    val shouldBeScheduled = task.reminderEnabled &&
+                    val active = task.reminderEnabled &&
                         task.reminderMode != ReminderMode.NONE &&
-                        task.reminderAtMillis > now &&
                         task.status != TaskStatus.DONE &&
                         task.status != TaskStatus.SKIPPED
-                    if (shouldBeScheduled) {
-                        if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) smart.schedule(task)
-                        else scheduler.schedule(task)
+
+                    if (!active) {
+                        smart.cancel(task.id)
+                        return@forEach
+                    }
+
+                    if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) {
+                        // recover() preserves the durable Smart session. Calling cancel() first would
+                        // erase which stage the creator had already reached.
+                        smart.recover(task)
+                    } else {
+                        smart.cancel(task.id)
+                        if (task.reminderAtMillis > now) scheduler.schedule(task)
                     }
                 }
             } finally {
