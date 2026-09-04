@@ -206,7 +206,7 @@ class CreatorRoutineWorker(
         private const val CHANNEL_ID = "creator_routines"
 
         fun ensurePeriodic(context: Context) {
-            val request = PeriodicWorkRequestBuilder<CreatorRoutineWorker>(6, TimeUnit.HOURS).build()
+            val request = PeriodicWorkRequestBuilder<CreatorRoutineWorker>(1, TimeUnit.HOURS).build()
             WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
                 WORK_NAME,
                 ExistingPeriodicWorkPolicy.UPDATE,
