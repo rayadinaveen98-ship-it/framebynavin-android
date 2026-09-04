@@ -86,25 +86,25 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:layout_marginEnd="7dp"
             android:gravity="center"
             android:background="@drawable/widget_creator_button_red"
             android:text="+ IDEA"
             android:textColor="#FFFFFF"
             android:textSize="9sp"
             android:textStyle="bold" />
-        <Space android:layout_width="7dp" android:layout_height="1dp" />
         <TextView
             android:id="@+id/widget_large_project_button"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:layout_marginEnd="7dp"
             android:gravity="center"
             android:background="@drawable/widget_creator_button"
             android:text="+ PROJECT"
             android:textColor="#F5F2EA"
             android:textSize="9sp"
             android:textStyle="bold" />
-        <Space android:layout_width="7dp" android:layout_height="1dp" />
         <TextView
             android:id="@+id/widget_large_release"
             android:layout_width="0dp"
