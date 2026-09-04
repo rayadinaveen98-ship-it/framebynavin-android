@@ -63,6 +63,8 @@ import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
+import com.framebynavin.app.widget.CreatorWidgetContract
+import com.framebynavin.app.widget.CreatorWidgetLaunch
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
@@ -82,7 +84,7 @@ private data class PPermissions(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel()) {
+fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: CreatorWidgetLaunch? = null) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
@@ -95,6 +97,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel()) {
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
+    var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
+    var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
 
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         permissions = pPermissions(context)
@@ -134,6 +138,23 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel()) {
         showComposer = true
     }
 
+    LaunchedEffect(externalLaunch?.nonce) {
+        val launch = externalLaunch ?: return@LaunchedEffect
+        showControl = false
+        showReminders = false
+        when (launch.action) {
+            CreatorWidgetContract.ACTION_OPEN_TODAY -> { overlay = POverlay.NONE; tab = PTab.TODAY }
+            CreatorWidgetContract.ACTION_OPEN_STUDIO -> {
+                overlay = POverlay.NONE
+                tab = PTab.STUDIO
+                externalStudioId = launch.taskId.ifBlank { null }
+                externalStudioNonce = launch.nonce
+            }
+            CreatorWidgetContract.ACTION_NEW_PROJECT -> { overlay = POverlay.NONE; openComposer() }
+            CreatorWidgetContract.ACTION_RELEASE_DAY -> overlay = POverlay.RELEASE
+        }
+    }
+
     val focusTask = vm.tasks.firstOrNull { it.id == focusTaskId }
     Box(Modifier.fillMaxSize().background(CinemaBlack)) {
         if (focusTask != null) {
@@ -156,7 +177,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel()) {
                     onFocus = { focusTaskId = it },
                 )
                 PTab.PLAN -> PPlanScreen(vm.tasks, { openComposer() }, vm::startTask, vm::completeTask)
-                PTab.STUDIO -> PStudioScreen(vm.tasks, { openComposer() }, vm::advanceWorkflow, vm::moveWorkflowBack) { focusTaskId = it }
+                PTab.STUDIO -> PStudioScreen(
+                    tasks = vm.tasks,
+                    onAdd = { openComposer() },
+                    onAdvance = vm::advanceWorkflow,
+                    onBack = vm::moveWorkflowBack,
+                    onFocus = { focusTaskId = it },
+                    externalExpandId = externalStudioId,
+                    externalExpandNonce = externalStudioNonce,
+                )
                 PTab.INSIGHTS -> V11InsightsScreen(vm.tasks, vm.ideas, { openComposer() })
             }
 
@@ -582,6 +611,8 @@ private fun PStudioScreen(
     onAdvance: (String) -> Unit,
     onBack: (String) -> Unit,
     onFocus: (String) -> Unit,
+    externalExpandId: String? = null,
+    externalExpandNonce: Long = 0L,
 ) {
     val projects = tasks.filter { it.status != TaskStatus.SKIPPED }.sortedWith(compareBy<CreatorTask> { it.status == TaskStatus.DONE }.thenBy { it.dueAtMillis.takeIf { d -> d > 0 } ?: Long.MAX_VALUE })
     val listState = rememberLazyListState()
@@ -589,6 +620,9 @@ private fun PStudioScreen(
     var expandedId by rememberSaveable { mutableStateOf<String?>(null) }
     val haptics = LocalHapticFeedback.current
 
+    LaunchedEffect(externalExpandNonce) {
+        if (!externalExpandId.isNullOrBlank()) expandedId = externalExpandId
+    }
     LaunchedEffect(projects.map { it.id }) { if (expandedId != null && projects.none { it.id == expandedId }) expandedId = null }
     LaunchedEffect(expandedId) {
         val id = expandedId ?: return@LaunchedEffect

@@ -1,6 +1,7 @@
 package com.framebynavin.app.data
 
 import android.content.Context
+import com.framebynavin.app.widget.CreatorWidgetUpdater
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -24,6 +25,7 @@ class TaskStore(private val context: Context) {
 
     suspend fun save(tasks: List<CreatorTask>) {
         context.creatorDataStore.edit { prefs -> prefs[tasksKey] = encode(tasks) }
+        CreatorWidgetUpdater.updateAll(context, tasks)
     }
 
     suspend fun exportJson(): String = encode(load())
