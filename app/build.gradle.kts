@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 25
-        versionName = "1.3.3-cinematic-control-room-rc1"
+        versionCode = 26
+        versionName = "1.3.3-branding-home-rollback-rc2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,6 +78,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.3.3 RC1: keeps the v1.3.2 reliability/recovery repairs and introduces the
-// production-realistic FrameByNavin cinematic identity, welcome ident and Creator Control Room home.
-// Final RC1 device-build trigger after the approved Home route switch.
+// v1.3.3 RC2: preserves the approved layered-panel launcher icon and cinematic welcome ident,
+// keeps the v1.3.2 reliability/recovery repairs, and restores the previous Today/Home screen.
