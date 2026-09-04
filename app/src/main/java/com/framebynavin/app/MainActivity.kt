@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.framebynavin.app.cloud.CloudSyncScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.ui.FrameByNavinV101BApp
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
@@ -20,6 +21,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ReminderNotifications.ensureChannel(this)
+        CloudSyncScheduler.ensurePeriodic(this)
+        CloudSyncScheduler.enqueueNow(this)
         externalLaunch = widgetLaunch(intent)
         enableEdgeToEdge()
         setContent {

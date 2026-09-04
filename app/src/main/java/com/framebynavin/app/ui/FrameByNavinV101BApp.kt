@@ -59,6 +59,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.framebynavin.app.BuildConfig
+import com.framebynavin.app.cloud.CloudSyncActivity
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.VoicePersonaEngine
@@ -251,6 +252,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onPreciseTiming = ::requestPreciseTiming,
                 onFullScreen = ::requestFullScreen,
                 onBattery = ::openBatterySettings,
+                onCloudSync = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
                 onYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
                 onRunOnboarding = {
                     settingsStore.setOnboardingComplete(false)
@@ -936,6 +938,7 @@ private fun PSettingsScreen(
     onPreciseTiming: () -> Unit,
     onFullScreen: () -> Unit,
     onBattery: () -> Unit,
+    onCloudSync: () -> Unit,
     onYouTube: () -> Unit,
     onRunOnboarding: () -> Unit,
 ) {
@@ -991,6 +994,29 @@ private fun PSettingsScreen(
                         Text(if (weeklyAutoPlanEnabled) "Recurring projects may be added automatically." else "Nothing is added automatically.", color = MutedText, fontSize = 8.8.sp)
                     }
                     Switch(weeklyAutoPlanEnabled, onWeeklyAutoPlan, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
+            PSettingsHeading("SYNC & BACKUP", "Optional Google account protection. Local data remains primary.")
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                onClick = onCloudSync,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = CinemaSurface,
+                border = BorderStroke(1.dp, CinemaLine),
+            ) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(34.dp).background(RecRed.copy(alpha = .10f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.CloudSync, null, tint = RecRed, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Cloud Sync", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("Google account · restore points · local-first", color = MutedText, fontSize = 8.7.sp)
+                    }
+                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
                 }
             }
 
