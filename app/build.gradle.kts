@@ -80,3 +80,4 @@ dependencies {
 
 // v1.3.3 RC1: keeps the v1.3.2 reliability/recovery repairs and introduces the
 // production-realistic FrameByNavin cinematic identity, welcome ident and Creator Control Room home.
+// Final RC1 device-build trigger after the approved Home route switch.
