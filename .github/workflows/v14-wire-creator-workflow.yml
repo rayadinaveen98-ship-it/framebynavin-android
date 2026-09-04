@@ -1,0 +1,36 @@
+name: Apply v1.4 Creator Workflow Wiring
+
+on:
+  push:
+    branches: [ "feature/v1.4-creator-workflow" ]
+    paths:
+      - "tools/v14_wire_creator_workflow.py"
+      - ".github/workflows/v14-wire-creator-workflow.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply v1.4 wiring
+        run: python tools/v14_wire_creator_workflow.py
+
+      - name: Commit wiring
+        run: |
+          git config user.name "FrameByNavin Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+          if git diff --cached --quiet; then
+            echo "No wiring changes needed"
+          else
+            git commit -m "feat(v1.4): wire templates, quick capture and smart next action"
+            git push
+          fi
