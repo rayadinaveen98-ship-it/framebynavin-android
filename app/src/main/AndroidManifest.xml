@@ -51,6 +51,11 @@
             android:theme="@style/Theme.FrameByNavin" />
 
         <activity
+            android:name=".ui.CopilotActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FrameByNavin" />
+
+        <activity
             android:name=".cloud.CloudSyncActivity"
             android:exported="false"
             android:theme="@style/Theme.FrameByNavin" />
