@@ -8,12 +8,16 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.cloud.CloudSyncScheduler
+import com.framebynavin.app.reminders.MissedReminderRecovery
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.ui.V131LaunchGate
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.widget.CreatorWidgetContract
 import com.framebynavin.app.widget.CreatorWidgetLaunch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var externalLaunch by mutableStateOf<CreatorWidgetLaunch?>(null)
@@ -29,6 +33,15 @@ class MainActivity : ComponentActivity() {
             FrameByNavinTheme {
                 V131LaunchGate(externalLaunch = externalLaunch)
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Covers the case where Android missed a one-shot reminder and the creator opens the app
+        // later, including immediately after granting notification permission.
+        lifecycleScope.launch(Dispatchers.IO) {
+            MissedReminderRecovery.deliverMissedFromStore(applicationContext)
         }
     }
 
