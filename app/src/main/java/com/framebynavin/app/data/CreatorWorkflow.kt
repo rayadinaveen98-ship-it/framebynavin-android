@@ -27,11 +27,12 @@ object CreatorWorkflowEngine {
                     stage("idea", "Idea", "Lock the angle and core promise"),
                     stage("research", "Research", "Collect references, scenes and evidence"),
                     stage("script", "Script", "Write and tighten the narration"),
-                    stage("voice", "Voice", "Record the final narration"),
+                    stage("voice", "Record", "Record the final narration"),
                     stage("edit", "Edit", "Build and finish the video edit"),
                     stage("thumbnail", "Thumbnail", "Create thumbnail and metadata"),
                     stage("upload", "Upload", "Upload, QC and schedule"),
-                    stage("published", "Published", "Publish and verify the live video"),
+                    stage("published", "Publish", "Publish and verify the live video"),
+                    stage("promote", "Promote", "Share the release across Shorts, Reels or X and capture the live link"),
                 ),
             )
 
@@ -44,7 +45,8 @@ object CreatorWorkflowEngine {
                     stage("sound_grade", "Sound + Grade", "Polish sound, grade and transitions"),
                     stage("thumbnail", "Thumbnail", "Create thumbnail and final metadata"),
                     stage("upload", "Upload", "Upload, QC and schedule"),
-                    stage("published", "Published", "Publish and verify the live video"),
+                    stage("published", "Publish", "Publish and verify the live video"),
+                    stage("promote", "Promote", "Share the compilation and capture the live link"),
                 ),
             )
 
@@ -59,7 +61,8 @@ object CreatorWorkflowEngine {
                     stage("create", "Create", "Create the final visual or carousel"),
                     stage("caption", "Caption", "Write caption, tags and CTA"),
                     stage("review", "Review", "Check crop, spelling and final presentation"),
-                    stage("published", "Published", "Publish and verify the post"),
+                    stage("published", "Publish", "Publish and verify the post"),
+                    stage("promote", "Promote", "Share to Story or cross-post where useful"),
                 ),
             )
 
@@ -94,7 +97,8 @@ object CreatorWorkflowEngine {
                     stage("edit", "Edit", "Finish the video edit"),
                     stage("caption", "Caption", "Write the post copy and context"),
                     stage("upload", "Upload", "Upload and final-check playback"),
-                    stage("published", "Published", "Publish and verify the post"),
+                    stage("published", "Publish", "Publish and verify the post"),
+                    stage("promote", "Promote", "Reuse or link the video where it helps the main release"),
                 ),
             )
 
@@ -115,7 +119,8 @@ object CreatorWorkflowEngine {
                     stage("idea", "Idea", "Lock what you are making"),
                     stage("create", "Create", "Create the content"),
                     stage("review", "Review", "Review and finish the content"),
-                    stage("published", "Published", "Publish and verify it"),
+                    stage("published", "Publish", "Publish and verify it"),
+                    stage("promote", "Promote", "Share it where it supports your creator plan"),
                 ),
             )
         }
@@ -170,11 +175,12 @@ object CreatorWorkflowEngine {
         stages = listOf(
             stage("idea", "Idea", "Lock the hook and core idea"),
             stage("script", "Script", "Write the short script or beats"),
-            stage("voice", "Voice", "Record voice or final dialogue"),
+            stage("voice", "Record", "Record voice or final dialogue"),
             stage("edit", "Edit", "Finish the vertical edit"),
             stage("cover", "Cover", "Create cover, caption and metadata"),
             stage("upload", "Upload", "Upload, QC and schedule"),
-            stage("published", "Published", "Publish and verify the live post"),
+            stage("published", "Publish", "Publish and verify the live post"),
+            stage("promote", "Promote", "Cross-post or point viewers to the main creator goal"),
         ),
     )
 
