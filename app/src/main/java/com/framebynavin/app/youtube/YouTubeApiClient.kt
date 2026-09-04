@@ -8,7 +8,6 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 
 class YouTubeApiClient {
     fun sync(accessToken: String, windowDays: Int): YouTubeAnalyticsSnapshot {
@@ -16,6 +15,9 @@ class YouTubeApiClient {
         val channel = fetchChannel(accessToken)
         val end = LocalDate.now().minusDays(1)
         val start = end.minusDays((windowDays - 1).toLong())
+        val previousEnd = start.minusDays(1)
+        val previousStart = previousEnd.minusDays((windowDays - 1).toLong())
+        val summaryMetrics = "views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost,likes,comments"
 
         val summary = queryReport(
             accessToken = accessToken,
@@ -23,10 +25,21 @@ class YouTubeApiClient {
                 "ids" to "channel==MINE",
                 "startDate" to start.toString(),
                 "endDate" to end.toString(),
-                "metrics" to "views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost,likes,comments",
+                "metrics" to summaryMetrics,
             ),
         )
         val summaryRow = summary.rows.firstOrNull().orEmpty()
+
+        val previousSummary = queryReport(
+            accessToken = accessToken,
+            params = mapOf(
+                "ids" to "channel==MINE",
+                "startDate" to previousStart.toString(),
+                "endDate" to previousEnd.toString(),
+                "metrics" to summaryMetrics,
+            ),
+        )
+        val previousRow = previousSummary.rows.firstOrNull().orEmpty()
 
         val topReport = queryReport(
             accessToken = accessToken,
@@ -35,7 +48,7 @@ class YouTubeApiClient {
                 "startDate" to start.toString(),
                 "endDate" to end.toString(),
                 "dimensions" to "video",
-                "metrics" to "views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost,likes,comments",
+                "metrics" to summaryMetrics,
                 "sort" to "-views",
                 "maxResults" to "10",
             ),
@@ -57,7 +70,7 @@ class YouTubeApiClient {
                 "endDate" to end.toString(),
                 "dimensions" to "video",
                 "filters" to "video==${recentIds.joinToString(",")}",
-                "metrics" to "views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost,likes,comments",
+                "metrics" to summaryMetrics,
             ),
         )
         val recentVideos = recentIds.mapNotNull { id ->
@@ -103,6 +116,17 @@ class YouTubeApiClient {
             recentVideos = recentVideos,
             trend = trend,
             fetchedAtMillis = System.currentTimeMillis(),
+            previousPeriod = YouTubePeriodSnapshot(
+                startDate = previousStart.toString(),
+                endDate = previousEnd.toString(),
+                views = previousRow.long("views"),
+                watchMinutes = previousRow.long("estimatedMinutesWatched"),
+                averageViewDurationSeconds = previousRow.long("averageViewDuration"),
+                subscribersGained = previousRow.long("subscribersGained"),
+                subscribersLost = previousRow.long("subscribersLost"),
+                likes = previousRow.long("likes"),
+                comments = previousRow.long("comments"),
+            ),
         )
     }
 
