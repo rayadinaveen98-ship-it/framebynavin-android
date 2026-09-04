@@ -42,6 +42,11 @@
             android:turnScreenOn="true"
             android:theme="@style/Theme.FrameByNavin" />
 
+        <activity
+            android:name=".ui.BackupActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FrameByNavin" />
+
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.EscalationReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderActionReceiver" android:exported="false" />
