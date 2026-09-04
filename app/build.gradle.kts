@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "1.0.1-full-polish"
+        versionCode = 17
+        versionName = "1.0.2-stability-smart-v2"
     }
 
     compileOptions {
@@ -62,5 +62,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.0")
     implementation("androidx.datastore:datastore-preferences:1.1.7")
+
+    testImplementation("junit:junit:4.13.2")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
