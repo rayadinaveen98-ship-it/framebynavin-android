@@ -60,6 +60,16 @@ jobs:
       - name: Compile instrumentation test APK
         run: gradle :app:assembleDebugAndroidTest --stacktrace
 
+      - name: Run release-blocker UI smoke tests
+        if: github.ref == 'refs/heads/repair/v1.3.2-release-blockers'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest --stacktrace
+
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
