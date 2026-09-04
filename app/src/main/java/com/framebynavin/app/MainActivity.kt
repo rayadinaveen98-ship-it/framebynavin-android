@@ -10,7 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.framebynavin.app.cloud.CloudSyncScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
-import com.framebynavin.app.ui.FrameByNavinV101BApp
+import com.framebynavin.app.ui.V131LaunchGate
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.widget.CreatorWidgetContract
 import com.framebynavin.app.widget.CreatorWidgetLaunch
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FrameByNavinTheme {
-                FrameByNavinV101BApp(externalLaunch = externalLaunch)
+                V131LaunchGate(externalLaunch = externalLaunch)
             }
         }
     }

@@ -177,13 +177,22 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onViewAllReminders = { showReminders = true },
                     onFocus = { focusTaskId = it },
                 )
-                PTab.PLAN -> PPlanScreen(vm.tasks, { openComposer() }, vm::startTask, vm::completeTask)
-                PTab.STUDIO -> PStudioScreen(
+                PTab.PLAN -> V131PlanScreen(
+                    tasks = vm.tasks,
+                    onAdd = { openComposer() },
+                    onStart = vm::startTask,
+                    onDone = vm::completeTask,
+                    onDeleteSelected = vm::deleteTasks,
+                )
+                PTab.STUDIO -> V131StudioScreen(
                     tasks = vm.tasks,
                     onAdd = { openComposer() },
                     onAdvance = vm::advanceWorkflow,
                     onBack = vm::moveWorkflowBack,
                     onFocus = { focusTaskId = it },
+                    onArchive = vm::archiveTask,
+                    onUnarchive = vm::unarchiveTask,
+                    onDelete = vm::deleteTask,
                     externalExpandId = externalStudioId,
                     externalExpandNonce = externalStudioNonce,
                 )
@@ -287,11 +296,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     if (showReminders) {
-        PReminderCenter(
+        V131ReminderCenter(
             tasks = vm.tasks,
             onDismiss = { showReminders = false },
             onNew = { showReminders = false; openComposer() },
             onEdit = { id -> showReminders = false; openComposer(id) },
+            onDeleteReminders = vm::cancelReminders,
         )
     }
 
@@ -365,7 +375,9 @@ private fun PTodayScreen(
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(RecRed.copy(alpha = .055f), CinemaBlack), radius = 980f))) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 124.dp)) {
             PTopBar("TODAY", onAdd)
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
+            V131HomeHeroSlideshow()
+            Spacer(Modifier.height(22.dp))
             Text("Make the next thing.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
             Text(
                 if (selected == null) "Your creator queue is clear." else "One clear next move. Everything else can wait.",
@@ -669,7 +681,7 @@ private fun PStudioScreen(
 }
 
 @Composable
-private fun PStudioProject(
+internal fun PStudioProject(
     task: CreatorTask,
     expanded: Boolean,
     onToggle: () -> Unit,
