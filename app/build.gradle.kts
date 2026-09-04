@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 27
-        versionName = "1.3.3-original-hero-rc3"
+        versionCode = 28
+        versionName = "1.4.0-creator-workflow-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,5 +78,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.3.3 RC3: preserves the approved logo, welcome, Home, Plan and reminder reliability behavior.
-// This update changes only the Home cinema hero: original-quality no-density frames + Netflix-style presentation.
+// v1.4 RC1: functional upgrade only. Keeps the approved branding/Home/slideshow baseline,
+// and adds creator workflow promotion, project presets, smart next-action ranking and Quick Capture Inbox.
