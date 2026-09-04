@@ -9,6 +9,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.framebynavin.app.reminders.ReminderConstants
 import com.framebynavin.app.reminders.ReminderScheduler
+import com.framebynavin.app.reminders.SmartEscalationConfigStore
+import com.framebynavin.app.reminders.SmartEscalationPolicy
 import com.framebynavin.app.reminders.SmartEscalationScheduler
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -18,6 +20,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private val store = TaskStore(application)
     private val scheduler = ReminderScheduler(application)
     private val smartScheduler = SmartEscalationScheduler(application)
+    private val smartConfigStore = SmartEscalationConfigStore(application)
     private val weeklyStore = WeeklyScheduleStore(application)
     private val ideaStore = IdeaVaultStore(application)
     private val settingsStore = CreatorOsSettingsStore(application)
@@ -436,11 +439,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val now = System.currentTimeMillis()
         val due = dueAtMillis.coerceAtLeast(now + 5 * 60_000L)
         val template = CreatorWorkflowEngine.templateFor(platform, contentType)
-        val mode = when {
-            platform == "YouTube" -> ReminderMode.SMART
-            platform == "Instagram" && contentType == "Reel" -> ReminderMode.SMART
-            else -> ReminderMode.SIMPLE
-        }
+        val wantsSmart = platform == "YouTube" || (platform == "Instagram" && contentType == "Reel")
+        val smartRequired = SmartEscalationPolicy.requiredWindowMinutes(TaskPriority.IMPORTANT, SmartEscalationConfigStore.DEFAULT)
+        val canFitSmart = due - now > (smartRequired + 1) * 60_000L
+        val mode = if (wantsSmart && canFitSmart) ReminderMode.SMART else ReminderMode.SIMPLE
+        val reminderAt = if (mode == ReminderMode.SMART) due - smartRequired * 60_000L else due
         val defaults = settingsStore.snapshot()
         val taskId = UUID.randomUUID().toString()
         val task = CreatorTask(
@@ -454,7 +457,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             progress = 0,
             workflowStageIndex = 0.coerceAtMost(template.stages.lastIndex),
             reminderEnabled = true,
-            reminderAtMillis = due,
+            reminderAtMillis = reminderAt,
             priority = TaskPriority.IMPORTANT,
             notes = buildString {
                 append("From Idea Vault")
@@ -471,6 +474,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             origin = CreatorTaskOrigin.IDEA_VAULT,
             sourceRefId = idea.id,
         )
+        if (mode == ReminderMode.SMART) smartConfigStore.put(task, SmartEscalationConfigStore.DEFAULT)
         tasks.add(0, task)
         ideas[ideaIndex] = idea.copy(
             status = IdeaStatus.CONVERTED,
@@ -496,7 +500,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             val due = now + spec.dueOffsetMinutes * 60_000L
             val template = CreatorWorkflowEngine.templateFor(spec.platform, spec.contentType)
             val stageIndex = spec.startStageIndex.coerceIn(0, template.stages.lastIndex)
-            val mode = spec.reminderMode
+            val requestedMode = spec.reminderMode
+            val smartRequired = SmartEscalationPolicy.requiredWindowMinutes(spec.priority, SmartEscalationConfigStore.DEFAULT)
+            val canFitSmart = spec.priority == TaskPriority.NORMAL || due - now > (smartRequired + 1) * 60_000L
+            val mode = if (requestedMode == ReminderMode.SMART && !canFitSmart) ReminderMode.ALARM else requestedMode
+            val reminderAt = if (mode == ReminderMode.SMART && smartRequired > 0) due - smartRequired * 60_000L else due
             val task = CreatorTask(
                 id = UUID.randomUUID().toString(),
                 title = "${request.topic} · ${spec.label}",
@@ -508,7 +516,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 progress = CreatorWorkflowEngine.progressForStage(stageIndex, template.stages.size),
                 workflowStageIndex = stageIndex,
                 reminderEnabled = mode != ReminderMode.NONE,
-                reminderAtMillis = due,
+                reminderAtMillis = reminderAt,
                 priority = spec.priority,
                 notes = buildString {
                     append("Release Day · ${ReleaseDayEngine.eventLabel(request.eventType)}")
@@ -524,6 +532,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 origin = CreatorTaskOrigin.RELEASE_DAY,
                 sourceRefId = batchId,
             )
+            if (mode == ReminderMode.SMART) smartConfigStore.put(task, SmartEscalationConfigStore.DEFAULT)
             created += task
         }
 
@@ -684,9 +693,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             origin = CreatorTaskOrigin.WEEKLY,
             sourceRefId = occurrence.key,
         )
-        if (enabled) {
-            task = task.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(task, stageIndex))
-        }
+        if (enabled) task = task.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(task, stageIndex))
+        if (task.reminderMode == ReminderMode.SMART) smartConfigStore.put(task, SmartEscalationConfigStore.DEFAULT)
         return task
     }
 
@@ -719,6 +727,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         )
         updated = if (enabled) updated.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(updated, stageIndex))
         else updated.copy(reminderAtMillis = 0L)
+        if (updated.reminderMode == ReminderMode.SMART) smartConfigStore.put(updated, SmartEscalationConfigStore.DEFAULT)
         return updated
     }
 
@@ -732,18 +741,33 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
+    /** Reconciliation is recovery, not a new schedule. Never erase an active Smart session here. */
     private fun reconcileSnapshot(snapshot: List<CreatorTask>) {
         val now = System.currentTimeMillis()
         snapshot.forEach { task ->
-            val shouldBeScheduled = task.reminderEnabled &&
+            val active = task.reminderEnabled &&
                 task.reminderMode != ReminderMode.NONE &&
-                task.reminderAtMillis > now &&
                 task.status != TaskStatus.DONE &&
                 task.status != TaskStatus.SKIPPED
-            if (shouldBeScheduled) scheduleTask(task) else cancelTaskAlerts(task.id)
+
+            if (!active) {
+                cancelTaskAlerts(task.id)
+                return@forEach
+            }
+
+            if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) {
+                scheduler.cancel(task.id)
+                smartScheduler.recover(task)
+            } else if (task.reminderAtMillis > now) {
+                smartScheduler.cancel(task.id)
+                scheduler.schedule(task)
+            } else {
+                cancelTaskAlerts(task.id)
+            }
         }
     }
 
+    /** Intentional creator/project changes start a fresh schedule and therefore clear old Smart state. */
     private fun scheduleTask(task: CreatorTask) {
         scheduler.cancel(task.id)
         smartScheduler.cancel(task.id)
