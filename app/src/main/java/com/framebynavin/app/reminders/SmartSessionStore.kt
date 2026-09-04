@@ -3,7 +3,7 @@ package com.framebynavin.app.reminders
 import android.content.Context
 import org.json.JSONObject
 
-/** Small durable state guard used to reject stale/overlapping Smart stages. */
+/** Durable Smart state guard used to reject stale/overlapping stages and recover snooze. */
 class SmartSessionStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -12,6 +12,8 @@ class SmartSessionStore(context: Context) {
         val stage: SmartEscalationScheduler.Stage,
         val stageStartedAtMillis: Long,
         val generation: Long,
+        val snoozedStage: SmartEscalationScheduler.Stage? = null,
+        val snoozedUntilMillis: Long = 0L,
     )
 
     fun current(taskId: String): Session? {
@@ -23,6 +25,10 @@ class SmartSessionStore(context: Context) {
                 stage = SmartEscalationScheduler.Stage.valueOf(obj.getString("stage")),
                 stageStartedAtMillis = obj.optLong("stageStartedAtMillis", 0L),
                 generation = obj.optLong("generation", 0L),
+                snoozedStage = obj.optString("snoozedStage", "").takeIf { it.isNotBlank() }?.let {
+                    SmartEscalationScheduler.Stage.valueOf(it)
+                },
+                snoozedUntilMillis = obj.optLong("snoozedUntilMillis", 0L),
             )
         }.getOrNull()
     }
@@ -35,15 +41,28 @@ class SmartSessionStore(context: Context) {
             stageStartedAtMillis = atMillis,
             generation = (previous?.generation ?: 0L) + 1L,
         )
-        prefs.edit().putString(taskId, JSONObject()
-            .put("stage", session.stage.name)
-            .put("stageStartedAtMillis", session.stageStartedAtMillis)
-            .put("generation", session.generation)
-            .toString()).apply()
+        save(session)
         return session
     }
 
-    fun isCurrent(taskId: String, stage: SmartEscalationScheduler.Stage): Boolean = current(taskId)?.stage == stage
+    fun markSnoozed(taskId: String, stage: SmartEscalationScheduler.Stage, untilMillis: Long): Session {
+        val previous = current(taskId)
+        val session = Session(
+            taskId = taskId,
+            stage = previous?.stage ?: stage,
+            stageStartedAtMillis = previous?.stageStartedAtMillis ?: System.currentTimeMillis(),
+            generation = (previous?.generation ?: 0L) + 1L,
+            snoozedStage = stage,
+            snoozedUntilMillis = untilMillis,
+        )
+        save(session)
+        return session
+    }
+
+    fun isCurrent(taskId: String, stage: SmartEscalationScheduler.Stage): Boolean {
+        val session = current(taskId) ?: return false
+        return session.snoozedStage == null && session.stage == stage
+    }
 
     fun clear(taskId: String) {
         prefs.edit().remove(taskId).apply()
@@ -51,6 +70,16 @@ class SmartSessionStore(context: Context) {
 
     fun clearAll() {
         prefs.edit().clear().apply()
+    }
+
+    private fun save(session: Session) {
+        prefs.edit().putString(session.taskId, JSONObject()
+            .put("stage", session.stage.name)
+            .put("stageStartedAtMillis", session.stageStartedAtMillis)
+            .put("generation", session.generation)
+            .put("snoozedStage", session.snoozedStage?.name ?: "")
+            .put("snoozedUntilMillis", session.snoozedUntilMillis)
+            .toString()).apply()
     }
 
     companion object {
