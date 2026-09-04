@@ -47,10 +47,8 @@ jobs:
               '    onBattery: () -> Unit,\n    onYouTube: () -> Unit,\n    onRunOnboarding: () -> Unit,',
           )
 
-          marker = '''            Spacer(Modifier.height(22.dp))
-            PSettingsHeading("DATA & BACKUP", "Export or restore your local Creator OS data.")'''
-          youtube = '''            Spacer(Modifier.height(22.dp))
-            PSettingsHeading("YOUTUBE", "Real channel performance, cached locally after each sync.")
+          marker = '            PSettingsHeading("DATA & BACKUP", "Export or restore your local Creator OS data.")'
+          block = '''            PSettingsHeading("YOUTUBE", "Real channel performance, cached locally after each sync.")
             Spacer(Modifier.height(8.dp))
             Surface(
                 onClick = onYouTube,
@@ -73,8 +71,8 @@ jobs:
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("DATA & BACKUP", "Export or restore your local Creator OS data.")'''
-          replace_once(marker, youtube)
+''' + marker
+          replace_once(marker, block)
 
           path.write_text(text)
 
