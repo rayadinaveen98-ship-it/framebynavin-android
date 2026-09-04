@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "1.3.3-branding-home-rollback-rc2"
+        versionCode = 27
+        versionName = "1.3.3-original-hero-rc3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,5 +78,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.3.3 RC2: preserves the approved layered-panel launcher icon and cinematic welcome ident,
-// keeps the v1.3.2 reliability/recovery repairs, and restores the previous Today/Home screen.
+// v1.3.3 RC3: preserves the approved logo, welcome, Home, Plan and reminder reliability behavior.
+// This update changes only the Home cinema hero: original-quality no-density frames + Netflix-style presentation.
