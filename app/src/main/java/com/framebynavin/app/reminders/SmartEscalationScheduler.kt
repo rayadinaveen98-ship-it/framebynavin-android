@@ -58,15 +58,24 @@ class SmartEscalationScheduler(private val context: Context) {
 
         if (session == null) {
             val config = configStore.get(task)
-            if (!SmartEscalationPolicy.isWindowValid(task.priority, now, task.reminderAtMillis, config)) return
             val firstAt = SmartEscalationPolicy.firstStageAtMillis(task.priority, task.reminderAtMillis, config)
-            val recoveredAt = SmartEscalationPolicy.recoveredStageAtMillis(
-                plannedAtMillis = firstAt,
-                preservedPendingAtMillis = preservedPendingAt,
-                nowMillis = now,
-                fallbackDelayMillis = 5_000L,
-            )
-            if (recoveredAt > now) scheduleStage(task, Stage.SOFT, recoveredAt)
+
+            // A still-future pending SOFT stage should keep its exact recovered time.
+            if (preservedPendingAt != null && preservedPendingAt > now) {
+                scheduleStage(task, Stage.SOFT, preservedPendingAt)
+                return
+            }
+
+            if (firstAt <= now) {
+                // Android may have delayed/lost the first stage even though the creator's FINAL
+                // Smart target is still ahead. Start SOFT shortly instead of silently abandoning
+                // the whole escalation chain. Later stages retain the configured full waits.
+                if (task.reminderAtMillis > now) scheduleStage(task, Stage.SOFT, now + 5_000L)
+                return
+            }
+
+            if (!SmartEscalationPolicy.isWindowValid(task.priority, now, task.reminderAtMillis, config)) return
+            scheduleStage(task, Stage.SOFT, firstAt)
             return
         }
 
