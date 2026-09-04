@@ -1,7 +1,5 @@
 package com.framebynavin.app.ui
 
-import android.os.SystemClock
-import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -14,7 +12,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,9 +32,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -48,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.framebynavin.app.R
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.ReminderMode
@@ -150,25 +147,28 @@ internal fun V131CinematicWelcome() {
 
 @Composable
 internal fun V131HomeHeroSlideshow() {
-    val context = LocalContext.current
-    val assetImages = remember {
-        (1..10).mapNotNull { frameIndex ->
-            val name = "hero_frame_${frameIndex.toString().padStart(2, '0')}.jpg"
-            runCatching {
-                context.assets.open(name).use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
-            }.getOrNull()
-        }
+    val resourceIds = remember {
+        listOf(
+            R.drawable.hero_frame_01,
+            R.drawable.hero_frame_02,
+            R.drawable.hero_frame_03,
+            R.drawable.hero_frame_04,
+            R.drawable.hero_frame_05,
+            R.drawable.hero_frame_06,
+            R.drawable.hero_frame_07,
+            R.drawable.hero_frame_08,
+            R.drawable.hero_frame_09,
+            R.drawable.hero_frame_10,
+        )
     }
     var index by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(assetImages.size) {
-        if (assetImages.size > 1) {
-            while (true) {
-                delay(4_500L)
-                index = (index + 1) % assetImages.size
-            }
+    LaunchedEffect(resourceIds.size) {
+        while (resourceIds.size > 1) {
+            delay(4_000L)
+            index = (index + 1) % resourceIds.size
         }
     }
-    val quoteIndex = if (assetImages.isEmpty()) 0 else index % heroQuotes.size
+    val quoteIndex = index % heroQuotes.size
 
     Surface(
         modifier = Modifier.fillMaxWidth().height(190.dp),
@@ -178,14 +178,14 @@ internal fun V131HomeHeroSlideshow() {
         shadowElevation = 8.dp,
     ) {
         Box(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp))) {
-            if (assetImages.isNotEmpty()) {
+            if (resourceIds.isNotEmpty()) {
                 AnimatedContent(
-                    targetState = index.coerceIn(0, assetImages.lastIndex),
+                    targetState = index.coerceIn(0, resourceIds.lastIndex),
                     transitionSpec = { fadeIn(tween(900)) togetherWith fadeOut(tween(900)) },
                     label = "cinemaHero",
                 ) { visibleIndex ->
                     Image(
-                        bitmap = assetImages[visibleIndex],
+                        painter = painterResource(resourceIds[visibleIndex]),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
@@ -227,12 +227,12 @@ internal fun V131HomeHeroSlideshow() {
                     modifier = Modifier.fillMaxWidth(.88f),
                 )
             }
-            if (assetImages.size > 1) {
+            if (resourceIds.size > 1) {
                 Row(
                     Modifier.align(Alignment.BottomEnd).padding(15.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    repeat(assetImages.size) { dot ->
+                    repeat(resourceIds.size) { dot ->
                         Box(
                             Modifier.width(if (dot == index) 14.dp else 5.dp).height(3.dp)
                                 .background(if (dot == index) RecRed else ProjectorIvory.copy(alpha = .35f), RoundedCornerShape(10.dp))
@@ -282,7 +282,7 @@ internal fun V131PlanScreen(
         )
         Spacer(Modifier.height(18.dp))
         Text("See the week clearly.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
-        Text("Hold a project for 2 seconds to select and manage it.", color = MutedText, fontSize = 9.4.sp)
+        Text("Tap a project to select it. Long-press also works.", color = MutedText, fontSize = 9.4.sp)
         Spacer(Modifier.height(18.dp))
 
         if (active.isEmpty() && completed.isEmpty()) {
@@ -342,9 +342,9 @@ private fun V131PlanSection(
         val chosen = task.id in selected
         val progress = CreatorWorkflowEngine.progress(task)
         Surface(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).v131Hold2s(
-                onHold = { onHold(task.id) },
-                onTap = { if (selectionMode) onToggleSelection(task.id) },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).combinedClickable(
+                onClick = { onToggleSelection(task.id) },
+                onLongClick = { onHold(task.id) },
             ),
             shape = RoundedCornerShape(18.dp),
             color = if (chosen) RecRed.copy(alpha = .10f) else CinemaSurface,
@@ -428,7 +428,7 @@ internal fun V131ReminderCenter(
                 )
                 Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
                     Text("Stay on track", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Text("Hold a reminder for 2 seconds to select it. Deleting here removes only the reminder, never the project or Plan item.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+                    Text("Tap a reminder to edit it. Long-press to select one or more. Deleting here removes only the reminder, never the project or Plan item.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
                     Spacer(Modifier.height(16.dp))
                     if (active.isEmpty()) {
                         V131Empty("No active reminders", "Projects can still live in Today, Plan and Studio without alerts.", onNew)
@@ -488,9 +488,9 @@ private fun V131ReminderGroup(
     tasks.forEach { task ->
         val chosen = task.id in selected
         Surface(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).v131Hold2s(
-                onHold = { onHold(task.id) },
-                onTap = { if (selectionMode) onToggle(task.id) else onEdit(task.id) },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).combinedClickable(
+                onClick = { if (selectionMode) onToggle(task.id) else onEdit(task.id) },
+                onLongClick = { onHold(task.id) },
             ),
             shape = RoundedCornerShape(18.dp),
             color = if (chosen) RecRed.copy(alpha = .10f) else CinemaSurface,
@@ -703,19 +703,6 @@ private fun V131Empty(title: String, body: String, onAdd: () -> Unit) {
             }
         }
     }
-}
-
-private fun Modifier.v131Hold2s(onHold: () -> Unit, onTap: () -> Unit): Modifier = pointerInput(onHold, onTap) {
-    detectTapGestures(
-        onPress = {
-            val started = SystemClock.elapsedRealtime()
-            val released = tryAwaitRelease()
-            if (released) {
-                val held = SystemClock.elapsedRealtime() - started
-                if (held >= 1_950L) onHold() else onTap()
-            }
-        }
-    )
 }
 
 private fun v131Toggle(values: Set<String>, id: String): Set<String> = if (id in values) values - id else values + id
