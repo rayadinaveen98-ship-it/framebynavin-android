@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 33
-        versionName = "1.7.1-visual-polish-rc1"
+        versionCode = 34
+        versionName = "1.7.2-insights-upgrade-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,6 +78,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.7.1 RC1: final visual polish on the approved v1.7 creator-automation baseline.
-// Enlarges and enriches the cinematic welcome/launcher mark and adds a centered create action
-// to the bottom navigation while keeping creator/reminder/analytics/automation behavior unchanged.
+// v1.7.2 RC1: Insights 2.0 on top of the approved creator-automation + visual-polish baseline.
+// Adds real previous-period YouTube comparisons, decision-oriented Overview/Content/Creator insights,
+// fair per-upload content signals, richer video detail, and a larger fully opaque luminous welcome mark.
