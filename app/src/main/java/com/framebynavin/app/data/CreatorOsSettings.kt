@@ -1,6 +1,7 @@
 package com.framebynavin.app.data
 
 import android.content.Context
+import org.json.JSONObject
 
 data class CreatorOsSettings(
     val onboardingComplete: Boolean = false,
@@ -22,6 +23,47 @@ class CreatorOsSettingsStore(context: Context) {
         snoozeMinutes = prefs.getInt(KEY_SNOOZE_MINUTES, 10).coerceIn(5, 30),
         weeklyAutoPlanEnabled = prefs.getBoolean(KEY_WEEKLY_AUTO_PLAN, false),
     )
+
+    fun exportJson(): String {
+        val value = snapshot()
+        return JSONObject()
+            .put("onboardingComplete", value.onboardingComplete)
+            .put("defaultVoicePersona", value.defaultVoicePersona.name)
+            .put("defaultAlarmTimeoutSeconds", value.defaultAlarmTimeoutSeconds)
+            .put("snoozeMinutes", value.snoozeMinutes)
+            .put("weeklyAutoPlanEnabled", value.weeklyAutoPlanEnabled)
+            .toString()
+    }
+
+    fun importJson(raw: String): CreatorOsSettings {
+        val obj = JSONObject(raw)
+        val value = CreatorOsSettings(
+            onboardingComplete = obj.optBoolean("onboardingComplete", true),
+            defaultVoicePersona = runCatching {
+                VoicePersona.valueOf(obj.optString("defaultVoicePersona", VoicePersona.WARM.name))
+            }.getOrDefault(VoicePersona.WARM),
+            defaultAlarmTimeoutSeconds = obj.optInt("defaultAlarmTimeoutSeconds", 120).coerceIn(30, 300),
+            snoozeMinutes = obj.optInt("snoozeMinutes", 10).coerceIn(5, 30),
+            weeklyAutoPlanEnabled = obj.optBoolean("weeklyAutoPlanEnabled", false),
+        )
+        prefs.edit()
+            .putBoolean(KEY_ONBOARDING_COMPLETE, value.onboardingComplete)
+            .putString(KEY_DEFAULT_VOICE, value.defaultVoicePersona.name)
+            .putInt(KEY_ALARM_TIMEOUT, value.defaultAlarmTimeoutSeconds)
+            .putInt(KEY_SNOOZE_MINUTES, value.snoozeMinutes)
+            .putBoolean(KEY_WEEKLY_AUTO_PLAN, value.weeklyAutoPlanEnabled)
+            .commit()
+        return value
+    }
+
+    fun validateJson(raw: String) {
+        val obj = JSONObject(raw)
+        if (obj.has("defaultVoicePersona")) {
+            runCatching { VoicePersona.valueOf(obj.getString("defaultVoicePersona")) }.getOrElse {
+                throw IllegalArgumentException("Unsupported voice setting")
+            }
+        }
+    }
 
     fun setOnboardingComplete(value: Boolean) {
         prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).apply()
