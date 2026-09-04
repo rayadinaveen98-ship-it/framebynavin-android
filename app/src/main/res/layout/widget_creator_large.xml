@@ -78,8 +78,8 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:layout_marginTop="10dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="9dp"
         android:orientation="horizontal">
         <TextView
             android:id="@+id/widget_large_idea"
@@ -115,6 +115,36 @@
             android:text="RELEASE"
             android:textColor="#F5F2EA"
             android:textSize="9sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="38dp"
+        android:layout_marginTop="7dp"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/widget_large_brief"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="7dp"
+            android:gravity="center"
+            android:background="@drawable/widget_creator_button"
+            android:text="DAILY BRIEF"
+            android:textColor="#F5F2EA"
+            android:textSize="8sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/widget_large_calendar"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:background="@drawable/widget_creator_button"
+            android:text="CALENDAR"
+            android:textColor="#F5F2EA"
+            android:textSize="8sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>
