@@ -23,12 +23,13 @@ class ReminderScheduler(private val context: Context) {
             return
         }
 
-        val pendingIntent = alarmPendingIntent(task)
+        val exactDelivery = canScheduleExact()
+        val pendingIntent = alarmPendingIntent(task, exactDelivery)
         val isNativeAlarm = task.reminderMode == ReminderMode.ALARM || task.alertType == ReminderAlertType.ALARM
 
         if (isNativeAlarm) {
             runCatching {
-                if (canScheduleExact()) {
+                if (exactDelivery) {
                     val showIntent = PendingIntent.getActivity(
                         context,
                         task.id.hashCode() xor 0x51A1,
@@ -64,7 +65,7 @@ class ReminderScheduler(private val context: Context) {
         }
 
         runCatching {
-            if (canScheduleExact()) {
+            if (exactDelivery) {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     task.reminderAtMillis,
@@ -89,7 +90,7 @@ class ReminderScheduler(private val context: Context) {
         ledger.clear(taskId)
     }
 
-    private fun alarmPendingIntent(task: CreatorTask): PendingIntent {
+    private fun alarmPendingIntent(task: CreatorTask, exactDelivery: Boolean): PendingIntent {
         val intent = Intent(context, ReminderReceiver::class.java)
             .putExtra(ReminderConstants.EXTRA_TASK_ID, task.id)
             .putExtra(ReminderConstants.EXTRA_TITLE, task.title)
@@ -109,6 +110,7 @@ class ReminderScheduler(private val context: Context) {
             .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, task.voiceRepeatCount)
             .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, task.voiceRepeatIntervalSeconds)
             .putExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, task.alarmTimeoutSeconds)
+            .putExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, exactDelivery)
 
         return PendingIntent.getBroadcast(
             context,

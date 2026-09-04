@@ -54,25 +54,37 @@ class EscalationReceiver : BroadcastReceiver() {
         val firedAt = System.currentTimeMillis()
         smart.markStageActive(taskId, stage, firedAt)
 
+        val exactDelivery = intent.getBooleanExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, false)
+
+        fun fallback(label: String): Boolean = runCatching {
+            ReminderNotifications.show(appContext, task, stageLabel = label)
+        }.isSuccess
+
         when (stage) {
             SmartEscalationScheduler.Stage.SOFT -> {
                 AlarmRingingService.stop(appContext)
                 VoiceReminderService.stop(appContext)
-                ReminderNotifications.show(appContext, task, stageLabel = "Smart · Gentle")
+                fallback("Smart · Gentle")
             }
 
             SmartEscalationScheduler.Stage.VOICE -> {
                 ReminderSurfaceRegistry.closeAll()
                 AlarmRingingService.stop(appContext)
                 ReminderNotifications.cancel(appContext, taskId)
-                VoiceReminderService.start(appContext, task)
+                if (!exactDelivery || !runCatching { VoiceReminderService.start(appContext, task) }.isSuccess) {
+                    fallback("Smart · Voice fallback")
+                }
             }
 
             SmartEscalationScheduler.Stage.ALARM -> {
                 ReminderSurfaceRegistry.closeAll()
                 VoiceReminderService.stop(appContext)
                 ReminderNotifications.cancel(appContext, taskId)
-                AlarmRingingService.start(appContext, task.copy(voiceEnabled = false), stage)
+                if (!exactDelivery || !runCatching {
+                        AlarmRingingService.start(appContext, task.copy(voiceEnabled = false), stage)
+                    }.isSuccess) {
+                    fallback("Smart · Alarm fallback")
+                }
             }
 
             SmartEscalationScheduler.Stage.CRITICAL -> {
@@ -80,11 +92,15 @@ class EscalationReceiver : BroadcastReceiver() {
                 VoiceReminderService.stop(appContext)
                 AlarmRingingService.stop(appContext)
                 ReminderNotifications.cancel(appContext, taskId)
-                AlarmRingingService.start(
-                    appContext,
-                    task.copy(priority = TaskPriority.CRITICAL, voiceEnabled = true),
-                    stage,
-                )
+                if (!exactDelivery || !runCatching {
+                        AlarmRingingService.start(
+                            appContext,
+                            task.copy(priority = TaskPriority.CRITICAL, voiceEnabled = true),
+                            stage,
+                        )
+                    }.isSuccess) {
+                    fallback("Smart · Critical fallback")
+                }
             }
         }
 

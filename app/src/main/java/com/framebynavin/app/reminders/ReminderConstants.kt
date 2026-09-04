@@ -24,6 +24,7 @@ object ReminderConstants {
     const val EXTRA_VOICE_REPEAT_INTERVAL = "voice_repeat_interval"
     const val EXTRA_ALARM_TIMEOUT_SECONDS = "alarm_timeout_seconds"
     const val EXTRA_ESCALATION_STAGE = "escalation_stage"
+    const val EXTRA_EXACT_DELIVERY = "exact_delivery"
     const val ACTION_STARTED = "com.framebynavin.app.reminder.STARTED"
     const val ACTION_DONE = "com.framebynavin.app.reminder.DONE"
     const val ACTION_SNOOZE = "com.framebynavin.app.reminder.SNOOZE"
