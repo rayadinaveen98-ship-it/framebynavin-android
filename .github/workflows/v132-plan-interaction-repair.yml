@@ -1,0 +1,37 @@
+name: Apply v1.3.2 Plan Interaction Repair
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "repair/v1.3.2-release-blockers" ]
+    paths:
+      - "tools/v132_plan_interaction_repair.py"
+      - ".github/workflows/v132-plan-interaction-repair.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repair branch
+        uses: actions/checkout@v4
+        with:
+          ref: repair/v1.3.2-release-blockers
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply Plan interaction repair
+        run: python tools/v132_plan_interaction_repair.py
+
+      - name: Commit repaired Plan interaction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          if git diff --cached --quiet; then
+            echo "No Plan interaction repair needed"
+          else
+            git commit -m "fix: make Plan tap edit and long-press select"
+            git push origin HEAD:repair/v1.3.2-release-blockers
+          fi
