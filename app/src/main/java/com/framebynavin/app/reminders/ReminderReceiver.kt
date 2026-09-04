@@ -48,7 +48,7 @@ class ReminderReceiver : BroadcastReceiver() {
             reminderMode = mode,
             voicePersona = persona,
             voiceRepeatCount = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, 3).coerceIn(1, 3),
-            voiceRepeatIntervalSeconds = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 20).coerceIn(10, 60),
+            voiceRepeatIntervalSeconds = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 10).coerceIn(5, 60),
             alarmTimeoutSeconds = intent.getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
         )
 
