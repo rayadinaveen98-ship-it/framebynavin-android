@@ -13,8 +13,9 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val taskId = intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID) ?: return
         val scheduledAt = intent.getLongExtra(ReminderConstants.EXTRA_SCHEDULED_AT, 0L)
+        val ledger = AlarmLedger(context.applicationContext)
 
-        if (!AlarmLedger(context.applicationContext).consumeIfCurrent(taskId, scheduledAt)) return
+        if (!ledger.consumeIfCurrent(taskId, scheduledAt)) return
 
         val firedAt = System.currentTimeMillis()
         val priority = runCatching {
@@ -52,15 +53,19 @@ class ReminderReceiver : BroadcastReceiver() {
             alarmTimeoutSeconds = intent.getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
         )
 
-        when (mode) {
-            ReminderMode.VOICE -> VoiceReminderService.start(context.applicationContext, task)
-            ReminderMode.ALARM -> AlarmRingingService.start(context.applicationContext, task)
-            ReminderMode.NONE -> Unit
-            else -> ReminderNotifications.show(
-                context = context.applicationContext,
-                task = task,
-                deliveryDelayMillis = if (scheduledAt > 0L) (firedAt - scheduledAt).coerceAtLeast(0L) else null,
-            )
+        runCatching {
+            when (mode) {
+                ReminderMode.VOICE -> VoiceReminderService.start(context.applicationContext, task)
+                ReminderMode.ALARM -> AlarmRingingService.start(context.applicationContext, task)
+                ReminderMode.NONE -> Unit
+                else -> ReminderNotifications.show(
+                    context = context.applicationContext,
+                    task = task,
+                    deliveryDelayMillis = if (scheduledAt > 0L) (firedAt - scheduledAt).coerceAtLeast(0L) else null,
+                )
+            }
+        }.onSuccess {
+            if (mode != ReminderMode.NONE) ledger.markDelivered(taskId, scheduledAt)
         }
     }
 }
