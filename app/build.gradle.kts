@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 30
-        versionName = "1.6.0-creator-intelligence-rc1"
+        versionCode = 31
+        versionName = "1.7.0-creator-automation-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,6 +78,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.6 RC1: creator intelligence + focused polish. Keeps reminder reliability and the approved branding,
-// adds post-publish follow-ups, completion-aware creator review and YouTube performance memory,
-// fixes range switching auth state, makes Control icon-only at rest, and simplifies the Home hero.
+// v1.7 RC1: creator automation. Keeps the approved v1.6 UI/reliability baseline,
+// adds 14-day background auto planning, Automation Center, opt-in creator routines,
+// and Daily Brief / Content Calendar home-screen widget shortcuts.
