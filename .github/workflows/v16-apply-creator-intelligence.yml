@@ -1,0 +1,42 @@
+name: Apply v1.6 Creator Intelligence
+
+on:
+  push:
+    branches: [ "feature/v1.6-creator-intelligence" ]
+    paths:
+      - "tools/v16_apply_creator_intelligence.py"
+      - ".github/workflows/v16-apply-creator-intelligence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply v1.6 wiring
+        run: python tools/v16_apply_creator_intelligence.py
+
+      - name: Commit wiring
+        run: |
+          git config user.name "FrameByNavin Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/data/CreatorTask.kt \
+                  app/src/main/java/com/framebynavin/app/data/TaskStore.kt \
+                  app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt \
+                  app/src/main/java/com/framebynavin/app/youtube/YouTubeAnalyticsStore.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt \
+                  app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
+          if git diff --cached --quiet; then
+            echo "No v1.6 wiring changes needed"
+          else
+            git commit -m "feat(v1.6): wire creator intelligence and home refinements"
+            git push
+          fi
