@@ -1,0 +1,61 @@
+name: Harden v1.0.2.1 reminder runtime
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/workflows/v1021-runtime-harden.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch Smart snooze target and surface handoff
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, got {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          voice = "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt"
+          replace_once(voice, "        super.onCreate(savedInstanceState)\n        setShowWhenLocked(true)", "        super.onCreate(savedInstanceState)\n        ReminderSurfaceRegistry.attachVoice(this)\n        setShowWhenLocked(true)")
+          replace_once(voice, "    private fun working(taskId: String) {", "    override fun onDestroy() {\n        ReminderSurfaceRegistry.detachVoice(this)\n        super.onDestroy()\n    }\n\n    private fun working(taskId: String) {")
+          replace_once(voice, "            val updated = store.updateTask(taskId) { task ->\n                task.copy(\n                    reminderEnabled = true,\n                    reminderAtMillis = resumeAt,", "            val updated = store.updateTask(taskId) { task ->\n                val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled\n                task.copy(\n                    reminderEnabled = true,\n                    reminderAtMillis = if (isSmart) task.reminderAtMillis else resumeAt,")
+
+          alarm = "app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt"
+          replace_once(alarm, "        super.onCreate(savedInstanceState)\n        setShowWhenLocked(true)", "        super.onCreate(savedInstanceState)\n        ReminderSurfaceRegistry.attachAlarm(this)\n        setShowWhenLocked(true)")
+          replace_once(alarm, "    private fun acknowledgeDone(taskId: String) {", "    override fun onDestroy() {\n        ReminderSurfaceRegistry.detachAlarm(this)\n        super.onDestroy()\n    }\n\n    private fun acknowledgeDone(taskId: String) {")
+          replace_once(alarm, "            val updated = store.updateTask(taskId) { task ->\n                task.copy(\n                    reminderEnabled = true,\n                    reminderAtMillis = resumeAt,", "            val updated = store.updateTask(taskId) { task ->\n                val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled\n                task.copy(\n                    reminderEnabled = true,\n                    reminderAtMillis = if (isSmart) task.reminderAtMillis else resumeAt,")
+
+          action = "app/src/main/java/com/framebynavin/app/reminders/ReminderActionReceiver.kt"
+          replace_once(action, "                        val snoozed = store.updateTask(taskId) { task ->\n                            task.copy(\n                                reminderEnabled = true,\n                                reminderAtMillis = resumeAt,", "                        val snoozed = store.updateTask(taskId) { task ->\n                            val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled\n                            task.copy(\n                                reminderEnabled = true,\n                                reminderAtMillis = if (isSmart) task.reminderAtMillis else resumeAt,")
+          replace_once(action, "    private fun stopAllSurfaces(context: Context, taskId: String) {\n        AlarmRingingService.stop(context)", "    private fun stopAllSurfaces(context: Context, taskId: String) {\n        ReminderSurfaceRegistry.closeAll()\n        AlarmRingingService.stop(context)")
+
+          escalation = "app/src/main/java/com/framebynavin/app/reminders/EscalationReceiver.kt"
+          replace_once(escalation, "            SmartEscalationScheduler.Stage.VOICE -> {\n                AlarmRingingService.stop(appContext)", "            SmartEscalationScheduler.Stage.VOICE -> {\n                ReminderSurfaceRegistry.closeAll()\n                AlarmRingingService.stop(appContext)")
+          replace_once(escalation, "            SmartEscalationScheduler.Stage.ALARM -> {\n                VoiceReminderService.stop(appContext)", "            SmartEscalationScheduler.Stage.ALARM -> {\n                ReminderSurfaceRegistry.closeAll()\n                VoiceReminderService.stop(appContext)")
+          replace_once(escalation, "            SmartEscalationScheduler.Stage.CRITICAL -> {\n                VoiceReminderService.stop(appContext)", "            SmartEscalationScheduler.Stage.CRITICAL -> {\n                ReminderSurfaceRegistry.closeAll()\n                VoiceReminderService.stop(appContext)")
+
+          reminder_ui = "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt"
+          replace_once(reminder_ui, "    val remindingNow = active.filter { sessionStore.current(it.id) != null }\n    val snoozed = active.filter { it.snoozeCount > 0 && it.reminderAtMillis > now && it !in remindingNow }", "    val remindingNow = active.filter { task ->\n        val session = sessionStore.current(task.id)\n        session != null && session.snoozedStage == null\n    }\n    val snoozed = active.filter { task ->\n        val session = sessionStore.current(task.id)\n        val smartSnoozed = session?.snoozedStage != null && session.snoozedUntilMillis > now\n        val regularSnoozed = task.reminderMode != ReminderMode.SMART && task.snoozeCount > 0 && task.reminderAtMillis > now\n        (smartSnoozed || regularSnoozed) && task !in remindingNow\n    }")
+
+      - name: Commit runtime hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt app/src/main/java/com/framebynavin/app/reminders/ReminderActionReceiver.kt app/src/main/java/com/framebynavin/app/reminders/EscalationReceiver.kt app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+          git commit -m "fix: preserve Smart target on snooze and close prior surfaces"
+          git push
