@@ -26,6 +26,16 @@ class TaskStore(private val context: Context) {
         context.creatorDataStore.edit { prefs -> prefs[tasksKey] = encode(tasks) }
     }
 
+    suspend fun exportJson(): String = encode(load())
+
+    suspend fun importJson(raw: String): List<CreatorTask> {
+        val decoded = decode(raw)
+        save(decoded)
+        return decoded
+    }
+
+    fun validateJson(raw: String): Int = decode(raw).size
+
     suspend fun updateTask(id: String, transform: (CreatorTask) -> CreatorTask): CreatorTask? {
         val current = load().toMutableList()
         val index = current.indexOfFirst { it.id == id }
@@ -80,6 +90,11 @@ class TaskStore(private val context: Context) {
         return buildList {
             for (i in 0 until array.length()) {
                 val item = array.getJSONObject(i)
+                val id = item.optString("id").trim()
+                val title = item.optString("title").trim()
+                require(id.isNotBlank()) { "Task $i has no id" }
+                require(title.isNotBlank()) { "Task $i has no title" }
+
                 val legacyAlertType = runCatching {
                     ReminderAlertType.valueOf(item.optString("alertType", ReminderAlertType.NOTIFICATION.name))
                 }.getOrDefault(ReminderAlertType.NOTIFICATION)
@@ -114,8 +129,8 @@ class TaskStore(private val context: Context) {
 
                 add(
                     CreatorTask(
-                        id = item.getString("id"),
-                        title = item.getString("title"),
+                        id = id,
+                        title = title,
                         platform = platform,
                         contentType = contentType,
                         dueLabel = item.optString("dueLabel", "Today"),
