@@ -48,6 +48,12 @@
             android:exported="false"
             android:theme="@style/Theme.FrameByNavin" />
 
+        <activity
+            android:name=".widget.QuickIdeaActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.FrameByNavin" />
+
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.EscalationReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderActionReceiver" android:exported="false" />
@@ -64,9 +70,34 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".widget.CreatorCompactWidgetProvider"
+            android:exported="false"
+            android:label="FrameByNavin Compact">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_creator_compact_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.CreatorLargeWidgetProvider"
+            android:exported="false"
+            android:label="FrameByNavin Creator Desk">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_creator_large_info" />
+        </receiver>
+
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
