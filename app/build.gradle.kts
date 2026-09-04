@@ -69,3 +69,5 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
+
+// v1.3.1 hero frames are packaged into the final signed APK after the CI code gate.
