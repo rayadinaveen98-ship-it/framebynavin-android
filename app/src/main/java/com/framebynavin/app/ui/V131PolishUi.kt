@@ -232,7 +232,7 @@ internal fun V131HomeHeroSlideshow() {
                     Modifier.align(Alignment.BottomEnd).padding(15.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    repeat(resourceIds.size) { dot ->
+                    repeat(assetImages.size) { dot ->
                         Box(
                             Modifier.width(if (dot == index) 14.dp else 5.dp).height(3.dp)
                                 .background(if (dot == index) RecRed else ProjectorIvory.copy(alpha = .35f), RoundedCornerShape(10.dp))
