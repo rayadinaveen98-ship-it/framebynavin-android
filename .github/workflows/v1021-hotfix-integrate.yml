@@ -21,8 +21,8 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import base64
 
-          # --- Reminder composer: final-target Smart semantics + live clock + stable config save ---
           path = Path("app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt")
           text = path.read_text()
           marker = "internal fun PProjectComposer("
@@ -61,10 +61,8 @@ jobs:
               if count != 1:
                   raise SystemExit(f"Composer patch expected one match, got {count}: {old[:90]!r}")
               composer = composer.replace(old, new, 1)
-
           path.write_text(before + composer)
 
-          # --- Studio: keep polished outer card, restore the approved richer inline pipeline ---
           old_path = Path("app/src/main/java/com/framebynavin/app/ui/V07StudioScreen.kt")
           old_text = old_path.read_text()
           old_decl = "private fun V071WorkflowInlineContent("
@@ -81,76 +79,14 @@ jobs:
           if start < 0 or end < 0:
               raise SystemExit("Could not locate polished Studio project function")
 
-          replacement = '''@Composable
-private fun PStudioProject(
-    task: CreatorTask,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    onAdvance: () -> Unit,
-    onBack: () -> Unit,
-    onFocus: () -> Unit,
-) {
-    val current = CreatorWorkflowEngine.currentStage(task)
-    val progress = CreatorWorkflowEngine.progress(task)
-    val done = task.status == TaskStatus.DONE
-
-    Column(Modifier.fillMaxWidth()) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
-            shape = RoundedCornerShape(if (expanded) 21.dp else 18.dp),
-            color = if (expanded) Color(0xFF16130F) else CinemaSurface,
-            border = BorderStroke(1.dp, if (expanded) MutedGold.copy(alpha = .5f) else CinemaLine),
-        ) {
-            Column(Modifier.padding(15.dp)) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f)) {
-                        Text(task.title, color = ProjectorIvory, fontSize = 15.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(3.dp))
-                        Text("${task.platform} · ${task.contentType} · ${task.dueLabel}", color = MutedText, fontSize = 8.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Icon(if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = MutedText)
-                }
-                Spacer(Modifier.height(11.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = RoundedCornerShape(100.dp), color = if (done) SuccessGreen.copy(alpha = .12f) else RecRed.copy(alpha = .11f)) {
-                        Text(if (done) "PUBLISHED" else current.label.uppercase(), color = if (done) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Text("$progress%", color = if (done) SuccessGreen else MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(8.dp))
-                PStageRail(task)
-            }
-        }
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
-        ) {
-            Column {
-                Spacer(Modifier.height(7.dp))
-                V071WorkflowInlineContent(
-                    task = task,
-                    onAdvance = onAdvance,
-                    onBack = onBack,
-                    onFocus = onFocus,
-                )
-            }
-        }
-    }
-}
-
-'''
+          replacement_b64 = "QENvbXBvc2FibGUKcHJpdmF0ZSBmdW4gUFN0dWRpb1Byb2plY3QoCiAgICB0YXNrOiBDcmVhdG9yVGFzaywKICAgIGV4cGFuZGVkOiBCb29sZWFuLAogICAgb25Ub2dnbGU6ICgpIC0+IFVuaXQsCiAgICBvbkFkdmFuY2U6ICgpIC0+IFVuaXQsCiAgICBvbkJhY2s6ICgpIC0+IFVuaXQsCiAgICBvbkZvY3VzOiAoKSAtPiBVbml0LAopIHsKICAgIHZhbCBjdXJyZW50ID0gQ3JlYXRvcldvcmtmbG93RW5naW5lLmN1cnJlbnRTdGFnZSh0YXNrKQogICAgdmFsIHByb2dyZXNzID0gQ3JlYXRvcldvcmtmbG93RW5naW5lLnByb2dyZXNzKHRhc2spCiAgICB2YWwgZG9uZSA9IHRhc2suc3RhdHVzID09IFRhc2tTdGF0dXMuRE9ORQoKICAgIENvbHVtbihNb2RpZmllci5maWxsTWF4V2lkdGgoKSkgewogICAgICAgIFN1cmZhY2UoCiAgICAgICAgICAgIG1vZGlmaWVyID0gTW9kaWZpZXIuZmlsbE1heFdpZHRoKCkuY2xpY2thYmxlKG9uQ2xpY2sgPSBvblRvZ2dsZSksCiAgICAgICAgICAgIHNoYXBlID0gUm91bmRlZENvcm5lclNoYXBlKGlmIChleHBhbmRlZCkgMjEuZHAgZWxzZSAxOC5kcCksCiAgICAgICAgICAgIGNvbG9yID0gaWYgKGV4cGFuZGVkKSBDb2xvcigweEZGMTYxMzBGKSBlbHNlIENpbmVtYVN1cmZhY2UsCiAgICAgICAgICAgIGJvcmRlciA9IEJvcmRlclN0cm9rZSgxLmRwLCBpZiAoZXhwYW5kZWQpIE11dGVkR29sZC5jb3B5KGFscGhhID0gLjVmKSBlbHNlIENpbmVtYUxpbmUpLAogICAgICAgICkgewogICAgICAgICAgICBDb2x1bW4oTW9kaWZpZXIucGFkZGluZygxNS5kcCkpIHsKICAgICAgICAgICAgICAgIFJvdyh2ZXJ0aWNhbEFsaWdubWVudCA9IEFsaWdubWVudC5Ub3ApIHsKICAgICAgICAgICAgICAgICAgICBDb2x1bW4oTW9kaWZpZXIud2VpZ2h0KDFmKSkgewogICAgICAgICAgICAgICAgICAgICAgICBUZXh0KHRhc2sudGl0bGUsIGNvbG9yID0gUHJvamVjdG9ySXZvcnksIGZvbnRTaXplID0gMTUuNS5zcCwgZm9udFdlaWdodCA9IEZvbnRXZWlnaHQuQm9sZCwgbWF4TGluZXMgPSAyLCBvdmVyZmxvdyA9IFRleHRPdmVyZmxvdy5FbGxpcHNpcykKICAgICAgICAgICAgICAgICAgICAgICAgU3BhY2VyKE1vZGlmaWVyLmhlaWdodCgzLmRwKSkKICAgICAgICAgICAgICAgICAgICAgICAgVGV4dCgiJHt0YXNrLnBsYXRmb3JtfSDCtyAke3Rhc2suY29udGVudFR5cGV9IMK3ICR7dGFzay5kdWVMYWJlbH0iLCBjb2xvciA9IE11dGVkVGV4dCwgZm9udFNpemUgPSA4Ljguc3AsIG1heExpbmVzID0gMSwgb3ZlcmZsb3cgPSBUZXh0T3ZlcmZsb3cuRWxsaXBzaXMpCiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIFNwYWNlcihNb2RpZmllci53aWR0aCg4LmRwKSkKICAgICAgICAgICAgICAgICAgICBJY29uKGlmIChleHBhbmRlZCkgSWNvbnMuT3V0bGluZWQuS2V5Ym9hcmRBcnJvd1VwIGVsc2UgSWNvbnMuT3V0bGluZWQuS2V5Ym9hcmRBcnJvd0Rvd24sIG51bGwsIHRpbnQgPSBNdXRlZFRleHQpCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICBTcGFjZXIoTW9kaWZpZXIuaGVpZ2h0KDExLmRwKSkKICAgICAgICAgICAgICAgIFJvdyh2ZXJ0aWNhbEFsaWdubWVudCA9IEFsaWdubWVudC5DZW50ZXJWZXJ0aWNhbGx5KSB7CiAgICAgICAgICAgICAgICAgICAgU3VyZmFjZShzaGFwZSA9IFJvdW5kZWRDb3JuZXJTaGFwZSgxMDAuZHApLCBjb2xvciA9IGlmIChkb25lKSBTdWNjZXNzR3JlZW4uY29weShhbHBoYSA9IC4xMmYpIGVsc2UgUmVjUmVkLmNvcHkoYWxwaGEgPSAuMTFmKSkgewogICAgICAgICAgICAgICAgICAgICAgICBUZXh0KGlmIChkb25lKSAiUFVCTElTSEVEIiBlbHNlIGN1cnJlbnQubGFiZWwudXBwZXJjYXNlKCksIGNvbG9yID0gaWYgKGRvbmUpIFN1Y2Nlc3NHcmVlbiBlbHNlIFJlY1JlZCwgZm9udFNpemUgPSA4LnNwLCBmb250V2VpZ2h0ID0gRm9udFdlaWdodC5CbGFjaywgbW9kaWZpZXIgPSBNb2RpZmllci5wYWRkaW5nKGhvcml6b250YWwgPSA4LmRwLCB2ZXJ0aWNhbCA9IDQuZHApKQogICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICBTcGFjZXIoTW9kaWZpZXIud2VpZ2h0KDFmKSkKICAgICAgICAgICAgICAgICAgICBUZXh0KCIkcHJvZ3Jlc3MlIiwgY29sb3IgPSBpZiAoZG9uZSkgU3VjY2Vzc0dyZWVuIGVsc2UgTXV0ZWRHb2xkLCBmb250U2l6ZSA9IDkuNS5zcCwgZm9udFdlaWdodCA9IEZvbnRXZWlnaHQuQm9sZCkKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIFNwYWNlcihNb2RpZmllci5oZWlnaHQoOC5kcCkpCiAgICAgICAgICAgICAgICBQU3RhZ2VSYWlsKHRhc2spCiAgICAgICAgICAgIH0KICAgICAgICB9CgogICAgICAgIEFuaW1hdGVkVmlzaWJpbGl0eSgKICAgICAgICAgICAgdmlzaWJsZSA9IGV4cGFuZGVkLAogICAgICAgICAgICBlbnRlciA9IGZhZGVJbigpICsgZXhwYW5kVmVydGljYWxseShleHBhbmRGcm9tID0gQWxpZ25tZW50LlRvcCksCiAgICAgICAgICAgIGV4aXQgPSBmYWRlT3V0KCkgKyBzaHJpbmtWZXJ0aWNhbGx5KHNocmlua1Rvd2FyZHMgPSBBbGlnbm1lbnQuVG9wKSwKICAgICAgICApIHsKICAgICAgICAgICAgQ29sdW1uIHsKICAgICAgICAgICAgICAgIFNwYWNlcihNb2RpZmllci5oZWlnaHQoNy5kcCkpCiAgICAgICAgICAgICAgICBWMDcxV29ya2Zsb3dJbmxpbmVDb250ZW50KAogICAgICAgICAgICAgICAgICAgIHRhc2sgPSB0YXNrLAogICAgICAgICAgICAgICAgICAgIG9uQWR2YW5jZSA9IG9uQWR2YW5jZSwKICAgICAgICAgICAgICAgICAgICBvbkJhY2sgPSBvbkJhY2ssCiAgICAgICAgICAgICAgICAgICAgb25Gb2N1cyA9IG9uRm9jdXMsCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICB9Cn0KCg=="
+          replacement = base64.b64decode(replacement_b64).decode()
           studio_path.write_text(studio_text[:start] + replacement + studio_text[end:])
 
       - name: Commit hotfix integration
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt \
-                  app/src/main/java/com/framebynavin/app/ui/V07StudioScreen.kt \
-                  app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          git add app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt app/src/main/java/com/framebynavin/app/ui/V07StudioScreen.kt app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           git commit -m "fix: align Smart composer and restore Studio inline workflow"
           git push
