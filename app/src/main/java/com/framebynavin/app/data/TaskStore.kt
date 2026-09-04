@@ -82,6 +82,7 @@ class TaskStore(private val context: Context) {
                     .put("autoStageReminder", task.autoStageReminder)
                     .put("origin", task.origin.name)
                     .put("sourceRefId", task.sourceRefId)
+                    .put("archivedAtMillis", task.archivedAtMillis)
             )
         }
         return array.toString()
@@ -166,6 +167,7 @@ class TaskStore(private val context: Context) {
                         autoStageReminder = item.optBoolean("autoStageReminder", false),
                         origin = origin,
                         sourceRefId = item.optString("sourceRefId", ""),
+                        archivedAtMillis = item.optLong("archivedAtMillis", 0L),
                     )
                 )
             }
