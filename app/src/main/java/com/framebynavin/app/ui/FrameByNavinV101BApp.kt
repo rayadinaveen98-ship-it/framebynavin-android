@@ -1301,42 +1301,24 @@ private fun PBottomNav(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            fun Modifier.navWeight() = this.weight(1f)
+            PBottomNavItem(
+                tab = PTab.TODAY,
+                icon = Icons.Outlined.Home,
+                label = "Today",
+                active = selected == PTab.TODAY,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f),
+            )
+            PBottomNavItem(
+                tab = PTab.PLAN,
+                icon = Icons.Outlined.CalendarMonth,
+                label = "Plan",
+                active = selected == PTab.PLAN,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f),
+            )
 
-            @Composable
-            fun NavItem(tab: PTab, icon: ImageVector, label: String) {
-                val active = tab == selected
-                Surface(
-                    onClick = { onSelect(tab) },
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (active) Color(0xFF282326) else Color.Transparent,
-                    modifier = Modifier.navWeight(),
-                ) {
-                    Column(
-                        Modifier.padding(vertical = 7.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Icon(
-                            icon,
-                            label,
-                            tint = if (active) RecRed else MutedText,
-                            modifier = Modifier.size(21.dp),
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            label,
-                            color = if (active) ProjectorIvory else MutedText,
-                            fontSize = 7.8.sp,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        )
-                    }
-                }
-            }
-
-            NavItem(PTab.TODAY, Icons.Outlined.Home, "Today")
-            NavItem(PTab.PLAN, Icons.Outlined.CalendarMonth, "Plan")
-
-            Box(Modifier.navWeight(), contentAlignment = Alignment.Center) {
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Surface(
                     onClick = onCreate,
                     modifier = Modifier.size(49.dp).offset(y = (-3).dp),
@@ -1355,8 +1337,58 @@ private fun PBottomNav(
                 }
             }
 
-            NavItem(PTab.STUDIO, Icons.Outlined.MovieEdit, "Studio")
-            NavItem(PTab.INSIGHTS, Icons.Outlined.Insights, "Insights")
+            PBottomNavItem(
+                tab = PTab.STUDIO,
+                icon = Icons.Outlined.MovieEdit,
+                label = "Studio",
+                active = selected == PTab.STUDIO,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f),
+            )
+            PBottomNavItem(
+                tab = PTab.INSIGHTS,
+                icon = Icons.Outlined.Insights,
+                label = "Insights",
+                active = selected == PTab.INSIGHTS,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PBottomNavItem(
+    tab: PTab,
+    icon: ImageVector,
+    label: String,
+    active: Boolean,
+    onSelect: (PTab) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = { onSelect(tab) },
+        shape = RoundedCornerShape(16.dp),
+        color = if (active) Color(0xFF282326) else Color.Transparent,
+        modifier = modifier,
+    ) {
+        Column(
+            Modifier.padding(vertical = 7.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                icon,
+                label,
+                tint = if (active) RecRed else MutedText,
+                modifier = Modifier.size(21.dp),
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                label,
+                color = if (active) ProjectorIvory else MutedText,
+                fontSize = 7.8.sp,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+            )
         }
     }
 }
