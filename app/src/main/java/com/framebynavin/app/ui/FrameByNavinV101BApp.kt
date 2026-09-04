@@ -94,6 +94,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
     var showControl by rememberSaveable { mutableStateOf(false) }
+    var controlExpanded by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -138,6 +139,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     fun openComposer(id: String? = null) {
         editTaskId = id
         showComposer = true
+    }
+
+    LaunchedEffect(controlExpanded) {
+        if (controlExpanded) {
+            delay(180L)
+            showControl = true
+            controlExpanded = false
+        }
     }
 
     LaunchedEffect(externalLaunch?.nonce) {
@@ -209,16 +218,20 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
 
             if (overlay == POverlay.NONE && settings.onboardingComplete && !showControl) {
                 Surface(
-                    onClick = { showControl = true },
+                    onClick = { if (!controlExpanded) controlExpanded = true },
                     modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 24.dp, bottom = 98.dp),
                     shape = RoundedCornerShape(18.dp),
                     color = RecRed,
                     shadowElevation = 10.dp,
                 ) {
-                    Row(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.GridView, "Control", tint = ProjectorIvory, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(7.dp))
-                        Text("CONTROL", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.GridView, "Control", tint = ProjectorIvory, modifier = Modifier.size(19.dp))
+                        AnimatedVisibility(visible = controlExpanded) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Spacer(Modifier.width(7.dp))
+                                Text("CONTROL", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
                     }
                 }
             }
@@ -403,10 +416,12 @@ private fun PTodayScreen(
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(RecRed.copy(alpha = .055f), CinemaBlack), radius = 980f))) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 124.dp)) {
-            PTopBar("TODAY", onAdd)
-            Spacer(Modifier.height(14.dp))
+            PHomeGreetingHeader(onAdd)
+            Spacer(Modifier.height(12.dp))
             V131HomeHeroSlideshow()
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(18.dp))
+            Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Spacer(Modifier.height(4.dp))
             Text("Make the next thing.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
             Text(
                 if (selected == null) "Your creator queue is clear." else "One clear next move. Everything else can wait.",
@@ -1268,6 +1283,26 @@ private fun PBottomNav(selected: PTab, onSelect: (PTab) -> Unit, modifier: Modif
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PHomeGreetingHeader(onAdd: () -> Unit) {
+    val hour = remember { java.time.ZonedDateTime.now(ZoneId.of("Asia/Kolkata")).hour }
+    val greeting = when (hour) {
+        in 5..11 -> "Good Morning, Navin"
+        in 12..16 -> "Good Afternoon, Navin"
+        in 17..20 -> "Good Evening, Navin"
+        else -> "Good Night, Navin"
+    }
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("FRAMEBYNAVIN", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
+        }
+        Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(42.dp)) {
+            Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, "Create project", tint = ProjectorIvory, modifier = Modifier.size(20.dp)) }
         }
     }
 }
