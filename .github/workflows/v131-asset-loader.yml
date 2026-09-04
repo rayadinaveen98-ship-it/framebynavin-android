@@ -1,0 +1,36 @@
+name: Apply v1.3.1 Hero Asset Loader
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "tools/v131_asset_loader_patch.py"
+      - ".github/workflows/v131-asset-loader.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply asset loader patch
+        run: python tools/v131_asset_loader_patch.py
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
+          if git diff --cached --quiet; then
+            echo "No patch needed"
+          else
+            git commit -m "feat: load cinematic hero frames from packaged assets"
+            git push
+          fi
