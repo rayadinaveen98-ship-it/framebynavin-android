@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
-        versionName = "1.4.0-creator-workflow-rc1"
+        versionCode = 29
+        versionName = "1.5.0-context-creator-os-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,5 +78,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.4 RC1: functional upgrade only. Keeps the approved branding/Home/slideshow baseline,
-// and adds creator workflow promotion, project presets, smart next-action ranking and Quick Capture Inbox.
+// v1.5 RC1: creator context upgrade. Keeps the approved branding/Home/slideshow baseline,
+// and adds Daily Brief, 14-day Content Calendar and optional WorkManager context nudges.
