@@ -1,0 +1,36 @@
+name: Fix v1.3.1 Compile
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "tools/v131_fix_compile.py"
+      - ".github/workflows/v131-fix-compile.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply compile repair
+        run: python tools/v131_fix_compile.py
+
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app
+          if git diff --cached --quiet; then
+            echo "No repair needed"
+          else
+            git commit -m "fix: import verticalScroll for v1.3.1 management UI"
+            git push
+          fi
