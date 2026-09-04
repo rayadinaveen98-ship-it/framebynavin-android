@@ -22,6 +22,8 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
                 val smart = SmartEscalationScheduler(appContext)
                 val now = System.currentTimeMillis()
                 TaskStore(appContext).load().forEach { task ->
+                    // System recovery events invalidate/shift OS alarm state. Clear the old pending
+                    // alarm record first; the delivered-source marker intentionally survives.
                     scheduler.cancel(task.id)
                     val active = task.reminderEnabled &&
                         task.reminderMode != ReminderMode.NONE &&
@@ -39,7 +41,14 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
                         smart.recover(task)
                     } else {
                         smart.cancel(task.id)
-                        if (task.reminderAtMillis > now) scheduler.schedule(task)
+                        if (task.reminderAtMillis > now) {
+                            scheduler.schedule(task)
+                        } else {
+                            // If Android was unavailable when the reminder should have fired, surface
+                            // one bounded recovery notification rather than silently dropping it or
+                            // unexpectedly blasting an alarm/voice surface after boot.
+                            MissedReminderRecovery.deliverTaskIfNeeded(appContext, task, now)
+                        }
                     }
                 }
             } finally {
