@@ -1,0 +1,37 @@
+name: Apply v1.3.2 Unified Resume Recovery
+
+on:
+  push:
+    branches: [ "repair/v1.3.2-release-blockers" ]
+    paths:
+      - "tools/v132_unify_resume_recovery.py"
+      - ".github/workflows/v132-unify-resume-recovery.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repair branch
+        uses: actions/checkout@v4
+        with:
+          ref: repair/v1.3.2-release-blockers
+          fetch-depth: 0
+
+      - name: Apply shared recovery repair
+        run: python3 tools/v132_unify_resume_recovery.py
+
+      - name: Commit repaired recovery source
+        run: |
+          if git diff --quiet; then
+            echo "No source changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt \
+                  app/src/main/java/com/framebynavin/app/reminders/ReminderRecoveryEngine.kt
+          git commit -m "fix: unify app-resume and background reminder recovery"
+          git push origin HEAD:repair/v1.3.2-release-blockers
