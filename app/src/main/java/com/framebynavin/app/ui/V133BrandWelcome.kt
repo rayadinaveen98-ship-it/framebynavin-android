@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -30,51 +31,92 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.CinemaBlack
-import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
-import com.framebynavin.app.ui.theme.RecRed
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun V133LayerMark(
     modifier: Modifier = Modifier,
     progress: Float = 1f,
     glow: Float = 0f,
+    settle: Float = 1f,
 ) {
     val p = progress.coerceIn(0f, 1f)
-    Box(modifier, contentAlignment = Alignment.Center) {
+    val s = settle.coerceIn(0f, 1f)
+    val markScale = .92f + (.13f * p) - (.05f * s)
+    Box(
+        modifier.graphicsLayer(scaleX = markScale, scaleY = markScale),
+        contentAlignment = Alignment.Center,
+    ) {
         Box(
-            Modifier.size((54 + 18 * glow).dp)
-                .alpha(.05f + .12f * glow)
-                .background(RecRed, CircleShape)
-        )
-        Box(
-            Modifier.offset(x = (-12f + 12f * p).dp, y = (5f - 5f * p).dp)
-                .size(width = 25.dp, height = 43.dp)
-                .graphicsLayer(rotationZ = -9f, alpha = p)
+            Modifier.size((92 + 38 * glow).dp)
+                .alpha(.08f + .18f * glow)
                 .background(
-                    Brush.verticalGradient(listOf(Color(0xFFF1D9AE), Color(0xFFA47C50))),
-                    RoundedCornerShape(4.dp),
+                    Brush.radialGradient(
+                        listOf(Color(0xFFE83C32), Color(0xFF8F1718), Color.Transparent),
+                    ),
+                    CircleShape,
                 )
         )
         Box(
-            Modifier.offset(x = (11f - 5f * p).dp, y = (-7f + 7f * p).dp)
-                .size(width = 23.dp, height = 39.dp)
-                .graphicsLayer(rotationZ = 2f, alpha = p)
+            Modifier.offset(x = (-50f + 40f * p).dp, y = (22f - 20f * p).dp)
+                .size(width = 41.dp, height = 72.dp)
+                .graphicsLayer(
+                    rotationZ = -18f + 9f * p - 2f * (1f - s),
+                    alpha = p,
+                    shadowElevation = 9f,
+                )
                 .background(
-                    Brush.verticalGradient(listOf(Color(0xFFCC3A31), Color(0xFF661713))),
-                    RoundedCornerShape(4.dp),
+                    Brush.linearGradient(
+                        listOf(Color(0xFFFFF0C9), Color(0xFFF4C46E), Color(0xFF9A5A24)),
+                    ),
+                    RoundedCornerShape(7.dp),
                 )
         )
         Box(
-            Modifier.offset(x = (24f - 11f * p).dp, y = (-15f + 9f * p).dp)
-                .size(width = 22.dp, height = 35.dp)
-                .graphicsLayer(rotationZ = 8f, alpha = p)
-                .background(
-                    Brush.verticalGradient(listOf(Color(0xFF46413A), Color(0xFF18191C))),
-                    RoundedCornerShape(4.dp),
+            Modifier.offset(x = (45f - 36f * p).dp, y = (-28f + 24f * p).dp)
+                .size(width = 39.dp, height = 68.dp)
+                .graphicsLayer(
+                    rotationZ = 16f - 13f * p + 2f * (1f - s),
+                    alpha = p,
+                    shadowElevation = 11f,
                 )
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFFFF5A46), Color(0xFFD72B29), Color(0xFF6E1018)),
+                    ),
+                    RoundedCornerShape(7.dp),
+                )
+        )
+        Box(
+            Modifier.offset(x = (68f - 50f * p).dp, y = (-43f + 35f * p).dp)
+                .size(width = 38.dp, height = 63.dp)
+                .graphicsLayer(
+                    rotationZ = 24f - 15f * p + 3f * (1f - s),
+                    alpha = p,
+                    shadowElevation = 12f,
+                )
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFF6A607B), Color(0xFF393848), Color(0xFF15151C)),
+                    ),
+                    RoundedCornerShape(7.dp),
+                )
+        )
+
+        Box(
+            Modifier.offset(x = (-23).dp, y = (-18).dp)
+                .size(width = 4.dp, height = 50.dp)
+                .alpha(.26f * p)
+                .background(Color(0xFFFFF6DE), RoundedCornerShape(100.dp))
+        )
+        Box(
+            Modifier.offset(x = (2).dp, y = (-17).dp)
+                .size(width = 3.dp, height = 45.dp)
+                .alpha(.20f * p)
+                .background(Color(0xFFFF8D79), RoundedCornerShape(100.dp))
         )
     }
 }
@@ -83,75 +125,93 @@ internal fun V133LayerMark(
 internal fun V133CinematicWelcome() {
     val spark = remember { Animatable(0f) }
     val panels = remember { Animatable(0f) }
+    val settle = remember { Animatable(0f) }
     val copy = remember { Animatable(0f) }
     val subtitle = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        spark.animateTo(1f, tween(260, easing = FastOutSlowInEasing))
-        delay(90)
-        panels.animateTo(1f, tween(720, easing = FastOutSlowInEasing))
-        delay(150)
-        copy.animateTo(1f, tween(460, easing = FastOutSlowInEasing))
-        delay(130)
-        subtitle.animateTo(1f, tween(380))
+        launch { spark.animateTo(1f, tween(170, easing = LinearOutSlowInEasing)) }
+        delay(65)
+        panels.animateTo(1f, tween(390, easing = FastOutSlowInEasing))
+        launch { settle.animateTo(1f, tween(170, easing = FastOutSlowInEasing)) }
+        delay(35)
+        launch { copy.animateTo(1f, tween(220, easing = LinearOutSlowInEasing)) }
+        delay(80)
+        subtitle.animateTo(1f, tween(190, easing = LinearOutSlowInEasing))
     }
 
     Box(
         Modifier.fillMaxSize().background(
             Brush.radialGradient(
-                colors = listOf(Color(0xFF2A1714), Color(0xFF111113), CinemaBlack),
-                radius = 1100f,
+                colors = listOf(
+                    Color(0xFF421612),
+                    Color(0xFF211012),
+                    Color(0xFF0E0D12),
+                    CinemaBlack,
+                ),
+                radius = 1120f,
             )
         ),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier.align(Alignment.Center)
-                .size((5 + 4 * spark.value).dp)
-                .background(RecRed.copy(alpha = spark.value), CircleShape)
+                .size((124 + 70 * spark.value).dp)
+                .alpha(.08f * spark.value)
+                .background(
+                    Brush.radialGradient(listOf(Color(0xFFF23B31), Color.Transparent)),
+                    CircleShape,
+                )
         )
         Box(
             Modifier.align(Alignment.Center)
-                .width((18 + 118 * spark.value).dp)
+                .width((24 + 190 * spark.value).dp)
                 .height(1.dp)
-                .alpha(.18f * spark.value)
-                .background(Brush.horizontalGradient(listOf(Color.Transparent, RecRed, Color.Transparent)))
+                .alpha(.34f * spark.value)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, Color(0xFFFF4A3B), Color.Transparent),
+                    )
+                )
         )
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             V133LayerMark(
-                modifier = Modifier.size(104.dp),
+                modifier = Modifier.size(150.dp),
                 progress = panels.value,
                 glow = spark.value,
+                settle = settle.value,
             )
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(18.dp))
             Text(
                 "FRAME BY NAVIN",
                 color = ProjectorIvory,
-                fontSize = 21.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 4.2.sp,
-                modifier = Modifier.alpha(copy.value),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 4.0.sp,
+                modifier = Modifier
+                    .alpha(copy.value)
+                    .graphicsLayer(translationY = (8f * (1f - copy.value))),
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(7.dp))
             Text(
                 "CREATOR CONTROL ROOM",
-                color = MutedGold,
-                fontSize = 8.5.sp,
+                color = Color(0xFFF3BD66),
+                fontSize = 8.7.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 2.4.sp,
+                letterSpacing = 2.5.sp,
                 modifier = Modifier.alpha(subtitle.value),
             )
         }
 
         Text(
             "PLAN  ·  CREATE  ·  TRACK  ·  GROW",
-            color = MutedText.copy(alpha = .72f),
-            fontSize = 7.5.sp,
+            color = MutedText.copy(alpha = .78f),
+            fontSize = 7.6.sp,
             letterSpacing = 1.5.sp,
             modifier = Modifier.align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 30.dp)
+                .padding(bottom = 28.dp)
                 .alpha(subtitle.value),
         )
     }
