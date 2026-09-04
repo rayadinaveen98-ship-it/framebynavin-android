@@ -328,6 +328,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onQuickCapture = { showControl = false; showQuickCapture = true },
                 onDailyBrief = { showControl = false; overlay = POverlay.DAILY_BRIEF },
                 onCalendar = { showControl = false; overlay = POverlay.CALENDAR },
+                onCopilot = { showControl = false; context.startActivity(Intent(context, CopilotActivity::class.java)) },
                 onRelease = { showControl = false; overlay = POverlay.RELEASE },
                 onIdeas = { showControl = false; overlay = POverlay.IDEAS },
                 onWeek = { showControl = false; overlay = POverlay.WEEK },
@@ -879,6 +880,7 @@ private fun PControlCenter(
     onQuickCapture: () -> Unit,
     onDailyBrief: () -> Unit,
     onCalendar: () -> Unit,
+    onCopilot: () -> Unit,
     onRelease: () -> Unit,
     onIdeas: () -> Unit,
     onWeek: () -> Unit,
@@ -905,6 +907,7 @@ private fun PControlCenter(
         PControlRow("Quick Capture", "Save an idea to Inbox in seconds", Icons.Outlined.Bolt, onQuickCapture)
         PControlRow("Daily Brief", "Focus, risk and the next 7 days", Icons.Outlined.Today, onDailyBrief)
         PControlRow("Content Calendar", "Projects + weekly plan for 14 days", Icons.Outlined.CalendarMonth, onCalendar)
+        PControlRow("Creator Copilot", "Ideas, scripts, hooks and packaging drafts", Icons.Outlined.AutoAwesome, onCopilot)
         PControlRow("Idea Vault", if (readyIdeas > 0) "$readyIdeas ideas ready to make" else "Capture what you might make later", Icons.Outlined.Lightbulb, onIdeas)
         PControlRow("Weekly Plan", if (weeklyAutoPlanEnabled) "Auto Plan on" else "Auto Plan off", Icons.Outlined.CalendarMonth, onWeek)
         PControlRow("Reminders", "See and edit active reminders", Icons.Outlined.Alarm, onReminders)
