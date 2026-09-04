@@ -5,13 +5,26 @@ import com.framebynavin.app.data.CreatorTask
 import org.json.JSONObject
 
 /**
- * Smart timing is keyed by the creator-visible schedule fingerprint so new projects can save
- * timing before a task id exists. Old tasks automatically receive the safe 15/15/15 default.
+ * Persists Smart timing by stable task id. Legacy schedule-fingerprint entries are read once and
+ * migrated so snooze/reschedule/title/date edits never reset custom waits back to defaults.
  */
 class SmartEscalationConfigStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun get(task: CreatorTask): SmartEscalationConfig = getByKey(keyFor(task))
+    fun get(task: CreatorTask): SmartEscalationConfig {
+        val idKey = idKey(task.id)
+        prefs.getString(idKey, null)?.let { return decode(it) }
+
+        // v1.0.2 compatibility: recover the old fingerprint-based value and move it to task id.
+        val legacyKey = legacyKeyFor(task)
+        val legacyRaw = prefs.getString(legacyKey, null)
+        if (!legacyRaw.isNullOrBlank()) {
+            val config = decode(legacyRaw)
+            prefs.edit().putString(idKey, encode(config)).remove(legacyKey).apply()
+            return config
+        }
+        return DEFAULT
+    }
 
     fun getFor(
         title: String,
@@ -19,8 +32,9 @@ class SmartEscalationConfigStore(context: Context) {
         contentType: String,
         dueAtMillis: Long,
         reminderAtMillis: Long,
-    ): SmartEscalationConfig = getByKey(keyFor(title, platform, contentType, dueAtMillis, reminderAtMillis))
+    ): SmartEscalationConfig = decode(prefs.getString(legacyKeyFor(title, platform, contentType, dueAtMillis, reminderAtMillis), null))
 
+    /** Used only while a brand-new task has no id yet. Scheduler get(task) migrates it immediately. */
     fun putFor(
         title: String,
         platform: String,
@@ -30,13 +44,23 @@ class SmartEscalationConfigStore(context: Context) {
         config: SmartEscalationConfig,
     ) {
         prefs.edit().putString(
-            keyFor(title, platform, contentType, dueAtMillis, reminderAtMillis),
+            legacyKeyFor(title, platform, contentType, dueAtMillis, reminderAtMillis),
             encode(config.normalized()),
         ).apply()
     }
 
     fun put(task: CreatorTask, config: SmartEscalationConfig) {
-        prefs.edit().putString(keyFor(task), encode(config.normalized())).apply()
+        prefs.edit().putString(idKey(task.id), encode(config.normalized())).apply()
+    }
+
+    fun putByTaskId(taskId: String, config: SmartEscalationConfig) {
+        if (taskId.isBlank()) return
+        prefs.edit().putString(idKey(taskId), encode(config.normalized())).apply()
+    }
+
+    fun remove(taskId: String) {
+        if (taskId.isBlank()) return
+        prefs.edit().remove(idKey(taskId)).apply()
     }
 
     fun exportJson(): String {
@@ -51,8 +75,6 @@ class SmartEscalationConfigStore(context: Context) {
         root.keys().forEach { key -> editor.putString(key, root.optString(key, encode(DEFAULT))) }
         editor.apply()
     }
-
-    private fun getByKey(key: String): SmartEscalationConfig = decode(prefs.getString(key, null))
 
     private fun encode(config: SmartEscalationConfig): String = JSONObject()
         .put("notificationToVoiceMinutes", config.notificationToVoiceMinutes)
@@ -76,7 +98,9 @@ class SmartEscalationConfigStore(context: Context) {
         private const val PREFS = "smart_escalation_config_v102"
         val DEFAULT = SmartEscalationConfig()
 
-        fun keyFor(task: CreatorTask): String = keyFor(
+        private fun idKey(taskId: String): String = "task|$taskId"
+
+        private fun legacyKeyFor(task: CreatorTask): String = legacyKeyFor(
             task.title,
             task.platform,
             task.contentType,
@@ -84,7 +108,7 @@ class SmartEscalationConfigStore(context: Context) {
             task.reminderAtMillis,
         )
 
-        fun keyFor(
+        private fun legacyKeyFor(
             title: String,
             platform: String,
             contentType: String,
