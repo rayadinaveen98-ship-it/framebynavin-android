@@ -180,6 +180,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 PTab.PLAN -> V131PlanScreen(
                     tasks = vm.tasks,
                     onAdd = { openComposer() },
+                    onEdit = { openComposer(it) },
                     onStart = vm::startTask,
                     onDone = vm::completeTask,
                     onDeleteSelected = vm::deleteTasks,
