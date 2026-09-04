@@ -35,7 +35,7 @@ class SmartEscalationScheduler(private val context: Context) {
         scheduleStage(task, Stage.SOFT, task.reminderAtMillis)
     }
 
-    /** Rebuild the one pending next stage after reboot/time/package recovery. */
+    /** Rebuild the one pending stage after reboot/time/package recovery. */
     fun recover(task: CreatorTask) {
         cancelPending(task.id, clearSession = false)
         if (!isSmartEnabled(task)) {
@@ -46,6 +46,13 @@ class SmartEscalationScheduler(private val context: Context) {
         val session = sessions.current(task.id)
         if (session == null) {
             if (task.reminderAtMillis > now) scheduleStage(task, Stage.SOFT, task.reminderAtMillis)
+            return
+        }
+
+        // A snooze repeats the exact stage reached before snooze. Recovery must preserve it.
+        session.snoozedStage?.let { snoozedStage ->
+            val resumeAt = if (session.snoozedUntilMillis > now) session.snoozedUntilMillis else now + 5_000L
+            scheduleStage(task, snoozedStage, resumeAt)
             return
         }
 
@@ -79,10 +86,14 @@ class SmartEscalationScheduler(private val context: Context) {
     fun snoozeStage(task: CreatorTask, stage: Stage, resumeAtMillis: Long) {
         cancelPending(task.id, clearSession = false)
         if (!isSmartEnabled(task) || resumeAtMillis <= System.currentTimeMillis()) return
+        sessions.markSnoozed(task.id, stage, resumeAtMillis)
         scheduleStage(task, stage, resumeAtMillis)
     }
 
-    fun activeStage(taskId: String): Stage? = sessions.current(taskId)?.stage
+    fun activeStage(taskId: String): Stage? {
+        val session = sessions.current(taskId) ?: return null
+        return session.snoozedStage ?: session.stage
+    }
 
     fun markStageActive(taskId: String, stage: Stage, atMillis: Long = System.currentTimeMillis()) {
         sessions.markStage(taskId, stage, atMillis)
