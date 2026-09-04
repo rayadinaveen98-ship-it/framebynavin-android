@@ -18,103 +18,32 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Restore green shell and reapply only expanded Studio panel
+      - name: Restore helpers removed by the broad Studio patch
         shell: python
         run: |
           from pathlib import Path
           import subprocess
-
-          shell_path = "app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-          green = subprocess.check_output([
-              "git", "show",
-              "56d2d3949a90e1b33a8a4c4c0b0beff3ca5b0f5e:" + shell_path,
-          ], text=True)
-
-          start_marker = "@Composable\nprivate fun PStudioProject("
-          start = green.find(start_marker)
-          if start < 0:
-              raise SystemExit("PStudioProject not found in green shell")
-          end = green.find("\n@Composable\n", start + len(start_marker))
-          if end < 0:
-              raise SystemExit("Next composable boundary not found")
-
-          current = Path(shell_path).read_text()
-          cur_start = current.find(start_marker)
-          if cur_start < 0:
-              raise SystemExit("PStudioProject not found in current shell")
-          cur_end = current.find("\n@Composable\n", cur_start + len(start_marker))
-          if cur_end < 0:
-              raise SystemExit("Next current composable boundary not found")
-
-          replacement = '''@Composable
-private fun PStudioProject(
-    task: CreatorTask,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    onAdvance: () -> Unit,
-    onBack: () -> Unit,
-    onFocus: () -> Unit,
-) {
-    val currentStage = CreatorWorkflowEngine.currentStage(task)
-    val progress = CreatorWorkflowEngine.progress(task)
-    val done = task.status == TaskStatus.DONE
-
-    Column(Modifier.fillMaxWidth()) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
-            shape = RoundedCornerShape(if (expanded) 21.dp else 18.dp),
-            color = if (expanded) Color(0xFF16130F) else CinemaSurface,
-            border = BorderStroke(1.dp, if (expanded) MutedGold.copy(alpha = .5f) else CinemaLine),
-        ) {
-            Column(Modifier.padding(15.dp)) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f)) {
-                        Text(task.title, color = ProjectorIvory, fontSize = 15.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(3.dp))
-                        Text("${task.platform} · ${task.contentType} · ${task.dueLabel}", color = MutedText, fontSize = 8.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Icon(if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = MutedText)
-                }
-                Spacer(Modifier.height(11.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = RoundedCornerShape(100.dp), color = if (done) SuccessGreen.copy(alpha = .12f) else RecRed.copy(alpha = .11f)) {
-                        Text(if (done) "PUBLISHED" else currentStage.label.uppercase(), color = if (done) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Text("$progress%", color = if (done) SuccessGreen else MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(8.dp))
-                PStageRail(task)
-            }
-        }
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
-        ) {
-            Column {
-                Spacer(Modifier.height(7.dp))
-                V071WorkflowInlineContent(
-                    task = task,
-                    onAdvance = onAdvance,
-                    onBack = onBack,
-                    onFocus = onFocus,
-                )
-            }
-        }
-    }
-}'''
-
-          # Restore the complete last-green shell first, then replace only this one function.
-          repaired = green[:start] + replacement + green[end:]
-          Path(shell_path).write_text(repaired)
+          path = "app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
+          green = subprocess.check_output(["git", "show", "56d2d3949a90e1b33a8a4c4c0b0beff3ca5b0f5e:" + path], text=True)
+          current = Path(path).read_text()
+          studio = green.find("@Composable\nprivate fun PStudioProject(")
+          first_after_studio = green.find("\n@Composable\n", studio + 20)
+          stage_rail = green.find("@Composable\nprivate fun PStageRail(", first_after_studio)
+          current_stage_rail = current.find("@Composable\nprivate fun PStageRail(")
+          if min(studio, first_after_studio, stage_rail, current_stage_rail) < 0:
+              raise SystemExit("Studio repair markers not found")
+          missing_helpers = green[first_after_studio + 1:stage_rail]
+          if "private fun PInsightsScreen(" not in missing_helpers:
+              raise SystemExit("Expected helper block was not found in last-green shell")
+          if "private fun PInsightsScreen(" in current:
+              raise SystemExit("Helpers already restored; refusing duplicate insertion")
+          repaired = current[:current_stage_rail] + missing_helpers + current[current_stage_rail:]
+          Path(path).write_text(repaired)
 
       - name: Commit repair
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
-          git commit -m "fix: repair Studio hotfix boundary"
+          git commit -m "fix: restore helpers around Studio hotfix"
           git push
