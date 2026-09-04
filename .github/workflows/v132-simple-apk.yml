@@ -1,4 +1,4 @@
-name: Build v1.3.2 Repair APK
+name: Build FrameByNavin APK
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: v132-simple-apk-${{ github.ref }}
+  group: framebynavin-simple-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -42,5 +42,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.3.2-reliability-recovery-r2
+          name: FrameByNavin-v1.3.3-cinematic-control-room-rc1
           path: app/build/outputs/apk/debug/app-debug.apk
