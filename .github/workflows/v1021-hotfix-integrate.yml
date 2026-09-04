@@ -1,0 +1,156 @@
+name: Wire v1.0.2.1 Smart semantics hotfix
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/workflows/v1021-hotfix-integrate.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch composer and Studio
+        shell: python
+        run: |
+          from pathlib import Path
+
+          # --- Reminder composer: final-target Smart semantics + live clock + stable config save ---
+          path = Path("app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt")
+          text = path.read_text()
+          marker = "internal fun PProjectComposer("
+          before, composer = text.split(marker, 1)
+          composer = marker + composer
+
+          replacements = [
+              (
+                  '    val configStore = remember { SmartEscalationConfigStore(context.applicationContext) }\n    val now = System.currentTimeMillis()\n    val fallbackDue = now + 60 * 60_000L',
+                  '    val configStore = remember { SmartEscalationConfigStore(context.applicationContext) }\n    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }\n    LaunchedEffect(Unit) {\n        while (true) {\n            kotlinx.coroutines.delay(15_000L)\n            now = System.currentTimeMillis()\n        }\n    }\n    val fallbackDue = now + 60 * 60_000L'
+              ),
+              (
+                  '    val needsReminder = mode != ReminderMode.NONE\n    val dueReady = dueAt > now\n    val reminderReady = !needsReminder || reminderAt > now\n    val smartConfig = SmartEscalationConfig(notificationToVoice, voiceToAlarm, alarmToCritical).normalized()\n    val availableSmartWindow = SmartEscalationPolicy.availableWindowMinutes(reminderAt, dueAt)\n    val minimumImportantWindow = 10\n    val smartSelectable = task?.reminderMode == ReminderMode.SMART || availableSmartWindow >= minimumImportantWindow\n    val smartWindowRequired = SmartEscalationPolicy.requiredWindowMinutes(priority, smartConfig)\n    val smartWindowValid = mode != ReminderMode.SMART || SmartEscalationPolicy.isWindowValid(priority, reminderAt, dueAt, smartConfig)',
+                  '    val needsReminder = mode != ReminderMode.NONE\n    val dueReady = dueAt > now\n    val reminderBeforePublish = !needsReminder || reminderAt <= dueAt\n    val reminderReady = !needsReminder || (reminderAt > now && reminderBeforePublish)\n    val smartConfig = SmartEscalationConfig(notificationToVoice, voiceToAlarm, alarmToCritical).normalized()\n    val availableSmartWindow = SmartEscalationPolicy.availableWindowMinutes(now, reminderAt)\n    val minimumSmartWindow = when (priority) {\n        TaskPriority.NORMAL -> 0\n        TaskPriority.IMPORTANT -> 10\n        TaskPriority.CRITICAL -> 15\n    }\n    val smartSelectable = reminderAt > now && reminderAt <= dueAt && availableSmartWindow >= minimumSmartWindow\n    val smartWindowRequired = SmartEscalationPolicy.requiredWindowMinutes(priority, smartConfig)\n    val smartWindowValid = mode != ReminderMode.SMART || (\n        reminderBeforePublish && SmartEscalationPolicy.isWindowValid(priority, now, reminderAt, smartConfig)\n    )\n\n    LaunchedEffect(smartSelectable, mode) {\n        if (mode == ReminderMode.SMART && !smartSelectable) mode = ReminderMode.SIMPLE\n    }'
+              ),
+              (
+                  '                        if (value == ReminderMode.SMART && !smartSelectable) {\n                            Text("Smart needs at least 10 min between reminder and publish time.", color = RecRed, fontSize = 8.5.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))\n                        }',
+                  '                        if (value == ReminderMode.SMART && !smartSelectable) {\n                            Text("Smart needs at least ${minimumSmartWindow} min before the reminder time.", color = RecRed, fontSize = 8.5.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))\n                        }'
+              ),
+              (
+                  '                                detail = if (smartWindowValid) "Smart window ready" else "Choose an earlier reminder or shorter waits",',
+                  '                                detail = if (smartWindowValid) "Smart window ready" else "Choose a later reminder or shorter waits",'
+              ),
+              (
+                  '                    PDateTimeButton(pFormatDateTime(reminderAt)) { pickDateTime(reminderAt) { reminderAt = it } }\n\n                    Spacer(Modifier.height(25.dp))',
+                  '                    PDateTimeButton(pFormatDateTime(reminderAt)) { pickDateTime(reminderAt) { reminderAt = it } }\n                    if (needsReminder && reminderAt > dueAt) {\n                        Spacer(Modifier.height(6.dp))\n                        Text("Reminder must be at or before publish time.", color = RecRed, fontSize = 8.5.sp)\n                    }\n\n                    Spacer(Modifier.height(25.dp))'
+              ),
+              (
+                  '                            if (mode == ReminderMode.SMART) {\n                                configStore.putFor(title.trim(), platform, contentType, dueAt, reminderAt, smartConfig)\n                            }',
+                  '                            if (mode == ReminderMode.SMART) {\n                                if (task != null) configStore.put(task, smartConfig)\n                                else configStore.putFor(title.trim(), platform, contentType, dueAt, reminderAt, smartConfig)\n                            }'
+              ),
+          ]
+
+          for old, new in replacements:
+              count = composer.count(old)
+              if count != 1:
+                  raise SystemExit(f"Composer patch expected one match, got {count}: {old[:90]!r}")
+              composer = composer.replace(old, new, 1)
+
+          path.write_text(before + composer)
+
+          # --- Studio: keep polished outer card, restore the approved richer inline pipeline ---
+          old_path = Path("app/src/main/java/com/framebynavin/app/ui/V07StudioScreen.kt")
+          old_text = old_path.read_text()
+          old_decl = "private fun V071WorkflowInlineContent("
+          if old_text.count(old_decl) != 1:
+              raise SystemExit("Could not expose approved Studio inline content")
+          old_path.write_text(old_text.replace(old_decl, "internal fun V071WorkflowInlineContent(", 1))
+
+          studio_path = Path("app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt")
+          studio_text = studio_path.read_text()
+          start_marker = "@Composable\nprivate fun PStudioProject("
+          end_marker = "@Composable\nprivate fun PStageRail("
+          start = studio_text.find(start_marker)
+          end = studio_text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit("Could not locate polished Studio project function")
+
+          replacement = '''@Composable
+private fun PStudioProject(
+    task: CreatorTask,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onAdvance: () -> Unit,
+    onBack: () -> Unit,
+    onFocus: () -> Unit,
+) {
+    val current = CreatorWorkflowEngine.currentStage(task)
+    val progress = CreatorWorkflowEngine.progress(task)
+    val done = task.status == TaskStatus.DONE
+
+    Column(Modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
+            shape = RoundedCornerShape(if (expanded) 21.dp else 18.dp),
+            color = if (expanded) Color(0xFF16130F) else CinemaSurface,
+            border = BorderStroke(1.dp, if (expanded) MutedGold.copy(alpha = .5f) else CinemaLine),
+        ) {
+            Column(Modifier.padding(15.dp)) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f)) {
+                        Text(task.title, color = ProjectorIvory, fontSize = 15.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(3.dp))
+                        Text("${task.platform} · ${task.contentType} · ${task.dueLabel}", color = MutedText, fontSize = 8.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Icon(if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = MutedText)
+                }
+                Spacer(Modifier.height(11.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(shape = RoundedCornerShape(100.dp), color = if (done) SuccessGreen.copy(alpha = .12f) else RecRed.copy(alpha = .11f)) {
+                        Text(if (done) "PUBLISHED" else current.label.uppercase(), color = if (done) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text("$progress%", color = if (done) SuccessGreen else MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(8.dp))
+                PStageRail(task)
+            }
+        }
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
+        ) {
+            Column {
+                Spacer(Modifier.height(7.dp))
+                V071WorkflowInlineContent(
+                    task = task,
+                    onAdvance = onAdvance,
+                    onBack = onBack,
+                    onFocus = onFocus,
+                )
+            }
+        }
+    }
+}
+
+'''
+          studio_path.write_text(studio_text[:start] + replacement + studio_text[end:])
+
+      - name: Commit hotfix integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V07StudioScreen.kt \
+                  app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          git commit -m "fix: align Smart composer and restore Studio inline workflow"
+          git push
