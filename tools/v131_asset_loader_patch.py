@@ -44,11 +44,11 @@ new = '''    val assetImages = remember {
     }
     val quoteIndex = if (assetImages.isEmpty()) 0 else index % heroQuotes.size
 '''
-if old not in text:
-    raise SystemExit('resource loader block not found')
-text = text.replace(old, new)
-text = text.replace('if (resourceIds.isNotEmpty()) {', 'if (assetImages.isNotEmpty()) {', 1)
-text = text.replace('targetState = index.coerceIn(0, resourceIds.lastIndex),', 'targetState = index.coerceIn(0, assetImages.lastIndex),', 1)
+if old in text:
+    text = text.replace(old, new)
+
+text = text.replace('if (resourceIds.isNotEmpty()) {', 'if (assetImages.isNotEmpty()) {')
+text = text.replace('targetState = index.coerceIn(0, resourceIds.lastIndex),', 'targetState = index.coerceIn(0, assetImages.lastIndex),')
 text = text.replace('''                    Image(
                         painter = painterResource(resourceIds[visibleIndex]),
                         contentDescription = null,
@@ -59,8 +59,9 @@ text = text.replace('''                    Image(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
-                    )''', 1)
-text = text.replace('if (resourceIds.size > 1) {', 'if (assetImages.size > 1) {', 1)
-text = text.replace('(resourceIds.indices).forEach { dot ->', '(assetImages.indices).forEach { dot ->', 1)
+                    )''')
+text = text.replace('if (resourceIds.size > 1) {', 'if (assetImages.size > 1) {')
+text = text.replace('repeat(resourceIds.size) { dot ->', 'repeat(assetImages.size) { dot ->')
+text = text.replace('(resourceIds.indices).forEach { dot ->', '(assetImages.indices).forEach { dot ->')
 
 path.write_text(text)
