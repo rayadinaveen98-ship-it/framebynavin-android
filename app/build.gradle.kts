@@ -71,3 +71,4 @@ dependencies {
 }
 
 // v1.3.1 hero frames are packaged into the final signed APK after the CI code gate.
+// Final gate rerun after asset-loader compile repair.
