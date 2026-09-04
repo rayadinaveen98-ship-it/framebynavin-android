@@ -39,6 +39,7 @@ import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -61,6 +62,16 @@ class VoiceReminderActivity : ComponentActivity() {
             return
         }
         val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
+
+        // Keep the full-screen UI lifecycle aligned with the TTS service lifecycle.
+        lifecycleScope.launch {
+            delay(VoiceReminderService.totalWindowMillis(task) + 750L)
+            if (!isFinishing && !isDestroyed) {
+                VoiceReminderService.stop(applicationContext)
+                getSystemService(NotificationManager::class.java).cancel(VoiceReminderService.notificationId(task.id))
+                finishAndRemoveTask()
+            }
+        }
 
         setContent {
             FrameByNavinTheme {
@@ -90,10 +101,7 @@ class VoiceReminderActivity : ComponentActivity() {
             }
             scheduler.cancel(taskId)
             smartScheduler.cancel(taskId)
-            if (updated?.reminderEnabled == true) {
-                if (updated.reminderMode == ReminderMode.SMART || updated.smartEscalationEnabled) smartScheduler.schedule(updated)
-                else scheduler.schedule(updated)
-            }
+            if (updated?.reminderEnabled == true && updated.reminderMode != ReminderMode.SMART) scheduler.schedule(updated)
             finishVoice()
         }
     }
@@ -101,19 +109,24 @@ class VoiceReminderActivity : ComponentActivity() {
     private fun snooze(taskId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
+            val reachedStage = smartScheduler.activeStage(taskId)
+            val resumeAt = System.currentTimeMillis() + snoozeMinutes * 60_000L
             val updated = store.updateTask(taskId) { task ->
                 task.copy(
                     reminderEnabled = true,
-                    reminderAtMillis = System.currentTimeMillis() + snoozeMinutes * 60_000L,
+                    reminderAtMillis = resumeAt,
                     snoozeCount = task.snoozeCount + 1,
                     workingUntilMillis = 0L,
                 )
             }
             scheduler.cancel(taskId)
-            smartScheduler.cancel(taskId)
             if (updated != null) {
-                if (updated.reminderMode == ReminderMode.SMART || updated.smartEscalationEnabled) smartScheduler.schedule(updated)
-                else scheduler.schedule(updated)
+                if (updated.reminderMode == ReminderMode.SMART || updated.smartEscalationEnabled) {
+                    smartScheduler.snoozeStage(updated, reachedStage ?: SmartEscalationScheduler.Stage.VOICE, resumeAt)
+                } else {
+                    smartScheduler.cancel(taskId)
+                    scheduler.schedule(updated)
+                }
             }
             finishVoice()
         }
@@ -143,7 +156,7 @@ class VoiceReminderActivity : ComponentActivity() {
         getSystemService(NotificationManager::class.java).cancel(
             VoiceReminderService.notificationId(intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID).orEmpty())
         )
-        withContext(Dispatchers.Main) { finishAndRemoveTask() }
+        withContext(Dispatchers.Main) { if (!isFinishing) finishAndRemoveTask() }
     }
 }
 
@@ -176,15 +189,9 @@ private fun VoiceReminderScreen(
     ) {
         Text("FRAMEBYNAVIN", color = RecRed, fontSize = 9.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.align(Alignment.TopCenter))
 
-        Column(
-            Modifier.align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
-                Modifier
-                    .size(104.dp)
-                    .scale(pulse.value)
-                    .background(MutedGold.copy(alpha = 0.10f), CircleShape),
+                Modifier.size(104.dp).scale(pulse.value).background(MutedGold.copy(alpha = 0.10f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -219,15 +226,8 @@ private fun VoiceReminderScreen(
             }
 
             Spacer(Modifier.height(31.dp))
-            Button(
-                onClick = onWorking,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                shape = RoundedCornerShape(17.dp),
-            ) {
-                Icon(Icons.Outlined.Work, null)
-                Spacer(Modifier.width(8.dp))
-                Text("I'M WORKING ON IT", fontWeight = FontWeight.Black)
+            Button(onClick = onWorking, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(17.dp)) {
+                Icon(Icons.Outlined.Work, null); Spacer(Modifier.width(8.dp)); Text("I'M WORKING ON IT", fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
