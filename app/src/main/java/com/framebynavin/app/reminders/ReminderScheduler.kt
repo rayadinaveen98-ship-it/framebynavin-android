@@ -27,28 +27,34 @@ class ReminderScheduler(private val context: Context) {
         val isNativeAlarm = task.reminderMode == ReminderMode.ALARM || task.alertType == ReminderAlertType.ALARM
 
         if (isNativeAlarm) {
-            if (!canScheduleExact()) {
-                existingPendingIntent(task.id)?.let { alarmManager.cancel(it) }
-                ledger.clear(task.id)
-                return
-            }
-
-            val showIntent = PendingIntent.getActivity(
-                context,
-                task.id.hashCode() xor 0x51A1,
-                Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-
             runCatching {
-                alarmManager.setAlarmClock(
-                    AlarmManager.AlarmClockInfo(task.reminderAtMillis, showIntent),
-                    pendingIntent,
-                )
+                if (canScheduleExact()) {
+                    val showIntent = PendingIntent.getActivity(
+                        context,
+                        task.id.hashCode() xor 0x51A1,
+                        Intent(context, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        },
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    )
+
+                    alarmManager.setAlarmClock(
+                        AlarmManager.AlarmClockInfo(task.reminderAtMillis, showIntent),
+                        pendingIntent,
+                    )
+                } else {
+                    // Android 12+ can revoke exact-alarm access. Never silently drop an
+                    // Alarm-mode reminder: keep a best-effort RTC_WAKEUP fallback scheduled
+                    // until exact access is granted again. ReminderRecoveryReceiver will
+                    // upgrade it back to an exact alarm when permission state changes.
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        task.reminderAtMillis,
+                        pendingIntent,
+                    )
+                }
             }.onSuccess {
                 ledger.markScheduled(task.id, task.reminderAtMillis)
             }.onFailure {
