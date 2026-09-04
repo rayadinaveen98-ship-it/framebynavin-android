@@ -186,7 +186,13 @@ internal fun PProjectComposer(
     val context = LocalContext.current
     val defaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
     val configStore = remember { SmartEscalationConfigStore(context.applicationContext) }
-    val now = System.currentTimeMillis()
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(15_000L)
+            now = System.currentTimeMillis()
+        }
+    }
     val fallbackDue = now + 60 * 60_000L
 
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title.orEmpty()) }
@@ -244,13 +250,24 @@ internal fun PProjectComposer(
 
     val needsReminder = mode != ReminderMode.NONE
     val dueReady = dueAt > now
-    val reminderReady = !needsReminder || reminderAt > now
+    val reminderBeforePublish = !needsReminder || reminderAt <= dueAt
+    val reminderReady = !needsReminder || (reminderAt > now && reminderBeforePublish)
     val smartConfig = SmartEscalationConfig(notificationToVoice, voiceToAlarm, alarmToCritical).normalized()
-    val availableSmartWindow = SmartEscalationPolicy.availableWindowMinutes(reminderAt, dueAt)
-    val minimumImportantWindow = 10
-    val smartSelectable = task?.reminderMode == ReminderMode.SMART || availableSmartWindow >= minimumImportantWindow
+    val availableSmartWindow = SmartEscalationPolicy.availableWindowMinutes(now, reminderAt)
+    val minimumSmartWindow = when (priority) {
+        TaskPriority.NORMAL -> 0
+        TaskPriority.IMPORTANT -> 10
+        TaskPriority.CRITICAL -> 15
+    }
+    val smartSelectable = reminderAt > now && reminderAt <= dueAt && availableSmartWindow >= minimumSmartWindow
     val smartWindowRequired = SmartEscalationPolicy.requiredWindowMinutes(priority, smartConfig)
-    val smartWindowValid = mode != ReminderMode.SMART || SmartEscalationPolicy.isWindowValid(priority, reminderAt, dueAt, smartConfig)
+    val smartWindowValid = mode != ReminderMode.SMART || (
+        reminderBeforePublish && SmartEscalationPolicy.isWindowValid(priority, now, reminderAt, smartConfig)
+    )
+
+    LaunchedEffect(smartSelectable, mode) {
+        if (mode == ReminderMode.SMART && !smartSelectable) mode = ReminderMode.SIMPLE
+    }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -295,6 +312,10 @@ internal fun PProjectComposer(
                     Spacer(Modifier.height(20.dp))
                     PComposerLabel("REMINDER TIME")
                     PDateTimeButton(pFormatDateTime(reminderAt)) { pickDateTime(reminderAt) { reminderAt = it } }
+                    if (needsReminder && reminderAt > dueAt) {
+                        Spacer(Modifier.height(6.dp))
+                        Text("Reminder must be at or before publish time.", color = RecRed, fontSize = 8.5.sp)
+                    }
 
                     Spacer(Modifier.height(25.dp))
                     Text("Reminder", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -306,7 +327,7 @@ internal fun PProjectComposer(
                             if (enabled) mode = value
                         }
                         if (value == ReminderMode.SMART && !smartSelectable) {
-                            Text("Smart needs at least 10 min between reminder and publish time.", color = RecRed, fontSize = 8.5.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+                            Text("Smart needs at least ${minimumSmartWindow} min before the reminder time.", color = RecRed, fontSize = 8.5.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
                         }
                         Spacer(Modifier.height(7.dp))
                     }
@@ -362,7 +383,7 @@ internal fun PProjectComposer(
                                 valid = smartWindowValid,
                                 requiredMinutes = smartWindowRequired,
                                 availableMinutes = availableSmartWindow,
-                                detail = if (smartWindowValid) "Smart window ready" else "Choose an earlier reminder or shorter waits",
+                                detail = if (smartWindowValid) "Smart window ready" else "Choose a later reminder or shorter waits",
                             )
                         }
                     }
@@ -432,7 +453,8 @@ internal fun PProjectComposer(
                     Button(
                         onClick = {
                             if (mode == ReminderMode.SMART) {
-                                configStore.putFor(title.trim(), platform, contentType, dueAt, reminderAt, smartConfig)
+                                if (task != null) configStore.put(task, smartConfig)
+                                else configStore.putFor(title.trim(), platform, contentType, dueAt, reminderAt, smartConfig)
                             }
                             onSave(PProjectDraft(title.trim(), platform, contentType, dueAt, mode, if (needsReminder) reminderAt else 0L, priority, notes.trim(), soundUri, voice, repeatCount, repeatGap, alarmTimeout))
                         },

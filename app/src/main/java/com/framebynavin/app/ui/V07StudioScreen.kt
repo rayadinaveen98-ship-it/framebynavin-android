@@ -280,7 +280,7 @@ private fun V071MiniStageRail(task: CreatorTask) {
 }
 
 @Composable
-private fun V071WorkflowInlineContent(
+internal fun V071WorkflowInlineContent(
     task: CreatorTask,
     onAdvance: () -> Unit,
     onBack: () -> Unit,
