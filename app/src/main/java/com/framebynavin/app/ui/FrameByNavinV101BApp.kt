@@ -147,7 +147,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel()) {
             )
         } else {
             when (tab) {
-                PTab.TODAY -> PTodayScreen(vm.tasks, { openComposer() }, vm::startTask, vm::advanceWorkflow) { focusTaskId = it }
+                PTab.TODAY -> PTodayScreen(
+                    tasks = vm.tasks,
+                    onAdd = { openComposer() },
+                    onStart = vm::startTask,
+                    onAdvance = vm::advanceWorkflow,
+                    onViewAllReminders = { showReminders = true },
+                    onFocus = { focusTaskId = it },
+                )
                 PTab.PLAN -> PPlanScreen(vm.tasks, { openComposer() }, vm::startTask, vm::completeTask)
                 PTab.STUDIO -> PStudioScreen(vm.tasks, { openComposer() }, vm::advanceWorkflow, vm::moveWorkflowBack) { focusTaskId = it }
                 PTab.INSIGHTS -> PInsightsScreen(vm.tasks, vm.ideas, { openComposer() })
@@ -312,6 +319,7 @@ private fun PTodayScreen(
     onAdd: () -> Unit,
     onStart: (String) -> Unit,
     onAdvance: (String) -> Unit,
+    onViewAllReminders: () -> Unit,
     onFocus: (String) -> Unit,
 ) {
     val queue = remember(tasks.toList()) { pActiveQueue(tasks).take(10) }
@@ -411,6 +419,9 @@ private fun PTodayScreen(
                     )
                 }
             }
+
+            Spacer(Modifier.height(22.dp))
+            PTodayReminders(tasks = tasks, onViewAll = onViewAllReminders)
 
             Spacer(Modifier.height(22.dp))
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
@@ -969,6 +980,29 @@ private fun PSettingsScreen(
                         Text(if (weeklyAutoPlanEnabled) "Recurring projects may be added automatically." else "Nothing is added automatically.", color = MutedText, fontSize = 8.8.sp)
                     }
                     Switch(weeklyAutoPlanEnabled, onWeeklyAutoPlan, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
+            PSettingsHeading("DATA & BACKUP", "Export or restore your local Creator OS data.")
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = CinemaSurface,
+                border = BorderStroke(1.dp, CinemaLine),
+            ) {
+                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(34.dp).background(MutedGold.copy(alpha = .10f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.SaveAlt, null, tint = MutedGold, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Data & Backup", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("Projects, reminders, ideas, weekly plan and settings", color = MutedText, fontSize = 8.7.sp)
+                    }
+                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
                 }
             }
 
