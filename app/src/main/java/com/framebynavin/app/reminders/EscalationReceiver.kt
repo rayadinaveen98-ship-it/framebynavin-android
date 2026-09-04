@@ -11,13 +11,14 @@ import com.framebynavin.app.data.VoicePersona
 
 class EscalationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val appContext = context.applicationContext
         val taskId = intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID) ?: return
         val scheduledAt = intent.getLongExtra(ReminderConstants.EXTRA_SCHEDULED_AT, 0L)
         val stage = runCatching {
             SmartEscalationScheduler.Stage.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_ESCALATION_STAGE).orEmpty())
         }.getOrNull() ?: return
 
-        if (!AlarmLedger(context.applicationContext).consumeIfCurrent("$taskId#${stage.name}", scheduledAt)) return
+        if (!AlarmLedger(appContext).consumeIfCurrent("$taskId#${stage.name}", scheduledAt)) return
 
         val priority = runCatching {
             TaskPriority.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_PRIORITY).orEmpty())
@@ -45,25 +46,46 @@ class EscalationReceiver : BroadcastReceiver() {
             reminderMode = ReminderMode.SMART,
             voicePersona = persona,
             voiceRepeatCount = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, 3).coerceIn(1, 3),
-            voiceRepeatIntervalSeconds = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 20).coerceIn(10, 60),
+            voiceRepeatIntervalSeconds = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 10).coerceIn(5, 60),
             alarmTimeoutSeconds = intent.getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
         )
 
+        val smart = SmartEscalationScheduler(appContext)
+        val firedAt = System.currentTimeMillis()
+        smart.markStageActive(taskId, stage, firedAt)
+
         when (stage) {
-            SmartEscalationScheduler.Stage.SOFT ->
-                ReminderNotifications.show(context.applicationContext, task, stageLabel = "Smart · Gentle")
+            SmartEscalationScheduler.Stage.SOFT -> {
+                AlarmRingingService.stop(appContext)
+                VoiceReminderService.stop(appContext)
+                ReminderNotifications.show(appContext, task, stageLabel = "Smart · Gentle")
+            }
 
-            SmartEscalationScheduler.Stage.VOICE ->
-                VoiceReminderService.start(context.applicationContext, task)
+            SmartEscalationScheduler.Stage.VOICE -> {
+                AlarmRingingService.stop(appContext)
+                ReminderNotifications.cancel(appContext, taskId)
+                VoiceReminderService.start(appContext, task)
+            }
 
-            SmartEscalationScheduler.Stage.ALARM ->
-                AlarmRingingService.start(context.applicationContext, task.copy(voiceEnabled = false))
+            SmartEscalationScheduler.Stage.ALARM -> {
+                VoiceReminderService.stop(appContext)
+                ReminderNotifications.cancel(appContext, taskId)
+                AlarmRingingService.start(appContext, task.copy(voiceEnabled = false), stage)
+            }
 
-            SmartEscalationScheduler.Stage.CRITICAL ->
+            SmartEscalationScheduler.Stage.CRITICAL -> {
+                VoiceReminderService.stop(appContext)
+                AlarmRingingService.stop(appContext)
+                ReminderNotifications.cancel(appContext, taskId)
                 AlarmRingingService.start(
-                    context.applicationContext,
-                    task.copy(priority = TaskPriority.CRITICAL, voiceEnabled = true)
+                    appContext,
+                    task.copy(priority = TaskPriority.CRITICAL, voiceEnabled = true),
+                    stage,
                 )
+            }
         }
+
+        // Only the immediate successor is scheduled. Any acknowledgement/snooze cancels it.
+        smart.scheduleNextIfUnanswered(task, stage, firedAt)
     }
 }
