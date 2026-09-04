@@ -6,10 +6,10 @@ import org.junit.Test
 
 class MissedReminderRecoveryTest {
     private val hour = 60 * 60_000L
+    private val now = 100 * hour
 
     @Test
     fun futureReminder_isNotCatchUp() {
-        val now = 10 * hour
         assertFalse(
             MissedReminderRecovery.shouldCatchUp(
                 reminderAtMillis = now + hour,
@@ -21,7 +21,6 @@ class MissedReminderRecoveryTest {
 
     @Test
     fun oldReminder_isStillCatchUpWhenDeadlineIsAhead() {
-        val now = 10 * hour
         assertTrue(
             MissedReminderRecovery.shouldCatchUp(
                 reminderAtMillis = now - 12 * hour,
@@ -33,7 +32,6 @@ class MissedReminderRecoveryTest {
 
     @Test
     fun recentlyMissedDeadline_isCatchUp() {
-        val now = 10 * hour
         assertTrue(
             MissedReminderRecovery.shouldCatchUp(
                 reminderAtMillis = now - 3 * hour,
@@ -45,7 +43,6 @@ class MissedReminderRecoveryTest {
 
     @Test
     fun staleMissedDeadline_isNotCatchUp() {
-        val now = 10 * hour
         assertFalse(
             MissedReminderRecovery.shouldCatchUp(
                 reminderAtMillis = now - 9 * hour,
@@ -57,7 +54,6 @@ class MissedReminderRecoveryTest {
 
     @Test
     fun reminderWithoutDeadline_usesSixHourRelevanceWindow() {
-        val now = 10 * hour
         assertTrue(
             MissedReminderRecovery.shouldCatchUp(
                 reminderAtMillis = now - 2 * hour,
