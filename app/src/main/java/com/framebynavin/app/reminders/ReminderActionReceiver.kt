@@ -36,13 +36,10 @@ class ReminderActionReceiver : BroadcastReceiver() {
                         }
                         scheduler.cancel(taskId)
                         smart.cancel(taskId)
-                        if (updated?.reminderEnabled == true) {
-                            if (updated.reminderMode == ReminderMode.SMART || updated.smartEscalationEnabled) smart.schedule(updated)
-                            else scheduler.schedule(updated)
+                        if (updated?.reminderEnabled == true && updated.reminderMode != ReminderMode.SMART) {
+                            scheduler.schedule(updated)
                         }
-                        AlarmRingingService.stop(appContext)
-                        VoiceReminderService.stop(appContext)
-                        ReminderNotifications.cancel(context, taskId)
+                        stopAllSurfaces(appContext, taskId)
                     }
 
                     ReminderConstants.ACTION_DONE -> {
@@ -59,35 +56,43 @@ class ReminderActionReceiver : BroadcastReceiver() {
                         }
                         scheduler.cancel(taskId)
                         smart.cancel(taskId)
-                        AlarmRingingService.stop(appContext)
-                        VoiceReminderService.stop(appContext)
-                        ReminderNotifications.cancel(context, taskId)
+                        stopAllSurfaces(appContext, taskId)
                     }
 
                     ReminderConstants.ACTION_SNOOZE -> {
                         val snoozeMinutes = CreatorOsSettingsStore(appContext).snapshot().snoozeMinutes
+                        val reachedSmartStage = smart.activeStage(taskId)
+                        val resumeAt = System.currentTimeMillis() + snoozeMinutes * 60_000L
                         val snoozed = store.updateTask(taskId) { task ->
                             task.copy(
                                 reminderEnabled = true,
-                                reminderAtMillis = System.currentTimeMillis() + snoozeMinutes * 60_000L,
+                                reminderAtMillis = resumeAt,
                                 snoozeCount = task.snoozeCount + 1,
                                 workingUntilMillis = 0L,
                             )
                         }
                         scheduler.cancel(taskId)
-                        smart.cancel(taskId)
                         if (snoozed != null) {
-                            if (snoozed.reminderMode == ReminderMode.SMART || snoozed.smartEscalationEnabled) smart.schedule(snoozed)
-                            else scheduler.schedule(snoozed)
+                            if (snoozed.reminderMode == ReminderMode.SMART || snoozed.smartEscalationEnabled) {
+                                val stage = reachedSmartStage ?: SmartEscalationScheduler.Stage.SOFT
+                                smart.snoozeStage(snoozed, stage, resumeAt)
+                            } else {
+                                smart.cancel(taskId)
+                                scheduler.schedule(snoozed)
+                            }
                         }
-                        AlarmRingingService.stop(appContext)
-                        VoiceReminderService.stop(appContext)
-                        ReminderNotifications.cancel(context, taskId)
+                        stopAllSurfaces(appContext, taskId)
                     }
                 }
             } finally {
                 pendingResult.finish()
             }
         }
+    }
+
+    private fun stopAllSurfaces(context: Context, taskId: String) {
+        AlarmRingingService.stop(context)
+        VoiceReminderService.stop(context)
+        ReminderNotifications.cancel(context, taskId)
     }
 }
