@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -19,13 +20,15 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         if (externalLaunch != null) {
             welcomeDone = true
         } else if (!welcomeDone) {
-            delay(2_350L)
+            delay(1_550L)
             welcomeDone = true
         }
     }
     AnimatedContent(
         targetState = welcomeDone,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
+        transitionSpec = {
+            fadeIn(tween(170)) togetherWith fadeOut(tween(130))
+        },
         label = "launchGate",
     ) { ready ->
         if (ready) FrameByNavinV101BApp(externalLaunch = externalLaunch) else V133CinematicWelcome()
