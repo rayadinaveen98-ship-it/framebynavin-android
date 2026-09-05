@@ -57,7 +57,7 @@ object YouTubeContentClassifier {
 
         val normalizedTitle = " " + title
             .lowercase(Locale.ROOT)
-            .replace(Regex("[^\\p{L}\\p{N}#]+"), " ")
+            .replace(Regex("[^\\p{L}\\p{M}\\p{N}#]+"), " ")
             .trim() + " "
 
         return when {
@@ -126,7 +126,7 @@ pulse = replace_once(
 pulse = replace_once(
     pulse,
     '.replace(Regex("[^a-z0-9]+"), " ")',
-    '.replace(Regex("[^\\\\p{L}\\\\p{N}]+"), " ")',
+    '.replace(Regex("[^\\\\p{L}\\\\p{M}\\\\p{N}]+"), " ")',
     'Unicode tokenization',
 )
 old_stopwords = '''    private val STOP_WORDS = setOf(\n        "the", "and", "for", "with", "from", "this", "that", "movie", "film", "video", "review", "analysis",\n        "official", "trailer", "telugu", "cinema", "short", "shorts", "every", "why", "how", "best", "new",\n    )'''
