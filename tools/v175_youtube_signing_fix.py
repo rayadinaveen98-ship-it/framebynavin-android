@@ -4,10 +4,10 @@ ROOT = Path(__file__).resolve().parents[1]
 gradle_path = ROOT / "app/build.gradle.kts"
 gradle = gradle_path.read_text(encoding="utf-8")
 
-gradle = gradle.replace("versionCode = 38", "versionCode = 39")
+gradle = gradle.replace("versionCode = 38", "versionCode = 40")
 gradle = gradle.replace(
     'versionName = "1.7.5-ux-copy-polish-rc2"',
-    'versionName = "1.7.5-youtube-connection-fix-rc3"',
+    'versionName = "1.7.5-brand-ident-rc4"',
 )
 
 # Reuse the original prototype certificate that the pre-public builds used.
@@ -27,4 +27,4 @@ if 'signingConfig = signingConfigs.getByName("prototypeStable")' not in gradle:
     gradle = gradle.replace(marker, build_types + marker, 1)
 
 gradle_path.write_text(gradle, encoding="utf-8")
-print("v1.7.5 RC3 version + original prototype signing applied")
+print("v1.7.5 RC4 brand ident + original prototype signing applied")
