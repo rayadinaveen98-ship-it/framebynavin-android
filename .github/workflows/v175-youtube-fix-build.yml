@@ -9,6 +9,7 @@ on:
       - "app/**"
       - "dev-signing/framebynavin-public-debug.jks"
       - "tools/v175_integrate.py"
+      - "tools/v175_brand_ident_rc4.py"
       - "tools/v175_public_prepare.py"
       - "tools/v175_copy_polish.py"
       - "tools/v175_copy_polish_followup.py"
@@ -62,6 +63,9 @@ jobs:
 
       - name: Apply v1.7.5 integration
         run: python3 tools/v175_integrate.py
+
+      - name: Apply RC4 original brand ident
+        run: python3 tools/v175_brand_ident_rc4.py
 
       - name: Apply public-safe preparation
         run: python3 tools/v175_public_prepare.py
