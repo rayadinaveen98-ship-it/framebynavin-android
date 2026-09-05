@@ -1,0 +1,16 @@
+name: FrameByNavin macOS Runner Probe
+
+on:
+  push:
+    branches:
+      - "feature/v1.7.5-original-frames-splash"
+    paths:
+      - ".github/workflows/v175-macos-probe.yml"
+      - "app/src/main/assets/v175-macos-probe.txt"
+
+jobs:
+  probe:
+    runs-on: macos-14
+    steps:
+      - name: Runner check
+        run: echo "FrameByNavin macOS runner is available"
