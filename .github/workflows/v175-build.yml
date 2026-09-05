@@ -7,6 +7,7 @@ on:
       - "feature/v1.7.5-original-frames-splash"
     paths:
       - "tools/v175_integrate.py"
+      - "tools/v175_public_prepare.py"
       - ".github/workflows/v175-build.yml"
       - "app/**"
       - "*.gradle.kts"
@@ -32,6 +33,10 @@ jobs:
         shell: powershell
         run: py -3.12 tools/v175_integrate.py
 
+      - name: Apply public-safe preparation
+        shell: powershell
+        run: py -3.12 tools/v175_public_prepare.py
+
       - name: Verify original-frame architecture
         shell: powershell
         run: |
@@ -42,8 +47,10 @@ jobs:
           if (-not $polish.Contains("V175BestFramesOfToday")) { throw "Best Frames v1.7.5 is not wired" }
           if (-not $frames.Contains("PickMultipleVisualMedia")) { throw "Multi-image picker is missing" }
           if (-not $frames.Contains("input.copyTo(output")) { throw "Original byte-copy path is missing" }
+          if ($frames.Contains("matchParentSize")) { throw "Unsupported matchParentSize usage remains" }
           if (-not $gradle.Contains("versionCode = 37")) { throw "versionCode 37 is missing" }
           if (-not $gradle.Contains('versionName = "1.7.5-original-frames-splash-rc1"')) { throw "v1.7.5 versionName is missing" }
+          if ($gradle.Contains("REMOVED_PRIVATE_SIGNING_VALUE")) { throw "Hardcoded signing credential remains" }
           $legacy = Get-ChildItem "app/src/main/res/drawable-nodpi" -Filter "hero_frame_*.webp" -ErrorAction SilentlyContinue
           if ($legacy) { throw "Legacy bundled slideshow frames are still present" }
 
