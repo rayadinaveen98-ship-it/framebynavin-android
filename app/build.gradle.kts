@@ -8,33 +8,18 @@ android {
     namespace = "com.framebynavin.app"
     compileSdk = 35
 
-    signingConfigs {
-        create("dev") {
-            storeFile = rootProject.file("keystore/REMOVED_PRIVATE_SIGNING_VALUE.jks")
-            storePassword = "REMOVED_PRIVATE_SIGNING_VALUE"
-            keyAlias = "REMOVED_PRIVATE_SIGNING_VALUE"
-            keyPassword = "REMOVED_PRIVATE_SIGNING_VALUE"
-        }
-    }
-
     defaultConfig {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 36
-        versionName = "1.7.4-cinematic-home-welcome-rc1"
+        versionCode = 37
+        versionName = "1.7.5-original-frames-splash-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    buildTypes {
-        getByName("debug") {
-            signingConfig = signingConfigs.getByName("dev")
-        }
     }
 
     buildFeatures {
@@ -55,6 +40,7 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.04.01"))
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.core:core-ktx:1.16.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
@@ -78,6 +64,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.7.4 RC1: cinematic home polish on top of the approved v1.7.3 Pulse + opportunities baseline.
-// Best Frames of Today is collapsed by default, expands in-place, and preserves the full frame composition without aggressive crop.
-// The cold-launch welcome is a new ~3 second film-gate / projector-aperture sequence.
+// v1.7.5 RC1: original-quality user-managed Best Frames + cinematic splash polish.
+// Private signing material is intentionally not committed. Public CI uses standard debug signing
+// until a private signing key is supplied through GitHub Actions secrets.
