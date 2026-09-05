@@ -1,0 +1,38 @@
+name: Fix v1.7.4 Image Rendering Compile
+
+on:
+  push:
+    branches:
+      - "feature/v1.7.4-cinematic-home-welcome"
+    paths:
+      - ".github/workflows/v174-hotfix-image.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v1.7.4-cinematic-home-welcome
+      - name: Fix painter Image overload
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt')
+          s = p.read_text()
+          s = s.replace('import androidx.compose.ui.graphics.FilterQuality\n', '')
+          s = s.replace('                      filterQuality = FilterQuality.High,\n', '')
+          p.write_text(s)
+          PY
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name "FrameByNavin Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
+          git commit -m "fix(v1.7.4): use supported painter image rendering" || exit 0
+          git push origin HEAD:feature/v1.7.4-cinematic-home-welcome
