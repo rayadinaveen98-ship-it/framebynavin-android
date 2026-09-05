@@ -1,4 +1,4 @@
-name: Build FrameByNavin v1.8 Foundation Alpha6
+name: Build FrameByNavin v1.8 Foundation Alpha7
 
 on:
   workflow_dispatch:
@@ -20,6 +20,7 @@ on:
       - "tools/v18_architecture_alpha4.py"
       - "tools/v18_architecture_alpha5.py"
       - "tools/v18_interaction_tests_alpha6.py"
+      - "tools/v18_credential_manager_alpha7.py"
       - ".github/workflows/v18-foundation-build.yml"
       - "*.gradle.kts"
       - "gradle.properties"
@@ -90,12 +91,15 @@ jobs:
       - name: Apply alpha6 interaction tests
         run: python3 tools/v18_interaction_tests_alpha6.py
 
+      - name: Apply alpha7 Credential Manager migration
+        run: python3 tools/v18_credential_manager_alpha7.py
+
       - name: Foundation gate
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 46' app/build.gradle.kts
-          grep -q 'versionName = "1.8.0-foundation-alpha6"' app/build.gradle.kts
+          grep -q 'versionCode = 47' app/build.gradle.kts
+          grep -q 'versionName = "1.8.0-foundation-alpha7"' app/build.gradle.kts
           grep -q 'prototypeStable' app/build.gradle.kts
           grep -q 'black -> light -> mark -> name -> app' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
           test -s app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
@@ -113,6 +117,17 @@ jobs:
           ! grep -q 'fun PTodayScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           test "$(wc -l < app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt)" -le 1120
           test "$(grep -c '^    @Test' app/src/androidTest/java/com/framebynavin/app/ui/V18CoreInteractionUiTest.kt)" -eq 8
+
+          grep -q 'androidx.credentials:credentials:1.6.0' app/build.gradle.kts
+          grep -q 'androidx.credentials:credentials-play-services-auth:1.6.0' app/build.gradle.kts
+          grep -q 'com.google.android.libraries.identity.googleid:googleid:1.2.0' app/build.gradle.kts
+          grep -q 'CredentialManager.create' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          grep -q 'GetSignInWithGoogleOption' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          grep -q 'GoogleIdTokenCredential.createFrom' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          grep -q 'clearCredentialState' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          ! grep -q 'GoogleSignInOptions' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          ! grep -q 'GoogleSignIn.getClient' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          ! grep -q 'rememberLauncherForActivityResult' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
 
           ! grep -R -F 'Best Pawan Kalyan interval blocks' app/src/main/java/com/framebynavin/app/ui
           ! grep -R -F 'Search idea, movie, person, note' app/src/main/java/com/framebynavin/app/ui
@@ -142,13 +157,13 @@ jobs:
             V101WeeklyPlanUi.kt; do
             test ! -e "app/src/main/java/com/framebynavin/app/ui/$f"
           done
-          echo "v1.8 foundation alpha6 gate passed"
+          echo "v1.8 foundation alpha7 gate passed"
 
       - name: Package post-integration source for audit
         shell: bash
         run: |
           set -euo pipefail
-          tar -czf FrameByNavin-v1.8.0-foundation-alpha6-audit-source.tar.gz \
+          tar -czf FrameByNavin-v1.8.0-foundation-alpha7-audit-source.tar.gz \
             app/src/main \
             app/src/test \
             app/src/androidTest \
@@ -160,8 +175,8 @@ jobs:
       - name: Upload audit source
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.8.0-foundation-alpha6-audit-source
-          path: FrameByNavin-v1.8.0-foundation-alpha6-audit-source.tar.gz
+          name: FrameByNavin-v1.8.0-foundation-alpha7-audit-source
+          path: FrameByNavin-v1.8.0-foundation-alpha7-audit-source.tar.gz
 
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
@@ -205,5 +220,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.8.0-foundation-alpha6
+          name: FrameByNavin-v1.8.0-foundation-alpha7
           path: app/build/outputs/apk/debug/app-debug.apk
