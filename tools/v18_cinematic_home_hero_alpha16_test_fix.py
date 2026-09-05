@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Compatibility shim for the Compose UI test API used by this Android build.
 TEST = Path('app/src/androidTest/java/com/framebynavin/app/ui/V18CinematicHomeHeroAlpha16UiTest.kt')
 text = TEST.read_text()
 old = 'import androidx.compose.ui.test.onNode\n'
