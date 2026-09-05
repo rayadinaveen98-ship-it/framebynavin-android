@@ -1,0 +1,95 @@
+name: Sanitize FrameByNavin History For Public Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sanitize:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 60
+    steps:
+      - name: Mirror, back up, scrub, verify, and force-push
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+          $root = Join-Path $env:RUNNER_TEMP "framebynavin-public-sanitize-$stamp"
+          $mirror = Join-Path $root "repo.git"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+
+          $remote = "https://x-access-token:$env:GH_TOKEN@github.com/$env:GITHUB_REPOSITORY.git"
+          git clone --mirror $remote $mirror
+          if ($LASTEXITCODE -ne 0) { throw "Mirror clone failed" }
+
+          $backup = Join-Path $env:USERPROFILE "FrameByNavin-private-history-pre-public-$stamp.bundle"
+          git -C $mirror bundle create $backup --all
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $backup)) { throw "Private backup bundle failed" }
+          Write-Host "Private pre-public backup created at $backup"
+
+          py -3.12 -m pip install --user git-filter-repo
+          if ($LASTEXITCODE -ne 0) { throw "git-filter-repo installation failed" }
+
+          $oldGradle = git -C $mirror show refs/heads/main:app/build.gradle.kts 2>$null
+          $oldText = ($oldGradle -join "`n")
+          $match = [regex]::Match($oldText, 'storePassword\s*=\s*"([^"]+)"')
+          $replaceFile = Join-Path $root "replace.txt"
+          if ($match.Success) {
+            $oldSigningValue = $match.Groups[1].Value
+            ($oldSigningValue + "==>REMOVED_PRIVATE_SIGNING_VALUE") | Set-Content -Path $replaceFile -Encoding UTF8
+          }
+
+          Push-Location $mirror
+          try {
+            if (Test-Path $replaceFile) {
+              py -3.12 -m git_filter_repo --path keystore/REMOVED_PRIVATE_SIGNING_VALUE.jks --invert-paths --replace-text $replaceFile --force
+            } else {
+              py -3.12 -m git_filter_repo --path keystore/REMOVED_PRIVATE_SIGNING_VALUE.jks --invert-paths --force
+            }
+            if ($LASTEXITCODE -ne 0) { throw "History rewrite failed" }
+
+            $objects = git rev-list --objects --all
+            if ($objects | Select-String -SimpleMatch "keystore/REMOVED_PRIVATE_SIGNING_VALUE.jks") {
+              throw "Signing key path still exists in rewritten history"
+            }
+
+            if ($match.Success) {
+              $oldSigningValue = $match.Groups[1].Value
+              foreach ($commit in (git rev-list --all)) {
+                git grep -I -q -F -- $oldSigningValue $commit -- . 2>$null
+                if ($LASTEXITCODE -eq 0) { throw "Old signing credential still exists in rewritten history" }
+              }
+            }
+
+            $strongPatterns = @(
+              'ghp_[A-Za-z0-9]{20,}',
+              'github_pat_[A-Za-z0-9_]{20,}',
+              'sk-[A-Za-z0-9_-]{20,}',
+              'AIza[0-9A-Za-z_-]{30,}',
+              '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'
+            )
+            foreach ($pattern in $strongPatterns) {
+              foreach ($commit in (git rev-list --all)) {
+                git grep -I -q -E -- $pattern $commit -- . 2>$null
+                if ($LASTEXITCODE -eq 0) { throw "Potential secret-like value remains after rewrite; public push aborted" }
+              }
+            }
+
+            git remote add sanitized $remote
+            git push sanitized --force --all
+            if ($LASTEXITCODE -ne 0) { throw "Force-push of sanitized branches failed" }
+            git push sanitized --force --tags
+            if ($LASTEXITCODE -ne 0) { throw "Force-push of sanitized tags failed" }
+
+            $active = (git rev-parse refs/heads/feature/v1.7.5-original-frames-splash).Trim()
+            git push sanitized "$active`:refs/heads/main" --force
+            if ($LASTEXITCODE -ne 0) { throw "Could not move main to sanitized v1.7.5" }
+
+            Write-Host "History sanitized successfully. Main now points to sanitized v1.7.5."
+          } finally {
+            Pop-Location
+          }
