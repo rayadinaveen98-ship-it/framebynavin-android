@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 34
-        versionName = "1.7.2-insights-upgrade-rc1"
+        versionCode = 35
+        versionName = "1.7.3-24h-pulse-opportunities-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,6 +78,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.7.2 RC1: Insights 2.0 on top of the approved creator-automation + visual-polish baseline.
-// Adds real previous-period YouTube comparisons, decision-oriented Overview/Content/Creator insights,
-// fair per-upload content signals, richer video detail, and a larger fully opaque luminous welcome mark.
+// v1.7.3 RC1: 24H Pulse + creator opportunities on top of the approved Insights 2.0 baseline.
+// Persists lightweight YouTube counter snapshots, calculates rolling view/subscriber movement and top movers,
+// and matches active performance opportunities back to useful saved Idea Vault entries.
