@@ -18,27 +18,35 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Apply v1.7.5 source integration
+        shell: pwsh
         run: python tools/v175_integrate.py
 
       - name: Verify original-frame architecture
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          grep -q 'V175BestFramesOfToday' app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
-          grep -q 'PickMultipleVisualMedia' app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
-          grep -q 'input.copyTo(output' app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
-          grep -q 'versionCode = 37' app/build.gradle.kts
-          grep -q '1.7.5-original-frames-splash-rc1' app/build.gradle.kts
-          if find app/src/main/res/drawable-nodpi -maxdepth 1 -name 'hero_frame_*.webp' | grep -q .; then
-            echo 'Legacy bundled slideshow frames still present'
-            exit 1
-          fi
+          $ErrorActionPreference = "Stop"
+          $polish = Get-Content "app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt" -Raw
+          $frames = Get-Content "app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt" -Raw
+          $gradle = Get-Content "app/build.gradle.kts" -Raw
+          if (-not $polish.Contains("V175BestFramesOfToday")) { throw "Best Frames v1.7.5 is not wired" }
+          if (-not $frames.Contains("PickMultipleVisualMedia")) { throw "Multi-image picker is missing" }
+          if (-not $frames.Contains("input.copyTo(output")) { throw "Original byte-copy path is missing" }
+          if (-not $gradle.Contains("versionCode = 37")) { throw "versionCode 37 is missing" }
+          if (-not $gradle.Contains('versionName = "1.7.5-original-frames-splash-rc1"')) { throw "v1.7.5 versionName is missing" }
+          $legacy = Get-ChildItem "app/src/main/res/drawable-nodpi" -Filter "hero_frame_*.webp" -ErrorAction SilentlyContinue
+          if ($legacy) { throw "Legacy bundled slideshow frames are still present" }
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -46,33 +54,47 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 35
+        shell: pwsh
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
 
       - name: Run unit tests
+        shell: pwsh
         run: gradle :app:testDebugUnitTest --stacktrace
 
       - name: Run Android lint
+        shell: pwsh
         run: gradle :app:lintDebug --stacktrace
 
       - name: Compile instrumentation tests
+        shell: pwsh
         run: gradle :app:assembleDebugAndroidTest --stacktrace
 
       - name: Build debug APK
+        shell: pwsh
         run: gradle :app:assembleDebug --stacktrace
 
       - name: Verify v1.7.5 APK
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          apk="app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$apk"
-          grep -q 'versionCode = 37' app/build.gradle.kts
-          grep -q 'versionName = "1.7.5-original-frames-splash-rc1"' app/build.gradle.kts
-          echo "APK bytes: $(stat -c%s "$apk")"
-          sha256sum "$apk"
+          $ErrorActionPreference = "Stop"
+          $apk = "app/build/outputs/apk/debug/app-debug.apk"
+          if (-not (Test-Path $apk)) { throw "APK not found" }
+          if ((Get-Item $apk).Length -le 0) { throw "APK is empty" }
+          $gradle = Get-Content "app/build.gradle.kts" -Raw
+          if (-not $gradle.Contains("versionCode = 37")) { throw "versionCode verification failed" }
+          if (-not $gradle.Contains('versionName = "1.7.5-original-frames-splash-rc1"')) { throw "versionName verification failed" }
+          Write-Host "APK bytes: $((Get-Item $apk).Length)"
+          Get-FileHash $apk -Algorithm SHA256 | Format-List
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
