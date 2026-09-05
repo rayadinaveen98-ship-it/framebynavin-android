@@ -23,6 +23,7 @@ on:
       - "tools/v18_credential_manager_alpha7.py"
       - "tools/v18_creator_intelligence_alpha8.py"
       - "tools/v18_creator_identity_alpha9.py"
+      - "tools/v18_creator_identity_alpha9_test_fix.py"
       - ".github/workflows/v18-product-build.yml"
       - "*.gradle.kts"
       - "gradle.properties"
@@ -102,6 +103,9 @@ jobs:
       - name: Apply alpha9 creator identity and onboarding
         run: python3 tools/v18_creator_identity_alpha9.py
 
+      - name: Apply alpha9 instrumentation compatibility fix
+        run: python3 tools/v18_creator_identity_alpha9_test_fix.py
+
       - name: Product gate
         shell: bash
         run: |
@@ -121,6 +125,7 @@ jobs:
           grep -q 'EDIT CREATOR PROFILE' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           grep -q 'creatorName: String' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
           test "$(grep -c '^    @Test' app/src/test/java/com/framebynavin/app/data/CreatorProfileAlpha9Test.kt)" -eq 3
+          test "$(grep -c 'creatorName = "Test Creator"' app/src/androidTest/java/com/framebynavin/app/ui/V18CoreInteractionUiTest.kt)" -eq 2
 
           ! grep -R -F 'Good Morning, Navin' app/src/main/java/com/framebynavin/app/ui
           ! grep -R -F 'Good Afternoon, Navin' app/src/main/java/com/framebynavin/app/ui
