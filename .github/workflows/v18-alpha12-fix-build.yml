@@ -1,0 +1,156 @@
+name: Build FrameByNavin v1.8 Product Alpha12 Fix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - foundation/v1.8-cleanup
+    paths:
+      - "tools/v18_creator_journey_alpha12_test_fix.py"
+      - ".github/workflows/v18-alpha12-fix-build.yml"
+
+concurrency:
+  group: framebynavin-v18-alpha12-fix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 35
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply v1.7.5 integration
+        run: python3 tools/v175_integrate.py
+      - name: Apply locked FrameByNavin ident
+        run: python3 tools/v175_brand_ident_rc4.py
+      - name: Apply public-safe preparation
+        run: python3 tools/v175_public_prepare.py
+      - name: Apply UX copy polish
+        run: python3 tools/v175_copy_polish.py
+      - name: Finish plain-language pass
+        run: python3 tools/v175_copy_polish_followup.py
+      - name: Keep prototype update signing
+        run: python3 tools/v175_youtube_signing_fix.py
+      - name: Apply v1.8 foundation cleanup
+        run: python3 tools/v18_foundation_cleanup.py
+      - name: Apply alpha2 foundation version
+        run: python3 tools/v18_foundation_alpha2.py
+      - name: Apply alpha3 accessibility pass
+        run: python3 tools/v18_accessibility_alpha3.py
+      - name: Apply alpha4 architecture split
+        run: python3 tools/v18_architecture_alpha4.py
+      - name: Apply alpha5 Today split
+        run: python3 tools/v18_architecture_alpha5.py
+      - name: Apply alpha6 interaction tests
+        run: python3 tools/v18_interaction_tests_alpha6.py
+      - name: Apply alpha7 Credential Manager migration
+        run: python3 tools/v18_credential_manager_alpha7.py
+      - name: Apply alpha8 creator-neutral YouTube intelligence
+        run: python3 tools/v18_creator_intelligence_alpha8.py
+      - name: Apply alpha9 creator identity and onboarding
+        run: python3 tools/v18_creator_identity_alpha9.py
+      - name: Apply alpha9 instrumentation compatibility fix
+        run: python3 tools/v18_creator_identity_alpha9_test_fix.py
+      - name: Apply alpha10 primary Creator OS navigation
+        run: python3 tools/v18_primary_navigation_alpha10.py
+      - name: Apply alpha11 profile-aware personalization
+        run: python3 tools/v18_profile_personalization_alpha11.py
+      - name: Apply alpha12 creator journey polish
+        run: python3 tools/v18_creator_journey_alpha12.py
+      - name: Apply alpha12 Compose test compatibility fix
+        run: python3 tools/v18_creator_journey_alpha12_test_fix.py
+
+      - name: Product gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 52' app/build.gradle.kts
+          grep -q 'versionName = "1.8.0-product-alpha12"' app/build.gradle.kts
+          test -s app/src/main/java/com/framebynavin/app/ui/V18CreatorJourney.kt
+          test -s app/src/test/java/com/framebynavin/app/ui/V18CreatorJourneyAlpha12Test.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/ui/V18CreatorJourneyAlpha12UiTest.kt
+          ! grep -Fq 'assertDoesNotExist' app/src/androidTest/java/com/framebynavin/app/ui/V18CreatorJourneyAlpha12UiTest.kt
+          grep -Fq 'V18CreatorJourney.afterCapture()' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq 'advanceWorkflowWithJourney' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq 'Text("CREATE PROJECT")' app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt
+          grep -Fq 'IdeaCategory.CINEMATIC_ANALYSIS -> "Deep Dive"' app/src/main/java/com/framebynavin/app/data/IdeaVault.kt
+          ! grep -Fq 'CREATE TURN INTO PROJECT' app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt
+          ! grep -Fq 'enter Studio with the correct workflow' app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt
+          echo "v1.8 product alpha12 fixed gate passed"
+
+      - name: Package post-integration source for audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf FrameByNavin-v1.8.0-product-alpha12-audit-source.tar.gz \
+            app/src/main app/src/test app/src/androidTest app/build.gradle.kts \
+            build.gradle.kts settings.gradle.kts gradle.properties
+
+      - name: Upload audit source
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.0-product-alpha12-audit-source
+          path: FrameByNavin-v1.8.0-product-alpha12-audit-source.tar.gz
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run interaction tests on Android emulator
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Build APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs "$APK"
+          sha256sum "$APK"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.0-product-alpha12
+          path: app/build/outputs/apk/debug/app-debug.apk
