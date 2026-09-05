@@ -53,13 +53,38 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Bootstrap Android command-line tools
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $sdkRoot = Join-Path $env:USERPROFILE ".android\sdk"
+          $cmdLatest = Join-Path $sdkRoot "cmdline-tools\latest"
+          $sdkManager = Join-Path $cmdLatest "bin\sdkmanager.bat"
+          New-Item -ItemType Directory -Force -Path $sdkRoot | Out-Null
+          if (-not (Test-Path $sdkManager)) {
+            $zip = Join-Path $env:RUNNER_TEMP "android-commandlinetools.zip"
+            $extract = Join-Path $env:RUNNER_TEMP "android-commandlinetools-extracted"
+            if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+            Invoke-WebRequest -Uri "https://dl.google.com/android/repository/commandlinetools-win-12266719_latest.zip" -OutFile $zip -UseBasicParsing
+            Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
+            if (Test-Path $cmdLatest) { Remove-Item $cmdLatest -Recurse -Force }
+            New-Item -ItemType Directory -Force -Path $cmdLatest | Out-Null
+            Copy-Item (Join-Path $extract "cmdline-tools\*") $cmdLatest -Recurse -Force
+          }
+          "ANDROID_HOME=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_SDK_ROOT=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          (Join-Path $cmdLatest "bin") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          (Join-Path $sdkRoot "platform-tools") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $sdkManager --version
 
       - name: Install Android SDK 35
         shell: powershell
         run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          $ErrorActionPreference = "Stop"
+          $sdkRoot = $env:ANDROID_SDK_ROOT
+          $sdkManager = Join-Path $sdkRoot "cmdline-tools\latest\bin\sdkmanager.bat"
+          1..20 | ForEach-Object { "y" } | & $sdkManager --licenses | Out-Host
+          & $sdkManager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
