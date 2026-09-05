@@ -58,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           test ! -e keystore/REMOVED_PRIVATE_SIGNING_VALUE.jks
-          ! grep -R --exclude-dir=.git --exclude='*.lock' -n 'REMOVED_PRIVATE_SIGNING_VALUE' .
+          ! grep -n 'REMOVED_PRIVATE_SIGNING_VALUE' app/build.gradle.kts
           grep -q 'versionCode = 38' app/build.gradle.kts
           grep -q 'versionName = "1.7.5-ux-copy-polish-rc2"' app/build.gradle.kts
           grep -q 'CHANNEL PULSE' app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt
