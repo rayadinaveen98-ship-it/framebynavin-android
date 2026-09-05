@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Inspect local toolchain
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = "Continue"
           Write-Host "=== SYSTEM ==="
