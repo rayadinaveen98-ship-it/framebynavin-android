@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
+import com.framebynavin.app.youtube.YouTubeAnalyticsStore
+import com.framebynavin.app.youtube.YouTubeOpportunityEngine
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -50,14 +52,24 @@ internal fun V09IdeaVaultScreen(
     var creating by remember { mutableStateOf(false) }
     var converting by remember { mutableStateOf<CreatorIdea?>(null) }
 
-    val filtered = remember(ideas.toList(), query, statusFilter, categoryFilter) {
+    val opportunityAlerts = remember(ideas.toList(), YouTubeAnalyticsStore.latest24HourReport) {
+        YouTubeOpportunityEngine.build(YouTubeAnalyticsStore.latest24HourReport, ideas)
+    }
+    val opportunityIdeaIds = remember(opportunityAlerts) { opportunityAlerts.mapNotNull { it.ideaId }.toSet() }
+    val opportunityMatch = opportunityAlerts.firstOrNull { it.ideaId != null }
+
+    val filtered = remember(ideas.toList(), query, statusFilter, categoryFilter, opportunityIdeaIds) {
         ideas.filter { idea ->
             val textMatch = query.isBlank() || listOf(idea.title, idea.topic, idea.notes)
                 .any { it.contains(query, ignoreCase = true) }
             val statusMatch = statusFilter == null || idea.status == statusFilter
             val categoryMatch = categoryFilter == null || idea.category == categoryFilter
             textMatch && statusMatch && categoryMatch
-        }.sortedWith(compareBy<CreatorIdea> { it.status == IdeaStatus.ARCHIVED }.thenByDescending { it.updatedAtMillis })
+        }.sortedWith(
+            compareByDescending<CreatorIdea> { it.id in opportunityIdeaIds }
+                .thenBy { it.status == IdeaStatus.ARCHIVED }
+                .thenByDescending { it.updatedAtMillis }
+        )
     }
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -74,6 +86,23 @@ internal fun V09IdeaVaultScreen(
                 IconButton(onClick = { creating = true }) {
                     Icon(Icons.Outlined.Add, "New idea", tint = ProjectorIvory)
                 }
+            }
+
+            opportunityMatch?.let { match ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp),
+                    shape = RoundedCornerShape(17.dp),
+                    color = Color(0xFF1A1710),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .45f)),
+                ) {
+                    Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
+                        Text("OPPORTUNITY MATCH", color = MutedGold, fontSize = 7.8.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(3.dp))
+                        Text(match.ideaTitle ?: match.title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("A topic moving in your 24H Pulse overlaps with this saved idea. It has been moved to the top of the vault.", color = MutedText, fontSize = 8.8.sp, lineHeight = 12.5.sp)
+                    }
+                }
+                Spacer(Modifier.height(5.dp))
             }
 
             OutlinedTextField(
@@ -144,6 +173,7 @@ internal fun V09IdeaVaultScreen(
                     items(filtered, key = { it.id }) { idea ->
                         V09IdeaCard(
                             idea = idea,
+                            isOpportunity = idea.id in opportunityIdeaIds,
                             onEdit = { editing = idea },
                             onConvert = { converting = idea },
                             onArchive = { onArchive(idea.id) },
@@ -187,6 +217,7 @@ internal fun V09IdeaVaultScreen(
 @Composable
 private fun V09IdeaCard(
     idea: CreatorIdea,
+    isOpportunity: Boolean,
     onEdit: () -> Unit,
     onConvert: () -> Unit,
     onArchive: () -> Unit,
@@ -194,8 +225,8 @@ private fun V09IdeaCard(
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
         shape = RoundedCornerShape(17.dp),
-        color = CinemaSurfaceRaised,
-        border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
+        color = if (isOpportunity) Color(0xFF1A1712) else CinemaSurfaceRaised,
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isOpportunity) MutedGold.copy(alpha = .62f) else CinemaLine),
     ) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -205,6 +236,12 @@ private fun V09IdeaCard(
                 Spacer(Modifier.width(6.dp))
                 Text(IdeaVaultLabels.status(idea.status).uppercase(), color = MutedText, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
+                if (isOpportunity) {
+                    Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .12f)) {
+                        Text("TREND MATCH", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
                 Text(idea.potential.name, color = if (idea.potential == IdeaPotential.HIGH) RecRed else MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(8.dp))
