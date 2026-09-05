@@ -13,8 +13,18 @@ def replace_required(rel_path: str, replacements: list[tuple[str, str]]) -> None
     path.write_text(text, encoding="utf-8")
 
 
-# Studio's expanded project view is shared by the current v1.7.5 Studio screen.
-replace_required(
+def replace_if_present(rel_path: str, replacements: list[tuple[str, str]]) -> None:
+    """Patch legacy UI when it still exists, but do not make it a build dependency."""
+    path = ROOT / rel_path
+    if not path.exists():
+        print(f"Skipping removed legacy copy target: {rel_path}")
+        return
+    replace_required(rel_path, replacements)
+
+
+# This legacy Studio implementation existed in v1.7.5. v1.8 removes it from the
+# active source set, so copy cleanup must not force the old screen back into builds.
+replace_if_present(
     "app/src/main/java/com/framebynavin/app/ui/V07StudioScreen.kt",
     [
         ("PRODUCTION WORKFLOW", "YOUR PROJECTS"),
@@ -29,6 +39,8 @@ replace_required(
     ],
 )
 
+# Current production surfaces remain strict: if their expected copy disappears,
+# fail the build so we notice an integration drift instead of silently shipping it.
 replace_required(
     "app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt",
     [
