@@ -1,0 +1,120 @@
+name: Build FrameByNavin v1.8 Product Alpha17
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/v1.8-product-alpha17-clean-surfaces
+    paths:
+      - 'tools/v18_clean_surfaces_alpha17.py'
+      - '.github/workflows/v18-alpha17-build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 35
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Apply v1.7.5 integration
+        run: python tools/v175_integrate.py
+      - name: Apply locked FrameByNavin ident
+        run: python tools/v175_brand_ident_rc4.py
+      - name: Apply public-safe preparation
+        run: python tools/v175_public_prepare.py
+      - name: Apply UX copy polish
+        run: python tools/v175_copy_polish.py
+      - name: Finish plain-language pass
+        run: python tools/v175_copy_polish_followup.py
+      - name: Keep prototype update signing
+        run: python tools/v175_youtube_signing_fix.py
+      - name: Apply v1.8 foundation cleanup
+        run: python tools/v18_foundation_cleanup.py
+      - name: Apply alpha2 foundation version
+        run: python tools/v18_foundation_alpha2.py
+      - name: Apply alpha3 accessibility pass
+        run: python tools/v18_accessibility_alpha3.py
+      - name: Apply alpha4 architecture split
+        run: python tools/v18_architecture_alpha4.py
+      - name: Apply alpha5 Today split
+        run: python tools/v18_architecture_alpha5.py
+      - name: Apply alpha6 interaction tests
+        run: python tools/v18_interaction_tests_alpha6.py
+      - name: Apply alpha7 Credential Manager migration
+        run: python tools/v18_credential_manager_alpha7.py
+      - name: Apply alpha8 creator-neutral YouTube intelligence
+        run: python tools/v18_creator_intelligence_alpha8.py
+      - name: Apply alpha9 creator identity and onboarding
+        run: python tools/v18_creator_identity_alpha9.py
+      - name: Apply alpha9 instrumentation compatibility fix
+        run: python tools/v18_creator_identity_alpha9_test_fix.py
+      - name: Apply alpha10 primary Creator OS navigation
+        run: python tools/v18_primary_navigation_alpha10.py
+      - name: Apply alpha11 profile-aware personalization
+        run: python tools/v18_profile_personalization_alpha11.py
+      - name: Apply alpha12 creator journey polish
+        run: python tools/v18_creator_journey_alpha12.py
+      - name: Apply alpha12 Compose test compatibility fix
+        run: python tools/v18_creator_journey_alpha12_test_fix.py
+      - name: Apply alpha13 closed creator loop
+        run: python tools/v18_creator_loop_alpha13.py
+      - name: Apply alpha14 UX and performance pass
+        run: python tools/v18_ux_performance_alpha14.py
+      - name: Apply alpha14 Compose compatibility fix
+        run: python tools/v18_ux_performance_alpha14_compile_fix.py
+      - name: Apply alpha15 UX and identity corrections
+        run: python tools/v18_alpha15_ux_identity_corrections.py
+      - name: Apply alpha16 cinematic home hero redesign
+        run: python tools/v18_cinematic_home_hero_alpha16.py
+      - name: Apply alpha16 Compose test compatibility fix
+        run: python tools/v18_cinematic_home_hero_alpha16_test_fix.py
+      - name: Apply alpha17 clean surfaces pass
+        run: python tools/v18_clean_surfaces_alpha17.py
+
+      - name: Product gate
+        run: |
+          grep -q 'versionCode = 57' app/build.gradle.kts
+          grep -q 'versionName = "1.8.0-product-alpha17"' app/build.gradle.kts
+          grep -q 'KEY_ALPHA17_RESET' app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
+          ! grep -q 'Stay on track' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+          ! grep -q 'This needs your attention' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt
+          ! grep -q 'Time to move this forward' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Android lint
+        run: ./gradlew lintDebug --stacktrace
+
+      - name: Compile instrumentation tests
+        run: ./gradlew compileDebugAndroidTestKotlin --stacktrace
+
+      - name: Build APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK
+        run: |
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.0-product-alpha17
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
