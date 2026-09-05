@@ -1,10 +1,10 @@
-name: Build FrameByNavin v1.7.5 YouTube Fix RC3
+name: Build FrameByNavin v1.7.5 Brand Ident RC4
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - feature/v1.7.5-youtube-signing-fix
+      - feature/v1.7.5-brand-ident-rc4
     paths:
       - "app/**"
       - "dev-signing/framebynavin-public-debug.jks"
@@ -18,7 +18,7 @@ on:
       - "gradle.properties"
 
 concurrency:
-  group: framebynavin-v175-youtube-fix-${{ github.ref }}
+  group: framebynavin-v175-brand-ident-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -72,18 +72,19 @@ jobs:
       - name: Finish plain-language pass
         run: python3 tools/v175_copy_polish_followup.py
 
-      - name: Apply YouTube connection RC3 version
+      - name: Apply RC4 brand ident version and signing
         run: python3 tools/v175_youtube_signing_fix.py
 
       - name: Release gate
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 39' app/build.gradle.kts
-          grep -q 'versionName = "1.7.5-youtube-connection-fix-rc3"' app/build.gradle.kts
+          grep -q 'versionCode = 40' app/build.gradle.kts
+          grep -q 'versionName = "1.7.5-brand-ident-rc4"' app/build.gradle.kts
           grep -q 'prototypeStable' app/build.gradle.kts
+          grep -q 'black -> light -> mark -> name -> app' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
           test -s app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
-          echo "RC3 source + original signing gate passed"
+          echo "RC4 brand ident + signing gate passed"
 
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
@@ -115,5 +116,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.7.5-youtube-connection-fix-rc3
+          name: FrameByNavin-v1.7.5-brand-ident-rc4
           path: app/build/outputs/apk/debug/app-debug.apk
