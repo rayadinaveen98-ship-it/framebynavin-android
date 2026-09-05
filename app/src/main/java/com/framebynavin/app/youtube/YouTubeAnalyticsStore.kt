@@ -5,7 +5,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class YouTubeAnalyticsStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    init {
+        latest24HourReport = YouTubePulseStore(appContext).build24HourReport()
+    }
 
     fun load(windowDays: Int): YouTubeAnalyticsSnapshot? {
         val raw = prefs.getString(snapshotKey(windowDays), null) ?: return null
@@ -19,6 +24,10 @@ class YouTubeAnalyticsStore(context: Context) {
             .putString(KEY_CHANNEL_TITLE, snapshot.channel.title)
             .putLong(KEY_LAST_SYNC, snapshot.fetchedAtMillis)
             .apply()
+
+        val pulseStore = YouTubePulseStore(appContext)
+        pulseStore.capture(snapshot)
+        latest24HourReport = pulseStore.build24HourReport()
     }
 
     fun hasConnection(): Boolean = prefs.getString(KEY_CHANNEL_ID, null).isNullOrBlank().not()
@@ -52,7 +61,11 @@ class YouTubeAnalyticsStore(context: Context) {
         if (links != null) prefs.edit().putString(KEY_LINKS, links).apply()
     }
 
-    fun clearAll() = prefs.edit().clear().apply()
+    fun clearAll() {
+        prefs.edit().clear().apply()
+        YouTubePulseStore(appContext).clear()
+        latest24HourReport = null
+    }
 
     private fun snapshotKey(days: Int) = "snapshot_$days"
 
@@ -185,6 +198,10 @@ class YouTubeAnalyticsStore(context: Context) {
     }
 
     companion object {
+        @Volatile
+        var latest24HourReport: YouTube24HourReport? = null
+            private set
+
         private const val PREFS = "youtube_analytics_v11"
         private const val KEY_CHANNEL_ID = "channel_id"
         private const val KEY_CHANNEL_TITLE = "channel_title"
