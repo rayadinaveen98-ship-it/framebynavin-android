@@ -1,0 +1,16 @@
+name: FrameByNavin Runner Probe
+
+on:
+  push:
+    branches:
+      - "feature/v1.7.5-original-frames-splash"
+    paths:
+      - ".github/workflows/v175-runner-probe.yml"
+      - "app/src/main/assets/v175-probe.txt"
+
+jobs:
+  probe:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Runner check
+        run: echo "FrameByNavin runner is available"
