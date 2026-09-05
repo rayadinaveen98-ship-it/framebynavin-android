@@ -1,0 +1,67 @@
+name: FrameByNavin Self-Hosted Diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "feature/v1.7.5-original-frames-splash"
+    paths:
+      - ".github/workflows/selfhosted-diagnostics.yml"
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 10
+    steps:
+      - name: Inspect local toolchain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Continue"
+          Write-Host "=== SYSTEM ==="
+          Write-Host "Computer: $env:COMPUTERNAME"
+          Write-Host "User: $env:USERNAME"
+          Write-Host "Runner temp: $env:RUNNER_TEMP"
+          Write-Host ""
+          Write-Host "=== JAVA ==="
+          Write-Host "JAVA_HOME=$env:JAVA_HOME"
+          where.exe java
+          java -version
+          $jbrCandidates = @(
+            "$env:ProgramFiles\Android\Android Studio\jbr",
+            "$env:ProgramFiles\Android\Android Studio\jre",
+            "$env:LOCALAPPDATA\Programs\Android Studio\jbr"
+          )
+          foreach ($p in $jbrCandidates) { Write-Host "$p => $(Test-Path $p)" }
+          Write-Host ""
+          Write-Host "=== ANDROID SDK ==="
+          Write-Host "ANDROID_HOME=$env:ANDROID_HOME"
+          Write-Host "ANDROID_SDK_ROOT=$env:ANDROID_SDK_ROOT"
+          $sdkCandidates = @(
+            "$env:LOCALAPPDATA\Android\Sdk",
+            "$env:USERPROFILE\AppData\Local\Android\Sdk",
+            "C:\Android\Sdk"
+          )
+          foreach ($p in $sdkCandidates) {
+            Write-Host "$p => $(Test-Path $p)"
+            if (Test-Path $p) {
+              Write-Host "android-35 => $(Test-Path (Join-Path $p 'platforms\android-35'))"
+              Write-Host "build-tools 35.0.0 => $(Test-Path (Join-Path $p 'build-tools\35.0.0'))"
+              Write-Host "sdkmanager => $(Test-Path (Join-Path $p 'cmdline-tools\latest\bin\sdkmanager.bat'))"
+            }
+          }
+          where.exe adb
+          where.exe sdkmanager
+          Write-Host ""
+          Write-Host "=== GRADLE / PYTHON ==="
+          where.exe gradle
+          gradle --version
+          where.exe python
+          python --version
+          where.exe py
+          py --version
+          Write-Host ""
+          Write-Host "=== COMMON GRADLE CACHES ==="
+          Write-Host "$env:USERPROFILE\.gradle => $(Test-Path "$env:USERPROFILE\.gradle")"
+          if (Test-Path "$env:USERPROFILE\.gradle\wrapper\dists") {
+            Get-ChildItem "$env:USERPROFILE\.gradle\wrapper\dists" -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+          }
