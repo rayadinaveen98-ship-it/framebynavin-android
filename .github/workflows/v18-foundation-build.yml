@@ -1,4 +1,4 @@
-name: Build FrameByNavin v1.8 Foundation Alpha3
+name: Build FrameByNavin v1.8 Foundation Alpha4
 
 on:
   workflow_dispatch:
@@ -17,6 +17,7 @@ on:
       - "tools/v18_foundation_cleanup.py"
       - "tools/v18_foundation_alpha2.py"
       - "tools/v18_accessibility_alpha3.py"
+      - "tools/v18_architecture_alpha4.py"
       - ".github/workflows/v18-foundation-build.yml"
       - "*.gradle.kts"
       - "gradle.properties"
@@ -78,15 +79,27 @@ jobs:
       - name: Apply alpha3 accessibility pass
         run: python3 tools/v18_accessibility_alpha3.py
 
+      - name: Apply alpha4 architecture split
+        run: python3 tools/v18_architecture_alpha4.py
+
       - name: Foundation gate
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 43' app/build.gradle.kts
-          grep -q 'versionName = "1.8.0-foundation-alpha3"' app/build.gradle.kts
+          grep -q 'versionCode = 44' app/build.gradle.kts
+          grep -q 'versionName = "1.8.0-foundation-alpha4"' app/build.gradle.kts
           grep -q 'prototypeStable' app/build.gradle.kts
           grep -q 'black -> light -> mark -> name -> app' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
           test -s app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
+          test -s app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt
+
+          grep -q 'internal fun PPlanScreen' app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt
+          grep -q 'internal fun PStudioScreen' app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt
+          grep -q 'internal fun PInsightsScreen' app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt
+          ! grep -q 'fun PPlanScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          ! grep -q 'fun PStudioScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          ! grep -q 'fun PInsightsScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          test "$(wc -l < app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt)" -le 1320
 
           ! grep -R -F 'Best Pawan Kalyan interval blocks' app/src/main/java/com/framebynavin/app/ui
           ! grep -R -F 'Search idea, movie, person, note' app/src/main/java/com/framebynavin/app/ui
@@ -116,13 +129,13 @@ jobs:
             V101WeeklyPlanUi.kt; do
             test ! -e "app/src/main/java/com/framebynavin/app/ui/$f"
           done
-          echo "v1.8 foundation alpha3 gate passed"
+          echo "v1.8 foundation alpha4 gate passed"
 
       - name: Package post-integration source for audit
         shell: bash
         run: |
           set -euo pipefail
-          tar -czf FrameByNavin-v1.8.0-foundation-alpha3-audit-source.tar.gz \
+          tar -czf FrameByNavin-v1.8.0-foundation-alpha4-audit-source.tar.gz \
             app/src/main \
             app/src/test \
             app/src/androidTest \
@@ -134,8 +147,8 @@ jobs:
       - name: Upload audit source
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.8.0-foundation-alpha3-audit-source
-          path: FrameByNavin-v1.8.0-foundation-alpha3-audit-source.tar.gz
+          name: FrameByNavin-v1.8.0-foundation-alpha4-audit-source
+          path: FrameByNavin-v1.8.0-foundation-alpha4-audit-source.tar.gz
 
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
@@ -162,5 +175,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.8.0-foundation-alpha3
+          name: FrameByNavin-v1.8.0-foundation-alpha4
           path: app/build/outputs/apk/debug/app-debug.apk
