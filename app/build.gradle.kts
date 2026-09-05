@@ -79,5 +79,5 @@ dependencies {
 }
 
 // v1.7.4 RC1: cinematic home polish on top of the approved v1.7.3 Pulse + opportunities baseline.
-// Best Frames of Today is collapsed by default, expands in-place, preserves full frame composition with high-quality filtering,
-// and the cold-launch welcome is a new ~3 second film-gate / projector-aperture sequence.
+// Best Frames of Today is collapsed by default, expands in-place, and preserves the full frame composition without aggressive crop.
+// The cold-launch welcome is a new ~3 second film-gate / projector-aperture sequence.
