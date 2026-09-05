@@ -1,0 +1,25 @@
+name: Recover Sanitized Ref Map
+
+on:
+  push:
+    branches:
+      - "feature/v1.7.5-original-frames-splash"
+    paths:
+      - ".github/workflows/recover-sanitized-map.yml"
+  workflow_dispatch:
+
+jobs:
+  map:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 10
+    steps:
+      - name: Print sanitizer refs retained in runner workspace
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Host "PWD=$PWD"
+          git rev-parse --is-inside-work-tree
+          if ($LASTEXITCODE -ne 0) { throw "Runner workspace is not a git repository" }
+          Write-Host "--- SANITIZED REF MAP ---"
+          git for-each-ref --format='%(refname) %(objectname)' refs/remotes/sanitized/
+          Write-Host "--- END MAP ---"
