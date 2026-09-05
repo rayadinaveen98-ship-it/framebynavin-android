@@ -55,7 +55,7 @@ class YouTubeInsightEngineV172Test {
         val videos = listOf(video("leader", 8000, 800, 60), video("other", 1000, 100, 5))
         val snapshot = snapshot(views = 9000, watch = 900, videos = videos)
         val signals = YouTubeInsightEngine.topSignals(snapshot, emptyList(), emptyList(), emptyMap())
-        assertTrue(signals.any { it.kicker == "DOUBLE DOWN" || it.kicker == "PERFORMANCE DRIVER" })
+        assertTrue(signals.any { it.kicker == "WORKING WELL" || it.kicker == "TOP VIDEO" })
     }
 
     private fun snapshot(
