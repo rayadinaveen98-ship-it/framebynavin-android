@@ -24,17 +24,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Verify local Python
+        shell: powershell
+        run: py -3.12 --version
 
       - name: Apply v1.7.5 source integration
-        shell: pwsh
-        run: python tools/v175_integrate.py
+        shell: powershell
+        run: py -3.12 tools/v175_integrate.py
 
       - name: Verify original-frame architecture
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           $polish = Get-Content "app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt" -Raw
@@ -58,7 +57,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK 35
-        shell: pwsh
+        shell: powershell
         run: |
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
@@ -68,23 +67,23 @@ jobs:
           gradle-version: "8.11.1"
 
       - name: Run unit tests
-        shell: pwsh
+        shell: powershell
         run: gradle :app:testDebugUnitTest --stacktrace
 
       - name: Run Android lint
-        shell: pwsh
+        shell: powershell
         run: gradle :app:lintDebug --stacktrace
 
       - name: Compile instrumentation tests
-        shell: pwsh
+        shell: powershell
         run: gradle :app:assembleDebugAndroidTest --stacktrace
 
       - name: Build debug APK
-        shell: pwsh
+        shell: powershell
         run: gradle :app:assembleDebug --stacktrace
 
       - name: Verify v1.7.5 APK
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           $apk = "app/build/outputs/apk/debug/app-debug.apk"
