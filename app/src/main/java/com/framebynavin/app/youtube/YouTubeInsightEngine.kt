@@ -166,6 +166,38 @@ object YouTubeInsightEngine {
         links: Map<String, String>,
     ): List<YouTubeInsightSignal> {
         val signals = mutableListOf<YouTubeInsightSignal>()
+
+        val pulse24h = YouTubeAnalyticsStore.latest24HourReport
+        if (pulse24h == null) {
+            signals += YouTubeInsightSignal(
+                "24H PULSE",
+                "Building your rolling baseline",
+                "FrameByNavin is now saving lightweight YouTube counter snapshots. Once two samples are roughly a day apart, this card will show rolling views, subscriber movement, momentum and top movers without pretending YouTube exposes hourly Analytics data.",
+                YouTubeInsightTone.NEUTRAL,
+            )
+        } else {
+            val changeText = pulse24h.viewsChangePercent?.let { " · ${if (it > 0) "+" else ""}$it% vs prior window" }.orEmpty()
+            val topMover = pulse24h.topMovers.firstOrNull()?.let { " · top mover: ${it.title} +${compact(it.viewsGained)}" }.orEmpty()
+            signals += YouTubeInsightSignal(
+                "24H PULSE",
+                "+${compact(pulse24h.viewsGained)} views · ${signed(pulse24h.subscribersDelta)} subs",
+                "Measured across ~${pulse24h.sampleHours} hours of FrameByNavin counter history$changeText$topMover.",
+                when (pulse24h.momentum) {
+                    YouTubePulseMomentum.RISING -> YouTubeInsightTone.POSITIVE
+                    YouTubePulseMomentum.COOLING -> YouTubeInsightTone.WATCH
+                    YouTubePulseMomentum.STEADY -> YouTubeInsightTone.NEUTRAL
+                },
+            )
+            YouTubeOpportunityEngine.build(pulse24h, ideas).forEach { alert ->
+                signals += YouTubeInsightSignal(
+                    alert.kicker,
+                    alert.title,
+                    if (alert.ideaId != null) "${alert.body} Open Idea Vault from Control to develop this saved idea." else alert.body,
+                    alert.tone,
+                )
+            }
+        }
+
         val videos = videoPerformance(snapshot)
         val top = videos.firstOrNull()
         if (top != null) {
@@ -212,7 +244,7 @@ object YouTubeInsightEngine {
         )
 
         val creator = creatorSummary(tasks, ideas, links)
-        if (signals.size < 3 && creator.bottleneckCount >= 2) signals += YouTubeInsightSignal(
+        if (signals.size < 5 && creator.bottleneckCount >= 2) signals += YouTubeInsightSignal(
             "WORKFLOW",
             "${creator.bottleneckCount} active projects share the same lane",
             "Your current creator workload is bunching up around ${creator.bottleneckLabel ?: "production"}. Clearing that queue may unlock more publishing than starting something new.",
@@ -225,7 +257,7 @@ object YouTubeInsightEngine {
             "FrameByNavin will become more specific as more videos are linked back to the projects that produced them.",
             YouTubeInsightTone.NEUTRAL,
         )
-        return signals.take(3)
+        return signals.distinctBy { it.kicker to it.title }.take(5)
     }
 
     private fun visibleVideos(snapshot: YouTubeAnalyticsSnapshot): List<YouTubeVideoSnapshot> =
@@ -248,6 +280,11 @@ object YouTubeInsightEngine {
     private fun change(current: Long, previous: Long?): Int? {
         if (previous == null || previous == 0L) return null
         return (((current - previous) * 100.0) / abs(previous.toDouble())).roundToInt()
+    }
+
+    private fun signed(value: Long): String = when {
+        value > 0L -> "+$value"
+        else -> value.toString()
     }
 
     private fun compact(value: Long): String = when {
