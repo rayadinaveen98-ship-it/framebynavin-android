@@ -1,4 +1,4 @@
-name: Build FrameByNavin v1.8 Product Alpha10
+name: Build FrameByNavin v1.8 Product Alpha11
 
 on:
   workflow_dispatch:
@@ -25,6 +25,7 @@ on:
       - "tools/v18_creator_identity_alpha9.py"
       - "tools/v18_creator_identity_alpha9_test_fix.py"
       - "tools/v18_primary_navigation_alpha10.py"
+      - "tools/v18_profile_personalization_alpha11.py"
       - ".github/workflows/v18-product-build.yml"
       - "*.gradle.kts"
       - "gradle.properties"
@@ -110,12 +111,15 @@ jobs:
       - name: Apply alpha10 primary Creator OS navigation
         run: python3 tools/v18_primary_navigation_alpha10.py
 
+      - name: Apply alpha11 profile-aware personalization
+        run: python3 tools/v18_profile_personalization_alpha11.py
+
       - name: Product gate
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 50' app/build.gradle.kts
-          grep -q 'versionName = "1.8.0-product-alpha10"' app/build.gradle.kts
+          grep -q 'versionCode = 51' app/build.gradle.kts
+          grep -q 'versionName = "1.8.0-product-alpha11"' app/build.gradle.kts
           grep -q 'prototypeStable' app/build.gradle.kts
 
           test -s app/src/main/java/com/framebynavin/app/data/CreatorProfile.kt
@@ -127,9 +131,9 @@ jobs:
           grep -q 'V18CreatorOnboarding' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           grep -q 'settings.creatorProfile.safeDisplayName' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           grep -q 'EDIT CREATOR PROFILE' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
-          grep -q 'creatorName: String' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -q 'creatorProfile: CreatorProfile' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
           test "$(grep -c '^    @Test' app/src/test/java/com/framebynavin/app/data/CreatorProfileAlpha9Test.kt)" -eq 3
-          test "$(grep -c 'creatorName = "Test Creator"' app/src/androidTest/java/com/framebynavin/app/ui/V18CoreInteractionUiTest.kt)" -eq 2
+          test "$(grep -c 'creatorProfile = testCreatorProfile' app/src/androidTest/java/com/framebynavin/app/ui/V18CoreInteractionUiTest.kt)" -eq 3
 
           grep -Fq 'internal enum class PTab { TODAY, IDEAS, CREATE, CALENDAR, INSIGHTS }' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           grep -Fq 'internal fun PBottomNav' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
@@ -149,6 +153,18 @@ jobs:
           test -s app/src/androidTest/java/com/framebynavin/app/ui/V18PrimaryNavigationAlpha10UiTest.kt
           test "$(grep -c '^    @Test' app/src/androidTest/java/com/framebynavin/app/ui/V18PrimaryNavigationAlpha10UiTest.kt)" -eq 4
 
+          test -s app/src/main/java/com/framebynavin/app/data/CreatorPersonalization.kt
+          test -s app/src/test/java/com/framebynavin/app/data/CreatorPersonalizationAlpha11Test.kt
+          grep -Fq 'CreatorPersonalizationEngine.snapshot' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'V18CreatorFocusCard' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'creatorProfile: CreatorProfile' app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt
+          grep -Fq 'YTProfileFocusCard' app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt
+          grep -Fq 'personalization.insightTitle' app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt
+          grep -Fq 'personalization.emptyProjectBody' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'settings.creatorProfile' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          test "$(grep -c '^    @Test' app/src/test/java/com/framebynavin/app/data/CreatorPersonalizationAlpha11Test.kt)" -eq 5
+          test "$(grep -c '^    @Test' app/src/androidTest/java/com/framebynavin/app/ui/V18CoreInteractionUiTest.kt)" -eq 9
+
           ! grep -R -F 'Good Morning, Navin' app/src/main/java/com/framebynavin/app/ui
           ! grep -R -F 'Good Afternoon, Navin' app/src/main/java/com/framebynavin/app/ui
           ! grep -R -F 'Good Evening, Navin' app/src/main/java/com/framebynavin/app/ui
@@ -161,15 +177,15 @@ jobs:
           grep -q 'androidx.credentials:credentials:1.6.0' app/build.gradle.kts
           grep -q 'CredentialManager.create' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
           test -s app/src/androidTest/java/com/framebynavin/app/ui/V18CoreInteractionUiTest.kt
-          test "$(wc -l < app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt)" -le 1060
+          test "$(wc -l < app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt)" -le 1070
 
-          echo "v1.8 product alpha10 gate passed"
+          echo "v1.8 product alpha11 gate passed"
 
       - name: Package post-integration source for audit
         shell: bash
         run: |
           set -euo pipefail
-          tar -czf FrameByNavin-v1.8.0-product-alpha10-audit-source.tar.gz \
+          tar -czf FrameByNavin-v1.8.0-product-alpha11-audit-source.tar.gz \
             app/src/main \
             app/src/test \
             app/src/androidTest \
@@ -181,8 +197,8 @@ jobs:
       - name: Upload audit source
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.8.0-product-alpha10-audit-source
-          path: FrameByNavin-v1.8.0-product-alpha10-audit-source.tar.gz
+          name: FrameByNavin-v1.8.0-product-alpha11-audit-source
+          path: FrameByNavin-v1.8.0-product-alpha11-audit-source.tar.gz
 
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
@@ -226,5 +242,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.8.0-product-alpha10
+          name: FrameByNavin-v1.8.0-product-alpha11
           path: app/build/outputs/apk/debug/app-debug.apk
