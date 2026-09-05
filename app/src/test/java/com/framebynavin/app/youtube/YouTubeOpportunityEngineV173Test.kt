@@ -44,7 +44,7 @@ class YouTubeOpportunityEngineV173Test {
         val alerts = YouTubeOpportunityEngine.build(report, ideas)
 
         assertTrue(alerts.any { it.kicker == "MOMENTUM" })
-        val ideaMatch = alerts.first { it.kicker == "IDEA VAULT MATCH" }
+        val ideaMatch = alerts.first { it.kicker == "MATCHED IDEA" }
         assertEquals("match", ideaMatch.ideaId)
         assertEquals("OG silent acting moments", ideaMatch.title)
     }
