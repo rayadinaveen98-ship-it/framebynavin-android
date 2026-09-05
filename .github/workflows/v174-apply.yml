@@ -1,0 +1,407 @@
+name: Wire FrameByNavin v1.7.4 Cinematic Home
+
+on:
+  push:
+    branches:
+      - "feature/v1.7.4-cinematic-home-welcome"
+    paths:
+      - ".github/workflows/v174-apply.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v1.7.4-cinematic-home-welcome
+
+      - name: Apply v1.7.4 cinematic home changes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          polish = Path('app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt')
+          text = polish.read_text()
+
+          text = text.replace(
+              'import androidx.compose.animation.AnimatedVisibility\nimport androidx.compose.animation.core.Animatable\n',
+              'import androidx.compose.animation.AnimatedVisibility\nimport androidx.compose.animation.animateContentSize\nimport androidx.compose.animation.expandVertically\nimport androidx.compose.animation.shrinkVertically\nimport androidx.compose.animation.core.Animatable\nimport androidx.compose.animation.core.RepeatMode\nimport androidx.compose.animation.core.animateFloat\nimport androidx.compose.animation.core.infiniteRepeatable\nimport androidx.compose.animation.core.rememberInfiniteTransition\n'
+          )
+          text = text.replace(
+              'import androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\n',
+              'import androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.FilterQuality\nimport androidx.compose.ui.graphics.graphicsLayer\n'
+          )
+
+          start_marker = '@Composable\ninternal fun V131HomeHeroSlideshow()'
+          end_marker = '\n@Composable\ninternal fun V131PlanScreen'
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+
+          new_slideshow = r'''@Composable
+          internal fun V131HomeHeroSlideshow() {
+              val resourceIds = remember {
+                  listOf(
+                      R.drawable.hero_frame_01,
+                      R.drawable.hero_frame_02,
+                      R.drawable.hero_frame_03,
+                      R.drawable.hero_frame_04,
+                      R.drawable.hero_frame_05,
+                      R.drawable.hero_frame_06,
+                      R.drawable.hero_frame_07,
+                      R.drawable.hero_frame_08,
+                      R.drawable.hero_frame_09,
+                      R.drawable.hero_frame_10,
+                  )
+              }
+              var expanded by rememberSaveable { mutableStateOf(false) }
+              var index by rememberSaveable { mutableIntStateOf(0) }
+              val pulse = rememberInfiniteTransition(label = "bestFramesPulse")
+              val pulseStrength by pulse.animateFloat(
+                  initialValue = .26f,
+                  targetValue = .96f,
+                  animationSpec = infiniteRepeatable(
+                      animation = tween(1_500, easing = FastOutSlowInEasing),
+                      repeatMode = RepeatMode.Reverse,
+                  ),
+                  label = "bestFramesRedPulse",
+              )
+
+              LaunchedEffect(expanded, resourceIds.size) {
+                  if (!expanded) return@LaunchedEffect
+                  while (expanded && resourceIds.size > 1) {
+                      delay(4_000L)
+                      index = (index + 1) % resourceIds.size
+                  }
+              }
+
+              Column(
+                  Modifier.fillMaxWidth().animateContentSize(
+                      animationSpec = tween(360, easing = FastOutSlowInEasing),
+                  )
+              ) {
+                  Surface(
+                      onClick = { expanded = !expanded },
+                      modifier = Modifier.fillMaxWidth(),
+                      shape = RoundedCornerShape(18.dp),
+                      color = Color(0xFF120C0E),
+                      border = BorderStroke(1.dp, RecRed.copy(alpha = .52f)),
+                      shadowElevation = 10.dp,
+                  ) {
+                      Box(Modifier.fillMaxWidth()) {
+                          Box(
+                              Modifier.matchParentSize().background(
+                                  Brush.horizontalGradient(
+                                      listOf(
+                                          RecRed.copy(alpha = pulseStrength),
+                                          Color(0xFF751321).copy(alpha = .74f),
+                                          Color(0xFF1A0D11),
+                                      )
+                                  )
+                              )
+                          )
+                          Row(
+                              Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
+                              verticalAlignment = Alignment.CenterVertically,
+                          ) {
+                              Box(
+                                  Modifier.size(9.dp)
+                                      .background(ProjectorIvory.copy(alpha = .94f), CircleShape)
+                              )
+                              Spacer(Modifier.width(11.dp))
+                              Column(Modifier.weight(1f)) {
+                                  Text(
+                                      "BEST FRAMES OF TODAY",
+                                      color = ProjectorIvory,
+                                      fontSize = 11.5.sp,
+                                      fontWeight = FontWeight.Black,
+                                      letterSpacing = 1.25.sp,
+                                  )
+                                  Spacer(Modifier.height(2.dp))
+                                  Text(
+                                      if (expanded) "Tap to close" else "Tap to open",
+                                      color = ProjectorIvory.copy(alpha = .72f),
+                                      fontSize = 8.4.sp,
+                                      fontWeight = FontWeight.SemiBold,
+                                  )
+                              }
+                              Icon(
+                                  Icons.Outlined.KeyboardArrowDown,
+                                  contentDescription = if (expanded) "Close best frames" else "Open best frames",
+                                  tint = ProjectorIvory,
+                                  modifier = Modifier.size(22.dp).graphicsLayer {
+                                      rotationZ = if (expanded) 180f else 0f
+                                  },
+                              )
+                          }
+                      }
+                  }
+
+                  AnimatedVisibility(
+                      visible = expanded,
+                      enter = expandVertically(animationSpec = tween(330, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
+                      exit = shrinkVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeOut(tween(170)),
+                  ) {
+                      Column(Modifier.fillMaxWidth()) {
+                          Spacer(Modifier.height(10.dp))
+                          Surface(
+                              modifier = Modifier.fillMaxWidth().height(228.dp),
+                              shape = RoundedCornerShape(20.dp),
+                              color = Color.Black,
+                              border = BorderStroke(1.dp, CinemaLine.copy(alpha = .52f)),
+                              shadowElevation = 7.dp,
+                          ) {
+                              Box(Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(Color.Black)) {
+                                  AnimatedContent(
+                                      targetState = index.coerceIn(0, resourceIds.lastIndex),
+                                      transitionSpec = { fadeIn(tween(520)) togetherWith fadeOut(tween(520)) },
+                                      label = "cinemaHeroHighQuality",
+                                  ) { visibleIndex ->
+                                      Image(
+                                          painter = painterResource(resourceIds[visibleIndex]),
+                                          contentDescription = "Best frame ${visibleIndex + 1}",
+                                          modifier = Modifier.fillMaxSize(),
+                                          contentScale = ContentScale.Fit,
+                                          filterQuality = FilterQuality.High,
+                                      )
+                                  }
+
+                                  Box(
+                                      Modifier.fillMaxWidth().height(48.dp).align(Alignment.BottomCenter).background(
+                                          Brush.verticalGradient(
+                                              listOf(Color.Transparent, Color.Black.copy(alpha = .72f))
+                                          )
+                                      )
+                                  )
+                                  Row(
+                                      Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp),
+                                      verticalAlignment = Alignment.CenterVertically,
+                                  ) {
+                                      Text(
+                                          "FRAME ${index + 1}",
+                                          color = ProjectorIvory,
+                                          fontSize = 8.2.sp,
+                                          fontWeight = FontWeight.Black,
+                                          letterSpacing = 1.sp,
+                                      )
+                                      Spacer(Modifier.weight(1f))
+                                      Text(
+                                          "${index + 1} / ${resourceIds.size}",
+                                          color = ProjectorIvory.copy(alpha = .78f),
+                                          fontSize = 8.2.sp,
+                                          fontWeight = FontWeight.Bold,
+                                      )
+                                  }
+                              }
+                          }
+                          Spacer(Modifier.height(8.dp))
+                          Row(
+                              Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.Center,
+                              verticalAlignment = Alignment.CenterVertically,
+                          ) {
+                              resourceIds.indices.forEach { dot ->
+                                  Box(
+                                      Modifier.padding(horizontal = 2.5.dp)
+                                          .size(if (dot == index) 6.dp else 4.dp)
+                                          .background(
+                                              if (dot == index) RecRed else MutedText.copy(alpha = .42f),
+                                              CircleShape,
+                                          )
+                                  )
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          '''
+          new_slideshow = '\n'.join(line[10:] if line.startswith('          ') else line for line in new_slideshow.splitlines())
+          text = text[:start] + new_slideshow + text[end:]
+          polish.write_text(text)
+
+          welcome = Path('app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt')
+          welcome.write_text(r'''package com.framebynavin.app.ui
+
+          import androidx.compose.animation.core.Animatable
+          import androidx.compose.animation.core.FastOutSlowInEasing
+          import androidx.compose.animation.core.LinearEasing
+          import androidx.compose.animation.core.LinearOutSlowInEasing
+          import androidx.compose.animation.core.tween
+          import androidx.compose.foundation.Canvas
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.Box
+          import androidx.compose.foundation.layout.fillMaxSize
+          import androidx.compose.foundation.layout.fillMaxWidth
+          import androidx.compose.foundation.layout.height
+          import androidx.compose.foundation.layout.offset
+          import androidx.compose.foundation.layout.size
+          import androidx.compose.foundation.shape.CircleShape
+          import androidx.compose.material3.Text
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.LaunchedEffect
+          import androidx.compose.runtime.remember
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.alpha
+          import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.graphicsLayer
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.style.TextAlign
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import com.framebynavin.app.ui.theme.CinemaBlack
+          import com.framebynavin.app.ui.theme.ProjectorIvory
+          import kotlinx.coroutines.delay
+          import kotlinx.coroutines.launch
+
+          /**
+           * v1.7.4 cinematic cold-launch ident.
+           * Fresh film-gate / projector-aperture language: no reuse of the prior layered-card mark.
+           */
+          @Composable
+          internal fun V174CinematicWelcome() {
+              val aperture = remember { Animatable(0f) }
+              val title = remember { Animatable(0f) }
+              val beamTravel = remember { Animatable(0f) }
+              val flare = remember { Animatable(0f) }
+
+              LaunchedEffect(Unit) {
+                  launch { beamTravel.animateTo(1f, tween(2_650, easing = LinearEasing)) }
+                  delay(120)
+                  aperture.animateTo(1f, tween(820, easing = FastOutSlowInEasing))
+                  delay(90)
+                  launch { title.animateTo(1f, tween(620, easing = LinearOutSlowInEasing)) }
+                  delay(590)
+                  flare.animateTo(1f, tween(180, easing = LinearOutSlowInEasing))
+                  flare.animateTo(.18f, tween(520, easing = FastOutSlowInEasing))
+              }
+
+              Box(
+                  Modifier.fillMaxSize().background(
+                      Brush.verticalGradient(
+                          listOf(Color(0xFF030304), Color(0xFF08080B), CinemaBlack)
+                      )
+                  )
+              ) {
+                  Canvas(Modifier.fillMaxSize().alpha(.46f)) {
+                      repeat(70) { i ->
+                          val x = (((i * 47) % 101) / 101f) * size.width
+                          val y = (((i * 73 + 19) % 103) / 103f) * size.height
+                          val a = .018f + ((i % 5) * .006f)
+                          drawCircle(
+                              color = Color.White.copy(alpha = a),
+                              radius = if (i % 4 == 0) 1.15f else .62f,
+                              center = Offset(x, y),
+                          )
+                      }
+                  }
+
+                  Box(
+                      Modifier.align(Alignment.Center)
+                          .fillMaxWidth()
+                          .height((2f + 116f * aperture.value).dp)
+                          .background(
+                              Brush.horizontalGradient(
+                                  listOf(
+                                      Color(0xFF180306),
+                                      Color(0xFF5B090D),
+                                      Color(0xFFD01916),
+                                      Color(0xFFFF7B30),
+                                      Color(0xFFB30F14),
+                                      Color(0xFF260307),
+                                  )
+                              )
+                          )
+                  )
+
+                  Box(
+                      Modifier.align(Alignment.Center)
+                          .offset(x = (-178f + 356f * beamTravel.value).dp)
+                          .size(width = 58.dp, height = (18f + 126f * aperture.value).dp)
+                          .alpha(.12f + .26f * aperture.value)
+                          .background(
+                              Brush.horizontalGradient(
+                                  listOf(Color.Transparent, Color(0xFFFFE1A6), Color.Transparent)
+                              )
+                          )
+                  )
+
+                  Box(
+                      Modifier.align(Alignment.Center)
+                          .size((120f + 230f * flare.value).dp)
+                          .alpha(.18f * flare.value)
+                          .background(
+                              Brush.radialGradient(
+                                  listOf(Color(0xFFFFC06B), Color(0xFFE62A21), Color.Transparent)
+                              ),
+                              CircleShape,
+                          )
+                  )
+
+                  Text(
+                      "FRAME BY NAVIN",
+                      modifier = Modifier.align(Alignment.Center)
+                          .alpha(title.value)
+                          .graphicsLayer {
+                              scaleX = .94f + (.06f * title.value)
+                              scaleY = .94f + (.06f * title.value)
+                              translationY = 10f * (1f - title.value)
+                          },
+                      color = ProjectorIvory,
+                      fontSize = 26.sp,
+                      lineHeight = 31.sp,
+                      fontWeight = FontWeight.Black,
+                      letterSpacing = 3.7.sp,
+                      textAlign = TextAlign.Center,
+                  )
+
+                  Box(
+                      Modifier.align(Alignment.Center)
+                          .fillMaxWidth(.54f)
+                          .height(1.dp)
+                          .offset(y = 48.dp)
+                          .alpha(.44f * title.value)
+                          .background(
+                              Brush.horizontalGradient(
+                                  listOf(Color.Transparent, Color(0xFFFF6A38), Color.Transparent)
+                              )
+                          )
+                  )
+              }
+          }
+          '''.replace('\n          ', '\n').lstrip())
+
+          gate = Path('app/src/main/java/com/framebynavin/app/ui/V131LaunchGate.kt')
+          gate_text = gate.read_text()
+          gate_text = gate_text.replace('delay(1_550L)', 'delay(2_850L)')
+          gate_text = gate_text.replace('else V133CinematicWelcome()', 'else V174CinematicWelcome()')
+          gate.write_text(gate_text)
+
+          gradle = Path('app/build.gradle.kts')
+          g = gradle.read_text()
+          g = g.replace('versionCode = 35', 'versionCode = 36')
+          g = g.replace('versionName = "1.7.3-24h-pulse-opportunities-rc1"', 'versionName = "1.7.4-cinematic-home-welcome-rc1"')
+          marker = '// v1.7.3 RC1: 24H Pulse + creator opportunities on top of the approved Insights 2.0 baseline.'
+          if marker in g:
+              g = g[:g.index(marker)] + '''// v1.7.4 RC1: cinematic home polish on top of the approved v1.7.3 Pulse + opportunities baseline.\n// Best Frames of Today is collapsed by default, expands in-place, preserves full frame composition with high-quality filtering,\n// and the cold-launch welcome is a new ~3 second film-gate / projector-aperture sequence.\n'''
+          gradle.write_text(g)
+          PY
+
+      - name: Commit wired release
+        shell: bash
+        run: |
+          git config user.name "FrameByNavin Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V131LaunchGate.kt \
+                  app/build.gradle.kts
+          git commit -m "feat(v1.7.4): cinematic best-frames home and welcome" || exit 0
+          git push origin HEAD:feature/v1.7.4-cinematic-home-welcome
