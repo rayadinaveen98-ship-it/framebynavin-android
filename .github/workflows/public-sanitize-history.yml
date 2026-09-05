@@ -2,6 +2,11 @@ name: Sanitize FrameByNavin History For Public Release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - "feature/v1.7.5-original-frames-splash"
+    paths:
+      - ".github/workflows/public-sanitize-history.yml"
 
 permissions:
   contents: write
@@ -17,6 +22,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
+          $marker = Join-Path $env:USERPROFILE ".framebynavin-public-sanitize-complete"
+          if (Test-Path $marker) {
+            Write-Host "History sanitizer already completed on this runner; skipping duplicate trigger."
+            exit 0
+          }
+
           $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
           $root = Join-Path $env:RUNNER_TEMP "framebynavin-public-sanitize-$stamp"
           $mirror = Join-Path $root "repo.git"
@@ -89,6 +100,7 @@ jobs:
             git push sanitized "$active`:refs/heads/main" --force
             if ($LASTEXITCODE -ne 0) { throw "Could not move main to sanitized v1.7.5" }
 
+            New-Item -ItemType File -Force -Path $marker | Out-Null
             Write-Host "History sanitized successfully. Main now points to sanitized v1.7.5."
           } finally {
             Pop-Location
