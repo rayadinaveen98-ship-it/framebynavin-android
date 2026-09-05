@@ -84,3 +84,5 @@ jobs:
         with:
           name: FrameByNavin-v1.7.5-public-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
+# Public-hosted runner trigger after repository visibility change.
