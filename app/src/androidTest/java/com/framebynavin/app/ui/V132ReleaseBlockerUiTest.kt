@@ -23,10 +23,11 @@ class V132ReleaseBlockerUiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun heroSlideshow_rendersPackagedCinemaWall() {
+    fun heroSlideshow_rendersOriginalBestFramesEntry() {
         composeRule.setContent { V131HomeHeroSlideshow() }
 
-        composeRule.onNodeWithText("FRAME NOTES").assertIsDisplayed()
+        composeRule.onNodeWithText("BEST FRAMES OF TODAY").assertIsDisplayed()
+        composeRule.onNodeWithText("Tap to select up to 10 original images").assertIsDisplayed()
         composeRule.onNodeWithText("YOUR CINEMA WALL").assertDoesNotExist()
     }
 
