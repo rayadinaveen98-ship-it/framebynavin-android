@@ -105,7 +105,6 @@ jobs:
             Pop-Location
           }
 
-          git remote remove sanitized-local 2>$null
           git remote add sanitized-local $mirror
           git fetch sanitized-local '+refs/heads/*:refs/remotes/sanitized/*' '+refs/tags/*:refs/tags/*' --force
           if ($LASTEXITCODE -ne 0) { throw "Could not import sanitized refs" }
