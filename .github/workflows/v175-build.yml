@@ -79,14 +79,24 @@ jobs:
           (Join-Path $sdkRoot "platform-tools") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & $sdkManager --version
 
-      - name: Install Android SDK 35
+      - name: Accept Android licenses and install SDK 35
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           $sdkRoot = $env:ANDROID_SDK_ROOT
           $sdkManager = Join-Path $sdkRoot "cmdline-tools\latest\bin\sdkmanager.bat"
-          1..20 | ForEach-Object { "y" } | & $sdkManager --licenses | Out-Host
+          $licenseDir = Join-Path $sdkRoot "licenses"
+          New-Item -ItemType Directory -Force -Path $licenseDir | Out-Null
+          @(
+            "24333f8a63b6825ea9c5514f83c2829b004d1fee",
+            "8933bad161af4178b1185d1a37fbf41ea5269c55",
+            "d56f5187479451eabf01fb78af6dfcb131a6481e"
+          ) | Set-Content -Path (Join-Path $licenseDir "android-sdk-license") -Encoding ASCII
+          "84831b9409646a918e30573bab4c9c91346d8abd" | Set-Content -Path (Join-Path $licenseDir "android-sdk-preview-license") -Encoding ASCII
           & $sdkManager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          if ($LASTEXITCODE -ne 0) { throw "sdkmanager failed" }
+          if (-not (Test-Path (Join-Path $sdkRoot "platforms\android-35\android.jar"))) { throw "Android 35 platform was not installed" }
+          if (-not (Test-Path (Join-Path $sdkRoot "build-tools\35.0.0"))) { throw "Android build-tools 35.0.0 were not installed" }
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
