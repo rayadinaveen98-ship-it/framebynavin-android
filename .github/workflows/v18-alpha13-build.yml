@@ -29,6 +29,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Reconstruct Alpha12 source baseline
+        run: |
+          python tools/v18_creator_journey_alpha12.py
+          python tools/v18_creator_journey_alpha12_test_fix.py
+
       - name: Apply Alpha13 creator loop pass
         run: python tools/v18_creator_loop_alpha13.py
 
@@ -55,7 +60,9 @@ jobs:
           name: FrameByNavin-v1.8.0-product-alpha13-audit-source
           path: |
             app/build.gradle.kts
+            app/src/main/java/com/framebynavin/app/ui/V18CreatorJourney.kt
             app/src/main/java/com/framebynavin/app/ui/V18CreatorLoop.kt
+            app/src/test/java/com/framebynavin/app/ui/V18CreatorJourneyAlpha12Test.kt
             app/src/test/java/com/framebynavin/app/ui/V18CreatorLoopAlpha13Test.kt
             app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           if-no-files-found: error
