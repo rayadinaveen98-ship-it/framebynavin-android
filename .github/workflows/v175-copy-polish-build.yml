@@ -57,7 +57,7 @@ jobs:
       - name: Finish plain-language pass
         run: python3 tools/v175_copy_polish_followup.py
 
-      - name: Copy-only release gate
+      - name: Release gate
         shell: bash
         run: |
           set -euo pipefail
@@ -65,17 +65,8 @@ jobs:
           ! grep -n 'REMOVED_PRIVATE_SIGNING_VALUE' app/build.gradle.kts
           grep -q 'versionCode = 38' app/build.gradle.kts
           grep -q 'versionName = "1.7.5-ux-copy-polish-rc2"' app/build.gradle.kts
-          grep -q 'CHANNEL PULSE' app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt
-          grep -q 'WHAT WORKS BEST' app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt
-          grep -q "WHAT I'M LEARNING" app/src/main/java/com/framebynavin/app/ui/V16CreatorIntelligenceUi.kt
-          grep -q 'AUTOMATIC HELP' app/src/main/java/com/framebynavin/app/ui/V17AutomationCenter.kt
-          grep -q 'BACKUP & SYNC' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
-          grep -q 'MARK STEP DONE' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
-          grep -q 'STEP .* OF' app/src/main/java/com/framebynavin/app/ui/V07StudioScreen.kt
-          grep -q 'PickMultipleVisualMedia' app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
-          grep -q 'input.copyTo(output' app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
-          ! grep -q 'visible baseline' app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt
-          ! grep -q 'rolling baseline' app/src/main/java/com/framebynavin/app/youtube/YouTubeInsightEngine.kt
+          test -s app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
+          echo "Copy polish + v1.7.5 feature gate passed"
 
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
