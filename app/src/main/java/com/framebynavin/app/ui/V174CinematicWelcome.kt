@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,130 +21,281 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.framebynavin.app.ui.theme.CinemaBlack
-import com.framebynavin.app.ui.theme.ProjectorIvory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * v1.7.4 cinematic cold-launch ident.
- * Fresh film-gate / projector-aperture language: no reuse of the prior layered-card mark.
+ * FrameByNavin founder ident.
+ *
+ * Original brand-language direction: black -> light -> mark -> name -> app.
+ * It intentionally borrows only the pacing discipline of premium studio idents;
+ * the geometry, palette and motion language are FrameByNavin's own.
  */
 @Composable
 internal fun V174CinematicWelcome() {
-    val aperture = remember { Animatable(0f) }
+    val ignition = remember { Animatable(0f) }
+    val strips = remember { Animatable(0f) }
+    val mark = remember { Animatable(0f) }
     val title = remember { Animatable(0f) }
-    val beamTravel = remember { Animatable(0f) }
-    val flare = remember { Animatable(0f) }
+    val sweep = remember { Animatable(0f) }
+    val settle = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        launch { beamTravel.animateTo(1f, tween(2_650, easing = LinearEasing)) }
-        delay(120)
-        aperture.animateTo(1f, tween(820, easing = FastOutSlowInEasing))
-        delay(90)
-        launch { title.animateTo(1f, tween(620, easing = LinearOutSlowInEasing)) }
-        delay(590)
-        flare.animateTo(1f, tween(180, easing = LinearOutSlowInEasing))
-        flare.animateTo(.18f, tween(520, easing = FastOutSlowInEasing))
+        delay(70)
+        ignition.animateTo(1f, tween(250, easing = LinearOutSlowInEasing))
+
+        launch { strips.animateTo(1f, tween(680, easing = FastOutSlowInEasing)) }
+        delay(390)
+        launch { mark.animateTo(1f, tween(520, easing = FastOutSlowInEasing)) }
+        delay(350)
+        launch { title.animateTo(1f, tween(420, easing = LinearOutSlowInEasing)) }
+        delay(190)
+        sweep.animateTo(1f, tween(620, easing = LinearEasing))
+        settle.animateTo(1f, tween(520, easing = FastOutSlowInEasing))
     }
 
     Box(
-        Modifier.fillMaxSize().background(
-  Brush.verticalGradient(
-      listOf(Color(0xFF030304), Color(0xFF08080B), CinemaBlack)
-  )
-        )
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF020203)),
     ) {
-        Canvas(Modifier.fillMaxSize().alpha(.46f)) {
-  repeat(70) { i ->
-      val x = (((i * 47) % 101) / 101f) * size.width
-      val y = (((i * 73 + 19) % 103) / 103f) * size.height
-      val a = .018f + ((i % 5) * .006f)
-      drawCircle(
-          color = Color.White.copy(alpha = a),
-          radius = if (i % 4 == 0) 1.15f else .62f,
-          center = Offset(x, y),
-      )
-  }
+        // Deep, restrained red bloom. It grows with the ident instead of becoming a backdrop.
+        Canvas(Modifier.fillMaxSize()) {
+            val glowAlpha = 0.08f + (0.16f * mark.value) - (0.035f * settle.value)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFD72B29).copy(alpha = glowAlpha),
+                        Color(0xFF521015).copy(alpha = glowAlpha * 0.55f),
+                        Color.Transparent,
+                    ),
+                    center = Offset(size.width / 2f, size.height * 0.455f),
+                    radius = size.width * 0.52f,
+                ),
+                radius = size.width * 0.52f,
+                center = Offset(size.width / 2f, size.height * 0.455f),
+            )
         }
 
-        Box(
-  Modifier.align(Alignment.Center)
-      .fillMaxWidth()
-      .height((2f + 116f * aperture.value).dp)
-      .background(
-          Brush.horizontalGradient(
-              listOf(
-                  Color(0xFF180306),
-                  Color(0xFF5B090D),
-                  Color(0xFFD01916),
-                  Color(0xFFFF7B30),
-                  Color(0xFFB30F14),
-                  Color(0xFF260307),
-              )
-          )
-      )
+        // Phase 1: one thin red ignition line.
+        Canvas(Modifier.fillMaxSize()) {
+            val centerX = size.width / 2f
+            val centerY = size.height * 0.46f
+            val lineHeight = size.height * (0.08f + 0.22f * ignition.value)
+            val lineWidth = 1.2f + (2.8f * ignition.value)
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        Color(0xFFFF3B33).copy(alpha = 0.85f * ignition.value),
+                        Color(0xFFFF8A52).copy(alpha = ignition.value),
+                        Color(0xFFFF3B33).copy(alpha = 0.85f * ignition.value),
+                        Color.Transparent,
+                    ),
+                    startY = centerY - lineHeight / 2f,
+                    endY = centerY + lineHeight / 2f,
+                ),
+                topLeft = Offset(centerX - lineWidth / 2f, centerY - lineHeight / 2f),
+                size = Size(lineWidth, lineHeight),
+            )
+        }
+
+        // Phase 2: the single line fans into the brand palette before collapsing into the mark.
+        Canvas(Modifier.fillMaxSize()) {
+            if (strips.value <= 0f) return@Canvas
+
+            val centerY = size.height * 0.46f
+            val maxHeight = size.height * 0.37f
+            val h = maxHeight * (0.55f + 0.45f * strips.value)
+            val travel = size.width * 0.115f * strips.value
+            val fade = (1f - mark.value * 0.88f).coerceIn(0f, 1f)
+            val baseWidth = size.width * (0.013f + 0.012f * strips.value)
+            val cx = size.width / 2f
+
+            fun lightStrip(x: Float, width: Float, color: Color, alpha: Float) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            color.copy(alpha = alpha * 0.82f),
+                            color.copy(alpha = alpha),
+                            color.copy(alpha = alpha * 0.82f),
+                            Color.Transparent,
+                        ),
+                        startY = centerY - h / 2f,
+                        endY = centerY + h / 2f,
+                    ),
+                    topLeft = Offset(x - width / 2f, centerY - h / 2f),
+                    size = Size(width, h),
+                )
+            }
+
+            lightStrip(cx - travel, baseWidth * 1.05f, Color(0xFFF1C06B), 0.88f * fade)
+            lightStrip(cx, baseWidth * 1.22f, Color(0xFFD72B29), 1.0f * fade)
+            lightStrip(cx + travel, baseWidth, Color(0xFF6A607B), 0.80f * fade)
+
+            // Warm core that makes the strips read as light rather than flat bars.
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFFFB15F).copy(alpha = 0.22f * fade),
+                        Color(0xFFD72B29).copy(alpha = 0.09f * fade),
+                        Color.Transparent,
+                    ),
+                    center = Offset(cx, centerY),
+                    radius = size.width * 0.25f,
+                ),
+                radius = size.width * 0.25f,
+                center = Offset(cx, centerY),
+            )
+        }
+
+        // Phase 3: the actual FrameByNavin mark resolves directly on black — no app-icon tile.
+        FrameByNavinIdentMark(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = (-36).dp)
+                .size(148.dp)
+                .graphicsLayer {
+                    alpha = mark.value
+                    scaleX = 0.86f + (0.14f * mark.value)
+                    scaleY = 0.86f + (0.14f * mark.value)
+                },
+            reveal = mark.value,
         )
 
-        Box(
-  Modifier.align(Alignment.Center)
-      .offset(x = (-178f + 356f * beamTravel.value).dp)
-      .size(width = 58.dp, height = (18f + 126f * aperture.value).dp)
-      .alpha(.12f + .26f * aperture.value)
-      .background(
-          Brush.horizontalGradient(
-              listOf(Color.Transparent, Color(0xFFFFE1A6), Color.Transparent)
-          )
-      )
-        )
-
-        Box(
-  Modifier.align(Alignment.Center)
-      .size((120f + 230f * flare.value).dp)
-      .alpha(.18f * flare.value)
-      .background(
-          Brush.radialGradient(
-              listOf(Color(0xFFFFC06B), Color(0xFFE62A21), Color.Transparent)
-          ),
-          CircleShape,
-      )
-        )
-
+        // Phase 4: clean brand-name reveal.
         Text(
-  "FRAME BY NAVIN",
-  modifier = Modifier.align(Alignment.Center)
-      .alpha(title.value)
-      .graphicsLayer {
-          scaleX = .94f + (.06f * title.value)
-          scaleY = .94f + (.06f * title.value)
-          translationY = 10f * (1f - title.value)
-      },
-  color = ProjectorIvory,
-  fontSize = 26.sp,
-  lineHeight = 31.sp,
-  fontWeight = FontWeight.Black,
-  letterSpacing = 3.7.sp,
-  textAlign = TextAlign.Center,
+            text = "FRAME BY NAVIN",
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = 82.dp)
+                .alpha(title.value)
+                .graphicsLayer {
+                    scaleX = 0.965f + (0.035f * title.value)
+                    scaleY = 0.965f + (0.035f * title.value)
+                    translationY = 7f * (1f - title.value)
+                },
+            color = Color(0xFFF7F1E8),
+            fontSize = 24.sp,
+            lineHeight = 29.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 3.2.sp,
+            textAlign = TextAlign.Center,
         )
 
-        Box(
-  Modifier.align(Alignment.Center)
-      .fillMaxWidth(.54f)
-      .height(1.dp)
-      .offset(y = 48.dp)
-      .alpha(.44f * title.value)
-      .background(
-          Brush.horizontalGradient(
-              listOf(Color.Transparent, Color(0xFFFF6A38), Color.Transparent)
-          )
-      )
+        // A narrow cinematic highlight passes once, then disappears into the final hold.
+        if (sweep.value > 0f) {
+            val xFraction = -0.30f + (1.60f * sweep.value)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(y = 111.dp)
+                    .fillMaxWidth(0.68f)
+                    .height(2.dp)
+                    .alpha((1f - settle.value) * 0.78f)
+                    .background(
+                        Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0.00f to Color.Transparent,
+                                (xFraction - 0.09f).coerceIn(0f, 1f) to Color.Transparent,
+                                xFraction.coerceIn(0f, 1f) to Color(0xFFFFD39A),
+                                (xFraction + 0.09f).coerceIn(0f, 1f) to Color.Transparent,
+                                1.00f to Color.Transparent,
+                            )
+                        )
+                    ),
+            )
+        }
+    }
+}
+
+/**
+ * Geometric mark derived from the app's existing launcher vector, redrawn here without
+ * the launcher tile so the ident feels like a studio signature rather than an Android icon.
+ */
+@Composable
+private fun FrameByNavinIdentMark(
+    modifier: Modifier = Modifier,
+    reveal: Float,
+) {
+    Canvas(modifier) {
+        val s = size.minDimension
+        fun x(v: Float) = (v / 108f) * s
+        fun y(v: Float) = (v / 108f) * s
+
+        // Soft contact glow behind the free-standing mark.
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFD72B29).copy(alpha = 0.25f * reveal),
+                    Color(0xFF521015).copy(alpha = 0.12f * reveal),
+                    Color.Transparent,
+                ),
+                center = Offset(s * 0.52f, s * 0.54f),
+                radius = s * 0.58f,
+            ),
+            radius = s * 0.58f,
+            center = Offset(s * 0.52f, s * 0.54f),
+        )
+
+        // Rear graphite/violet panel.
+        val rear = Path().apply {
+            moveTo(x(58f), y(15f)); lineTo(x(89f), y(31f)); lineTo(x(89f), y(76f)); lineTo(x(58f), y(62f)); close()
+        }
+        drawPath(rear, Color(0xFF393544))
+        val rearEdge = Path().apply {
+            moveTo(x(58f), y(15f)); lineTo(x(89f), y(31f)); lineTo(x(89f), y(36f)); lineTo(x(63f), y(23f)); lineTo(x(63f), y(64f)); lineTo(x(58f), y(62f)); close()
+        }
+        drawPath(rearEdge, Color(0xFF6A607B))
+
+        // Crimson middle panel.
+        val red = Path().apply {
+            moveTo(x(39f), y(23f)); lineTo(x(72f), y(36f)); lineTo(x(72f), y(84f)); lineTo(x(39f), y(73f)); close()
+        }
+        drawPath(red, Color(0xFFD72B29))
+        val redEdge = Path().apply {
+            moveTo(x(39f), y(23f)); lineTo(x(72f), y(36f)); lineTo(x(72f), y(41f)); lineTo(x(45f), y(31f)); lineTo(x(45f), y(75f)); lineTo(x(39f), y(73f)); close()
+        }
+        drawPath(redEdge, Color(0xFFFF5A46))
+        val redShade = Path().apply {
+            moveTo(x(66f), y(39f)); lineTo(x(72f), y(41f)); lineTo(x(72f), y(84f)); lineTo(x(66f), y(82f)); close()
+        }
+        drawPath(redShade, Color(0xFF771219))
+
+        // Champagne/gold foreground panel.
+        val gold = Path().apply {
+            moveTo(x(18f), y(34f)); lineTo(x(50f), y(19f)); lineTo(x(50f), y(77f)); lineTo(x(18f), y(91f)); close()
+        }
+        drawPath(gold, Color(0xFFF1C06B))
+        val goldEdge = Path().apply {
+            moveTo(x(18f), y(34f)); lineTo(x(50f), y(19f)); lineTo(x(50f), y(25f)); lineTo(x(24f), y(38f)); lineTo(x(24f), y(88f)); lineTo(x(18f), y(91f)); close()
+        }
+        drawPath(goldEdge, Color(0xFFFFF0C9))
+        val goldShade = Path().apply {
+            moveTo(x(44f), y(22f)); lineTo(x(50f), y(19f)); lineTo(x(50f), y(77f)); lineTo(x(44f), y(80f)); close()
+        }
+        drawPath(goldShade, Color(0xFFA35C25))
+
+        // Studio spark.
+        drawCircle(
+            color = Color(0xFFFF493D),
+            radius = x(4.2f),
+            center = Offset(x(78f), y(84.2f)),
+        )
+        drawCircle(
+            color = Color(0xFFFFC15C).copy(alpha = 0.82f),
+            radius = x(1.3f),
+            center = Offset(x(79.4f), y(83.5f)),
         )
     }
 }
