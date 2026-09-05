@@ -86,6 +86,25 @@ jobs:
           test -s app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
           echo "RC4 brand ident + signing gate passed"
 
+      - name: Package post-integration source for audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf FrameByNavin-v1.7.5-brand-ident-rc4-audit-source.tar.gz \
+            app/src/main \
+            app/src/test \
+            app/src/androidTest \
+            app/build.gradle.kts \
+            build.gradle.kts \
+            settings.gradle.kts \
+            gradle.properties
+
+      - name: Upload audit source
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.7.5-brand-ident-rc4-audit-source
+          path: FrameByNavin-v1.7.5-brand-ident-rc4-audit-source.tar.gz
+
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
 
