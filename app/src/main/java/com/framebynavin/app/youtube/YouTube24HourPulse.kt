@@ -14,6 +14,7 @@ import kotlin.math.roundToInt
 data class YouTubePulseVideoCounter(
     val videoId: String,
     val title: String,
+    val publishedAtMillis: Long,
     val lifetimeViews: Long,
 )
 
@@ -73,6 +74,7 @@ class YouTubePulseStore(context: Context) {
                 YouTubePulseVideoCounter(
                     videoId = it.videoId,
                     title = it.title,
+                    publishedAtMillis = it.publishedAtMillis,
                     lifetimeViews = it.lifetimeViews,
                 )
             }
@@ -127,8 +129,12 @@ class YouTubePulseStore(context: Context) {
 
         val oldVideos = baseline.videos.associateBy { it.videoId }
         val movers = current.videos.mapNotNull { video ->
-            val before = oldVideos[video.videoId]?.lifetimeViews ?: 0L
-            val gained = (video.lifetimeViews - before).coerceAtLeast(0L)
+            val before = oldVideos[video.videoId]
+            val gained = when {
+                before != null -> (video.lifetimeViews - before.lifetimeViews).coerceAtLeast(0L)
+                video.publishedAtMillis >= baseline.capturedAtMillis -> video.lifetimeViews.coerceAtLeast(0L)
+                else -> 0L
+            }
             if (gained <= 0L) return@mapNotNull null
             YouTubePulseMover(
                 videoId = video.videoId,
@@ -200,7 +206,13 @@ class YouTubePulseStore(context: Context) {
         .put("subscribers", sample.subscribers)
         .put("videos", JSONArray().apply {
             sample.videos.forEach { video ->
-                put(JSONObject().put("videoId", video.videoId).put("title", video.title).put("lifetimeViews", video.lifetimeViews))
+                put(
+                    JSONObject()
+                        .put("videoId", video.videoId)
+                        .put("title", video.title)
+                        .put("publishedAtMillis", video.publishedAtMillis)
+                        .put("lifetimeViews", video.lifetimeViews)
+                )
             }
         })
 
@@ -213,6 +225,7 @@ class YouTubePulseStore(context: Context) {
                     YouTubePulseVideoCounter(
                         videoId = v.optString("videoId"),
                         title = v.optString("title"),
+                        publishedAtMillis = v.optLong("publishedAtMillis"),
                         lifetimeViews = v.optLong("lifetimeViews"),
                     )
                 )
