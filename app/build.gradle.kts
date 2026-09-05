@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 35
-        versionName = "1.7.3-24h-pulse-opportunities-rc1"
+        versionCode = 36
+        versionName = "1.7.4-cinematic-home-welcome-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,6 +78,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.7.3 RC1: 24H Pulse + creator opportunities on top of the approved Insights 2.0 baseline.
-// Persists lightweight YouTube counter snapshots, calculates rolling view/subscriber movement and top movers,
-// and matches active performance opportunities back to useful saved Idea Vault entries.
+// v1.7.4 RC1: cinematic home polish on top of the approved v1.7.3 Pulse + opportunities baseline.
+// Best Frames of Today is collapsed by default, expands in-place, preserves full frame composition with high-quality filtering,
+// and the cold-launch welcome is a new ~3 second film-gate / projector-aperture sequence.

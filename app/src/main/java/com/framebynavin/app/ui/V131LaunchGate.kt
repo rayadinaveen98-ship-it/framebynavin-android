@@ -20,7 +20,7 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         if (externalLaunch != null) {
             welcomeDone = true
         } else if (!welcomeDone) {
-            delay(1_550L)
+            delay(2_850L)
             welcomeDone = true
         }
     }
@@ -31,6 +31,6 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         },
         label = "launchGate",
     ) { ready ->
-        if (ready) FrameByNavinV101BApp(externalLaunch = externalLaunch) else V133CinematicWelcome()
+        if (ready) FrameByNavinV101BApp(externalLaunch = externalLaunch) else V174CinematicWelcome()
     }
 }

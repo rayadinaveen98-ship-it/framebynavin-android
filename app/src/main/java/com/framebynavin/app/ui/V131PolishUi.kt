@@ -2,7 +2,14 @@ package com.framebynavin.app.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -32,6 +39,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -149,50 +158,179 @@ internal fun V131CinematicWelcome() {
 internal fun V131HomeHeroSlideshow() {
     val resourceIds = remember {
         listOf(
-            R.drawable.hero_frame_01,
-            R.drawable.hero_frame_02,
-            R.drawable.hero_frame_03,
-            R.drawable.hero_frame_04,
-            R.drawable.hero_frame_05,
-            R.drawable.hero_frame_06,
-            R.drawable.hero_frame_07,
-            R.drawable.hero_frame_08,
-            R.drawable.hero_frame_09,
-            R.drawable.hero_frame_10,
+  R.drawable.hero_frame_01,
+  R.drawable.hero_frame_02,
+  R.drawable.hero_frame_03,
+  R.drawable.hero_frame_04,
+  R.drawable.hero_frame_05,
+  R.drawable.hero_frame_06,
+  R.drawable.hero_frame_07,
+  R.drawable.hero_frame_08,
+  R.drawable.hero_frame_09,
+  R.drawable.hero_frame_10,
         )
     }
+    var expanded by rememberSaveable { mutableStateOf(false) }
     var index by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(resourceIds.size) {
-        while (resourceIds.size > 1) {
-            delay(5_000L)
-            index = (index + 1) % resourceIds.size
+    val pulse = rememberInfiniteTransition(label = "bestFramesPulse")
+    val pulseStrength by pulse.animateFloat(
+        initialValue = .26f,
+        targetValue = .96f,
+        animationSpec = infiniteRepeatable(
+  animation = tween(1_500, easing = FastOutSlowInEasing),
+  repeatMode = RepeatMode.Reverse,
+        ),
+        label = "bestFramesRedPulse",
+    )
+
+    LaunchedEffect(expanded, resourceIds.size) {
+        if (!expanded) return@LaunchedEffect
+        while (expanded && resourceIds.size > 1) {
+  delay(4_000L)
+  index = (index + 1) % resourceIds.size
         }
     }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth().height(206.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine.copy(alpha = .40f)),
-        shadowElevation = 8.dp,
+    Column(
+        Modifier.fillMaxWidth().animateContentSize(
+  animationSpec = tween(360, easing = FastOutSlowInEasing),
+        )
     ) {
-        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp))) {
-            AnimatedContent(
-                targetState = index.coerceIn(0, resourceIds.lastIndex),
-                transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
-                label = "cinemaHeroImageOnly",
-            ) { visibleIndex ->
-                Image(
-                    painter = painterResource(resourceIds[visibleIndex]),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
+        Surface(
+  onClick = { expanded = !expanded },
+  modifier = Modifier.fillMaxWidth(),
+  shape = RoundedCornerShape(18.dp),
+  color = Color(0xFF120C0E),
+  border = BorderStroke(1.dp, RecRed.copy(alpha = .52f)),
+  shadowElevation = 10.dp,
+        ) {
+  Box(Modifier.fillMaxWidth()) {
+      Box(
+          Modifier.matchParentSize().background(
+              Brush.horizontalGradient(
+                  listOf(
+                      RecRed.copy(alpha = pulseStrength),
+                      Color(0xFF751321).copy(alpha = .74f),
+                      Color(0xFF1A0D11),
+                  )
+              )
+          )
+      )
+      Row(
+          Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
+          verticalAlignment = Alignment.CenterVertically,
+      ) {
+          Box(
+              Modifier.size(9.dp)
+                  .background(ProjectorIvory.copy(alpha = .94f), CircleShape)
+          )
+          Spacer(Modifier.width(11.dp))
+          Column(Modifier.weight(1f)) {
+              Text(
+                  "BEST FRAMES OF TODAY",
+                  color = ProjectorIvory,
+                  fontSize = 11.5.sp,
+                  fontWeight = FontWeight.Black,
+                  letterSpacing = 1.25.sp,
+              )
+              Spacer(Modifier.height(2.dp))
+              Text(
+                  if (expanded) "Tap to close" else "Tap to open",
+                  color = ProjectorIvory.copy(alpha = .72f),
+                  fontSize = 8.4.sp,
+                  fontWeight = FontWeight.SemiBold,
+              )
+          }
+          Icon(
+              Icons.Outlined.KeyboardArrowDown,
+              contentDescription = if (expanded) "Close best frames" else "Open best frames",
+              tint = ProjectorIvory,
+              modifier = Modifier.size(22.dp).graphicsLayer {
+                  rotationZ = if (expanded) 180f else 0f
+              },
+          )
+      }
+  }
+        }
+
+        AnimatedVisibility(
+  visible = expanded,
+  enter = expandVertically(animationSpec = tween(330, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
+  exit = shrinkVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeOut(tween(170)),
+        ) {
+  Column(Modifier.fillMaxWidth()) {
+      Spacer(Modifier.height(10.dp))
+      Surface(
+          modifier = Modifier.fillMaxWidth().height(228.dp),
+          shape = RoundedCornerShape(20.dp),
+          color = Color.Black,
+          border = BorderStroke(1.dp, CinemaLine.copy(alpha = .52f)),
+          shadowElevation = 7.dp,
+      ) {
+          Box(Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(Color.Black)) {
+              AnimatedContent(
+                  targetState = index.coerceIn(0, resourceIds.lastIndex),
+                  transitionSpec = { fadeIn(tween(520)) togetherWith fadeOut(tween(520)) },
+                  label = "cinemaHeroHighQuality",
+              ) { visibleIndex ->
+                  Image(
+                      painter = painterResource(resourceIds[visibleIndex]),
+                      contentDescription = "Best frame ${visibleIndex + 1}",
+                      modifier = Modifier.fillMaxSize(),
+                      contentScale = ContentScale.Fit,
+                      filterQuality = FilterQuality.High,
+                  )
+              }
+
+              Box(
+                  Modifier.fillMaxWidth().height(48.dp).align(Alignment.BottomCenter).background(
+                      Brush.verticalGradient(
+                          listOf(Color.Transparent, Color.Black.copy(alpha = .72f))
+                      )
+                  )
+              )
+              Row(
+                  Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+              ) {
+                  Text(
+                      "FRAME ${index + 1}",
+                      color = ProjectorIvory,
+                      fontSize = 8.2.sp,
+                      fontWeight = FontWeight.Black,
+                      letterSpacing = 1.sp,
+                  )
+                  Spacer(Modifier.weight(1f))
+                  Text(
+                      "${index + 1} / ${resourceIds.size}",
+                      color = ProjectorIvory.copy(alpha = .78f),
+                      fontSize = 8.2.sp,
+                      fontWeight = FontWeight.Bold,
+                  )
+              }
+          }
+      }
+      Spacer(Modifier.height(8.dp))
+      Row(
+          Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.Center,
+          verticalAlignment = Alignment.CenterVertically,
+      ) {
+          resourceIds.indices.forEach { dot ->
+              Box(
+                  Modifier.padding(horizontal = 2.5.dp)
+                      .size(if (dot == index) 6.dp else 4.dp)
+                      .background(
+                          if (dot == index) RecRed else MutedText.copy(alpha = .42f),
+                          CircleShape,
+                      )
+              )
+          }
+      }
+  }
         }
     }
 }
-
 @Composable
 internal fun V131PlanScreen(
     tasks: List<CreatorTask>,
