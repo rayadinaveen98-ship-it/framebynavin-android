@@ -38,11 +38,11 @@ write(
     test_rel,
     r'''package com.framebynavin.app.ui
 
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNode
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -192,7 +192,7 @@ class V18CoreInteractionUiTest {
 
         composeRule.onNode(hasSetTextAction()).performTextInput("Aurora")
         composeRule.onNodeWithText(first.title).assertIsDisplayed()
-        composeRule.onNodeWithText(second.title).assertDoesNotExist()
+        composeRule.onAllNodesWithText(second.title).assertCountEquals(0)
     }
 
     @Test
@@ -211,7 +211,7 @@ class V18CoreInteractionUiTest {
         composeRule.onNodeWithContentDescription("New idea").performClick()
         composeRule.onNodeWithText("New Idea").assertIsDisplayed()
         composeRule.onNodeWithText("CANCEL").performClick()
-        composeRule.onNodeWithText("New Idea").assertDoesNotExist()
+        composeRule.onAllNodesWithText("New Idea").assertCountEquals(0)
     }
 
     @Test
