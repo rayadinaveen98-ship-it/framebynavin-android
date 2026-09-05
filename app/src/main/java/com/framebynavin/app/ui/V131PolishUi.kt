@@ -39,7 +39,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
@@ -278,7 +277,6 @@ internal fun V131HomeHeroSlideshow() {
                       contentDescription = "Best frame ${visibleIndex + 1}",
                       modifier = Modifier.fillMaxSize(),
                       contentScale = ContentScale.Fit,
-                      filterQuality = FilterQuality.High,
                   )
               }
 
