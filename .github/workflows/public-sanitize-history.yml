@@ -16,10 +16,14 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 60
     steps:
+      - name: Checkout full current history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
       - name: Mirror, back up, scrub, verify, and force-push
         shell: powershell
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
           $marker = Join-Path $env:USERPROFILE ".framebynavin-public-sanitize-complete"
@@ -33,29 +37,38 @@ jobs:
           $mirror = Join-Path $root "repo.git"
           New-Item -ItemType Directory -Force -Path $root | Out-Null
 
-          $remote = "https://x-access-token:$env:GH_TOKEN@github.com/$env:GITHUB_REPOSITORY.git"
-          git clone --mirror $remote $mirror
-          if ($LASTEXITCODE -ne 0) { throw "Mirror clone failed" }
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*' --force
+          if ($LASTEXITCODE -ne 0) { throw "Fetching all refs failed" }
 
           $backup = Join-Path $env:USERPROFILE "FrameByNavin-private-history-pre-public-$stamp.bundle"
-          git -C $mirror bundle create $backup --all
+          git bundle create $backup --all
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $backup)) { throw "Private backup bundle failed" }
           Write-Host "Private pre-public backup created at $backup"
 
-          py -3.12 -m pip install --user git-filter-repo
-          if ($LASTEXITCODE -ne 0) { throw "git-filter-repo installation failed" }
-
-          $oldGradle = git -C $mirror show refs/heads/main:app/build.gradle.kts 2>$null
-          $oldText = ($oldGradle -join "`n")
-          $match = [regex]::Match($oldText, 'storePassword\s*=\s*"([^"]+)"')
-          $replaceFile = Join-Path $root "replace.txt"
-          if ($match.Success) {
-            $oldSigningValue = $match.Groups[1].Value
-            ($oldSigningValue + "==>REMOVED_PRIVATE_SIGNING_VALUE") | Set-Content -Path $replaceFile -Encoding UTF8
-          }
+          git clone --mirror . $mirror
+          if ($LASTEXITCODE -ne 0) { throw "Local mirror clone failed" }
 
           Push-Location $mirror
           try {
+            foreach ($ref in (git for-each-ref --format='%(refname)' refs/remotes/origin/)) {
+              if ($ref -eq 'refs/remotes/origin/HEAD') { continue }
+              $name = $ref.Substring('refs/remotes/origin/'.Length)
+              $sha = (git rev-parse $ref).Trim()
+              git update-ref "refs/heads/$name" $sha
+            }
+
+            py -3.12 -m pip install --user git-filter-repo
+            if ($LASTEXITCODE -ne 0) { throw "git-filter-repo installation failed" }
+
+            $oldGradle = git show refs/heads/main:app/build.gradle.kts 2>$null
+            $oldText = ($oldGradle -join "`n")
+            $match = [regex]::Match($oldText, 'storePassword\s*=\s*"([^"]+)"')
+            $replaceFile = Join-Path $root "replace.txt"
+            if ($match.Success) {
+              $oldSigningValue = $match.Groups[1].Value
+              ($oldSigningValue + "==>REMOVED_PRIVATE_SIGNING_VALUE") | Set-Content -Path $replaceFile -Encoding ASCII
+            }
+
             if (Test-Path $replaceFile) {
               py -3.12 -m git_filter_repo --path keystore/REMOVED_PRIVATE_SIGNING_VALUE.jks --invert-paths --replace-text $replaceFile --force
             } else {
@@ -69,7 +82,6 @@ jobs:
             }
 
             if ($match.Success) {
-              $oldSigningValue = $match.Groups[1].Value
               foreach ($commit in (git rev-list --all)) {
                 git grep -I -q -F -- $oldSigningValue $commit -- . 2>$null
                 if ($LASTEXITCODE -eq 0) { throw "Old signing credential still exists in rewritten history" }
@@ -89,19 +101,31 @@ jobs:
                 if ($LASTEXITCODE -eq 0) { throw "Potential secret-like value remains after rewrite; public push aborted" }
               }
             }
-
-            git remote add sanitized $remote
-            git push sanitized --force --all
-            if ($LASTEXITCODE -ne 0) { throw "Force-push of sanitized branches failed" }
-            git push sanitized --force --tags
-            if ($LASTEXITCODE -ne 0) { throw "Force-push of sanitized tags failed" }
-
-            $active = (git rev-parse refs/heads/feature/v1.7.5-original-frames-splash).Trim()
-            git push sanitized "$active`:refs/heads/main" --force
-            if ($LASTEXITCODE -ne 0) { throw "Could not move main to sanitized v1.7.5" }
-
-            New-Item -ItemType File -Force -Path $marker | Out-Null
-            Write-Host "History sanitized successfully. Main now points to sanitized v1.7.5."
           } finally {
             Pop-Location
           }
+
+          git remote remove sanitized-local 2>$null
+          git remote add sanitized-local $mirror
+          git fetch sanitized-local '+refs/heads/*:refs/remotes/sanitized/*' '+refs/tags/*:refs/tags/*' --force
+          if ($LASTEXITCODE -ne 0) { throw "Could not import sanitized refs" }
+
+          foreach ($ref in (git for-each-ref --format='%(refname)' refs/remotes/sanitized/)) {
+            $name = $ref.Substring('refs/remotes/sanitized/'.Length)
+            $sha = (git rev-parse $ref).Trim()
+            git push origin "$sha`:refs/heads/$name" --force
+            if ($LASTEXITCODE -ne 0) { throw "Force-push failed for branch $name" }
+          }
+
+          foreach ($tag in (git for-each-ref --format='%(refname:strip=2)' refs/tags/)) {
+            $sha = (git rev-parse "refs/tags/$tag").Trim()
+            git push origin "$sha`:refs/tags/$tag" --force
+            if ($LASTEXITCODE -ne 0) { throw "Force-push failed for tag $tag" }
+          }
+
+          $active = (git rev-parse refs/remotes/sanitized/feature/v1.7.5-original-frames-splash).Trim()
+          git push origin "$active`:refs/heads/main" --force
+          if ($LASTEXITCODE -ne 0) { throw "Could not move main to sanitized v1.7.5" }
+
+          New-Item -ItemType File -Force -Path $marker | Out-Null
+          Write-Host "History sanitized successfully. Main now points to sanitized v1.7.5."
