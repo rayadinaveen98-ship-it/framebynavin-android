@@ -10,6 +10,7 @@ on:
       - "tools/v175_integrate.py"
       - "tools/v175_public_prepare.py"
       - "tools/v175_copy_polish.py"
+      - "tools/v175_copy_polish_followup.py"
       - ".github/workflows/v175-copy-polish-build.yml"
       - "*.gradle.kts"
       - "gradle.properties"
@@ -53,6 +54,9 @@ jobs:
       - name: Apply UX copy polish
         run: python3 tools/v175_copy_polish.py
 
+      - name: Finish plain-language pass
+        run: python3 tools/v175_copy_polish_followup.py
+
       - name: Copy-only release gate
         shell: bash
         run: |
@@ -67,6 +71,7 @@ jobs:
           grep -q 'AUTOMATIC HELP' app/src/main/java/com/framebynavin/app/ui/V17AutomationCenter.kt
           grep -q 'BACKUP & SYNC' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
           grep -q 'MARK STEP DONE' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'STEP .* OF' app/src/main/java/com/framebynavin/app/ui/V07StudioScreen.kt
           grep -q 'PickMultipleVisualMedia' app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
           grep -q 'input.copyTo(output' app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt
           ! grep -q 'visible baseline' app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt
