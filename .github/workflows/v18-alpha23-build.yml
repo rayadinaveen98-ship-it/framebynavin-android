@@ -1,0 +1,191 @@
+name: Build FrameByNavin v1.8 Product Alpha23
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/v1.8-product-alpha23-identity-personalization
+    paths:
+      - "tools/v18_identity_personalization_alpha23.py"
+      - "tools/v18_identity_personalization_alpha23_payload_*.txt"
+      - ".github/workflows/v18-alpha23-build.yml"
+
+concurrency:
+  group: framebynavin-v18-alpha23-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply v1.7.5 integration
+        run: python3 tools/v175_integrate.py
+      - name: Apply locked FrameByNavin ident
+        run: python3 tools/v175_brand_ident_rc4.py
+      - name: Apply public-safe preparation
+        run: python3 tools/v175_public_prepare.py
+      - name: Apply UX copy polish
+        run: python3 tools/v175_copy_polish.py
+      - name: Finish plain-language pass
+        run: python3 tools/v175_copy_polish_followup.py
+      - name: Keep prototype update signing
+        run: python3 tools/v175_youtube_signing_fix.py
+      - name: Apply v1.8 foundation cleanup
+        run: python3 tools/v18_foundation_cleanup.py
+      - name: Apply alpha2 foundation version
+        run: python3 tools/v18_foundation_alpha2.py
+      - name: Apply alpha3 accessibility pass
+        run: python3 tools/v18_accessibility_alpha3.py
+      - name: Apply alpha4 architecture split
+        run: python3 tools/v18_architecture_alpha4.py
+      - name: Apply alpha5 Today split
+        run: python3 tools/v18_architecture_alpha5.py
+      - name: Apply alpha6 interaction tests
+        run: python3 tools/v18_interaction_tests_alpha6.py
+      - name: Apply alpha7 Credential Manager migration
+        run: python3 tools/v18_credential_manager_alpha7.py
+      - name: Apply alpha8 creator-neutral YouTube intelligence
+        run: python3 tools/v18_creator_intelligence_alpha8.py
+      - name: Apply alpha9 creator identity and onboarding
+        run: python3 tools/v18_creator_identity_alpha9.py
+      - name: Apply alpha9 instrumentation compatibility fix
+        run: python3 tools/v18_creator_identity_alpha9_test_fix.py
+      - name: Apply alpha10 primary Creator OS navigation
+        run: python3 tools/v18_primary_navigation_alpha10.py
+      - name: Apply alpha11 profile-aware personalization
+        run: python3 tools/v18_profile_personalization_alpha11.py
+      - name: Apply alpha12 creator journey polish
+        run: python3 tools/v18_creator_journey_alpha12.py
+      - name: Apply alpha12 Compose test compatibility fix
+        run: python3 tools/v18_creator_journey_alpha12_test_fix.py
+      - name: Apply alpha13 closed creator loop
+        run: python3 tools/v18_creator_loop_alpha13.py
+      - name: Apply alpha14 UX and performance pass
+        run: python3 tools/v18_ux_performance_alpha14.py
+      - name: Apply alpha14 Compose compatibility fix
+        run: python3 tools/v18_ux_performance_alpha14_compile_fix.py
+      - name: Apply alpha15 UX and identity corrections
+        run: python3 tools/v18_ux_identity_alpha15.py
+      - name: Apply alpha16 cinematic home hero redesign
+        run: python3 tools/v18_cinematic_home_hero_alpha16.py
+      - name: Apply alpha16 Compose test compatibility fix
+        run: python3 tools/v18_cinematic_home_hero_alpha16_test_fix.py
+      - name: Apply alpha17 empty hero and clean surfaces
+        run: python3 tools/v18_clean_surfaces_alpha17.py
+      - name: Apply alpha18 reliability and data-integrity pass
+        run: python3 tools/v18_reliability_alpha18.py
+      - name: Apply alpha19 Project Pulse architecture
+        run: python3 tools/v18_project_pulse_alpha19.py
+      - name: Apply alpha20 project experience pass
+        run: python3 tools/v18_project_experience_alpha20.py
+      - name: Apply alpha20 compatibility fixes
+        run: python3 tools/v18_project_experience_alpha20_fix.py
+      - name: Apply alpha21 post-publish + reward foundation
+        run: python3 tools/v18_post_publish_rewards_alpha21.py
+      - name: Apply alpha21 compile compatibility fix
+        run: python3 tools/v18_post_publish_rewards_alpha21_compile_fix.py
+      - name: Apply alpha22 Creator Rewards V1
+        run: python3 tools/v18_creator_rewards_alpha22.py
+      - name: Apply alpha22 instrumentation compatibility fix
+        run: python3 tools/v18_creator_rewards_alpha22_compile_fix.py
+      - name: Apply alpha23 Identity & Personalization
+        run: python3 tools/v18_identity_personalization_alpha23.py
+
+      - name: Product gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 63' app/build.gradle.kts
+          grep -q 'versionName = "1.8.0-product-alpha23"' app/build.gradle.kts
+          test -f app/src/main/java/com/framebynavin/app/data/CreatorPlatformRegistry.kt
+          test -f app/src/main/java/com/framebynavin/app/ui/V23AccountOnboarding.kt
+          test -f app/src/main/java/com/framebynavin/app/ui/V23ProfileAccountUi.kt
+          test -f app/src/test/java/com/framebynavin/app/data/CreatorIdentityAlpha23Test.kt
+          grep -Fq 'accountOnboardingComplete' app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt
+          grep -Fq 'Existing Alpha22 users must never be blocked' app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt
+          grep -Fq 'claim_creator_username' app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt
+          grep -Fq 'CreatorPlatformDefinition("Podcast"' app/src/main/java/com/framebynavin/app/data/CreatorPlatformRegistry.kt
+          grep -Fq 'p == "podcast" && type == "episode"' app/src/main/java/com/framebynavin/app/data/CreatorWorkflow.kt
+          grep -Fq 'p == "linkedin" && type == "article"' app/src/main/java/com/framebynavin/app/data/CreatorWorkflow.kt
+          grep -Fq 'p == "blog / newsletter" && type == "newsletter"' app/src/main/java/com/framebynavin/app/data/CreatorWorkflow.kt
+          grep -Fq 'V23AccountOnboarding(' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq 'V23ProfileAccountScreen(' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq 'V23CreatorProgressScreen(' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq 'Creator Progress' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq '"publish consistently" -> "Protect your publishing rhythm." to ""' app/src/main/java/com/framebynavin/app/data/CreatorPersonalization.kt
+          grep -Fq 'CreatorPlatformRegistry.orderedSelected' app/src/main/java/com/framebynavin/app/ui/V08WeeklyScheduleUi.kt
+          ! grep -Fq 'listOf("Instagram", "YouTube", "X")' app/src/main/java/com/framebynavin/app/ui/V08WeeklyScheduleUi.kt
+          ! grep -Fq 'V22CreatorProgressCard(' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          ! grep -Fq 'V22CreatorProgressCard(' app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt
+          ! grep -Fq 'V22WeeklyMomentumStrip(' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'V22RewardToast' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          echo "v1.8 product alpha23 Identity & Personalization gate passed"
+
+      - name: Package post-integration source for audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf FrameByNavin-v1.8.0-product-alpha23-audit-source.tar.gz \
+            app/src/main app/src/test app/src/androidTest app/build.gradle.kts \
+            build.gradle.kts settings.gradle.kts gradle.properties
+      - name: Upload audit source
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.0-product-alpha23-audit-source
+          path: FrameByNavin-v1.8.0-product-alpha23-audit-source.tar.gz
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run interaction tests on Android emulator
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest --stacktrace
+      - name: Build APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs "$APK"
+          sha256sum "$APK"
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.0-product-alpha23
+          path: app/build/outputs/apk/debug/app-debug.apk
