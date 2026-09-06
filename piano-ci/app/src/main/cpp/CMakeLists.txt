@@ -5,6 +5,7 @@ add_library(
     SHARED
     PianoAudioEngine.cpp
     PracticeNative.cpp
+    StudioLessonBridge.cpp
 )
 find_library(aaudio-lib aaudio)
 find_library(log-lib log)
