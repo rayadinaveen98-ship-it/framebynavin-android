@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,7 +62,7 @@ private fun LearningHub(onBack: () -> Unit) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(StudioBlack).systemBarsPadding(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
@@ -76,10 +76,10 @@ private fun LearningHub(onBack: () -> Unit) {
         }
         item {
             Card(colors = CardDefaults.cardColors(containerColor = StudioCharcoal), shape = RoundedCornerShape(24.dp)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("CURRENT COURSE", color = StudioGold, style = MaterialTheme.typography.labelMedium)
                     Text("Piano Foundations", style = MaterialTheme.typography.titleLarge)
-                    Text("One clear path. Explore when you want.", color = StudioMuted)
+                    Text("One clear path. Play when you're ready.", color = StudioMuted)
                     LinearProgressIndicator(
                         progress = { if (lessons.isEmpty()) 0f else completedCount.toFloat() / lessons.size.toFloat() },
                         modifier = Modifier.fillMaxWidth(),
@@ -100,8 +100,8 @@ private fun LearningHub(onBack: () -> Unit) {
                 onClick = {
                     if (unlocked) {
                         context.startActivity(
-                            Intent(context, LandscapeLessonActivity::class.java)
-                                .putExtra(LandscapeLessonActivity.EXTRA_LESSON_ID, lesson.id),
+                            Intent(context, R2LessonActivity::class.java)
+                                .putExtra(R2LessonActivity.EXTRA_LESSON_ID, lesson.id),
                         )
                     }
                 },
