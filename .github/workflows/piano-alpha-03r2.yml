@@ -1,0 +1,67 @@
+name: Piano Studio Alpha 0.3R2 APK
+
+on:
+  push:
+    branches:
+      - "ci/piano-studio-alpha-03r2-20260906"
+    paths:
+      - "piano-ci/**"
+      - ".github/workflows/piano-alpha-03r2.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: piano-alpha-03r2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android 36 native toolchain
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+
+      - name: Set up Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Build and test Alpha 0.3R2
+        working-directory: piano-ci
+        run: gradle :app:assembleDebug :app:testDebugUnitTest --stacktrace
+
+      - name: Verify R2 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="piano-ci/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libpianostudio_audio.so"
+          unzip -l "$apk" | grep -q "lib/x86_64/libpianostudio_audio.so"
+          mkdir -p piano-ci/dist
+          cp "$apk" piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk
+          sha256sum piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk > piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk.sha256
+
+      - name: Upload Alpha 0.3R2 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PianoStudio-alpha-0.3R2
+          path: |
+            piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk
+            piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk.sha256
