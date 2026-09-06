@@ -212,7 +212,7 @@ private fun PianoAlphaApp() {
     var devices by remember { mutableStateOf<List<MidiDeviceSummary>>(emptyList()) }
     var connected by remember { mutableStateOf<MidiDeviceSummary?>(null) }
     var midiEvent by remember { mutableStateOf<NoteEvent?>(null) }
-    var midiSustain by remember { mutableStateOf(false) }
+    var midiSustain by remember { mutableStateOf<Boolean?>(null) }
     var recentSessions by remember { mutableStateOf<List<PracticeSessionSummary>>(emptyList()) }
 
     fun refreshSessions() {
@@ -354,7 +354,7 @@ private fun PianoScreen(
     onConnect: (Int) -> Unit,
     onDisconnect: () -> Unit,
     midiEvent: NoteEvent?,
-    midiSustain: Boolean,
+    midiSustain: Boolean?,
     settings: PianoPracticeSettings,
     onBpmChange: (Int) -> Unit,
     onSustainChange: (Boolean) -> Unit,
@@ -441,9 +441,10 @@ private fun PianoScreen(
     }
 
     LaunchedEffect(midiSustain) {
-        sustain = midiSustain
-        audio.sustain(midiSustain)
-        onSustainChange(midiSustain)
+        val pedal = midiSustain ?: return@LaunchedEffect
+        sustain = pedal
+        audio.sustain(pedal)
+        onSustainChange(pedal)
     }
 
     Column(Modifier.fillMaxSize().background(PianoBlack).systemBarsPadding()) {
