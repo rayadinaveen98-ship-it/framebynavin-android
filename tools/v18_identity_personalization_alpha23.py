@@ -45,3 +45,6 @@ if actual_script_sha != EXPECTED_SCRIPT_SHA:
     raise SystemExit(f'Alpha23 decoded script checksum mismatch: {actual_script_sha} != {EXPECTED_SCRIPT_SHA}')
 
 exec(compile(script, '<alpha23-payload>', 'exec'), {'__name__': '__main__'})
+
+compat_path = ROOT / 'tools' / 'v18_identity_personalization_alpha23_test_fix.py'
+exec(compile(compat_path.read_text(), str(compat_path), 'exec'), {'__name__': '__main__'})
