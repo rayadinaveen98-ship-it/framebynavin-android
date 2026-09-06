@@ -42,11 +42,11 @@ jobs:
         with:
           gradle-version: "9.6.0"
 
-      - name: Build and test Alpha 0.3R2
+      - name: Build and test Alpha 0.3R2.1
         working-directory: piano-ci
         run: gradle :app:assembleDebug :app:testDebugUnitTest --stacktrace
 
-      - name: Verify R2 APK
+      - name: Verify R2 runtime JNI and APK
         shell: bash
         run: |
           set -euo pipefail
@@ -54,14 +54,29 @@ jobs:
           test -s "$apk"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libpianostudio_audio.so"
           unzip -l "$apk" | grep -q "lib/x86_64/libpianostudio_audio.so"
-          mkdir -p piano-ci/dist
-          cp "$apk" piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk
-          sha256sum piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk > piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk.sha256
 
-      - name: Upload Alpha 0.3R2 APK
+          rm -rf /tmp/piano-r2-apk && mkdir -p /tmp/piano-r2-apk
+          unzip -q "$apk" "lib/arm64-v8a/libpianostudio_audio.so" -d /tmp/piano-r2-apk
+          so="/tmp/piano-r2-apk/lib/arm64-v8a/libpianostudio_audio.so"
+          nmtool="$ANDROID_SDK_ROOT/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+          test -x "$nmtool"
+          "$nmtool" -D --defined-only "$so" > /tmp/piano-r2-symbols.txt
+
+          grep -q "Java_com_pianostudio_alpha_R2AudioEngine_nativeStart" /tmp/piano-r2-symbols.txt
+          grep -q "Java_com_pianostudio_alpha_R2AudioEngine_nativeNoteOn" /tmp/piano-r2-symbols.txt
+          grep -q "Java_com_pianostudio_alpha_R2PracticeAudio_nativeStart" /tmp/piano-r2-symbols.txt
+          grep -q "Java_com_pianostudio_alpha_R2PracticeAudio_nativeSetMetronome" /tmp/piano-r2-symbols.txt
+          grep -q "Java_com_pianostudio_alpha_R2LessonAudio_nativeStart" /tmp/piano-r2-symbols.txt
+          grep -q "Java_com_pianostudio_alpha_R2LessonAudio_nativeNoteOn" /tmp/piano-r2-symbols.txt
+
+          mkdir -p piano-ci/dist
+          cp "$apk" piano-ci/dist/PianoStudio-alpha-0.3R2.1-debug.apk
+          sha256sum piano-ci/dist/PianoStudio-alpha-0.3R2.1-debug.apk > piano-ci/dist/PianoStudio-alpha-0.3R2.1-debug.apk.sha256
+
+      - name: Upload Alpha 0.3R2.1 APK
         uses: actions/upload-artifact@v4
         with:
-          name: PianoStudio-alpha-0.3R2
+          name: PianoStudio-alpha-0.3R2.1
           path: |
-            piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk
-            piano-ci/dist/PianoStudio-alpha-0.3R2-debug.apk.sha256
+            piano-ci/dist/PianoStudio-alpha-0.3R2.1-debug.apk
+            piano-ci/dist/PianoStudio-alpha-0.3R2.1-debug.apk.sha256
