@@ -68,10 +68,11 @@ private fun StudioHome() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column {
+            Column(Modifier.weight(1f)) {
                 Text("Good evening", color = StudioMuted, style = MaterialTheme.typography.bodyMedium)
                 Text("Your piano, waiting for you.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
             }
+            Spacer(Modifier.width(12.dp))
             Box(
                 modifier = Modifier.size(44.dp).background(StudioCarbon, RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center,
@@ -83,12 +84,13 @@ private fun StudioHome() {
             colors = CardDefaults.cardColors(containerColor = StudioCharcoal),
             shape = RoundedCornerShape(24.dp),
         ) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text("18 minutes to move forward", style = MaterialTheme.typography.titleLarge)
                         Text("A balanced session built around learning and practice.", color = StudioMuted)
                     }
+                    Spacer(Modifier.width(10.dp))
                     Icon(Icons.Rounded.AutoAwesome, null, tint = StudioGold, modifier = Modifier.size(30.dp))
                 }
                 SessionRow("Warm up", "3 min")
@@ -96,7 +98,7 @@ private fun StudioHome() {
                 SessionRow("Lesson", "5 min")
                 SessionRow("Smart practice", "6 min")
                 Button(
-                    onClick = { context.startActivity(Intent(context, PracticeCoachActivity::class.java)) },
+                    onClick = { context.startActivity(Intent(context, R2PracticeActivity::class.java)) },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) {
                     Icon(Icons.Rounded.PlayArrow, null)
@@ -117,21 +119,21 @@ private fun StudioHome() {
         StudioNavCard(
             icon = Icons.Rounded.Piano,
             title = "Free Piano",
-            subtitle = "Play without a lesson — full landscape keyboard",
+            subtitle = "Open the landscape keyboard immediately",
             trailing = "Play",
-            onClick = { context.startActivity(Intent(context, MainActivity::class.java)) },
+            onClick = { context.startActivity(Intent(context, R2FreePianoActivity::class.java)) },
         )
         StudioNavCard(
             icon = Icons.Rounded.Tune,
-            title = "Smart Practice Coach",
-            subtitle = "Accuracy, timing and focused retries",
+            title = "Smart Practice",
+            subtitle = "Guided notes, timing and focused retries",
             trailing = "Practice",
-            onClick = { context.startActivity(Intent(context, PracticeCoachActivity::class.java)) },
+            onClick = { context.startActivity(Intent(context, R2PracticeActivity::class.java)) },
         )
 
         Text("THIS WEEK", color = StudioGold, style = MaterialTheme.typography.labelMedium)
         Card(colors = CardDefaults.cardColors(containerColor = StudioCarbon), shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Practice time", color = StudioMuted)
                     Text("92 min", fontWeight = FontWeight.SemiBold)
