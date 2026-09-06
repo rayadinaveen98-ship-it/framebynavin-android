@@ -8,6 +8,7 @@ on:
     paths:
       - "tools/v18_post_publish_rewards_alpha21.py"
       - "tools/v18_post_publish_rewards_alpha21_payload_*.txt"
+      - "tools/v18_post_publish_rewards_alpha21_compile_fix.py"
       - ".github/workflows/v18-alpha21-build.yml"
 
 concurrency:
@@ -100,6 +101,8 @@ jobs:
         run: python3 tools/v18_project_experience_alpha20_fix.py
       - name: Apply alpha21 post-publish + reward foundation
         run: python3 tools/v18_post_publish_rewards_alpha21.py
+      - name: Apply alpha21 compile compatibility fix
+        run: python3 tools/v18_post_publish_rewards_alpha21_compile_fix.py
 
       - name: Product gate
         shell: bash
@@ -114,6 +117,7 @@ jobs:
           grep -Fq 'fun completePostPublishCheckpoint' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
           grep -Fq 'postPublishCheckpoints = vm.postPublishCheckpoints' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           grep -Fq 'POST-PUBLISH' app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt
+          grep -Fq 'import com.framebynavin.app.data.PostPublishCheckpoint' app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
           grep -Fq 'Review the response and carry the lesson into the next project.' app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt
           grep -Fq 'Post-publish checkpoints' app/src/main/java/com/framebynavin/app/ui/V17AutomationCenter.kt
           grep -Fq 'const val SCHEMA_VERSION = 2' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
