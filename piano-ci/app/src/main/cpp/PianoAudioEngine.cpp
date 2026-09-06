@@ -99,7 +99,7 @@ public:
     void setMetronome(bool enabled, int bpm) {
         metronomeBpm_.store(std::clamp(bpm, 40, 220), std::memory_order_relaxed);
         const bool previous = metronomeEnabled_.exchange(enabled, std::memory_order_relaxed);
-        if (enabled != previous || enabled) resetMetronome_.store(true, std::memory_order_release);
+        if (enabled != previous) resetMetronome_.store(true, std::memory_order_release);
     }
 
     void allNotesOff() {
