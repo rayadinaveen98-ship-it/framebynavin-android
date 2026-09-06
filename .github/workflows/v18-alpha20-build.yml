@@ -117,7 +117,7 @@ jobs:
           grep -Fq 'WEEKLY FOCUS' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
           grep -Fq 'WEEKLY TARGET COMPLETE' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
           grep -Fq 'onOpenProject' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
-          grep -Fq 'EDIT PROJECT' app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
+          grep -Fq 'EDIT PROJECT' app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt
           grep -Fq 'combinedClickable' app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
           grep -Fq 'BackHandler(enabled = selectionMode)' app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
           grep -Fq 'onArchiveSelected' app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
