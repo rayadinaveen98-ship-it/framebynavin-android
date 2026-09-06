@@ -37,11 +37,15 @@ jobs:
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
 
-      - name: Normalize compile SDK to Play-stable API 36
+      - name: Pin Android 36-compatible UI stack
         shell: bash
         run: |
           grep -RIl 'compileSdk = 37' piano-ci --include='*.gradle.kts' | xargs -r sed -i 's/compileSdk = 37/compileSdk = 36/g'
-          grep -R "compileSdk =" piano-ci --include='*.gradle.kts'
+          grep -RIl 'compose-bom:2026.08.00' piano-ci --include='*.gradle.kts' | xargs -r sed -i 's/compose-bom:2026.08.00/compose-bom:2026.04.01/g'
+          grep -RIl 'activity-compose:1.13.0' piano-ci --include='*.gradle.kts' | xargs -r sed -i 's/activity-compose:1.13.0/activity-compose:1.11.0/g'
+          grep -RIl 'navigation-compose:2.10.0' piano-ci --include='*.gradle.kts' | xargs -r sed -i 's/navigation-compose:2.10.0/navigation-compose:2.9.6/g'
+          grep -RIl 'lifecycle-runtime-compose:2.11.0' piano-ci --include='*.gradle.kts' | xargs -r sed -i 's/lifecycle-runtime-compose:2.11.0/lifecycle-runtime-compose:2.9.4/g'
+          grep -R "compileSdk =\|compose-bom:\|activity-compose:\|navigation-compose:\|lifecycle-runtime-compose:" piano-ci --include='*.gradle.kts'
 
       - name: Set up Gradle 9.6
         uses: gradle/actions/setup-gradle@v4
