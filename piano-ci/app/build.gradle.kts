@@ -12,8 +12,8 @@ android {
         applicationId = "com.pianostudio.alpha"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.3.2-alpha08-r2.1"
+        versionCode = 9
+        versionName = "0.3.3-alpha09-p0"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         externalNativeBuild { cmake { cppFlags += listOf("-std=c++20", "-Wall", "-Wextra") } }
     }
@@ -33,6 +33,10 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:designsystem"))
+    implementation(project(":core:music"))
+    implementation(project(":core:data"))
+
     val composeBom = platform("androidx.compose:compose-bom:2026.04.01")
     implementation(composeBom)
     implementation("androidx.activity:activity-compose:1.11.0")
