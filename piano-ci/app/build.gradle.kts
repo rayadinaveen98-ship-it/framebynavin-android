@@ -12,8 +12,8 @@ android {
         applicationId = "com.pianostudio.alpha"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.1.0-alpha03"
+        versionCode = 4
+        versionName = "0.2.0-alpha04"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         externalNativeBuild { cmake { cppFlags += listOf("-std=c++20", "-Wall", "-Wextra") } }
     }
@@ -42,5 +42,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
+    testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
