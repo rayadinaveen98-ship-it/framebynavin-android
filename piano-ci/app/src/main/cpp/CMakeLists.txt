@@ -6,6 +6,7 @@ add_library(
     PianoAudioEngine.cpp
     PracticeNative.cpp
     StudioLessonBridge.cpp
+    R2NativeBridge.cpp
 )
 find_library(aaudio-lib aaudio)
 find_library(log-lib log)
