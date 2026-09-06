@@ -1,7 +1,15 @@
 pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories { google(); mavenCentral() }
 }
-rootProject.name = "PianoStudioAlpha01B"
-include(":app")
+
+rootProject.name = "PianoStudio"
+
+include(
+    ":app",
+    ":core:designsystem",
+    ":core:music",
+    ":core:data",
+)
