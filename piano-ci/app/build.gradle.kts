@@ -12,8 +12,8 @@ android {
         applicationId = "com.pianostudio.alpha"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.3.0-alpha05"
+        versionCode = 6
+        versionName = "0.3.1-alpha06-redesign"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         externalNativeBuild { cmake { cppFlags += listOf("-std=c++20", "-Wall", "-Wextra") } }
     }
