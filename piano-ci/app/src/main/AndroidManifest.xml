@@ -3,7 +3,8 @@
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="Piano Studio Alpha">
-        <activity android:name=".MainActivity" android:screenOrientation="unspecified" android:exported="true">
+        <activity android:name=".MainActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".LearningActivity" android:screenOrientation="unspecified" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
