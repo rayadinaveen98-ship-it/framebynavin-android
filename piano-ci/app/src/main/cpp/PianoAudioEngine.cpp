@@ -266,3 +266,29 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_pianostudio_alpha_PianoAudioEngine_nativeAllNotesOff(JNIEnv*, jobject) {
     gEngine.allNotesOff();
 }
+
+// The lesson surface intentionally shares the same single low-latency engine.
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_pianostudio_alpha_LessonAudioEngine_nativeStart(JNIEnv*, jobject) {
+    return gEngine.start() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_pianostudio_alpha_LessonAudioEngine_nativeStop(JNIEnv*, jobject) {
+    gEngine.stop();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_pianostudio_alpha_LessonAudioEngine_nativeNoteOn(JNIEnv*, jobject, jint midi, jint velocity) {
+    gEngine.noteOn(midi, velocity);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_pianostudio_alpha_LessonAudioEngine_nativeNoteOff(JNIEnv*, jobject, jint midi) {
+    gEngine.noteOff(midi);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_pianostudio_alpha_LessonAudioEngine_nativeAllNotesOff(JNIEnv*, jobject) {
+    gEngine.allNotesOff();
+}
