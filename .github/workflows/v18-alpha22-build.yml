@@ -8,6 +8,7 @@ on:
     paths:
       - "tools/v18_creator_rewards_alpha22.py"
       - "tools/v18_creator_rewards_alpha22_payload_*.txt"
+      - "tools/v18_creator_rewards_alpha22_compile_fix.py"
       - ".github/workflows/v18-alpha22-build.yml"
 
 concurrency:
@@ -104,6 +105,8 @@ jobs:
         run: python3 tools/v18_post_publish_rewards_alpha21_compile_fix.py
       - name: Apply alpha22 Creator Rewards V1
         run: python3 tools/v18_creator_rewards_alpha22.py
+      - name: Apply alpha22 instrumentation compatibility fix
+        run: python3 tools/v18_creator_rewards_alpha22_compile_fix.py
 
       - name: Product gate
         shell: bash
@@ -121,6 +124,7 @@ jobs:
           grep -Fq 'rewardLedger = vm.rewardLedger' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           grep -Fq 'V22RewardToast' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
           grep -Fq 'V22WeeklyMomentumStrip(creatorProgress)' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'rewardLedger: List<CreatorRewardLedgerEntry> = emptyList()' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
           grep -Fq 'V22CreatorProgressCard' app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt
           grep -Fq 'if (rewardStore.record(entry)) enqueueRewardFeedback(entry)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
           ! grep -Fq 'Complete your first project to start the streak.' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
