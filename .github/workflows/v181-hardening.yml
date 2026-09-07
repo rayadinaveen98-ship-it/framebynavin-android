@@ -42,6 +42,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 hardening/rc2/restore_source.py
+      - name: Apply Kotlin API compatibility fix
+        run: python3 hardening/rc2/compile_fix.py
       - name: Source and version gate
         shell: bash
         run: |
@@ -55,7 +57,7 @@ jobs:
           test -f app/src/androidTest/java/com/framebynavin/app/data/CreatorHardeningV181InstrumentedTest.kt
           echo 'Verified hardening source gate passed'
       - name: Package generated candidate source
-        run: tar -czf FrameByNavin-v1.8.1-hardening-source.tar.gz app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties hardening/rc2/restore_source.py
+        run: tar -czf FrameByNavin-v1.8.1-hardening-source.tar.gz app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties hardening/rc2/restore_source.py hardening/rc2/compile_fix.py
       - name: Upload candidate source
         uses: actions/upload-artifact@v4
         with:
