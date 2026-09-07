@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import urllib.parse
 import urllib.request
 import zipfile
 import lzma
@@ -20,6 +21,20 @@ ARCHIVE_SHA = '791744f1eb6d55ec4dc50176410958adfaf5a3650bfbcaf4e99fbde3b917c583'
 TAR_SHA = '7d35164839468b87f26aba80e268aad8c2d9a7d50982249618ba0bc8bf8a475d'
 PATCH_SHA = 'a5b92d5614ace5f45dd013987365185f74d086428851b9f324a897d19211e7cb'
 PATCH_RAW_SHA = 'f30ad6dedc921c072455f1778f993b66081caa4c286584beb60be772b9821c45'
+
+class SafeArtifactRedirect(urllib.request.HTTPRedirectHandler):
+    """Do not send GitHub's bearer token to signed artifact storage URLs."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        target = urllib.parse.urlsplit(newurl)
+        if target.scheme != 'https':
+            raise RuntimeError('Artifact redirect must use HTTPS')
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is not None and target.netloc != urllib.parse.urlsplit(req.full_url).netloc:
+            for name in list(redirected.headers):
+                if name.lower() in ('authorization', 'proxy-authorization', 'x-github-api-version'):
+                    del redirected.headers[name]
+            redirected.add_header('Accept', 'application/octet-stream')
+        return redirected
 
 def verified(data, expected, label):
     actual = hashlib.sha256(data).hexdigest()
@@ -49,7 +64,8 @@ def main():
         'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': 'FrameByNavin-Hardening-CI',
     })
-    with urllib.request.urlopen(req, timeout=180) as response:
+    opener = urllib.request.build_opener(SafeArtifactRedirect())
+    with opener.open(req, timeout=180) as response:
         archive = verified(response.read(), ARCHIVE_SHA, 'Alpha23 audit artifact')
     with zipfile.ZipFile(io.BytesIO(archive)) as z:
         names = z.namelist()
