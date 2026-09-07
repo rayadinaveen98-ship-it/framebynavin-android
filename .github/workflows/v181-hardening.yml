@@ -48,6 +48,8 @@ jobs:
         run: python3 hardening/rc2/locking_fix.py
       - name: Apply verified Studio UI regression fix
         run: python3 hardening/rc2/ui_fix.py
+      - name: Align Studio test with current workflow action label
+        run: python3 hardening/rc2/ui_label_fix.py
       - name: Source and version gate
         shell: bash
         run: |
@@ -66,12 +68,12 @@ jobs:
           import hashlib
           from pathlib import Path
           source = Path('app/src/androidTest/java/com/framebynavin/app/ui/V18CoreInteractionUiTest.kt').read_bytes()
-          assert hashlib.sha256(source).hexdigest() == '02deb5e4cb54c5f50a5667fd9853827395aba2ea4bb8740d02a64f2e01414b15', 'Studio regression fix is missing'
+          assert hashlib.sha256(source).hexdigest() == 'ca221152a234fea771ecbf86d51caf37b7aaa3655eae6b87d6d9f2519e1a8cc9', 'Studio workflow-label fix is missing'
           PY
           echo 'Verified hardening source gate passed'
       - name: Package generated candidate source
         run: |
-          tar -czf FrameByNavin-v1.8.1-hardening-source.tar.gz app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties hardening/rc2/restore_source.py hardening/rc2/compile_fix.py hardening/rc2/locking_fix.py hardening/rc2/locking.patch.xz.b64 hardening/rc2/ui_fix.py hardening/rc2/run_emulator_tests.sh
+          tar -czf FrameByNavin-v1.8.1-hardening-source.tar.gz app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties hardening/rc2/restore_source.py hardening/rc2/compile_fix.py hardening/rc2/locking_fix.py hardening/rc2/locking.patch.xz.b64 hardening/rc2/ui_fix.py hardening/rc2/ui_label_fix.py hardening/rc2/run_emulator_tests.sh
           sha256sum FrameByNavin-v1.8.1-hardening-source.tar.gz
       - name: Upload candidate source
         uses: actions/upload-artifact@v4
