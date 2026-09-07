@@ -2,14 +2,10 @@
     <uses-feature android:name="android.software.midi" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="Piano Studio">
+    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="Piano Studio" android:allowBackup="false">
         <activity android:name=".R2FreePianoActivity" android:screenOrientation="landscape" android:exported="false" />
         <activity android:name=".R2PracticeActivity" android:screenOrientation="landscape" android:exported="false" />
         <activity android:name=".R2LessonActivity" android:screenOrientation="landscape" android:exported="false" />
-        <activity android:name=".MainActivity" android:screenOrientation="landscape" android:exported="false" />
-        <activity android:name=".PracticeCoachActivity" android:screenOrientation="landscape" android:exported="false" />
-        <activity android:name=".LandscapeLessonActivity" android:screenOrientation="landscape" android:exported="false" />
-        <activity android:name=".LearningActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".LearningHubActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".StudioHomeActivity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>

@@ -1,7 +1,4 @@
-plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
-}
+plugins { id("com.android.library") }
 
 android {
     namespace = "com.pianostudio.core.data"
