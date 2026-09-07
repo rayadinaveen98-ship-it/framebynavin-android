@@ -1,34 +1,17 @@
 # FrameByNavin Android
 
-## v0.3.0 — Native Reminder Core
+FrameByNavin is an Android-first, offline-first Creator OS built with Kotlin and Jetpack Compose.
 
-The V0 cinematic theme is frozen. This milestone adds the first real Android reminder foundation:
+## Current development
 
-- task-linked reminders with saved exact timestamp
-- Android 13+ notification permission setup
-- Android 12+ exact-alarm access setup
-- `AlarmManager.setExactAndAllowWhileIdle` when exact-alarm access is granted
-- high-importance notification channel
-- reminder notification survives app closure / lock screen scheduling path
-- notification actions: **STARTED**, **SNOOZE 10m**, **DONE**
-- action state changes persist back to the local DataStore
-- completing/skipping a task cancels its pending alarm
-- one-minute / five-minute / fifteen-minute test shortcuts
-- custom date + time picker
-- priority and notes stored with each creator task
+The last verified installable release is `1.8.0-product-alpha23` (versionCode 63), built from commit `4a206ef42697897c9e5c494d679e1be94e5a81a8` by GitHub Actions run `34054266713`.
 
-### Development signing
+The `feature/v1.8.1-hardening` branch preserves that history and contains an unverified hardening candidate. The candidate is not a release until its Android build, tests, and APK verification pass. The generated Alpha23 source, not the older checked-in v1.7.5 source, is the starting point for this work.
 
-Debug APKs from v0.3 onward use the repository-local `keystore/REMOVED_PRIVATE_SIGNING_VALUE.jks` so test builds have a stable Android signature across GitHub Actions runners. This key is **development-only** and must never be used for a Play Store / production release.
+The stabilization scope covers publication timestamps, local persistence conflicts, backup and restore integrity, safe manual cloud backups, account identity, navigation, and accessibility. No production cloud migration is required by the current candidate.
 
-### V0.3 acceptance test
+## Build and verification
 
-1. Install the APK.
-2. Tap the red alarm button above the bottom navigation.
-3. Enable Notifications and Allow Exact Alarms if shown.
-4. Select a task, choose `1 MIN`, then Set Reminder.
-5. Completely close FrameByNavin and lock the phone.
-6. The reminder should arrive near the selected exact time.
-7. Test STARTED, SNOOZE 10m, and DONE from the notification.
+GitHub Actions is the authoritative Android build environment. The historical Alpha23 workflow remains available. The hardening workflow reconstructs the exact original audit source, applies a checksum-verified patch, and runs the Android verification gates. No production signing credentials are committed or required for development APK builds.
 
-Boot recovery, voice TTS, alarm/full-screen escalation, and smart escalation are intentionally deferred to later milestones.
+Do not use an unverified candidate APK for irreplaceable data. Preserve an independent backup before installing development updates.
