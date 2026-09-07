@@ -44,6 +44,8 @@ jobs:
         run: python3 hardening/rc2/restore_source.py
       - name: Apply Kotlin API compatibility fix
         run: python3 hardening/rc2/compile_fix.py
+      - name: Apply verified coroutine locking fix
+        run: python3 hardening/rc2/locking_fix.py
       - name: Source and version gate
         shell: bash
         run: |
@@ -54,10 +56,14 @@ jobs:
           test -f app/src/main/java/com/framebynavin/app/data/CreatorDataGate.kt
           test -f app/src/main/java/com/framebynavin/app/data/CreatorDeltaEngine.kt
           test -f app/src/test/java/com/framebynavin/app/data/CreatorHardeningV181Test.kt
+          test -f app/src/test/java/com/framebynavin/app/data/CreatorDataGateV181Test.kt
           test -f app/src/androidTest/java/com/framebynavin/app/data/CreatorHardeningV181InstrumentedTest.kt
+          test -f dev-signing/framebynavin-public-debug.jks
           echo 'Verified hardening source gate passed'
       - name: Package generated candidate source
-        run: tar -czf FrameByNavin-v1.8.1-hardening-source.tar.gz app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties hardening/rc2/restore_source.py hardening/rc2/compile_fix.py
+        run: |
+          tar -czf FrameByNavin-v1.8.1-hardening-source.tar.gz app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties hardening/rc2/restore_source.py hardening/rc2/compile_fix.py hardening/rc2/locking_fix.py hardening/rc2/locking.patch.xz.b64
+          sha256sum FrameByNavin-v1.8.1-hardening-source.tar.gz
       - name: Upload candidate source
         uses: actions/upload-artifact@v4
         with:
@@ -69,13 +75,35 @@ jobs:
         run: gradle :app:lintDebug --stacktrace
       - name: Compile instrumentation tests
         run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Build APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Verify APK identity and signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          "$APKSIGNER" verify --print-certs "$APK" | tee hardening/rc2/apk-signature.txt
+          grep -Fqi 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' hardening/rc2/apk-signature.txt
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.framebynavin.app' versionCode='64' versionName='1.8.1-hardening-rc1'"
+          sha256sum "$APK" | tee FrameByNavin-v1.8.1-hardening.sha256
+      - name: Upload unverified test candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.1-hardening-UNVERIFIED
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            FrameByNavin-v1.8.1-hardening.sha256
+            hardening/rc2/apk-signature.txt
       - name: Enable KVM for Android emulator
         shell: bash
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Run interaction tests on Android emulator
+      - name: Run focused regression and complete suite on Android emulator
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -83,20 +111,18 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: gradle :app:connectedDebugAndroidTest --stacktrace
-      - name: Build APK
-        run: gradle :app:assembleDebug --stacktrace
-      - name: Verify APK identity and signature
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK=app/build/outputs/apk/debug/app-debug.apk
-          test -s "$APK"
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          "$APKSIGNER" verify --print-certs "$APK"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
-          "$AAPT" dump badging "$APK" | grep -F "versionCode='64' versionName='1.8.1-hardening-rc1'"
-          sha256sum "$APK" | tee FrameByNavin-v1.8.1-hardening.sha256
+          script: |
+            set -euo pipefail
+            diagnostics() {
+              mkdir -p hardening/diagnostics
+              pid="$(adb shell pidof com.framebynavin.app 2>/dev/null | tr -d '\r' || true)"
+              if [ -n "$pid" ]; then adb shell kill -3 "$pid" || true; sleep 2; fi
+              adb logcat -d -v threadtime -t 12000 > hardening/diagnostics/logcat.txt || true
+              adb shell dumpsys meminfo com.framebynavin.app > hardening/diagnostics/meminfo.txt || true
+            }
+            trap diagnostics EXIT
+            gradle :app:connectedDebugAndroidTest --stacktrace -Pandroid.testInstrumentationRunnerArguments.hardeningTestEnvironment=ci-emulator '-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.data.V18ReliabilityAlpha18InstrumentationTest#taskStore_serializesConcurrentReadModifyWrite'
+            gradle :app:connectedDebugAndroidTest --stacktrace -Pandroid.testInstrumentationRunnerArguments.hardeningTestEnvironment=ci-emulator
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
@@ -104,6 +130,7 @@ jobs:
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             FrameByNavin-v1.8.1-hardening.sha256
+            hardening/rc2/apk-signature.txt
       - name: Upload diagnostic reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -115,3 +142,4 @@ jobs:
             app/build/reports/lint-results-*.html
             app/build/outputs/androidTest-results/
             app/build/reports/androidTests/
+            hardening/diagnostics/
