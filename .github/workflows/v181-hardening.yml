@@ -112,7 +112,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             diagnostics() {
               mkdir -p hardening/diagnostics
               pid="$(adb shell pidof com.framebynavin.app 2>/dev/null | tr -d '\r' || true)"
