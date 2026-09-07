@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PARTS = ROOT / "hotfix" / "v182"
 CHUNK_SHAS = (
     "54f500373394618b7b51ae5119b216af016053c63f5150ea4eafc71467e3a2da",
-    "1eaff81a3d264b458d3aee4f11e1f822256e2527e318592db02f3faabacda37",
+    "1eaff81a3d264b458d3aee4f11e1f822256e2527e318592db02f3faabacda37b",
     "769ddf0d51f4487fcdd43fb3b649cd496ce9b3e820a30b07d5e870a1df2ed629",
     "4197f5e1cffabe189b4c2ac5b7c3010c166ec4337febf40bf586c3f2a63933c8",
 )
