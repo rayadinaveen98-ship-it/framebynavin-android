@@ -101,6 +101,17 @@ jobs:
         with:
           name: PianoStudio-P0-build
           path: /tmp/piano-p0-build
+      - name: Normalize and verify downloaded APK paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s /tmp/piano-p0-build/debug/app-debug.apk
+          test -s /tmp/piano-p0-build/androidTest/debug/app-debug-androidTest.apk
+          mkdir -p /tmp/piano-p0-apks
+          cp /tmp/piano-p0-build/debug/app-debug.apk /tmp/piano-p0-apks/app-debug.apk
+          cp /tmp/piano-p0-build/androidTest/debug/app-debug-androidTest.apk /tmp/piano-p0-apks/app-debug-androidTest.apk
+          unzip -tq /tmp/piano-p0-apks/app-debug.apk | tail -1
+          sha256sum /tmp/piano-p0-apks/*.apk
       - name: Run actual activity and navigation smoke tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -108,14 +119,18 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-metrics
           disable-animations: true
           script: |
-            adb install -r /tmp/piano-p0-build/app-debug.apk
-            adb install -r /tmp/piano-p0-build/app-debug-androidTest.apk
-            adb shell am instrument -w -r -e class com.pianostudio.alpha.P0NavigationSmokeTest com.pianostudio.alpha.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/piano-p0-instrumentation.txt
-            grep -q '^OK (2 tests)' /tmp/piano-p0-instrumentation.txt
+            bash -euo pipefail <<'P0_RUNTIME'
             mkdir -p /tmp/piano-p0-screens
+            trap 'adb logcat -d -v time > /tmp/piano-p0-logcat.txt 2>/dev/null || true' EXIT
+            adb install -r /tmp/piano-p0-apks/app-debug.apk
+            adb install -r /tmp/piano-p0-apks/app-debug-androidTest.apk
+            adb logcat -c
+            adb shell am instrument -w -r -e class com.pianostudio.alpha.P0NavigationSmokeTest com.pianostudio.alpha.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/piano-p0-instrumentation.txt
+            grep -Eq '^OK \(2 tests?\)' /tmp/piano-p0-instrumentation.txt
+            ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/piano-p0-instrumentation.txt
             adb shell am start -W -n com.pianostudio.alpha/.StudioHomeActivity
             sleep 2
             adb exec-out screencap -p > /tmp/piano-p0-screens/home.png
@@ -124,7 +139,9 @@ jobs:
             adb exec-out screencap -p > /tmp/piano-p0-screens/learn.png
             adb shell am start -W -n com.pianostudio.alpha/.StudioHomeActivity
             adb shell input keyevent 4
-            adb logcat -d -v time > /tmp/piano-p0-logcat.txt
+            test -n "$(adb shell pidof com.pianostudio.alpha | tr -d '\r')"
+            echo 'P0 emulator navigation gate passed.'
+            P0_RUNTIME
       - name: Upload emulator evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -150,8 +167,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp /tmp/piano-p0-build/app-debug.apk dist/PianoStudio-alpha-0.3P0-debug.apk
+          cp /tmp/piano-p0-build/debug/app-debug.apk dist/PianoStudio-alpha-0.3P0-debug.apk
           cd dist
+          unzip -tq PianoStudio-alpha-0.3P0-debug.apk | tail -1
           sha256sum PianoStudio-alpha-0.3P0-debug.apk > PianoStudio-alpha-0.3P0-debug.apk.sha256
           printf '%s\n' "Commit: $GITHUB_SHA" "Version: 0.3.3-alpha09-p0 (9)" "Build and emulator navigation gates passed." > verification.txt
       - uses: actions/upload-artifact@v4
