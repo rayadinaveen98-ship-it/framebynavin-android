@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# This script is executed only by the isolated Android CI emulator job.
-# The emulator runner invokes each `script` line separately, so all shell
-# functions, traps, and test commands must live in this single file.
+# Execute every command in one Bash process under the isolated CI emulator.
 mkdir -p hardening/diagnostics
 
 capture_diagnostics() {
@@ -24,10 +22,13 @@ COMMON_ARGS=(
   -Pandroid.testInstrumentationRunnerArguments.hardeningTestEnvironment=ci-emulator
 )
 
-# First reproduce the historical concurrent-write regression in isolation.
+# Reproduce the historical concurrent-write regression in isolation.
 gradle :app:connectedDebugAndroidTest "${COMMON_ARGS[@]}" \
   '-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.data.V18ReliabilityAlpha18InstrumentationTest#taskStore_serializesConcurrentReadModifyWrite'
 
-# Then run every instrumentation test. No failing or skipped test is silently
-# converted to success; the Gradle exit status remains the release gate.
+# Verify the Studio scroll and callback regression independently.
+gradle :app:connectedDebugAndroidTest "${COMMON_ARGS[@]}" \
+  '-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V18CoreInteractionUiTest#studio_expandFocusAndAdvanceDispatchCorrectProject'
+
+# Run the complete instrumentation suite. A failing test must fail the job.
 gradle :app:connectedDebugAndroidTest "${COMMON_ARGS[@]}"
