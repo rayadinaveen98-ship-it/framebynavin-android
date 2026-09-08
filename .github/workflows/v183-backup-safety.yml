@@ -7,6 +7,7 @@ on:
       - fix/v1.8.3-backup-safety
     paths:
       - '.github/workflows/v183-backup-safety.yml'
+      - 'foundation/v183/**'
 
 permissions:
   contents: write
