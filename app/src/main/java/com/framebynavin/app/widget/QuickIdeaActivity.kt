@@ -20,8 +20,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorIdea
+import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorWriteConflict
 import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.ui.theme.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,6 +49,7 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
     val store = remember { IdeaVaultStore(context.applicationContext) }
     var title by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -85,25 +89,29 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
                 shape = RoundedCornerShape(18.dp),
             )
 
+            saveError?.let { error ->
+                Text(error, color = RecRed, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
+            }
             Spacer(Modifier.weight(1f))
             Button(
                 onClick = {
                     val clean = title.trim()
                     if (clean.isBlank() || saving) return@Button
                     saving = true
+                    saveError = null
+                    val epoch = CreatorDataGate.generation(context.applicationContext)
+                    val idea = CreatorIdea(id = UUID.randomUUID().toString(), title = clean)
                     scope.launch {
                         runCatching {
-                            withContext(Dispatchers.IO) {
-                                val current = store.load()
-                                val idea = CreatorIdea(id = UUID.randomUUID().toString(), title = clean)
-                                store.save(listOf(idea) + current)
-                            }
+                            withContext(Dispatchers.IO) { store.capture(idea, epoch) }
                         }.onSuccess {
                             Toast.makeText(context, "Saved to Idea Vault", Toast.LENGTH_SHORT).show()
                             onClose()
-                        }.onFailure {
+                        }.onFailure { error ->
+                            if (error is CancellationException) throw error
                             saving = false
-                            Toast.makeText(context, "Couldn't save idea", Toast.LENGTH_SHORT).show()
+                            saveError = if (error is CreatorWriteConflict) error.message
+                                else "Couldn't save idea. Your draft is still here. Try again."
                         }
                     }
                 },

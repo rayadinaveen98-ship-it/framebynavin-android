@@ -56,6 +56,25 @@ class IdeaVaultStore(private val context: Context) {
         }
     }
 
+    /** Append a quick capture against the latest vault, never a previously loaded list.
+     * The caller captures the epoch before queuing work so a restore cannot replay an old edit.
+     */
+    suspend fun capture(idea: CreatorIdea, expectedGeneration: Long): CreatorIdea =
+        CreatorDataGate.readyTransaction(context) {
+            CreatorDataGate.checkGeneration(context, expectedGeneration)
+            val normalized = idea.copy(title = idea.title.trim())
+            require(normalized.id.isNotBlank() && normalized.title.isNotBlank()) {
+                "An idea needs an id and title"
+            }
+            mutate { current ->
+                if (current.any { it.id == normalized.id }) {
+                    throw CreatorWriteConflict("This idea was already saved. Review the latest vault before retrying.")
+                }
+                listOf(normalized) + current
+            }
+            normalized
+        }
+
     suspend fun applyDelta(base: List<CreatorIdea>, desired: List<CreatorIdea>, expectedGeneration: Long): List<CreatorIdea> = CreatorDataGate.transaction {
         mutationMutex.withLock {
             if (CreatorDataGate.generation(context) != expectedGeneration)
