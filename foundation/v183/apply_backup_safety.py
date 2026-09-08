@@ -64,6 +64,15 @@ def main():
     patch_path.write_bytes(patch)
     subprocess.run(["git", "apply", "--check", str(patch_path)], cwd=ROOT, check=True)
     subprocess.run(["git", "apply", str(patch_path)], cwd=ROOT, check=True)
+    # Exact compiler correction for the reviewed patch: a nonmatching ledger key
+    # maps to null, so the subsequent filter must be nullable-safe.
+    ledger_path = ROOT / "app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt"
+    ledger = ledger_path.read_text()
+    old = '        }.takeIf { it.isNotBlank() }'
+    new = '        }?.takeIf { it.isNotBlank() }'
+    if ledger.count(old) != 1 or new in ledger:
+        raise RuntimeError("Unexpected alarm-ledger source; refusing compatibility correction")
+    ledger_path.write_text(ledger.replace(old, new, 1))
     subprocess.run(["git", "diff", "--check"], cwd=ROOT, check=True)
     gradle = (ROOT / "app/build.gradle.kts").read_text()
     if 'versionCode = 66' not in gradle or 'versionName = "1.8.3-foundation-rc2"' not in gradle:
