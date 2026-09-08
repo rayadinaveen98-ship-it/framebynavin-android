@@ -11,6 +11,9 @@ import com.framebynavin.app.reminders.VoiceReminderService
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import android.util.AtomicFile
+import java.security.MessageDigest
+import java.util.UUID
 
 /** Versioned, offline-only backup/restore for the local Creator OS. */
 class CreatorBackupManager(private val context: Context) {
@@ -30,6 +33,11 @@ class CreatorBackupManager(private val context: Context) {
         val weeklyJson: String,
         val settingsJson: String,
         val smartConfigJson: String,
+        val postPublishJson: String,
+        val rewardsJson: String,
+        val heroJson: String? = null,
+        val youtubeLinksJson: String? = null,
+        val youtubeMilestonesJson: String? = null,
     )
 
     private val appContext = context.applicationContext
@@ -38,13 +46,15 @@ class CreatorBackupManager(private val context: Context) {
     private val weeklyStore = WeeklyScheduleStore(appContext)
     private val settingsStore = CreatorOsSettingsStore(appContext)
     private val smartConfigStore = SmartEscalationConfigStore(appContext)
+    private val postPublishStore = CreatorPostPublishStore(appContext)
+    private val rewardStore = CreatorRewardStore(appContext)
     private val regularScheduler = ReminderScheduler(appContext)
     private val smartScheduler = SmartEscalationScheduler(appContext)
     private val smartSessions = SmartSessionStore(appContext)
 
-    suspend fun createBackup(): String {
-        val snapshot = snapshot()
-        return encode(snapshot, System.currentTimeMillis())
+    suspend fun createBackup(): String = CreatorDataGate.transaction {
+        recoverPendingRestoreUnlocked()
+        encode(snapshot(), System.currentTimeMillis())
     }
 
     fun validate(raw: String): BackupPreview {
@@ -58,12 +68,28 @@ class CreatorBackupManager(private val context: Context) {
         val weeklyRaw = root.getString("weeklySchedule")
         val settingsRaw = root.getString("settings")
         val smartRaw = root.optString("smartEscalationConfig", "{}")
+        val postPublishRaw = root.optString("postPublish", "[]")
+        val rewardsRaw = root.optString("rewards", "[]")
+        if (schema >= 3) {
+            require(root.has("payloadSha256")) { "Backup integrity information is missing" }
+            require(sha256(fingerprint(root, schema)) == root.getString("payloadSha256")) { "Backup integrity check failed" }
+        }
+        root.optString("personalFrames", null)?.let(CreatorHeroArchive::validate)
+        if (schema >= 4) {
+            require(root.has("youtubeProjectLinks") && root.has("youtubeMilestones")) {
+                "Backup is missing YouTube project metadata"
+            }
+        }
+        root.optString("youtubeProjectLinks", null)?.let { JSONObject(it) }
+        root.optString("youtubeMilestones", null)?.let { JSONObject(it) }
 
         val projectCount = taskStore.validateJson(tasksRaw)
         val ideaCount = ideaStore.validateJson(ideasRaw)
         val weeklyCount = weeklyStore.validateJson(weeklyRaw)
         settingsStore.validateJson(settingsRaw)
         JSONObject(smartRaw)
+        postPublishStore.validateJson(postPublishRaw)
+        rewardStore.validateJson(rewardsRaw)
 
         val taskArray = JSONArray(tasksRaw)
         var activeReminders = 0
@@ -88,36 +114,87 @@ class CreatorBackupManager(private val context: Context) {
         )
     }
 
-    /**
-     * Replace restore. The previous complete local state is written to cache first and also kept
-     * in memory. Any failure rolls every store back before the exception escapes.
-     */
-    suspend fun restore(raw: String): BackupPreview {
+    /** Restore is serialized with local writes. A durable pre-restore journal survives process death. */
+    suspend fun restore(raw: String): BackupPreview = CreatorDataGate.transaction {
         val preview = validate(raw)
-        val before = snapshot()
-        val rollbackFile = File(appContext.cacheDir, "framebynavin-pre-restore.fbnbackup")
-        rollbackFile.writeText(encode(before, System.currentTimeMillis()))
-
-        val currentTasks = taskStore.load()
-        stopAndCancel(currentTasks)
-        smartSessions.clearAll()
-
+        recoverPendingRestoreUnlocked()
+        val before = encode(snapshot(), System.currentTimeMillis())
+        val recovery = retainRecovery(before)
+        val marker = JSONObject().put("file", recovery.name).put("sha256", sha256(before))
+        atomicWrite(pendingFile(), marker.toString())
+        CreatorDataGate.invalidate(appContext)
         try {
+            stopAndCancel(taskStore.load())
+            smartSessions.clearAll()
             importSnapshot(decodeSnapshot(raw))
-            val restoredTasks = taskStore.load()
-            scheduleFuture(restoredTasks)
-            rollbackFile.delete()
-            return preview
+            scheduleFuture(taskStore.load())
+            clearPending()
+            preview
         } catch (error: Throwable) {
-            runCatching {
-                stopAndCancel(taskStore.load())
-                smartSessions.clearAll()
-                importSnapshot(before)
-                scheduleFuture(taskStore.load())
+            CreatorDataGate.nonCancellable {
+                try {
+                    stopAndCancel(taskStore.load())
+                    smartSessions.clearAll()
+                    importSnapshot(decodeSnapshot(before))
+                    scheduleFuture(taskStore.load())
+                    clearPending()
+                } catch (rollbackError: Throwable) {
+                    error.addSuppressed(rollbackError)
+                    // Do not discard the journal when recovery is incomplete.
+                }
             }
             throw error
         }
     }
+
+    /** Called before normal app startup and by maintenance workers. Never silently discard a journal. */
+    suspend fun recoverPendingRestore(): Boolean = CreatorDataGate.transaction {
+        recoverPendingRestoreUnlocked()
+    }
+
+    private suspend fun recoverPendingRestoreUnlocked(): Boolean {
+        val pending = pendingFile()
+        if (!pending.isFile) return false
+        val marker = JSONObject(AtomicFile(pending).openRead().bufferedReader().use { it.readText() })
+        val name = marker.getString("file")
+        require(name.matches(Regex("pre-restore-[a-zA-Z0-9_-]+\\.fbnbackup"))) { "Invalid recovery filename" }
+        val recovery = File(recoveryDir(), name)
+        val raw = AtomicFile(recovery).openRead().bufferedReader().use { it.readText() }
+        require(sha256(raw) == marker.getString("sha256")) { "Recovery integrity check failed" }
+        validate(raw)
+        CreatorDataGate.invalidate(appContext)
+        stopAndCancel(taskStore.load())
+        smartSessions.clearAll()
+        importSnapshot(decodeSnapshot(raw))
+        scheduleFuture(taskStore.load())
+        clearPending()
+        return true
+    }
+
+    private fun recoveryDir(): File = File(appContext.filesDir, "creator_restore_recovery_v181").apply { mkdirs() }
+    private fun pendingFile() = File(recoveryDir(), "pending.json")
+    private fun retainRecovery(raw: String): File {
+        val file = File(recoveryDir(), "pre-restore-${UUID.randomUUID()}.fbnbackup")
+        atomicWrite(file, raw)
+        return file
+    }
+    private fun clearPending() { AtomicFile(pendingFile()).delete() }
+    private fun atomicWrite(file: File, raw: String) {
+        val atomic = AtomicFile(file)
+        var output: java.io.FileOutputStream? = null
+        try {
+            output = atomic.startWrite()
+            output.write(raw.toByteArray(Charsets.UTF_8))
+            atomic.finishWrite(output)
+        } catch (error: Throwable) {
+            output?.let(atomic::failWrite)
+            throw error
+        }
+    }
+
+    fun recoveryCopies(): List<File> = recoveryDir().listFiles().orEmpty()
+        .filter { it.name.startsWith("pre-restore-") && it.name.endsWith(".fbnbackup") }
+        .sortedByDescending { it.lastModified() }
 
     private suspend fun snapshot(): Snapshot = Snapshot(
         tasksJson = taskStore.exportJson(),
@@ -125,18 +202,43 @@ class CreatorBackupManager(private val context: Context) {
         weeklyJson = weeklyStore.exportJson(),
         settingsJson = settingsStore.exportJson(),
         smartConfigJson = smartConfigStore.exportJson(),
+        postPublishJson = postPublishStore.exportJson(),
+        rewardsJson = rewardStore.exportJson(),
+        heroJson = CreatorHeroArchive.export(appContext),
+        youtubeLinksJson = youtubeLinksRaw(),
+        youtubeMilestonesJson = youtubeMilestonesRaw(),
     )
 
-    private fun encode(snapshot: Snapshot, createdAtMillis: Long): String = JSONObject()
-        .put("format", FORMAT)
-        .put("schemaVersion", SCHEMA_VERSION)
-        .put("createdAtMillis", createdAtMillis)
-        .put("tasks", snapshot.tasksJson)
-        .put("ideas", snapshot.ideasJson)
-        .put("weeklySchedule", snapshot.weeklyJson)
-        .put("settings", snapshot.settingsJson)
-        .put("smartEscalationConfig", snapshot.smartConfigJson)
-        .toString()
+    private fun encode(snapshot: Snapshot, createdAtMillis: Long): String {
+        val root = JSONObject()
+            .put("format", FORMAT)
+            .put("schemaVersion", SCHEMA_VERSION)
+            .put("createdAtMillis", createdAtMillis)
+            .put("tasks", snapshot.tasksJson)
+            .put("ideas", snapshot.ideasJson)
+            .put("weeklySchedule", snapshot.weeklyJson)
+            .put("settings", snapshot.settingsJson)
+            .put("smartEscalationConfig", snapshot.smartConfigJson)
+            .put("postPublish", snapshot.postPublishJson)
+            .put("rewards", snapshot.rewardsJson)
+        snapshot.heroJson?.let { root.put("personalFrames", it) }
+        snapshot.youtubeLinksJson?.let { root.put("youtubeProjectLinks", it) }
+        snapshot.youtubeMilestonesJson?.let { root.put("youtubeMilestones", it) }
+        return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
+    }
+
+    private fun fingerprint(root: JSONObject, schema: Int): String = buildString {
+        val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
+            "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
+        val allKeys = if (schema >= 4) keys + listOf("youtubeProjectLinks", "youtubeMilestones") else keys
+        allKeys.forEach { key ->
+            val value = root.optString(key, "")
+            append(key.length).append(':').append(key).append(value.length).append(':').append(value)
+        }
+    }
+
+    private fun sha256(raw: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(raw.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
     private fun decodeSnapshot(raw: String): Snapshot {
         val root = JSONObject(raw)
@@ -146,6 +248,11 @@ class CreatorBackupManager(private val context: Context) {
             weeklyJson = root.getString("weeklySchedule"),
             settingsJson = root.getString("settings"),
             smartConfigJson = root.optString("smartEscalationConfig", "{}"),
+            postPublishJson = root.optString("postPublish", "[]"),
+            rewardsJson = root.optString("rewards", "[]"),
+            heroJson = root.optString("personalFrames", null),
+            youtubeLinksJson = root.optString("youtubeProjectLinks", null),
+            youtubeMilestonesJson = root.optString("youtubeMilestones", null),
         )
     }
 
@@ -156,6 +263,49 @@ class CreatorBackupManager(private val context: Context) {
         weeklyStore.importJson(snapshot.weeklyJson)
         settingsStore.importJson(snapshot.settingsJson)
         smartConfigStore.importJson(snapshot.smartConfigJson)
+        postPublishStore.importJson(snapshot.postPublishJson)
+        rewardStore.importJson(snapshot.rewardsJson)
+        snapshot.heroJson?.let { CreatorHeroArchive.import(appContext, it) }
+        snapshot.youtubeLinksJson?.let { importYoutubeLinks(it) }
+        snapshot.youtubeMilestonesJson?.let { importYoutubeMilestones(it) }
+    }
+
+    /** Upgrade an already validated legacy snapshot while preserving its original checksum check. */
+    fun attachLegacyYoutubeData(raw: String, links: String, milestones: String): String {
+        validate(raw)
+        JSONObject(links)
+        JSONObject(milestones)
+        val root = JSONObject(raw)
+        if (root.optInt("schemaVersion") >= 4) return raw
+        root.put("schemaVersion", SCHEMA_VERSION)
+            .put("youtubeProjectLinks", root.optString("youtubeProjectLinks", links))
+            .put("youtubeMilestones", root.optString("youtubeMilestones", milestones))
+        return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
+    }
+
+    private fun youtubeLinksRaw(): String = appContext
+        .getSharedPreferences("youtube_analytics_v11", Context.MODE_PRIVATE)
+        .getString("video_project_links", "{}").orEmpty()
+
+    private fun importYoutubeLinks(raw: String) {
+        JSONObject(raw)
+        check(appContext.getSharedPreferences("youtube_analytics_v11", Context.MODE_PRIVATE)
+            .edit().putString("video_project_links", raw).commit()) {
+            "Could not restore YouTube project links"
+        }
+    }
+
+    private fun youtubeMilestonesRaw(): String = JSONObject().apply {
+        appContext.getSharedPreferences("youtube_milestones_v12", Context.MODE_PRIVATE)
+            .all.forEach { (key, value) -> if (value is String) put(key, value) }
+    }.toString()
+
+    private fun importYoutubeMilestones(raw: String) {
+        val obj = JSONObject(raw)
+        val editor = appContext.getSharedPreferences("youtube_milestones_v12", Context.MODE_PRIVATE)
+            .edit().clear()
+        obj.keys().forEach { key -> editor.putString(key, obj.getString(key)) }
+        check(editor.commit()) { "Could not restore YouTube milestones" }
     }
 
     private fun stopAndCancel(tasks: List<CreatorTask>) {
@@ -184,6 +334,6 @@ class CreatorBackupManager(private val context: Context) {
 
     companion object {
         const val FORMAT = "FrameByNavinBackup"
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 4
     }
 }

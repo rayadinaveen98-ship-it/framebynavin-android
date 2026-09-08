@@ -51,6 +51,7 @@ object CreatorWorkflowEngine {
             )
 
             p == "youtube" && type == "short" -> shortVideoTemplate("youtube_short", "YouTube Short")
+            p == "youtube" && type == "video" -> videoTemplate("youtube_video", "YouTube Video")
             p == "instagram" && type == "reel" -> shortVideoTemplate("instagram_reel", "Instagram Reel")
 
             p == "instagram" && type == "post" -> WorkflowTemplate(
@@ -112,6 +113,63 @@ object CreatorWorkflowEngine {
                 ),
             )
 
+            p == "facebook" && type == "reel" -> shortVideoTemplate("facebook_reel", "Facebook Reel")
+            p == "facebook" && type == "video" -> videoTemplate("facebook_video", "Facebook Video")
+            p == "facebook" && type == "post" -> socialPostTemplate("facebook_post", "Facebook Post", includePromote = true)
+
+            p == "linkedin" && type == "post" -> WorkflowTemplate(
+                id = "linkedin_post",
+                label = "LinkedIn Post",
+                stages = listOf(
+                    stage("angle", "Angle", "Lock the useful idea and audience takeaway"),
+                    stage("draft", "Draft", "Write the post with a clear opening and structure"),
+                    stage("proof", "Proof", "Check claims, links and wording"),
+                    stage("published", "Publish", "Publish and verify the post"),
+                    stage("engage", "Engage", "Reply to useful comments and capture learning"),
+                ),
+            )
+            p == "linkedin" && type == "article" -> articleTemplate("linkedin_article", "LinkedIn Article")
+            p == "linkedin" && type == "video" -> videoTemplate("linkedin_video", "LinkedIn Video")
+
+            p == "podcast" && type == "episode" -> WorkflowTemplate(
+                id = "podcast_episode",
+                label = "Podcast Episode",
+                stages = listOf(
+                    stage("idea", "Idea", "Lock the episode promise and audience"),
+                    stage("research", "Research", "Collect references, guests or talking points"),
+                    stage("outline", "Outline", "Build the episode flow"),
+                    stage("record", "Record", "Record the final episode"),
+                    stage("edit", "Edit", "Edit audio and complete quality control"),
+                    stage("metadata", "Metadata", "Prepare title, description and artwork"),
+                    stage("published", "Publish", "Publish and verify the episode"),
+                    stage("promote", "Promote", "Share the episode and useful clips"),
+                ),
+            )
+            p == "podcast" && type == "clip" -> WorkflowTemplate(
+                id = "podcast_clip",
+                label = "Podcast Clip",
+                stages = listOf(
+                    stage("select", "Select", "Choose the strongest moment"),
+                    stage("edit", "Edit", "Finish the clip and captions"),
+                    stage("copy", "Copy", "Write the supporting post copy"),
+                    stage("published", "Publish", "Publish and verify the clip"),
+                ),
+            )
+
+            p == "blog / newsletter" && type == "article" -> articleTemplate("creator_article", "Article")
+            p == "blog / newsletter" && type == "newsletter" -> WorkflowTemplate(
+                id = "creator_newsletter",
+                label = "Newsletter",
+                stages = listOf(
+                    stage("idea", "Idea", "Lock the main promise for this edition"),
+                    stage("outline", "Outline", "Structure the edition and supporting sections"),
+                    stage("draft", "Draft", "Write the full newsletter"),
+                    stage("edit", "Edit", "Tighten writing, links and formatting"),
+                    stage("send", "Send", "Send or schedule the newsletter"),
+                    stage("review", "Review", "Review response and capture what to repeat"),
+                ),
+            )
+
             else -> WorkflowTemplate(
                 id = "creator_default",
                 label = "$platform $contentType".trim(),
@@ -123,6 +181,24 @@ object CreatorWorkflowEngine {
                     stage("promote", "Promote", "Share it where it supports your creator plan"),
                 ),
             )
+        }
+    }
+
+    /** Send is a publication event only when the creator confirms it was actually sent. */
+    fun isPublicationStage(stage: WorkflowStage): Boolean = stage.id == "published" || stage.id == "send"
+
+    fun hasPublicationStage(task: CreatorTask): Boolean = templateFor(task).stages.any(::isPublicationStage)
+
+    fun publicationStageIndex(task: CreatorTask): Int = templateFor(task).stages.indexOfFirst(::isPublicationStage)
+
+    fun stageActionLabel(task: CreatorTask): String {
+        if (task.status == TaskStatus.DONE) return "PROJECT COMPLETE"
+        val stage = currentStage(task)
+        return when {
+            isPublicationStage(stage) && task.publishedAtMillis <= 0L -> "MARK PUBLISHED"
+            isPublicationStage(stage) -> "COMPLETE STEP"
+            stageIndex(task) == templateFor(task).stages.lastIndex -> "FINISH PROJECT"
+            else -> "COMPLETE STEP"
         }
     }
 
@@ -166,8 +242,49 @@ object CreatorWorkflowEngine {
         if (task.status == TaskStatus.DONE) templateFor(task).stages.size else stageIndex(task)
 
     fun nextAction(task: CreatorTask): String =
-        if (task.status == TaskStatus.DONE) "Published and complete"
+        if (task.status == TaskStatus.DONE) "Project complete"
         else currentStage(task).action
+
+    private fun socialPostTemplate(id: String, label: String, includePromote: Boolean) = WorkflowTemplate(
+        id = id,
+        label = label,
+        stages = buildList {
+            add(stage("idea", "Idea", "Lock the post idea and audience takeaway"))
+            add(stage("create", "Create", "Create the final post or visual"))
+            add(stage("caption", "Caption", "Write the copy, context and call to action"))
+            add(stage("review", "Review", "Check presentation, wording and links"))
+            add(stage("published", "Publish", "Publish and verify the post"))
+            if (includePromote) add(stage("promote", "Promote", "Share it where it supports the creator plan"))
+        },
+    )
+
+    private fun videoTemplate(id: String, label: String) = WorkflowTemplate(
+        id = id,
+        label = label,
+        stages = listOf(
+            stage("idea", "Idea", "Lock the video angle and audience promise"),
+            stage("script", "Script", "Prepare the script or talking points"),
+            stage("record", "Record", "Record the final video or narration"),
+            stage("edit", "Edit", "Finish the video edit"),
+            stage("metadata", "Metadata", "Prepare title, caption and cover"),
+            stage("published", "Publish", "Publish and verify the video"),
+            stage("promote", "Promote", "Share the video where it supports the main goal"),
+        ),
+    )
+
+    private fun articleTemplate(id: String, label: String) = WorkflowTemplate(
+        id = id,
+        label = label,
+        stages = listOf(
+            stage("idea", "Idea", "Lock the article promise and reader"),
+            stage("research", "Research", "Collect evidence, references and examples"),
+            stage("outline", "Outline", "Structure the argument or story"),
+            stage("draft", "Draft", "Write the complete draft"),
+            stage("edit", "Edit", "Tighten the writing and verify details"),
+            stage("published", "Publish", "Publish and verify the article"),
+            stage("promote", "Promote", "Share the article where it supports the creator plan"),
+        ),
+    )
 
     private fun shortVideoTemplate(id: String, label: String) = WorkflowTemplate(
         id = id,

@@ -8,23 +8,73 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
 private val Context.creatorDataStore by preferencesDataStore(name = "creator_v0")
+private val creatorTaskMutationMutex = Mutex()
 
 class TaskStore(private val context: Context) {
     private val tasksKey = stringPreferencesKey("tasks_json")
+    private val tasksBackupKey = stringPreferencesKey("tasks_json_last_good")
 
     val tasksFlow: Flow<List<CreatorTask>> = context.creatorDataStore.data.map { prefs ->
         val raw = prefs[tasksKey] ?: return@map emptyList()
-        runCatching { decode(raw) }.getOrDefault(emptyList())
+        try {
+            decode(raw)
+        } catch (cause: Exception) {
+            throw IllegalStateException(
+                "Creator data could not be read. The original and recovery copies have been retained. Open backup tools before making changes.",
+                cause,
+            )
+        }
     }
 
     suspend fun load(): List<CreatorTask> = tasksFlow.first()
 
-    suspend fun save(tasks: List<CreatorTask>) {
-        context.creatorDataStore.edit { prefs -> prefs[tasksKey] = encode(tasks) }
+    suspend fun save(tasks: List<CreatorTask>) = CreatorDataGate.transaction {
+        creatorTaskMutationMutex.withLock { saveUnlocked(tasks) }
+    }
+
+    suspend fun mutate(transform: (List<CreatorTask>) -> List<CreatorTask>): List<CreatorTask> = CreatorDataGate.transaction {
+        creatorTaskMutationMutex.withLock {
+            val latest = load()
+            val updated = transform(latest)
+            if (updated != latest) saveUnlocked(updated)
+            updated
+        }
+    }
+
+    suspend fun applyDelta(
+        base: List<CreatorTask>,
+        desired: List<CreatorTask>,
+        expectedGeneration: Long,
+    ): List<CreatorTask> = CreatorDataGate.transaction {
+        creatorTaskMutationMutex.withLock {
+            if (CreatorDataGate.generation(context) != expectedGeneration)
+                throw CreatorWriteConflict("The app data changed during restore. Your older edit was not applied.")
+            val updated = CreatorDeltaEngine.merge(base, desired, load()) { it.id }
+            val keys = updated.map { it.scheduleOccurrenceKey }.filter { it.isNotBlank() }
+            require(keys.size == keys.toSet().size) { "Duplicate weekly occurrence" }
+            if (updated != load()) saveUnlocked(updated)
+            updated
+        }
+    }
+
+    private suspend fun saveUnlocked(tasks: List<CreatorTask>) {
+        val encoded = encode(tasks)
+        context.creatorDataStore.edit { prefs ->
+            val current = prefs[tasksKey]
+            if (current != null) {
+                decode(current) // Never overwrite a damaged primary with an empty or stale snapshot.
+                prefs[tasksBackupKey] = current
+            } else if (prefs[tasksBackupKey] == null) {
+                prefs[tasksBackupKey] = encoded
+            }
+            prefs[tasksKey] = encoded
+        }
         CreatorWidgetUpdater.updateAll(context, tasks)
     }
 
@@ -38,14 +88,19 @@ class TaskStore(private val context: Context) {
 
     fun validateJson(raw: String): Int = decode(raw).size
 
-    suspend fun updateTask(id: String, transform: (CreatorTask) -> CreatorTask): CreatorTask? {
-        val current = load().toMutableList()
-        val index = current.indexOfFirst { it.id == id }
-        if (index == -1) return null
-        val updated = transform(current[index])
-        current[index] = updated
-        save(current)
-        return updated
+    suspend fun updateTask(id: String, expectedGeneration: Long? = null, transform: (CreatorTask) -> CreatorTask): CreatorTask? = CreatorDataGate.transaction {
+        creatorTaskMutationMutex.withLock {
+            expectedGeneration?.let { CreatorDataGate.checkGeneration(context, it) }
+            val current = load().toMutableList()
+            val index = current.indexOfFirst { it.id == id }
+            if (index == -1) return@withLock null
+            val updated = transform(current[index])
+            if (updated != current[index]) {
+                current[index] = updated
+                saveUnlocked(current)
+            }
+            updated
+        }
     }
 
     private fun encode(tasks: List<CreatorTask>): String {
@@ -82,8 +137,17 @@ class TaskStore(private val context: Context) {
                     .put("autoStageReminder", task.autoStageReminder)
                     .put("origin", task.origin.name)
                     .put("sourceRefId", task.sourceRefId)
+                    .put("attentionPlan", task.attentionPlan.name)
+                    .put("pulseManagedReminder", task.pulseManagedReminder)
+                    .put("checkpointStageId", task.checkpointStageId)
+                    .put("checkpointAtMillis", task.checkpointAtMillis)
                     .put("completedAtMillis", task.completedAtMillis)
                     .put("archivedAtMillis", task.archivedAtMillis)
+                    .put("publishedAtMillis", task.publishedAtMillis)
+                    .put("publishedUrl", task.publishedUrl)
+                    .put("publicationIsLegacy", task.publicationIsLegacy)
+                    .put("acknowledgedCheckpointStageId", task.acknowledgedCheckpointStageId)
+                    .put("acknowledgedCheckpointDueAtMillis", task.acknowledgedCheckpointDueAtMillis)
             )
         }
         return array.toString()
@@ -91,6 +155,7 @@ class TaskStore(private val context: Context) {
 
     private fun decode(raw: String): List<CreatorTask> {
         val array = JSONArray(raw)
+        val seenIds = mutableSetOf<String>()
         return buildList {
             for (i in 0 until array.length()) {
                 val item = array.getJSONObject(i)
@@ -98,6 +163,7 @@ class TaskStore(private val context: Context) {
                 val title = item.optString("title").trim()
                 require(id.isNotBlank()) { "Task $i has no id" }
                 require(title.isNotBlank()) { "Task $i has no title" }
+                require(seenIds.add(id)) { "Duplicate task id: $id" }
 
                 val legacyAlertType = runCatching {
                     ReminderAlertType.valueOf(item.optString("alertType", ReminderAlertType.NOTIFICATION.name))
@@ -116,6 +182,13 @@ class TaskStore(private val context: Context) {
                     ReminderMode.valueOf(item.optString("reminderMode", migratedMode.name))
                 }.getOrDefault(migratedMode)
                 val reminderAt = item.optLong("reminderAtMillis", 0L)
+                val migratedAttentionPlan = if (reminderEnabled && reminderMode != ReminderMode.NONE)
+                    ProjectAttentionPlan.CUSTOM else ProjectAttentionPlan.OFF
+                val attentionPlan = runCatching {
+                    ProjectAttentionPlan.valueOf(item.optString("attentionPlan", migratedAttentionPlan.name))
+                }.getOrDefault(migratedAttentionPlan)
+                val pulseManagedReminder = item.optBoolean("pulseManagedReminder", false) &&
+                    attentionPlan != ProjectAttentionPlan.CUSTOM && attentionPlan != ProjectAttentionPlan.OFF
                 val progress = item.optInt("progress", 0).coerceIn(0, 100)
                 val platform = item.optString("platform", "Instagram")
                 val contentType = item.optString("contentType", "Content")
@@ -168,8 +241,18 @@ class TaskStore(private val context: Context) {
                         autoStageReminder = item.optBoolean("autoStageReminder", false),
                         origin = origin,
                         sourceRefId = item.optString("sourceRefId", ""),
+                        attentionPlan = attentionPlan,
+                        pulseManagedReminder = pulseManagedReminder,
+                        checkpointStageId = item.optString("checkpointStageId", ""),
+                        checkpointAtMillis = item.optLong("checkpointAtMillis", 0L),
                         completedAtMillis = item.optLong("completedAtMillis", 0L),
                         archivedAtMillis = item.optLong("archivedAtMillis", 0L),
+                        publishedAtMillis = item.optLong("publishedAtMillis", 0L),
+                        publishedUrl = item.optString("publishedUrl", ""),
+                        acknowledgedCheckpointStageId = item.optString("acknowledgedCheckpointStageId", ""),
+                        acknowledgedCheckpointDueAtMillis = item.optLong("acknowledgedCheckpointDueAtMillis", 0L),
+                        publicationIsLegacy = item.optBoolean("publicationIsLegacy", false) ||
+                            (!item.has("publishedAtMillis") && item.optString("status") == TaskStatus.DONE.name),
                     )
                 )
             }

@@ -1,5 +1,6 @@
 package com.framebynavin.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -55,6 +56,10 @@ import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.R
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
+import com.framebynavin.app.data.PostPublishCheckpoint
+import com.framebynavin.app.data.ProjectAttentionPlan
+import com.framebynavin.app.data.ProjectPulseEngine
+import com.framebynavin.app.data.ProjectPulseState
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
 import com.framebynavin.app.data.TaskStatus
@@ -155,179 +160,7 @@ internal fun V131CinematicWelcome() {
 
 @Composable
 internal fun V131HomeHeroSlideshow() {
-    val resourceIds = remember {
-        listOf(
-  R.drawable.hero_frame_01,
-  R.drawable.hero_frame_02,
-  R.drawable.hero_frame_03,
-  R.drawable.hero_frame_04,
-  R.drawable.hero_frame_05,
-  R.drawable.hero_frame_06,
-  R.drawable.hero_frame_07,
-  R.drawable.hero_frame_08,
-  R.drawable.hero_frame_09,
-  R.drawable.hero_frame_10,
-        )
-    }
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    var index by rememberSaveable { mutableIntStateOf(0) }
-    val pulse = rememberInfiniteTransition(label = "bestFramesPulse")
-    val pulseStrength by pulse.animateFloat(
-        initialValue = .26f,
-        targetValue = .96f,
-        animationSpec = infiniteRepeatable(
-  animation = tween(1_500, easing = FastOutSlowInEasing),
-  repeatMode = RepeatMode.Reverse,
-        ),
-        label = "bestFramesRedPulse",
-    )
-
-    LaunchedEffect(expanded, resourceIds.size) {
-        if (!expanded) return@LaunchedEffect
-        while (expanded && resourceIds.size > 1) {
-  delay(4_000L)
-  index = (index + 1) % resourceIds.size
-        }
-    }
-
-    Column(
-        Modifier.fillMaxWidth().animateContentSize(
-  animationSpec = tween(360, easing = FastOutSlowInEasing),
-        )
-    ) {
-        Surface(
-  onClick = { expanded = !expanded },
-  modifier = Modifier.fillMaxWidth(),
-  shape = RoundedCornerShape(18.dp),
-  color = Color(0xFF120C0E),
-  border = BorderStroke(1.dp, RecRed.copy(alpha = .52f)),
-  shadowElevation = 10.dp,
-        ) {
-  Box(Modifier.fillMaxWidth()) {
-      Box(
-          Modifier.matchParentSize().background(
-              Brush.horizontalGradient(
-                  listOf(
-                      RecRed.copy(alpha = pulseStrength),
-                      Color(0xFF751321).copy(alpha = .74f),
-                      Color(0xFF1A0D11),
-                  )
-              )
-          )
-      )
-      Row(
-          Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
-          verticalAlignment = Alignment.CenterVertically,
-      ) {
-          Box(
-              Modifier.size(9.dp)
-                  .background(ProjectorIvory.copy(alpha = .94f), CircleShape)
-          )
-          Spacer(Modifier.width(11.dp))
-          Column(Modifier.weight(1f)) {
-              Text(
-                  "BEST FRAMES OF TODAY",
-                  color = ProjectorIvory,
-                  fontSize = 11.5.sp,
-                  fontWeight = FontWeight.Black,
-                  letterSpacing = 1.25.sp,
-              )
-              Spacer(Modifier.height(2.dp))
-              Text(
-                  if (expanded) "Tap to close" else "Tap to open",
-                  color = ProjectorIvory.copy(alpha = .72f),
-                  fontSize = 8.4.sp,
-                  fontWeight = FontWeight.SemiBold,
-              )
-          }
-          Icon(
-              Icons.Outlined.KeyboardArrowDown,
-              contentDescription = if (expanded) "Close best frames" else "Open best frames",
-              tint = ProjectorIvory,
-              modifier = Modifier.size(22.dp).graphicsLayer {
-                  rotationZ = if (expanded) 180f else 0f
-              },
-          )
-      }
-  }
-        }
-
-        AnimatedVisibility(
-  visible = expanded,
-  enter = expandVertically(animationSpec = tween(330, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
-  exit = shrinkVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeOut(tween(170)),
-        ) {
-  Column(Modifier.fillMaxWidth()) {
-      Spacer(Modifier.height(10.dp))
-      Surface(
-          modifier = Modifier.fillMaxWidth().height(228.dp),
-          shape = RoundedCornerShape(20.dp),
-          color = Color.Black,
-          border = BorderStroke(1.dp, CinemaLine.copy(alpha = .52f)),
-          shadowElevation = 7.dp,
-      ) {
-          Box(Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(Color.Black)) {
-              AnimatedContent(
-                  targetState = index.coerceIn(0, resourceIds.lastIndex),
-                  transitionSpec = { fadeIn(tween(520)) togetherWith fadeOut(tween(520)) },
-                  label = "cinemaHeroHighQuality",
-              ) { visibleIndex ->
-                  Image(
-                      painter = painterResource(resourceIds[visibleIndex]),
-                      contentDescription = "Best frame ${visibleIndex + 1}",
-                      modifier = Modifier.fillMaxSize(),
-                      contentScale = ContentScale.Fit,
-                  )
-              }
-
-              Box(
-                  Modifier.fillMaxWidth().height(48.dp).align(Alignment.BottomCenter).background(
-                      Brush.verticalGradient(
-                          listOf(Color.Transparent, Color.Black.copy(alpha = .72f))
-                      )
-                  )
-              )
-              Row(
-                  Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp),
-                  verticalAlignment = Alignment.CenterVertically,
-              ) {
-                  Text(
-                      "FRAME ${index + 1}",
-                      color = ProjectorIvory,
-                      fontSize = 8.2.sp,
-                      fontWeight = FontWeight.Black,
-                      letterSpacing = 1.sp,
-                  )
-                  Spacer(Modifier.weight(1f))
-                  Text(
-                      "${index + 1} / ${resourceIds.size}",
-                      color = ProjectorIvory.copy(alpha = .78f),
-                      fontSize = 8.2.sp,
-                      fontWeight = FontWeight.Bold,
-                  )
-              }
-          }
-      }
-      Spacer(Modifier.height(8.dp))
-      Row(
-          Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.Center,
-          verticalAlignment = Alignment.CenterVertically,
-      ) {
-          resourceIds.indices.forEach { dot ->
-              Box(
-                  Modifier.padding(horizontal = 2.5.dp)
-                      .size(if (dot == index) 6.dp else 4.dp)
-                      .background(
-                          if (dot == index) RecRed else MutedText.copy(alpha = .42f),
-                          CircleShape,
-                      )
-              )
-          }
-      }
-  }
-        }
-    }
+    V175BestFramesOfToday()
 }
 @Composable
 internal fun V131PlanScreen(
@@ -396,7 +229,7 @@ internal fun V131PlanScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("Delete ${selected.size} project${if (selected.size == 1) "" else "s"}?") },
-            text = { Text("This removes the selected project data from Plan and Studio. Weekly generated occurrences are suppressed so they do not immediately come back.") },
+            text = { Text("This removes the selected project data from your creator workspace. Weekly generated occurrences are suppressed so they do not immediately come back.") },
             confirmButton = {
                 TextButton(onClick = {
                     onDeleteSelected(selected)
@@ -456,8 +289,8 @@ private fun V131PlanSection(
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text("$progress%", color = MutedText, fontSize = 8.5.sp)
                             Spacer(Modifier.weight(1f))
-                            TextButton(onClick = { onStart(task.id) }) { Text(if (task.status == TaskStatus.WORKING) "CONTINUE" else "START", color = ProjectorIvory, fontSize = 8.5.sp) }
-                            TextButton(onClick = { onDone(task.id) }) { Text("DONE", color = SuccessGreen, fontSize = 8.5.sp) }
+                            TextButton(onClick = { onStart(task.id) }) { Text(if (task.status == TaskStatus.WORKING) "CONTINUE" else "START", color = ProjectorIvory, fontSize = 10.sp) }
+                            TextButton(onClick = { onDone(task.id) }) { Text("DONE", color = SuccessGreen, fontSize = 10.sp) }
                         }
                     }
                 }
@@ -475,24 +308,19 @@ internal fun V131ReminderCenter(
     onEdit: (String) -> Unit,
     onDeleteReminders: (Set<String>) -> Unit,
 ) {
-    val context = LocalContext.current
-    val sessions = remember { SmartSessionStore(context.applicationContext) }
     val now = System.currentTimeMillis()
     val active = tasks.filter {
         (it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING) &&
-            it.reminderEnabled && it.reminderMode != ReminderMode.NONE && it.archivedAtMillis <= 0L
-    }.sortedBy { it.reminderAtMillis.takeIf { time -> time > 0L } ?: Long.MAX_VALUE }
-
-    val remindingNow = active.filter { sessions.current(it.id)?.snoozedStage == null && sessions.current(it.id) != null }
-    val snoozed = active.filter { task ->
-        val session = sessions.current(task.id)
-        val smart = session?.snoozedStage != null && session.snoozedUntilMillis > now
-        val regular = task.reminderMode != ReminderMode.SMART && task.snoozeCount > 0 && task.reminderAtMillis > now
-        (smart || regular) && task !in remindingNow
+            it.archivedAtMillis <= 0L &&
+            (it.attentionPlan != ProjectAttentionPlan.OFF || it.reminderEnabled)
+    }.sortedBy {
+        ProjectPulseEngine.snapshot(it, now).nextCheckpointAtMillis.takeIf { time -> time > 0L } ?: Long.MAX_VALUE
     }
-    val upcoming = active.filter { it !in remindingNow && it !in snoozed && it.reminderAtMillis >= now && it.reminderAtMillis <= now + 24 * 60 * 60_000L }
-    val later = active.filter { it !in remindingNow && it !in snoozed && it !in upcoming && it.reminderAtMillis > now }
-    val attention = active.filter { it !in remindingNow && it.reminderAtMillis in 1 until now }
+    val nowProjects = active.filter { ProjectPulseEngine.snapshot(it, now).state in setOf(ProjectPulseState.OVERDUE, ProjectPulseState.NEEDS_ATTENTION, ProjectPulseState.AT_RISK) }
+    val next = active.filter { task ->
+        task !in nowProjects && ProjectPulseEngine.snapshot(task, now).nextCheckpointAtMillis in now..(now + 24 * 60 * 60_000L)
+    }
+    val later = active.filter { it !in nowProjects && it !in next }
 
     var selected by remember { mutableStateOf(setOf<String>()) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -504,7 +332,7 @@ internal fun V131ReminderCenter(
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 V131SelectionTopBar(
-                    title = "REMINDERS",
+                    title = "ATTENTION",
                     selectionMode = selectionMode,
                     selectedCount = selected.size,
                     onExitSelection = { selected = emptySet() },
@@ -514,25 +342,18 @@ internal fun V131ReminderCenter(
                     onBack = onDismiss,
                 )
                 Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
-                    Text("Stay on track", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Text("Tap a reminder to edit it. Long-press to select one or more. Deleting here removes only the reminder, never the project or Plan item.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+                    Text("What needs you next.", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.height(16.dp))
                     if (active.isEmpty()) {
-                        V131Empty("No active reminders", "Projects can still live in Today, Plan and Studio without alerts.", onNew)
+                        V131Empty("Nothing needs attention", "Your active projects will surface here when a checkpoint matters.", onNew)
                     } else {
-                        V131ReminderGroup("REMINDING NOW", remindingNow, RecRed, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
+                        V131PulseGroup("NOW", nowProjects, RecRed, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
                         }, onEdit)
-                        V131ReminderGroup("NEEDS ATTENTION", attention, RecRed, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
+                        V131PulseGroup("NEXT", next, MutedGold, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
                         }, onEdit)
-                        V131ReminderGroup("SNOOZED", snoozed, MutedGold, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-                        }, onEdit)
-                        V131ReminderGroup("UPCOMING", upcoming, MutedGold, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-                        }, onEdit)
-                        V131ReminderGroup("LATER", later, MutedText, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
+                        V131PulseGroup("LATER", later, MutedText, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
                         }, onEdit)
                     }
@@ -544,14 +365,14 @@ internal fun V131ReminderCenter(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete ${selected.size} reminder${if (selected.size == 1) "" else "s"}?") },
-            text = { Text("Only the reminder settings and scheduled alerts will be removed. Your projects remain in Plan and Studio.") },
+            title = { Text("Turn off attention for ${selected.size} project${if (selected.size == 1) "" else "s"}?") },
+            text = { Text("The projects remain. Only automatic check-ins and scheduled alerts are removed.") },
             confirmButton = {
                 TextButton(onClick = {
                     onDeleteReminders(selected)
                     selected = emptySet()
                     confirmDelete = false
-                }) { Text("DELETE REMINDERS", color = RecRed) }
+                }) { Text("TURN OFF", color = RecRed) }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("CANCEL") } },
         )
@@ -559,7 +380,7 @@ internal fun V131ReminderCenter(
 }
 
 @Composable
-private fun V131ReminderGroup(
+private fun V131PulseGroup(
     label: String,
     tasks: List<CreatorTask>,
     accent: Color,
@@ -574,6 +395,7 @@ private fun V131ReminderGroup(
     Spacer(Modifier.height(8.dp))
     tasks.forEach { task ->
         val chosen = task.id in selected
+        val pulse = ProjectPulseEngine.snapshot(task)
         Surface(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).combinedClickable(
                 onClick = { if (selectionMode) onToggle(task.id) else onEdit(task.id) },
@@ -581,26 +403,23 @@ private fun V131ReminderGroup(
             ),
             shape = RoundedCornerShape(18.dp),
             color = if (chosen) RecRed.copy(alpha = .10f) else CinemaSurface,
-            border = BorderStroke(1.dp, if (chosen) RecRed else if (label == "REMINDING NOW" || label == "NEEDS ATTENTION") RecRed.copy(alpha = .4f) else CinemaLine),
+            border = BorderStroke(1.dp, if (chosen) RecRed else if (label == "NOW") RecRed.copy(alpha = .4f) else CinemaLine),
         ) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (selectionMode) {
                     Icon(if (chosen) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null, tint = if (chosen) RecRed else MutedText, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                 } else {
-                    Icon(v131ModeIcon(task.reminderMode), null, tint = accent, modifier = Modifier.size(22.dp))
+                    Icon(if (task.pulseManagedReminder) Icons.Outlined.NotificationsActive else v131ModeIcon(task.reminderMode), null, tint = accent, modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(10.dp))
                 }
                 Column(Modifier.weight(1f)) {
                     Text(task.title, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${v131ModeLabel(task.reminderMode)} · ${v131Format(task.reminderAtMillis)}", color = accent, fontSize = 9.sp)
-                    Text("${task.platform} · ${CreatorWorkflowEngine.currentStage(task).label}", color = MutedText, fontSize = 8.6.sp)
+                    Text("${pulse.stateLabel} · ${pulse.currentStage.label}", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text(pulse.nextAction, color = ProjectorIvory.copy(alpha = .78f), fontSize = 8.6.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (pulse.nextCheckpointAtMillis > 0L) Text("${pulse.checkpointLabel} · ${v131Format(pulse.nextCheckpointAtMillis)}", color = MutedText, fontSize = 8.3.sp)
                 }
-                if (!selectionMode) {
-                    if (task.reminderMode == ReminderMode.SMART) Text(v131Priority(task.priority), color = MutedGold, fontSize = 7.8.sp)
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
-                }
+                if (!selectionMode) Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -610,24 +429,43 @@ private fun V131ReminderGroup(
 @Composable
 internal fun V131StudioScreen(
     tasks: List<CreatorTask>,
+    postPublishCheckpoints: List<PostPublishCheckpoint> = emptyList(),
     onAdd: () -> Unit,
     onAdvance: (String) -> Unit,
     onBack: (String) -> Unit,
     onFocus: (String) -> Unit,
     onArchive: (String) -> Unit,
+    onArchiveSelected: (Set<String>) -> Unit = {},
     onUnarchive: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onDeleteSelected: (Set<String>) -> Unit = {},
+    onEdit: (String) -> Unit = {},
+    onEditPublication: (String) -> Unit = {},
+    onCompletePostPublish: (String) -> Unit = {},
+    onSkipPostPublish: (String) -> Unit = {},
     externalExpandId: String? = null,
     externalExpandNonce: Long = 0L,
 ) {
-    val projects = tasks.filter { it.status != TaskStatus.SKIPPED && it.archivedAtMillis <= 0L }
-        .sortedWith(compareBy<CreatorTask> { it.status == TaskStatus.DONE }.thenBy { it.dueAtMillis.takeIf { due -> due > 0L } ?: Long.MAX_VALUE })
-    val archived = tasks.filter { it.archivedAtMillis > 0L }.sortedByDescending { it.archivedAtMillis }
+    val projects by remember {
+        derivedStateOf {
+            tasks.filter { it.status != TaskStatus.SKIPPED && it.archivedAtMillis <= 0L }
+                .sortedWith(compareBy<CreatorTask> { it.status == TaskStatus.DONE }.thenBy { it.dueAtMillis.takeIf { due -> due > 0L } ?: Long.MAX_VALUE })
+        }
+    }
+    val archived by remember {
+        derivedStateOf { tasks.filter { it.archivedAtMillis > 0L }.sortedByDescending { it.archivedAtMillis } }
+    }
     val listState = rememberLazyListState()
     var expandedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selected by remember { mutableStateOf(setOf<String>()) }
     var deleteTarget by remember { mutableStateOf<CreatorTask?>(null) }
+    var confirmDeleteSelected by remember { mutableStateOf(false) }
     var showArchived by rememberSaveable { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
+    val selectionMode = selected.isNotEmpty()
+    val allProjectIds = projects.map { it.id }.toSet()
+    val archiveEligible = selectionMode && selected.all { id -> projects.firstOrNull { it.id == id }?.status == TaskStatus.DONE }
+    BackHandler(enabled = selectionMode) { selected = emptySet() }
 
     LaunchedEffect(externalExpandNonce) {
         val id = externalExpandId ?: return@LaunchedEffect
@@ -644,28 +482,53 @@ internal fun V131StudioScreen(
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 124.dp),
     ) {
         item {
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("STUDIO", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                    Text("Build the thing.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
+            if (selectionMode) {
+                Surface(Modifier.fillMaxWidth().padding(top = 10.dp), RoundedCornerShape(18.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
+                    Row(Modifier.padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { selected = emptySet() }) { Icon(Icons.Outlined.Close, "Exit selection", tint = ProjectorIvory) }
+                        Text("${selected.size} SELECTED", color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { selected = if (selected.size == allProjectIds.size) emptySet() else allProjectIds }) {
+                            Text("SELECT ALL", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                        IconButton(
+                            enabled = archiveEligible,
+                            onClick = {
+                                onArchiveSelected(selected)
+                                selected = emptySet()
+                            },
+                        ) { Icon(Icons.Outlined.Archive, "Archive selected completed projects", tint = if (archiveEligible) MutedGold else MutedText.copy(alpha = .35f)) }
+                        IconButton(onClick = { confirmDeleteSelected = true }) { Icon(Icons.Outlined.DeleteOutline, "Delete selected", tint = RecRed) }
+                    }
                 }
-                Surface(onClick = onAdd, shape = CircleShape, color = RecRed, modifier = Modifier.size(42.dp)) {
-                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, "Create project", tint = ProjectorIvory) }
+                if (!archiveEligible) {
+                    Text("Archive becomes available when every selected project is completed.", color = MutedText, fontSize = 8.2.sp, modifier = Modifier.padding(top = 5.dp, start = 4.dp))
                 }
+                Spacer(Modifier.height(12.dp))
+            } else {
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("CREATE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        Text("Turn ideas into finished work.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
+                    }
+                    Surface(onClick = onAdd, shape = CircleShape, color = RecRed, modifier = Modifier.size(42.dp)) {
+                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, "Create project", tint = ProjectorIvory) }
+                    }
+                }
+                Text("Tap a project to open it. Long-press to select one or more.", color = MutedText, fontSize = 9.sp)
+                Spacer(Modifier.height(18.dp))
             }
-            Text("Completed projects now have archive and delete controls.", color = MutedText, fontSize = 9.sp)
-            Spacer(Modifier.height(18.dp))
         }
 
         if (projects.isEmpty()) {
-            item { V131Empty("Studio is empty", "Create a project and its production stages will live here.", onAdd) }
+            item { V131Empty("No projects yet", "Create a project and its steps will appear here.", onAdd) }
         } else {
             item { Text("PROJECTS · ${projects.size}", color = MutedText, fontSize = 8.5.sp, letterSpacing = 1.1.sp, modifier = Modifier.padding(bottom = 7.dp)) }
             itemsIndexed(projects, key = { _, task -> task.id }) { _, task ->
                 val expanded = expandedId == task.id
                 PStudioProject(
                     task = task,
-                    expanded = expanded,
+                    expanded = expanded && !selectionMode,
                     onToggle = { expandedId = if (expanded) null else task.id },
                     onAdvance = {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -673,24 +536,21 @@ internal fun V131StudioScreen(
                     },
                     onBack = { onBack(task.id) },
                     onFocus = { onFocus(task.id) },
+                    onEdit = { onEdit(task.id) },
+                    postPublishCheckpoints = postPublishCheckpoints.filter { it.projectId == task.id },
+                    onEditPublication = { onEditPublication(task.id) },
+                    onCompletePostPublish = onCompletePostPublish,
+                    onSkipPostPublish = onSkipPostPublish,
+                    selectionMode = selectionMode,
+                    selected = task.id in selected,
+                    onSelect = { selected = v131Toggle(selected, task.id) },
+                    onLongPress = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        expandedId = null
+                        selected = selected + task.id
+                    },
                 )
-                if (task.status == TaskStatus.DONE) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 12.dp),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        TextButton(onClick = { onArchive(task.id) }) {
-                            Icon(Icons.Outlined.Archive, null, tint = MutedGold, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("ARCHIVE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                        TextButton(onClick = { deleteTarget = task }) {
-                            Icon(Icons.Outlined.DeleteOutline, null, tint = RecRed, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("DELETE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+                Spacer(Modifier.height(9.dp))
             }
         }
 
@@ -726,7 +586,7 @@ internal fun V131StudioScreen(
                                 Text(task.title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text("Archived · ${task.platform} ${task.contentType}", color = MutedText, fontSize = 8.5.sp)
                             }
-                            TextButton(onClick = { onUnarchive(task.id) }) { Text("RESTORE", color = MutedGold, fontSize = 8.sp) }
+                            TextButton(onClick = { onUnarchive(task.id) }) { Text("RESTORE", color = MutedGold, fontSize = 10.sp) }
                             IconButton(onClick = { deleteTarget = task }) { Icon(Icons.Outlined.DeleteOutline, "Delete", tint = RecRed, modifier = Modifier.size(18.dp)) }
                         }
                     }
@@ -735,11 +595,27 @@ internal fun V131StudioScreen(
         }
     }
 
+    if (confirmDeleteSelected) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteSelected = false },
+            title = { Text("Delete ${selected.size} selected project${if (selected.size == 1) "" else "s"}?") },
+            text = { Text("This permanently deletes the selected projects. Weekly-plan occurrences are protected from being recreated immediately.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteSelected(selected)
+                    selected = emptySet()
+                    confirmDeleteSelected = false
+                }) { Text("DELETE", color = RecRed) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteSelected = false }) { Text("CANCEL") } },
+        )
+    }
+
     deleteTarget?.let { task ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("Delete ${task.title}?") },
-            text = { Text("This permanently removes the project from Creator OS. If it came from Weekly Plan, this occurrence will stay suppressed instead of being regenerated.") },
+            text = { Text("This permanently deletes the project. If it came from your Weekly Plan, this one will not be added again.") },
             confirmButton = { TextButton(onClick = { onDelete(task.id); deleteTarget = null }) { Text("DELETE", color = RecRed) } },
             dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("CANCEL") } },
         )
@@ -762,7 +638,7 @@ private fun V131SelectionTopBar(
             IconButton(onClick = onExitSelection) { Icon(Icons.Outlined.Close, "Exit selection", tint = ProjectorIvory) }
             Text("$selectedCount SELECTED", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = onSelectAll) { Text("SELECT ALL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onSelectAll) { Text("SELECT ALL", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
             IconButton(onClick = onDelete) { Icon(Icons.Outlined.DeleteOutline, "Delete selected", tint = RecRed) }
         } else {
             if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
@@ -786,7 +662,7 @@ private fun V131Empty(title: String, body: String, onAdd: () -> Unit) {
             Text(body, color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(12.dp))
             Button(onClick = onAdd, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(14.dp)) {
-                Text("CREATE PROJECT", fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                Text("CREATE PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Black)
             }
         }
     }

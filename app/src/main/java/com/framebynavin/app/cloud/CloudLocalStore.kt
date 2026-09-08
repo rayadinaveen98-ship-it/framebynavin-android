@@ -1,7 +1,6 @@
 package com.framebynavin.app.cloud
 
 import android.content.Context
-import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -52,15 +51,60 @@ class CloudLocalStore(context: Context) {
 
     fun clearSession() = prefs.edit().remove(KEY_SESSION).apply()
 
+    fun loadCreatorProfile(): CloudCreatorProfile? {
+        val raw = prefs.getString(KEY_CREATOR_PROFILE, null) ?: return null
+        return runCatching {
+            val o = JSONObject(raw)
+            CloudCreatorProfile(
+                userId = o.optString("userId"),
+                displayName = o.optString("displayName"),
+                username = o.optString("username"),
+                avatarUrl = o.optString("avatarUrl"),
+                createdAtMillis = o.optLong("createdAtMillis"),
+                updatedAtMillis = o.optLong("updatedAtMillis"),
+            )
+        }.getOrNull()
+    }
+
+    fun saveCreatorProfile(profile: CloudCreatorProfile) {
+        val raw = JSONObject()
+            .put("userId", profile.userId)
+            .put("displayName", profile.displayName)
+            .put("username", profile.username)
+            .put("avatarUrl", profile.avatarUrl)
+            .put("createdAtMillis", profile.createdAtMillis)
+            .put("updatedAtMillis", profile.updatedAtMillis)
+            .toString()
+        prefs.edit().putString(KEY_CREATOR_PROFILE, raw).apply()
+    }
+
+    fun clearCreatorProfile() = prefs.edit().remove(KEY_CREATOR_PROFILE).apply()
+
     fun settings(): CloudSyncSettings = CloudSyncSettings(
-        enabled = prefs.getBoolean(KEY_ENABLED, false),
+        enabled = false, // v1.8.1 is explicit, append-only backup; no background uploads.
+
         wifiOnly = prefs.getBoolean(KEY_WIFI_ONLY, false),
         lastSyncAtMillis = prefs.getLong(KEY_LAST_SYNC, 0L),
         lastError = prefs.getString(KEY_LAST_ERROR, "").orEmpty(),
         deviceKey = deviceKey(),
+        reconciliationRequired = needsReconciliation(),
     )
 
-    fun setEnabled(value: Boolean) = prefs.edit().putBoolean(KEY_ENABLED, value).apply()
+    fun setEnabled(value: Boolean) = prefs.edit().putBoolean(KEY_ENABLED, false).apply()
+
+    /** A durable generation invalidates queued operations after sign-out/delete/account switch. */
+    @Synchronized fun generation(): Long = prefs.getLong(KEY_GENERATION, 0L)
+    @Synchronized fun invalidateOperations() {
+        prefs.edit().putLong(KEY_GENERATION, generation() + 1L).putBoolean(KEY_ENABLED, false).commit()
+    }
+    fun reconciledUser(): String = prefs.getString(KEY_RECONCILED_USER, "").orEmpty()
+    fun approveUser(userId: String) = prefs.edit().putString(KEY_RECONCILED_USER, userId).commit()
+    fun clearApproval() = prefs.edit().remove(KEY_RECONCILED_USER).commit()
+    fun needsReconciliation(): Boolean {
+        val session = loadSession() ?: return false
+        return reconciledUser() != session.userId
+    }
+
     fun setWifiOnly(value: Boolean) = prefs.edit().putBoolean(KEY_WIFI_ONLY, value).apply()
     fun markSyncSuccess(now: Long) = prefs.edit().putLong(KEY_LAST_SYNC, now).putString(KEY_LAST_ERROR, "").apply()
     fun markError(message: String) = prefs.edit().putString(KEY_LAST_ERROR, message.take(300)).apply()
@@ -68,8 +112,7 @@ class CloudLocalStore(context: Context) {
     fun deviceKey(): String {
         val existing = prefs.getString(KEY_DEVICE, null)
         if (!existing.isNullOrBlank()) return existing
-        val androidId = runCatching { Settings.Secure.getString(app.contentResolver, Settings.Secure.ANDROID_ID) }.getOrNull().orEmpty()
-        val value = if (androidId.isNotBlank()) "android-$androidId" else "device-${UUID.randomUUID()}"
+        val value = "device-${UUID.randomUUID()}"
         prefs.edit().putString(KEY_DEVICE, value).apply()
         return value
     }
@@ -114,11 +157,14 @@ class CloudLocalStore(context: Context) {
     companion object {
         private const val PREFS = "creator_cloud_v13"
         private const val KEY_SESSION = "session"
+        private const val KEY_CREATOR_PROFILE = "creator_profile_v23"
         private const val KEY_ENABLED = "enabled"
         private const val KEY_WIFI_ONLY = "wifi_only"
         private const val KEY_LAST_SYNC = "last_sync"
         private const val KEY_LAST_ERROR = "last_error"
         private const val KEY_DEVICE = "device_key"
+        private const val KEY_GENERATION = "backup_generation_v181"
+        private const val KEY_RECONCILED_USER = "backup_reconciled_user_v181"
         private const val KEY_ALIAS = "framebynavin_cloud_session_v1"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val IV_BYTES = 12

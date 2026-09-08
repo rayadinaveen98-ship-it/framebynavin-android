@@ -44,7 +44,7 @@ class YouTubeInsightEngineV172Test {
             listOf(taskA, taskB, taskC),
             mapOf("v1" to "a", "v2" to "b", "v3" to "c"),
         )
-        val long = rows.first { it.label == "Long-form Analysis" }
+        val long = rows.first { it.label == "Long-form" }
         val shorts = rows.first { it.label == "Short-form" }
         assertTrue(long.viewsPerUpload > shorts.viewsPerUpload)
         assertTrue(long.watchMinutesPerUpload > shorts.watchMinutesPerUpload)

@@ -73,7 +73,7 @@ internal fun V09ReleaseDayScreen(
                 onValueChange = { topic = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                placeholder = { Text("Example: Spirit trailer") },
+                placeholder = { Text("Example: New video, post or launch") },
                 shape = RoundedCornerShape(16.dp),
             )
 

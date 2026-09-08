@@ -3,108 +3,114 @@ package com.framebynavin.app.reminders
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorTask
-import com.framebynavin.app.data.ReminderAlertType
-import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
-import com.framebynavin.app.data.VoicePersona
+import com.framebynavin.app.data.TaskStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class EscalationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val appContext = context.applicationContext
         val taskId = intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID) ?: return
         val scheduledAt = intent.getLongExtra(ReminderConstants.EXTRA_SCHEDULED_AT, 0L)
+        val targetAt = intent.getLongExtra(ReminderConstants.EXTRA_TARGET_AT, 0L)
         val stage = runCatching {
             SmartEscalationScheduler.Stage.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_ESCALATION_STAGE).orEmpty())
         }.getOrNull() ?: return
+        val ledgerKey = "$taskId#${stage.name}"
+        val ledger = AlarmLedger(appContext)
+        if (scheduledAt <= 0L || ledger.scheduledAt(ledgerKey) != scheduledAt) return
 
-        if (!AlarmLedger(appContext).consumeIfCurrent("$taskId#${stage.name}", scheduledAt)) return
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                CreatorDataGate.readyTransaction(appContext) {
+                val task = runCatching { TaskStore(appContext).load().firstOrNull { it.id == taskId } }.getOrNull()
+                val now = System.currentTimeMillis()
+                when (ReminderDeliveryPolicy.smartDecision(task, targetAt, stage, now)) {
+                    SmartDeliveryDecision.DROP -> {
+                        ledger.consumeIfCurrent(ledgerKey, scheduledAt)
+                    }
+                    SmartDeliveryDecision.DEFER -> {
+                        if (ledger.consumeIfCurrent(ledgerKey, scheduledAt) && task != null) {
+                            SmartEscalationScheduler(appContext).recover(task)
+                        }
+                    }
+                    SmartDeliveryDecision.DELIVER -> {
+                        if (ledger.consumeIfCurrent(ledgerKey, scheduledAt) && task != null) {
+                            deliverStage(appContext, intent, task, stage, now)
+                        }
+                    }
+                }
+                }
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
 
-        val priority = runCatching {
-            TaskPriority.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_PRIORITY).orEmpty())
-        }.getOrDefault(TaskPriority.IMPORTANT)
-        val persona = runCatching {
-            VoicePersona.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_VOICE_PERSONA).orEmpty())
-        }.getOrDefault(VoicePersona.WARM)
-
-        val task = CreatorTask(
-            id = taskId,
-            title = intent.getStringExtra(ReminderConstants.EXTRA_TITLE).orEmpty().ifBlank { "FrameByNavin task" },
-            platform = intent.getStringExtra(ReminderConstants.EXTRA_PLATFORM).orEmpty(),
-            contentType = intent.getStringExtra(ReminderConstants.EXTRA_CONTENT_TYPE).orEmpty(),
-            dueLabel = intent.getStringExtra(ReminderConstants.EXTRA_DUE_LABEL).orEmpty(),
-            dueAtMillis = intent.getLongExtra(ReminderConstants.EXTRA_DUE_AT, 0L),
-            progress = intent.getIntExtra(ReminderConstants.EXTRA_PROGRESS, 0).coerceIn(0, 100),
-            reminderEnabled = true,
-            reminderAtMillis = intent.getLongExtra(ReminderConstants.EXTRA_TARGET_AT, scheduledAt),
-            priority = if (stage == SmartEscalationScheduler.Stage.CRITICAL) TaskPriority.CRITICAL else priority,
-            notes = intent.getStringExtra(ReminderConstants.EXTRA_NOTES).orEmpty(),
-            alertType = ReminderAlertType.ALARM,
-            alarmSoundUri = intent.getStringExtra(ReminderConstants.EXTRA_ALARM_SOUND_URI).orEmpty(),
-            voiceEnabled = true,
+    private fun deliverStage(
+        appContext: Context,
+        intent: Intent,
+        sourceTask: CreatorTask,
+        stage: SmartEscalationScheduler.Stage,
+        firedAt: Long,
+    ) {
+        val task = sourceTask.copy(
+            priority = if (stage == SmartEscalationScheduler.Stage.CRITICAL) TaskPriority.CRITICAL else sourceTask.priority,
             smartEscalationEnabled = true,
-            reminderMode = ReminderMode.SMART,
-            voicePersona = persona,
-            voiceRepeatCount = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, 3).coerceIn(1, 3),
-            voiceRepeatIntervalSeconds = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 10).coerceIn(5, 60),
-            alarmTimeoutSeconds = intent.getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
+            voiceEnabled = true,
         )
-
         val smart = SmartEscalationScheduler(appContext)
-        val firedAt = System.currentTimeMillis()
-        smart.markStageActive(taskId, stage, firedAt)
-
+        smart.markStageActive(task.id, stage, firedAt)
+        val token = ReminderOccurrenceStore(appContext).issue(task)
+        ReminderSurfaceRegistry.closeTask(task.id)
         val exactDelivery = intent.getBooleanExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, false)
 
         fun fallback(label: String): Boolean = runCatching {
-            ReminderNotifications.show(appContext, task, stageLabel = label)
-        }.isSuccess
+            ReminderNotifications.show(appContext, task, stageLabel = label, occurrenceId = token)
+        }.getOrDefault(false)
 
         when (stage) {
             SmartEscalationScheduler.Stage.SOFT -> {
-                AlarmRingingService.stop(appContext)
-                VoiceReminderService.stop(appContext)
+                AlarmRingingService.stop(appContext, task.id)
+                VoiceReminderService.stop(appContext, task.id)
                 fallback("Smart · Gentle")
             }
-
             SmartEscalationScheduler.Stage.VOICE -> {
-                ReminderSurfaceRegistry.closeAll()
-                AlarmRingingService.stop(appContext)
-                ReminderNotifications.cancel(appContext, taskId)
-                if (!exactDelivery || !runCatching { VoiceReminderService.start(appContext, task) }.isSuccess) {
+                ReminderSurfaceRegistry.closeTask(task.id)
+                AlarmRingingService.stop(appContext, task.id)
+                ReminderNotifications.cancel(appContext, task.id)
+                if (!exactDelivery || !runCatching { VoiceReminderService.start(appContext, task, token) }.isSuccess) {
                     fallback("Smart · Voice fallback")
                 }
             }
-
             SmartEscalationScheduler.Stage.ALARM -> {
-                ReminderSurfaceRegistry.closeAll()
-                VoiceReminderService.stop(appContext)
-                ReminderNotifications.cancel(appContext, taskId)
+                ReminderSurfaceRegistry.closeTask(task.id)
+                VoiceReminderService.stop(appContext, task.id)
+                ReminderNotifications.cancel(appContext, task.id)
                 if (!exactDelivery || !runCatching {
-                        AlarmRingingService.start(appContext, task.copy(voiceEnabled = false), stage)
+                        AlarmRingingService.start(appContext, task.copy(voiceEnabled = false), stage, token)
                     }.isSuccess) {
                     fallback("Smart · Alarm fallback")
                 }
             }
-
             SmartEscalationScheduler.Stage.CRITICAL -> {
-                ReminderSurfaceRegistry.closeAll()
-                VoiceReminderService.stop(appContext)
-                AlarmRingingService.stop(appContext)
-                ReminderNotifications.cancel(appContext, taskId)
+                ReminderSurfaceRegistry.closeTask(task.id)
+                VoiceReminderService.stop(appContext, task.id)
+                AlarmRingingService.stop(appContext, task.id)
+                ReminderNotifications.cancel(appContext, task.id)
                 if (!exactDelivery || !runCatching {
-                        AlarmRingingService.start(
-                            appContext,
-                            task.copy(priority = TaskPriority.CRITICAL, voiceEnabled = true),
-                            stage,
-                        )
+                        AlarmRingingService.start(appContext, task.copy(priority = TaskPriority.CRITICAL, voiceEnabled = true), stage, token)
                     }.isSuccess) {
                     fallback("Smart · Critical fallback")
                 }
             }
         }
 
-        // Only the immediate successor is scheduled. Any acknowledgement/snooze cancels it.
         smart.scheduleNextIfUnanswered(task, stage, firedAt)
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -58,6 +59,7 @@ internal fun V071WorkflowInlineContent(
     onAdvance: () -> Unit,
     onBack: () -> Unit,
     onFocus: () -> Unit,
+    onEditPublication: () -> Unit = {},
 ) {
     val template = CreatorWorkflowEngine.templateFor(task)
     val currentIndex = CreatorWorkflowEngine.stageIndex(task)
@@ -79,17 +81,17 @@ internal fun V071WorkflowInlineContent(
                     Text(
                         template.label.uppercase(),
                         color = RecRed,
-                        fontSize = 8.7.sp,
+                        fontSize = 12.sp,
                         letterSpacing = 1.1.sp,
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text(task.dueLabel, color = MutedGold, fontSize = 10.3.sp)
+                    Text(task.dueLabel, color = MutedGold, fontSize = 13.sp)
                 }
                 Text(
                     if (done) "COMPLETE" else "STEP ${currentIndex + 1} OF ${template.stages.size}",
                     color = if (done) SuccessGreen else MutedText,
-                    fontSize = 8.7.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -154,7 +156,7 @@ internal fun V071WorkflowInlineContent(
                                 current -> MutedGold
                                 else -> Color(0xFF5F5B56)
                             },
-                            fontSize = 9.3.sp,
+                            fontSize = 12.sp,
                         )
                     }
                 }
@@ -167,6 +169,13 @@ internal fun V071WorkflowInlineContent(
                             .height(15.dp)
                             .background(if (completed) SuccessGreen.copy(alpha = .25f) else CinemaLine)
                     )
+                }
+            }
+
+            if (task.publishedAtMillis > 0L || task.publicationIsLegacy || done) {
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(onClick = onEditPublication, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Text(if (task.publishedAtMillis > 0L) "EDIT PUBLICATION DETAILS" else "RECORD PUBLICATION DATE", fontSize = 12.sp)
                 }
             }
 
@@ -216,7 +225,7 @@ internal fun V071WorkflowInlineContent(
                             modifier = Modifier.size(16.dp),
                         )
                         Spacer(Modifier.width(5.dp))
-                        Text("BACK", color = ProjectorIvory, fontSize = 9.3.sp)
+                        Text("BACK", color = ProjectorIvory, fontSize = 12.sp)
                     }
                     Button(
                         onClick = onAdvance,
@@ -224,9 +233,9 @@ internal fun V071WorkflowInlineContent(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF272727)),
                     ) {
                         Text(
-                            if (currentIndex == template.stages.lastIndex) "MARK PUBLISHED" else "MARK STEP DONE",
+                            CreatorWorkflowEngine.stageActionLabel(task),
                             color = ProjectorIvory,
-                            fontSize = 9.3.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                         )
                     }
@@ -234,9 +243,9 @@ internal fun V071WorkflowInlineContent(
             } else {
                 Spacer(Modifier.height(13.dp))
                 Text(
-                    "✓ Project published",
+                    if (task.publishedAtMillis > 0L) "✓ Published · Project complete" else "✓ Project complete",
                     color = SuccessGreen,
-                    fontSize = 10.5.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }

@@ -1,6 +1,7 @@
 package com.framebynavin.app.reminders
 
 import android.content.Context
+import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskStatus
@@ -16,7 +17,7 @@ object ReminderRecoveryEngine {
     suspend fun reconcile(
         context: Context,
         nowMillis: Long = System.currentTimeMillis(),
-    ) {
+    ) = CreatorDataGate.readyTransaction(context) {
         val appContext = context.applicationContext
         TaskStore(appContext).load().forEach { task ->
             reconcileTask(appContext, task, nowMillis)

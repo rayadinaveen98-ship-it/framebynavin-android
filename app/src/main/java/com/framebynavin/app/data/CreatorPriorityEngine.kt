@@ -34,14 +34,14 @@ object CreatorPriorityEngine {
             else -> "NEXT"
         }
         val reason = when {
-            dueDelta != null && dueDelta < 0L -> "Deadline passed — finish the current stage before lower-priority work."
+            dueDelta != null && dueDelta < 0L -> "Deadline passed — finish the current step before lower-priority work."
             dueDelta != null && dueDelta <= 2 * HOUR_MS -> "Publishing is close, so this project has the least schedule buffer."
             task.status == TaskStatus.WORKING -> "You already started this project — keeping momentum reduces context switching."
             task.priority == TaskPriority.CRITICAL -> "Marked Critical, so it outranks Important and Normal work."
-            dueDelta != null && dueDelta <= DAY_MS -> "Due today — completing the current stage protects the publish window."
-            task.priority == TaskPriority.IMPORTANT -> "Important project with the strongest current deadline and stage signal."
+            dueDelta != null && dueDelta <= DAY_MS -> "Due today — completing the current step protects the publish window."
+            task.priority == TaskPriority.IMPORTANT -> "Important project with the strongest current deadline and progress signal."
             CreatorWorkflowEngine.progress(task) >= 75 -> "Close to publish — finishing it now clears active work faster."
-            else -> "Best next step from deadline, priority, workflow stage and current progress."
+            else -> "Best next step from deadline, priority and current progress."
         }
         return CreatorRecommendation(
             taskId = task.id,

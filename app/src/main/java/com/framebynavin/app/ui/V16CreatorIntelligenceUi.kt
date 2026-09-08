@@ -52,7 +52,7 @@ internal fun V16CreatorIntelligenceCard(
                 val growth = d7.lifetimeViews.toDouble() / h24.lifetimeViews.toDouble()
                 "${video.title} grew ${String.format(Locale.US, "%.1f×", growth)} from ${YouTubeMilestonePolicy.label(24)} to ${YouTubeMilestonePolicy.label(168)}."
             }
-            h24 != null -> "${video.title} has a ${YouTubeMilestonePolicy.label(24)} checkpoint saved locally."
+            h24 != null -> "${video.title} has a 24-hour result saved."
             else -> null
         }
     }
@@ -64,21 +64,21 @@ internal fun V16CreatorIntelligenceCard(
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("CREATOR INTELLIGENCE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("WHAT I'M LEARNING", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(6.dp))
-            Text("What FrameByNavin is learning", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
+            Text("Patterns from your work", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(13.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                V16Metric("7D DONE", review.completedThisWeek.toString(), Modifier.weight(1f))
-                V16Metric("30D DONE", review.completedLast30Days.toString(), Modifier.weight(1f))
-                V16Metric("IDEA → PROJECT", "${review.ideaConversionPercent}%", Modifier.weight(1f))
+                V16Metric("DONE THIS WEEK", review.completedThisWeek.toString(), Modifier.weight(1f))
+                V16Metric("DONE THIS MONTH", review.completedLast30Days.toString(), Modifier.weight(1f))
+                V16Metric("IDEAS STARTED", "${review.ideaConversionPercent}%", Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(12.dp))
             Text(
-                review.bottleneckStage?.let { "Current bottleneck · $it (${review.bottleneckCount} active)" }
-                    ?: "No workflow bottleneck yet.",
+                review.bottleneckStage?.let { "Most work is waiting at · $it (${review.bottleneckCount})" }
+                    ?: "Your workflow looks clear.",
                 color = MutedGold,
                 fontSize = 9.5.sp,
                 fontWeight = FontWeight.Bold,
@@ -86,16 +86,16 @@ internal fun V16CreatorIntelligenceCard(
             Spacer(Modifier.height(7.dp))
 
             val performanceText = when {
-                top == null -> "Sync more YouTube data to build performance memory."
-                multiple >= 1.25 -> "${top.title} is running ${String.format(Locale.US, "%.1f×", multiple)} above the current visible-video average for this window."
-                averageViews > 0L -> "${top.title} is the strongest visible video in this window at ${v16Compact(top.periodViews)} views."
-                else -> "YouTube is connected. Keep syncing to build stronger comparisons."
+                top == null -> "Keep refreshing YouTube so I can learn what usually works."
+                multiple >= 1.25 -> "${top.title} is doing better than your recent-video average in this period."
+                averageViews > 0L -> "${top.title} is your strongest video in this period with ${v16Compact(top.periodViews)} views."
+                else -> "YouTube is connected. Keep refreshing so comparisons get better."
             }
             Text(performanceText, color = ProjectorIvory, fontSize = 10.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(6.dp))
             Text(
-                if (links.isEmpty()) "Link published videos to projects to unlock project-level memory."
-                else "${links.size} YouTube video${if (links.size == 1) "" else "s"} linked to FrameByNavin projects.",
+                if (links.isEmpty()) "Connect published videos to projects so FrameByNavin can learn from them."
+                else "${links.size} YouTube video${if (links.size == 1) "" else "s"} connected to FrameByNavin projects.",
                 color = MutedText,
                 fontSize = 9.sp,
             )

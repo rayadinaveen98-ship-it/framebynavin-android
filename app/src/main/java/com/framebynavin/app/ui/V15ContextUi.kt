@@ -14,6 +14,9 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -75,7 +78,7 @@ internal fun V15DailyBriefScreen(
             if (brief.nudges.isNotEmpty()) {
                 Spacer(Modifier.height(20.dp))
                 Text("NEEDS ATTENTION", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-                Text("Context from deadlines, progress and workflow stage.", color = MutedText, fontSize = 8.8.sp)
+                Text("Things that may need your attention today.", color = MutedText, fontSize = 8.8.sp)
                 Spacer(Modifier.height(9.dp))
                 brief.nudges.forEach { nudge ->
                     val accent = when (nudge.level) {
@@ -112,7 +115,7 @@ internal fun V15DailyBriefScreen(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("NEXT 7 DAYS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.weight(1f))
-                Text("${brief.reminderCount} reminders in 24h", color = MutedText, fontSize = 8.5.sp)
+                Text("${brief.reminderCount} reminders today", color = MutedText, fontSize = 8.5.sp)
             }
             Spacer(Modifier.height(8.dp))
             if (brief.calendar.isEmpty()) {
@@ -128,22 +131,27 @@ internal fun V15DailyBriefScreen(
 internal fun V15ContentCalendarScreen(
     tasks: List<CreatorTask>,
     weeklySlots: List<WeeklyScheduleSlot>,
-    onClose: () -> Unit,
+    onClose: (() -> Unit)?,
 ) {
-    val items = CreatorContentCalendarEngine.upcoming(tasks, weeklySlots, daysAhead = 14)
-    val grouped = CreatorContentCalendarEngine.groupedByDate(items)
-    val zone = ZoneId.systemDefault()
-    val today = LocalDate.now(zone)
+    val grouped by remember {
+        derivedStateOf {
+            CreatorContentCalendarEngine.groupedByDate(
+                CreatorContentCalendarEngine.upcoming(tasks, weeklySlots, daysAhead = 14),
+            )
+        }
+    }
+    val zone = remember { ZoneId.systemDefault() }
+    val today = remember(zone) { LocalDate.now(zone) }
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding()
-                .padding(horizontal = 20.dp).padding(bottom = 42.dp)
+                .padding(horizontal = 20.dp).padding(bottom = 124.dp)
         ) {
             V15BackHeader("CONTENT CALENDAR", "The next 14 days", onClose)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Projects and enabled weekly slots in one timeline. Weekly items already created as projects are shown only once.",
+                "See your projects and weekly plan together.",
                 color = MutedText,
                 fontSize = 9.2.sp,
                 lineHeight = 14.sp,
@@ -156,7 +164,7 @@ internal fun V15ContentCalendarScreen(
                         Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold, modifier = Modifier.size(30.dp))
                         Spacer(Modifier.height(9.dp))
                         Text("Calendar is clear", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text("Add project deadlines or enable Weekly Plan slots.", color = MutedText, fontSize = 9.sp)
+                        Text("Add a project date or turn on a weekly plan.", color = MutedText, fontSize = 9.sp)
                     }
                 }
             } else {
@@ -216,10 +224,12 @@ private fun V15Metric(label: String, value: String, accent: Color, modifier: Mod
 }
 
 @Composable
-private fun V15BackHeader(kicker: String, title: String, onBack: () -> Unit) {
+private fun V15BackHeader(kicker: String, title: String, onBack: (() -> Unit)?) {
     Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
-        Spacer(Modifier.width(4.dp))
+        if (onBack != null) {
+            IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
+            Spacer(Modifier.width(4.dp))
+        }
         Column {
             Text(kicker, color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(title, color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)

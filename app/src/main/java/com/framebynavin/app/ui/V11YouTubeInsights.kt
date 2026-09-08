@@ -41,6 +41,7 @@ import java.util.Locale
 
 @Composable
 internal fun V11InsightsScreen(
+    creatorProfile: CreatorProfile,
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     onAdd: () -> Unit,
@@ -60,6 +61,9 @@ internal fun V11InsightsScreen(
     var authError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedVideo by remember { mutableStateOf<YouTubeVideoSnapshot?>(null) }
     var links by remember { mutableStateOf(store.links()) }
+    val personalization by remember(creatorProfile) {
+        derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
+    }
 
     LaunchedEffect(windowDays) {
         store.load(windowDays)?.let { snapshot = it }
@@ -166,8 +170,10 @@ internal fun V11InsightsScreen(
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("What matters — and what next?", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-            Text("Performance, causes and creator decisions in one place.", color = MutedText, fontSize = 10.5.sp)
+            Text(personalization.insightTitle, color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
+            Text(personalization.insightBody, color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
+            Spacer(Modifier.height(14.dp))
+            YTProfileFocusCard(creatorProfile, personalization)
             Spacer(Modifier.height(18.dp))
 
             if (snapshot == null) {
@@ -179,7 +185,7 @@ internal fun V11InsightsScreen(
                     onConnect = { authorize(true) },
                 )
                 Spacer(Modifier.height(18.dp))
-                YTLocalCreatorSection(tasks, ideas)
+                YTLocalCreatorSection(tasks, ideas, personalization)
             } else {
                 val data = snapshot!!
                 YTChannelHeader(
@@ -231,6 +237,49 @@ internal fun V11InsightsScreen(
 }
 
 @Composable
+private fun YTProfileFocusCard(
+    profile: CreatorProfile,
+    personalization: CreatorPersonalizationSnapshot,
+) {
+    Surface(
+        Modifier.fillMaxWidth(),
+        RoundedCornerShape(19.dp),
+        Color(0xFF171310),
+        border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f)),
+    ) {
+        Column(Modifier.padding(15.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("YOUR CREATOR LENS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+                    Spacer(Modifier.height(3.dp))
+                    Text(profile.primaryGoal, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                }
+                Text(
+                    "${personalization.publishedThisWeek} / ${personalization.weeklyTarget}",
+                    color = if (personalization.weeklyProgress >= 1f) SuccessGreen else MutedGold,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+            Spacer(Modifier.height(9.dp))
+            LinearProgressIndicator(
+                progress = { personalization.weeklyProgress },
+                modifier = Modifier.fillMaxWidth().height(4.dp),
+                color = if (personalization.weeklyProgress >= 1f) SuccessGreen else MutedGold,
+                trackColor = CinemaLine,
+            )
+            Spacer(Modifier.height(7.dp))
+            Text(
+                "${profile.category} · ${personalization.platformSummary} · ${personalization.publishedThisWeek} / ${personalization.weeklyTarget} published this week",
+                color = MutedText,
+                fontSize = 8.7.sp,
+                lineHeight = 12.sp,
+            )
+        }
+    }
+}
+
+@Composable
 private fun YTConnectCard(
     syncing: Boolean,
     error: String?,
@@ -247,15 +296,15 @@ private fun YTConnectCard(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Connect YouTube", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                    Text("Read-only channel + analytics access", color = MutedText, fontSize = 9.2.sp)
+                    Text("See your channel performance", color = MutedText, fontSize = 9.2.sp)
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Text("Bring views, watch time, subscribers and video performance into Creator OS. FrameByNavin never asks for upload or delete permission.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Bring views, watch time, subscribers and video performance into FrameByNavin. It cannot upload or delete your videos.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(14.dp))
             Button(onClick = onConnect, enabled = !syncing, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(15.dp)) {
                 if (syncing) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
-                else { Icon(Icons.Outlined.Link, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(7.dp)); Text("CONNECT YOUTUBE", fontWeight = FontWeight.Black, fontSize = 9.5.sp) }
+                else { Icon(Icons.Outlined.Link, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(7.dp)); Text("CONNECT YOUTUBE", fontWeight = FontWeight.Black, fontSize = 10.sp) }
             }
             error?.let {
                 Spacer(Modifier.height(12.dp))
@@ -269,12 +318,11 @@ private fun YTConnectCard(
 private fun YTErrorCard(message: String, packageName: String, sha1: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), Color(0xFF17110F), border = BorderStroke(1.dp, RecRed.copy(alpha = .35f))) {
         Column(Modifier.padding(13.dp)) {
-            Text("YOUTUBE SETUP", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            Text("YOUTUBE CONNECTION", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             Spacer(Modifier.height(4.dp))
             Text(message, color = ProjectorIvory, fontSize = 9.5.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(8.dp))
-            Text("Package · $packageName", color = MutedText, fontSize = 8.2.sp)
-            Text("SHA-1 · $sha1", color = MutedText, fontSize = 8.2.sp)
+            Text("Try connecting again. If it still fails, the app setup may need attention.", color = MutedText, fontSize = 8.2.sp)
         }
     }
 }
@@ -302,18 +350,18 @@ private fun YTChannelHeader(
                 }
                 TextButton(onClick = onSync, enabled = !syncing) {
                     if (syncing) CircularProgressIndicator(modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = RecRed)
-                    else Text("SYNC", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                    else Text("REFRESH", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
             Spacer(Modifier.height(11.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 listOf(7, 28, 90).forEach { days ->
-                    FilterChip(selected = windowDays == days, onClick = { onWindow(days) }, label = { Text("${days}D", fontSize = 8.5.sp) })
+                    FilterChip(selected = windowDays == days, onClick = { onWindow(days) }, label = { Text("${days}D", fontSize = 10.sp) })
                 }
                 Spacer(Modifier.weight(1f))
                 Box {
                     var menu by remember { mutableStateOf(false) }
-                    IconButton(onClick = { menu = true }, modifier = Modifier.size(34.dp)) { Icon(Icons.Outlined.MoreVert, null, tint = MutedText, modifier = Modifier.size(18.dp)) }
+                    IconButton(onClick = { menu = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.MoreVert, "YouTube account options", tint = MutedText, modifier = Modifier.size(20.dp)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("Switch account") }, onClick = { menu = false; onSwitchAccount() })
                         DropdownMenuItem(text = { Text("Disconnect") }, onClick = { menu = false; onDisconnect() })
@@ -321,7 +369,7 @@ private fun YTChannelHeader(
                 }
             }
             Spacer(Modifier.height(7.dp))
-            Text("${data.startDate} → ${data.endDate} · synced ${ytSyncTime(data.fetchedAtMillis)}", color = MutedText, fontSize = 8.sp)
+            Text("${data.startDate} → ${data.endDate} · updated ${ytSyncTime(data.fetchedAtMillis)}", color = MutedText, fontSize = 8.sp)
         }
     }
 }
@@ -406,7 +454,7 @@ private fun YTTopVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>
     Text("Performance inside the selected ${data.windowDays}-day window.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     if (data.topVideos.isEmpty()) {
-        YTEmpty("No video-level analytics returned yet.")
+        YTEmpty("No video performance data yet.")
         return
     }
     data.topVideos.take(6).forEachIndexed { index, video ->
@@ -418,7 +466,7 @@ private fun YTTopVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>
 @Composable
 private fun YTRecentVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>, links: Map<String, String>, onVideo: (YouTubeVideoSnapshot) -> Unit) {
     Text("RECENT UPLOADS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Tap a video to link it to the Creator OS project that produced it.", color = MutedText, fontSize = 9.sp)
+    Text("Tap a video to connect it to the project that made it.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     data.recentVideos.take(10).forEach { video ->
         val linked = tasks.firstOrNull { it.id == links[video.videoId] }
@@ -441,7 +489,7 @@ private fun YTVideoRow(video: YouTubeVideoSnapshot, lead: String, linked: Creato
                 Text(video.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(3.dp))
                 Text("${ytCompact(video.periodViews)} views · ${ytWatch(video.watchMinutes)} · ${ytDuration(video.averageViewDurationSeconds)} avg", color = MutedText, fontSize = 8.3.sp)
-                Text(linked?.let { "Linked · ${it.title}" } ?: "Link project", color = if (linked != null) MutedGold else RecRed, fontSize = 8.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(linked?.let { "Connected · ${it.title}" } ?: "Connect project", color = if (linked != null) MutedGold else RecRed, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
@@ -459,11 +507,11 @@ private fun YTFormatSignal(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTa
 
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
-            Text("CONTENT SIGNAL", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            Text("Built from YouTube videos you link back to Creator OS projects.", color = MutedText, fontSize = 8.6.sp)
+            Text("WHAT'S WORKING", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            Text("Based on published videos you connect to projects.", color = MutedText, fontSize = 8.6.sp)
             Spacer(Modifier.height(11.dp))
             if (rows.isEmpty()) {
-                Text("Link a few published videos to unlock format and pillar performance here.", color = MutedText, fontSize = 9.4.sp, lineHeight = 14.sp)
+                Text("Connect a few published videos to see which content types work best.", color = MutedText, fontSize = 9.4.sp, lineHeight = 14.sp)
             } else {
                 rows.take(5).forEach { (label, views, count) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -479,18 +527,23 @@ private fun YTFormatSignal(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTa
 }
 
 @Composable
-private fun YTLocalCreatorSection(tasks: List<CreatorTask>, ideas: List<CreatorIdea>) {
-    val done = tasks.count { it.status == TaskStatus.DONE }
+private fun YTLocalCreatorSection(
+    tasks: List<CreatorTask>,
+    ideas: List<CreatorIdea>,
+    personalization: CreatorPersonalizationSnapshot,
+) {
     val active = tasks.count { it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING }
     val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
-    Text("CREATOR OS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Your local production momentum still matters beside platform numbers.", color = MutedText, fontSize = 9.sp)
+    Text("YOUR CREATOR PROGRESS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    Text("Your publishing rhythm matters alongside channel numbers.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        YTMetric("DONE", done.toString(), SuccessGreen, Modifier.weight(1f))
+        YTMetric("THIS WEEK", personalization.publishedThisWeek.toString(), SuccessGreen, Modifier.weight(1f))
+        YTMetric("TARGET", personalization.weeklyTarget.toString(), MutedGold, Modifier.weight(1f))
         YTMetric("ACTIVE", active.toString(), RecRed, Modifier.weight(1f))
-        YTMetric("IDEAS READY", readyIdeas.toString(), MutedGold, Modifier.weight(1f))
     }
+    Spacer(Modifier.height(7.dp))
+    Text("$readyIdeas idea${if (readyIdeas == 1) "" else "s"} ready to produce · ${personalization.primaryPlatform} is your primary publishing lane.", color = MutedText, fontSize = 8.7.sp)
 }
 
 @Composable
@@ -499,7 +552,7 @@ private fun YTLinkProjectDialog(video: YouTubeVideoSnapshot, tasks: List<Creator
         .sortedWith(compareByDescending<CreatorTask> { it.status == TaskStatus.DONE }.thenByDescending { it.dueAtMillis })
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Link project", fontWeight = FontWeight.Black) },
+        title = { Text("Connect project", fontWeight = FontWeight.Black) },
         text = {
             Column(Modifier.heightIn(max = 430.dp).verticalScroll(rememberScrollState())) {
                 Text(video.title, color = MutedText, fontSize = 9.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -545,27 +598,14 @@ private fun YTEmpty(text: String) {
 private fun ytFriendlyError(error: Throwable): String {
     val raw = error.message.orEmpty()
     return when {
-        raw.contains("DEVELOPER_ERROR", true) || raw.contains("10:") -> "Google OAuth is not configured for this app signature yet. Enable YouTube Data API + YouTube Analytics API and add this Android package/SHA-1 in Google Cloud."
-        raw.contains("403") || raw.contains("accessNotConfigured", true) || raw.contains("has not been used", true) -> "The required YouTube APIs are not enabled for the Google Cloud project yet."
-        raw.contains("401") || raw.contains("invalid credentials", true) -> "YouTube authorization expired. Connect again and retry."
-        raw.isNotBlank() -> raw
-        else -> "YouTube sync failed. Check internet access and Google authorization."
+        raw.contains("DEVELOPER_ERROR", true) || raw.contains("10:") -> "YouTube sign-in is not fully set up for this app yet."
+        raw.contains("403") || raw.contains("accessNotConfigured", true) || raw.contains("has not been used", true) -> "YouTube connection is not fully enabled yet."
+        raw.contains("401") || raw.contains("invalid credentials", true) -> "Your YouTube connection expired. Connect again."
+        else -> "YouTube couldn't refresh right now. Check your connection and try again."
     }
 }
 
-private fun ytPillar(task: CreatorTask): String {
-    val title = task.title.lowercase(Locale.getDefault())
-    val type = task.contentType.lowercase(Locale.getDefault())
-    return when {
-        title.contains("frame breakdown") -> "Frame Breakdown"
-        title.contains("why this scene works") -> "Why This Scene Works"
-        type.contains("cinematic moment") -> "Every Cinematic Moment"
-        type.contains("long-form") || type.contains("long form") -> "FrameByNavin Analysis"
-        title.contains("review") || title.contains("recommend") -> "Reviews / Recommendations"
-        type.contains("short") -> "YouTube Shorts"
-        else -> task.contentType
-    }
-}
+private fun ytPillar(task: CreatorTask): String = YouTubeContentClassifier.label(task)
 
 private fun ytCompact(value: Long): String = when {
     value >= 1_000_000_000L -> String.format(Locale.US, "%.1fB", value / 1_000_000_000.0)

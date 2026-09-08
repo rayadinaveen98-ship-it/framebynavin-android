@@ -7,23 +7,63 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
 private val Context.ideaVaultDataStore by preferencesDataStore(name = "idea_vault_v09")
 
+private val ideaVaultMutationMutex = Mutex()
 class IdeaVaultStore(private val context: Context) {
+    private val mutationMutex = ideaVaultMutationMutex
+
     private val ideasKey = stringPreferencesKey("ideas_json")
+    private val backupKey = stringPreferencesKey("ideas_json_last_good")
+
+    private suspend fun saveUnlocked(ideas: List<CreatorIdea>) {
+        val encoded = encode(ideas)
+        context.ideaVaultDataStore.edit { prefs ->
+            prefs[ideasKey]?.let { previous ->
+                if (runCatching { decode(previous) }.isSuccess) prefs[backupKey] = previous
+            }
+            prefs[ideasKey] = encoded
+        }
+    }
 
     val ideasFlow: Flow<List<CreatorIdea>> = context.ideaVaultDataStore.data.map { prefs ->
         val raw = prefs[ideasKey] ?: return@map emptyList()
-        runCatching { decode(raw) }.getOrDefault(emptyList())
+        runCatching { decode(raw) }.getOrElse { cause ->
+            val backup = prefs[backupKey] ?: throw IllegalStateException("Idea data is unreadable. The original has been retained.", cause)
+            runCatching { decode(backup) }.getOrElse { throw IllegalStateException("Both idea copies are unreadable.", it) }
+        }
     }
 
     suspend fun load(): List<CreatorIdea> = ideasFlow.first()
 
-    suspend fun save(ideas: List<CreatorIdea>) {
-        context.ideaVaultDataStore.edit { prefs -> prefs[ideasKey] = encode(ideas) }
+    suspend fun save(ideas: List<CreatorIdea>)= CreatorDataGate.transaction {
+        mutationMutex.withLock {
+            saveUnlocked(ideas)
+        }
+    }
+
+    suspend fun mutate(transform: (List<CreatorIdea>) -> List<CreatorIdea>): List<CreatorIdea> = CreatorDataGate.transaction {
+        mutationMutex.withLock {
+            val latest = load()
+            val updated = transform(latest)
+            if (updated != latest) saveUnlocked(updated)
+            updated
+        }
+    }
+
+    suspend fun applyDelta(base: List<CreatorIdea>, desired: List<CreatorIdea>, expectedGeneration: Long): List<CreatorIdea> = CreatorDataGate.transaction {
+        mutationMutex.withLock {
+            if (CreatorDataGate.generation(context) != expectedGeneration)
+                throw CreatorWriteConflict("An older idea edit was cancelled after restore")
+            val updated = CreatorDeltaEngine.merge(base, desired, load()) { it.id }
+            saveUnlocked(updated)
+            updated
+        }
     }
 
     suspend fun exportJson(): String = encode(load())

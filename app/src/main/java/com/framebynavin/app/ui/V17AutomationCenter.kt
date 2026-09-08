@@ -22,6 +22,8 @@ import com.framebynavin.app.data.CreatorRoutine
 import com.framebynavin.app.data.CreatorRoutinePolicy
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorTaskOrigin
+import com.framebynavin.app.data.PostPublishCheckpoint
+import com.framebynavin.app.data.PostPublishCheckpointStatus
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.data.WeeklyScheduleSlot
 import com.framebynavin.app.reminders.CreatorAutoPlanWorker
@@ -34,6 +36,7 @@ import java.util.Locale
 @Composable
 internal fun V17AutomationCenterScreen(
     tasks: List<CreatorTask>,
+    postPublishCheckpoints: List<PostPublishCheckpoint> = emptyList(),
     weeklySlots: List<WeeklyScheduleSlot>,
     weeklyAutoPlanEnabled: Boolean,
     contextNudgesEnabled: Boolean,
@@ -53,7 +56,7 @@ internal fun V17AutomationCenterScreen(
             it.dueAtMillis in (now + 1)..horizon
     }
     val enabledSlots = weeklySlots.count { it.enabled }
-    val postPublish = tasks.count { it.sourceRefId.startsWith("post-publish:") && it.status != TaskStatus.DONE && it.status != TaskStatus.SKIPPED }
+    val postPublish = postPublishCheckpoints.count { it.status == PostPublishCheckpointStatus.PENDING }
     val lastPlannerAt = stateStore.lastPlannerAtMillis()
     val lastCreated = stateStore.lastPlannerCreatedCount()
 
@@ -70,16 +73,16 @@ internal fun V17AutomationCenterScreen(
                 Spacer(Modifier.width(4.dp))
                 Column {
                     Text("AUTOMATION", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                    Text("Creator Automation", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("Automation", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
                 }
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("Let the repetitive parts run.", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-            Text("FrameByNavin can prepare and remind. Publishing and destructive actions still stay with you.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
+            Text("Let FrameByNavin handle repeat work.", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
+            Text("FrameByNavin can plan and remind. You still control publishing and deletion.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
 
             Spacer(Modifier.height(20.dp))
-            Text("BACKGROUND AUTO PLAN", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("AUTO PLAN", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(9.dp))
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Column(Modifier.padding(16.dp)) {
@@ -89,10 +92,10 @@ internal fun V17AutomationCenterScreen(
                         }
                         Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("14-day creator planner", color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                            Text("Plan the next 14 days", color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                             Text(
-                                if (weeklyAutoPlanEnabled) "$enabledSlots schedule slots · $generated upcoming projects prepared"
-                                else "Off · your weekly schedule remains saved",
+                                if (weeklyAutoPlanEnabled) "$enabledSlots weekly plans · $generated upcoming projects ready"
+                                else "Off · your weekly plan stays saved",
                                 color = MutedText,
                                 fontSize = 8.8.sp,
                             )
@@ -114,9 +117,9 @@ internal fun V17AutomationCenterScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 when {
-                                    runRequested -> "Planner refresh requested"
-                                    lastPlannerAt > 0L -> "Last background check · ${v17Time(lastPlannerAt)} · $lastCreated added"
-                                    else -> "Background planner is scheduled automatically"
+                                    runRequested -> "Updating your plan…"
+                                    lastPlannerAt > 0L -> "Last updated · ${v17Time(lastPlannerAt)} · $lastCreated added"
+                                    else -> "Your plan updates automatically"
                                 },
                                 color = MutedText,
                                 fontSize = 8.5.sp,
@@ -126,7 +129,7 @@ internal fun V17AutomationCenterScreen(
                                 CreatorAutoPlanWorker.enqueueNow(context)
                                 runRequested = true
                             }) {
-                                Text("RUN NOW", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                                Text("UPDATE PLAN", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
                             }
                         }
                     }
@@ -134,25 +137,25 @@ internal fun V17AutomationCenterScreen(
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("ALWAYS-AWARE AUTOMATION", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("AUTOMATIC HELP", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(9.dp))
             V17StatusRow(
                 icon = Icons.Outlined.Share,
-                title = "Post-publish follow-ups",
-                body = if (postPublish > 0) "$postPublish follow-up actions currently active" else "Creates promotion + 24h + 7d follow-ups after YouTube publishing",
+                title = "Post-publish checkpoints",
+                body = if (postPublish > 0) "$postPublish post-publish actions waiting" else "Keeps 24-hour and 7-day performance reviews attached to the project you published",
                 enabled = true,
             )
             Spacer(Modifier.height(7.dp))
             V17StatusRow(
                 icon = Icons.Outlined.NotificationsActive,
-                title = "Context nudges",
-                body = if (contextNudgesEnabled) "On · creator-risk checks remain separate from exact reminders" else "Off · enable from Settings if you want at-risk creator nudges",
+                title = "Helpful reminders",
+                body = if (contextNudgesEnabled) "On · warns you when a project may need attention" else "Off · turn this on in Settings for extra project reminders",
                 enabled = contextNudgesEnabled,
             )
 
             Spacer(Modifier.height(20.dp))
-            Text("CREATOR ROUTINES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text("Optional background notifications. They never create exact alarms.", color = MutedText, fontSize = 9.sp)
+            Text("REGULAR CHECK-INS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("Choose the regular reminders you want from FrameByNavin.", color = MutedText, fontSize = 9.sp)
             Spacer(Modifier.height(9.dp))
             V17RoutineRow(
                 title = "Daily Brief",
@@ -193,8 +196,8 @@ internal fun V17AutomationCenterScreen(
                     Icon(Icons.Outlined.Lock, null, tint = RecRed, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(10.dp))
                     Column {
-                        Text("You remain the final control", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        Text("Automation can prepare projects, follow-ups and routine notifications. It does not publish, delete creator work or post to social accounts.", color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
+                        Text("You stay in control", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("FrameByNavin can plan and remind. It will never publish or delete anything without you.", color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
                     }
                 }
             }
@@ -217,7 +220,7 @@ private fun V17StatusRow(
                 Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                 Text(body, color = MutedText, fontSize = 8.6.sp, lineHeight = 12.sp)
             }
-            Text(if (enabled) "ON" else "OFF", color = if (enabled) SuccessGreen else MutedText, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Text(if (enabled) "ON" else "OFF", color = if (enabled) SuccessGreen else MutedText, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
     }
 }

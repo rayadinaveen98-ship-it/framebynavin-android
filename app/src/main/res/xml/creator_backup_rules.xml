@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="sharedpref" path="creator_cloud_v13.xml" />
+    <exclude domain="sharedpref" path="youtube_auth_v10.xml" />
+    <exclude domain="sharedpref" path="youtube_auth_v11.xml" />
+    <exclude domain="file" path="creator_restore_recovery_v181/" />
+</full-backup-content>

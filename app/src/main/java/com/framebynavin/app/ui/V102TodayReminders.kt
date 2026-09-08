@@ -51,7 +51,7 @@ internal fun PTodayReminders(
             Text("REMINDERS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.weight(1f))
             TextButton(onClick = onViewAll, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
-                Text("VIEW ALL", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                Text("VIEW ALL", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(2.dp))
                 Icon(Icons.Outlined.ChevronRight, null, tint = RecRed, modifier = Modifier.size(15.dp))
             }

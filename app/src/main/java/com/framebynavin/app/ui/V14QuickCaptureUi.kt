@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -18,6 +19,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.data.CreatorIdea
 import com.framebynavin.app.data.CreatorQuickCaptureEngine
+import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.IdeaVaultLabels
 import com.framebynavin.app.ui.theme.*
 
@@ -26,9 +28,11 @@ internal fun V14QuickCaptureDialog(
     onDismiss: () -> Unit,
     onSave: (CreatorIdea) -> Unit,
 ) {
+    val context = LocalContext.current
+    val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
     var title by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
-    val suggestion = remember(title, notes) { CreatorQuickCaptureEngine.suggest("$title $notes") }
+    val suggestion = remember(title, notes, creatorProfile) { CreatorQuickCaptureEngine.suggest("$title $notes", creatorProfile) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -57,7 +61,7 @@ internal fun V14QuickCaptureDialog(
                         onValueChange = { title = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Idea") },
-                        placeholder = { Text("Best Pawan Kalyan interval blocks") },
+                        placeholder = { Text("A scene, hook, topic or idea worth exploring") },
                         singleLine = false,
                         shape = RoundedCornerShape(16.dp),
                     )
@@ -82,7 +86,7 @@ internal fun V14QuickCaptureDialog(
                             Icon(Icons.Outlined.Bolt, null, tint = MutedGold, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("AUTO-SORT TO INBOX", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                                Text("AUTO-SORT IN IDEA VAULT", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                                 Spacer(Modifier.height(3.dp))
                                 Text(IdeaVaultLabels.category(suggestion.category), color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                                 Text("${suggestion.platformHint} · ${suggestion.formatHint}", color = MutedText, fontSize = 8.8.sp)
@@ -95,13 +99,13 @@ internal fun V14QuickCaptureDialog(
 
                 Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
                     Button(
-                        onClick = { onSave(CreatorQuickCaptureEngine.toIdea(title, notes)) },
+                        onClick = { onSave(CreatorQuickCaptureEngine.toIdea(title, notes, profile = creatorProfile)) },
                         enabled = title.isNotBlank(),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp).height(52.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(15.dp),
                     ) {
-                        Text("SAVE TO INBOX", fontWeight = FontWeight.Black, fontSize = 10.sp)
+                        Text("SAVE IDEA", fontWeight = FontWeight.Black, fontSize = 10.sp)
                     }
                 }
             }

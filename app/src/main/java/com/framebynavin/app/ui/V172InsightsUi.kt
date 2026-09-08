@@ -123,10 +123,10 @@ private fun V172Overview(
     Spacer(Modifier.height(18.dp))
 
     val top = YouTubeInsightEngine.videoPerformance(snapshot).take(3)
-    Text("CONTENT DRIVERS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("The uploads doing the most work in this window.", color = MutedText, fontSize = 9.sp)
+    Text("TOP VIDEOS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    Text("The videos driving your channel right now.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
-    if (top.isEmpty()) V172Empty("Sync after YouTube has enough report data to rank videos.")
+    if (top.isEmpty()) V172Empty("Refresh YouTube to see which videos are performing best.")
     else top.forEachIndexed { index, performance -> V172VideoRow(index + 1, performance, onVideo) }
 }
 
@@ -140,7 +140,7 @@ private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot) {
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .24f)),
     ) {
         Column(Modifier.padding(18.dp)) {
-            Text("PERFORMANCE PULSE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("CHANNEL PULSE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(5.dp))
             Text(YouTubeInsightEngine.pulseTitle(snapshot), color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(5.dp))
@@ -192,7 +192,7 @@ private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snap
                 )
                 Spacer(Modifier.width(3.dp))
                 Text(
-                    metric.percentChange?.let { "${if (it > 0) "+" else ""}$it%" } ?: "builds after sync",
+                    metric.percentChange?.let { "${if (it > 0) "+" else ""}$it%" } ?: "waiting for comparison",
                     color = when { positive -> SuccessGreen; negative -> RecRed; else -> MutedText },
                     fontSize = 7.8.sp,
                     fontWeight = FontWeight.Bold,
@@ -228,8 +228,8 @@ private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot) {
     val max = points.maxOfOrNull { it.views }?.coerceAtLeast(1L) ?: 1L
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
-            Text("MOMENTUM", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            Text("Daily views · last ${points.size} available days", color = MutedText, fontSize = 8.5.sp)
+            Text("DAILY VIEWS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            Text("Last ${points.size} days", color = MutedText, fontSize = 8.5.sp)
             Spacer(Modifier.height(13.dp))
             if (points.isEmpty()) Text("No daily trend data yet.", color = MutedText, fontSize = 9.sp)
             else Row(Modifier.fillMaxWidth().height(74.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
@@ -253,19 +253,19 @@ private fun V172Content(
     links: Map<String, String>,
     onVideo: (YouTubeVideoSnapshot) -> Unit,
 ) {
-    Text("RANKED PERFORMANCE", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Ranked against the videos visible in this ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 9.sp)
+    Text("VIDEO PERFORMANCE", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    Text("See which videos performed best in this period.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
-    if (videos.isEmpty()) V172Empty("No video-level report data yet.")
+    if (videos.isEmpty()) V172Empty("No video performance data yet.")
     else videos.take(12).forEachIndexed { index, performance -> V172VideoRow(index + 1, performance, onVideo) }
 
     Spacer(Modifier.height(18.dp))
-    Text("FORMAT / PILLAR PERFORMANCE", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Normalized per linked upload — not just total views.", color = MutedText, fontSize = 9.sp)
+    Text("WHAT WORKS BEST", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    Text("Compare your content types fairly.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     val formats = remember(snapshot, tasks, links) { YouTubeInsightEngine.formatPerformance(snapshot, tasks, links) }
-    if (formats.isEmpty()) V172Empty("Link published YouTube videos to their Creator OS projects to unlock fair format comparisons.")
+    if (formats.isEmpty()) V172Empty("Connect published videos to projects to compare what works best.")
     else formats.forEachIndexed { index, format -> V172FormatCard(index + 1, format) }
 }
 
@@ -292,8 +292,11 @@ private fun V172VideoRow(rank: Int, performance: YouTubeVideoPerformance, onVide
                 Text(performance.video.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(3.dp))
                 Text("${v172Compact(performance.video.periodViews)} views · ${v172Watch(performance.video.watchMinutes)} · ${v172Signed(performance.video.netSubscribers)} subs", color = MutedText, fontSize = 8.2.sp)
-                val baseline = if (performance.baselineMultiple > 0) "${String.format(Locale.US, "%.1f×", performance.baselineMultiple)} visible baseline" else "Building baseline"
-                Text("$baseline · ${performance.viewSharePercent}% of channel window", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                val baseline = if (performance.baselineMultiple > 0) {
+                    val difference = ((performance.baselineMultiple - 1.0) * 100).toInt()
+                    if (difference >= 0) "$difference% above your usual" else "${abs(difference)}% below your usual"
+                } else "Learning your usual performance"
+                Text("$baseline · ${performance.viewSharePercent}% of views this period", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
@@ -308,17 +311,17 @@ private fun V172FormatCard(rank: Int, format: YouTubeFormatPerformance) {
                 Text("#$rank", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(8.dp))
                 Text(format.label, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${format.uploadCount} linked", color = MutedText, fontSize = 8.sp)
+                Text("${format.uploadCount} connected", color = MutedText, fontSize = 8.sp)
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                V172Mini("VIEWS / UPLOAD", v172Compact(format.viewsPerUpload), Modifier.weight(1f))
-                V172Mini("WATCH / UPLOAD", v172Watch(format.watchMinutesPerUpload), Modifier.weight(1f))
+                V172Mini("AVG. VIEWS", v172Compact(format.viewsPerUpload), Modifier.weight(1f))
+                V172Mini("AVG. WATCH TIME", v172Watch(format.watchMinutesPerUpload), Modifier.weight(1f))
             }
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                V172Mini("SUBS / 1K", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))
-                V172Mini("ENGAGE / 1K", String.format(Locale.US, "%.1f", format.engagementPerThousandViews), Modifier.weight(1f))
+                V172Mini("SUBSCRIBERS", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))
+                V172Mini("ENGAGEMENT", String.format(Locale.US, "%.1f", format.engagementPerThousandViews), Modifier.weight(1f))
                 V172Mini("AVG VIEW", v172Duration(format.averageViewDurationSeconds), Modifier.weight(1f))
             }
         }
@@ -333,17 +336,17 @@ private fun V172Creator(
     links: Map<String, String>,
 ) {
     val summary = remember(tasks, ideas, links) { YouTubeInsightEngine.creatorSummary(tasks, ideas, links) }
-    Text("CREATOR OPERATING SYSTEM", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Platform performance beside the work required to produce it.", color = MutedText, fontSize = 9.sp)
+    Text("YOUR CREATOR PROGRESS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    Text("See how your work and channel results connect.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(10.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V172CreatorMetric("30D PUBLISHED", summary.completed30Days.toString(), MutedGold, Modifier.weight(1f))
+        V172CreatorMetric("PUBLISHED THIS MONTH", summary.completed30Days.toString(), MutedGold, Modifier.weight(1f))
         V172CreatorMetric("ACTIVE", summary.active.toString(), RecRed, Modifier.weight(1f))
     }
     Spacer(Modifier.height(7.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V172CreatorMetric("STARTED → DONE", "${summary.completionRateOfStarted}%", SuccessGreen, Modifier.weight(1f))
-        V172CreatorMetric("VIDEOS LINKED", summary.linkedVideos.toString(), ProjectorIvory, Modifier.weight(1f))
+        V172CreatorMetric("FINISHED", "${summary.completionRateOfStarted}%", SuccessGreen, Modifier.weight(1f))
+        V172CreatorMetric("VIDEOS CONNECTED", summary.linkedVideos.toString(), ProjectorIvory, Modifier.weight(1f))
     }
     Spacer(Modifier.height(7.dp))
     V172CreatorMetric("IDEAS READY", summary.readyIdeas.toString(), MutedGold, Modifier.fillMaxWidth())
@@ -351,19 +354,19 @@ private fun V172Creator(
     Spacer(Modifier.height(18.dp))
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
-            Text("WORKFLOW SIGNAL", color = RecRed, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+            Text("WORKFLOW", color = RecRed, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(5.dp))
             Text(
                 if (summary.bottleneckCount >= 2) "${summary.bottleneckCount} active projects are bunching up around ${summary.bottleneckLabel ?: "production"}."
-                else "No major workflow pile-up right now.",
+                else "Your workflow looks clear right now.",
                 color = ProjectorIvory,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                if (summary.bottleneckCount >= 2) "Finishing that queue may create more publishing momentum than starting another project."
-                else "Keep linking published videos so production effort can be compared with actual performance.",
+                if (summary.bottleneckCount >= 2) "Finish these projects before starting too many new ones."
+                else "Keep connecting published videos so FrameByNavin can learn what works.",
                 color = MutedText,
                 fontSize = 9.sp,
                 lineHeight = 13.sp,
@@ -373,10 +376,10 @@ private fun V172Creator(
 
     Spacer(Modifier.height(18.dp))
     val formats = YouTubeInsightEngine.formatPerformance(snapshot, tasks, links)
-    Text("EFFORT → RETURN BRIDGE", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Which linked content lane gives the strongest return per upload?", color = MutedText, fontSize = 9.sp)
+    Text("WHAT PAYS OFF", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    Text("Which type of content gives you the best results?", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
-    if (formats.isEmpty()) V172Empty("Link published videos to projects to connect production choices with performance.")
+    if (formats.isEmpty()) V172Empty("Connect published videos to projects to see what works best.")
     else formats.take(3).forEachIndexed { index, format -> V172FormatCard(index + 1, format) }
 }
 
@@ -400,8 +403,11 @@ private fun V172VideoDetailDialog(
         },
         text = {
             Column {
-                val baseline = if (performance.baselineMultiple > 0) "${String.format(Locale.US, "%.1f×", performance.baselineMultiple)} visible-video baseline" else "Building baseline"
-                Text("$baseline · ${performance.viewSharePercent}% of this ${windowDays}D window", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                val baseline = if (performance.baselineMultiple > 0) {
+                    val difference = ((performance.baselineMultiple - 1.0) * 100).toInt()
+                    if (difference >= 0) "$difference% above your usual" else "${abs(difference)}% below your usual"
+                } else "Learning your usual performance"
+                Text("$baseline · ${performance.viewSharePercent}% of views in this period", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     V172Mini("VIEWS", v172Compact(video.periodViews), Modifier.weight(1f))
@@ -409,7 +415,7 @@ private fun V172VideoDetailDialog(
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    V172Mini("NET SUBS", v172Signed(video.netSubscribers), Modifier.weight(1f))
+                    V172Mini("SUBSCRIBERS", v172Signed(video.netSubscribers), Modifier.weight(1f))
                     V172Mini("AVG VIEW", v172Duration(video.averageViewDurationSeconds), Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(6.dp))
@@ -420,9 +426,9 @@ private fun V172VideoDetailDialog(
                 Spacer(Modifier.height(12.dp))
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF1C1C1E)) {
                     Column(Modifier.padding(12.dp)) {
-                        Text("CREATOR PROJECT", color = MutedText, fontSize = 7.7.sp, fontWeight = FontWeight.Bold)
+                        Text("CONNECTED PROJECT", color = MutedText, fontSize = 7.7.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(3.dp))
-                        Text(linkedTask?.title ?: "Not linked yet", color = if (linkedTask != null) ProjectorIvory else RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(linkedTask?.title ?: "Not connected yet", color = if (linkedTask != null) ProjectorIvory else RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -431,7 +437,7 @@ private fun V172VideoDetailDialog(
             TextButton(onClick = onLink) {
                 Icon(Icons.Outlined.Link, null, modifier = Modifier.size(15.dp))
                 Spacer(Modifier.width(4.dp))
-                Text(if (linkedTask == null) "LINK PROJECT" else "CHANGE LINK")
+                Text(if (linkedTask == null) "CONNECT PROJECT" else "CHANGE PROJECT")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("CLOSE") } },

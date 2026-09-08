@@ -54,8 +54,33 @@ class CloudApiClient {
             "/rest/v1/creator_profiles?on_conflict=user_id",
             token = session.accessToken,
             body = body.toString(),
-            prefer = "resolution=merge-duplicates,return=minimal",
+            prefer = "resolution=ignore-duplicates,return=minimal",
         )
+    }
+
+    suspend fun fetchCreatorProfile(session: CloudSession): CloudCreatorProfile? {
+        val select = "user_id,display_name,username,avatar_url,created_at,updated_at"
+        val raw = request(
+            "GET",
+            "/rest/v1/creator_profiles?select=$select&user_id=eq.${session.userId}&limit=1",
+            token = session.accessToken,
+        )
+        val array = JSONArray(raw)
+        if (array.length() == 0) return null
+        return parseCreatorProfile(array.getJSONObject(0))
+    }
+
+    suspend fun claimCreatorUsername(session: CloudSession, username: String, displayName: String): CloudCreatorProfile {
+        val body = JSONObject()
+            .put("p_username", username)
+            .put("p_display_name", displayName.ifBlank { JSONObject.NULL })
+        val raw = request(
+            "POST",
+            "/rest/v1/rpc/claim_creator_username",
+            token = session.accessToken,
+            body = body.toString(),
+        )
+        return parseCreatorProfile(JSONObject(raw))
     }
 
     suspend fun upsertDevice(session: CloudSession, deviceKey: String, deviceLabel: String, appVersion: String) {
@@ -156,6 +181,16 @@ class CloudApiClient {
         request("DELETE", "/rest/v1/creator_devices$suffix", token = session.accessToken, prefer = "return=minimal")
         request("DELETE", "/rest/v1/creator_profiles$suffix", token = session.accessToken, prefer = "return=minimal")
     }
+
+
+    private fun parseCreatorProfile(o: JSONObject): CloudCreatorProfile = CloudCreatorProfile(
+        userId = o.optString("user_id"),
+        displayName = o.optString("display_name"),
+        username = o.optString("username"),
+        avatarUrl = o.optString("avatar_url"),
+        createdAtMillis = parseTime(o.optString("created_at")),
+        updatedAtMillis = parseTime(o.optString("updated_at")),
+    )
 
     private fun parseSession(o: JSONObject, fallback: CloudSession?): CloudSession {
         val user = o.optJSONObject("user")

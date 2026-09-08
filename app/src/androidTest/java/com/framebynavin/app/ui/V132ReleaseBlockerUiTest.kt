@@ -23,12 +23,12 @@ class V132ReleaseBlockerUiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun heroSlideshow_rendersOriginalBestFramesEntry() {
-        composeRule.setContent { V131HomeHeroSlideshow() }
+    fun homeHero_rendersUnifiedAlpha16GreetingEntry() {
+        composeRule.setContent { V18CinematicHomeHero("King") }
 
-        composeRule.onNodeWithText("BEST FRAMES OF TODAY").assertIsDisplayed()
-        composeRule.onNodeWithText("Tap to select up to 10 original images").assertIsDisplayed()
-        composeRule.onNodeWithText("YOUR CINEMA WALL").assertDoesNotExist()
+        composeRule.onNodeWithText("FRAME BY NAVIN").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Add slideshow images").assertIsDisplayed()
+        composeRule.onNodeWithText("BEST FRAMES OF TODAY").assertDoesNotExist()
     }
 
     @Test
@@ -147,8 +147,8 @@ class V132ReleaseBlockerUiTest {
 
         composeRule.onNodeWithText(task.title).performTouchInput { longClick() }
         composeRule.onNodeWithContentDescription("Delete selected").performClick()
-        composeRule.onNodeWithText("Delete 1 reminder?").assertIsDisplayed()
-        composeRule.onNodeWithText("DELETE REMINDERS").performClick()
+        composeRule.onNodeWithText("Turn off attention for 1 project?").assertIsDisplayed()
+        composeRule.onNodeWithText("TURN OFF").performClick()
         composeRule.runOnIdle { assertEquals(setOf(task.id), deleted) }
     }
 

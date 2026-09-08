@@ -5,28 +5,60 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.DayOfWeek
 
 private val Context.weeklyScheduleDataStore by preferencesDataStore(name = "weekly_schedule_v08")
 
+private val weeklyScheduleMutationMutex = Mutex()
 class WeeklyScheduleStore(private val context: Context) {
-    private val slotsKey = stringPreferencesKey("weekly_slots_json")
+    private val mutationMutex = weeklyScheduleMutationMutex
 
-    suspend fun loadOrSeed(): List<WeeklyScheduleSlot> {
-        val prefs = context.weeklyScheduleDataStore.data.first()
-        val raw = prefs[slotsKey]
-        if (raw == null) {
-            val defaults = WeeklyScheduleEngine.defaultSlots()
-            save(defaults)
-            return defaults
+    private val slotsKey = stringPreferencesKey("weekly_slots_json")
+    private val backupKey = stringPreferencesKey("weekly_slots_json_last_good")
+
+    private suspend fun saveUnlocked(slots: List<WeeklyScheduleSlot>) {
+        val encoded = encode(slots)
+        context.weeklyScheduleDataStore.edit { prefs ->
+            prefs[slotsKey]?.let { previous -> if (runCatching { decode(previous) }.isSuccess) prefs[backupKey] = previous }
+            prefs[slotsKey] = encoded
         }
-        return runCatching { decode(raw) }.getOrElse { WeeklyScheduleEngine.defaultSlots() }
     }
 
-    suspend fun save(slots: List<WeeklyScheduleSlot>) {
-        context.weeklyScheduleDataStore.edit { prefs -> prefs[slotsKey] = encode(slots) }
+    suspend fun loadOrSeed(): List<WeeklyScheduleSlot> = CreatorDataGate.transaction {
+        val prefs = context.weeklyScheduleDataStore.data.first()
+        val raw = prefs[slotsKey] ?: return@transaction emptyList()
+        val decoded = runCatching { decode(raw) }.getOrElse { cause ->
+            val backup = prefs[backupKey] ?: throw IllegalStateException("Weekly plan is unreadable. The original has been retained.", cause)
+            runCatching { decode(backup) }.getOrElse { throw IllegalStateException("Both weekly plan copies are unreadable.", it) }
+        }
+        val cleaned = decoded.filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
+        if (cleaned.size != decoded.size) save(cleaned)
+        cleaned
+    }
+
+    suspend fun save(slots: List<WeeklyScheduleSlot>)= CreatorDataGate.transaction {
+        mutationMutex.withLock {
+            saveUnlocked(slots)
+        }
+    }
+
+    private suspend fun loadRaw(): List<WeeklyScheduleSlot> {
+        val raw = context.weeklyScheduleDataStore.data.first()[slotsKey] ?: return emptyList()
+        return decode(raw).filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
+    }
+
+    suspend fun applyDelta(base: List<WeeklyScheduleSlot>, desired: List<WeeklyScheduleSlot>, expectedGeneration: Long): List<WeeklyScheduleSlot> = CreatorDataGate.transaction {
+        mutationMutex.withLock {
+            if (CreatorDataGate.generation(context) != expectedGeneration)
+                throw CreatorWriteConflict("An older schedule edit was cancelled after restore")
+            val updated = CreatorDeltaEngine.merge(base, desired, loadRaw()) { it.id }
+            saveUnlocked(updated)
+            updated
+        }
     }
 
     suspend fun exportJson(): String = encode(loadOrSeed())

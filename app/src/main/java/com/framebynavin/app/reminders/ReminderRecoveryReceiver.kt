@@ -14,7 +14,9 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                ReminderRecoveryEngine.reconcile(context.applicationContext)
+                val appContext = context.applicationContext
+                ReminderHealthScheduler.ensurePeriodic(appContext)
+                ReminderRecoveryEngine.reconcile(appContext)
             } finally {
                 pendingResult.finish()
             }

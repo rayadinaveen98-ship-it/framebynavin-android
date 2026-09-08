@@ -73,7 +73,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 }
                 busy = false
                 isError = result.isFailure
-                message = if (result.isSuccess) "Backup saved successfully." else result.exceptionOrNull()?.message ?: "Backup failed."
+                message = if (result.isSuccess) "Backup saved. Keep this unencrypted file somewhere private." else "Could not save the backup. Try another location."
             }
         }
     }
@@ -97,7 +97,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                     message = null
                 }.onFailure {
                     isError = true
-                    message = it.message ?: "That file is not a valid FrameByNavin backup."
+                    message = "That file could not be opened as a FrameByNavin backup."
                 }
             }
         }
@@ -111,18 +111,18 @@ private fun BackupScreen(onClose: () -> Unit) {
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Spacer(Modifier.width(4.dp))
                 Column {
-                    Text("DATA & BACKUP", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                    Text("DATA & BACKUP", color = RecRed, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                     Text("Keep your creator data safe", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
                 }
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("Everything stays local unless you choose where to save a backup.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Everything stays local unless you choose where to save a backup.", color = MutedText, fontSize = 12.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(20.dp))
 
             BackupActionCard(
                 title = "Export backup",
-                body = "Projects, Studio progress, reminders, Smart timing, Idea Vault, weekly schedule and settings.",
+                body = "Projects, ideas, workflows, reminders, rewards, settings and your personal Best Frames. Backups are portable but not encrypted; save them somewhere private.",
                 icon = Icons.Outlined.CloudUpload,
                 button = "EXPORT BACKUP",
                 enabled = !busy,
@@ -137,7 +137,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                         createDocument.launch("FrameByNavin-Backup-$name.fbnbackup")
                     }.onFailure {
                         isError = true
-                        message = it.message ?: "Could not create backup."
+                        message = "Could not create the backup. Try again."
                     }
                 }
             }
@@ -169,7 +169,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                     Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(if (isError) Icons.Outlined.ErrorOutline else Icons.Outlined.CheckCircle, null, tint = if (isError) RecRed else SuccessGreen)
                         Spacer(Modifier.width(9.dp))
-                        Text(text, color = ProjectorIvory, fontSize = 10.sp, modifier = Modifier.weight(1f))
+                        Text(text, color = ProjectorIvory, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -177,9 +177,9 @@ private fun BackupScreen(onClose: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Column(Modifier.padding(15.dp)) {
-                    Text("RESTORE SAFETY", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                    Text("RESTORE SAFETY", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                     Spacer(Modifier.height(6.dp))
-                    Text("Before restore, FrameByNavin keeps a temporary local snapshot. If importing fails, your current data is put back automatically.", color = MutedText, fontSize = 9.3.sp, lineHeight = 14.sp)
+                    Text("Before restoring, FrameByNavin keeps a retained recovery copy on this device. A restore journal can recover after a crash. Existing cloud backups are not overwritten. Keep an exported copy somewhere safe before replacing data.", color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
                 }
             }
         }
@@ -198,7 +198,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                     BackupPreviewRow("Active reminders", checked.activeReminderCount.toString())
                     BackupPreviewRow("Settings", if (checked.settingsIncluded) "Included" else "Missing")
                     Spacer(Modifier.height(10.dp))
-                    Text("This replaces the current local Creator OS data.", color = MutedText, fontSize = 9.5.sp)
+                    Text("This replaces local creator data. Your previous data will be retained in an internal recovery copy. Older backups may not include personal frames, and will not erase your current frames.", color = MutedText, fontSize = 12.sp)
                 }
             },
             confirmButton = {
@@ -220,7 +220,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                                 }
                             } else {
                                 isError = true
-                                message = result.exceptionOrNull()?.message ?: "Restore failed. Your previous data was put back."
+                                message = "Restore could not finish. Open recovery tools if your previous data is not visible; recovery copies are retained."
                             }
                         }
                     },
@@ -253,10 +253,10 @@ private fun BackupActionCard(
             Spacer(Modifier.height(12.dp))
             Text(title, color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            Text(body, color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
+            Text(body, color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(14.dp))
             Button(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF292929)), shape = RoundedCornerShape(14.dp)) {
-                Text(button, color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text(button, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -265,8 +265,8 @@ private fun BackupActionCard(
 @Composable
 private fun BackupPreviewRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(label, color = MutedText, fontSize = 10.sp)
+        Text(label, color = MutedText, fontSize = 12.sp)
         Spacer(Modifier.weight(1f))
-        Text(value, color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }

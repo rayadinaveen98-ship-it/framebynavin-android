@@ -3,7 +3,16 @@
     <style name="Theme.FrameByNavin" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#070707</item>
-        <item name="android:navigationBarColor">#070707</item>
+        <item name="android:statusBarColor">#050506</item>
+        <item name="android:navigationBarColor">#050506</item>
+        <item name="android:windowBackground">#050506</item>
+    </style>
+
+    <!-- The OS splash cannot be removed on modern Android. Keep it minimal and visually continuous. -->
+    <style name="Theme.FrameByNavin.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#050506</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_framebynavin_splash</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+        <item name="postSplashScreenTheme">@style/Theme.FrameByNavin</item>
     </style>
 </resources>

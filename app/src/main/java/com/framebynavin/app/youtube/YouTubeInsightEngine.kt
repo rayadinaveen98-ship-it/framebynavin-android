@@ -64,28 +64,28 @@ object YouTubeInsightEngine {
     }
 
     fun pulseTitle(snapshot: YouTubeAnalyticsSnapshot): String {
-        val previous = snapshot.previousPeriod ?: return "Performance baseline ready"
+        val previous = snapshot.previousPeriod ?: return "Your usual range is ready"
         val views = change(snapshot.views, previous.views) ?: 0
         val watch = change(snapshot.watchMinutes, previous.watchMinutes) ?: 0
         return when {
-            views >= 15 && watch >= 15 -> "Strong ${snapshot.windowDays}-day window"
-            views <= -15 && watch <= -15 -> "Cooling ${snapshot.windowDays}-day window"
-            views >= 10 || watch >= 10 -> "Growth with mixed signals"
-            views <= -10 || watch <= -10 -> "A softer window — inspect the cause"
+            views >= 15 && watch >= 15 -> "Strong ${snapshot.windowDays}-day performance"
+            views <= -15 && watch <= -15 -> "Slower ${snapshot.windowDays}-day performance"
+            views >= 10 || watch >= 10 -> "Growing, but not everywhere"
+            views <= -10 || watch <= -10 -> "A slower period — check what changed"
             else -> "Steady ${snapshot.windowDays}-day performance"
         }
     }
 
     fun pulseBody(snapshot: YouTubeAnalyticsSnapshot): String {
-        val previous = snapshot.previousPeriod ?: return "Sync this window once to compare it with the immediately preceding ${snapshot.windowDays} days."
+        val previous = snapshot.previousPeriod ?: return "Refresh again later to see how this period compares with the one before it."
         val views = change(snapshot.views, previous.views) ?: 0
         val avg = change(snapshot.averageViewDurationSeconds, previous.averageViewDurationSeconds) ?: 0
         return when {
-            views >= 10 && avg >= 5 -> "Reach and viewing depth both improved versus the previous period."
-            views >= 10 && avg <= -5 -> "Reach improved, but viewers are leaving earlier than in the previous period."
-            views <= -10 && avg >= 5 -> "Fewer people arrived, but the viewers who did stayed longer."
-            views <= -10 && avg <= -5 -> "Both reach and viewing depth weakened versus the previous period."
-            else -> "The biggest changes are small; focus on individual content performance before changing strategy."
+            views >= 10 && avg >= 5 -> "More people watched, and they stayed longer."
+            views >= 10 && avg <= -5 -> "More people watched, but they left sooner."
+            views <= -10 && avg >= 5 -> "Fewer people watched, but those who did stayed longer."
+            views <= -10 && avg <= -5 -> "Fewer people watched, and they spent less time watching."
+            else -> "Things are fairly steady. Check individual videos before changing your approach."
         }
     }
 
@@ -109,7 +109,7 @@ object YouTubeInsightEngine {
         val taskById = tasks.associateBy { it.id }
         return visibleVideos(snapshot).mapNotNull { video ->
             val task = links[video.videoId]?.let(taskById::get) ?: return@mapNotNull null
-            pillar(task) to video
+            YouTubeContentClassifier.label(task) to video
         }.groupBy({ it.first }, { it.second }).map { (label, videos) ->
             val totalViews = videos.sumOf { it.periodViews }
             val totalWatch = videos.sumOf { it.watchMinutes }
@@ -171,17 +171,17 @@ object YouTubeInsightEngine {
         if (pulse24h == null) {
             signals += YouTubeInsightSignal(
                 "24H PULSE",
-                "Building your rolling baseline",
-                "FrameByNavin is now saving lightweight YouTube counter snapshots. Once two samples are roughly a day apart, this card will show rolling views, subscriber movement, momentum and top movers without pretending YouTube exposes hourly Analytics data.",
+                "Learning your normal 24-hour pace",
+                "Your creator system is learning your normal 24-hour pace. Refresh YouTube over time and this card will show what is rising, steady or slowing down.",
                 YouTubeInsightTone.NEUTRAL,
             )
         } else {
-            val changeText = pulse24h.viewsChangePercent?.let { " · ${if (it > 0) "+" else ""}$it% vs prior window" }.orEmpty()
-            val topMover = pulse24h.topMovers.firstOrNull()?.let { " · top mover: ${it.title} +${compact(it.viewsGained)}" }.orEmpty()
+            val changeText = pulse24h.viewsChangePercent?.let { " · ${if (it > 0) "+" else ""}$it% vs before" }.orEmpty()
+            val topMover = pulse24h.topMovers.firstOrNull()?.let { " · top video: ${it.title} +${compact(it.viewsGained)}" }.orEmpty()
             signals += YouTubeInsightSignal(
                 "24H PULSE",
                 "+${compact(pulse24h.viewsGained)} views · ${signed(pulse24h.subscribersDelta)} subs",
-                "Measured across ~${pulse24h.sampleHours} hours of FrameByNavin counter history$changeText$topMover.",
+                "Based on your last ~${pulse24h.sampleHours} hours of channel activity$changeText$topMover.",
                 when (pulse24h.momentum) {
                     YouTubePulseMomentum.RISING -> YouTubeInsightTone.POSITIVE
                     YouTubePulseMomentum.COOLING -> YouTubeInsightTone.WATCH
@@ -192,7 +192,7 @@ object YouTubeInsightEngine {
                 signals += YouTubeInsightSignal(
                     alert.kicker,
                     alert.title,
-                    if (alert.ideaId != null) "${alert.body} Open Idea Vault from Control to develop this saved idea." else alert.body,
+                    if (alert.ideaId != null) "${alert.body} Open Idea Vault and build this idea." else alert.body,
                     alert.tone,
                 )
             }
@@ -203,15 +203,15 @@ object YouTubeInsightEngine {
         if (top != null) {
             when {
                 top.baselineMultiple >= 1.5 -> signals += YouTubeInsightSignal(
-                    "DOUBLE DOWN",
+                    "WORKING WELL",
                     top.video.title,
-                    "This video is running ${String.format(Locale.US, "%.1f×", top.baselineMultiple)} above the visible-video baseline and contributes ${top.viewSharePercent}% of this window's views.",
+                    "This video is doing much better than your recent-video average and is driving ${top.viewSharePercent}% of views in this period.",
                     YouTubeInsightTone.POSITIVE,
                 )
                 top.viewSharePercent >= 35 -> signals += YouTubeInsightSignal(
-                    "PERFORMANCE DRIVER",
+                    "TOP VIDEO",
                     top.video.title,
-                    "One upload is responsible for ${top.viewSharePercent}% of this window's channel views. Protect what worked before changing format.",
+                    "This video is driving ${top.viewSharePercent}% of your views in this period. Look at what worked before changing direction.",
                     YouTubeInsightTone.OPPORTUNITY,
                 )
             }
@@ -222,14 +222,14 @@ object YouTubeInsightEngine {
             val avgChange = change(snapshot.averageViewDurationSeconds, previous.averageViewDurationSeconds) ?: 0
             if (avgChange <= -8) signals += YouTubeInsightSignal(
                 "WATCH",
-                "Viewing depth fell ${abs(avgChange)}%",
-                "Your average view duration is lower than the preceding ${snapshot.windowDays}-day period. Check intros and pacing before chasing more reach.",
+                "Average view time fell ${abs(avgChange)}%",
+                "People are leaving sooner than before. Check your opening and pacing.",
                 YouTubeInsightTone.WATCH,
             )
             else if (avgChange >= 8) signals += YouTubeInsightSignal(
-                "QUALITY SIGNAL",
-                "Viewing depth improved ${avgChange}%",
-                "People are staying longer than in the preceding period. Study the openings and pacing of your strongest uploads.",
+                "VIEWERS STAYED LONGER",
+                "Average view time improved ${avgChange}%",
+                "People are staying longer. Check what your strongest videos did well.",
                 YouTubeInsightTone.POSITIVE,
             )
         }
@@ -237,9 +237,9 @@ object YouTubeInsightEngine {
         val formats = formatPerformance(snapshot, tasks, links)
         val bestFormat = formats.firstOrNull { it.uploadCount >= 2 } ?: formats.firstOrNull()
         if (bestFormat != null) signals += YouTubeInsightSignal(
-            "NEXT EXPERIMENT",
+            "WHAT'S WORKING",
             bestFormat.label,
-            "Averages ${compact(bestFormat.viewsPerUpload)} views and ${watch(bestFormat.watchMinutesPerUpload)} watch time per linked upload. Consider another project in this lane before spreading wider.",
+            "On average, this gets ${compact(bestFormat.viewsPerUpload)} views and ${watch(bestFormat.watchMinutesPerUpload)} watch time per connected video. Consider another project like this.",
             YouTubeInsightTone.OPPORTUNITY,
         )
 
@@ -247,14 +247,14 @@ object YouTubeInsightEngine {
         if (signals.size < 5 && creator.bottleneckCount >= 2) signals += YouTubeInsightSignal(
             "WORKFLOW",
             "${creator.bottleneckCount} active projects share the same lane",
-            "Your current creator workload is bunching up around ${creator.bottleneckLabel ?: "production"}. Clearing that queue may unlock more publishing than starting something new.",
+            "You have several active projects around ${creator.bottleneckLabel ?: "production"}. Finishing those may help more than starting something new.",
             YouTubeInsightTone.NEUTRAL,
         )
 
         if (signals.isEmpty()) signals += YouTubeInsightSignal(
-            "BUILD THE BASELINE",
-            "Keep syncing and linking projects",
-            "FrameByNavin will become more specific as more videos are linked back to the projects that produced them.",
+            "KEEP LEARNING",
+            "Keep refreshing and connecting projects",
+            "Insights get more useful as you connect published videos to the projects that made them.",
             YouTubeInsightTone.NEUTRAL,
         )
         return signals.distinctBy { it.kicker to it.title }.take(5)
@@ -262,20 +262,6 @@ object YouTubeInsightEngine {
 
     private fun visibleVideos(snapshot: YouTubeAnalyticsSnapshot): List<YouTubeVideoSnapshot> =
         (snapshot.topVideos + snapshot.recentVideos).distinctBy { it.videoId }
-
-    private fun pillar(task: CreatorTask): String {
-        val title = task.title.lowercase(Locale.getDefault())
-        val type = task.contentType.lowercase(Locale.getDefault())
-        return when {
-            title.contains("frame breakdown") -> "Frame Breakdown"
-            title.contains("why this scene works") -> "Why This Scene Works"
-            type.contains("cinematic moment") -> "Every Cinematic Moment"
-            type.contains("long-form") || type.contains("long form") -> "Long-form Analysis"
-            title.contains("review") || title.contains("recommend") -> "Reviews / Recommendations"
-            type.contains("short") || type.contains("reel") -> "Short-form"
-            else -> task.contentType.ifBlank { "Other" }
-        }
-    }
 
     private fun change(current: Long, previous: Long?): Int? {
         if (previous == null || previous == 0L) return null

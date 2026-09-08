@@ -12,6 +12,8 @@
 
     <application
         android:allowBackup="true"
+        android:fullBackupContent="@xml/creator_backup_rules"
+        android:dataExtractionRules="@xml/creator_data_extraction_rules"
         android:icon="@drawable/ic_framebynavin_launcher"
         android:roundIcon="@drawable/ic_framebynavin_launcher"
         android:label="FrameByNavin"
@@ -31,7 +33,7 @@
             android:name=".reminders.AlarmActivity"
             android:excludeFromRecents="true"
             android:exported="false"
-            android:launchMode="singleTop"
+            android:launchMode="standard"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:theme="@style/Theme.FrameByNavin" />
@@ -40,7 +42,7 @@
             android:name=".reminders.VoiceReminderActivity"
             android:excludeFromRecents="true"
             android:exported="false"
-            android:launchMode="singleTop"
+            android:launchMode="standard"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:theme="@style/Theme.FrameByNavin" />
@@ -104,7 +106,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop">
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.FrameByNavin.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

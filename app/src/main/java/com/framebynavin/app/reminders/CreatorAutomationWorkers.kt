@@ -21,6 +21,8 @@ import androidx.work.WorkerParameters
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.R
 import com.framebynavin.app.data.CreatorAutoPlanEngine
+import com.framebynavin.app.data.CreatorAutoPlanResult
+import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorAutomationPreferencesStore
 import com.framebynavin.app.data.CreatorAutomationStateStore
 import com.framebynavin.app.data.CreatorDailyBriefEngine
@@ -45,25 +47,30 @@ class CreatorAutoPlanWorker(
 
     override suspend fun doWork(): Result {
         val app = applicationContext
+        return runCatching { CreatorDataGate.readyTransaction(app) {
         val settings = CreatorOsSettingsStore(app).snapshot()
         val state = CreatorAutomationStateStore(app)
         if (!settings.weeklyAutoPlanEnabled) {
             state.recordPlannerRun(0)
-            return Result.success()
+            return@readyTransaction Result.success()
         }
 
-        return runCatching {
+        runCatching {
             val taskStore = TaskStore(app)
             val slots = WeeklyScheduleStore(app).loadOrSeed()
-            val current = taskStore.load()
-            val result = CreatorAutoPlanEngine.merge(
-                tasks = current,
-                slots = slots,
-                defaults = settings,
-                daysAhead = CreatorAutoPlanEngine.DEFAULT_HORIZON_DAYS,
-            )
+            val result = CreatorDataGate.transaction {
+                var planned: CreatorAutoPlanResult? = null
+                taskStore.mutate { current ->
+                    CreatorAutoPlanEngine.merge(
+                        tasks = current,
+                        slots = slots,
+                        defaults = settings,
+                        daysAhead = CreatorAutoPlanEngine.DEFAULT_HORIZON_DAYS,
+                    ).also { planned = it }.tasks
+                }
+                checkNotNull(planned)
+            }
             if (result.created.isNotEmpty()) {
-                taskStore.save(result.tasks)
                 val regular = ReminderScheduler(app)
                 val smart = SmartEscalationScheduler(app)
                 val smartConfig = SmartEscalationConfigStore(app)
@@ -80,6 +87,7 @@ class CreatorAutoPlanWorker(
             state.recordPlannerRun(result.created.size)
             Result.success()
         }.getOrElse { Result.retry() }
+        } }.getOrElse { Result.retry() }
     }
 
     companion object {
@@ -112,13 +120,14 @@ class CreatorRoutineWorker(
 
     override suspend fun doWork(): Result {
         val app = applicationContext
+        return runCatching { CreatorDataGate.readyTransaction(app) {
         val prefs = CreatorAutomationPreferencesStore(app).snapshot()
         if (!prefs.dailyBriefRoutineEnabled && !prefs.weeklyReviewRoutineEnabled && !prefs.ideaReviewRoutineEnabled) {
-            return Result.success()
+            return@readyTransaction Result.success()
         }
-        if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) return Result.success()
+        if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) return@readyTransaction Result.success()
 
-        return runCatching {
+        runCatching {
             val state = CreatorAutomationStateStore(app)
             val now = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"))
             val tasks = TaskStore(app).load()
@@ -169,6 +178,7 @@ class CreatorRoutineWorker(
             }
             Result.success()
         }.getOrElse { Result.retry() }
+        } }.getOrElse { Result.retry() }
     }
 
     private fun maybeNotify(

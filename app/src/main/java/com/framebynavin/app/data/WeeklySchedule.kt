@@ -43,31 +43,23 @@ data class StageCheckpoint(
 object WeeklyScheduleEngine {
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
-    fun defaultSlots(): List<WeeklyScheduleSlot> = listOf(
-        slot("mon_x_thought", "Monday Cinema Thought", DayOfWeek.MONDAY, 9, 30, "X", "Post", ReminderMode.SIMPLE, TaskPriority.NORMAL),
-        slot("mon_frame_today", "#TheFrameOfToday", DayOfWeek.MONDAY, 19, 0, "Instagram", "Post", ReminderMode.SMART, TaskPriority.IMPORTANT),
-        slot("tue_x_poll", "Tuesday Cinema Poll", DayOfWeek.TUESDAY, 9, 0, "X", "Post", ReminderMode.SIMPLE, TaskPriority.NORMAL),
-        slot("tue_scene_works", "Why This Scene Works", DayOfWeek.TUESDAY, 19, 0, "Instagram", "Reel", ReminderMode.SMART, TaskPriority.IMPORTANT),
-        slot("wed_carousel", "Wednesday Cinema Carousel", DayOfWeek.WEDNESDAY, 12, 0, "Instagram", "Post", ReminderMode.SMART, TaskPriority.IMPORTANT),
-        WeeklyScheduleSlot(
-            id = "wed_cinematic_moment",
-            title = "Every Cinematic Moment",
-            dayOfWeek = DayOfWeek.WEDNESDAY,
-            hour = 19,
-            minute = 0,
-            platform = "YouTube",
-            contentType = "Cinematic Moment",
-            enabled = true,
-            cadence = ScheduleCadence.WEEKS_1_3,
-            reminderMode = ReminderMode.SMART,
-            priority = TaskPriority.IMPORTANT,
-        ),
-        slot("thu_frame_breakdown_ig", "Frame Breakdown", DayOfWeek.THURSDAY, 19, 0, "Instagram", "Reel", ReminderMode.SMART, TaskPriority.IMPORTANT),
-        slot("thu_frame_breakdown_yt", "Frame Breakdown Short", DayOfWeek.THURSDAY, 19, 0, "YouTube", "Short", ReminderMode.SMART, TaskPriority.IMPORTANT),
-        slot("fri_release_short", "Release / Reaction Short", DayOfWeek.FRIDAY, 16, 0, "YouTube", "Short", ReminderMode.SMART, TaskPriority.IMPORTANT),
-        slot("sun_flagship", "FrameByNavin Analysis", DayOfWeek.SUNDAY, 10, 0, "YouTube", "Long-form", ReminderMode.SMART, TaskPriority.CRITICAL),
-        slot("sun_companion_reel", "Sunday Companion Reel", DayOfWeek.SUNDAY, 21, 0, "Instagram", "Reel", ReminderMode.SMART, TaskPriority.IMPORTANT),
+    private val legacySeedSlotIds = setOf(
+        "mon_x_thought",
+        "mon_frame_today",
+        "tue_x_poll",
+        "tue_scene_works",
+        "wed_carousel",
+        "wed_cinematic_moment",
+        "thu_frame_breakdown_ig",
+        "thu_frame_breakdown_yt",
+        "fri_release_short",
+        "sun_flagship",
+        "sun_companion_reel",
     )
+
+    fun isLegacySeedSlot(slotId: String): Boolean = slotId in legacySeedSlotIds
+
+    fun defaultSlots(): List<WeeklyScheduleSlot> = emptyList()
 
     fun upcomingOccurrences(
         slots: List<WeeklyScheduleSlot>,

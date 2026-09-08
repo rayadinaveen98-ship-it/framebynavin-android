@@ -2,10 +2,16 @@ package com.framebynavin.app.cloud
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
+import android.content.MutableContextWrapper
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,9 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.*
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -48,11 +54,14 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val manager = remember { CloudSyncManager(context.applicationContext) }
+    val credentialManager = remember(context) { CredentialManager.create(context) }
+    val credentialContext = remember(context) { MutableContextWrapper(context) }
     var state by remember { mutableStateOf(manager.localState()) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var restoreTarget by remember { mutableStateOf<CloudRestorePoint?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmKeepLocal by remember { mutableStateOf(false) }
 
     fun reloadPoints() {
         state = manager.localState()
@@ -78,25 +87,70 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
         }
     }
 
-    val googleOptions = remember {
-        if (CloudConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) null
-        else GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(CloudConfig.GOOGLE_WEB_CLIENT_ID)
-            .requestEmail()
-            .requestProfile()
-            .build()
-    }
-    val googleClient = remember(googleOptions) { googleOptions?.let { GoogleSignIn.getClient(context, it) } }
-    val googleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val account = runCatching {
-            GoogleSignIn.getSignedInAccountFromIntent(result.data).getResult(ApiException::class.java)
-        }.getOrElse {
-            message = if (it is ApiException && it.statusCode == 12501) "Google sign-in cancelled" else "Google sign-in failed"
-            null
+    fun startGoogleSignIn() {
+        if (busy || CloudConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) return
+        busy = true
+        scope.launch {
+            try {
+                val googleOption = GetSignInWithGoogleOption.Builder(CloudConfig.GOOGLE_WEB_CLIENT_ID).build()
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleOption)
+                    .build()
+                val result = credentialManager.getCredential(
+                    context = credentialContext,
+                    request = request,
+                )
+                val credential = result.credential
+                val idToken = if (
+                    credential is CustomCredential &&
+                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                ) {
+                    GoogleIdTokenCredential.createFrom(credential.data).idToken
+                } else {
+                    null
+                }
+
+                if (idToken.isNullOrBlank()) {
+                    message = "Google couldn't complete sign-in. Try again."
+                } else {
+                    val operation = manager.completeGoogleSignIn(idToken)
+                    message = when (operation) {
+                        is CloudOperationResult.Success -> operation.message
+                        is CloudOperationResult.Skipped -> operation.message
+                        is CloudOperationResult.Failure -> operation.message
+                    }
+                }
+            } catch (_: GetCredentialCancellationException) {
+                message = "Google sign-in cancelled"
+            } catch (_: NoCredentialException) {
+                message = "No Google account is available on this device."
+            } catch (_: GoogleIdTokenParsingException) {
+                message = "Google couldn't verify the sign-in response. Try again."
+            } catch (_: GetCredentialException) {
+                message = "Google sign-in failed. Try again."
+            } catch (_: Throwable) {
+                message = "Google sign-in failed. Try again."
+            } finally {
+                busy = false
+                reloadPoints()
+            }
         }
-        val idToken = account?.idToken
-        if (!idToken.isNullOrBlank()) runOperation { manager.completeGoogleSignIn(idToken) }
-        else if (account != null) message = "Google did not return an ID token"
+    }
+
+    fun signOut() {
+        if (busy) return
+        busy = true
+        scope.launch {
+            val operation = manager.signOut()
+            runCatching { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
+            message = when (operation) {
+                is CloudOperationResult.Success -> operation.message
+                is CloudOperationResult.Skipped -> operation.message
+                is CloudOperationResult.Failure -> operation.message
+            }
+            busy = false
+            reloadPoints()
+        }
     }
 
     LaunchedEffect(Unit) { reloadPoints() }
@@ -113,19 +167,19 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column(Modifier.weight(1f)) {
-                    Text("CLOUD", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                    Text("Sync & Backup", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("CLOUD", color = RecRed, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                    Text("Cloud Backup", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
                 }
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("Your phone stays primary.", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text("Your phone stays the main copy.", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(6.dp))
             Text(
-                "FrameByNavin keeps working offline. Cloud Sync protects Creator OS data and makes a future phone restore possible.",
+                "FrameByNavin works offline. Create a separate, private restore point when you choose. Automatic uploads and multi-device merging are not available in this release.",
                 color = MutedText,
-                fontSize = 10.5.sp,
-                lineHeight = 15.sp,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
             )
             Spacer(Modifier.height(20.dp))
 
@@ -138,27 +192,27 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("FrameByNavin Account", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Text("Google identity only · no Gmail inbox access", color = MutedText, fontSize = 8.7.sp)
+                            Text("Google is only used to sign you in.", color = MutedText, fontSize = 12.sp)
                         }
                     }
                     Spacer(Modifier.height(16.dp))
                     if (CloudConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) {
                         Text(
-                            "One-time Google Web OAuth client setup is still required before account sign-in can be enabled.",
+                            "Google sign-in isn’t ready yet.",
                             color = MutedGold,
-                            fontSize = 9.5.sp,
-                            lineHeight = 14.sp,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
                         )
                         Spacer(Modifier.height(12.dp))
                     }
                     Button(
-                        onClick = { googleClient?.let { googleLauncher.launch(it.signInIntent) } },
-                        enabled = googleClient != null && !busy,
+                        onClick = ::startGoogleSignIn,
+                        enabled = CloudConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank() && !busy,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = ProjectorIvory, contentColor = CinemaBlack),
                         shape = RoundedCornerShape(15.dp),
                     ) {
-                        Text("CONTINUE WITH GOOGLE", fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                        Text("CONTINUE WITH GOOGLE", fontSize = 13.sp, fontWeight = FontWeight.Black)
                     }
                 }
             } else {
@@ -170,52 +224,61 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(session.displayName.ifBlank { "FrameByNavin" }, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Text(session.email, color = MutedText, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(manager.cachedCreatorProfile()?.displayName.orEmpty().ifBlank { session.displayName }.ifBlank { "FrameByNavin" }, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(session.email, color = MutedText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text("CONNECTED", color = SuccessGreen, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                        Text("CONNECTED", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
                 }
 
                 Spacer(Modifier.height(12.dp))
+                if (state.settings.reconciliationRequired) {
+                    CloudCard {
+                        Text("CHOOSE YOUR STARTING COPY", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(8.dp))
+                        Text("This account has existing backup history or has not yet been reviewed. Nothing has been uploaded from this phone. Restore a backup below, or keep this phone's data and create a separate new backup.", color = ProjectorIvory, fontSize = 14.sp, lineHeight = 20.sp)
+                        Spacer(Modifier.height(14.dp))
+                        OutlinedButton(
+                            onClick = { confirmKeepLocal = true },
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) { Text("KEEP THIS PHONE'S DATA", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
                 CloudCard {
-                    CloudToggleRow(
-                        title = "Cloud Sync",
-                        subtitle = "Automatically protect your Creator OS data",
-                        checked = state.settings.enabled,
-                        onChecked = { manager.setEnabled(it); state = manager.localState() },
-                    )
-                    HorizontalDivider(color = CinemaLine, modifier = Modifier.padding(vertical = 12.dp))
+                    Text("MANUAL, APPEND-ONLY BACKUP", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Each backup creates a new restore point. Older backups are preserved. This does not merge edits between phones. Use one primary device until conflict-aware sync is available.", color = MutedText, fontSize = 13.sp, lineHeight = 19.sp)
+                    Spacer(Modifier.height(12.dp))
                     CloudToggleRow(
                         title = "Wi-Fi only",
-                        subtitle = "Wait for Wi-Fi before automatic uploads",
+                        subtitle = "Require Wi-Fi for manual uploads",
                         checked = state.settings.wifiOnly,
                         onChecked = { manager.setWifiOnly(it); state = manager.localState() },
                     )
-                    Spacer(Modifier.height(15.dp))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("LAST SUCCESSFUL SYNC", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
-                            Text(cloudTime(state.settings.lastSyncAtMillis), color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Button(
-                            onClick = { runOperation { manager.syncNow(force = true) } },
-                            enabled = !busy,
-                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                            shape = RoundedCornerShape(13.dp),
-                        ) { Text(if (busy) "WORKING…" else "SYNC NOW", fontSize = 8.5.sp, fontWeight = FontWeight.Black) }
-                    }
+                    Spacer(Modifier.height(14.dp))
+                    Text("LAST UPLOAD", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(cloudTime(state.settings.lastSyncAtMillis), color = ProjectorIvory, fontSize = 13.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = { runOperation { manager.syncNow(force = true) } },
+                        enabled = !busy && !state.settings.reconciliationRequired,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(13.dp),
+                    ) { Text(if (busy) "WORKING…" else "BACK UP NOW", fontSize = 12.sp, fontWeight = FontWeight.Black) }
                     if (state.settings.lastError.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
-                        Text(state.settings.lastError, color = MutedGold, fontSize = 8.7.sp, lineHeight = 13.sp)
+                        Text(state.settings.lastError, color = MutedGold, fontSize = 13.sp, lineHeight = 19.sp)
                     }
                 }
 
                 Spacer(Modifier.height(22.dp))
-                Text("RESTORE POINTS", color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                Text("RESTORE POINTS", color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.height(8.dp))
                 if (state.restorePoints.isEmpty()) {
-                    CloudCard { Text("No cloud restore point yet. Tap Sync Now to create the first one.", color = MutedText, fontSize = 9.5.sp) }
+                    CloudCard { Text("No restore points are available. Create a backup when you’re ready.", color = MutedText, fontSize = 13.sp) }
                 } else {
                     state.restorePoints.forEachIndexed { index, point ->
                         CloudRestoreRow(point = point, onClick = { restoreTarget = point })
@@ -224,12 +287,12 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                 }
 
                 Spacer(Modifier.height(22.dp))
-                Text("ACCOUNT & DATA", color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                Text("ACCOUNT & DATA", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.height(8.dp))
                 CloudCard {
-                    CloudActionRow(Icons.Outlined.DeleteOutline, "Delete cloud data", "Keeps everything on this phone") { confirmDelete = true }
+                    CloudActionRow(Icons.Outlined.DeleteOutline, "Delete cloud creator data", "Deletes remote backups, profile and device records; keeps your phone and sign-in account") { confirmDelete = true }
                     HorizontalDivider(color = CinemaLine, modifier = Modifier.padding(vertical = 9.dp))
-                    CloudActionRow(Icons.Outlined.Logout, "Sign out", "Cloud Sync turns off; local data stays") { runOperation { manager.signOut() } }
+                    CloudActionRow(Icons.Outlined.Logout, "Sign out", "Phone data stays; backup approval is cleared") { signOut() }
                 }
             }
 
@@ -239,8 +302,8 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                     Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.Top) {
                         Icon(Icons.Outlined.Info, null, tint = MutedGold, modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(9.dp))
-                        Text(it, color = ProjectorIvory, fontSize = 9.3.sp, lineHeight = 14.sp, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { message = null }, modifier = Modifier.size(24.dp)) { Icon(Icons.Outlined.Close, null, tint = MutedText, modifier = Modifier.size(14.dp)) }
+                        Text(it, color = ProjectorIvory, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { message = null }, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.Close, "Dismiss message", tint = MutedText, modifier = Modifier.size(18.dp)) }
                     }
                 }
             }
@@ -252,7 +315,7 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
             onDismissRequest = { restoreTarget = null },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Restore this backup?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("This replaces Creator OS data on this phone with the ${cloudPointLabel(point)} restore point. A rollback copy is created locally first.", color = MutedText, fontSize = 10.sp) },
+            text = { Text("This replaces the covered app data on this phone with the selected backup. A local recovery copy is retained first. Personal frame images and credentials are not included in older backups. Other phones are not automatically merged.", color = MutedText, fontSize = 14.sp) },
             confirmButton = {
                 TextButton(onClick = { restoreTarget = null; runOperation { manager.restore(point) } }) { Text("RESTORE", color = RecRed, fontWeight = FontWeight.Black) }
             },
@@ -260,12 +323,23 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
         )
     }
 
+    if (confirmKeepLocal) {
+        AlertDialog(
+            onDismissRequest = { confirmKeepLocal = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Keep this phone's data?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            text = { Text("Your existing cloud restore points will not be deleted or overwritten. You can then create a separate new backup of this phone. This is not a multi-device merge.", color = MutedText, fontSize = 14.sp) },
+            confirmButton = { TextButton(onClick = { confirmKeepLocal = false; runOperation { manager.keepLocalData() } }) { Text("KEEP LOCAL", color = RecRed, fontWeight = FontWeight.Black) } },
+            dismissButton = { TextButton(onClick = { confirmKeepLocal = false }) { Text("CANCEL", color = MutedText) } },
+        )
+    }
+
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             containerColor = CinemaSurfaceRaised,
-            title = { Text("Delete cloud data?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("Cloud backups and device records will be removed. Nothing stored locally on this phone will be deleted.", color = MutedText, fontSize = 10.sp) },
+            title = { Text("Delete cloud creator data?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            text = { Text("This removes your remote creator backups, profile and device records. Your phone data and Google sign-in account remain. Automatic uploads will stay off. To create another backup later, you must review the account history and explicitly choose to keep this phone's data.", color = MutedText, fontSize = 14.sp) },
             confirmButton = { TextButton(onClick = { confirmDelete = false; runOperation { manager.deleteCloudData() } }) { Text("DELETE CLOUD DATA", color = RecRed, fontWeight = FontWeight.Black) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("CANCEL", color = MutedText) } },
         )
@@ -287,7 +361,7 @@ private fun CloudToggleRow(title: String, subtitle: String, checked: Boolean, on
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = MutedText, fontSize = 8.5.sp)
+            Text(subtitle, color = MutedText, fontSize = 12.sp)
         }
         Switch(
             checked = checked,
@@ -300,7 +374,7 @@ private fun CloudToggleRow(title: String, subtitle: String, checked: Boolean, on
 @Composable
 private fun CloudRestoreRow(point: CloudRestorePoint, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onClick),
         color = CinemaSurface,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, CinemaLine),
@@ -311,8 +385,8 @@ private fun CloudRestoreRow(point: CloudRestorePoint, onClick: () -> Unit) {
             }
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
-                Text(cloudPointLabel(point), color = ProjectorIvory, fontSize = 10.7.sp, fontWeight = FontWeight.Bold)
-                Text("${point.projectCount} projects · ${point.ideaCount} ideas · ${point.activeReminderCount} active reminders", color = MutedText, fontSize = 8.3.sp)
+                Text(cloudPointLabel(point), color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("${point.projectCount} projects · ${point.ideaCount} ideas · ${point.activeReminderCount} active reminders", color = MutedText, fontSize = 12.sp)
             }
             Icon(Icons.Outlined.Restore, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
@@ -321,12 +395,12 @@ private fun CloudRestoreRow(point: CloudRestorePoint, onClick: () -> Unit) {
 
 @Composable
 private fun CloudActionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onClick).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = MutedText, modifier = Modifier.size(19.dp))
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = ProjectorIvory, fontSize = 10.7.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = MutedText, fontSize = 8.3.sp)
+            Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = MutedText, fontSize = 12.sp)
         }
         Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(17.dp))
     }
@@ -335,8 +409,8 @@ private fun CloudActionRow(icon: androidx.compose.ui.graphics.vector.ImageVector
 private fun cloudPointLabel(point: CloudRestorePoint): String = when (point.kind) {
     "latest" -> "Latest · ${cloudTime(point.capturedAtMillis)}"
     "daily" -> "${point.snapshotDay.ifBlank { "Daily" }} · ${cloudTime(point.capturedAtMillis)}"
-    else -> "Safety snapshot · ${cloudTime(point.capturedAtMillis)}"
+    else -> "Safety backup · ${cloudTime(point.capturedAtMillis)}"
 }
 
-private fun cloudTime(millis: Long): String = if (millis <= 0L) "Not synced yet"
+private fun cloudTime(millis: Long): String = if (millis <= 0L) "Not backed up yet"
 else SimpleDateFormat("d MMM · h:mm a", Locale.getDefault()).format(Date(millis))

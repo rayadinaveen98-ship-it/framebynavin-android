@@ -3,40 +3,35 @@ package com.framebynavin.app.reminders
 import android.app.Activity
 import java.lang.ref.WeakReference
 
-/** Keeps Voice and Alarm full-screen surfaces mutually exclusive inside the app process. */
+/** Multiple tasks may have live surfaces; only the requested occurrence is closed. */
 object ReminderSurfaceRegistry {
-    @Volatile private var voiceActivity: WeakReference<Activity>? = null
-    @Volatile private var alarmActivity: WeakReference<Activity>? = null
+    private data class Entry(val activity: WeakReference<Activity>, val taskId: String, val token: String, val voice: Boolean)
+    private val entries = mutableListOf<Entry>()
 
-    fun attachVoice(activity: Activity) {
-        voiceActivity = WeakReference(activity)
+    @Synchronized private fun attach(activity: Activity, taskId: String, token: String, voice: Boolean) {
+        entries.removeAll { it.activity.get() == null || it.activity.get() === activity }
+        entries.add(Entry(WeakReference(activity), taskId, token, voice))
     }
+    fun attachVoice(activity: Activity, taskId: String, token: String) = attach(activity, taskId, token, true)
+    fun attachAlarm(activity: Activity, taskId: String, token: String) = attach(activity, taskId, token, false)
+    @Synchronized fun detachVoice(activity: Activity) { entries.removeAll { it.activity.get() == null || it.activity.get() === activity } }
+    @Synchronized fun detachAlarm(activity: Activity) { entries.removeAll { it.activity.get() == null || it.activity.get() === activity } }
 
-    fun detachVoice(activity: Activity) {
-        if (voiceActivity?.get() === activity) voiceActivity = null
-    }
+    fun close(taskId: String, token: String) = closeMatching { it.taskId == taskId && it.token == token }
+    fun closeTask(taskId: String) = closeMatching { it.taskId == taskId }
+    fun closeVoice() = closeMatching { it.voice }
+    fun closeAlarm() = closeMatching { !it.voice }
+    fun closeAll() = closeMatching { true }
 
-    fun attachAlarm(activity: Activity) {
-        alarmActivity = WeakReference(activity)
-    }
-
-    fun detachAlarm(activity: Activity) {
-        if (alarmActivity?.get() === activity) alarmActivity = null
-    }
-
-    fun closeVoice() = close(voiceActivity)
-
-    fun closeAlarm() = close(alarmActivity)
-
-    fun closeAll() {
-        closeVoice()
-        closeAlarm()
-    }
-
-    private fun close(reference: WeakReference<Activity>?) {
-        val activity = reference?.get() ?: return
-        activity.runOnUiThread {
-            if (!activity.isFinishing && !activity.isDestroyed) activity.finishAndRemoveTask()
+    private fun closeMatching(predicate: (Entry) -> Boolean) {
+        val targets = synchronized(this) {
+            entries.removeAll { it.activity.get() == null }
+            entries.filter(predicate).mapNotNull { it.activity.get() }
+        }
+        targets.forEach { activity ->
+            activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) activity.finishAndRemoveTask()
+            }
         }
     }
 }

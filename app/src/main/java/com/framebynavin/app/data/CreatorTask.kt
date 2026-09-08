@@ -12,6 +12,15 @@ enum class ReminderMode {
     SMART,
 }
 
+/** Creator-facing intent. Delivery details remain an implementation concern below this layer. */
+enum class ProjectAttentionPlan {
+    OFF,
+    LIGHT,
+    GUIDED,
+    URGENT,
+    CUSTOM,
+}
+
 enum class VoicePersona {
     WARM,
     YOUNG,
@@ -56,8 +65,25 @@ data class CreatorTask(
     val autoStageReminder: Boolean = false,
     val origin: CreatorTaskOrigin = CreatorTaskOrigin.MANUAL,
     val sourceRefId: String = "",
+    /** Creator-facing reminder policy. Existing explicit reminders migrate to CUSTOM. */
+    val attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.OFF,
+    /** True when reminderAtMillis is the next Project Pulse checkpoint, not a manually chosen alarm. */
+    val pulseManagedReminder: Boolean = false,
+    /** Stage protected by the currently scheduled Project Pulse checkpoint. */
+    val checkpointStageId: String = "",
+    /** Next logical checkpoint. Only the next checkpoint is materialized into Android scheduling. */
+    val checkpointAtMillis: Long = 0L,
     /** Set when FrameByNavin itself observes completion. Legacy completed projects remain 0. */
     val completedAtMillis: Long = 0L,
     /** Non-zero means the project is hidden from active Plan/Studio but retained for history. */
     val archivedAtMillis: Long = 0L,
+    /** Actual creator-confirmed publication, independent of subsequent promotion/review. */
+    val publishedAtMillis: Long = 0L,
+    val publishedUrl: String = "",
+    /** Historical completion evidence is retained separately from a confirmed publication. */
+    val publicationIsLegacy: Boolean = false,
+    /** Acknowledged managed stage; prevents the same check-in being recreated by refresh. */
+    val acknowledgedCheckpointStageId: String = "",
+    val acknowledgedCheckpointDueAtMillis: Long = 0L,
+
 )

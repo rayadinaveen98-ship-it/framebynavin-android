@@ -32,8 +32,13 @@ class SmartEscalationScheduler(private val context: Context) {
         if (!SmartEscalationPolicy.isWindowValid(task.priority, now, task.reminderAtMillis, config)) return
 
         val firstAt = SmartEscalationPolicy.firstStageAtMillis(task.priority, task.reminderAtMillis, config)
-        if (firstAt <= now) return
-        scheduleStage(task, Stage.SOFT, firstAt)
+        val eligibleAt = ReminderDeliveryPolicy.smartResumeAt(
+            plannedAtMillis = firstAt,
+            workingUntilMillis = task.workingUntilMillis,
+            finalTargetAtMillis = task.reminderAtMillis,
+            nowMillis = now,
+        ) ?: return
+        scheduleStage(task, Stage.SOFT, eligibleAt)
     }
 
     /** Rebuild the one pending stage after reboot/time/package recovery without compressing waits. */
@@ -44,6 +49,19 @@ class SmartEscalationScheduler(private val context: Context) {
         }
 
         val now = System.currentTimeMillis()
+        if (task.workingUntilMillis > now) {
+            val config = configStore.get(task)
+            val firstAt = SmartEscalationPolicy.firstStageAtMillis(task.priority, task.reminderAtMillis, config)
+            val resumeAt = ReminderDeliveryPolicy.smartResumeAt(
+                plannedAtMillis = firstAt,
+                workingUntilMillis = task.workingUntilMillis,
+                finalTargetAtMillis = task.reminderAtMillis,
+                nowMillis = now,
+            )
+            cancelPending(task.id, clearSession = true)
+            if (resumeAt != null) scheduleStage(task, Stage.SOFT, resumeAt)
+            return
+        }
         val session = sessions.current(task.id)
         val pendingStage = when {
             session == null -> Stage.SOFT
@@ -166,6 +184,12 @@ class SmartEscalationScheduler(private val context: Context) {
         task.dueAtMillis <= 0L || task.reminderAtMillis <= task.dueAtMillis
 
     private fun cancelPending(taskId: String, clearSession: Boolean) {
+        if (clearSession) {
+            ReminderOccurrenceStore(context).invalidate(taskId)
+            ReminderSurfaceRegistry.closeTask(taskId)
+            AlarmRingingService.stop(context, taskId)
+            VoiceReminderService.stop(context, taskId)
+        }
         Stage.entries.forEach { stage ->
             existingPendingIntent(taskId, stage)?.let { alarmManager.cancel(it) }
             ledger.clear(ledgerKey(taskId, stage))

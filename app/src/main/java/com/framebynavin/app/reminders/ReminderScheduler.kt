@@ -23,6 +23,10 @@ class ReminderScheduler(private val context: Context) {
             return
         }
 
+        ReminderOccurrenceStore(context).invalidate(task.id)
+        ReminderSurfaceRegistry.closeTask(task.id)
+        AlarmRingingService.stop(context, task.id)
+        VoiceReminderService.stop(context, task.id)
         val exactDelivery = canScheduleExact()
         val pendingIntent = alarmPendingIntent(task, exactDelivery)
         val isNativeAlarm = task.reminderMode == ReminderMode.ALARM || task.alertType == ReminderAlertType.ALARM
@@ -86,6 +90,10 @@ class ReminderScheduler(private val context: Context) {
     }
 
     fun cancel(taskId: String) {
+        ReminderOccurrenceStore(context).invalidate(taskId)
+        ReminderSurfaceRegistry.closeTask(taskId)
+        AlarmRingingService.stop(context, taskId)
+        VoiceReminderService.stop(context, taskId)
         existingPendingIntent(taskId)?.let { alarmManager.cancel(it) }
         ledger.clear(taskId)
     }

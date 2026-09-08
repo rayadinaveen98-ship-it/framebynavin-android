@@ -278,7 +278,7 @@ private fun V133TodayFrame(
                 Text("${task.platform} · ${task.contentType}", color = MutedText, fontSize = 10.sp)
                 Spacer(Modifier.height(16.dp))
 
-                Text("CURRENT STAGE", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("CURRENT STEP", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 Text(stage.label, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF242429), RoundedCornerShape(10.dp))) {

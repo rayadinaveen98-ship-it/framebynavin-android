@@ -17,6 +17,7 @@ import com.framebynavin.app.data.CreatorContextNudgeEngine
 import com.framebynavin.app.data.CreatorContextNudgeLevel
 import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.TaskStore
+import com.framebynavin.app.data.CreatorDataGate
 import java.util.concurrent.TimeUnit
 
 class CreatorContextNudgeWorker(
@@ -24,19 +25,19 @@ class CreatorContextNudgeWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result {
+    override suspend fun doWork(): Result = runCatching { CreatorDataGate.readyTransaction(applicationContext) {
         val settings = CreatorOsSettingsStore(applicationContext).snapshot()
-        if (!settings.contextNudgesEnabled) return Result.success()
+        if (!settings.contextNudgesEnabled) return@readyTransaction Result.success()
 
         val tasks = TaskStore(applicationContext).load()
-        val nudge = CreatorContextNudgeEngine.topNudge(tasks) ?: return Result.success()
-        if (nudge.level == CreatorContextNudgeLevel.READY) return Result.success()
+        val nudge = CreatorContextNudgeEngine.topNudge(tasks) ?: return@readyTransaction Result.success()
+        if (nudge.level == CreatorContextNudgeLevel.READY) return@readyTransaction Result.success()
 
         val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
         val previousKey = prefs.getString(KEY_LAST_NUDGE, "").orEmpty()
         val previousAt = prefs.getLong(KEY_LAST_AT, 0L)
-        if (previousKey == nudge.key && now - previousAt < DEDUPE_MS) return Result.success()
+        if (previousKey == nudge.key && now - previousAt < DEDUPE_MS) return@readyTransaction Result.success()
 
         ensureChannel(applicationContext)
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
@@ -62,8 +63,8 @@ class CreatorContextNudgeWorker(
 
         manager.notify(NOTIFICATION_ID, notification)
         prefs.edit().putString(KEY_LAST_NUDGE, nudge.key).putLong(KEY_LAST_AT, now).apply()
-        return Result.success()
-    }
+        Result.success()
+    } }.getOrElse { Result.retry() }
 
     companion object {
         private const val WORK_NAME = "creator-context-nudges-v1"

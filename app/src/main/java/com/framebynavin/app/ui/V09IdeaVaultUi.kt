@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.RocketLaunch
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,37 +40,44 @@ import java.util.UUID
 @Composable
 internal fun V09IdeaVaultScreen(
     ideas: List<CreatorIdea>,
-    onClose: () -> Unit,
+    onClose: (() -> Unit)?,
     onSave: (CreatorIdea) -> String?,
     onDelete: (String) -> Unit,
     onArchive: (String) -> Unit,
     onConvert: (String, String, String, Long) -> String?,
 ) {
-    var query by remember { mutableStateOf("") }
-    var statusFilter by remember { mutableStateOf<IdeaStatus?>(null) }
-    var categoryFilter by remember { mutableStateOf<IdeaCategory?>(null) }
+    val context = LocalContext.current
+    val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
+    val visibleCategories = remember(creatorProfile) { IdeaVaultLabels.categoriesFor(creatorProfile) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var statusFilter by rememberSaveable { mutableStateOf<IdeaStatus?>(null) }
+    var categoryFilter by rememberSaveable { mutableStateOf<IdeaCategory?>(null) }
     var editing by remember { mutableStateOf<CreatorIdea?>(null) }
     var creating by remember { mutableStateOf(false) }
     var converting by remember { mutableStateOf<CreatorIdea?>(null) }
 
-    val opportunityAlerts = remember(ideas.toList(), YouTubeAnalyticsStore.latest24HourReport) {
-        YouTubeOpportunityEngine.build(YouTubeAnalyticsStore.latest24HourReport, ideas)
+    val opportunityReport = YouTubeAnalyticsStore.latest24HourReport
+    val opportunityAlerts by remember(opportunityReport) {
+        derivedStateOf { YouTubeOpportunityEngine.build(opportunityReport, ideas) }
     }
-    val opportunityIdeaIds = remember(opportunityAlerts) { opportunityAlerts.mapNotNull { it.ideaId }.toSet() }
-    val opportunityMatch = opportunityAlerts.firstOrNull { it.ideaId != null }
+    val opportunityIdeaIds by remember { derivedStateOf { opportunityAlerts.mapNotNull { it.ideaId }.toSet() } }
+    val opportunityMatch by remember { derivedStateOf { opportunityAlerts.firstOrNull { it.ideaId != null } } }
+    val readyCount by remember { derivedStateOf { ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE } } }
 
-    val filtered = remember(ideas.toList(), query, statusFilter, categoryFilter, opportunityIdeaIds) {
-        ideas.filter { idea ->
-            val textMatch = query.isBlank() || listOf(idea.title, idea.topic, idea.notes)
-                .any { it.contains(query, ignoreCase = true) }
-            val statusMatch = statusFilter == null || idea.status == statusFilter
-            val categoryMatch = categoryFilter == null || idea.category == categoryFilter
-            textMatch && statusMatch && categoryMatch
-        }.sortedWith(
-            compareByDescending<CreatorIdea> { it.id in opportunityIdeaIds }
-                .thenBy { it.status == IdeaStatus.ARCHIVED }
-                .thenByDescending { it.updatedAtMillis }
-        )
+    val filtered by remember {
+        derivedStateOf {
+            ideas.filter { idea ->
+                val textMatch = query.isBlank() || listOf(idea.title, idea.topic, idea.notes)
+                    .any { it.contains(query, ignoreCase = true) }
+                val statusMatch = statusFilter == null || idea.status == statusFilter
+                val categoryMatch = categoryFilter == null || idea.category == categoryFilter
+                textMatch && statusMatch && categoryMatch
+            }.sortedWith(
+                compareByDescending<CreatorIdea> { it.id in opportunityIdeaIds }
+                    .thenBy { it.status == IdeaStatus.ARCHIVED }
+                    .thenByDescending { it.updatedAtMillis }
+            )
+        }
     }
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -78,7 +86,7 @@ internal fun V09IdeaVaultScreen(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
+                if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column(Modifier.weight(1f)) {
                     Text("IDEA VAULT", color = MutedGold, fontSize = 9.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
                     Text("Capture now. Produce later.", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
@@ -96,10 +104,10 @@ internal fun V09IdeaVaultScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .45f)),
                 ) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
-                        Text("OPPORTUNITY MATCH", color = MutedGold, fontSize = 7.8.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Black)
+                        Text("MATCHED IDEA", color = MutedGold, fontSize = 7.8.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(3.dp))
                         Text(match.ideaTitle ?: match.title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("A topic moving in your 24H Pulse overlaps with this saved idea. It has been moved to the top of the vault.", color = MutedText, fontSize = 8.8.sp, lineHeight = 12.5.sp)
+                        Text("This idea matches a topic gaining attention on your channel, so I moved it to the top.", color = MutedText, fontSize = 8.8.sp, lineHeight = 12.5.sp)
                     }
                 }
                 Spacer(Modifier.height(5.dp))
@@ -111,7 +119,7 @@ internal fun V09IdeaVaultScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                placeholder = { Text("Search idea, movie, person, note…") },
+                placeholder = { Text("Search ideas, topics or notes…") },
             )
 
             Spacer(Modifier.height(10.dp))
@@ -119,12 +127,12 @@ internal fun V09IdeaVaultScreen(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                FilterChip(selected = statusFilter == null, onClick = { statusFilter = null }, label = { Text("All", fontSize = 8.5.sp) })
+                FilterChip(selected = statusFilter == null, onClick = { statusFilter = null }, label = { Text("All", fontSize = 10.sp) })
                 listOf(IdeaStatus.INBOX, IdeaStatus.WORTH_EXPLORING, IdeaStatus.RESEARCHING, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.CONVERTED).forEach { status ->
                     FilterChip(
                         selected = statusFilter == status,
                         onClick = { statusFilter = status },
-                        label = { Text(IdeaVaultLabels.status(status), fontSize = 8.5.sp) },
+                        label = { Text(IdeaVaultLabels.status(status), fontSize = 10.sp) },
                     )
                 }
             }
@@ -132,12 +140,12 @@ internal fun V09IdeaVaultScreen(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                FilterChip(selected = categoryFilter == null, onClick = { categoryFilter = null }, label = { Text("All pillars", fontSize = 8.3.sp) })
-                IdeaCategory.entries.forEach { category ->
+                FilterChip(selected = categoryFilter == null, onClick = { categoryFilter = null }, label = { Text("All topics", fontSize = 10.sp) })
+                visibleCategories.forEach { category ->
                     FilterChip(
                         selected = categoryFilter == category,
                         onClick = { categoryFilter = category },
-                        label = { Text(IdeaVaultLabels.category(category), fontSize = 8.3.sp) },
+                        label = { Text(IdeaVaultLabels.category(category), fontSize = 10.sp) },
                     )
                 }
             }
@@ -146,7 +154,7 @@ internal fun V09IdeaVaultScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${filtered.size} IDEA${if (filtered.size == 1) "" else "S"}", color = MutedText, fontSize = 8.5.sp, letterSpacing = 1.sp)
                 Spacer(Modifier.weight(1f))
-                Text("${ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }} READY", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                Text("$readyCount READY", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
             }
 
             if (filtered.isEmpty()) {
@@ -167,7 +175,7 @@ internal fun V09IdeaVaultScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 34.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 124.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filtered, key = { it.id }) { idea ->
@@ -238,7 +246,7 @@ private fun V09IdeaCard(
                 Spacer(Modifier.weight(1f))
                 if (isOpportunity) {
                     Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .12f)) {
-                        Text("TREND MATCH", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                        Text("MATCHED", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                     }
                     Spacer(Modifier.width(6.dp))
                 }
@@ -259,11 +267,11 @@ private fun V09IdeaCard(
                     TextButton(onClick = onConvert) {
                         Icon(Icons.Outlined.RocketLaunch, null, tint = RecRed, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("PROJECT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                        Text("TURN INTO PROJECT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 if (idea.status != IdeaStatus.ARCHIVED) {
-                    IconButton(onClick = onArchive, modifier = Modifier.size(34.dp)) { Icon(Icons.Outlined.Archive, "Archive", tint = MutedText, modifier = Modifier.size(16.dp)) }
+                    IconButton(onClick = onArchive, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.Archive, "Archive idea", tint = MutedText, modifier = Modifier.size(20.dp)) }
                 }
             }
         }
@@ -278,13 +286,20 @@ private fun V09IdeaEditor(
     onSave: (CreatorIdea) -> Unit,
     onDelete: (() -> Unit)?,
 ) {
+    val context = LocalContext.current
+    val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
+    val visibleCategories = remember(creatorProfile) { IdeaVaultLabels.categoriesFor(creatorProfile) }
+    val defaultPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
     var title by remember(idea.id) { mutableStateOf(idea.title) }
     var topic by remember(idea.id) { mutableStateOf(idea.topic) }
-    var category by remember(idea.id) { mutableStateOf(idea.category) }
+    var category by remember(idea.id, visibleCategories) { mutableStateOf(if (idea.id.isBlank() && idea.category !in visibleCategories) visibleCategories.first() else idea.category) }
     var status by remember(idea.id) { mutableStateOf(idea.status) }
     var potential by remember(idea.id) { mutableStateOf(idea.potential) }
-    var platform by remember(idea.id) { mutableStateOf(idea.platformHint) }
-    var format by remember(idea.id) { mutableStateOf(idea.formatHint) }
+    var platform by remember(idea.id) { mutableStateOf(if (idea.id.isBlank()) defaultPlatform else idea.platformHint.ifBlank { defaultPlatform }) }
+    var format by remember(idea.id) { mutableStateOf(if (idea.id.isBlank()) CreatorPlatformRegistry.defaultFormat(defaultPlatform) else idea.formatHint.ifBlank { CreatorPlatformRegistry.defaultFormat(platform) }) }
+    val platformOptions = remember(creatorProfile, idea.id, idea.platformHint) {
+        CreatorPlatformRegistry.orderedSelected(creatorProfile, include = if (idea.id.isBlank()) null else idea.platformHint)
+    }
     var notes by remember(idea.id) { mutableStateOf(idea.notes) }
     val formats = v09Formats(platform)
     LaunchedEffect(platform) { if (format !in formats) format = formats.first() }
@@ -297,30 +312,30 @@ private fun V09IdeaEditor(
             Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
                 OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Idea title") })
                 Spacer(Modifier.height(9.dp))
-                OutlinedTextField(topic, { topic = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Movie / person / topic") })
-                Spacer(Modifier.height(12.dp)); V09VaultLabel("CONTENT PILLAR")
+                OutlinedTextField(topic, { topic = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Topic · optional") })
+                Spacer(Modifier.height(12.dp)); V09VaultLabel("TOPIC")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    IdeaCategory.entries.forEach { value ->
-                        FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = 8.sp) })
+                    visibleCategories.forEach { value ->
+                        FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = 10.sp) })
                     }
                 }
                 Spacer(Modifier.height(12.dp)); V09VaultLabel("STATUS")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     listOf(IdeaStatus.INBOX, IdeaStatus.WORTH_EXPLORING, IdeaStatus.RESEARCHING, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.ARCHIVED).forEach { value ->
-                        FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = 8.sp) })
+                        FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = 10.sp) })
                     }
                 }
                 Spacer(Modifier.height(12.dp)); V09VaultLabel("POTENTIAL")
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    IdeaPotential.entries.forEach { value -> FilterChip(potential == value, { potential = value }, { Text(value.name, fontSize = 8.5.sp) }) }
+                    IdeaPotential.entries.forEach { value -> FilterChip(potential == value, { potential = value }, { Text(value.name, fontSize = 10.sp) }) }
                 }
                 Spacer(Modifier.height(12.dp)); V09VaultLabel("LIKELY PLATFORM")
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("YouTube", "Instagram", "X").forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 8.5.sp) }) }
+                    platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 10.sp) }) }
                 }
                 Spacer(Modifier.height(10.dp)); V09VaultLabel("LIKELY FORMAT")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 8.5.sp) }) }
+                    formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 10.sp) }) }
                 }
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes") })
@@ -366,8 +381,13 @@ private fun V09ConvertIdeaDialog(
     onConvert: (String, String, Long) -> Unit,
 ) {
     val context = LocalContext.current
-    var platform by remember { mutableStateOf(idea.platformHint.ifBlank { "YouTube" }) }
-    var format by remember { mutableStateOf(idea.formatHint.ifBlank { "Long-form" }) }
+    val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
+    val defaultPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
+    var platform by remember { mutableStateOf(idea.platformHint.ifBlank { defaultPlatform }) }
+    var format by remember { mutableStateOf(idea.formatHint.ifBlank { CreatorPlatformRegistry.defaultFormat(platform) }) }
+    val platformOptions = remember(creatorProfile, idea.platformHint) {
+        CreatorPlatformRegistry.orderedSelected(creatorProfile, include = idea.platformHint.takeIf { it.isNotBlank() })
+    }
     val formats = v09Formats(platform)
     LaunchedEffect(platform) { if (format !in formats) format = formats.first() }
 
@@ -410,20 +430,20 @@ private fun V09ConvertIdeaDialog(
                 Text(idea.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(13.dp)); V09VaultLabel("PLATFORM")
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("YouTube", "Instagram", "X").forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 8.5.sp) }) }
+                    platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 10.sp) }) }
                 }
                 Spacer(Modifier.height(10.dp)); V09VaultLabel("FORMAT")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 8.5.sp) }) }
+                    formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 10.sp) }) }
                 }
                 Spacer(Modifier.height(12.dp)); V09VaultLabel("PUBLISH DEADLINE")
                 Text(display, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { pickDate() }, modifier = Modifier.weight(1f)) { Text("DATE", fontSize = 9.sp) }
-                    OutlinedButton(onClick = { pickTime() }, modifier = Modifier.weight(1f)) { Text("TIME", fontSize = 9.sp) }
+                    OutlinedButton(onClick = { pickDate() }, modifier = Modifier.weight(1f)) { Text("DATE", fontSize = 10.sp) }
+                    OutlinedButton(onClick = { pickTime() }, modifier = Modifier.weight(1f)) { Text("TIME", fontSize = 10.sp) }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("The project will enter Studio with the correct workflow and an automatic reminder mode for its format.", color = MutedText, fontSize = 9.3.sp)
+                Text("The project will open in Create with the right workflow and reminder timing for its format.", color = MutedText, fontSize = 9.3.sp)
             }
         },
         confirmButton = {
@@ -440,9 +460,4 @@ private fun V09VaultLabel(text: String) {
     Text(text, color = MutedGold, fontSize = 8.2.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 5.dp))
 }
 
-private fun v09Formats(platform: String): List<String> = when (platform) {
-    "YouTube" -> listOf("Long-form", "Short", "Cinematic Moment")
-    "Instagram" -> listOf("Reel", "Post", "Story")
-    "X" -> listOf("Post", "Video", "Update")
-    else -> listOf("Content")
-}
+private fun v09Formats(platform: String): List<String> = CreatorPlatformRegistry.formats(platform)

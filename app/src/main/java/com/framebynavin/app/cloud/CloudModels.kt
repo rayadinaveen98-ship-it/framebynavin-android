@@ -10,6 +10,15 @@ data class CloudSession(
     val expiresAtMillis: Long,
 )
 
+data class CloudCreatorProfile(
+    val userId: String,
+    val displayName: String,
+    val username: String,
+    val avatarUrl: String,
+    val createdAtMillis: Long,
+    val updatedAtMillis: Long,
+)
+
 data class CloudRestorePoint(
     val id: String,
     val kind: String,
@@ -28,6 +37,8 @@ data class CloudSyncSettings(
     val lastSyncAtMillis: Long,
     val lastError: String,
     val deviceKey: String,
+    val reconciliationRequired: Boolean = false,
+
 )
 
 data class CloudUiState(

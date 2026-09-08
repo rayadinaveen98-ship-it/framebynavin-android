@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import java.lang.ref.WeakReference
 import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
@@ -24,19 +25,49 @@ class VoiceReminderService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
     private var currentTask: CreatorTask? = null
+    private var currentToken: String = ""
+    private var currentStartId: Int = 0
+    private var speechGeneration = 0
+
+    override fun onCreate() {
+        super.onCreate()
+        activeInstance = WeakReference(this)
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val task = intent?.toTask() ?: run {
-            stopSelf()
+            if (currentTask == null) stopSelfResult(startId)
             return START_NOT_STICKY
         }
+        val token = intent.getStringExtra(ReminderConstants.EXTRA_OCCURRENCE_ID).orEmpty()
+        if (!ReminderOccurrenceStore(applicationContext).matches(task, token)) {
+            if (currentTask == null) stopSelfResult(startId)
+            return START_NOT_STICKY
+        }
+        val previous = currentTask
+        val previousToken = currentToken
+        if (previous != null && (previous.id != task.id || previousToken != token) &&
+            ReminderOccurrenceStore(applicationContext).matches(previous, previousToken)) {
+            // A single Android service can ring only one task at a time. Preserve the displaced
+            // task as an actionable notification rather than silently dropping its reminder.
+            runCatching { ReminderNotifications.show(applicationContext, previous,
+                stageLabel = "Another reminder is ringing", occurrenceId = previousToken) }
+        }
+        currentToken = token
+        currentStartId = startId
         currentTask = task
         handler.removeCallbacksAndMessages(null)
         ensureChannel()
+        if (previous != null && previousToken != token) {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+            wakeLock = null
+        }
         acquireWakeLock(task)
         startForeground(notificationId(task.id), buildNotification(task))
+        if (previous != null && previous.id != task.id)
+            getSystemService(NotificationManager::class.java).cancel(notificationId(previous.id))
         beginSpeechCycle(task)
         return START_NOT_STICKY
     }
@@ -44,9 +75,12 @@ class VoiceReminderService : Service() {
     private fun beginSpeechCycle(task: CreatorTask) {
         tts?.stop()
         tts?.shutdown()
+        val token = currentToken
+        val generation = ++speechGeneration
         tts = TextToSpeech(this) { status ->
+            if (!isCurrent(task.id, token) || generation != speechGeneration) return@TextToSpeech
             if (status != TextToSpeech.SUCCESS) {
-                stopVoiceService()
+                stopVoiceService(task.id, token)
                 return@TextToSpeech
             }
             val engine = tts ?: return@TextToSpeech
@@ -57,11 +91,11 @@ class VoiceReminderService : Service() {
             val interval = task.voiceRepeatIntervalSeconds.coerceIn(5, 60) * 1000L
             repeat(count) { index ->
                 handler.postDelayed({
-                    if (currentTask?.id == task.id) speakOnce(task, index)
+                    if (isCurrent(task.id, token)) speakOnce(task, index)
                 }, index * interval)
             }
             val totalWindow = ((count - 1) * interval + 18_000L).coerceAtMost(150_000L)
-            handler.postDelayed({ stopVoiceService() }, totalWindow)
+            handler.postDelayed({ stopVoiceService(task.id, token) }, totalWindow)
         }
     }
 
@@ -81,12 +115,15 @@ class VoiceReminderService : Service() {
     }
 
     private fun buildNotification(task: CreatorTask): android.app.Notification {
+        val token = currentToken
         val fullScreen = PendingIntent.getActivity(
             this,
             task.id.hashCode() xor 0x5601,
             Intent(this, VoiceReminderActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+                data = android.net.Uri.parse("framebynavin://voice/${android.net.Uri.encode(task.id)}/${android.net.Uri.encode(token)}")
                 putTask(task)
+                putExtra(ReminderConstants.EXTRA_OCCURRENCE_ID, token)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -130,8 +167,14 @@ class VoiceReminderService : Service() {
         wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FrameByNavin:VoiceReminder").apply { acquire(maxWindow) }
     }
 
-    private fun stopVoiceService() {
+    private fun isCurrent(taskId: String, token: String): Boolean =
+        currentTask?.id == taskId && currentToken == token && token.isNotBlank()
+
+    private fun stopVoiceService(taskId: String? = null, token: String? = null) {
+        if (taskId != null && (currentTask?.id != taskId || (token != null && currentToken != token))) return
         currentTask = null
+        currentToken = ""
+        speechGeneration++
         runCatching { tts?.stop() }
         tts?.shutdown()
         tts = null
@@ -139,29 +182,36 @@ class VoiceReminderService : Service() {
         if (wakeLock?.isHeld == true) wakeLock?.release()
         wakeLock = null
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        stopSelfResult(currentStartId)
     }
 
     override fun onDestroy() {
         currentTask = null
+        currentToken = ""
+        speechGeneration++
         handler.removeCallbacksAndMessages(null)
         runCatching { tts?.stop() }
         tts?.shutdown()
         tts = null
         if (wakeLock?.isHeld == true) wakeLock?.release()
         wakeLock = null
+        if (activeInstance?.get() === this) activeInstance = null
         super.onDestroy()
     }
 
     companion object {
-        fun start(context: Context, task: CreatorTask) {
-            ContextCompat.startForegroundService(context, Intent(context, VoiceReminderService::class.java).putTask(task))
+        @Volatile private var activeInstance: WeakReference<VoiceReminderService>? = null
+        fun start(context: Context, task: CreatorTask, occurrenceId: String? = null) {
+            val token = occurrenceId ?: ReminderOccurrenceStore(context).issue(task)
+            ContextCompat.startForegroundService(context, Intent(context, VoiceReminderService::class.java)
+                .putTask(task).putExtra(ReminderConstants.EXTRA_OCCURRENCE_ID, token))
         }
 
-        fun stop(context: Context) {
-            context.stopService(Intent(context, VoiceReminderService::class.java))
+        /** Unconditional stop is reserved for explicit global teardown, such as restore. */
+        fun stop(context: Context) { context.stopService(Intent(context, VoiceReminderService::class.java)) }
+        fun stop(context: Context, taskId: String, occurrenceId: String? = null) {
+            Handler(Looper.getMainLooper()).post { activeInstance?.get()?.stopVoiceService(taskId, occurrenceId) }
         }
-
         fun notificationId(taskId: String): Int = taskId.hashCode() xor 0x5600
 
         fun totalWindowMillis(task: CreatorTask): Long {

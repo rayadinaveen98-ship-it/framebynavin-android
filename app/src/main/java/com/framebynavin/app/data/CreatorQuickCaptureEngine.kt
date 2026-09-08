@@ -8,9 +8,9 @@ data class QuickCaptureSuggestion(
 )
 
 object CreatorQuickCaptureEngine {
-    fun suggest(text: String): QuickCaptureSuggestion {
+    fun suggest(text: String, profile: CreatorProfile? = null): QuickCaptureSuggestion {
         val value = text.trim().lowercase()
-        return when {
+        val raw = when {
             "cinematic moment" in value || "cinematic moments" in value || "best moments" in value -> QuickCaptureSuggestion(
                 IdeaCategory.EVERY_CINEMATIC_MOMENT,
                 IdeaPotential.HIGH,
@@ -54,10 +54,37 @@ object CreatorQuickCaptureEngine {
                 "Long-form",
             )
         }
+        val normalized = profile?.normalized() ?: return raw
+        val categoryAdjusted = if (normalized.category.equals("Film & Entertainment", ignoreCase = true)) {
+            raw
+        } else {
+            val genericCategory = when {
+                "how to" in value || "tutorial" in value || "guide" in value || "explain" in value -> IdeaCategory.HOW_TO_EXPLAINER
+                "series" in value || "episode" in value || "weekly" in value || "daily" in value -> IdeaCategory.SERIES
+                "behind" in value || "process" in value || "making" in value || "workflow" in value -> IdeaCategory.BEHIND_THE_SCENES
+                "community" in value || "question" in value || "poll" in value || "q&a" in value -> IdeaCategory.COMMUNITY
+                "opinion" in value || "thought" in value || "take" in value || "commentary" in value -> IdeaCategory.OPINION_COMMENTARY
+                "review" in value || "recommend" in value || "rating" in value -> IdeaCategory.REVIEW_RECOMMENDATION
+                "release" in value || "launch" in value || "announcement" in value -> IdeaCategory.RELEASE_REACTION
+                else -> IdeaCategory.CONTENT_IDEA
+            }
+            raw.copy(category = genericCategory)
+        }
+        if (normalized.platforms.isEmpty() || normalized.platforms.any { it.equals(categoryAdjusted.platformHint, ignoreCase = true) }) return categoryAdjusted
+        val platform = CreatorPlatformRegistry.primaryPlatform(normalized)
+        return categoryAdjusted.copy(
+            platformHint = platform,
+            formatHint = CreatorPlatformRegistry.defaultFormat(platform),
+        )
     }
 
-    fun toIdea(title: String, notes: String = "", now: Long = System.currentTimeMillis()): CreatorIdea {
-        val suggestion = suggest("$title $notes")
+    fun toIdea(
+        title: String,
+        notes: String = "",
+        now: Long = System.currentTimeMillis(),
+        profile: CreatorProfile? = null,
+    ): CreatorIdea {
+        val suggestion = suggest("$title $notes", profile)
         return CreatorIdea(
             id = "",
             title = title.trim(),

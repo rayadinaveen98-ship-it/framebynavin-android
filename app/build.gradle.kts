@@ -8,18 +8,33 @@ android {
     namespace = "com.framebynavin.app"
     compileSdk = 35
 
+    signingConfigs {
+        create("prototypeStable") {
+            storeFile = rootProject.file("dev-signing/framebynavin-public-debug.jks")
+            storePassword = "framebynavin-dev"
+            keyAlias = "framebynavin-dev"
+            keyPassword = "framebynavin-dev"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 37
-        versionName = "1.7.5-original-frames-splash-rc1"
+        versionCode = 65
+        versionName = "1.8.2-reminder-safety"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("prototypeStable")
+        }
     }
 
     buildFeatures {
@@ -51,6 +66,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.7")
     implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("com.google.android.gms:play-services-auth:21.6.0")
+    implementation("androidx.credentials:credentials:1.6.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
 
     testImplementation("junit:junit:4.13.2")
 

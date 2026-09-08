@@ -4,7 +4,6 @@ import android.content.Context
 import com.framebynavin.app.data.CreatorIdea
 import com.framebynavin.app.data.IdeaPotential
 import com.framebynavin.app.data.IdeaStatus
-import com.framebynavin.app.data.IdeaVaultLabels
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
@@ -263,26 +262,26 @@ object YouTubeOpportunityEngine {
         if ((report.viewsChangePercent ?: 0) >= 25 && report.viewsGained >= 100L) {
             alerts += CreatorOpportunityAlert(
                 kicker = "MOMENTUM",
-                title = "Your channel is accelerating",
-                body = "${compact(report.viewsGained)} views arrived across the last ~${report.sampleHours} hours, ${signedPercent(report.viewsChangePercent)} versus the preceding comparable window. Look for a follow-up while the signal is fresh.",
+                title = "Your channel is picking up",
+                body = "You gained ${compact(report.viewsGained)} views in about ${report.sampleHours} hours, ${signedPercent(report.viewsChangePercent)} compared with before. This may be a good time for a follow-up.",
                 tone = YouTubeInsightTone.POSITIVE,
             )
         }
 
         if (top != null && (top.viewsGained >= 50L || top.channelGainSharePercent >= 20)) {
             alerts += CreatorOpportunityAlert(
-                kicker = "CONTENT MOVING",
+                kicker = "VIDEO PICKING UP",
                 title = top.title,
-                body = "This upload gained ${compact(top.viewsGained)} tracked views and accounts for about ${top.channelGainSharePercent}% of the channel's 24H gain. A related Short, follow-up or deeper angle is worth considering.",
+                body = "This video gained ${compact(top.viewsGained)} views and drove about ${top.channelGainSharePercent}% of today's growth. A related Short or follow-up could work.",
                 tone = YouTubeInsightTone.OPPORTUNITY,
             )
 
             val match = bestIdeaMatch(top.title, ideas)
             if (match != null) {
                 alerts += CreatorOpportunityAlert(
-                    kicker = "IDEA VAULT MATCH",
+                    kicker = "MATCHED IDEA",
                     title = match.title,
-                    body = "A saved idea overlaps with the topic currently moving on your channel. Re-open it now instead of starting from zero.",
+                    body = "You already saved an idea related to this topic. Open it and build from there.",
                     tone = YouTubeInsightTone.OPPORTUNITY,
                     ideaId = match.id,
                     ideaTitle = match.title,
@@ -292,9 +291,9 @@ object YouTubeOpportunityEngine {
 
         if (alerts.size < 3 && report.subscribersDelta >= 3L && report.viewsGained > 0L) {
             alerts += CreatorOpportunityAlert(
-                kicker = "SUBSCRIBER SIGNAL",
-                title = "+${report.subscribersDelta} subscribers in the 24H pulse",
-                body = "The same window that produced ${compact(report.viewsGained)} views also moved subscriber count upward. Check the top movers before choosing the next topic.",
+                kicker = "NEW SUBSCRIBERS",
+                title = "+${report.subscribersDelta} subscribers recently",
+                body = "Your recent views also brought in subscribers. Check your top videos before choosing what to make next.",
                 tone = YouTubeInsightTone.POSITIVE,
             )
         }
@@ -312,7 +311,6 @@ object YouTubeOpportunityEngine {
                     idea.title,
                     idea.topic,
                     idea.notes,
-                    IdeaVaultLabels.category(idea.category),
                 ).joinToString(" ")
                 val overlap = videoTokens.intersect(tokens(ideaText)).size
                 val potentialBoost = when (idea.potential) {
@@ -329,7 +327,7 @@ object YouTubeOpportunityEngine {
 
     private fun tokens(value: String): Set<String> = value
         .lowercase(Locale.getDefault())
-        .replace(Regex("[^a-z0-9]+"), " ")
+        .replace(Regex("[^\\p{L}\\p{M}\\p{N}]+"), " ")
         .split(" ")
         .asSequence()
         .map { it.trim() }
@@ -345,7 +343,8 @@ object YouTubeOpportunityEngine {
     private fun signedPercent(value: Int?): String = value?.let { "${if (it > 0) "+" else ""}$it%" } ?: "a new baseline"
 
     private val STOP_WORDS = setOf(
-        "the", "and", "for", "with", "from", "this", "that", "movie", "film", "video", "review", "analysis",
-        "official", "trailer", "telugu", "cinema", "short", "shorts", "every", "why", "how", "best", "new",
+        "the", "and", "for", "with", "from", "this", "that", "these", "those", "your", "you", "our",
+        "are", "was", "were", "into", "about", "after", "before", "video", "videos", "review", "analysis",
+        "official", "short", "shorts", "every", "why", "how", "what", "when", "where", "who", "best", "new",
     )
 }

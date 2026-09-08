@@ -1,11 +1,6 @@
 package com.framebynavin.app.reminders
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskStatus
@@ -64,7 +59,7 @@ object MissedReminderRecovery {
         val appContext = context.applicationContext
         val ledger = AlarmLedger(appContext)
         if (ledger.wasDelivered(task.id, task.reminderAtMillis)) return false
-        if (!canPostNotifications(appContext)) return false
+        if (!ReminderNotifications.canPost(appContext)) return false
 
         val lateMinutes = ((nowMillis - task.reminderAtMillis) / 60_000L).coerceAtLeast(0L)
         val recoveredMode = when (task.reminderMode) {
@@ -72,19 +67,18 @@ object MissedReminderRecovery {
             ReminderMode.VOICE -> "voice reminder"
             else -> "reminder"
         }
-        ReminderNotifications.show(
-            context = appContext,
-            task = task,
-            deliveryDelayMillis = nowMillis - task.reminderAtMillis,
-            stageLabel = "Recovered $recoveredMode · ${lateMinutes}m late",
-        )
+        val shown = runCatching {
+            ReminderNotifications.show(
+                context = appContext,
+                task = task,
+                deliveryDelayMillis = nowMillis - task.reminderAtMillis,
+                stageLabel = "Recovered $recoveredMode · ${lateMinutes}m late",
+            )
+        }.getOrDefault(false)
+        if (!shown) return false
         ledger.markDelivered(task.id, task.reminderAtMillis)
         return true
     }
 
-    private fun canPostNotifications(context: Context): Boolean {
-        val runtimePermissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        return runtimePermissionGranted && NotificationManagerCompat.from(context).areNotificationsEnabled()
-    }
+
 }

@@ -30,30 +30,18 @@ object CloudSyncScheduler {
     private const val PERIODIC_NAME = "framebynavin-cloud-periodic-v13"
     private const val NOW_NAME = "framebynavin-cloud-now-v13"
 
+    fun cancelAll(context: Context) {
+        val work = WorkManager.getInstance(context.applicationContext)
+        work.cancelUniqueWork(PERIODIC_NAME)
+        work.cancelUniqueWork(NOW_NAME)
+    }
+
     fun ensurePeriodic(context: Context) {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-        val request = PeriodicWorkRequestBuilder<CloudSyncWorker>(6, TimeUnit.HOURS)
-            .setConstraints(constraints)
-            .build()
-        WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
-            PERIODIC_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
-            request,
-        )
+        cancelAll(context)
     }
 
     fun enqueueNow(context: Context) {
-        val request = OneTimeWorkRequestBuilder<CloudSyncWorker>()
-            .setConstraints(
-                Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-            )
-            .build()
-        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
-            NOW_NAME,
-            ExistingWorkPolicy.REPLACE,
-            request,
-        )
+        // No automatic uploads. Existing background workers will return Skipped.
+        cancelAll(context)
     }
 }

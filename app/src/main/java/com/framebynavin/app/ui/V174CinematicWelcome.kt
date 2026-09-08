@@ -40,27 +40,31 @@ import kotlinx.coroutines.launch
  * It intentionally borrows only the pacing discipline of premium studio idents;
  * the geometry, palette and motion language are FrameByNavin's own.
  */
+private const val V20_WELCOME_STRIPE_COUNT = 12
+
 @Composable
 internal fun V174CinematicWelcome() {
     val ignition = remember { Animatable(0f) }
     val strips = remember { Animatable(0f) }
+    val impact = remember { Animatable(0f) }
     val mark = remember { Animatable(0f) }
     val title = remember { Animatable(0f) }
     val sweep = remember { Animatable(0f) }
     val settle = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        delay(70)
-        ignition.animateTo(1f, tween(250, easing = LinearOutSlowInEasing))
-
-        launch { strips.animateTo(1f, tween(680, easing = FastOutSlowInEasing)) }
-        delay(390)
-        launch { mark.animateTo(1f, tween(520, easing = FastOutSlowInEasing)) }
-        delay(350)
-        launch { title.animateTo(1f, tween(420, easing = LinearOutSlowInEasing)) }
-        delay(190)
-        sweep.animateTo(1f, tween(620, easing = LinearEasing))
-        settle.animateTo(1f, tween(520, easing = FastOutSlowInEasing))
+        delay(60)
+        ignition.animateTo(1f, tween(220, easing = LinearOutSlowInEasing))
+        // Alpha20: the stripe event owns the whole screen first. The brand reveal starts only
+        // after the last stripe has crossed its travel window.
+        strips.animateTo(1f, tween(980, easing = FastOutSlowInEasing))
+        impact.animateTo(1f, tween(170, easing = LinearOutSlowInEasing))
+        launch { mark.animateTo(1f, tween(470, easing = FastOutSlowInEasing)) }
+        delay(270)
+        launch { title.animateTo(1f, tween(390, easing = LinearOutSlowInEasing)) }
+        delay(160)
+        sweep.animateTo(1f, tween(560, easing = LinearEasing))
+        settle.animateTo(1f, tween(480, easing = FastOutSlowInEasing))
     }
 
     Box(
@@ -68,37 +72,35 @@ internal fun V174CinematicWelcome() {
             .fillMaxSize()
             .background(Color(0xFF020203)),
     ) {
-        // Deep, restrained red bloom. It grows with the ident instead of becoming a backdrop.
         Canvas(Modifier.fillMaxSize()) {
-            val glowAlpha = 0.08f + (0.16f * mark.value) - (0.035f * settle.value)
+            val revealGlow = 0.05f + 0.16f * mark.value + 0.08f * impact.value - 0.035f * settle.value
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFFD72B29).copy(alpha = glowAlpha),
-                        Color(0xFF521015).copy(alpha = glowAlpha * 0.55f),
+                        Color(0xFFD72B29).copy(alpha = revealGlow),
+                        Color(0xFF521015).copy(alpha = revealGlow * 0.52f),
                         Color.Transparent,
                     ),
-                    center = Offset(size.width / 2f, size.height * 0.455f),
-                    radius = size.width * 0.52f,
+                    center = Offset(size.width / 2f, size.height * 0.47f),
+                    radius = size.width * 0.62f,
                 ),
-                radius = size.width * 0.52f,
-                center = Offset(size.width / 2f, size.height * 0.455f),
+                radius = size.width * 0.62f,
+                center = Offset(size.width / 2f, size.height * 0.47f),
             )
         }
 
-        // Phase 1: one thin red ignition line.
         Canvas(Modifier.fillMaxSize()) {
             val centerX = size.width / 2f
-            val centerY = size.height * 0.46f
-            val lineHeight = size.height * (0.08f + 0.22f * ignition.value)
-            val lineWidth = 1.2f + (2.8f * ignition.value)
+            val centerY = size.height * 0.47f
+            val lineHeight = size.height * (0.10f + 0.36f * ignition.value)
+            val lineWidth = 1.4f + 3.0f * ignition.value
             drawRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        Color(0xFFFF3B33).copy(alpha = 0.85f * ignition.value),
-                        Color(0xFFFF8A52).copy(alpha = ignition.value),
-                        Color(0xFFFF3B33).copy(alpha = 0.85f * ignition.value),
+                        Color(0xFFFF3B33).copy(alpha = 0.86f * ignition.value),
+                        Color(0xFFFFC27A).copy(alpha = ignition.value),
+                        Color(0xFFFF3B33).copy(alpha = 0.86f * ignition.value),
                         Color.Transparent,
                     ),
                     startY = centerY - lineHeight / 2f,
@@ -109,57 +111,65 @@ internal fun V174CinematicWelcome() {
             )
         }
 
-        // Phase 2: the single line fans into the brand palette before collapsing into the mark.
         Canvas(Modifier.fillMaxSize()) {
             if (strips.value <= 0f) return@Canvas
+            val progress = strips.value.coerceIn(0f, 1f)
+            val screenH = size.height
+            val overscanH = screenH * 1.18f
+            val centerY = screenH * 0.50f
+            val fadeOut = (1f - impact.value * 0.92f).coerceIn(0f, 1f)
+            val palette = listOf(
+                Color(0xFFF4C06B), Color(0xFFD72B29), Color(0xFF6A607B),
+                Color(0xFFE55A3C), Color(0xFFFFD39A), Color(0xFF8B3040),
+            )
 
-            val centerY = size.height * 0.46f
-            val maxHeight = size.height * 0.37f
-            val h = maxHeight * (0.55f + 0.45f * strips.value)
-            val travel = size.width * 0.115f * strips.value
-            val fade = (1f - mark.value * 0.88f).coerceIn(0f, 1f)
-            val baseWidth = size.width * (0.013f + 0.012f * strips.value)
-            val cx = size.width / 2f
+            repeat(V20_WELCOME_STRIPE_COUNT) { index ->
+                val stagger = index * 0.035f
+                val local = ((progress - stagger) / (1f - stagger)).coerceIn(0f, 1f)
+                if (local <= 0f) return@repeat
+                val side = if (index % 2 == 0) -1f else 1f
+                val lane = (index / 2 + 1).toFloat() / (V20_WELCOME_STRIPE_COUNT / 2f + 1f)
+                val startX = size.width * 0.50f + side * size.width * 0.025f
+                val endX = size.width * 0.50f + side * size.width * (0.50f + lane * 0.10f)
+                val x = startX + (endX - startX) * local
+                val base = size.width * (if (index % 3 == 0) 0.030f else if (index % 3 == 1) 0.018f else 0.010f)
+                val width = base * (0.72f + 0.28f * local)
+                val color = palette[index % palette.size]
+                val alpha = (0.54f + (index % 4) * 0.10f) * fadeOut
 
-            fun lightStrip(x: Float, width: Float, color: Color, alpha: Float) {
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            color.copy(alpha = alpha * 0.82f),
+                            color.copy(alpha = alpha * 0.72f),
                             color.copy(alpha = alpha),
-                            color.copy(alpha = alpha * 0.82f),
+                            color.copy(alpha = alpha * 0.90f),
+                            color.copy(alpha = alpha * 0.62f),
                             Color.Transparent,
                         ),
-                        startY = centerY - h / 2f,
-                        endY = centerY + h / 2f,
+                        startY = centerY - overscanH / 2f,
+                        endY = centerY + overscanH / 2f,
                     ),
-                    topLeft = Offset(x - width / 2f, centerY - h / 2f),
-                    size = Size(width, h),
+                    topLeft = Offset(x - width / 2f, centerY - overscanH / 2f),
+                    size = Size(width, overscanH),
                 )
             }
 
-            lightStrip(cx - travel, baseWidth * 1.05f, Color(0xFFF1C06B), 0.88f * fade)
-            lightStrip(cx, baseWidth * 1.22f, Color(0xFFD72B29), 1.0f * fade)
-            lightStrip(cx + travel, baseWidth, Color(0xFF6A607B), 0.80f * fade)
-
-            // Warm core that makes the strips read as light rather than flat bars.
-            drawCircle(
+            drawRect(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFFFFB15F).copy(alpha = 0.22f * fade),
-                        Color(0xFFD72B29).copy(alpha = 0.09f * fade),
+                        Color(0xFFFFD39A).copy(alpha = 0.17f * fadeOut),
+                        Color(0xFFD72B29).copy(alpha = 0.08f * fadeOut),
                         Color.Transparent,
                     ),
-                    center = Offset(cx, centerY),
-                    radius = size.width * 0.25f,
+                    center = Offset(size.width / 2f, centerY),
+                    radius = size.width * 0.52f,
                 ),
-                radius = size.width * 0.25f,
-                center = Offset(cx, centerY),
+                topLeft = Offset.Zero,
+                size = size,
             )
         }
 
-        // Phase 3: the actual FrameByNavin mark resolves directly on black — no app-icon tile.
         FrameByNavinIdentMark(
             modifier = Modifier
                 .align(Alignment.Center)
@@ -167,13 +177,12 @@ internal fun V174CinematicWelcome() {
                 .size(148.dp)
                 .graphicsLayer {
                     alpha = mark.value
-                    scaleX = 0.86f + (0.14f * mark.value)
-                    scaleY = 0.86f + (0.14f * mark.value)
+                    scaleX = 0.84f + (0.16f * mark.value)
+                    scaleY = 0.84f + (0.16f * mark.value)
                 },
             reveal = mark.value,
         )
 
-        // Phase 4: clean brand-name reveal.
         Text(
             text = "FRAME BY NAVIN",
             modifier = Modifier
@@ -193,16 +202,15 @@ internal fun V174CinematicWelcome() {
             textAlign = TextAlign.Center,
         )
 
-        // A narrow cinematic highlight passes once, then disappears into the final hold.
         if (sweep.value > 0f) {
             val xFraction = -0.30f + (1.60f * sweep.value)
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .offset(y = 111.dp)
-                    .fillMaxWidth(0.68f)
+                    .fillMaxWidth(0.72f)
                     .height(2.dp)
-                    .alpha((1f - settle.value) * 0.78f)
+                    .alpha((1f - settle.value) * 0.80f)
                     .background(
                         Brush.horizontalGradient(
                             colorStops = arrayOf(
@@ -219,10 +227,6 @@ internal fun V174CinematicWelcome() {
     }
 }
 
-/**
- * Geometric mark derived from the app's existing launcher vector, redrawn here without
- * the launcher tile so the ident feels like a studio signature rather than an Android icon.
- */
 @Composable
 private fun FrameByNavinIdentMark(
     modifier: Modifier = Modifier,
@@ -233,7 +237,6 @@ private fun FrameByNavinIdentMark(
         fun x(v: Float) = (v / 108f) * s
         fun y(v: Float) = (v / 108f) * s
 
-        // Soft contact glow behind the free-standing mark.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -248,7 +251,6 @@ private fun FrameByNavinIdentMark(
             center = Offset(s * 0.52f, s * 0.54f),
         )
 
-        // Rear graphite/violet panel.
         val rear = Path().apply {
             moveTo(x(58f), y(15f)); lineTo(x(89f), y(31f)); lineTo(x(89f), y(76f)); lineTo(x(58f), y(62f)); close()
         }
@@ -258,7 +260,6 @@ private fun FrameByNavinIdentMark(
         }
         drawPath(rearEdge, Color(0xFF6A607B))
 
-        // Crimson middle panel.
         val red = Path().apply {
             moveTo(x(39f), y(23f)); lineTo(x(72f), y(36f)); lineTo(x(72f), y(84f)); lineTo(x(39f), y(73f)); close()
         }
@@ -272,7 +273,6 @@ private fun FrameByNavinIdentMark(
         }
         drawPath(redShade, Color(0xFF771219))
 
-        // Champagne/gold foreground panel.
         val gold = Path().apply {
             moveTo(x(18f), y(34f)); lineTo(x(50f), y(19f)); lineTo(x(50f), y(77f)); lineTo(x(18f), y(91f)); close()
         }
@@ -286,7 +286,6 @@ private fun FrameByNavinIdentMark(
         }
         drawPath(goldShade, Color(0xFFA35C25))
 
-        // Studio spark.
         drawCircle(
             color = Color(0xFFFF493D),
             radius = x(4.2f),

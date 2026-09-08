@@ -15,6 +15,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -73,8 +74,8 @@ import java.time.ZoneId
 import java.util.Calendar
 import java.util.Locale
 
-private enum class PTab { TODAY, PLAN, STUDIO, INSIGHTS }
-private enum class POverlay { NONE, WEEK, RELEASE, IDEAS, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS }
+internal enum class PTab { TODAY, IDEAS, CREATE, CALENDAR, INSIGHTS }
+private enum class POverlay { NONE, WEEK, RELEASE, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS, PROFILE, CREATOR_PROGRESS }
 
 private data class PPermissions(
     val notifications: Boolean,
@@ -99,9 +100,46 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
+    var publicationTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
+
+    BackHandler(enabled = focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
+        when {
+            focusTaskId != null -> focusTaskId = null
+            showComposer -> showComposer = false
+            showQuickCapture -> showQuickCapture = false
+            showReminders -> showReminders = false
+            showControl -> { showControl = false; controlExpanded = false }
+            overlay != POverlay.NONE -> overlay = POverlay.NONE
+            else -> tab = PTab.TODAY
+        }
+    }
+
+    publicationTaskId?.let { id ->
+        vm.tasks.firstOrNull { it.id == id }?.let { task ->
+            V181PublicationDialog(
+                task = task,
+                onDismiss = { publicationTaskId = null },
+                onSave = { at, url -> vm.correctPublication(id, at, url); publicationTaskId = null },
+            )
+        }
+    }
+
+    vm.writeError?.let { error ->
+        AlertDialog(
+            onDismissRequest = {},
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Your changes need attention", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
+            text = { Text("A change could not be saved. The latest saved data is still available. Do not keep editing until the app reloads it.\n\n$error", color = MutedText, fontSize = 14.sp, lineHeight = 20.sp) },
+            confirmButton = {
+                Button(onClick = vm::dismissWriteError, enabled = vm.canRecoverWrites) {
+                    Text(if (vm.canRecoverWrites) "RELOAD SAVED DATA" else "FINISHING SAVES")
+                }
+            },
+        )
+    }
 
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         permissions = pPermissions(context)
@@ -140,6 +178,40 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         editTaskId = id
         showComposer = true
     }
+    fun openProject(id: String) {
+        overlay = POverlay.NONE
+        showControl = false
+        showReminders = false
+        tab = PTab.CREATE
+        externalStudioId = id
+        externalStudioNonce += 1L
+    }
+    fun routeJourney(destination: V18JourneyDestination?) {
+        when (destination) {
+            V18JourneyDestination.IDEAS -> tab = PTab.IDEAS
+            V18JourneyDestination.CREATE -> tab = PTab.CREATE
+            V18JourneyDestination.INSIGHTS -> tab = PTab.INSIGHTS
+            null -> Unit
+        }
+        if (destination != null) overlay = POverlay.NONE
+    }
+    fun advanceWorkflowWithJourney(id: String) {
+        val taskBeforeAdvance = vm.tasks.firstOrNull { it.id == id }
+        val destination = taskBeforeAdvance?.let(V18CreatorJourney::afterWorkflowAdvance)
+        val loopAction = taskBeforeAdvance?.let { task ->
+            if (destination == V18JourneyDestination.INSIGHTS) {
+                V18CreatorLoop.afterPublished(task, hasIdeas = vm.ideas.isNotEmpty())
+            } else null
+        }
+        vm.advanceWorkflow(id)
+        routeJourney(destination)
+        when (loopAction) {
+            V18CreatorLoopAction.CAPTURE_NEXT_IDEA -> showQuickCapture = true
+            V18CreatorLoopAction.REVIEW_INSIGHTS,
+            V18CreatorLoopAction.START_NEXT_PROJECT,
+            null -> Unit
+        }
+    }
 
     LaunchedEffect(controlExpanded) {
         if (controlExpanded) {
@@ -157,7 +229,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             CreatorWidgetContract.ACTION_OPEN_TODAY -> { overlay = POverlay.NONE; tab = PTab.TODAY }
             CreatorWidgetContract.ACTION_OPEN_STUDIO -> {
                 overlay = POverlay.NONE
-                tab = PTab.STUDIO
+                tab = PTab.CREATE
                 externalStudioId = launch.taskId.ifBlank { null }
                 externalStudioNonce = launch.nonce
             }
@@ -165,60 +237,88 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             CreatorWidgetContract.ACTION_RELEASE_DAY -> overlay = POverlay.RELEASE
             CreatorWidgetContract.ACTION_DAILY_BRIEF -> overlay = POverlay.DAILY_BRIEF
             CreatorWidgetContract.ACTION_CONTENT_CALENDAR -> overlay = POverlay.CALENDAR
-            CreatorWidgetContract.ACTION_IDEA_VAULT -> overlay = POverlay.IDEAS
+            CreatorWidgetContract.ACTION_IDEA_VAULT -> { overlay = POverlay.NONE; tab = PTab.IDEAS }
             CreatorWidgetContract.ACTION_OPEN_INSIGHTS -> { overlay = POverlay.NONE; tab = PTab.INSIGHTS }
             CreatorWidgetContract.ACTION_AUTOMATION_CENTER -> overlay = POverlay.AUTOMATION
         }
     }
 
-    val focusTask = vm.tasks.firstOrNull { it.id == focusTaskId }
+    val focusTaskState = remember { derivedStateOf { vm.tasks.firstOrNull { it.id == focusTaskId } } }
+    val focusTask = focusTaskState.value
     Box(Modifier.fillMaxSize().background(CinemaBlack)) {
         if (focusTask != null) {
             PFocusScreen(
                 task = focusTask,
                 onClose = { focusTaskId = null },
                 onStageDone = {
-                    vm.advanceWorkflow(focusTask.id)
+                    advanceWorkflowWithJourney(focusTask.id)
                     focusTaskId = null
                 },
             )
         } else {
             when (tab) {
                 PTab.TODAY -> PTodayScreen(
+                    creatorProfile = settings.creatorProfile,
                     tasks = vm.tasks,
                     onAdd = { openComposer() },
                     onStart = vm::startTask,
-                    onAdvance = vm::advanceWorkflow,
+                    onAdvance = ::advanceWorkflowWithJourney,
                     onViewAllReminders = { showReminders = true },
                     onFocus = { focusTaskId = it },
+                    onOpenProject = ::openProject,
                 )
-                PTab.PLAN -> V131PlanScreen(
-                    tasks = vm.tasks,
-                    onAdd = { openComposer() },
-                    onEdit = { openComposer(it) },
-                    onStart = vm::startTask,
-                    onDone = vm::completeTask,
-                    onDeleteSelected = vm::deleteTasks,
+                PTab.IDEAS -> V09IdeaVaultScreen(
+                    ideas = vm.ideas,
+                    onClose = null,
+                    onSave = vm::saveIdea,
+                    onDelete = vm::deleteIdea,
+                    onArchive = vm::archiveIdea,
+                    onConvert = { ideaId, platform, format, dueAtMillis ->
+                        val projectId = vm.convertIdeaToProject(ideaId, platform, format, dueAtMillis)
+                        if (V18CreatorJourney.afterProjectCreated(projectId) == V18JourneyDestination.CREATE) {
+                            externalStudioId = projectId
+                            externalStudioNonce += 1L
+                        }
+                        routeJourney(V18CreatorJourney.afterProjectCreated(projectId))
+                        projectId
+                    },
                 )
-                PTab.STUDIO -> V131StudioScreen(
+                PTab.CREATE -> V131StudioScreen(
                     tasks = vm.tasks,
+                    postPublishCheckpoints = vm.postPublishCheckpoints,
                     onAdd = { openComposer() },
-                    onAdvance = vm::advanceWorkflow,
+                    onAdvance = ::advanceWorkflowWithJourney,
                     onBack = vm::moveWorkflowBack,
                     onFocus = { focusTaskId = it },
                     onArchive = vm::archiveTask,
+                    onArchiveSelected = vm::archiveTasks,
                     onUnarchive = vm::unarchiveTask,
                     onDelete = vm::deleteTask,
+                    onDeleteSelected = vm::deleteTasks,
+                    onEdit = ::openComposer,
+                    onEditPublication = { publicationTaskId = it },
+                    onCompletePostPublish = vm::completePostPublishCheckpoint,
+                    onSkipPostPublish = vm::skipPostPublishCheckpoint,
                     externalExpandId = externalStudioId,
                     externalExpandNonce = externalStudioNonce,
                 )
-                PTab.INSIGHTS -> V11InsightsScreen(vm.tasks, vm.ideas, { openComposer() })
+                PTab.CALENDAR -> V15ContentCalendarScreen(
+                    tasks = vm.tasks,
+                    weeklySlots = vm.weeklySlots,
+                    onClose = null,
+                )
+                PTab.INSIGHTS -> V11InsightsScreen(
+                    creatorProfile = settings.creatorProfile,
+                    tasks = vm.tasks,
+                    ideas = vm.ideas,
+                    onAdd = { openComposer() },
+                )
             }
 
             PBottomNav(
                 selected = tab,
                 onSelect = { tab = it },
-                onCreate = { openComposer() },
+                onCapture = { showQuickCapture = true },
                 modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
             )
 
@@ -235,7 +335,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         AnimatedVisibility(visible = controlExpanded) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Spacer(Modifier.width(7.dp))
-                                Text("CONTROL", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text("CONTROL", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
                             }
                         }
                     }
@@ -261,14 +361,6 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onClose = { overlay = POverlay.NONE },
                 onLaunch = vm::createReleaseBurst,
             )
-            POverlay.IDEAS -> V09IdeaVaultScreen(
-                ideas = vm.ideas,
-                onClose = { overlay = POverlay.NONE },
-                onSave = vm::saveIdea,
-                onDelete = vm::deleteIdea,
-                onArchive = vm::archiveIdea,
-                onConvert = vm::convertIdeaToProject,
-            )
             POverlay.DAILY_BRIEF -> V15DailyBriefScreen(
                 tasks = vm.tasks,
                 weeklySlots = vm.weeklySlots,
@@ -281,17 +373,33 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             )
             POverlay.AUTOMATION -> V17AutomationCenterScreen(
                 tasks = vm.tasks,
+                postPublishCheckpoints = vm.postPublishCheckpoints,
                 weeklySlots = vm.weeklySlots,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 contextNudgesEnabled = settings.contextNudgesEnabled,
                 onClose = { overlay = POverlay.NONE },
                 onWeeklyAutoPlanChange = vm::setWeeklyAutoPlanEnabled,
             )
+            POverlay.PROFILE -> V23ProfileAccountScreen(
+                creatorProfile = settings.creatorProfile,
+                onClose = { overlay = POverlay.SETTINGS },
+                onEditCreatorSetup = {
+                    settingsStore.setOnboardingComplete(false)
+                    settings = settingsStore.snapshot()
+                    overlay = POverlay.NONE
+                },
+                onOpenYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
+            )
+            POverlay.CREATOR_PROGRESS -> V23CreatorProgressScreen(
+                snapshot = CreatorRewardsV22Engine.snapshot(vm.rewardLedger),
+                onClose = { overlay = POverlay.NONE },
+            )
             POverlay.SETTINGS -> PSettingsScreen(
                 settings = settings,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 permissions = permissions,
                 onClose = { overlay = POverlay.NONE },
+                onProfile = { overlay = POverlay.PROFILE },
                 onVoice = { settingsStore.setDefaultVoicePersona(it); settings = settingsStore.snapshot() },
                 onAlarmTimeout = { settingsStore.setDefaultAlarmTimeoutSeconds(it); settings = settingsStore.snapshot() },
                 onSnooze = { settingsStore.setSnoozeMinutes(it); settings = settingsStore.snapshot() },
@@ -306,11 +414,20 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onBattery = ::openBatterySettings,
                 onCloudSync = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
                 onYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
-                onRunOnboarding = {
-                    settingsStore.setOnboardingComplete(false)
-                    settings = settingsStore.snapshot()
-                    overlay = POverlay.NONE
-                },
+            )
+        }
+
+        vm.rewardFeedback?.let { reward ->
+            LaunchedEffect(reward.eventKey) {
+                delay(2200L)
+                vm.consumeRewardFeedback(reward.eventKey)
+            }
+            V22RewardToast(
+                entry = reward,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 10.dp, start = 20.dp, end = 20.dp),
             )
         }
     }
@@ -325,15 +442,17 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 tasks = vm.tasks,
                 ideas = vm.ideas,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
+                creatorProgress = CreatorRewardsV22Engine.snapshot(vm.rewardLedger),
                 onNewProject = { showControl = false; openComposer() },
                 onQuickCapture = { showControl = false; showQuickCapture = true },
                 onDailyBrief = { showControl = false; overlay = POverlay.DAILY_BRIEF },
                 onCalendar = { showControl = false; overlay = POverlay.CALENDAR },
                 onRelease = { showControl = false; overlay = POverlay.RELEASE },
-                onIdeas = { showControl = false; overlay = POverlay.IDEAS },
+                onIdeas = { showControl = false; overlay = POverlay.NONE; tab = PTab.IDEAS },
                 onWeek = { showControl = false; overlay = POverlay.WEEK },
                 onReminders = { showControl = false; showReminders = true },
                 onAutomation = { showControl = false; overlay = POverlay.AUTOMATION },
+                onCreatorProgress = { showControl = false; overlay = POverlay.CREATOR_PROGRESS },
                 onSettings = { showControl = false; overlay = POverlay.SETTINGS },
                 onPublishLate = vm::publishLate,
                 onReschedule = { id -> pPickDateTime(context, vm.tasks.firstOrNull { it.id == id }?.dueAtMillis ?: 0L) { vm.rescheduleDeadline(id, it) } },
@@ -358,6 +477,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onSave = { idea ->
                 vm.saveIdea(idea)
                 showQuickCapture = false
+                routeJourney(V18CreatorJourney.afterCapture())
             },
         )
     }
@@ -370,7 +490,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onDismiss = { showComposer = false },
             onOpenSettings = { showComposer = false; overlay = POverlay.SETTINGS },
             onSave = { draft ->
-                vm.saveTaskConfiguration(
+                val savedTaskId = vm.saveTaskConfiguration(
                     id = task?.id,
                     title = draft.title,
                     platform = draft.platform,
@@ -386,9 +506,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     voiceRepeatCount = draft.voiceRepeatCount,
                     voiceRepeatIntervalSeconds = draft.voiceRepeatIntervalSeconds,
                     alarmTimeoutSeconds = draft.alarmTimeoutSeconds,
+                    attentionPlan = draft.attentionPlan,
                 )
                 showComposer = false
-                if (task == null) tab = PTab.TODAY
+                if (task == null && V18CreatorJourney.afterProjectCreated(savedTaskId) == V18JourneyDestination.CREATE) {
+                    externalStudioId = savedTaskId
+                    externalStudioNonce += 1L
+                    routeJourney(V18JourneyDestination.CREATE)
+                }
             },
             onRemoveReminder = {
                 task?.let { vm.cancelReminder(it.id) }
@@ -397,14 +522,33 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         )
     }
 
-    if (!settings.onboardingComplete) {
-        POnboarding(
-            permissions = permissions,
+    if (!settings.accountOnboardingComplete) {
+        V23AccountOnboarding(
+            onComplete = { displayName ->
+                if (displayName.isNotBlank()) {
+                    settingsStore.setCreatorProfile(settings.creatorProfile.copy(displayName = displayName))
+                }
+                settingsStore.setAccountOnboardingComplete(true)
+                settings = settingsStore.snapshot()
+            },
+            onContinueLocally = {
+                settingsStore.setAccountOnboardingComplete(true)
+                settings = settingsStore.snapshot()
+            },
+        )
+    } else if (!settings.onboardingComplete || !settings.creatorProfile.isComplete) {
+        V18CreatorOnboarding(
+            profile = settings.creatorProfile,
+            notificationsReady = permissions.notifications,
+            preciseTimingReady = permissions.preciseTiming,
+            fullScreenReady = permissions.fullScreen,
+            batteryReady = permissions.batteryAccess,
             onNotifications = ::requestNotifications,
             onPreciseTiming = ::requestPreciseTiming,
             onFullScreen = ::requestFullScreen,
             onBattery = ::openBatterySettings,
-            onFinish = {
+            onFinish = { profile ->
+                settingsStore.setCreatorProfile(profile)
                 settingsStore.setOnboardingComplete(true)
                 settings = settingsStore.snapshot()
             },
@@ -413,469 +557,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
 }
 
 @Composable
-private fun PTodayScreen(
-    tasks: List<CreatorTask>,
-    onAdd: () -> Unit,
-    onStart: (String) -> Unit,
-    onAdvance: (String) -> Unit,
-    onViewAllReminders: () -> Unit,
-    onFocus: (String) -> Unit,
-) {
-    val queue = remember(tasks.toList()) { pActiveQueue(tasks).take(10) }
-    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(queue.map { it.id }) { if (queue.none { it.id == selectedId }) selectedId = queue.firstOrNull()?.id }
-    val index = queue.indexOfFirst { it.id == selectedId }.let { if (it < 0) 0 else it }
-    val selected = queue.getOrNull(index)
-    val doneCount = tasks.count { it.status == TaskStatus.DONE }
-    val haptics = LocalHapticFeedback.current
-
-    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(RecRed.copy(alpha = .055f), CinemaBlack), radius = 980f))) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 124.dp)) {
-            PHomeGreetingHeader(onAdd)
-            Spacer(Modifier.height(12.dp))
-            V131HomeHeroSlideshow()
-            Spacer(Modifier.height(18.dp))
-            Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-            Spacer(Modifier.height(4.dp))
-            Text("Make the next thing.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
-            Text(
-                if (selected == null) "Your creator queue is clear." else "One clear next move. Everything else can wait.",
-                color = MutedText,
-                fontSize = 10.5.sp,
-            )
-            Spacer(Modifier.height(18.dp))
-
-            if (selected == null) {
-                PEmptyState(
-                    icon = Icons.Outlined.MovieCreation,
-                    title = "Nothing needs your attention",
-                    body = "Capture an idea or start your next project when you're ready.",
-                    button = "CREATE PROJECT",
-                    onClick = onAdd,
-                )
-            } else {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("UP NEXT", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                    Spacer(Modifier.width(8.dp))
-                    Text("${index + 1} / ${queue.size}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.weight(1f))
-                    if (queue.size > 1) Text("SWIPE", color = MutedText, fontSize = 8.sp, letterSpacing = 1.sp)
-                }
-                Spacer(Modifier.height(8.dp))
-
-                var dragTotal by remember { mutableFloatStateOf(0f) }
-                Box(Modifier.pointerInput(queue.size, index) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { dragTotal = 0f },
-                        onHorizontalDrag = { _, amount -> dragTotal += amount },
-                        onDragEnd = {
-                            if (dragTotal < -55f && index < queue.lastIndex) selectedId = queue[index + 1].id
-                            if (dragTotal > 55f && index > 0) selectedId = queue[index - 1].id
-                            dragTotal = 0f
-                        },
-                    )
-                }) {
-                    AnimatedContent(targetState = selected.id, label = "todayProject") { targetId ->
-                        queue.firstOrNull { it.id == targetId }?.let { targetTask ->
-                            PTodayProjectCard(targetTask)
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(10.dp))
-                PQueueDots(index, queue.size)
-                Spacer(Modifier.height(12.dp))
-                PNextMoveCard(selected)
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { onStart(selected.id) },
-                        modifier = Modifier.weight(1f).height(50.dp),
-                        border = BorderStroke(1.dp, CinemaLine),
-                        shape = RoundedCornerShape(15.dp),
-                    ) { Text(if (selected.status == TaskStatus.WORKING) "WORKING" else "START", color = ProjectorIvory, fontSize = 9.5.sp) }
-                    Button(
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onFocus(selected.id)
-                        },
-                        modifier = Modifier.weight(1.35f).height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        shape = RoundedCornerShape(15.dp),
-                    ) {
-                        Icon(Icons.Outlined.PlayArrow, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("FOCUS", fontWeight = FontWeight.Black, fontSize = 10.sp)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                TextButton(
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onAdvance(selected.id)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        if (CreatorWorkflowEngine.stageIndex(selected) == CreatorWorkflowEngine.templateFor(selected).stages.lastIndex) "MARK PUBLISHED" else "COMPLETE CURRENT STAGE",
-                        color = MutedGold,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(22.dp))
-            PTodayReminders(tasks = tasks, onViewAll = onViewAllReminders)
-
-            Spacer(Modifier.height(22.dp))
-            Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(38.dp).background(SuccessGreen.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.Check, null, tint = SuccessGreen, modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Momentum", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(if (doneCount == 0) "Complete your first project to start the streak." else "$doneCount project${if (doneCount == 1) "" else "s"} completed.", color = MutedText, fontSize = 9.5.sp)
-                    }
-                    Text(queue.size.toString(), color = MutedGold, fontSize = 21.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.width(4.dp))
-                    Text("active", color = MutedText, fontSize = 8.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PTodayProjectCard(task: CreatorTask) {
-    val stage = CreatorWorkflowEngine.currentStage(task)
-    val progress = CreatorWorkflowEngine.progress(task)
-    val overdue = task.dueAtMillis in 1 until System.currentTimeMillis()
-    Surface(
-        Modifier.fillMaxWidth(),
-        RoundedCornerShape(24.dp),
-        CinemaSurface,
-        border = BorderStroke(1.dp, if (overdue) RecRed.copy(alpha = .45f) else CinemaLine),
-        shadowElevation = 3.dp,
-    ) {
-        Column(Modifier.padding(19.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(100.dp), color = if (overdue) RecRed.copy(alpha = .14f) else Color(0xFF171410)) {
-                    Text(if (overdue) "OVERDUE" else task.dueLabel.uppercase(Locale.getDefault()), color = if (overdue) RecRed else MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), maxLines = 1)
-                }
-                Spacer(Modifier.weight(1f))
-                Text(stage.label.uppercase(), color = ProjectorIvory, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(13.dp))
-            Text(task.title, color = ProjectorIvory, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Black, maxLines = 3, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(4.dp))
-            Text("${task.platform} · ${task.contentType}", color = MutedText, fontSize = 10.5.sp)
-            Spacer(Modifier.height(16.dp))
-            PStageRail(task)
-            Spacer(Modifier.height(8.dp))
-            Row {
-                Text("$progress%", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.width(6.dp))
-                Text("complete", color = MutedText, fontSize = 9.sp)
-                Spacer(Modifier.weight(1f))
-                Text(if (task.status == TaskStatus.WORKING) "IN PROGRESS" else "READY", color = if (task.status == TaskStatus.WORKING) MutedGold else MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun PNextMoveCard(task: CreatorTask) {
-    val recommendation = CreatorPriorityEngine.recommendation(task)
-    val next = CreatorWorkflowEngine.nextStage(task)
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(19.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("NEXT MOVE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                Spacer(Modifier.weight(1f))
-                Text(recommendation.urgencyLabel, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-            }
-            Spacer(Modifier.height(5.dp))
-            Text(recommendation.action, color = ProjectorIvory, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(5.dp))
-            Text(recommendation.reason, color = MutedText, fontSize = 9.3.sp, lineHeight = 13.sp)
-            next?.let {
-                Spacer(Modifier.height(5.dp))
-                Text("After that · ${it.label}", color = MutedText, fontSize = 9.5.sp)
-            }
-        }
-    }
-}
-
-@Composable
-private fun PPlanScreen(tasks: List<CreatorTask>, onAdd: () -> Unit, onStart: (String) -> Unit, onDone: (String) -> Unit) {
-    val now = System.currentTimeMillis()
-    val active = remember(tasks.toList()) { pActiveQueue(tasks) }
-    val overdue = active.filter { it.dueAtMillis in 1 until now }
-    val today = active.filter { it !in overdue && pDate(it.dueAtMillis) == LocalDate.now() }
-    val upcoming = active.filter { it !in overdue && it !in today }
-    val completed = tasks.filter { it.status == TaskStatus.DONE }.sortedByDescending { it.dueAtMillis }.take(8)
-
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 124.dp)) {
-        PTopBar("PLAN", onAdd)
-        Spacer(Modifier.height(18.dp))
-        Text("See the week clearly.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
-        Text("Deadlines grouped by what actually needs attention.", color = MutedText, fontSize = 10.5.sp)
-        Spacer(Modifier.height(19.dp))
-
-        if (active.isEmpty()) {
-            PEmptyState(Icons.Outlined.EventAvailable, "Your plan is clear", "Add a project when you know what you're making next.", "CREATE PROJECT", onAdd)
-        } else {
-            if (overdue.isNotEmpty()) PPlanSection("OVERDUE", overdue, RecRed, onStart, onDone)
-            if (today.isNotEmpty()) PPlanSection("TODAY", today, MutedGold, onStart, onDone)
-            if (upcoming.isNotEmpty()) PPlanSection("UPCOMING", upcoming, ProjectorIvory, onStart, onDone)
-        }
-
-        if (completed.isNotEmpty()) {
-            Spacer(Modifier.height(20.dp))
-            Text("RECENTLY FINISHED", color = SuccessGreen, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Spacer(Modifier.height(8.dp))
-            Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
-                    completed.forEachIndexed { index, task ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(task.title, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(task.platform, color = MutedText, fontSize = 8.5.sp)
-                        }
-                        if (index != completed.lastIndex) HorizontalDivider(color = CinemaLine.copy(alpha = .7f))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PPlanSection(label: String, tasks: List<CreatorTask>, accent: Color, onStart: (String) -> Unit, onDone: (String) -> Unit) {
-    Text(label, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-    Spacer(Modifier.height(8.dp))
-    tasks.forEach { task ->
-        val progress = CreatorWorkflowEngine.progress(task)
-        Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, if (label == "OVERDUE") RecRed.copy(alpha = .35f) else CinemaLine)) {
-            Column(Modifier.padding(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(task.title, color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(2.dp))
-                        Text("${task.dueLabel} · ${task.platform}", color = if (label == "OVERDUE") RecRed else MutedText, fontSize = 9.sp)
-                    }
-                    Text(CreatorWorkflowEngine.currentStage(task).label, color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().height(3.dp), color = if (label == "OVERDUE") RecRed else MutedGold, trackColor = Color(0xFF292929))
-                Spacer(Modifier.height(7.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$progress%", color = MutedText, fontSize = 8.5.sp)
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { onStart(task.id) }) { Text(if (task.status == TaskStatus.WORKING) "CONTINUE" else "START", color = ProjectorIvory, fontSize = 8.5.sp) }
-                    TextButton(onClick = { onDone(task.id) }) { Text("DONE", color = SuccessGreen, fontSize = 8.5.sp, fontWeight = FontWeight.Bold) }
-                }
-            }
-        }
-    }
-    Spacer(Modifier.height(10.dp))
-}
-
-@Composable
-private fun PStudioScreen(
-    tasks: List<CreatorTask>,
-    onAdd: () -> Unit,
-    onAdvance: (String) -> Unit,
-    onBack: (String) -> Unit,
-    onFocus: (String) -> Unit,
-    externalExpandId: String? = null,
-    externalExpandNonce: Long = 0L,
-) {
-    val projects = tasks.filter { it.status != TaskStatus.SKIPPED }.sortedWith(compareBy<CreatorTask> { it.status == TaskStatus.DONE }.thenBy { it.dueAtMillis.takeIf { d -> d > 0 } ?: Long.MAX_VALUE })
-    val listState = rememberLazyListState()
-    val dismissInteraction = remember { MutableInteractionSource() }
-    var expandedId by rememberSaveable { mutableStateOf<String?>(null) }
-    val haptics = LocalHapticFeedback.current
-
-    LaunchedEffect(externalExpandNonce) {
-        if (!externalExpandId.isNullOrBlank()) expandedId = externalExpandId
-    }
-    LaunchedEffect(projects.map { it.id }) { if (expandedId != null && projects.none { it.id == expandedId }) expandedId = null }
-    LaunchedEffect(expandedId) {
-        val id = expandedId ?: return@LaunchedEffect
-        val i = projects.indexOfFirst { it.id == id }
-        if (i >= 0) { delay(100); listState.animateScrollToItem(i + 3) }
-    }
-
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize().statusBarsPadding().clickable(interactionSource = dismissInteraction, indication = null) { expandedId = null },
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 124.dp),
-    ) {
-        item { PTopBar("STUDIO", onAdd) }
-        item {
-            Column(Modifier.padding(top = 18.dp, bottom = 18.dp)) {
-                Text("Your work, in motion.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
-                Text("Open a project only when you need its full pipeline.", color = MutedText, fontSize = 10.5.sp)
-            }
-        }
-        if (projects.isEmpty()) {
-            item { PEmptyState(Icons.Outlined.VideoCameraBack, "Studio is empty", "Create a project and its production steps will live here.", "CREATE PROJECT", onAdd) }
-        } else {
-            item { Text("PROJECTS · ${projects.size}", color = MutedText, fontSize = 8.5.sp, letterSpacing = 1.1.sp, modifier = Modifier.padding(bottom = 7.dp)) }
-            itemsIndexed(projects, key = { _, task -> task.id }) { _, task ->
-                val expanded = expandedId == task.id
-                PStudioProject(
-                    task = task,
-                    expanded = expanded,
-                    onToggle = { expandedId = if (expanded) null else task.id },
-                    onAdvance = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onAdvance(task.id)
-                    },
-                    onBack = { onBack(task.id) },
-                    onFocus = { onFocus(task.id) },
-                )
-                Spacer(Modifier.height(9.dp))
-            }
-            item { Spacer(Modifier.height(70.dp)) }
-        }
-    }
-}
-
-@Composable
-internal fun PStudioProject(
-    task: CreatorTask,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    onAdvance: () -> Unit,
-    onBack: () -> Unit,
-    onFocus: () -> Unit,
-) {
-    val current = CreatorWorkflowEngine.currentStage(task)
-    val progress = CreatorWorkflowEngine.progress(task)
-    val done = task.status == TaskStatus.DONE
-
-    Column(Modifier.fillMaxWidth()) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
-            shape = RoundedCornerShape(if (expanded) 21.dp else 18.dp),
-            color = if (expanded) Color(0xFF16130F) else CinemaSurface,
-            border = BorderStroke(1.dp, if (expanded) MutedGold.copy(alpha = .5f) else CinemaLine),
-        ) {
-            Column(Modifier.padding(15.dp)) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f)) {
-                        Text(task.title, color = ProjectorIvory, fontSize = 15.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(3.dp))
-                        Text("${task.platform} · ${task.contentType} · ${task.dueLabel}", color = MutedText, fontSize = 8.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Icon(if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = MutedText)
-                }
-                Spacer(Modifier.height(11.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = RoundedCornerShape(100.dp), color = if (done) SuccessGreen.copy(alpha = .12f) else RecRed.copy(alpha = .11f)) {
-                        Text(if (done) "PUBLISHED" else current.label.uppercase(), color = if (done) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Text("$progress%", color = if (done) SuccessGreen else MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(8.dp))
-                PStageRail(task)
-            }
-        }
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
-        ) {
-            Column {
-                Spacer(Modifier.height(7.dp))
-                V071WorkflowInlineContent(
-                    task = task,
-                    onAdvance = onAdvance,
-                    onBack = onBack,
-                    onFocus = onFocus,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PInsightsScreen(tasks: List<CreatorTask>, ideas: List<CreatorIdea>, onAdd: () -> Unit) {
-    val active = tasks.filter { it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING }
-    val done = tasks.count { it.status == TaskStatus.DONE }
-    val skipped = tasks.count { it.status == TaskStatus.SKIPPED }
-    val finished = done + skipped
-    val completionRate = if (finished == 0) 0 else done * 100 / finished
-    val avg = if (active.isEmpty()) 0 else active.sumOf { CreatorWorkflowEngine.progress(it) } / active.size
-    val stageCounts = active.groupingBy { CreatorWorkflowEngine.currentStage(it).label }.eachCount().entries.sortedByDescending { it.value }
-    val maxStage = stageCounts.maxOfOrNull { it.value } ?: 1
-    val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
-    val convertedIdeas = ideas.count { it.status == IdeaStatus.CONVERTED }
-    val releaseDone = tasks.count { it.origin == CreatorTaskOrigin.RELEASE_DAY && it.status == TaskStatus.DONE }
-
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 124.dp)) {
-        PTopBar("INSIGHTS", onAdd)
-        Spacer(Modifier.height(18.dp))
-        Text("How you're creating.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
-        Text("A simple view of momentum, not a wall of numbers.", color = MutedText, fontSize = 10.5.sp)
-        Spacer(Modifier.height(18.dp))
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PMetric("COMPLETED", done.toString(), SuccessGreen, Modifier.weight(1f))
-            PMetric("FINISH RATE", "$completionRate%", MutedGold, Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PMetric("ACTIVE", active.size.toString(), RecRed, Modifier.weight(1f))
-            PMetric("AVG PROGRESS", "$avg%", ProjectorIvory, Modifier.weight(1f))
-        }
-
-        Spacer(Modifier.height(20.dp))
-        Text("WHERE WORK IS SITTING", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        Text("The longest bars are where your current projects are concentrated.", color = MutedText, fontSize = 9.3.sp)
-        Spacer(Modifier.height(10.dp))
-        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(19.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-            Column(Modifier.padding(15.dp)) {
-                if (stageCounts.isEmpty()) {
-                    Text("No active projects right now.", color = MutedText, fontSize = 10.sp)
-                } else stageCounts.take(6).forEach { entry ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(entry.key, color = ProjectorIvory, fontSize = 10.sp, modifier = Modifier.width(82.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        LinearProgressIndicator(progress = { entry.value.toFloat() / maxStage.toFloat() }, modifier = Modifier.weight(1f).height(5.dp), color = MutedGold, trackColor = Color(0xFF292929))
-                        Spacer(Modifier.width(8.dp)); Text(entry.value.toString(), color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(10.dp))
-                }
-            }
-        }
-
-        Spacer(Modifier.height(18.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PSmallStat("IDEAS READY", readyIdeas.toString(), Modifier.weight(1f))
-            PSmallStat("IDEAS MADE", convertedIdeas.toString(), Modifier.weight(1f))
-            PSmallStat("LIVE DONE", releaseDone.toString(), Modifier.weight(1f))
-        }
-        if (skipped > 0) {
-            Spacer(Modifier.height(10.dp))
-            Text("$skipped project${if (skipped == 1) " was" else "s were"} skipped. That's useful signal too — keep the plan realistic.", color = MutedText, fontSize = 9.3.sp, lineHeight = 14.sp)
-        }
-    }
-}
-
-@Composable
 private fun PControlCenter(
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     weeklyAutoPlanEnabled: Boolean,
+    creatorProgress: CreatorRewardProgressSnapshot,
     onNewProject: () -> Unit,
     onQuickCapture: () -> Unit,
     onDailyBrief: () -> Unit,
@@ -885,6 +571,7 @@ private fun PControlCenter(
     onWeek: () -> Unit,
     onReminders: () -> Unit,
     onAutomation: () -> Unit,
+    onCreatorProgress: () -> Unit,
     onSettings: () -> Unit,
     onPublishLate: (String) -> Unit,
     onReschedule: (String) -> Unit,
@@ -903,14 +590,20 @@ private fun PControlCenter(
             PBigAction("RELEASE DAY", "Move fast", Icons.Outlined.Bolt, RecRed, onRelease, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
-        PControlRow("Quick Capture", "Save an idea to Inbox in seconds", Icons.Outlined.Bolt, onQuickCapture)
+        PControlRow("Quick Capture", "Save an idea to Idea Vault in seconds", Icons.Outlined.Bolt, onQuickCapture)
         PControlRow("Daily Brief", "Focus, risk and the next 7 days", Icons.Outlined.Today, onDailyBrief)
         PControlRow("Content Calendar", "Projects + weekly plan for 14 days", Icons.Outlined.CalendarMonth, onCalendar)
         PControlRow("Idea Vault", if (readyIdeas > 0) "$readyIdeas ideas ready to make" else "Capture what you might make later", Icons.Outlined.Lightbulb, onIdeas)
         PControlRow("Weekly Plan", if (weeklyAutoPlanEnabled) "Auto Plan on" else "Auto Plan off", Icons.Outlined.CalendarMonth, onWeek)
         PControlRow("Reminders", "See and edit active reminders", Icons.Outlined.Alarm, onReminders)
-        PControlRow("Automation Center", "Background planning, routines and automatic follow-ups", Icons.Outlined.AutoAwesome, onAutomation)
-        PControlRow("Settings", "Voices, reminder setup and defaults", Icons.Outlined.Settings, onSettings)
+        PControlRow("Automation", "Auto planning and regular reminders", Icons.Outlined.AutoAwesome, onAutomation)
+        PControlRow(
+            "Creator Progress",
+            "Level ${creatorProgress.level} · ${creatorProgress.totalXp} XP · ${creatorProgress.weeklyMomentum} momentum",
+            Icons.Outlined.EmojiEvents,
+            onCreatorProgress,
+        )
+        PControlRow("Settings", "Profile, reminders, connections and defaults", Icons.Outlined.Settings, onSettings)
 
         if (overdue.isNotEmpty()) {
             Spacer(Modifier.height(18.dp))
@@ -923,9 +616,9 @@ private fun PControlCenter(
                         Text(task.dueLabel, color = RecRed, fontSize = 8.8.sp)
                         Spacer(Modifier.height(7.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            AssistChip(onClick = { onPublishLate(task.id) }, label = { Text("+30 MIN", fontSize = 7.8.sp) })
-                            AssistChip(onClick = { onReschedule(task.id) }, label = { Text("NEW TIME", fontSize = 7.8.sp) })
-                            AssistChip(onClick = { onSkip(task.id) }, label = { Text("SKIP", fontSize = 7.8.sp) })
+                            AssistChip(onClick = { onPublishLate(task.id) }, label = { Text("+30 MIN", fontSize = 10.sp) })
+                            AssistChip(onClick = { onReschedule(task.id) }, label = { Text("NEW TIME", fontSize = 10.sp) })
+                            AssistChip(onClick = { onSkip(task.id) }, label = { Text("SKIP", fontSize = 10.sp) })
                         }
                     }
                 }
@@ -1004,7 +697,7 @@ private fun PWeekScreen(
             }
             Spacer(Modifier.height(10.dp))
             Button(onClick = { editSchedule = true }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF292929)), shape = RoundedCornerShape(15.dp)) {
-                Icon(Icons.Outlined.EditCalendar, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(7.dp)); Text("EDIT SCHEDULE", fontWeight = FontWeight.Bold, fontSize = 9.5.sp)
+                Icon(Icons.Outlined.EditCalendar, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(7.dp)); Text("EDIT SCHEDULE", fontWeight = FontWeight.Bold, fontSize = 10.sp)
             }
         }
     }
@@ -1017,6 +710,7 @@ private fun PSettingsScreen(
     weeklyAutoPlanEnabled: Boolean,
     permissions: PPermissions,
     onClose: () -> Unit,
+    onProfile: () -> Unit,
     onVoice: (VoicePersona) -> Unit,
     onAlarmTimeout: (Int) -> Unit,
     onSnooze: (Int) -> Unit,
@@ -1028,7 +722,6 @@ private fun PSettingsScreen(
     onBattery: () -> Unit,
     onCloudSync: () -> Unit,
     onYouTube: () -> Unit,
-    onRunOnboarding: () -> Unit,
 ) {
     val context = LocalContext.current
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -1036,38 +729,61 @@ private fun PSettingsScreen(
             PBackHeader("SETTINGS", "Keep the app working your way", onClose)
 
             Spacer(Modifier.height(20.dp))
+            PSettingsHeading("PROFILE & ACCOUNT", "Identity, creator setup, connected services and account data.")
+            Spacer(Modifier.height(8.dp))
+            Surface(onClick = onProfile, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(38.dp).background(MutedGold.copy(alpha = .10f), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.Person, null, tint = MutedGold, modifier = Modifier.size(19.dp))
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(settings.creatorProfile.safeDisplayName, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                        Text(
+                            listOf(settings.creatorProfile.category, settings.creatorProfile.platforms.sorted().joinToString()).filter { it.isNotBlank() }.joinToString(" · "),
+                            color = MutedText,
+                            fontSize = 8.6.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
             PSettingsHeading("REMINDER SETUP", "Set this once. Project creation stays clean.")
             Spacer(Modifier.height(9.dp))
             PPermissionRow("Notifications", permissions.notifications, onNotifications)
-            PPermissionRow("Precise timing", permissions.preciseTiming, onPreciseTiming)
+            PPermissionRow("Exact reminder timing", permissions.preciseTiming, onPreciseTiming)
             PPermissionRow("Full-screen alerts", permissions.fullScreen, onFullScreen)
-            PPermissionRow("Background reliability", permissions.batteryAccess, onBattery)
+            PPermissionRow("Allow background reminders", permissions.batteryAccess, onBattery)
 
             Spacer(Modifier.height(22.dp))
             PSettingsHeading("REMINDER DEFAULTS", "These choices are reused automatically.")
             Spacer(Modifier.height(9.dp))
             Text("Snooze", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
-                listOf(5, 10, 15, 20, 30).forEach { value -> FilterChip(settings.snoozeMinutes == value, { onSnooze(value) }, { Text("${value}m", fontSize = 9.sp) }) }
+                listOf(5, 10, 15, 20, 30).forEach { value -> FilterChip(settings.snoozeMinutes == value, { onSnooze(value) }, { Text("${value}m", fontSize = 10.sp) }) }
             }
             Spacer(Modifier.height(14.dp))
             Text("Alarm auto-stop", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
-                listOf(30 to "30s", 60 to "1m", 120 to "2m", 300 to "5m").forEach { (value, label) -> FilterChip(settings.defaultAlarmTimeoutSeconds == value, { onAlarmTimeout(value) }, { Text(label, fontSize = 9.sp) }) }
+                listOf(30 to "30s", 60 to "1m", 120 to "2m", 300 to "5m").forEach { (value, label) -> FilterChip(settings.defaultAlarmTimeoutSeconds == value, { onAlarmTimeout(value) }, { Text(label, fontSize = 10.sp) }) }
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("CONTEXT NUDGES", "Optional gentle alerts when active creator work is at risk.")
+            PSettingsHeading("HELPFUL REMINDERS", "Extra reminders when a project may need attention.")
             Spacer(Modifier.height(8.dp))
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Creator context nudges", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("Helpful project reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                         Text(
                             when {
                                 !permissions.notifications -> "Enable notification permission above first."
-                                settings.contextNudgesEnabled -> "On · checks periodically for overdue or at-risk active work."
-                                else -> "Off · exact reminders still work normally."
+                                settings.contextNudgesEnabled -> "On · warns you when active work may need attention."
+                                else -> "Off · your normal reminders still work."
                             },
                             color = MutedText,
                             fontSize = 8.8.sp,
@@ -1092,7 +808,7 @@ private fun PSettingsScreen(
                         RadioButton(selected, { onVoice(voice) }, colors = RadioButtonDefaults.colors(selectedColor = MutedGold))
                         Text(VoicePersonaEngine.label(voice), color = ProjectorIvory, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         TextButton(onClick = { pPreviewVoice(context, voice) }) {
-                            Icon(Icons.Outlined.PlayArrow, null, tint = RecRed, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(3.dp)); Text("PREVIEW", color = RecRed, fontSize = 8.sp)
+                            Icon(Icons.Outlined.PlayArrow, null, tint = RecRed, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(3.dp)); Text("PREVIEW", color = RecRed, fontSize = 10.sp)
                         }
                     }
                 }
@@ -1112,7 +828,7 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("SYNC & BACKUP", "Optional Google account protection. Local data remains primary.")
+            PSettingsHeading("BACKUP & SYNC", "Keep a cloud copy while your phone remains the main copy.")
             Spacer(Modifier.height(8.dp))
             Surface(
                 onClick = onCloudSync,
@@ -1128,14 +844,14 @@ private fun PSettingsScreen(
                     Spacer(Modifier.width(11.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Cloud Sync", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        Text("Google account · restore points · local-first", color = MutedText, fontSize = 8.7.sp)
+                        Text("Google account · cloud backups", color = MutedText, fontSize = 8.7.sp)
                     }
                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
                 }
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("YOUTUBE", "Real channel performance, cached locally after each sync.")
+            PSettingsHeading("YOUTUBE CONNECTION", "See your real channel performance inside Insights.")
             Spacer(Modifier.height(8.dp))
             Surface(
                 onClick = onYouTube,
@@ -1151,14 +867,14 @@ private fun PSettingsScreen(
                     Spacer(Modifier.width(11.dp))
                     Column(Modifier.weight(1f)) {
                         Text("YouTube Analytics", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        Text("Connect, sync and link published videos from Insights", color = MutedText, fontSize = 8.7.sp)
+                        Text("Connect YouTube and match published videos to projects", color = MutedText, fontSize = 8.7.sp)
                     }
                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
                 }
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("DATA & BACKUP", "Export or restore your local Creator OS data.")
+            PSettingsHeading("LOCAL BACKUP", "Save or restore a copy of your app data.")
             Spacer(Modifier.height(8.dp))
             Surface(
                 onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
@@ -1186,61 +902,7 @@ private fun PSettingsScreen(
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Column(Modifier.padding(13.dp)) {
                     Row { Text("Version", color = MutedText, fontSize = 9.5.sp); Spacer(Modifier.weight(1f)); Text(BuildConfig.VERSION_NAME, color = ProjectorIvory, fontSize = 9.5.sp) }
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedButton(onClick = onRunOnboarding, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, CinemaLine)) { Text("SHOW WELCOME AGAIN", color = ProjectorIvory, fontSize = 8.5.sp) }
-                }
-            }
-        }
-    }
-}
 
-@Composable
-private fun POnboarding(
-    permissions: PPermissions,
-    onNotifications: () -> Unit,
-    onPreciseTiming: () -> Unit,
-    onFullScreen: () -> Unit,
-    onBattery: () -> Unit,
-    onFinish: () -> Unit,
-) {
-    var page by rememberSaveable { mutableIntStateOf(0) }
-    Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(24.dp)) {
-            Text("FRAMEBYNAVIN", color = RecRed, fontSize = 9.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.weight(1f))
-            when (page) {
-                0 -> {
-                    Icon(Icons.Outlined.MovieCreation, null, tint = RecRed, modifier = Modifier.size(42.dp))
-                    Spacer(Modifier.height(18.dp))
-                    Text("Your creator day, in one place.", color = ProjectorIvory, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.height(10.dp))
-                    Text("Plan projects, move through production and keep good ideas from disappearing.", color = MutedText, fontSize = 13.sp, lineHeight = 19.sp)
-                }
-                1 -> {
-                    Icon(Icons.Outlined.AutoAwesome, null, tint = MutedGold, modifier = Modifier.size(42.dp))
-                    Spacer(Modifier.height(18.dp))
-                    Text("Powerful underneath. Simple on screen.", color = ProjectorIvory, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.height(10.dp))
-                    Text("Today shows the next move. Studio holds the full pipeline. Control keeps the extra tools out of your way.", color = MutedText, fontSize = 13.sp, lineHeight = 19.sp)
-                }
-                else -> {
-                    Text("REMINDER SETUP", color = MutedGold, fontSize = 9.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.height(10.dp))
-                    Text("Set it up once.", color = ProjectorIvory, fontSize = 34.sp, fontWeight = FontWeight.Black)
-                    Text("You can change all of these later in Settings.", color = MutedText, fontSize = 12.sp)
-                    Spacer(Modifier.height(18.dp))
-                    PPermissionRow("Notifications", permissions.notifications, onNotifications)
-                    PPermissionRow("Precise timing", permissions.preciseTiming, onPreciseTiming)
-                    PPermissionRow("Full-screen alerts", permissions.fullScreen, onFullScreen)
-                    PPermissionRow("Background reliability", permissions.batteryAccess, onBattery)
-                }
-            }
-            Spacer(Modifier.weight(1f))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) { repeat(3) { i -> Box(Modifier.size(if (i == page) 18.dp else 6.dp, 6.dp).background(if (i == page) RecRed else Color(0xFF393939), RoundedCornerShape(100.dp))) } }
-                Spacer(Modifier.weight(1f))
-                Button(onClick = { if (page < 2) page++ else onFinish() }, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(15.dp), modifier = Modifier.height(50.dp)) {
-                    Text(if (page < 2) "CONTINUE" else "ENTER", fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -1277,16 +939,16 @@ private fun PFocusScreen(task: CreatorTask, onClose: () -> Unit, onStageDone: ()
             Spacer(Modifier.height(20.dp))
             OutlinedButton(onClick = { running = !running }, border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(14.dp)) { Icon(if (running) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null, tint = ProjectorIvory); Spacer(Modifier.width(6.dp)); Text(if (running) "PAUSE" else "RESUME", color = ProjectorIvory) }
             Spacer(Modifier.weight(1f))
-            Button(onClick = onStageDone, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(16.dp)) { Icon(Icons.Outlined.Check, null); Spacer(Modifier.width(7.dp)); Text("STAGE DONE", fontWeight = FontWeight.Black) }
+            Button(onClick = onStageDone, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(16.dp)) { Icon(Icons.Outlined.Check, null); Spacer(Modifier.width(7.dp)); Text("STEP DONE", fontWeight = FontWeight.Black) }
         }
     }
 }
 
 @Composable
-private fun PBottomNav(
+internal fun PBottomNav(
     selected: PTab,
     onSelect: (PTab) -> Unit,
-    onCreate: () -> Unit,
+    onCapture: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -1301,27 +963,12 @@ private fun PBottomNav(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PBottomNavItem(
-                tab = PTab.TODAY,
-                icon = Icons.Outlined.Home,
-                label = "Today",
-                active = selected == PTab.TODAY,
-                onSelect = onSelect,
-                modifier = Modifier.weight(1f),
-            )
-            PBottomNavItem(
-                tab = PTab.PLAN,
-                icon = Icons.Outlined.CalendarMonth,
-                label = "Plan",
-                active = selected == PTab.PLAN,
-                onSelect = onSelect,
-                modifier = Modifier.weight(1f),
-            )
-
+            PBottomNavItem(PTab.TODAY, Icons.Outlined.Home, "Today", selected == PTab.TODAY, onSelect, Modifier.weight(1f))
+            PBottomNavItem(PTab.IDEAS, Icons.Outlined.Lightbulb, "Ideas", selected == PTab.IDEAS, onSelect, Modifier.weight(1f))
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Surface(
-                    onClick = onCreate,
-                    modifier = Modifier.size(49.dp).offset(y = (-3).dp),
+                    onClick = onCapture,
+                    modifier = Modifier.size(56.dp),
                     shape = CircleShape,
                     color = RecRed,
                     shadowElevation = 9.dp,
@@ -1329,30 +976,15 @@ private fun PBottomNav(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Outlined.Add,
-                            "New project",
+                            contentDescription = "Capture idea",
                             tint = ProjectorIvory,
                             modifier = Modifier.size(26.dp),
                         )
                     }
                 }
             }
-
-            PBottomNavItem(
-                tab = PTab.STUDIO,
-                icon = Icons.Outlined.MovieEdit,
-                label = "Studio",
-                active = selected == PTab.STUDIO,
-                onSelect = onSelect,
-                modifier = Modifier.weight(1f),
-            )
-            PBottomNavItem(
-                tab = PTab.INSIGHTS,
-                icon = Icons.Outlined.Insights,
-                label = "Insights",
-                active = selected == PTab.INSIGHTS,
-                onSelect = onSelect,
-                modifier = Modifier.weight(1f),
-            )
+            PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Create", selected == PTab.CREATE, onSelect, Modifier.weight(1f))
+            PBottomNavItem(PTab.INSIGHTS, Icons.Outlined.Insights, "Insights", selected == PTab.INSIGHTS, onSelect, Modifier.weight(1f))
         }
     }
 }
@@ -1370,7 +1002,7 @@ private fun PBottomNavItem(
         onClick = { onSelect(tab) },
         shape = RoundedCornerShape(16.dp),
         color = if (active) Color(0xFF282326) else Color.Transparent,
-        modifier = modifier,
+        modifier = modifier.heightIn(min = 52.dp),
     ) {
         Column(
             Modifier.padding(vertical = 7.dp),
@@ -1386,41 +1018,44 @@ private fun PBottomNavItem(
             Text(
                 label,
                 color = if (active) ProjectorIvory else MutedText,
-                fontSize = 7.8.sp,
+                fontSize = 9.5.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
 
 @Composable
-private fun PHomeGreetingHeader(onAdd: () -> Unit) {
-    val hour = remember { java.time.ZonedDateTime.now(ZoneId.of("Asia/Kolkata")).hour }
+internal fun PHomeGreetingHeader(creatorName: String, onAdd: () -> Unit) {
+    val hour = remember { java.time.ZonedDateTime.now().hour }
+    val name = creatorName.trim().ifBlank { "Creator" }
     val greeting = when (hour) {
-        in 5..11 -> "Good Morning, Navin"
-        in 12..16 -> "Good Afternoon, Navin"
-        in 17..20 -> "Good Evening, Navin"
-        else -> "Good Night, Navin"
+        in 5..11 -> "Good Morning, $name"
+        in 12..16 -> "Good Afternoon, $name"
+        in 17..20 -> "Good Evening, $name"
+        else -> "Good Night, $name"
     }
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text("FRAMEBYNAVIN", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
         }
-        Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(42.dp)) {
+        Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(48.dp)) {
             Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, "Create project", tint = ProjectorIvory, modifier = Modifier.size(20.dp)) }
         }
     }
 }
 
 @Composable
-private fun PTopBar(label: String, onAdd: () -> Unit) {
+internal fun PTopBar(label: String, onAdd: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text("FRAMEBYNAVIN", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(label, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
         }
-        Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(42.dp)) {
+        Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(48.dp)) {
             Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, "Create project", tint = ProjectorIvory, modifier = Modifier.size(20.dp)) }
         }
     }
@@ -1439,19 +1074,19 @@ private fun PBackHeader(kicker: String, title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun PEmptyState(icon: ImageVector, title: String, body: String, button: String, onClick: () -> Unit) {
+internal fun PEmptyState(icon: ImageVector, title: String, body: String, button: String, onClick: () -> Unit) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(48.dp).background(RecRed.copy(alpha = .10f), CircleShape), contentAlignment = Alignment.Center) { Icon(icon, null, tint = RecRed, modifier = Modifier.size(24.dp)) }
             Spacer(Modifier.height(11.dp)); Text(title, color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
             Spacer(Modifier.height(4.dp)); Text(body, color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(13.dp)); Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(14.dp)) { Text(button, fontSize = 9.sp, fontWeight = FontWeight.Black) }
+            Spacer(Modifier.height(13.dp)); Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(14.dp)) { Text(button, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         }
     }
 }
 
 @Composable
-private fun PStageRail(task: CreatorTask) {
+internal fun PStageRail(task: CreatorTask) {
     val template = CreatorWorkflowEngine.templateFor(task)
     val current = CreatorWorkflowEngine.stageIndex(task)
     val done = task.status == TaskStatus.DONE
@@ -1463,21 +1098,21 @@ private fun PStageRail(task: CreatorTask) {
 }
 
 @Composable
-private fun PQueueDots(index: Int, size: Int) {
+internal fun PQueueDots(index: Int, size: Int) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
         repeat(size.coerceAtMost(10)) { i -> Box(Modifier.padding(horizontal = 2.dp).size(if (i == index) 18.dp else 5.dp, 5.dp).background(if (i == index) RecRed else Color(0xFF44413D), RoundedCornerShape(100.dp))) }
     }
 }
 
 @Composable
-private fun PMetric(label: String, value: String, accent: Color, modifier: Modifier) {
+internal fun PMetric(label: String, value: String, accent: Color, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(14.dp)) { Text(label, color = MutedText, fontSize = 7.8.sp, letterSpacing = .7.sp); Spacer(Modifier.height(4.dp)); Text(value, color = accent, fontSize = 25.sp, fontWeight = FontWeight.Black) }
     }
 }
 
 @Composable
-private fun PSmallStat(label: String, value: String, modifier: Modifier) {
+internal fun PSmallStat(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(11.dp)) { Text(value, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black); Text(label, color = MutedText, fontSize = 7.sp, lineHeight = 9.sp) }
     }
@@ -1520,10 +1155,10 @@ private fun PSettingsHeading(title: String, subtitle: String) {
     Text(subtitle, color = MutedText, fontSize = 8.8.sp)
 }
 
-private fun pActiveQueue(tasks: List<CreatorTask>): List<CreatorTask> =
+internal fun pActiveQueue(tasks: List<CreatorTask>): List<CreatorTask> =
     CreatorPriorityEngine.rankActive(tasks)
 
-private fun pDate(millis: Long): LocalDate? = if (millis <= 0L) null else Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+internal fun pDate(millis: Long): LocalDate? = if (millis <= 0L) null else Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
 
 private fun pPermissions(context: Context): PPermissions {
     val notifications = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED

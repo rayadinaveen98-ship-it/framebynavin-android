@@ -3,59 +3,52 @@ package com.framebynavin.app.reminders
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorTask
-import com.framebynavin.app.data.ReminderAlertType
 import com.framebynavin.app.data.ReminderMode
-import com.framebynavin.app.data.TaskPriority
-import com.framebynavin.app.data.VoicePersona
+import com.framebynavin.app.data.TaskStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val appContext = context.applicationContext
         val taskId = intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID) ?: return
         val scheduledAt = intent.getLongExtra(ReminderConstants.EXTRA_SCHEDULED_AT, 0L)
-        val ledger = AlarmLedger(context.applicationContext)
+        val ledger = AlarmLedger(appContext)
+        if (scheduledAt <= 0L || ledger.scheduledAt(taskId) != scheduledAt) return
 
-        if (!ledger.consumeIfCurrent(taskId, scheduledAt)) return
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                CreatorDataGate.readyTransaction(appContext) {
+                val task = runCatching { TaskStore(appContext).load().firstOrNull { it.id == taskId } }.getOrNull()
+                if (!ReminderDeliveryPolicy.canDeliverRegular(task, scheduledAt)) {
+                    ledger.consumeIfCurrent(taskId, scheduledAt)
+                    return@readyTransaction
+                }
+                if (!ledger.consumeIfCurrent(taskId, scheduledAt)) return@readyTransaction
+                deliver(appContext, intent, task!!, scheduledAt, ledger)
+                }
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
 
+    private fun deliver(
+        appContext: Context,
+        intent: Intent,
+        task: CreatorTask,
+        scheduledAt: Long,
+        ledger: AlarmLedger,
+    ) {
         val firedAt = System.currentTimeMillis()
-        val priority = runCatching {
-            TaskPriority.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_PRIORITY).orEmpty())
-        }.getOrDefault(TaskPriority.IMPORTANT)
-        val alertType = runCatching {
-            ReminderAlertType.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_ALERT_TYPE).orEmpty())
-        }.getOrDefault(ReminderAlertType.NOTIFICATION)
-        val mode = runCatching {
-            ReminderMode.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_REMINDER_MODE).orEmpty())
-        }.getOrDefault(if (alertType == ReminderAlertType.ALARM) ReminderMode.ALARM else ReminderMode.SIMPLE)
-        val persona = runCatching {
-            VoicePersona.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_VOICE_PERSONA).orEmpty())
-        }.getOrDefault(VoicePersona.WARM)
-
-        val task = CreatorTask(
-            id = taskId,
-            title = intent.getStringExtra(ReminderConstants.EXTRA_TITLE).orEmpty().ifBlank { "FrameByNavin reminder" },
-            platform = intent.getStringExtra(ReminderConstants.EXTRA_PLATFORM).orEmpty(),
-            contentType = intent.getStringExtra(ReminderConstants.EXTRA_CONTENT_TYPE).orEmpty(),
-            dueLabel = intent.getStringExtra(ReminderConstants.EXTRA_DUE_LABEL).orEmpty(),
-            dueAtMillis = intent.getLongExtra(ReminderConstants.EXTRA_DUE_AT, 0L),
-            progress = intent.getIntExtra(ReminderConstants.EXTRA_PROGRESS, 0).coerceIn(0, 100),
-            reminderEnabled = true,
-            reminderAtMillis = scheduledAt,
-            priority = priority,
-            notes = intent.getStringExtra(ReminderConstants.EXTRA_NOTES).orEmpty(),
-            alertType = alertType,
-            alarmSoundUri = intent.getStringExtra(ReminderConstants.EXTRA_ALARM_SOUND_URI).orEmpty(),
-            voiceEnabled = mode == ReminderMode.VOICE,
-            reminderMode = mode,
-            voicePersona = persona,
-            voiceRepeatCount = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, 3).coerceIn(1, 3),
-            voiceRepeatIntervalSeconds = intent.getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 10).coerceIn(5, 60),
-            alarmTimeoutSeconds = intent.getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
-        )
-
-        val appContext = context.applicationContext
         val exactDelivery = intent.getBooleanExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, false)
-        val delayMillis = if (scheduledAt > 0L) (firedAt - scheduledAt).coerceAtLeast(0L) else null
+        val delayMillis = (firedAt - scheduledAt).coerceAtLeast(0L)
+        val mode = task.reminderMode
+        val token = ReminderOccurrenceStore(appContext).issue(task)
 
         fun notificationFallback(label: String? = null): Boolean = runCatching {
             ReminderNotifications.show(
@@ -63,15 +56,16 @@ class ReminderReceiver : BroadcastReceiver() {
                 task = task,
                 deliveryDelayMillis = delayMillis,
                 stageLabel = label,
+                occurrenceId = token,
             )
-        }.isSuccess
+        }.getOrDefault(false)
 
         val delivered = when (mode) {
             ReminderMode.VOICE -> {
                 if (!exactDelivery) {
                     notificationFallback("Voice reminder · precise timing unavailable")
                 } else {
-                    runCatching { VoiceReminderService.start(appContext, task) }.isSuccess ||
+                    runCatching { VoiceReminderService.start(appContext, task, token) }.isSuccess ||
                         notificationFallback("Voice reminder fallback")
                 }
             }
@@ -79,14 +73,14 @@ class ReminderReceiver : BroadcastReceiver() {
                 if (!exactDelivery) {
                     notificationFallback("Alarm reminder · precise timing unavailable")
                 } else {
-                    runCatching { AlarmRingingService.start(appContext, task) }.isSuccess ||
+                    runCatching { AlarmRingingService.start(appContext, task, occurrenceId = token) }.isSuccess ||
                         notificationFallback("Alarm reminder fallback")
                 }
             }
-            ReminderMode.NONE -> false
+            ReminderMode.NONE, ReminderMode.SMART -> false
             else -> notificationFallback()
         }
 
-        if (delivered) ledger.markDelivered(taskId, scheduledAt)
+        if (delivered) ledger.markDelivered(task.id, scheduledAt)
     }
 }

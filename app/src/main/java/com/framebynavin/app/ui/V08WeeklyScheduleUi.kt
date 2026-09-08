@@ -44,6 +44,9 @@ internal fun V08WeeklyScheduleScreen(
     onRefresh: () -> Unit,
     onReset: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val creatorProfile = remember(context) { CreatorOsSettingsStore(context).snapshot().creatorProfile }
+    val primaryPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
     var editorSlot by remember { mutableStateOf<WeeklyScheduleSlot?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
     val activeCount = slots.count { it.enabled }
@@ -63,8 +66,8 @@ internal fun V08WeeklyScheduleScreen(
                     IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Spacer(Modifier.width(5.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("WEEKLY ENGINE", color = RecRed, fontSize = 9.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold)
-                        Text("FrameByNavin Week", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                        Text("WEEKLY PLAN", color = RecRed, fontSize = 9.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold)
+                        Text("Your Week", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
                     }
                     Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold, modifier = Modifier.size(26.dp))
                 }
@@ -79,7 +82,7 @@ internal fun V08WeeklyScheduleScreen(
                         Text("AUTO-PLAN THE CREATOR WEEK", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(5.dp))
                         Text(
-                            "Enabled slots generate real Studio projects for the next 8 days. Each project is placed into the correct production stage and its reminder can follow stage checkpoints automatically.",
+                            "Enabled slots create Studio projects for the next 8 days. Each project starts at the right step, and reminders can follow your project steps automatically.",
                             color = MutedText,
                             fontSize = 10.5.sp,
                             lineHeight = 15.sp,
@@ -118,7 +121,7 @@ internal fun V08WeeklyScheduleScreen(
                     ) {
                         Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("REFRESH 8 DAYS", fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                        Text("REFRESH 8 DAYS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = {
@@ -128,8 +131,8 @@ internal fun V08WeeklyScheduleScreen(
                                 dayOfWeek = DayOfWeek.MONDAY,
                                 hour = 19,
                                 minute = 0,
-                                platform = "Instagram",
-                                contentType = "Reel",
+                                platform = primaryPlatform,
+                                contentType = CreatorPlatformRegistry.defaultFormat(primaryPlatform),
                                 reminderMode = ReminderMode.SMART,
                                 priority = TaskPriority.IMPORTANT,
                             )
@@ -169,7 +172,7 @@ internal fun V08WeeklyScheduleScreen(
             item {
                 Spacer(Modifier.height(12.dp))
                 TextButton(onClick = { confirmReset = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("RESET TO FRAMEBYNAVIN DEFAULT WEEK", color = MutedText, fontSize = 9.5.sp)
+                    Text("RESET TO DEFAULT WEEK", color = MutedText, fontSize = 10.sp)
                 }
             }
         }
@@ -267,6 +270,8 @@ private fun V08SlotEditor(
     var cadence by remember(slot.id) { mutableStateOf(slot.cadence) }
     var reminderMode by remember(slot.id) { mutableStateOf(slot.reminderMode) }
     var priority by remember(slot.id) { mutableStateOf(slot.priority) }
+    val creatorProfile = remember(context) { CreatorOsSettingsStore(context).snapshot().creatorProfile }
+    val platformOptions = remember(creatorProfile, platform) { CreatorPlatformRegistry.orderedSelected(creatorProfile, platform) }
     val formats = v08Formats(platform)
     LaunchedEffect(platform) { if (contentType !in formats) contentType = formats.first() }
     val template = CreatorWorkflowEngine.templateFor(platform, contentType)
@@ -286,35 +291,35 @@ private fun V08SlotEditor(
                         OutlinedTextField(title, { title = it }, label = { Text("Slot title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.height(13.dp)); V08Label("DAY")
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            DayOfWeek.values().forEach { value -> FilterChip(day == value, { day = value }, { Text(value.name.take(3), fontSize = 8.5.sp) }) }
+                            DayOfWeek.values().forEach { value -> FilterChip(day == value, { day = value }, { Text(value.name.take(3), fontSize = 10.sp) }) }
                         }
                         Spacer(Modifier.height(12.dp)); V08Label("PUBLISH TIME")
                         OutlinedButton(onClick = { chooseTime() }, modifier = Modifier.fillMaxWidth()) {
-                            Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(7.dp)); Text(v08Time(hour, minute), color = ProjectorIvory, modifier = Modifier.weight(1f)); Text("CHANGE", color = RecRed, fontSize = 8.sp)
+                            Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(7.dp)); Text(v08Time(hour, minute), color = ProjectorIvory, modifier = Modifier.weight(1f)); Text("CHANGE", color = RecRed, fontSize = 10.sp)
                         }
                         Spacer(Modifier.height(12.dp)); V08Label("PLATFORM")
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            listOf("Instagram", "YouTube", "X").forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 9.sp) }) }
+                            platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 10.sp) }) }
                         }
                         Spacer(Modifier.height(10.dp)); V08Label("FORMAT")
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            formats.forEach { value -> FilterChip(contentType == value, { contentType = value }, { Text(value, fontSize = 8.5.sp) }) }
+                            formats.forEach { value -> FilterChip(contentType == value, { contentType = value }, { Text(value, fontSize = 10.sp) }) }
                         }
                         Spacer(Modifier.height(12.dp)); V08Label("CADENCE")
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FilterChip(cadence == ScheduleCadence.EVERY_WEEK, { cadence = ScheduleCadence.EVERY_WEEK }, { Text("Every week", fontSize = 9.sp) })
-                            FilterChip(cadence == ScheduleCadence.WEEKS_1_3, { cadence = ScheduleCadence.WEEKS_1_3 }, { Text("Weeks 1 + 3", fontSize = 9.sp) })
+                            FilterChip(cadence == ScheduleCadence.EVERY_WEEK, { cadence = ScheduleCadence.EVERY_WEEK }, { Text("Every week", fontSize = 10.sp) })
+                            FilterChip(cadence == ScheduleCadence.WEEKS_1_3, { cadence = ScheduleCadence.WEEKS_1_3 }, { Text("Weeks 1 + 3", fontSize = 10.sp) })
                         }
                         Spacer(Modifier.height(12.dp)); V08Label("AUTO STAGE REMINDER")
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(ReminderMode.NONE, ReminderMode.SIMPLE, ReminderMode.SMART).forEach { value ->
-                                FilterChip(reminderMode == value, { reminderMode = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 8.7.sp) })
+                                FilterChip(reminderMode == value, { reminderMode = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 10.sp) })
                             }
                         }
                         Text(
                             when (reminderMode) {
-                                ReminderMode.SMART -> "Smart escalation targets the deadline of the current production stage and moves forward when you complete that stage."
-                                ReminderMode.SIMPLE -> "One notification targets the current stage deadline."
+                                ReminderMode.SMART -> "Smart escalation follows the deadline of your current step and moves forward when you complete that step."
+                                ReminderMode.SIMPLE -> "One notification targets the current step deadline."
                                 else -> "Projects are generated without an automatic reminder."
                             },
                             color = MutedText,
@@ -323,7 +328,7 @@ private fun V08SlotEditor(
                         )
                         Spacer(Modifier.height(12.dp)); V08Label("PRIORITY")
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            TaskPriority.entries.forEach { value -> FilterChip(priority == value, { priority = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 8.5.sp) }) }
+                            TaskPriority.entries.forEach { value -> FilterChip(priority == value, { priority = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 10.sp) }) }
                         }
                         Spacer(Modifier.height(14.dp))
                         Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF10100F), border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine)) {
@@ -334,7 +339,7 @@ private fun V08SlotEditor(
                             }
                         }
                         if (onDelete != null) {
-                            Spacer(Modifier.height(7.dp)); TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("DELETE SLOT", color = Color(0xFFE87A73), fontSize = 9.sp) }
+                            Spacer(Modifier.height(7.dp)); TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("DELETE SLOT", color = Color(0xFFE87A73), fontSize = 10.sp) }
                         }
                     }
                 }
@@ -359,11 +364,7 @@ private fun V08Label(text: String) {
     Spacer(Modifier.height(5.dp))
 }
 
-private fun v08Formats(platform: String): List<String> = when (platform) {
-    "YouTube" -> listOf("Long-form", "Short", "Cinematic Moment")
-    "X" -> listOf("Post", "Video", "Update")
-    else -> listOf("Reel", "Post", "Story")
-}
+private fun v08Formats(platform: String): List<String> = CreatorPlatformRegistry.formats(platform)
 
 private fun v08Time(slot: WeeklyScheduleSlot): String = v08Time(slot.hour, slot.minute)
 

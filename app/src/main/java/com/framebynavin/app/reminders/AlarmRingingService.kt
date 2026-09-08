@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import java.lang.ref.WeakReference
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -21,10 +22,16 @@ import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.TaskStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderAlertType
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
+import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.data.VoicePersona
 import java.util.Locale
 
@@ -35,20 +42,39 @@ class AlarmRingingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
     private var currentTask: CreatorTask? = null
+    private var currentToken: String = ""
+    private var currentStartId: Int = 0
     private var currentSmartStage: SmartEscalationScheduler.Stage? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        activeInstance = WeakReference(this)
         ensureChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val task = intent?.toTask() ?: run {
-            stopSelf()
+            if (currentTask == null) stopSelfResult(startId)
             return START_NOT_STICKY
         }
+        val token = intent.getStringExtra(ReminderConstants.EXTRA_OCCURRENCE_ID).orEmpty()
+        if (!ReminderOccurrenceStore(applicationContext).matches(task, token)) {
+            if (currentTask == null) stopSelfResult(startId)
+            return START_NOT_STICKY
+        }
+        val previous = currentTask
+        val previousToken = currentToken
+        if (previous != null && (previous.id != task.id || previousToken != token) &&
+            ReminderOccurrenceStore(applicationContext).matches(previous, previousToken)) {
+            // A single Android service can ring only one task at a time. Preserve the displaced
+            // task as an actionable notification rather than silently dropping its reminder.
+            runCatching { ReminderNotifications.show(applicationContext, previous,
+                stageLabel = "Another reminder is ringing", occurrenceId = previousToken) }
+        }
+        currentToken = token
+        currentStartId = startId
         val smartStage = runCatching {
             SmartEscalationScheduler.Stage.valueOf(intent.getStringExtra(ReminderConstants.EXTRA_ESCALATION_STAGE).orEmpty())
         }.getOrNull()
@@ -59,21 +85,28 @@ class AlarmRingingService : Service() {
         stopAlertHardware()
         acquireWakeLock()
         startForeground(notificationId(task.id), buildNotification(task, smartStage))
+        if (previous != null && previous.id != task.id)
+            getSystemService(NotificationManager::class.java).cancel(notificationId(previous.id))
         startAlarmSound(task)
         startVibration()
         if (task.voiceEnabled) startVoice(task)
 
         val timeoutMillis = task.alarmTimeoutSeconds.coerceIn(30, 300) * 1000L
         handler.postDelayed({
+            if (!isCurrent(task.id, token)) return@postDelayed
             val endingTask = currentTask
             val endingStage = currentSmartStage
-            stopAlertHardware()
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            stopCurrent()
             if (endingTask != null && endingTask.reminderMode == ReminderMode.SMART) {
                 val terminal = endingStage == SmartEscalationScheduler.Stage.CRITICAL ||
                     (endingStage == SmartEscalationScheduler.Stage.ALARM && endingTask.priority != TaskPriority.CRITICAL)
-                if (terminal) SmartEscalationScheduler(applicationContext).finishSession(endingTask.id)
+                if (terminal) CoroutineScope(Dispatchers.IO).launch {
+                    CreatorDataGate.readyTransaction(applicationContext) {
+                        val current = TaskStore(applicationContext).load().firstOrNull { it.id == endingTask.id }
+                        if (current != null && ReminderOccurrenceStore(applicationContext).matches(current, token))
+                            SmartEscalationScheduler(applicationContext).finishSession(endingTask.id)
+                    }
+                }
             }
         }, timeoutMillis)
 
@@ -84,17 +117,22 @@ class AlarmRingingService : Service() {
         handler.removeCallbacksAndMessages(null)
         stopAlertHardware()
         currentTask = null
+        currentToken = ""
         currentSmartStage = null
+        if (activeInstance?.get() === this) activeInstance = null
         super.onDestroy()
     }
 
     private fun buildNotification(task: CreatorTask, smartStage: SmartEscalationScheduler.Stage?): android.app.Notification {
+        val token = currentToken
         val fullScreen = PendingIntent.getActivity(
             this,
             task.id.hashCode() xor 0x7150,
             Intent(this, AlarmActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+                data = android.net.Uri.parse("framebynavin://alarm/${android.net.Uri.encode(task.id)}/${android.net.Uri.encode(token)}")
                 putTask(task)
+                putExtra(ReminderConstants.EXTRA_OCCURRENCE_ID, token)
                 smartStage?.let { putExtra(ReminderConstants.EXTRA_ESCALATION_STAGE, it.name) }
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -173,8 +211,10 @@ class AlarmRingingService : Service() {
     }
 
     private fun startVoice(task: CreatorTask) {
+        val token = currentToken
         tts?.shutdown()
         tts = TextToSpeech(this) { status ->
+            if (!isCurrent(task.id, token)) return@TextToSpeech
             if (status == TextToSpeech.SUCCESS) {
                 tts?.language = Locale.getDefault()
                 tts?.let { VoicePersonaEngine.apply(it, task.voicePersona) }
@@ -214,19 +254,44 @@ class AlarmRingingService : Service() {
         wakeLock = null
     }
 
+    private fun isCurrent(taskId: String, token: String): Boolean =
+        currentTask?.id == taskId && currentToken == token && token.isNotBlank()
+
+    private fun stopCurrent() {
+        if (currentTask == null) return
+        currentTask = null
+        currentToken = ""
+        currentSmartStage = null
+        handler.removeCallbacksAndMessages(null)
+        stopAlertHardware()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelfResult(currentStartId)
+    }
+
+    private fun stopIfCurrent(taskId: String, token: String?) {
+        if (currentTask?.id != taskId || (token != null && currentToken != token)) return
+        stopCurrent()
+    }
+
     companion object {
-        fun start(context: Context, task: CreatorTask, smartStage: SmartEscalationScheduler.Stage? = null) {
+        @Volatile private var activeInstance: WeakReference<AlarmRingingService>? = null
+        fun start(context: Context, task: CreatorTask,
+                  smartStage: SmartEscalationScheduler.Stage? = null, occurrenceId: String? = null) {
+            val token = occurrenceId ?: ReminderOccurrenceStore(context).issue(task)
             val intent = Intent(context, AlarmRingingService::class.java).putTask(task)
+                .putExtra(ReminderConstants.EXTRA_OCCURRENCE_ID, token)
             smartStage?.let { intent.putExtra(ReminderConstants.EXTRA_ESCALATION_STAGE, it.name) }
             ContextCompat.startForegroundService(context, intent)
         }
 
-        fun stop(context: Context) {
-            context.stopService(Intent(context, AlarmRingingService::class.java))
+        /** Unconditional stop is reserved for explicit global teardown, such as restore. */
+        fun stop(context: Context) { context.stopService(Intent(context, AlarmRingingService::class.java)) }
+        fun stop(context: Context, taskId: String, occurrenceId: String? = null) {
+            Handler(Looper.getMainLooper()).post { activeInstance?.get()?.stopIfCurrent(taskId, occurrenceId) }
         }
-
         fun notificationId(taskId: String): Int = taskId.hashCode() xor 0x7100
     }
+
 }
 
 internal fun Intent.putTask(task: CreatorTask): Intent =
@@ -248,6 +313,14 @@ internal fun Intent.putTask(task: CreatorTask): Intent =
         .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, task.voiceRepeatCount)
         .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, task.voiceRepeatIntervalSeconds)
         .putExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, task.alarmTimeoutSeconds)
+        .putExtra(ReminderConstants.EXTRA_WORKFLOW_STAGE, task.workflowStageIndex)
+        .putExtra(ReminderConstants.EXTRA_CHECKPOINT_STAGE, task.checkpointStageId)
+        .putExtra(ReminderConstants.EXTRA_CHECKPOINT_AT, task.checkpointAtMillis)
+        .putExtra(ReminderConstants.EXTRA_PULSE_MANAGED, task.pulseManagedReminder)
+        .putExtra(ReminderConstants.EXTRA_SCHEDULE_OCCURRENCE, task.scheduleOccurrenceKey)
+        .putExtra(ReminderConstants.EXTRA_TASK_STATUS, task.status.name)
+        .putExtra(ReminderConstants.EXTRA_ACKNOWLEDGED_STAGE, task.acknowledgedCheckpointStageId)
+        .putExtra(ReminderConstants.EXTRA_ACKNOWLEDGED_DUE_AT, task.acknowledgedCheckpointDueAtMillis)
 
 internal fun Intent.toTask(): CreatorTask? {
     val taskId = getStringExtra(ReminderConstants.EXTRA_TASK_ID) ?: return null
@@ -272,6 +345,14 @@ internal fun Intent.toTask(): CreatorTask? {
         dueLabel = getStringExtra(ReminderConstants.EXTRA_DUE_LABEL).orEmpty(),
         dueAtMillis = getLongExtra(ReminderConstants.EXTRA_DUE_AT, 0L),
         progress = getIntExtra(ReminderConstants.EXTRA_PROGRESS, 0).coerceIn(0, 100),
+        status = runCatching { TaskStatus.valueOf(getStringExtra(ReminderConstants.EXTRA_TASK_STATUS).orEmpty()) }.getOrDefault(TaskStatus.PLANNED),
+        workflowStageIndex = getIntExtra(ReminderConstants.EXTRA_WORKFLOW_STAGE, -1),
+        checkpointStageId = getStringExtra(ReminderConstants.EXTRA_CHECKPOINT_STAGE).orEmpty(),
+        checkpointAtMillis = getLongExtra(ReminderConstants.EXTRA_CHECKPOINT_AT, 0L),
+        pulseManagedReminder = getBooleanExtra(ReminderConstants.EXTRA_PULSE_MANAGED, false),
+        scheduleOccurrenceKey = getStringExtra(ReminderConstants.EXTRA_SCHEDULE_OCCURRENCE).orEmpty(),
+        acknowledgedCheckpointStageId = getStringExtra(ReminderConstants.EXTRA_ACKNOWLEDGED_STAGE).orEmpty(),
+        acknowledgedCheckpointDueAtMillis = getLongExtra(ReminderConstants.EXTRA_ACKNOWLEDGED_DUE_AT, 0L),
         reminderEnabled = true,
         reminderAtMillis = getLongExtra(ReminderConstants.EXTRA_SCHEDULED_AT, 0L),
         priority = priority,
