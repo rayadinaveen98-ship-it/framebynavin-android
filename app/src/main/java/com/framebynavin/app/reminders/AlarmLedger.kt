@@ -22,6 +22,19 @@ class AlarmLedger(context: Context) {
         return value.takeUnless { it == Long.MIN_VALUE }
     }
 
+    /** Enumerate persisted alarm ownership before a restore removes the ledger. */
+    fun trackedTaskIds(): Set<String> = prefs.all.keys.mapNotNull { key ->
+        when {
+            key.startsWith("alarm_") -> key.removePrefix("alarm_")
+            key.startsWith("delivered_") -> key.removePrefix("delivered_")
+            else -> null
+        }?.takeIf { it.isNotBlank() }
+    }.toSet()
+
+    fun clearAll() {
+        check(prefs.edit().clear().commit()) { "Could not clear alarm delivery ledger" }
+    }
+
     fun clear(taskId: String) {
         prefs.edit().remove(key(taskId)).commit()
     }

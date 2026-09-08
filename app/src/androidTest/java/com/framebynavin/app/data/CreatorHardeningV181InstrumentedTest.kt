@@ -25,7 +25,7 @@ class CreatorHardeningV181InstrumentedTest {
             val created = CreatorTask(id=id,title="Before",platform="YouTube",contentType="Long-form",dueLabel="Today")
             TaskStore(context).mutate { it + created }
             val before = manager.createBackup()
-            assertEquals(4, manager.validate(before).schemaVersion)
+            assertEquals(CreatorBackupManager.SCHEMA_VERSION, manager.validate(before).schemaVersion)
             val backupRoot = org.json.JSONObject(before)
             assertTrue(backupRoot.has("youtubeProjectLinks"))
             assertTrue(backupRoot.has("youtubeMilestones"))

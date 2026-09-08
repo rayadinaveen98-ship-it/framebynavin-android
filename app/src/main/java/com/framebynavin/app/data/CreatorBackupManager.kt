@@ -1,8 +1,11 @@
 package com.framebynavin.app.data
 
 import android.content.Context
+import com.framebynavin.app.reminders.AlarmLedger
 import com.framebynavin.app.reminders.AlarmRingingService
 import com.framebynavin.app.reminders.ReminderNotifications
+import com.framebynavin.app.reminders.ReminderOccurrenceStore
+import com.framebynavin.app.reminders.ReminderSurfaceRegistry
 import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.SmartEscalationScheduler
@@ -32,9 +35,9 @@ class CreatorBackupManager(private val context: Context) {
         val ideasJson: String,
         val weeklyJson: String,
         val settingsJson: String,
-        val smartConfigJson: String,
-        val postPublishJson: String,
-        val rewardsJson: String,
+        val smartConfigJson: String? = null,
+        val postPublishJson: String? = null,
+        val rewardsJson: String? = null,
         val heroJson: String? = null,
         val youtubeLinksJson: String? = null,
         val youtubeMilestonesJson: String? = null,
@@ -67,29 +70,31 @@ class CreatorBackupManager(private val context: Context) {
         val ideasRaw = root.getString("ideas")
         val weeklyRaw = root.getString("weeklySchedule")
         val settingsRaw = root.getString("settings")
-        val smartRaw = root.optString("smartEscalationConfig", "{}")
-        val postPublishRaw = root.optString("postPublish", "[]")
-        val rewardsRaw = root.optString("rewards", "[]")
+        // An absent legacy section means preserve the current local value, not delete it.
+        val smartRaw = optionalSection(root, "smartEscalationConfig")
+        val postPublishRaw = optionalSection(root, "postPublish")
+        val rewardsRaw = optionalSection(root, "rewards")
+        if (schema >= 5) validateManifest(root)
         if (schema >= 3) {
             require(root.has("payloadSha256")) { "Backup integrity information is missing" }
             require(sha256(fingerprint(root, schema)) == root.getString("payloadSha256")) { "Backup integrity check failed" }
         }
-        root.optString("personalFrames", null)?.let(CreatorHeroArchive::validate)
+        optionalSection(root, "personalFrames")?.let(CreatorHeroArchive::validate)
         if (schema >= 4) {
             require(root.has("youtubeProjectLinks") && root.has("youtubeMilestones")) {
                 "Backup is missing YouTube project metadata"
             }
         }
-        root.optString("youtubeProjectLinks", null)?.let { JSONObject(it) }
-        root.optString("youtubeMilestones", null)?.let { JSONObject(it) }
+        optionalSection(root, "youtubeProjectLinks")?.let { JSONObject(it) }
+        optionalSection(root, "youtubeMilestones")?.let { JSONObject(it) }
 
         val projectCount = taskStore.validateJson(tasksRaw)
         val ideaCount = ideaStore.validateJson(ideasRaw)
         val weeklyCount = weeklyStore.validateJson(weeklyRaw)
         settingsStore.validateJson(settingsRaw)
-        JSONObject(smartRaw)
-        postPublishStore.validateJson(postPublishRaw)
-        rewardStore.validateJson(rewardsRaw)
+        smartRaw?.let { JSONObject(it) }
+        postPublishRaw?.let(postPublishStore::validateJson)
+        rewardsRaw?.let(rewardStore::validateJson)
 
         val taskArray = JSONArray(tasksRaw)
         var activeReminders = 0
@@ -218,22 +223,56 @@ class CreatorBackupManager(private val context: Context) {
             .put("ideas", snapshot.ideasJson)
             .put("weeklySchedule", snapshot.weeklyJson)
             .put("settings", snapshot.settingsJson)
-            .put("smartEscalationConfig", snapshot.smartConfigJson)
-            .put("postPublish", snapshot.postPublishJson)
-            .put("rewards", snapshot.rewardsJson)
-        snapshot.heroJson?.let { root.put("personalFrames", it) }
-        snapshot.youtubeLinksJson?.let { root.put("youtubeProjectLinks", it) }
-        snapshot.youtubeMilestonesJson?.let { root.put("youtubeMilestones", it) }
+            .put("smartEscalationConfig", requireNotNull(snapshot.smartConfigJson))
+            .put("postPublish", requireNotNull(snapshot.postPublishJson))
+            .put("rewards", requireNotNull(snapshot.rewardsJson))
+            .put("personalFrames", requireNotNull(snapshot.heroJson))
+            .put("youtubeProjectLinks", requireNotNull(snapshot.youtubeLinksJson))
+            .put("youtubeMilestones", requireNotNull(snapshot.youtubeMilestonesJson))
+            .put("manifest", backupManifest())
         return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
     }
 
+    /** Schema 1–4 fingerprint order is deliberately unchanged for existing backups. */
     private fun fingerprint(root: JSONObject, schema: Int): String = buildString {
         val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
             "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
         val allKeys = if (schema >= 4) keys + listOf("youtubeProjectLinks", "youtubeMilestones") else keys
-        allKeys.forEach { key ->
+        (if (schema >= 5) allKeys + "manifest" else allKeys).forEach { key ->
             val value = root.optString(key, "")
             append(key.length).append(':').append(key).append(value.length).append(':').append(value)
+        }
+    }
+
+    private fun optionalSection(root: JSONObject, key: String): String? =
+        if (root.has(key) && !root.isNull(key)) root.getString(key) else null
+
+    private fun backupManifest(): JSONObject = JSONObject()
+        .put("manifestVersion", 1)
+        .put("included", JSONArray(INCLUDED_SECTIONS))
+        .put("excluded", JSONArray(EXCLUDED_SECTIONS))
+        .put("checksum", "SHA-256")
+        .put("authenticated", false)
+
+    private fun validateManifest(root: JSONObject) {
+        require(INCLUDED_SECTIONS.all { root.has(it) && !root.isNull(it) }) {
+            "Backup is missing a required creator-data section"
+        }
+        require(root.keys().asSequence().toSet() == ROOT_KEYS) {
+            "Backup contains unexpected or missing schema sections"
+        }
+        val manifest = root.getJSONObject("manifest")
+        require(manifest.optInt("manifestVersion") == 1) { "Unsupported backup manifest" }
+        val included = manifest.getJSONArray("included")
+        require((0 until included.length()).map(included::getString) == INCLUDED_SECTIONS) {
+            "Backup inclusion manifest does not match its schema"
+        }
+        val excluded = manifest.getJSONArray("excluded")
+        require((0 until excluded.length()).map(excluded::getString) == EXCLUDED_SECTIONS) {
+            "Backup exclusion manifest does not match its schema"
+        }
+        require(manifest.optString("checksum") == "SHA-256" && !manifest.optBoolean("authenticated", true)) {
+            "Unsupported backup integrity declaration"
         }
     }
 
@@ -247,12 +286,12 @@ class CreatorBackupManager(private val context: Context) {
             ideasJson = root.getString("ideas"),
             weeklyJson = root.getString("weeklySchedule"),
             settingsJson = root.getString("settings"),
-            smartConfigJson = root.optString("smartEscalationConfig", "{}"),
-            postPublishJson = root.optString("postPublish", "[]"),
-            rewardsJson = root.optString("rewards", "[]"),
-            heroJson = root.optString("personalFrames", null),
-            youtubeLinksJson = root.optString("youtubeProjectLinks", null),
-            youtubeMilestonesJson = root.optString("youtubeMilestones", null),
+            smartConfigJson = optionalSection(root, "smartEscalationConfig"),
+            postPublishJson = optionalSection(root, "postPublish"),
+            rewardsJson = optionalSection(root, "rewards"),
+            heroJson = optionalSection(root, "personalFrames"),
+            youtubeLinksJson = optionalSection(root, "youtubeProjectLinks"),
+            youtubeMilestonesJson = optionalSection(root, "youtubeMilestones"),
         )
     }
 
@@ -262,9 +301,9 @@ class CreatorBackupManager(private val context: Context) {
         ideaStore.importJson(snapshot.ideasJson)
         weeklyStore.importJson(snapshot.weeklyJson)
         settingsStore.importJson(snapshot.settingsJson)
-        smartConfigStore.importJson(snapshot.smartConfigJson)
-        postPublishStore.importJson(snapshot.postPublishJson)
-        rewardStore.importJson(snapshot.rewardsJson)
+        snapshot.smartConfigJson?.let { smartConfigStore.importJson(it) }
+        snapshot.postPublishJson?.let { postPublishStore.importJson(it) }
+        snapshot.rewardsJson?.let { rewardStore.importJson(it) }
         snapshot.heroJson?.let { CreatorHeroArchive.import(appContext, it) }
         snapshot.youtubeLinksJson?.let { importYoutubeLinks(it) }
         snapshot.youtubeMilestonesJson?.let { importYoutubeMilestones(it) }
@@ -277,10 +316,13 @@ class CreatorBackupManager(private val context: Context) {
         JSONObject(milestones)
         val root = JSONObject(raw)
         if (root.optInt("schemaVersion") >= 4) return raw
-        root.put("schemaVersion", SCHEMA_VERSION)
-            .put("youtubeProjectLinks", root.optString("youtubeProjectLinks", links))
-            .put("youtubeMilestones", root.optString("youtubeMilestones", milestones))
-        return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
+        // Keep the original schema: adding external metadata cannot turn a partial
+        // historical snapshot into a complete current-schema backup.
+        val schema = root.getInt("schemaVersion")
+        if (!root.has("youtubeProjectLinks")) root.put("youtubeProjectLinks", links)
+        if (!root.has("youtubeMilestones")) root.put("youtubeMilestones", milestones)
+        if (schema >= 3) root.put("payloadSha256", sha256(fingerprint(root, schema)))
+        return root.toString().also(::validate)
     }
 
     private fun youtubeLinksRaw(): String = appContext
@@ -309,13 +351,21 @@ class CreatorBackupManager(private val context: Context) {
     }
 
     private fun stopAndCancel(tasks: List<CreatorTask>) {
+        // Restore is the only global reset: orphaned occurrences may belong to
+        // tasks absent from either snapshot. No pre-restore button may act afterward.
+        val occurrences = ReminderOccurrenceStore(appContext)
+        val ledger = AlarmLedger(appContext)
+        val taskIds = tasks.map { it.id }.toSet() + occurrences.taskIds() + ledger.trackedTaskIds()
+        occurrences.invalidateAll()
+        ReminderSurfaceRegistry.closeAll()
         AlarmRingingService.stop(appContext)
         VoiceReminderService.stop(appContext)
-        tasks.forEach { task ->
-            regularScheduler.cancel(task.id)
-            smartScheduler.cancel(task.id)
-            ReminderNotifications.cancel(appContext, task.id)
+        taskIds.forEach { taskId ->
+            regularScheduler.cancel(taskId)
+            smartScheduler.cancel(taskId)
+            ReminderNotifications.cancel(appContext, taskId)
         }
+        ledger.clearAll()
     }
 
     private fun scheduleFuture(tasks: List<CreatorTask>) {
@@ -334,6 +384,16 @@ class CreatorBackupManager(private val context: Context) {
 
     companion object {
         const val FORMAT = "FrameByNavinBackup"
-        const val SCHEMA_VERSION = 4
+        const val SCHEMA_VERSION = 5
+        private val INCLUDED_SECTIONS = listOf(
+            "tasks", "ideas", "weeklySchedule", "settings", "smartEscalationConfig",
+            "postPublish", "rewards", "personalFrames", "youtubeProjectLinks", "youtubeMilestones",
+        )
+        private val ROOT_KEYS = setOf("format", "schemaVersion", "createdAtMillis", "manifest",
+            "payloadSha256") + INCLUDED_SECTIONS
+        private val EXCLUDED_SECTIONS = listOf(
+            "accountCredentials", "oauthTokens", "cloudSessions", "youtubeAnalyticsCache",
+            "reminderOccurrenceTokens", "alarmDeliveryLedger", "activeSmartSessions", "activeMediaServices",
+        )
     }
 }

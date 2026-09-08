@@ -41,5 +41,12 @@ class ReminderOccurrenceStore(context: Context) {
         check(prefs.edit().remove(taskId).commit()) { "Could not invalidate reminder occurrence" }
     }
 
+    fun taskIds(): Set<String> = synchronized(lock) { prefs.all.keys.toSet() }
+
+    /** A restore invalidates even orphaned tokens whose tasks are no longer present. */
+    fun invalidateAll() = synchronized(lock) {
+        check(prefs.edit().clear().commit()) { "Could not invalidate reminder occurrences" }
+    }
+
     companion object { private val lock = Any() }
 }
