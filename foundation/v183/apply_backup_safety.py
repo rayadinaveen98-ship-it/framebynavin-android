@@ -81,6 +81,19 @@ def main():
     new = '    @Test fun currentManifestIsCompleteAndTamperingFailsClosed(): Unit = runBlocking {'
     if tests.count(old) != 1 or new in tests:
         raise RuntimeError("Unexpected backup test source; refusing return-type correction")
+    tests = tests.replace(old, new, 1)
+    # The original test changed an empty task array to the same empty value.
+    # Change a guaranteed-present timestamp instead, preserving the integrity assertion.
+    old = 'manager.validate(JSONObject(raw).put("tasks", "[]").toString())'
+    new = 'manager.validate(JSONObject(raw).put("createdAtMillis", root.getLong("createdAtMillis") + 1L).toString())'
+    if tests.count(old) != 1 or new in tests:
+        raise RuntimeError("Unexpected checksum regression fixture")
+    tests = tests.replace(old, new, 1)
+    # The preference stores a string value, not the entire JSON export object.
+    old = 'assertEquals(milestonesBefore, milestones.getString(id, ""))'
+    new = 'assertEquals(JSONObject(milestonesBefore).getString(id), milestones.getString(id, ""))'
+    if tests.count(old) != 1 or new in tests:
+        raise RuntimeError("Unexpected milestone regression fixture")
     test_path.write_text(tests.replace(old, new, 1))
     subprocess.run(["git", "diff", "--check"], cwd=ROOT, check=True)
     gradle = (ROOT / "app/build.gradle.kts").read_text()
