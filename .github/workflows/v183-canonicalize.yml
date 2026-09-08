@@ -1,0 +1,140 @@
+name: FrameByNavin v1.8.3 Source Canonicalization
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - integration/v1.8.2-canonical
+    paths:
+      - '.github/workflows/v183-canonicalize.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: framebynavin-canonicalize
+  cancel-in-progress: false
+
+jobs:
+  canonicalize:
+    if: ${{ github.repository == 'rayadinaveen98-ship-it/framebynavin-android' && github.event.repository.private == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact integration branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Reconstruct verified v1.8.1 source
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 hardening/rc2/restore_source.py
+      - name: Apply exact v1.8.1 compatibility fixes
+        run: |
+          python3 hardening/rc2/compile_fix.py
+          python3 hardening/rc2/locking_fix.py
+          python3 hardening/rc2/ui_fix.py
+          python3 hardening/rc2/ui_label_fix.py
+      - name: Apply exact v1.8.2 reminder-safety patch
+        run: python3 hotfix/v182/apply_patch.py
+      - name: Verify source identity and staging scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'versionCode = 65' app/build.gradle.kts
+          grep -Fq 'versionName = "1.8.2-reminder-safety"' app/build.gradle.kts
+          git diff --check
+          git add app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          if git diff --cached --name-only | grep -Ei '(^|/)(\.env($|\.)|local\.properties$|[^/]*\.(jks|keystore|p12|pfx|pem|key)$|service.account[^/]*\.json$)'; then
+            echo 'Refusing to stage credential or local-environment files' >&2
+            exit 1
+          fi
+          git diff --cached --check
+          git diff --cached --stat
+          test -f app/src/main/java/com/framebynavin/app/data/CreatorDataGate.kt
+          test -f app/src/main/java/com/framebynavin/app/data/CreatorPublicationEngine.kt
+          test -f app/src/main/java/com/framebynavin/app/reminders/ReminderOccurrenceStore.kt
+          test -f app/src/test/java/com/framebynavin/app/reminders/ReminderSafetyV182Test.kt
+      - name: Verify canonical source with Android build gates
+        run: |
+          gradle :app:testDebugUnitTest --stacktrace
+          gradle :app:lintDebug --stacktrace
+          gradle :app:assembleDebugAndroidTest --stacktrace
+          gradle :app:assembleDebug --stacktrace
+      - name: Record binary and signing provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p canonicalization/verification
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee canonicalization/verification/apk-signature.txt
+          grep -Fqi 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' canonicalization/verification/apk-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.framebynavin.app' versionCode='65' versionName='1.8.2-reminder-safety'"
+          sha256sum "$APK" | tee canonicalization/verification/rebuilt-apk.sha256
+          if echo '02b651f04a9d132bc6e8d63cfdcb9d15b8da592ae7950db0bfb53d16a93ce8bb  app/build/outputs/apk/debug/app-debug.apk' | sha256sum --check --status; then
+            echo 'Exact binary reproducibility: MATCH' | tee canonicalization/verification/binary-comparison.txt
+          else
+            echo 'Exact binary reproducibility: DIFFERENT; identity/signature/tests verified, investigate build metadata before claiming byte identity' | tee canonicalization/verification/binary-comparison.txt
+          fi
+      - name: Commit only canonical production source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c user.name='FrameByNavin Build' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'build: materialize exact v1.8.2 generated production source'
+          git push origin HEAD:refs/heads/integration/v1.8.2-canonical
+      - name: Archive canonical source and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p canonicalization/verification
+          git archive --format=tar.gz --output canonicalization/FrameByNavin-v1.8.2-canonical-source.tar.gz HEAD app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          sha256sum canonicalization/FrameByNavin-v1.8.2-canonical-source.tar.gz | tee canonicalization/verification/source.sha256
+          python3 - <<'PY'
+          import hashlib, json, pathlib, subprocess
+          root = pathlib.Path('canonicalization')
+          def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+          source = root / 'FrameByNavin-v1.8.2-canonical-source.tar.gz'
+          manifest = {
+              'versionName': '1.8.2-reminder-safety', 'versionCode': 65,
+              'original_release_commit': '91f8f8b266208c9646163a197b2da1932861a67c',
+              'original_release_run': 34140460397,
+              'canonical_commit': subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
+              'canonical_source_sha256': sha(source),
+              'rebuilt_apk_sha256': sha(pathlib.Path('app/build/outputs/apk/debug/app-debug.apk')),
+              'original_apk_sha256': '02b651f04a9d132bc6e8d63cfdcb9d15b8da592ae7950db0bfb53d16a93ce8bb',
+              'signing_certificate_sha256': 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0',
+              'scope': 'Exact v1.8.2 source materialization; no v1.8.3 product changes.'
+          }
+          (root/'verification'/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
+          PY
+      - name: Upload canonical source and verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.2-canonical-source
+          path: canonicalization/
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-canonicalization-diagnostics
+          if-no-files-found: ignore
+          path: |
+            canonicalization/verification/
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
