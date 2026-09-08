@@ -8,8 +8,7 @@ import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.data.CreatorBackupManager
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.widget.CreatorWidgetUpdater
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 import java.security.MessageDigest
 import java.time.LocalDate
@@ -19,15 +18,46 @@ class CloudSyncManager(context: Context) {
     private val local = CloudLocalStore(app)
     private val api = CloudApiClient()
     private val backup = CreatorBackupManager(app)
-    private val sessionMutex = Mutex()
 
     companion object {
         /** One process-wide gate; all account mutations, uploads, restore and deletion serialize. */
-        private val operationMutex = Mutex()
+        private val accountGate = CloudAccountGate()
+    }
+
+
+    private suspend fun <T> currentAccount(block: suspend (Long) -> T): T =
+        accountGate.current(local::generation, block)
+
+    private suspend fun <T> accountTransition(block: suspend (Long) -> T): T =
+        accountGate.transition({
+            val epoch = local.invalidateOperations()
+            CloudSyncScheduler.cancelAll(app)
+            epoch
+        }, local::generation) { epoch ->
+            // Clear account-scoped state only after the transition wins the gate.
+            local.clearApproval()
+            block(epoch)
+        }
+
+    private suspend fun currentResult(block: suspend (Long) -> CloudOperationResult): CloudOperationResult =
+        try { currentAccount(block) } catch (error: CloudAccountChanged) {
+            CloudOperationResult.Skipped(error.message.orEmpty())
+        }
+
+    private suspend fun transitionResult(block: suspend (Long) -> CloudOperationResult): CloudOperationResult =
+        try { accountTransition(block) } catch (error: CloudAccountChanged) {
+            CloudOperationResult.Skipped(error.message.orEmpty())
+        }
+
+    private fun Throwable.rethrowCancellation() {
+        if (this is CancellationException) throw this
     }
 
     fun localState(): CloudUiState = CloudUiState(local.loadSession(), local.settings())
-    fun cachedCreatorProfile(): CloudCreatorProfile? = local.loadCreatorProfile()
+    fun cachedCreatorProfile(): CloudCreatorProfile? {
+        val userId = local.loadSession()?.userId ?: return null
+        return local.loadCreatorProfile()?.takeIf { it.userId == userId }
+    }
 
     /** Automatic uploads are intentionally unavailable until conflict-aware sync is implemented. */
     fun setEnabled(enabled: Boolean) {
@@ -38,18 +68,20 @@ class CloudSyncManager(context: Context) {
     fun setWifiOnly(enabled: Boolean) = local.setWifiOnly(enabled)
 
     suspend fun completeGoogleSignIn(idToken: String): CloudOperationResult {
-        local.invalidateOperations()
-        CloudSyncScheduler.cancelAll(app)
-        return operationMutex.withLock {
+        return transitionResult { epoch ->
             runCatching {
                 val session = api.signInWithGoogle(idToken)
                 require(session.userId.isNotBlank()) { "Account identity missing" }
-                local.clearApproval()
-                local.saveSession(session)
                 api.upsertProfile(session)
-                api.fetchCreatorProfile(session)?.let(local::saveCreatorProfile)
+                val profile = api.fetchCreatorProfile(session)
+                require(profile == null || profile.userId == session.userId) { "Account profile mismatch" }
                 api.upsertDevice(session, local.deviceKey(), deviceLabel(), BuildConfig.VERSION_NAME)
                 val points = api.listRestorePoints(session)
+                accountGate.requireCurrent(epoch, local.generation())
+                local.clearApproval()
+                local.saveSession(session)
+                local.clearCreatorProfile()
+                profile?.let(local::saveCreatorProfile)
                 if (points.isEmpty()) {
                     local.approveUser(session.userId)
                     CloudOperationResult.Success("Account connected. Your phone remains the main copy. Backups are manual.")
@@ -57,6 +89,8 @@ class CloudSyncManager(context: Context) {
                     CloudOperationResult.Success("Account connected. Review your existing cloud backups before creating a new one.")
                 }
             }.getOrElse {
+                it.rethrowCancellation()
+                if (it is CloudAccountChanged) return@getOrElse CloudOperationResult.Skipped(it.message.orEmpty())
                 val message = cloudMessage(it, "Couldn't connect Google account")
                 local.markError(message)
                 CloudOperationResult.Failure(message, retryable = it !is CloudHttpException || it.statusCode >= 500)
@@ -65,50 +99,60 @@ class CloudSyncManager(context: Context) {
     }
 
     suspend fun refreshCreatorProfile(): Result<CloudCreatorProfile?> = runCatching {
-        val session = freshSession(local.loadSession() ?: error("Sign in with Google first"))
-        api.fetchCreatorProfile(session)?.also(local::saveCreatorProfile)
-    }
+        currentAccount { epoch ->
+            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
+            val profile = api.fetchCreatorProfile(session)
+            accountGate.requireCurrent(epoch, local.generation())
+            require(profile == null || profile.userId == session.userId) { "Account profile mismatch" }
+            if (profile == null) local.clearCreatorProfile() else local.saveCreatorProfile(profile)
+            profile
+        }
+    }.onFailure { it.rethrowCancellation() }
 
-    suspend fun claimUsername(username: String, displayName: String): CloudOperationResult = operationMutex.withLock {
+    suspend fun claimUsername(username: String, displayName: String): CloudOperationResult = currentResult { epoch ->
         runCatching {
-            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"))
+            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
             val profile = api.claimCreatorUsername(session, username, displayName)
+            accountGate.requireCurrent(epoch, local.generation())
+            require(profile.userId == session.userId) { "Account profile mismatch" }
             local.saveCreatorProfile(profile)
             CloudOperationResult.Success("Creator identity saved")
         }.getOrElse {
+            it.rethrowCancellation()
+            if (it is CloudAccountChanged) return@getOrElse CloudOperationResult.Skipped(it.message.orEmpty())
             val message = cloudMessage(it, "Couldn't save username")
             CloudOperationResult.Failure(message, retryable = it !is CloudHttpException || it.statusCode >= 500)
         }
     }
 
     /** Explicitly retain local data after inspecting an account's existing restore history. */
-    suspend fun keepLocalData(): CloudOperationResult = operationMutex.withLock {
+    suspend fun keepLocalData(): CloudOperationResult = currentResult { epoch ->
         runCatching {
-            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"))
+            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
             api.listRestorePoints(session) // Fail closed when the server cannot be inspected.
+            accountGate.requireCurrent(epoch, local.generation())
             local.approveUser(session.userId)
             CloudOperationResult.Success("Keep-local choice saved. Existing cloud backups are preserved. Use Back up now to create a separate new copy.")
-        }.getOrElse { CloudOperationResult.Failure(cloudMessage(it, "Couldn't review cloud history"), retryable = true) }
+        }.getOrElse { it.rethrowCancellation(); CloudOperationResult.Failure(cloudMessage(it, "Couldn't review cloud history"), retryable = true) }
     }
 
     suspend fun syncNow(force: Boolean = false): CloudOperationResult {
         if (!force) return CloudOperationResult.Skipped("Automatic cloud backup is off. Use Back up now.")
-        val generation = local.generation()
-        return operationMutex.withLock {
-            if (generation != local.generation()) return@withLock CloudOperationResult.Skipped("An older backup request was cancelled")
-            val current = local.loadSession() ?: return@withLock CloudOperationResult.Skipped("Sign in with Google first")
-            if (local.reconciledUser() != current.userId) return@withLock CloudOperationResult.Skipped("Review the existing cloud history before backing up")
+        return currentResult { epoch ->
+            val current = local.loadSession() ?: return@currentResult CloudOperationResult.Skipped("Sign in with Google first")
+            if (local.reconciledUser() != current.userId) return@currentResult CloudOperationResult.Skipped("Review the existing cloud history before backing up")
             val network = networkState()
-            if (!network.connected) return@withLock CloudOperationResult.Failure("No internet connection", retryable = true)
-            if (local.settings().wifiOnly && !network.wifi) return@withLock CloudOperationResult.Skipped("Waiting for Wi-Fi")
+            if (!network.connected) return@currentResult CloudOperationResult.Failure("No internet connection", retryable = true)
+            if (local.settings().wifiOnly && !network.wifi) return@currentResult CloudOperationResult.Skipped("Waiting for Wi-Fi")
             runCatching {
-                val session = freshSession(current)
+                val session = freshSession(current, epoch)
                 require(session.userId == current.userId) { "Account changed during backup" }
                 val packageData = createCloudPayload()
                 val preview = backup.validate(packageData.localBackup)
                 val now = System.currentTimeMillis()
                 val day = LocalDate.now().toString()
                 val hash = sha256(packageData.payload)
+                accountGate.requireCurrent(epoch, local.generation())
                 // Append-only: never replace the account's latest or daily backup from another phone.
                 api.saveBackup(
                     session = session,
@@ -125,9 +169,12 @@ class CloudSyncManager(context: Context) {
                     weeklySlotCount = preview.weeklySlotCount,
                     activeReminderCount = preview.activeReminderCount,
                 )
+                accountGate.requireCurrent(epoch, local.generation())
                 local.markSyncSuccess(now)
                 CloudOperationResult.Success("A new restore point was saved. Existing backups were not replaced.")
             }.getOrElse {
+                it.rethrowCancellation()
+                if (it is CloudAccountChanged) return@getOrElse CloudOperationResult.Skipped(it.message.orEmpty())
                 val message = cloudMessage(it, "Cloud backup failed")
                 local.markError(message)
                 CloudOperationResult.Failure(message, retryable = it !is CloudHttpException || it.statusCode >= 500)
@@ -136,20 +183,27 @@ class CloudSyncManager(context: Context) {
     }
 
     suspend fun restorePoints(): Result<List<CloudRestorePoint>> = runCatching {
-        val session = freshSession(local.loadSession() ?: error("Sign in with Google first"))
-        api.listRestorePoints(session)
-    }
+        currentAccount { epoch ->
+            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
+            val points = api.listRestorePoints(session)
+            accountGate.requireCurrent(epoch, local.generation())
+            points
+        }
+    }.onFailure { it.rethrowCancellation() }
 
-    suspend fun restore(point: CloudRestorePoint): CloudOperationResult = operationMutex.withLock {
+    suspend fun restore(point: CloudRestorePoint): CloudOperationResult = currentResult { epoch ->
         runCatching {
-            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"))
+            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
             val (payload, expectedHash) = api.downloadBackup(session, point.id)
             require(sha256(payload).equals(expectedHash, ignoreCase = true)) { "Cloud backup integrity check failed" }
+            accountGate.requireCurrent(epoch, local.generation())
             restorePayload(payload)
             local.approveUser(session.userId)
             local.markSyncSuccess(0L) // A restore is not an upload.
             CloudOperationResult.Success("Restored ${point.kind} backup. A local recovery copy was retained. Automatic uploads remain off.")
         }.getOrElse {
+            it.rethrowCancellation()
+            if (it is CloudAccountChanged) return@getOrElse CloudOperationResult.Skipped(it.message.orEmpty())
             val message = cloudMessage(it, "Restore failed")
             local.markError(message)
             CloudOperationResult.Failure(message)
@@ -157,18 +211,18 @@ class CloudSyncManager(context: Context) {
     }
 
     suspend fun deleteCloudData(): CloudOperationResult {
-        // Invalidate queued requests before waiting for any in-flight upload to finish.
-        local.invalidateOperations()
-        local.clearApproval()
-        CloudSyncScheduler.cancelAll(app)
-        return operationMutex.withLock {
+        // Invalidate queued requests before waiting for an in-flight operation to finish.
+        return transitionResult { epoch ->
             runCatching {
-                val session = freshSession(local.loadSession() ?: error("Sign in with Google first"))
+                val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
+                accountGate.requireCurrent(epoch, local.generation())
                 api.deleteCloudData(session)
                 local.clearCreatorProfile()
                 local.markSyncSuccess(0L)
                 CloudOperationResult.Success("Cloud creator data deleted. Automatic uploads remain off. Your phone data and Google sign-in account were kept.")
             }.getOrElse {
+                it.rethrowCancellation()
+                if (it is CloudAccountChanged) return@getOrElse CloudOperationResult.Skipped(it.message.orEmpty())
                 val message = cloudMessage(it, "Couldn't delete cloud data")
                 local.markError(message)
                 CloudOperationResult.Failure("Automatic uploads are off. $message")
@@ -177,24 +231,33 @@ class CloudSyncManager(context: Context) {
     }
 
     suspend fun signOut(): CloudOperationResult {
-        local.invalidateOperations()
-        local.clearApproval()
-        CloudSyncScheduler.cancelAll(app)
-        return operationMutex.withLock {
+        return transitionResult { epoch ->
             val session = local.loadSession()
             local.clearSession()
             local.clearCreatorProfile()
-            if (session != null) api.logout(session.accessToken)
-            CloudOperationResult.Success("Signed out. Local data was kept and automatic uploads remain off.")
+            val remoteLogout = runCatching { if (session != null) api.logout(session.accessToken) }
+            remoteLogout.exceptionOrNull()?.rethrowCancellation()
+            CloudOperationResult.Success(if (remoteLogout.isSuccess) {
+                "Signed out. Local data was kept and automatic uploads remain off."
+            } else {
+                "Signed out locally. Remote session revocation could not be confirmed."
+            })
         }
     }
 
-    private suspend fun freshSession(current: CloudSession): CloudSession = sessionMutex.withLock {
-        val latest = local.loadSession() ?: current
-        if (latest.expiresAtMillis - System.currentTimeMillis() > 5 * 60_000L) return@withLock latest
+    private suspend fun freshSession(current: CloudSession, epoch: Long): CloudSession {
+        accountGate.requireCurrent(epoch, local.generation())
+        val latest = local.loadSession() ?: error("Sign in with Google first")
+        require(latest.userId == current.userId) { "Account changed during this operation" }
+        if (latest.expiresAtMillis - System.currentTimeMillis() > 5 * 60_000L) return latest
         val refreshed = api.refreshSession(latest)
-        local.saveSession(refreshed)
-        refreshed
+        accountGate.requireCurrent(epoch, local.generation())
+        require(refreshed.userId == latest.userId) { "Refreshed account identity mismatch" }
+        val stillCurrent = local.loadSession() ?: error("Account signed out during refresh")
+        require(stillCurrent.userId == latest.userId) { "Account changed during refresh" }
+        if (!local.saveRefreshedSession(refreshed, epoch, latest.userId))
+            throw CloudAccountChanged()
+        return refreshed
     }
 
     private suspend fun createCloudPayload(): CloudPackage {

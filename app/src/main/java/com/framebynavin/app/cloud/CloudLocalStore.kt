@@ -17,7 +17,7 @@ class CloudLocalStore(context: Context) {
     private val app = context.applicationContext
     private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun loadSession(): CloudSession? {
+    fun loadSession(): CloudSession? = synchronized(accountLock) {
         val encrypted = prefs.getString(KEY_SESSION, null) ?: return null
         return runCatching {
             val o = JSONObject(decrypt(encrypted))
@@ -31,12 +31,12 @@ class CloudLocalStore(context: Context) {
                 expiresAtMillis = o.optLong("expiresAtMillis"),
             )
         }.getOrElse {
-            prefs.edit().remove(KEY_SESSION).apply()
+            if (prefs.getString(KEY_SESSION, null) == encrypted) prefs.edit().remove(KEY_SESSION).commit()
             null
         }
     }
 
-    fun saveSession(session: CloudSession) {
+    fun saveSession(session: CloudSession) = synchronized(accountLock) {
         val raw = JSONObject()
             .put("userId", session.userId)
             .put("email", session.email)
@@ -46,10 +46,12 @@ class CloudLocalStore(context: Context) {
             .put("refreshToken", session.refreshToken)
             .put("expiresAtMillis", session.expiresAtMillis)
             .toString()
-        prefs.edit().putString(KEY_SESSION, encrypt(raw)).apply()
+        check(prefs.edit().putString(KEY_SESSION, encrypt(raw)).commit()) { "Could not save cloud session" }
     }
 
-    fun clearSession() = prefs.edit().remove(KEY_SESSION).apply()
+    fun clearSession() = synchronized(accountLock) {
+        check(prefs.edit().remove(KEY_SESSION).commit()) { "Could not clear cloud session" }
+    }
 
     fun loadCreatorProfile(): CloudCreatorProfile? {
         val raw = prefs.getString(KEY_CREATOR_PROFILE, null) ?: return null
@@ -93,10 +95,26 @@ class CloudLocalStore(context: Context) {
     fun setEnabled(value: Boolean) = prefs.edit().putBoolean(KEY_ENABLED, false).apply()
 
     /** A durable generation invalidates queued operations after sign-out/delete/account switch. */
-    @Synchronized fun generation(): Long = prefs.getLong(KEY_GENERATION, 0L)
-    @Synchronized fun invalidateOperations() {
-        prefs.edit().putLong(KEY_GENERATION, generation() + 1L).putBoolean(KEY_ENABLED, false).commit()
+    fun generation(): Long = synchronized(accountLock) { prefs.getLong(KEY_GENERATION, 0L) }
+
+    /** Durable account epoch shared by all manager instances. */
+    fun invalidateOperations(): Long = synchronized(accountLock) {
+        val next = prefs.getLong(KEY_GENERATION, 0L) + 1L
+        check(prefs.edit().putLong(KEY_GENERATION, next).putBoolean(KEY_ENABLED, false).commit()) {
+            "Could not invalidate pending cloud operations"
+        }
+        next
     }
+
+    /** A late refresh cannot recreate a signed-out session or cross an account switch. */
+    fun saveRefreshedSession(session: CloudSession, expectedGeneration: Long, expectedUserId: String): Boolean =
+        synchronized(accountLock) {
+            if (prefs.getLong(KEY_GENERATION, 0L) != expectedGeneration) return@synchronized false
+            val current = loadSession() ?: return@synchronized false
+            if (current.userId != expectedUserId || session.userId != expectedUserId) return@synchronized false
+            saveSession(session)
+            true
+        }
     fun reconciledUser(): String = prefs.getString(KEY_RECONCILED_USER, "").orEmpty()
     fun approveUser(userId: String) = prefs.edit().putString(KEY_RECONCILED_USER, userId).commit()
     fun clearApproval() = prefs.edit().remove(KEY_RECONCILED_USER).commit()
@@ -155,6 +173,7 @@ class CloudLocalStore(context: Context) {
     }
 
     companion object {
+        private val accountLock = Any()
         private const val PREFS = "creator_cloud_v13"
         private const val KEY_SESSION = "session"
         private const val KEY_CREATOR_PROFILE = "creator_profile_v23"
