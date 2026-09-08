@@ -276,13 +276,11 @@ class CloudSyncManager(context: Context) {
     }
 
     private suspend fun restorePayload(raw: String) {
-        val root = JSONObject(raw)
-        require(root.optString("format") == CloudConfig.CLOUD_FORMAT) { "Not a FrameByNavin cloud backup" }
-        require(root.optInt("schemaVersion", -1) in 1..CloudConfig.CLOUD_SCHEMA_VERSION) { "Unsupported cloud backup version" }
+        val envelope = CloudBackupEnvelope.parse(raw)
         val restored = backup.attachLegacyYoutubeData(
-            root.getString("localBackup"),
-            root.optString("youtubeProjectLinks", "{}"),
-            root.optString("youtubeMilestones", "{}"),
+            envelope.localBackup,
+            envelope.youtubeProjectLinks,
+            envelope.youtubeMilestones,
         )
         backup.restore(restored)
         CreatorWidgetUpdater.updateAll(app, TaskStore(app).load())

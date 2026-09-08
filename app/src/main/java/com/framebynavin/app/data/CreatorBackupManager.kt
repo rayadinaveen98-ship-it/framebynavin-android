@@ -310,17 +310,17 @@ class CreatorBackupManager(private val context: Context) {
     }
 
     /** Upgrade an already validated legacy snapshot while preserving its original checksum check. */
-    fun attachLegacyYoutubeData(raw: String, links: String, milestones: String): String {
+    fun attachLegacyYoutubeData(raw: String, links: String?, milestones: String?): String {
         validate(raw)
-        JSONObject(links)
-        JSONObject(milestones)
+        links?.let { JSONObject(it) }
+        milestones?.let { JSONObject(it) }
         val root = JSONObject(raw)
         if (root.optInt("schemaVersion") >= 4) return raw
         // Keep the original schema: adding external metadata cannot turn a partial
         // historical snapshot into a complete current-schema backup.
         val schema = root.getInt("schemaVersion")
-        if (!root.has("youtubeProjectLinks")) root.put("youtubeProjectLinks", links)
-        if (!root.has("youtubeMilestones")) root.put("youtubeMilestones", milestones)
+        if (!root.has("youtubeProjectLinks") && links != null) root.put("youtubeProjectLinks", links)
+        if (!root.has("youtubeMilestones") && milestones != null) root.put("youtubeMilestones", milestones)
         if (schema >= 3) root.put("payloadSha256", sha256(fingerprint(root, schema)))
         return root.toString().also(::validate)
     }
