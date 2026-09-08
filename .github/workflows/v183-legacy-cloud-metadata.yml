@@ -1,0 +1,171 @@
+name: FrameByNavin v1.8.3 Legacy Cloud Metadata
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/v1.8.3-legacy-cloud-metadata
+    paths:
+      - '.github/workflows/v183-legacy-cloud-metadata.yml'
+      - 'foundation/v183/rc3-legacy-metadata.patch'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: framebynavin-v183-legacy-cloud-metadata
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: ${{ github.repository == 'rayadinaveen98-ship-it/framebynavin-android' && github.event.repository.private == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact canonical candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Verify reviewed source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git hash-object foundation/v183/rc3-legacy-metadata.patch)" = 'ee32805c4d50aa6bb296f4f94333bf62aaf3df19'
+          git merge-base --is-ancestor eccc1c13410789851322282b30d1c9d9b9815da1 HEAD
+          git diff --exit-code eccc1c13410789851322282b30d1c9d9b9815da1 HEAD -- app
+          git diff --exit-code -- app
+          git apply --check foundation/v183/rc3-legacy-metadata.patch
+          git apply foundation/v183/rc3-legacy-metadata.patch
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle = Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 68' in gradle
+          assert 'versionName = "1.8.3-foundation-rc3"' in gradle
+          assert 'const val SCHEMA_VERSION = 5' in Path('app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt').read_text()
+          expected = {
+              'app/build.gradle.kts',
+              'app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt',
+              'app/src/main/java/com/framebynavin/app/cloud/CloudBackupEnvelope.kt',
+              'app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt',
+              'app/src/androidTest/java/com/framebynavin/app/cloud/CloudLegacyRestoreV183Test.kt',
+          }
+          import subprocess
+          actual = set(subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines())
+          actual |= set(subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', 'app'], text=True).splitlines())
+          assert actual == expected, (actual, expected)
+          assert not any(Path(p).is_symlink() for p in expected)
+          subprocess.run(['git', 'add', '--', *sorted(expected)], check=True)
+          subprocess.run(['git', 'diff', '--cached', '--check'], check=True)
+          print('Exact RC3 source scope and version verified')
+          PY
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Build candidate APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Verify version and established pilot signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p foundation/verification
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee foundation/verification/rc3-apk-signature.txt
+          grep -Fqi 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' foundation/verification/rc3-apk-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.framebynavin.app' versionCode='68' versionName='1.8.3-foundation-rc3'"
+          sha256sum "$APK" | tee foundation/verification/rc3-apk.sha256
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run Android emulator regression suite
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash hardening/rc2/run_emulator_tests.sh
+      - name: Commit verified canonical source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c user.name='FrameByNavin Build' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: preserve omitted legacy cloud metadata'
+          git push origin HEAD:refs/heads/fix/v1.8.3-legacy-cloud-metadata
+      - name: Archive verified candidate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p foundation/source foundation/verification
+          git archive --format=tar.gz --output foundation/source/FrameByNavin-v1.8.3-foundation-rc3-source.tar.gz HEAD app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          sha256sum foundation/source/FrameByNavin-v1.8.3-foundation-rc3-source.tar.gz | tee foundation/verification/rc3-source.sha256
+          python3 - <<'PY'
+          import hashlib, json, pathlib, subprocess
+          source = pathlib.Path('foundation/source/FrameByNavin-v1.8.3-foundation-rc3-source.tar.gz')
+          apk = pathlib.Path('app/build/outputs/apk/debug/app-debug.apk')
+          sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+          manifest = {
+              'status': 'internal foundation candidate; not a public release',
+              'versionName': '1.8.3-foundation-rc3', 'versionCode': 68,
+              'backupSchemaVersion': 5,
+              'canonical_base': 'eccc1c13410789851322282b30d1c9d9b9815da1',
+              'source_commit': subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
+              'source_sha256': sha(source), 'apk_sha256': sha(apk),
+              'signing_certificate_sha256': 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0',
+              'scope': 'Preserve omitted legacy cloud YouTube metadata; explicit empty values remain replacements; malformed metadata fails closed. No live database migration.'
+          }
+          pathlib.Path('foundation/verification/rc3-manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
+          PY
+      - name: Upload verified candidate APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc3-candidate
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            foundation/verification/rc3-apk.sha256
+            foundation/verification/rc3-apk-signature.txt
+      - name: Upload verified candidate source
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc3-source
+          path: |
+            foundation/source/FrameByNavin-v1.8.3-foundation-rc3-source.tar.gz
+            foundation/verification/rc3-manifest.json
+            foundation/verification/rc3-source.sha256
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc3-diagnostics
+          if-no-files-found: ignore
+          path: |
+            foundation/verification/
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
+            app/build/outputs/androidTest-results/
+            app/build/reports/androidTests/
+            hardening/diagnostics/
