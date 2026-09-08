@@ -1,0 +1,243 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 665699b..823449c 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -21,8 +21,8 @@ android {
+         applicationId = "com.framebynavin.app"
+         minSdk = 26
+         targetSdk = 35
+-        versionCode = 67
+-        versionName = "1.8.3-foundation-rc2"
++        versionCode = 68
++        versionName = "1.8.3-foundation-rc3"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+diff --git a/app/src/androidTest/java/com/framebynavin/app/cloud/CloudLegacyRestoreV183Test.kt b/app/src/androidTest/java/com/framebynavin/app/cloud/CloudLegacyRestoreV183Test.kt
+new file mode 100644
+index 0000000..d70a68d
+--- /dev/null
++++ b/app/src/androidTest/java/com/framebynavin/app/cloud/CloudLegacyRestoreV183Test.kt
+@@ -0,0 +1,134 @@
++package com.framebynavin.app.cloud
++
++import androidx.test.ext.junit.runners.AndroidJUnit4
++import androidx.test.platform.app.InstrumentationRegistry
++import com.framebynavin.app.data.CreatorBackupManager
++import com.framebynavin.app.data.CreatorDataGate
++import com.framebynavin.app.data.HardeningTestEnvironment
++import kotlinx.coroutines.runBlocking
++import org.json.JSONObject
++import org.junit.Assert.*
++import org.junit.Test
++import org.junit.runner.RunWith
++import java.security.MessageDigest
++import java.util.UUID
++
++@RunWith(AndroidJUnit4::class)
++class CloudLegacyRestoreV183Test {
++    private val legacyKeys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas",
++        "weeklySchedule", "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
++
++    private fun resign(root: JSONObject): String {
++        val schema = root.getInt("schemaVersion")
++        val keys = if (schema >= 4) legacyKeys + listOf("youtubeProjectLinks", "youtubeMilestones") else legacyKeys
++        val fingerprint = buildString {
++            keys.forEach { key ->
++                val value = root.optString(key, "")
++                append(key.length).append(':').append(key).append(value.length).append(':').append(value)
++            }
++        }
++        val sha = MessageDigest.getInstance("SHA-256").digest(fingerprint.toByteArray(Charsets.UTF_8))
++            .joinToString("") { "%02x".format(it) }
++        return root.put("payloadSha256", sha).toString()
++    }
++
++    private fun envelope(localBackup: String, links: String? = null, milestones: String? = null): String =
++        JSONObject().put("format", CloudConfig.CLOUD_FORMAT)
++            .put("schemaVersion", CloudConfig.CLOUD_SCHEMA_VERSION)
++            .put("localBackup", localBackup)
++            .apply {
++                if (links != null) put("youtubeProjectLinks", links)
++                if (milestones != null) put("youtubeMilestones", milestones)
++            }.toString()
++
++    private suspend fun restoreEnvelope(manager: CreatorBackupManager, raw: String) {
++        val parsed = CloudBackupEnvelope.parse(raw)
++        manager.restore(manager.attachLegacyYoutubeData(parsed.localBackup,
++            parsed.youtubeProjectLinks, parsed.youtubeMilestones))
++    }
++
++    @Test fun omittedLegacyMetadataPreservesLocalValues(): Unit = runBlocking {
++        HardeningTestEnvironment.requireCiEmulator()
++        val context = InstrumentationRegistry.getInstrumentation().targetContext
++        val manager = CreatorBackupManager(context)
++        val original = manager.createBackup()
++        val links = context.getSharedPreferences("youtube_analytics_v11", 0)
++        val milestones = context.getSharedPreferences("youtube_milestones_v12", 0)
++        val id = "legacy-cloud-${UUID.randomUUID()}"
++        try {
++            val localLinks = JSONObject().put(id, "local-link").toString()
++            assertTrue(links.edit().putString("video_project_links", localLinks).commit())
++            assertTrue(milestones.edit().putString(id, "local-milestone").commit())
++            val current = manager.createBackup()
++            val root = JSONObject(current).put("schemaVersion", 3)
++            root.remove("manifest")
++            listOf("personalFrames", "youtubeProjectLinks", "youtubeMilestones", "postPublish",
++                "rewards", "smartEscalationConfig").forEach(root::remove)
++            val legacy = resign(root)
++            val parsed = CloudBackupEnvelope.parse(envelope(legacy))
++            assertNull(parsed.youtubeProjectLinks)
++            assertNull(parsed.youtubeMilestones)
++            restoreEnvelope(manager, envelope(legacy))
++            assertEquals(localLinks, links.getString("video_project_links", ""))
++            assertEquals("local-milestone", milestones.getString(id, ""))
++            // An explicitly present empty object is a deliberate replacement, not an omission.
++            restoreEnvelope(manager, envelope(legacy, "{}", "{}"))
++            assertEquals("{}", links.getString("video_project_links", ""))
++            assertFalse(milestones.contains(id))
++        } finally {
++            CreatorDataGate.nonCancellable { manager.restore(original) }
++        }
++    }
++
++    @Test fun currentSchemaMetadataIsAuthoritative(): Unit = runBlocking {
++        HardeningTestEnvironment.requireCiEmulator()
++        val context = InstrumentationRegistry.getInstrumentation().targetContext
++        val manager = CreatorBackupManager(context)
++        val original = manager.createBackup()
++        val links = context.getSharedPreferences("youtube_analytics_v11", 0)
++        try {
++            val inner = JSONObject(original).put("schemaVersion", 4)
++            inner.remove("manifest")
++            inner.put("youtubeProjectLinks", "{\"inner\":\"kept\"}")
++            val legacy4 = resign(inner)
++            val parsed = CloudBackupEnvelope.parse(envelope(legacy4, "{}", "{}"))
++            val attached = manager.attachLegacyYoutubeData(parsed.localBackup,
++                parsed.youtubeProjectLinks, parsed.youtubeMilestones)
++            assertEquals(legacy4, attached)
++            manager.restore(attached)
++            assertEquals("kept", JSONObject(links.getString("video_project_links", "{}")!!).getString("inner"))
++        } finally {
++            CreatorDataGate.nonCancellable { manager.restore(original) }
++        }
++    }
++
++    @Test fun malformedIncludedMetadataAndTamperingFailBeforeMutation(): Unit = runBlocking {
++        HardeningTestEnvironment.requireCiEmulator()
++        val context = InstrumentationRegistry.getInstrumentation().targetContext
++        val manager = CreatorBackupManager(context)
++        val original = manager.createBackup()
++        val links = context.getSharedPreferences("youtube_analytics_v11", 0)
++        val before = links.getString("video_project_links", "{}")
++        try {
++            assertThrows(Exception::class.java) {
++                CloudBackupEnvelope.parse(envelope(original, "not-json"))
++            }
++            assertThrows(Exception::class.java) {
++                CloudBackupEnvelope.parse(JSONObject(envelope(original))
++                    .put("youtubeProjectLinks", JSONObject.NULL).toString())
++            }
++            assertThrows(Exception::class.java) {
++                CloudBackupEnvelope.parse(envelope(original, "[]"))
++            }
++            val tampered = JSONObject(original).put("createdAtMillis", -1L).toString()
++            val parsed = CloudBackupEnvelope.parse(envelope(tampered))
++            assertThrows(IllegalArgumentException::class.java) {
++                manager.attachLegacyYoutubeData(parsed.localBackup,
++                    parsed.youtubeProjectLinks, parsed.youtubeMilestones)
++            }
++            assertEquals(before, links.getString("video_project_links", "{}"))
++        } finally {
++            CreatorDataGate.nonCancellable { manager.restore(original) }
++        }
++    }
++}
+diff --git a/app/src/main/java/com/framebynavin/app/cloud/CloudBackupEnvelope.kt b/app/src/main/java/com/framebynavin/app/cloud/CloudBackupEnvelope.kt
+new file mode 100644
+index 0000000..d9bf633
+--- /dev/null
++++ b/app/src/main/java/com/framebynavin/app/cloud/CloudBackupEnvelope.kt
+@@ -0,0 +1,33 @@
++package com.framebynavin.app.cloud
++
++import org.json.JSONObject
++
++/** Preserves the distinction between absent legacy metadata and an explicitly empty value. */
++internal object CloudBackupEnvelope {
++    data class Parsed(
++        val localBackup: String,
++        val youtubeProjectLinks: String?,
++        val youtubeMilestones: String?,
++    )
++
++    fun parse(raw: String): Parsed {
++        val root = JSONObject(raw)
++        require(root.optString("format") == CloudConfig.CLOUD_FORMAT) { "Not a FrameByNavin cloud backup" }
++        require(root.optInt("schemaVersion", -1) in 1..CloudConfig.CLOUD_SCHEMA_VERSION) {
++            "Unsupported cloud backup version"
++        }
++        return Parsed(
++            localBackup = root.getString("localBackup"),
++            youtubeProjectLinks = optionalObject(root, "youtubeProjectLinks"),
++            youtubeMilestones = optionalObject(root, "youtubeMilestones"),
++        )
++    }
++
++    private fun optionalObject(root: JSONObject, key: String): String? {
++        if (!root.has(key)) return null
++        // JSON null, malformed JSON and non-object values are invalid, not omissions.
++        val value = root.getString(key)
++        JSONObject(value)
++        return value
++    }
++}
+diff --git a/app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt b/app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt
+index 90baaeb..f81d4e1 100644
+--- a/app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt
++++ b/app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt
+@@ -276,13 +276,11 @@ class CloudSyncManager(context: Context) {
+     }
+ 
+     private suspend fun restorePayload(raw: String) {
+-        val root = JSONObject(raw)
+-        require(root.optString("format") == CloudConfig.CLOUD_FORMAT) { "Not a FrameByNavin cloud backup" }
+-        require(root.optInt("schemaVersion", -1) in 1..CloudConfig.CLOUD_SCHEMA_VERSION) { "Unsupported cloud backup version" }
++        val envelope = CloudBackupEnvelope.parse(raw)
+         val restored = backup.attachLegacyYoutubeData(
+-            root.getString("localBackup"),
+-            root.optString("youtubeProjectLinks", "{}"),
+-            root.optString("youtubeMilestones", "{}"),
++            envelope.localBackup,
++            envelope.youtubeProjectLinks,
++            envelope.youtubeMilestones,
+         )
+         backup.restore(restored)
+         CreatorWidgetUpdater.updateAll(app, TaskStore(app).load())
+diff --git a/app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt b/app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+index e007140..daf3572 100644
+--- a/app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
++++ b/app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+@@ -310,17 +310,17 @@ class CreatorBackupManager(private val context: Context) {
+     }
+ 
+     /** Upgrade an already validated legacy snapshot while preserving its original checksum check. */
+-    fun attachLegacyYoutubeData(raw: String, links: String, milestones: String): String {
++    fun attachLegacyYoutubeData(raw: String, links: String?, milestones: String?): String {
+         validate(raw)
+-        JSONObject(links)
+-        JSONObject(milestones)
++        links?.let { JSONObject(it) }
++        milestones?.let { JSONObject(it) }
+         val root = JSONObject(raw)
+         if (root.optInt("schemaVersion") >= 4) return raw
+         // Keep the original schema: adding external metadata cannot turn a partial
+         // historical snapshot into a complete current-schema backup.
+         val schema = root.getInt("schemaVersion")
+-        if (!root.has("youtubeProjectLinks")) root.put("youtubeProjectLinks", links)
+-        if (!root.has("youtubeMilestones")) root.put("youtubeMilestones", milestones)
++        if (!root.has("youtubeProjectLinks") && links != null) root.put("youtubeProjectLinks", links)
++        if (!root.has("youtubeMilestones") && milestones != null) root.put("youtubeMilestones", milestones)
+         if (schema >= 3) root.put("payloadSha256", sha256(fingerprint(root, schema)))
+         return root.toString().also(::validate)
+     }
