@@ -1,0 +1,158 @@
+name: FrameByNavin v1.8.3 Account Lifecycle
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/v1.8.3-account-lifecycle
+    paths:
+      - '.github/workflows/v183-account-lifecycle.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: framebynavin-v183-account-lifecycle
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: ${{ github.repository == 'rayadinaveen98-ship-it/framebynavin-android' && github.event.repository.private == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout canonical source candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Apply one-time reviewed source update
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p foundation/v183/verification
+          python3 - <<'PY'
+          import hashlib, lzma, pathlib
+          compressed = pathlib.Path('foundation/v183/account-lifecycle.patch.xz').read_bytes()
+          assert hashlib.sha256(compressed).hexdigest() == '2a8ce60d135b3eab96a0223517c7df72e8aedd75f09232a9b6c51786f20d8799', 'Compressed source update mismatch'
+          patch = lzma.decompress(compressed)
+          assert hashlib.sha256(patch).hexdigest() == '72f9168918d393d939742e9a448c99f4c478dabb41a931efd20d05d7bb0f2ba4', 'Source update mismatch'
+          pathlib.Path('foundation/v183/verification/account-lifecycle.patch').write_bytes(patch)
+          PY
+          git apply --check foundation/v183/verification/account-lifecycle.patch
+          git apply foundation/v183/verification/account-lifecycle.patch
+          git diff --check
+          grep -Fq 'versionCode = 66' app/build.gradle.kts
+          grep -Fq 'versionName = "1.8.3-foundation-rc1"' app/build.gradle.kts
+          test -f app/src/main/java/com/framebynavin/app/cloud/CloudAccountGate.kt
+          test -f app/src/test/java/com/framebynavin/app/cloud/CloudAccountGateTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/cloud/CloudLocalStoreV183Test.kt
+          git add app/build.gradle.kts app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt app/src/test/java/com/framebynavin/app/cloud/CloudAccountGateTest.kt app/src/androidTest/java/com/framebynavin/app/cloud/CloudLocalStoreV183Test.kt
+          git diff --cached --check
+          git diff --cached --name-only | sort | tee foundation/v183/verification/changed-files.txt
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Build candidate APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Verify version and pilot signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee foundation/v183/verification/apk-signature.txt
+          grep -Fqi 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' foundation/v183/verification/apk-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.framebynavin.app' versionCode='66' versionName='1.8.3-foundation-rc1'"
+          sha256sum "$APK" | tee foundation/v183/verification/apk.sha256
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run Android emulator regression suite
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash hardening/rc2/run_emulator_tests.sh
+      - name: Commit verified canonical source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c user.name='FrameByNavin Build' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: serialize account lifecycle and reject stale token refreshes'
+          git push origin HEAD:refs/heads/fix/v1.8.3-account-lifecycle
+          git rev-parse HEAD | tee foundation/v183/verification/source-commit.txt
+      - name: Archive verified candidate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git archive --format=tar.gz --output foundation/v183/FrameByNavin-v1.8.3-foundation-rc1-source.tar.gz HEAD app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          sha256sum foundation/v183/FrameByNavin-v1.8.3-foundation-rc1-source.tar.gz | tee foundation/v183/verification/source.sha256
+          python3 - <<'PY'
+          import hashlib, json, pathlib, subprocess
+          root = pathlib.Path('foundation/v183')
+          def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+          manifest = {
+              'status': 'internal foundation candidate; not a public release',
+              'versionName': '1.8.3-foundation-rc1', 'versionCode': 66,
+              'canonical_base': '33091720e6c32dff870031ad50b0d44425357460',
+              'source_commit': subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
+              'source_sha256': sha(root/'FrameByNavin-v1.8.3-foundation-rc1-source.tar.gz'),
+              'apk_sha256': sha(pathlib.Path('app/build/outputs/apk/debug/app-debug.apk')),
+              'signing_certificate_sha256': 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0',
+              'scope': 'Account lifecycle, token refresh and regression tests; no database schema or creator-data migration.'
+          }
+          (root/'verification/manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
+          PY
+      - name: Upload candidate APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc1-candidate
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            foundation/v183/verification/apk.sha256
+            foundation/v183/verification/apk-signature.txt
+      - name: Upload candidate source
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc1-source
+          path: |
+            foundation/v183/FrameByNavin-v1.8.3-foundation-rc1-source.tar.gz
+            foundation/v183/verification/manifest.json
+            foundation/v183/verification/source.sha256
+            foundation/v183/verification/source-commit.txt
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc1-diagnostics
+          if-no-files-found: ignore
+          path: |
+            foundation/v183/verification/
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
+            app/build/outputs/androidTest-results/
+            app/build/reports/androidTests/
+            hardening/diagnostics/
