@@ -26,6 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: true
+          fetch-depth: 0
       - name: Verify complete source payload before Android setup
         run: python3 foundation/v183/apply_backup_safety.py --verify-payload
       - name: Set up JDK 17
