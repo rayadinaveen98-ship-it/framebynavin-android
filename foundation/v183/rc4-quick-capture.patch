@@ -1,0 +1,198 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 823449c..b51b925 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -21,8 +21,8 @@ android {
+         applicationId = "com.framebynavin.app"
+         minSdk = 26
+         targetSdk = 35
+-        versionCode = 68
+-        versionName = "1.8.3-foundation-rc3"
++        versionCode = 69
++        versionName = "1.8.3-foundation-rc4"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+diff --git a/app/src/androidTest/java/com/framebynavin/app/data/CreatorQuickCaptureWriterV183Test.kt b/app/src/androidTest/java/com/framebynavin/app/data/CreatorQuickCaptureWriterV183Test.kt
+new file mode 100644
+index 0000000..0c853ba
+--- /dev/null
++++ b/app/src/androidTest/java/com/framebynavin/app/data/CreatorQuickCaptureWriterV183Test.kt
+@@ -0,0 +1,86 @@
++package com.framebynavin.app.data
++
++import androidx.test.ext.junit.runners.AndroidJUnit4
++import androidx.test.platform.app.InstrumentationRegistry
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.NonCancellable
++import kotlinx.coroutines.async
++import kotlinx.coroutines.runBlocking
++import kotlinx.coroutines.withContext
++import kotlinx.coroutines.withTimeout
++import org.junit.Assert.*
++import org.junit.Test
++import org.junit.runner.RunWith
++import java.util.UUID
++
++@RunWith(AndroidJUnit4::class)
++class CreatorQuickCaptureWriterV183Test {
++    @Test fun concurrentCapturesPreserveExistingAndBothNewIdeas(): Unit = runBlocking {
++        HardeningTestEnvironment.requireCiEmulator()
++        val context = InstrumentationRegistry.getInstrumentation().targetContext
++        val manager = CreatorBackupManager(context)
++        val original = manager.createBackup()
++        val store = IdeaVaultStore(context)
++        try {
++            val existing = CreatorIdea(id = UUID.randomUUID().toString(), title = "Existing research")
++            store.mutate { listOf(existing) + it }
++            val epoch = CreatorDataGate.generation(context)
++            val first = CreatorIdea(id = UUID.randomUUID().toString(), title = "First capture")
++            val second = CreatorIdea(id = UUID.randomUUID().toString(), title = "Second capture")
++            withTimeout(15_000) {
++                val a = async(Dispatchers.Default) { store.capture(first, epoch) }
++                val b = async(Dispatchers.Default) { store.capture(second, epoch) }
++                a.await(); b.await()
++            }
++            val latest = store.load()
++            assertEquals(existing, latest.first { it.id == existing.id })
++            assertEquals(first, latest.first { it.id == first.id })
++            assertEquals(second, latest.first { it.id == second.id })
++            assertEquals(3, latest.count { it.id in setOf(existing.id, first.id, second.id) })
++        } finally {
++            withContext(NonCancellable) { manager.restore(original) }
++        }
++    }
++
++    @Test fun staleCaptureCannotReplayAfterRestore(): Unit = runBlocking {
++        HardeningTestEnvironment.requireCiEmulator()
++        val context = InstrumentationRegistry.getInstrumentation().targetContext
++        val manager = CreatorBackupManager(context)
++        val original = manager.createBackup()
++        val store = IdeaVaultStore(context)
++        try {
++            val existing = CreatorIdea(id = UUID.randomUUID().toString(), title = "Restore baseline")
++            store.mutate { listOf(existing) + it }
++            val checkpoint = manager.createBackup()
++            val oldEpoch = CreatorDataGate.generation(context)
++            store.mutate { current -> current.map { if (it.id == existing.id) it.copy(title = "Newer edit") else it } }
++            manager.restore(checkpoint)
++            val stale = CreatorIdea(id = UUID.randomUUID().toString(), title = "Queued before restore")
++            val failure = runCatching { store.capture(stale, oldEpoch) }.exceptionOrNull()
++            assertTrue(failure is CreatorWriteConflict)
++            assertEquals("Restore baseline", store.load().first { it.id == existing.id }.title)
++            assertFalse(store.load().any { it.id == stale.id })
++        } finally {
++            withContext(NonCancellable) { manager.restore(original) }
++        }
++    }
++
++    @Test fun duplicateCaptureCannotReplaceAnExistingIdea(): Unit = runBlocking {
++        HardeningTestEnvironment.requireCiEmulator()
++        val context = InstrumentationRegistry.getInstrumentation().targetContext
++        val manager = CreatorBackupManager(context)
++        val original = manager.createBackup()
++        val store = IdeaVaultStore(context)
++        try {
++            val existing = CreatorIdea(id = UUID.randomUUID().toString(), title = "Original title")
++            store.mutate { listOf(existing) + it }
++            val failure = runCatching {
++                store.capture(existing.copy(title = "Overwrite attempt"), CreatorDataGate.generation(context))
++            }.exceptionOrNull()
++            assertTrue(failure is CreatorWriteConflict)
++            assertEquals(existing, store.load().first { it.id == existing.id })
++        } finally {
++            withContext(NonCancellable) { manager.restore(original) }
++        }
++    }
++}
+diff --git a/app/src/main/java/com/framebynavin/app/data/IdeaVaultStore.kt b/app/src/main/java/com/framebynavin/app/data/IdeaVaultStore.kt
+index c42fcea..7d6b4d9 100644
+--- a/app/src/main/java/com/framebynavin/app/data/IdeaVaultStore.kt
++++ b/app/src/main/java/com/framebynavin/app/data/IdeaVaultStore.kt
+@@ -56,6 +56,25 @@ class IdeaVaultStore(private val context: Context) {
+         }
+     }
+ 
++    /** Append a quick capture against the latest vault, never a previously loaded list.
++     * The caller captures the epoch before queuing work so a restore cannot replay an old edit.
++     */
++    suspend fun capture(idea: CreatorIdea, expectedGeneration: Long): CreatorIdea =
++        CreatorDataGate.readyTransaction(context) {
++            CreatorDataGate.checkGeneration(context, expectedGeneration)
++            val normalized = idea.copy(title = idea.title.trim())
++            require(normalized.id.isNotBlank() && normalized.title.isNotBlank()) {
++                "An idea needs an id and title"
++            }
++            mutate { current ->
++                if (current.any { it.id == normalized.id }) {
++                    throw CreatorWriteConflict("This idea was already saved. Review the latest vault before retrying.")
++                }
++                listOf(normalized) + current
++            }
++            normalized
++        }
++
+     suspend fun applyDelta(base: List<CreatorIdea>, desired: List<CreatorIdea>, expectedGeneration: Long): List<CreatorIdea> = CreatorDataGate.transaction {
+         mutationMutex.withLock {
+             if (CreatorDataGate.generation(context) != expectedGeneration)
+diff --git a/app/src/main/java/com/framebynavin/app/widget/QuickIdeaActivity.kt b/app/src/main/java/com/framebynavin/app/widget/QuickIdeaActivity.kt
+index c06414c..14ab7c9 100644
+--- a/app/src/main/java/com/framebynavin/app/widget/QuickIdeaActivity.kt
++++ b/app/src/main/java/com/framebynavin/app/widget/QuickIdeaActivity.kt
+@@ -20,8 +20,11 @@ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import com.framebynavin.app.data.CreatorIdea
++import com.framebynavin.app.data.CreatorDataGate
++import com.framebynavin.app.data.CreatorWriteConflict
+ import com.framebynavin.app.data.IdeaVaultStore
+ import com.framebynavin.app.ui.theme.*
++import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+@@ -46,6 +49,7 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
+     val store = remember { IdeaVaultStore(context.applicationContext) }
+     var title by rememberSaveable { mutableStateOf("") }
+     var saving by remember { mutableStateOf(false) }
++    var saveError by remember { mutableStateOf<String?>(null) }
+ 
+     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+         Column(
+@@ -85,25 +89,29 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
+                 shape = RoundedCornerShape(18.dp),
+             )
+ 
++            saveError?.let { error ->
++                Text(error, color = RecRed, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
++            }
+             Spacer(Modifier.weight(1f))
+             Button(
+                 onClick = {
+                     val clean = title.trim()
+                     if (clean.isBlank() || saving) return@Button
+                     saving = true
++                    saveError = null
++                    val epoch = CreatorDataGate.generation(context.applicationContext)
++                    val idea = CreatorIdea(id = UUID.randomUUID().toString(), title = clean)
+                     scope.launch {
+                         runCatching {
+-                            withContext(Dispatchers.IO) {
+-                                val current = store.load()
+-                                val idea = CreatorIdea(id = UUID.randomUUID().toString(), title = clean)
+-                                store.save(listOf(idea) + current)
+-                            }
++                            withContext(Dispatchers.IO) { store.capture(idea, epoch) }
+                         }.onSuccess {
+                             Toast.makeText(context, "Saved to Idea Vault", Toast.LENGTH_SHORT).show()
+                             onClose()
+-                        }.onFailure {
++                        }.onFailure { error ->
++                            if (error is CancellationException) throw error
+                             saving = false
+-                            Toast.makeText(context, "Couldn't save idea", Toast.LENGTH_SHORT).show()
++                            saveError = if (error is CreatorWriteConflict) error.message
++                                else "Couldn't save idea. Your draft is still here. Try again."
+                         }
+                     }
+                 },
