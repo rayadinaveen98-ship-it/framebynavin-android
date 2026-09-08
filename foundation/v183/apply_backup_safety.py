@@ -25,6 +25,7 @@ CHUNKS = (
 COMPRESSED_SHA = "fa52b06e10c612a6315909ef04bc8e4ba13a7acd7a791e88b4316d7086b7bfaf"
 PATCH_SHA = "0f2feb64ebae6ac90f515a2fe219f1a66b9a0cafcd8a59d6051f0197358e1a42"
 EXPECTED_BASE = "d533d5d28d8808b36e174b956104ef123bc6cd64"
+SOURCE_PATHS = ("app/src", "app/build.gradle.kts", "build.gradle.kts", "settings.gradle.kts", "gradle.properties")
 
 
 def verified(data: bytes, expected: str, label: str) -> bytes:
@@ -42,8 +43,7 @@ def load_patch() -> bytes:
         if len(text) != length:
             raise RuntimeError(f"Invalid payload segment {name} length: {len(text)}")
         chunks.append(verified(text.encode("ascii"), expected, f"Segment {name}").decode("ascii"))
-    encoded = "".join(chunks)
-    compressed = verified(base64.b64decode(encoded, validate=True), COMPRESSED_SHA, "Compressed backup patch")
+    compressed = verified(base64.b64decode("".join(chunks), validate=True), COMPRESSED_SHA, "Compressed backup patch")
     if len(compressed) != 5520:
         raise RuntimeError("Unexpected compressed patch size")
     return verified(lzma.decompress(compressed), PATCH_SHA, "Backup source patch")
@@ -57,8 +57,9 @@ def main():
     if args.verify_payload:
         print("Complete backup-safety payload verified")
         return
-    if subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip() not in (EXPECTED_BASE,):
-        raise RuntimeError("Unexpected source baseline; refusing to apply backup patch")
+    subprocess.run(["git", "merge-base", "--is-ancestor", EXPECTED_BASE, "HEAD"], cwd=ROOT, check=True)
+    subprocess.run(["git", "diff", "--exit-code", EXPECTED_BASE, "HEAD", "--", *SOURCE_PATHS], cwd=ROOT, check=True)
+    subprocess.run(["git", "diff", "--exit-code", "--", *SOURCE_PATHS], cwd=ROOT, check=True)
     patch_path = PARTS / "backup-safety.patch"
     patch_path.write_bytes(patch)
     subprocess.run(["git", "apply", "--check", str(patch_path)], cwd=ROOT, check=True)
