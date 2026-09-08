@@ -73,6 +73,15 @@ def main():
     if ledger.count(old) != 1 or new in ledger:
         raise RuntimeError("Unexpected alarm-ledger source; refusing compatibility correction")
     ledger_path.write_text(ledger.replace(old, new, 1))
+    # AndroidJUnit4 requires every @Test method to return void. The final
+    # assertThrows expression otherwise infers an exception as the return type.
+    test_path = ROOT / "app/src/androidTest/java/com/framebynavin/app/data/CreatorBackupV183Test.kt"
+    tests = test_path.read_text()
+    old = '    @Test fun currentManifestIsCompleteAndTamperingFailsClosed() = runBlocking {'
+    new = '    @Test fun currentManifestIsCompleteAndTamperingFailsClosed(): Unit = runBlocking {'
+    if tests.count(old) != 1 or new in tests:
+        raise RuntimeError("Unexpected backup test source; refusing return-type correction")
+    test_path.write_text(tests.replace(old, new, 1))
     subprocess.run(["git", "diff", "--check"], cwd=ROOT, check=True)
     gradle = (ROOT / "app/build.gradle.kts").read_text()
     if 'versionCode = 66' not in gradle or 'versionName = "1.8.3-foundation-rc2"' not in gradle:
