@@ -1,0 +1,105 @@
+name: FrameByNavin RC8b PostgreSQL 17 Acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/v183-rc8b-pg17-acceptance]
+    paths:
+      - .github/workflows/v183-rc8b-pg17-acceptance.yml
+      - backend/migrations/20260909000000_creator_deletion_barrier.sql
+      - backend/tests/rc8b_acceptance.py
+      - backend/tests/build_isolated_test*.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rc8b-pg17-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  isolated-postgres-17:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_DB: rc8_synthetic
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: rc8-disposable-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rc8_synthetic"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      CI: 'true'
+      PGHOST: '127.0.0.1'
+      PGPORT: '5432'
+      PGDATABASE: rc8_synthetic
+      PGUSER: postgres
+      PGPASSWORD: rc8-disposable-ci-only
+    steps:
+      - name: Checkout immutable backend lineage
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source and reconstruct reviewed fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 562fdfdc7ce48bdc7dfb905e077c21867dcab542 HEAD
+          echo '61425ebedad2ff4eaaf85b0c58dbe2382e0c35360f9b2416ab207c35139be45a  backend/migrations/20260909000000_creator_deletion_barrier.sql' | sha256sum -c -
+          echo '8de1dc5b0cfcf97c06f35390af012e6006e199903859143b61869715f3a502a9  backend/tests/rc8b_acceptance.py' | sha256sum -c -
+          mkdir -p /tmp/rc8b-core/backend/{migrations,tests}
+          git show c52cafd1deeaa6957bdd376bc9617fa49d5a0b60:backend/migrations/20260909000000_creator_deletion_barrier.sql > /tmp/rc8b-core/backend/migrations/20260909000000_creator_deletion_barrier.sql
+          cp backend/tests/build_isolated_test.py backend/tests/build_isolated_test_v2.py backend/tests/build_isolated_test_v3.py /tmp/rc8b-core/backend/tests/
+          python3 /tmp/rc8b-core/backend/tests/build_isolated_test_v3.py
+          cp /tmp/rc8b-core/backend/tests/isolated_acceptance_v3.sql backend/tests/
+          echo '8471413e65a1507b51b78e713276635c611e0732a692a21d6fec0f04265ba18c  backend/tests/isolated_acceptance_v3.sql' | sha256sum -c -
+          python3 -m py_compile backend/tests/rc8b_acceptance.py
+          git diff --check
+      - name: Execute exact-source lifecycle and concurrency acceptance
+        shell: bash
+        env:
+          RC8B_PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc8b-tools /tmp/rc8b-evidence
+          cat > /tmp/rc8b-tools/psql <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec docker exec -i "$RC8B_PG_CONTAINER" env \
+            PGHOST=127.0.0.1 PGPORT=5432 PGDATABASE=rc8_synthetic \
+            PGUSER=postgres PGPASSWORD=rc8-disposable-ci-only \
+            /usr/lib/postgresql/17/bin/psql "$@"
+          SH
+          chmod +x /tmp/rc8b-tools/psql
+          export PATH="/tmp/rc8b-tools:$PATH"
+          docker exec "$RC8B_PG_CONTAINER" postgres --version | tee /tmp/rc8b-evidence/postgres-version.txt
+          python3 backend/tests/rc8b_acceptance.py 2>&1 | tee /tmp/rc8b-evidence/acceptance.log
+          grep -q '"rc8b": "passed"' /tmp/rc8b-evidence/acceptance.log
+          printf '%s\n' 'The disposable SQL suite passed. Managed Supabase Auth/HTTP and production rollout remain separate gates.'
+      - name: Archive source provenance and test evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rc8b-evidence
+          printf '%s\n' \
+            "workflow_head=$GITHUB_SHA" \
+            'backend_source=562fdfdc7ce48bdc7dfb905e077c21867dcab542' \
+            'android_source=27e16f42ecff0896037154dfdb1d93d5a7ce3a34' \
+            'migration_sha256=61425ebedad2ff4eaaf85b0c58dbe2382e0c35360f9b2416ab207c35139be45a' \
+            'environment=disposable-postgresql-17' \
+            'managed_supabase_http=not_tested' \
+            'production_changes=none' > /tmp/rc8b-evidence/manifest.txt
+          sha256sum backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/rc8b_acceptance.py > /tmp/rc8b-evidence/source-sha256.txt
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v183-rc8b-pg17-verification
+          path: /tmp/rc8b-evidence/
+          if-no-files-found: error
