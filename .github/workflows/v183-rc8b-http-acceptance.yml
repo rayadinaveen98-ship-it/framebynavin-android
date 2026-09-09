@@ -63,6 +63,11 @@ jobs:
                   target.write_bytes(data)
           print('PASS: immutable RC8b source, archive integrity, and Python syntax')
           PY
+          echo '18b0474555c251bb7c2d23fba23090c624a475fd973085da6168447aa47043f0  backend/tests/http/rc8b-harness-optional-token.patch' | sha256sum -c -
+          git apply --check backend/tests/http/rc8b-harness-optional-token.patch
+          git apply backend/tests/http/rc8b-harness-optional-token.patch
+          echo '4a272438206c424627b32b0b27bbeafbab66c458985edad319ead9f843b0957a  backend/tests/http/rc8b_http_acceptance.py' | sha256sum -c -
+          python3 -m py_compile backend/tests/http/rc8b_http_acceptance.py
           git diff --check
       - name: Start disposable local Supabase
         shell: bash
@@ -82,7 +87,6 @@ jobs:
           text, count = re.subn(r'(?m)^(\[db\]\s*\n)', r'\1major_version = 17\n', text, count=1) if 'major_version' not in text else (text, 1)
           assert count == 1
           text = re.sub(r'(?m)^major_version\s*=\s*\d+', 'major_version = 17', text)
-          # The isolated fixture uses immediate local email sessions; no SMTP or real emails.
           text = re.sub(r'(?m)^(\[auth\.email\]\s*\n)', r'\1enable_confirmations = false\n', text, count=1) if 'enable_confirmations' not in text else text
           text = re.sub(r'(?m)^enable_confirmations\s*=\s*(true|false)', 'enable_confirmations = false', text)
           config = tomllib.loads(text)
@@ -153,7 +157,7 @@ jobs:
           import hashlib,json,os,pathlib
           root=pathlib.Path(os.environ['GITHUB_WORKSPACE'])
           folder=pathlib.Path(os.environ['RUNNER_TEMP'])/'rc8b-http-evidence'
-          files=['backend/migrations/20260909000000_creator_deletion_barrier.sql','backend/tests/http/rc8b-http-source.tar.gz','backend/tests/http/rc8b-http-source-sha256.json']
+          files=['backend/migrations/20260909000000_creator_deletion_barrier.sql','backend/tests/http/rc8b-http-source.tar.gz','backend/tests/http/rc8b-http-source-sha256.json','backend/tests/http/rc8b-harness-optional-token.patch']
           hashes={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in files}
           manifest={'workflow_head':os.environ['GITHUB_SHA'],'backend_source':'562fdfdc7ce48bdc7dfb905e077c21867dcab542','android_source':'27e16f42ecff0896037154dfdb1d93d5a7ce3a34','environment':'disposable-local-supabase','managed_supabase_http':'not_tested','production_changes':False,'source_sha256':hashes}
           (folder/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
