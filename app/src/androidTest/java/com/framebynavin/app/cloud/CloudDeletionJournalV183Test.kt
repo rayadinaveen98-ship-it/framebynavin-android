@@ -41,10 +41,12 @@ class CloudDeletionJournalV183Test {
 
     @Test fun pendingDeletionSurvivesSignOutAndReauthentication() {
         store.saveSession(session(owner))
-        store.begin(owner)
+        store.saveLifecycle(owner, CloudLifecycleState("active", 0))
+        store.begin(owner, 0)
         assertTrue(store.settings().deletionPending)
         val otherStore = CloudLocalStore(context)
         assertEquals(owner, otherStore.pendingUserId())
+        assertEquals(0L, otherStore.pendingGeneration())
         assertThrows(CloudDeletionPending::class.java) { otherStore.requireWritable(owner) }
         assertTrue(otherStore.approveUser(owner)) // approval alone never bypasses the journal
         assertTrue(otherStore.needsReconciliation())
@@ -59,14 +61,15 @@ class CloudDeletionJournalV183Test {
     }
 
     @Test fun ownerCheckPreventsCrossAccountDeletionAndMarkerLoss() {
-        store.begin(owner)
-        assertThrows(CloudDeletionPending::class.java) { store.begin(other) }
+        store.begin(owner, 0)
+        assertThrows(CloudDeletionPending::class.java) { store.begin(other, 0) }
         assertThrows(IllegalStateException::class.java) { store.clear(other) }
         store.saveSession(session(other))
         assertFalse(store.settings().deletionPending)
+        store.saveLifecycle(other, CloudLifecycleState("active", 0))
         store.requireWritable(other)
         assertEquals(owner, store.pendingUserId())
-        assertThrows(CloudDeletionPending::class.java) { store.begin(other) }
+        assertThrows(CloudDeletionPending::class.java) { store.begin(other, 0) }
         store.saveSession(session(owner))
         assertTrue(store.settings().deletionPending)
         store.abandonDeletion(owner)
@@ -74,11 +77,37 @@ class CloudDeletionJournalV183Test {
         assertTrue(store.needsReconciliation())
     }
 
+    @Test fun staleAndUnknownLifecycleNeverAuthorizeWrites() {
+        store.saveSession(session(owner))
+        assertThrows(CloudLifecycleChanged::class.java) { store.requireWritable(owner) }
+        store.saveLifecycle(owner, CloudLifecycleState("active", 0))
+        store.requireWritable(owner)
+        assertTrue(store.approveUser(owner))
+        store.saveLifecycle(owner, CloudLifecycleState("deleted", 1))
+        assertTrue(store.needsReconciliation())
+        assertThrows(CloudLifecycleChanged::class.java) { store.requireWritable(owner) }
+        store.saveLifecycle(owner, CloudLifecycleState("active", 2))
+        assertTrue(store.needsReconciliation())
+        store.requireWritable(owner)
+        assertNull(store.lifecycleState(other))
+    }
+
+    @Test fun legacyPendingJournalCannotBeSilentlyUpgraded() {
+        val prefs = context.getSharedPreferences("creator_cloud_v13", Context.MODE_PRIVATE)
+        check(prefs.edit().putString("pending_cloud_deletion_v183", owner).commit())
+        assertEquals(owner, store.pendingUserId())
+        assertNull(store.pendingGeneration())
+        assertThrows(CloudDeletionPending::class.java) { store.begin(owner, 0) }
+        store.abandonDeletion(owner)
+        assertNull(store.pendingUserId())
+    }
+
     @Test fun portableBackupDoesNotContainDeletionJournal() = kotlinx.coroutines.runBlocking {
         // The isolation wrapper makes the journal synthetic; no real backup data is changed.
-        store.begin(owner)
+        store.begin(owner, 0)
         val raw = com.framebynavin.app.data.CreatorBackupManager(context).createBackup()
         assertFalse(raw.contains("pending_cloud_deletion_v183"))
+        assertFalse(raw.contains("cloud_lifecycle_v183"))
         assertEquals(owner, store.pendingUserId())
     }
 }

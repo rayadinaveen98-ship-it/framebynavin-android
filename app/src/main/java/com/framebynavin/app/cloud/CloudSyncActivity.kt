@@ -61,6 +61,7 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var restoreTarget by remember { mutableStateOf<CloudRestorePoint?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmResume by remember { mutableStateOf(false) }
     var confirmAbandonDeletion by remember { mutableStateOf(false) }
     var confirmKeepLocal by remember { mutableStateOf(false) }
 
@@ -258,6 +259,23 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                         }
                     }
                     Spacer(Modifier.height(12.dp))
+                } else if (state.settings.lifecyclePhase != "active") {
+                    CloudCard {
+                        Text("CLOUD HISTORY IS ${if (state.settings.lifecyclePhase == "deleted") "DELETED" else "UNVERIFIED"}", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Your phone remains the main copy. Cloud uploads are blocked until the server state is verified and you explicitly review the starting copy.", color = ProjectorIvory, fontSize = 14.sp, lineHeight = 20.sp)
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(onClick = { runOperation { manager.refreshCloudStatus() } }, enabled = !busy) {
+                            Text("REFRESH CLOUD STATUS", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        if (state.settings.lifecyclePhase == "deleted") {
+                            Spacer(Modifier.height(8.dp))
+                            TextButton(onClick = { confirmResume = true }, enabled = !busy) {
+                                Text("START NEW EMPTY CLOUD HISTORY", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                 } else if (state.settings.reconciliationRequired) {
                     CloudCard {
                         Text("CHOOSE YOUR STARTING COPY", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black)
@@ -289,7 +307,7 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                     Spacer(Modifier.height(12.dp))
                     Button(
                         onClick = { runOperation { manager.syncNow(force = true) } },
-                        enabled = !busy && !state.settings.reconciliationRequired,
+                        enabled = !busy && !state.settings.reconciliationRequired && state.settings.lifecyclePhase == "active",
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(13.dp),
@@ -316,7 +334,9 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                 Text("ACCOUNT & DATA", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.height(8.dp))
                 CloudCard {
-                    CloudActionRow(Icons.Outlined.DeleteOutline, if (state.settings.deletionPending) "Retry cloud creator-data deletion" else "Delete cloud creator data", "Deletes remote backups, profile and device records; keeps your phone and sign-in account") { confirmDelete = true }
+                    CloudActionRow(Icons.Outlined.Info, "Refresh cloud status", "Check the server before reviewing deletion or starting a new history") { runOperation { manager.refreshCloudStatus() } }
+                    HorizontalDivider(color = CinemaLine, modifier = Modifier.padding(vertical = 9.dp))
+                    CloudActionRow(Icons.Outlined.DeleteOutline, if (state.settings.deletionPending) "Retry cloud creator-data deletion" else "Delete cloud creator data", "Atomically deletes remote creator records and blocks old devices from recreating them; keeps your phone and sign-in account") { confirmDelete = true }
                     HorizontalDivider(color = CinemaLine, modifier = Modifier.padding(vertical = 9.dp))
                     CloudActionRow(Icons.Outlined.Logout, "Sign out", "Phone data stays; backup approval is cleared") { signOut() }
                 }
@@ -368,6 +388,17 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
             text = { Text("This does not undo already-deleted records or claim that deletion completed. After checking this account's backup history, the pending retry is cleared. Some remote records may remain. Uploads stay off until you explicitly review the starting copy again.", color = MutedText, fontSize = 14.sp) },
             confirmButton = { TextButton(onClick = { confirmAbandonDeletion = false; runOperation { manager.abandonCloudDeletion() } }) { Text("STOP RETRYING", color = RecRed, fontWeight = FontWeight.Black) } },
             dismissButton = { TextButton(onClick = { confirmAbandonDeletion = false }) { Text("KEEP RETRY", color = MutedText) } },
+        )
+    }
+
+    if (confirmResume) {
+        AlertDialog(
+            onDismissRequest = { confirmResume = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Start a new empty cloud history?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            text = { Text("This explicitly reactivates cloud storage for this account. It does not recover deleted backups or merge another phone's edits. Your local data remains unchanged. Uploads stay off until you review the starting copy and create a manual backup. An old deletion request cannot be replayed into the new generation.", color = MutedText, fontSize = 14.sp) },
+            confirmButton = { TextButton(onClick = { confirmResume = false; runOperation { manager.resumeCloudData() } }) { Text("START NEW HISTORY", color = RecRed, fontWeight = FontWeight.Black) } },
+            dismissButton = { TextButton(onClick = { confirmResume = false }) { Text("CANCEL", color = MutedText) } },
         )
     }
 

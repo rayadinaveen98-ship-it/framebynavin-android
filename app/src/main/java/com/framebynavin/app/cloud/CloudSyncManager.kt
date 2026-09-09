@@ -72,18 +72,24 @@ class CloudSyncManager(context: Context) {
             runCatching {
                 val session = api.signInWithGoogle(idToken)
                 require(session.userId.isNotBlank()) { "Account identity missing" }
-                if (!local.deletionPendingFor(session.userId)) api.upsertProfile(session)
-                val profile = api.fetchCreatorProfile(session)
+                val lifecycle = api.cloudStatus(session)
+                accountGate.requireCurrent(epoch, local.generation())
+                local.saveLifecycle(session.userId, lifecycle)
+                val writable = lifecycle.active && !local.deletionPendingFor(session.userId)
+                if (writable) api.upsertProfile(session, lifecycle.generation)
+                val profile = if (writable) api.fetchCreatorProfile(session) else null
                 require(profile == null || profile.userId == session.userId) { "Account profile mismatch" }
-                if (!local.deletionPendingFor(session.userId))
-                    api.upsertDevice(session, local.deviceKey(), deviceLabel(), BuildConfig.VERSION_NAME)
+                if (writable)
+                    api.upsertDevice(session, local.deviceKey(), deviceLabel(), BuildConfig.VERSION_NAME, lifecycle.generation)
                 val points = api.listRestorePoints(session)
                 accountGate.requireCurrent(epoch, local.generation())
                 check(local.clearApproval()) { "Could not clear cloud backup approval" }
                 local.saveSession(session)
                 local.clearCreatorProfile()
                 profile?.let(local::saveCreatorProfile)
-                if (local.deletionPendingFor(session.userId)) {
+                if (!lifecycle.active) {
+                    CloudOperationResult.Success("Account connected. Cloud creator data is deleted. Your phone data is safe. Review the account state before explicitly starting a new cloud history.")
+                } else if (local.deletionPendingFor(session.userId)) {
                     CloudOperationResult.Success("Cloud data deletion is unfinished. Retry it from Account & Data. Your phone data is safe and uploads remain blocked.")
                 } else if (points.isEmpty()) {
                     check(local.approveUser(session.userId)) { "Could not save cloud backup approval" }
@@ -104,7 +110,8 @@ class CloudSyncManager(context: Context) {
     suspend fun refreshCreatorProfile(): Result<CloudCreatorProfile?> = runCatching {
         currentAccount { epoch ->
             val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
-            val profile = api.fetchCreatorProfile(session)
+            val lifecycle = fetchLifecycle(session, epoch)
+            val profile = if (lifecycle.active) api.fetchCreatorProfile(session) else null
             accountGate.requireCurrent(epoch, local.generation())
             require(profile == null || profile.userId == session.userId) { "Account profile mismatch" }
             if (profile == null) local.clearCreatorProfile() else local.saveCreatorProfile(profile)
@@ -116,7 +123,8 @@ class CloudSyncManager(context: Context) {
         runCatching {
             val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
             local.requireWritable(session.userId)
-            val profile = api.claimCreatorUsername(session, username, displayName)
+            val lifecycle = requireActiveLifecycle(session, epoch)
+            val profile = api.claimCreatorUsername(session, username, displayName, lifecycle.generation)
             accountGate.requireCurrent(epoch, local.generation())
             require(profile.userId == session.userId) { "Account profile mismatch" }
             local.saveCreatorProfile(profile)
@@ -134,6 +142,7 @@ class CloudSyncManager(context: Context) {
         runCatching {
             val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
             local.requireWritable(session.userId)
+            requireActiveLifecycle(session, epoch)
             api.listRestorePoints(session) // Fail closed when the server cannot be inspected.
             accountGate.requireCurrent(epoch, local.generation())
             check(local.approveUser(session.userId)) { "Could not save cloud backup approval" }
@@ -153,7 +162,7 @@ class CloudSyncManager(context: Context) {
             runCatching {
                 val session = freshSession(current, epoch)
                 require(session.userId == current.userId) { "Account changed during backup" }
-                local.requireWritable(session.userId)
+                val lifecycle = requireActiveLifecycle(session, epoch)
                 val packageData = createCloudPayload()
                 val preview = backup.validate(packageData.localBackup)
                 val now = System.currentTimeMillis()
@@ -161,6 +170,8 @@ class CloudSyncManager(context: Context) {
                 val hash = sha256(packageData.payload)
                 accountGate.requireCurrent(epoch, local.generation())
                 local.requireWritable(session.userId)
+                // A new server epoch makes the prepared snapshot stale. Never silently retry it.
+                check(requireActiveLifecycle(session, epoch) == lifecycle) { "Cloud lifecycle changed during backup" }
                 // Append-only: never replace the account's latest or daily backup from another phone.
                 api.saveBackup(
                     session = session,
@@ -176,6 +187,7 @@ class CloudSyncManager(context: Context) {
                     ideaCount = preview.ideaCount,
                     weeklySlotCount = preview.weeklySlotCount,
                     activeReminderCount = preview.activeReminderCount,
+                    writeEpoch = lifecycle.generation,
                 )
                 accountGate.requireCurrent(epoch, local.generation())
                 local.markSyncSuccess(now)
@@ -202,7 +214,7 @@ class CloudSyncManager(context: Context) {
     suspend fun restore(point: CloudRestorePoint): CloudOperationResult = currentResult { epoch ->
         runCatching {
             val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
-            local.requireWritable(session.userId)
+            requireActiveLifecycle(session, epoch)
             val (payload, expectedHash) = api.downloadBackup(session, point.id)
             require(sha256(payload).equals(expectedHash, ignoreCase = true)) { "Cloud backup integrity check failed" }
             accountGate.requireCurrent(epoch, local.generation())
@@ -219,51 +231,99 @@ class CloudSyncManager(context: Context) {
         }
     }
 
-    suspend fun deleteCloudData(): CloudOperationResult {
-        // Invalidate queued requests before waiting for an in-flight operation to finish.
-        return transitionResult { epoch ->
-            runCatching {
-                val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
-                accountGate.requireCurrent(epoch, local.generation())
-                CloudDeletionRecovery(local, object : CloudDeletionRemote {
-                    override suspend fun deleteOwnedData(userId: String) {
-                        accountGate.requireCurrent(epoch, local.generation())
-                        check(session.userId == userId) { "Cloud deletion account mismatch" }
-                        api.deleteCloudData(session)
-                    }
-                    override suspend fun hasOwnedData(userId: String): Boolean {
-                        accountGate.requireCurrent(epoch, local.generation())
-                        check(session.userId == userId) { "Cloud deletion account mismatch" }
-                        return api.hasCloudData(session)
-                    }
-                }).run(session.userId)
-                local.clearCreatorProfile()
-                local.markSyncSuccess(0L)
-                CloudOperationResult.Success("Cloud creator rows were verified empty. Automatic uploads remain off. Your phone data and sign-in account were kept. Review cloud history before creating another backup.")
-            }.getOrElse {
-                it.rethrowCancellation()
-                if (it is CloudAccountChanged) return@getOrElse CloudOperationResult.Skipped(it.message.orEmpty())
-                val message = cloudMessage(it, "Couldn't delete cloud data")
-                local.markError(message)
-                CloudOperationResult.Failure("Automatic uploads are off. The deletion retry record is retained if deletion began. $message", retryable = true)
-            }
+    /** Refresh is read-only for creator data and never reactivates an account. */
+    suspend fun refreshCloudStatus(): CloudOperationResult = currentResult { epoch ->
+        runCatching {
+            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
+            val state = fetchLifecycle(session, epoch)
+            if (!state.active) local.clearCreatorProfile()
+            CloudOperationResult.Success(if (state.active) {
+                "Cloud history is active (generation ${state.generation}). Review the starting copy before backing up."
+            } else {
+                "Cloud creator data is deleted. Your phone and sign-in account remain. Starting a new history requires explicit confirmation."
+            })
+        }.getOrElse {
+            it.rethrowCancellation()
+            CloudOperationResult.Failure(cloudMessage(it, "Couldn't refresh cloud account state"), retryable = true)
         }
     }
 
-    /** Stop retrying, not an assertion that any previous deletion was complete. */
+    suspend fun deleteCloudData(): CloudOperationResult = transitionResult { epoch ->
+        runCatching {
+            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
+            val confirmed = local.lifecycleState(session.userId)
+            val pending = local.pendingUserId()
+            if (pending == null && confirmed == null) throw CloudLifecycleChanged()
+            val remote = object : CloudDeletionRemote {
+                override suspend fun status(userId: String): CloudLifecycleState {
+                    check(session.userId == userId)
+                    return fetchLifecycle(session, epoch)
+                }
+                override suspend fun deleteOwnedData(userId: String, expectedGeneration: Long): CloudLifecycleState {
+                    accountGate.requireCurrent(epoch, local.generation())
+                    check(session.userId == userId)
+                    val result = api.deleteCloudData(session, expectedGeneration)
+                    accountGate.requireCurrent(epoch, local.generation())
+                    local.saveLifecycle(userId, result)
+                    return result
+                }
+                override suspend fun hasOwnedData(userId: String): Boolean {
+                    accountGate.requireCurrent(epoch, local.generation())
+                    check(session.userId == userId)
+                    return api.hasCloudData(session)
+                }
+            }
+            val result = CloudDeletionRecovery(local, remote).run(session.userId, confirmed?.generation)
+            accountGate.requireCurrent(epoch, local.generation())
+            local.saveLifecycle(session.userId, result)
+            local.clearCreatorProfile()
+            local.markSyncSuccess(0L)
+            CloudOperationResult.Success("Cloud creator data was verified deleted. Your phone data and sign-in identity remain. Uploads stay blocked until you explicitly start a new cloud history.")
+        }.getOrElse {
+            it.rethrowCancellation()
+            if (it is CloudAccountChanged) return@getOrElse CloudOperationResult.Skipped(it.message.orEmpty())
+            val message = cloudMessage(it, "Couldn't delete cloud data")
+            local.markError(message)
+            CloudOperationResult.Failure("Automatic uploads are off. Any deletion retry record was retained. $message", retryable = true)
+        }
+    }
+
+    /** Explicitly stop a retry; never infer reactivation or authorize an upload. */
     suspend fun abandonCloudDeletion(): CloudOperationResult = transitionResult { epoch ->
         runCatching {
             val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
             if (!local.deletionPendingFor(session.userId))
                 return@runCatching CloudOperationResult.Skipped("No unfinished deletion for this account")
-            api.listRestorePoints(session)
+            fetchLifecycle(session, epoch)
             accountGate.requireCurrent(epoch, local.generation())
             local.abandonDeletion(session.userId)
-            CloudOperationResult.Success("Deletion retry stopped. Existing cloud records may remain. Review account history before any new backup.")
+            CloudOperationResult.Success("Deletion retry stopped. This does not undo deletion or reactivate cloud history. Review account status before any new backup.")
+        }.getOrElse {
+            it.rethrowCancellation()
+            CloudOperationResult.Failure(cloudMessage(it, "Couldn't stop deletion retry"), retryable = true)
+        }
+    }
+
+    /** A separate, user-confirmed operation; never invoked by sign-in, restore or retry. */
+    suspend fun resumeCloudData(): CloudOperationResult = transitionResult { epoch ->
+        runCatching {
+            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
+            if (local.deletionPendingFor(session.userId)) throw CloudDeletionPending()
+            val confirmed = local.lifecycleState(session.userId) ?: throw CloudLifecycleChanged()
+            require(!confirmed.active) { "Cloud history is already active" }
+            val current = fetchLifecycle(session, epoch)
+            if (current != confirmed) throw CloudLifecycleChanged()
+            if (api.hasCloudData(session)) throw CloudDeletionVerificationFailed()
+            val resumed = api.resumeCloudData(session, confirmed.generation)
+            accountGate.requireCurrent(epoch, local.generation())
+            require(resumed.active && resumed.generation == confirmed.generation + 1L) { "Invalid cloud reactivation response" }
+            local.saveLifecycle(session.userId, resumed)
+            check(local.clearApproval()) { "Could not clear cloud backup approval" }
+            CloudOperationResult.Success("A new empty cloud history is active. Deleted backups were not restored. Review this phone's data before creating a manual backup.")
         }.getOrElse {
             it.rethrowCancellation()
             if (it is CloudAccountChanged) return@getOrElse CloudOperationResult.Skipped(it.message.orEmpty())
-            CloudOperationResult.Failure(cloudMessage(it, "Couldn't stop deletion retry"), retryable = true)
+            CloudOperationResult.Failure(cloudMessage(it, "Couldn't start a new cloud history"), retryable = true)
         }
     }
 
@@ -280,6 +340,22 @@ class CloudSyncManager(context: Context) {
                 "Signed out locally. Remote session revocation could not be confirmed."
             })
         }
+    }
+
+    private suspend fun fetchLifecycle(session: CloudSession, epoch: Long): CloudLifecycleState {
+        accountGate.requireCurrent(epoch, local.generation())
+        val state = api.cloudStatus(session)
+        accountGate.requireCurrent(epoch, local.generation())
+        local.saveLifecycle(session.userId, state)
+        return state
+    }
+
+    private suspend fun requireActiveLifecycle(session: CloudSession, epoch: Long): CloudLifecycleState {
+        local.requireWritable(session.userId)
+        val state = fetchLifecycle(session, epoch)
+        local.requireWritable(session.userId)
+        if (!state.active) throw CloudLifecycleChanged()
+        return state
     }
 
     private suspend fun freshSession(current: CloudSession, epoch: Long): CloudSession {
@@ -362,7 +438,9 @@ class CloudSyncManager(context: Context) {
     private fun deviceLabel(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
 
     private fun cloudMessage(error: Throwable, fallback: String): String = when (error) {
-        is CloudHttpException -> error.message.ifBlank { fallback }
+        is CloudHttpException -> if (error.statusCode == 404 || error.message.contains("PGRST202"))
+            "Cloud safety service is not available yet. Creator data remains on this phone; no upload was started."
+        else error.message.ifBlank { fallback }
         else -> fallback
     }
 

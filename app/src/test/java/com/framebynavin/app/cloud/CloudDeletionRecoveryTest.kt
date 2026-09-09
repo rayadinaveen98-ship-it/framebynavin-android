@@ -12,30 +12,42 @@ class CloudDeletionRecoveryTest {
 
     private class Journal : CloudDeletionJournal {
         var pending: String? = null
+        var expected: Long? = null
         var failClear = false
         override fun pendingUserId() = pending
-        override fun begin(userId: String) {
-            check(pending == null || pending == userId)
+        override fun pendingGeneration() = expected
+        override fun begin(userId: String, expectedGeneration: Long) {
+            check(pending == null)
             pending = userId
+            expected = expectedGeneration
         }
         override fun clear(userId: String) {
             check(pending == userId)
             if (failClear) error("Synthetic journal failure")
             pending = null
+            expected = null
         }
     }
 
     private class Remote : CloudDeletionRemote {
         val calls = mutableListOf<String>()
+        var state = CloudLifecycleState("active", 0)
         var remaining = true
         var failDelete = false
         var failVerification = false
         var cancelled = false
-        override suspend fun deleteOwnedData(userId: String) {
-            calls += "delete:$userId"
+        override suspend fun status(userId: String): CloudLifecycleState {
+            calls += "status:$userId"
+            return state
+        }
+        override suspend fun deleteOwnedData(userId: String, expectedGeneration: Long): CloudLifecycleState {
+            calls += "delete:$userId:$expectedGeneration"
             if (cancelled) throw CancellationException("Synthetic cancellation")
-            if (failDelete) error("Synthetic partial deletion")
+            if (failDelete) error("Synthetic network failure")
+            check(state.active && state.generation == expectedGeneration)
+            state = CloudLifecycleState("deleted", expectedGeneration + 1)
             remaining = false
+            return state
         }
         override suspend fun hasOwnedData(userId: String): Boolean {
             calls += "verify:$userId"
@@ -44,68 +56,112 @@ class CloudDeletionRecoveryTest {
         }
     }
 
-    @Test fun partialFailureKeepsOwnerAndRetryIsIdempotent(): Unit = runBlocking {
+    @Test fun failedDeleteRetainsOriginalEpochForRetry() = runBlocking {
         val journal = Journal()
         val remote = Remote().apply { failDelete = true }
         val recovery = CloudDeletionRecovery(journal, remote)
-        assertThrows(IllegalStateException::class.java) { runBlocking { recovery.run(owner) } }
+        assertThrows(IllegalStateException::class.java) { runBlocking { recovery.run(owner, 0) } }
         assertEquals(owner, journal.pending)
+        assertEquals(0L, journal.expected)
         remote.failDelete = false
-        recovery.run(owner)
+        assertEquals(CloudLifecycleState("deleted", 1), recovery.run(owner, 0))
         assertNull(journal.pending)
-        assertEquals(listOf("delete:$owner", "delete:$owner", "verify:$owner"), remote.calls)
+        assertEquals(2, remote.calls.count { it.startsWith("delete:") })
     }
 
-    @Test fun nonEmptyVerificationCannotMarkDeletionComplete(): Unit = runBlocking {
+    @Test fun responseLostAfterAtomicDeleteCanOnlyVerifyOriginalGeneration() = runBlocking {
         val journal = Journal()
-        val remote = Remote()
-        val recovery = CloudDeletionRecovery(journal, remote)
-        remote.remaining = true
-        remote.failVerification = true
-        assertThrows(IllegalStateException::class.java) { runBlocking { recovery.run(owner) } }
-        assertEquals(owner, journal.pending)
+        val remote = Remote().apply { failVerification = true }
+        assertThrows(IllegalStateException::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run(owner, 0) } }
+        assertEquals(CloudLifecycleState("deleted", 1), remote.state)
         remote.failVerification = false
-        recovery.run(owner)
+        assertEquals(remote.state, CloudDeletionRecovery(journal, remote).run(owner, 0))
         assertNull(journal.pending)
+        assertEquals(1, remote.calls.count { it.startsWith("delete:") })
     }
 
-    @Test fun anotherAccountCannotInheritPendingDeletion(): Unit = runBlocking {
+    @Test fun oldRetryCannotDeleteNewlyReactivatedHistory() = runBlocking {
+        val journal = Journal().apply { begin(owner, 0) }
+        val remote = Remote().apply { state = CloudLifecycleState("active", 2) }
+        assertThrows(CloudLifecycleChanged::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run(owner, 2) } }
+        assertEquals(owner, journal.pending)
+        assertEquals(0L, journal.expected)
+        assertTrue(remote.calls.none { it.startsWith("delete:") })
+    }
+
+    @Test fun oldRetryCannotAcknowledgeASecondDeletionGeneration() = runBlocking {
+        val journal = Journal().apply { begin(owner, 0) }
+        val remote = Remote().apply { state = CloudLifecycleState("deleted", 3); remaining = false }
+        assertThrows(CloudLifecycleChanged::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run(owner, 0) } }
+        assertEquals(owner, journal.pending)
+    }
+
+    @Test fun legacyJournalNeverStartsAnotherDeletion() = runBlocking {
         val journal = Journal().apply { pending = owner }
         val remote = Remote()
-        assertThrows(CloudDeletionPending::class.java) {
-            runBlocking { CloudDeletionRecovery(journal, remote).run(other) }
-        }
-        assertEquals(owner, journal.pending)
-        assertTrue(remote.calls.isEmpty())
+        assertThrows(CloudDeletionPending::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run(owner, 0) } }
+        assertTrue(remote.calls.none { it.startsWith("delete:") })
+        remote.state = CloudLifecycleState("deleted", 1)
+        remote.remaining = false
+        CloudDeletionRecovery(journal, remote).run(owner, 0)
+        assertNull(journal.pending)
     }
 
-    @Test fun cancellationPreservesRetryAndNeverVerifies(): Unit = runBlocking {
+    @Test fun otherAccountCannotInheritPendingDeletion() = runBlocking {
+        val journal = Journal().apply { begin(owner, 0) }
+        val remote = Remote()
+        assertThrows(CloudDeletionPending::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run(other, 0) } }
+        assertTrue(remote.calls.isEmpty())
+        assertEquals(owner, journal.pending)
+    }
+
+    @Test fun cancellationAndFailedVerificationKeepJournal() = runBlocking {
         val journal = Journal()
         val remote = Remote().apply { cancelled = true }
-        val failure = runCatching { CloudDeletionRecovery(journal, remote).run(owner) }.exceptionOrNull()
+        val failure = runCatching { CloudDeletionRecovery(journal, remote).run(owner, 0) }.exceptionOrNull()
         assertTrue(failure is CancellationException)
         assertEquals(owner, journal.pending)
-        assertEquals(listOf("delete:$owner"), remote.calls)
+        remote.cancelled = false
+        remote.failVerification = true
+        assertThrows(IllegalStateException::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run(owner, 0) } }
+        assertEquals(owner, journal.pending)
     }
 
-    @Test fun failedJournalCommitCannotEraseRetry(): Unit = runBlocking {
+    @Test fun nonEmptyVerificationCannotMarkDeletionComplete() = runBlocking {
+        val journal = Journal()
+        val remote = Remote().apply { remaining = true; state = CloudLifecycleState("deleted", 1) }
+        journal.begin(owner, 0)
+        assertThrows(CloudDeletionVerificationFailed::class.java) {
+            runBlocking { CloudDeletionRecovery(journal, remote).run(owner, 0) }
+        }
+        assertEquals(owner, journal.pending)
+    }
+
+    @Test fun failedJournalCommitCannotEraseRetry() = runBlocking {
         val journal = Journal().apply { failClear = true }
         val remote = Remote()
-        val recovery = CloudDeletionRecovery(journal, remote)
-        assertThrows(IllegalStateException::class.java) { runBlocking { recovery.run(owner) } }
+        assertThrows(IllegalStateException::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run(owner, 0) } }
         assertEquals(owner, journal.pending)
         journal.failClear = false
-        recovery.run(owner)
+        CloudDeletionRecovery(journal, remote).run(owner, 0)
         assertNull(journal.pending)
+        assertEquals(1, remote.calls.count { it.startsWith("delete:") })
     }
 
-    @Test fun constructionAndIdentityValidationNeverTouchRemote(): Unit = runBlocking {
+    @Test fun invalidIdentityAndUnknownOrChangedConfirmationCannotDelete() = runBlocking {
         val journal = Journal()
         val remote = Remote()
-        val recovery = CloudDeletionRecovery(journal, remote)
-        assertTrue(remote.calls.isEmpty())
-        assertThrows(IllegalArgumentException::class.java) { runBlocking { recovery.run("invalid-id") } }
+        assertThrows(IllegalArgumentException::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run("invalid-id", 0) } }
+        assertThrows(CloudDeletionPending::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run(owner, null) } }
+        remote.state = CloudLifecycleState("active", 2)
+        assertThrows(CloudLifecycleChanged::class.java) { runBlocking { CloudDeletionRecovery(journal, remote).run(owner, 0) } }
         assertNull(journal.pending)
-        assertTrue(remote.calls.isEmpty())
+        assertTrue(remote.calls.none { it.startsWith("delete:") })
+    }
+
+    @Test fun lifecycleStateRejectsMalformedValues() {
+        assertThrows(IllegalArgumentException::class.java) { CloudLifecycleState("unknown", 0) }
+        assertThrows(IllegalArgumentException::class.java) { CloudLifecycleState("active", -1) }
+        assertFalse(CloudLifecycleState("deleted", 1).active)
     }
 }

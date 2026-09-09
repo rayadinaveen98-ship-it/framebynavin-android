@@ -39,6 +39,8 @@ data class CloudSyncSettings(
     val deviceKey: String,
     val reconciliationRequired: Boolean = false,
     val deletionPending: Boolean = false,
+    val lifecyclePhase: String = "unknown",
+    val lifecycleGeneration: Long? = null,
 
 )
 

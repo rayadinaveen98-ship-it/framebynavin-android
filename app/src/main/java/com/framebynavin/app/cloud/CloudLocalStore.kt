@@ -91,6 +91,8 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
         deviceKey = deviceKey(),
         reconciliationRequired = needsReconciliation(),
         deletionPending = loadSession()?.userId?.let(::deletionPendingFor) ?: false,
+        lifecyclePhase = loadSession()?.userId?.let(::lifecycleState)?.phase ?: "unknown",
+        lifecycleGeneration = loadSession()?.userId?.let(::lifecycleState)?.generation,
     )
 
     fun setEnabled(value: Boolean) = prefs.edit().putBoolean(KEY_ENABLED, false).apply()
@@ -116,26 +118,61 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
             saveSession(session)
             true
         }
-    /** A durable, account-scoped retry record. Never backed up or automatically replayed. */
+    /** One account-scoped server-state cache. Never treat a cache as authorization. */
+    fun lifecycleState(userId: String): CloudLifecycleState? = synchronized(accountLock) {
+        val raw = prefs.getString(KEY_LIFECYCLE, null) ?: return@synchronized null
+        runCatching {
+            val o = JSONObject(raw)
+            if (o.getString("userId") != userId) return@synchronized null
+            CloudLifecycleState(o.getString("phase"), o.getLong("generation"))
+        }.getOrNull()
+    }
+
+    fun saveLifecycle(userId: String, state: CloudLifecycleState) = synchronized(accountLock) {
+        require(UUID.fromString(userId).toString() == userId)
+        val previous = lifecycleState(userId)
+        val raw = JSONObject().put("userId", userId).put("phase", state.phase)
+            .put("generation", state.generation).toString()
+        val editor = prefs.edit().putString(KEY_LIFECYCLE, raw)
+            .putBoolean(KEY_ENABLED, false)
+        if (previous != state) editor.remove(KEY_RECONCILED_USER)
+        check(editor.commit()) { "Could not save cloud lifecycle state" }
+    }
+
+    /** Legacy RC7 journal strings have no safe replay generation. */
     override fun pendingUserId(): String? = synchronized(accountLock) {
         val raw = prefs.getString(KEY_PENDING_DELETION, null) ?: return@synchronized null
-        check(runCatching { UUID.fromString(raw).toString() == raw }.getOrDefault(false)) {
+        val userId = runCatching { if (raw.startsWith("{")) JSONObject(raw).getString("userId") else raw }
+            .getOrElse { throw CloudDeletionPending() }
+        check(runCatching { UUID.fromString(userId).toString() == userId }.getOrDefault(false)) {
             "Cloud deletion record is invalid. Cloud writes are blocked until it is reviewed."
         }
-        raw
+        userId
+    }
+
+    override fun pendingGeneration(): Long? = synchronized(accountLock) {
+        val raw = prefs.getString(KEY_PENDING_DELETION, null) ?: return@synchronized null
+        if (!raw.startsWith("{")) return@synchronized null
+        runCatching {
+            val generation = JSONObject(raw).getLong("expectedGeneration")
+            require(generation >= 0)
+            generation
+        }.getOrElse { throw CloudDeletionPending() }
     }
 
     fun deletionPendingFor(userId: String): Boolean = pendingUserId() == userId
 
     fun requireWritable(userId: String) {
         if (deletionPendingFor(userId)) throw CloudDeletionPending()
+        if (lifecycleState(userId)?.active != true) throw CloudLifecycleChanged()
     }
 
-    override fun begin(userId: String) = synchronized(accountLock) {
-        require(UUID.fromString(userId).toString() == userId) { "Invalid cloud account identity" }
+    override fun begin(userId: String, expectedGeneration: Long) = synchronized(accountLock) {
+        require(UUID.fromString(userId).toString() == userId && expectedGeneration >= 0)
         val pending = pendingUserId()
-        if (pending != null && pending != userId) throw CloudDeletionPending()
-        check(prefs.edit().putString(KEY_PENDING_DELETION, userId)
+        if (pending != null) throw CloudDeletionPending()
+        val raw = JSONObject().put("userId", userId).put("expectedGeneration", expectedGeneration).toString()
+        check(prefs.edit().putString(KEY_PENDING_DELETION, raw)
             .remove(KEY_RECONCILED_USER).putBoolean(KEY_ENABLED, false).commit()) {
             "Could not save cloud deletion retry record"
         }
@@ -149,17 +186,15 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
         }
     }
 
-    /** Explicitly abandon an unfinished deletion only after rechecking that account's history. */
-    fun abandonDeletion(userId: String) = synchronized(accountLock) {
-        clear(userId)
-    }
+    /** Stopping a retry never changes the server lifecycle or authorizes uploads. */
+    fun abandonDeletion(userId: String) = synchronized(accountLock) { clear(userId) }
 
     fun reconciledUser(): String = prefs.getString(KEY_RECONCILED_USER, "").orEmpty()
     fun approveUser(userId: String) = prefs.edit().putString(KEY_RECONCILED_USER, userId).commit()
     fun clearApproval() = prefs.edit().remove(KEY_RECONCILED_USER).commit()
     fun needsReconciliation(): Boolean {
         val session = loadSession() ?: return false
-        return deletionPendingFor(session.userId) || reconciledUser() != session.userId
+        return deletionPendingFor(session.userId) || lifecycleState(session.userId)?.active != true || reconciledUser() != session.userId
     }
 
     fun setWifiOnly(value: Boolean) = prefs.edit().putBoolean(KEY_WIFI_ONLY, value).apply()
@@ -224,6 +259,7 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
         private const val KEY_GENERATION = "backup_generation_v181"
         private const val KEY_RECONCILED_USER = "backup_reconciled_user_v181"
         private const val KEY_PENDING_DELETION = "pending_cloud_deletion_v183"
+        private const val KEY_LIFECYCLE = "cloud_lifecycle_v183"
         private const val KEY_ALIAS = "framebynavin_cloud_session_v1"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val IV_BYTES = 12

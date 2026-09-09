@@ -43,7 +43,7 @@ class CloudApiClient {
         request("POST", "/auth/v1/logout", token = accessToken, body = "{}")
     }
 
-    suspend fun upsertProfile(session: CloudSession) {
+    suspend fun upsertProfile(session: CloudSession, writeEpoch: Long) {
         val body = JSONObject()
             .put("user_id", session.userId)
             .put("display_name", session.displayName.ifBlank { JSONObject.NULL })
@@ -54,6 +54,7 @@ class CloudApiClient {
             token = session.accessToken,
             body = body.toString(),
             prefer = "resolution=ignore-duplicates,return=minimal",
+            writeEpoch = writeEpoch,
         )
     }
 
@@ -69,7 +70,7 @@ class CloudApiClient {
         return parseCreatorProfile(array.getJSONObject(0))
     }
 
-    suspend fun claimCreatorUsername(session: CloudSession, username: String, displayName: String): CloudCreatorProfile {
+    suspend fun claimCreatorUsername(session: CloudSession, username: String, displayName: String, writeEpoch: Long): CloudCreatorProfile {
         val body = JSONObject()
             .put("p_username", username)
             .put("p_display_name", displayName.ifBlank { JSONObject.NULL })
@@ -78,11 +79,12 @@ class CloudApiClient {
             "/rest/v1/rpc/claim_creator_username",
             token = session.accessToken,
             body = body.toString(),
+            writeEpoch = writeEpoch,
         )
         return parseCreatorProfile(JSONObject(raw))
     }
 
-    suspend fun upsertDevice(session: CloudSession, deviceKey: String, deviceLabel: String, appVersion: String) {
+    suspend fun upsertDevice(session: CloudSession, deviceKey: String, deviceLabel: String, appVersion: String, writeEpoch: Long) {
         val body = JSONObject()
             .put("user_id", session.userId)
             .put("device_key", deviceKey)
@@ -95,6 +97,7 @@ class CloudApiClient {
             token = session.accessToken,
             body = body.toString(),
             prefer = "resolution=merge-duplicates,return=minimal",
+            writeEpoch = writeEpoch,
         )
     }
 
@@ -112,6 +115,7 @@ class CloudApiClient {
         ideaCount: Int,
         weeklySlotCount: Int,
         activeReminderCount: Int,
+        writeEpoch: Long,
     ) {
         val body = JSONObject()
             .put("p_device_key", deviceKey)
@@ -131,6 +135,7 @@ class CloudApiClient {
             "/rest/v1/rpc/save_creator_backup",
             token = session.accessToken,
             body = body.toString(),
+            writeEpoch = writeEpoch,
         )
     }
 
@@ -185,14 +190,31 @@ class CloudApiClient {
         return false
     }
 
-    suspend fun deleteCloudData(session: CloudSession) {
-        val userId = UUID.fromString(session.userId).toString()
-        val suffix = "?user_id=eq.$userId"
-        request("DELETE", "/rest/v1/creator_backups$suffix", token = session.accessToken, prefer = "return=minimal")
-        request("DELETE", "/rest/v1/creator_devices$suffix", token = session.accessToken, prefer = "return=minimal")
-        request("DELETE", "/rest/v1/creator_profiles$suffix", token = session.accessToken, prefer = "return=minimal")
-    }
+    /** Fail closed when the server contract is absent or returns an invalid state. */
+    suspend fun cloudStatus(session: CloudSession): CloudLifecycleState = parseLifecycle(request(
+        "POST", "/rest/v1/rpc/creator_cloud_status", token = session.accessToken, body = "{}",
+    ))
 
+    suspend fun deleteCloudData(session: CloudSession, expectedGeneration: Long): CloudLifecycleState =
+        parseLifecycle(request(
+            "POST", "/rest/v1/rpc/creator_delete_owned_data", token = session.accessToken,
+            body = JSONObject().put("p_expected_generation", expectedGeneration).toString(),
+        ))
+
+    suspend fun resumeCloudData(session: CloudSession, expectedGeneration: Long): CloudLifecycleState =
+        parseLifecycle(request(
+            "POST", "/rest/v1/rpc/creator_resume_owned_data", token = session.accessToken,
+            body = JSONObject().put("p_expected_generation", expectedGeneration).toString(),
+        ))
+
+    private fun parseLifecycle(raw: String): CloudLifecycleState {
+        val objectData = JSONObject(raw)
+        val generation = objectData.get("generation")
+        require(generation is Number && generation.toString().matches(Regex("(0|[1-9][0-9]{0,17})"))) {
+            "Invalid cloud lifecycle generation"
+        }
+        return CloudLifecycleState(objectData.getString("phase"), generation.toLong())
+    }
 
     private fun parseCreatorProfile(o: JSONObject): CloudCreatorProfile = CloudCreatorProfile(
         userId = o.optString("user_id"),
@@ -234,6 +256,7 @@ class CloudApiClient {
         body: String? = null,
         prefer: String? = null,
         authenticated: Boolean = true,
+        writeEpoch: Long? = null,
     ): String = withContext(Dispatchers.IO) {
         val connection = (URL(CloudConfig.SUPABASE_URL + path).openConnection() as HttpURLConnection).apply {
             requestMethod = method
@@ -245,6 +268,10 @@ class CloudApiClient {
             setRequestProperty("Accept", "application/json")
             if (authenticated && !token.isNullOrBlank()) setRequestProperty("Authorization", "Bearer $token")
             prefer?.let { setRequestProperty("Prefer", it) }
+            writeEpoch?.let {
+                require(it >= 0) { "Invalid cloud write generation" }
+                setRequestProperty("x-creator-write-epoch", it.toString())
+            }
             if (body != null) {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
