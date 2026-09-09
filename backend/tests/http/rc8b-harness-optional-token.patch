@@ -1,0 +1,11 @@
+--- a/backend/tests/http/rc8b_http_acceptance.py
++++ b/backend/tests/http/rc8b_http_acceptance.py
+@@ -139,7 +139,7 @@
+     return result
+ 
+ 
+-def row_write(table, payload, token, epoch=None):
++def row_write(table, payload, token=None, epoch=None):
+     return request('POST', '/rest/v1/' + table, payload, token, epoch=epoch)
+ 
+ 
