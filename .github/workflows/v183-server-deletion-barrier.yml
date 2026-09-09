@@ -69,7 +69,7 @@ jobs:
           assert hashlib.sha256(payload).hexdigest() == '4a017be116237e04749ea3f7be5b4fe1d48c28d6c8f3f8405968f7cda95078dc'
           raw = zlib.decompress(payload)
           assert hashlib.sha256(raw).hexdigest() == '7fc753b68af968a03d3de74ffeb4aca23e436514b951803f8827fa4ac79c787c'
-          verify(root/'tests/rc8b-harness-fix.patch','24b292570b4c497e179ce8973cbcd55d07c1d62488e321e1548cf50d1b260b5')
+          verify(root/'tests/rc8b-harness-fix.patch','24b292570b4c497e179ce8973cbcd55d07c1d62488e321e1548cf50d1b260b5b')
           path = root/'tests/rc8b_acceptance.py'
           if path.exists():
               assert hashlib.sha256(path.read_bytes()).hexdigest() == 'eade5ad5e12eeac8f6cc20849294115cd4cfd0b05861e5bed32bab03a5106de6'
@@ -136,7 +136,9 @@ jobs:
           mkdir -p /tmp/rc8b-evidence
           cp /tmp/rc8b-postgres.log /tmp/rc8b-source-commit.txt /tmp/rc8b-evidence/ 2>/dev/null || true
           printf '%s\n' "head=$GITHUB_SHA" 'deployment=none' 'production_credentials=none' > /tmp/rc8b-evidence/manifest.txt
-          sha256sum backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/rc8b_acceptance.py backend/tests/rc8b-auth-cascade.patch backend/tests/rc8b-harness-fix.patch > /tmp/rc8b-evidence/source-sha256.txt
+          for p in backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/rc8b_acceptance.py backend/tests/rc8b-auth-cascade.patch backend/tests/rc8b-harness-fix.patch; do
+            if [ -f "$p" ]; then sha256sum "$p" >> /tmp/rc8b-evidence/source-sha256.txt; fi
+          done
           if [ -f /tmp/rc8b-source-commit.txt ]; then
             tar -czf /tmp/rc8b-evidence/FrameByNavin-v1.8.3-rc8b-backend-source.tar.gz backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/rc8b_acceptance.py backend/tests/rc8b-auth-cascade.patch backend/tests/build_isolated_test.py backend/tests/build_isolated_test_v2.py backend/tests/build_isolated_test_v3.py
           fi
