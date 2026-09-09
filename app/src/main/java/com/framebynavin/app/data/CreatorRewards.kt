@@ -156,6 +156,20 @@ class CreatorRewardStore(private val context: Context) {
         }
     }
 
+    /** Batch repair from explicit authoritative evidence, never inferred stage timestamps. */
+    suspend fun reconcileAuthoritative(
+        tasks: List<CreatorTask>,
+        checkpoints: List<PostPublishCheckpoint>,
+        stageEvidence: CreatorRewardLedgerEntry? = null,
+    ): List<CreatorRewardLedgerEntry> = CreatorDataGate.transaction {
+        creatorRewardMutationMutex.withLock {
+            val current = load()
+            val result = CreatorRewardReconciliation.reconcile(current, tasks, checkpoints, stageEvidence)
+            if (result.entries != current) saveUnlocked(result.entries)
+            result.newlyCredited
+        }
+    }
+
     suspend fun exportJson(): String = encode(load())
 
     suspend fun importJson(raw: String): List<CreatorRewardLedgerEntry> {

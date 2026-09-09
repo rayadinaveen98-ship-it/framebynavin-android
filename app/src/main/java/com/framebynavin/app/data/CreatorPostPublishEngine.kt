@@ -148,18 +148,14 @@ class CreatorPostPublishStore(private val context: Context) {
         saveUnlocked(checkpoints)
     } }
 
-    /** Rebase pending review dates when publication is corrected; preserve completed reviews. */
-    suspend fun reconcilePublication(parent: CreatorTask): List<PostPublishCheckpoint> = CreatorDataGate.transaction {
+    /** Rebase pending review dates; retain completed/skipped history and unrelated projects. */
+    suspend fun reconcilePublication(parent: CreatorTask): List<PostPublishCheckpoint> =
+        reconcilePublications(listOf(parent))
+
+    suspend fun reconcilePublications(parents: List<CreatorTask>): List<PostPublishCheckpoint> = CreatorDataGate.transaction {
         creatorPostPublishMutationMutex.withLock {
             val current = load()
-            val expected = CreatorPostPublishEngine.build(parent).associateBy { it.id }
-            val updated = current.filterNot { it.projectId == parent.id && it.status == PostPublishCheckpointStatus.PENDING && it.id !in expected }
-                .map { checkpoint ->
-                    if (checkpoint.projectId != parent.id || checkpoint.status != PostPublishCheckpointStatus.PENDING) checkpoint
-                    else expected[checkpoint.id]?.let { checkpoint.copy(dueAtMillis = it.dueAtMillis) } ?: checkpoint
-                }.toMutableList()
-            expected.values.filter { expectedCheckpoint -> updated.none { it.id == expectedCheckpoint.id } }
-                .forEach { updated += it }
+            val updated = CreatorPostPublishReconciliation.reconcile(current, parents)
             if (updated != current) saveUnlocked(updated)
             updated.sortedWith(compareBy<PostPublishCheckpoint> { it.status != PostPublishCheckpointStatus.PENDING }.thenBy { it.dueAtMillis })
         }
@@ -193,6 +189,7 @@ class CreatorPostPublishStore(private val context: Context) {
         val current = load().toMutableList()
         val index = current.indexOfFirst { it.id == checkpointId }
         if (index == -1) return@withLock null
+        if (current[index].status == status) return@withLock current[index]
         val updated = current[index].copy(
             status = status,
             completedAtMillis = if (status == PostPublishCheckpointStatus.DONE) atMillis else 0L,

@@ -14,6 +14,7 @@ import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.SmartEscalationPolicy
 import com.framebynavin.app.reminders.SmartEscalationScheduler
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -30,6 +31,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private val postPublishStore = CreatorPostPublishStore(application)
     private val rewardStore = CreatorRewardStore(application)
     private val rewardBackfillStore = CreatorRewardBackfillStore(application)
+    private val publicationRecovery = CreatorPublicationRecovery(application)
+    private val publicationRecoveryReady = CompletableDeferred<Unit>()
 
     val tasks = mutableStateListOf<CreatorTask>()
     val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
@@ -64,7 +67,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun dismissWriteError() {
         viewModelScope.launch {
             if (pendingWrites != 0) return@launch
-            runCatching { refreshCanonicalState() }
+            runCatching {
+                publicationRecovery.recoverAll()
+                refreshCanonicalState()
+            }
                 .onSuccess { writeError = null }
                 .onFailure { writeError = it.message ?: "Could not reload the latest data" }
         }
@@ -99,7 +105,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             for (write in writes) {
                 try {
-                    if (write.batch == writeBatch && write.generation == CreatorDataGate.generation(getApplication())) {
+                    publicationRecoveryReady.await()
+                    if (writeError == null && write.batch == writeBatch && write.generation == CreatorDataGate.generation(getApplication())) {
                         write.apply(write.generation)
                     }
                 } catch (error: Throwable) {
@@ -122,12 +129,24 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         }
 
         viewModelScope.launch {
-            rewardBackfillStore.runOnce(
-                rewardStore = rewardStore,
-                tasks = store.load(),
-                ideas = ideaStore.load(),
-                checkpoints = postPublishStore.load(),
-            )
+            try {
+                CreatorDataGate.readyTransaction(getApplication()) {
+                    publicationRecovery.recoverAll()
+                    rewardBackfillStore.runOnce(
+                        rewardStore = rewardStore,
+                        tasks = store.load(),
+                        ideas = ideaStore.load(),
+                        checkpoints = postPublishStore.load(),
+                    )
+                    publicationRecovery.recoverAll()
+                }
+                publicationRecoveryReady.complete(Unit)
+            } catch (error: Throwable) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                writeError = error.message ?: "Publication recovery needs attention. Your saved data was retained."
+                // Keep the queue locked by writeError, but allow an explicit recovery retry.
+                publicationRecoveryReady.complete(Unit)
+            }
         }
 
         viewModelScope.launch {
@@ -169,7 +188,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
         viewModelScope.launch {
             store.tasksFlow.collectLatest { saved ->
-                if (pendingWrites > 0) return@collectLatest
+                publicationRecoveryReady.await()
+                if (pendingWrites > 0 || writeError != null) return@collectLatest
                 val cleaned = saved.filterNot {
                     it.id == "starter-frame-breakdown" ||
                         (it.origin == CreatorTaskOrigin.WEEKLY && WeeklyScheduleEngine.isLegacySeedSlot(it.scheduleSlotId)) ||
@@ -454,13 +474,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 scheduleTask(scheduled)
                 scheduled
             }
-        }, after = { updated ->
-            stageReward?.let(::recordReward)
-            if (rewardStore.reconcilePublication(updated)) {
-                enqueueRewardFeedback(CreatorRewardEngine.projectPublished(updated.id, updated.title, updated.publishedAtMillis))
-            }
-            postPublishStore.reconcilePublication(updated)
-        })
+        }, recoveryStage = { _, _ -> stageReward }, recoverPublication = true)
     }
 
     fun moveWorkflowBack(id: String) = updateTask(id) { task ->
@@ -495,12 +509,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun correctPublication(id: String, atMillis: Long, url: String = "") {
         updateTask(id, transform = { task ->
             CreatorPublicationEngine.correct(task, atMillis, url)
-        }, after = { updated ->
-            if (rewardStore.reconcilePublication(updated)) {
-                enqueueRewardFeedback(CreatorRewardEngine.projectPublished(updated.id, updated.title, updated.publishedAtMillis))
-            }
-            postPublishStore.reconcilePublication(updated)
-        })
+        }, recoverPublication = true)
     }
 
     fun skipTask(id: String) = updateTask(id) { task ->
@@ -862,18 +871,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { postPublishStore.ensureFor(parent) }
     }
 
-    fun completePostPublishCheckpoint(checkpointId: String) {
-        val now = System.currentTimeMillis()
-        viewModelScope.launch {
-            val updated = postPublishStore.updateStatus(checkpointId, PostPublishCheckpointStatus.DONE, now) ?: return@launch
-            val reward = CreatorRewardEngine.postPublishCompleted(updated, now)
-            if (rewardStore.record(reward)) enqueueRewardFeedback(reward)
-        }
-    }
+    fun completePostPublishCheckpoint(checkpointId: String) = updatePostPublishCheckpoint(checkpointId, PostPublishCheckpointStatus.DONE)
 
-    fun skipPostPublishCheckpoint(checkpointId: String) {
-        viewModelScope.launch {
-            postPublishStore.updateStatus(checkpointId, PostPublishCheckpointStatus.SKIPPED)
+    fun skipPostPublishCheckpoint(checkpointId: String) = updatePostPublishCheckpoint(checkpointId, PostPublishCheckpointStatus.SKIPPED)
+
+    private fun updatePostPublishCheckpoint(checkpointId: String, status: PostPublishCheckpointStatus) {
+        enqueueWrite { epoch ->
+            val (_, added) = publicationRecovery.updateCheckpoint(checkpointId, status, epoch)
+            added.forEach(::enqueueRewardFeedback)
         }
     }
 
@@ -1076,17 +1081,32 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private fun updateTask(
         id: String,
         after: suspend (CreatorTask) -> Unit = {},
+        recoverPublication: Boolean = false,
+        recoveryStage: (CreatorTask, CreatorTask) -> CreatorRewardLedgerEntry? = { _, _ -> null },
         transform: (CreatorTask) -> CreatorTask,
     ) {
-        enqueueWrite { epoch -> CreatorDataGate.transaction {
+        enqueueWrite { epoch -> CreatorDataGate.readyTransaction(getApplication()) {
+            publicationRecovery.recoverPendingUnlocked()
+            CreatorDataGate.checkGeneration(getApplication(), epoch)
+            val before = store.load().firstOrNull { it.id == id } ?: return@readyTransaction
             val effects = mutableListOf<() -> Unit>()
-            val updated = store.updateTask(id, expectedGeneration = epoch, transform = { current ->
-                val previous = taskEffectBuffer.get()
-                taskEffectBuffer.set(effects)
-                try { transform(current) } finally { taskEffectBuffer.set(previous) }
-            })
+            val previous = taskEffectBuffer.get()
+            taskEffectBuffer.set(effects)
+            val desired = try { transform(before) } finally { taskEffectBuffer.set(previous) }
+            val evidence = if (recoverPublication) recoveryStage(before, desired) else null
+            if (recoverPublication && desired != before) {
+                publicationRecovery.begin(epoch, id, evidence, desired.workflowStageIndex, desired.completedAtMillis,
+                    CreatorWorkflowEngine.stageIndex(before), desired.status.name)
+            }
+            val updated = store.updateTask(id, expectedGeneration = epoch) { current ->
+                check(current == before) { "The project changed during its save" }
+                desired
+            }
             if (updated != null) {
                 effects.forEach { it() }
+                if (recoverPublication && desired != before) {
+                    publicationRecovery.finish(epoch).forEach(::enqueueRewardFeedback)
+                }
                 after(updated)
             }
         } }

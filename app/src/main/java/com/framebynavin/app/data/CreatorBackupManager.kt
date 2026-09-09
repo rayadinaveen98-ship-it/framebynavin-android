@@ -310,6 +310,7 @@ class CreatorBackupManager(private val context: Context) {
         // A portable restore never imports OAuth state or derived analytics. Invalidate
         // cached reports under the restored creator generation, retaining links/milestones.
         com.framebynavin.app.youtube.YouTubeAnalyticsStore(appContext).clearAnalytics()
+        CreatorPublicationRecovery(appContext).reconcileRestoredState()
     }
 
     /** Upgrade an already validated legacy snapshot while preserving its original checksum check. */
