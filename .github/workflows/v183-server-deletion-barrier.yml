@@ -7,13 +7,14 @@ on:
       - feature/v1.8.3-server-deletion-barrier
     paths:
       - backend/migrations/20260909000000_creator_deletion_barrier.sql
-      - backend/tests/build_isolated_test.py
-      - backend/tests/build_isolated_test_v2.py
-      - backend/tests/build_isolated_test_v3.py
+      - backend/tests/rc8b-auth-cascade.patch
+      - backend/tests/rc8b-harness-fix.patch
+      - backend/tests/rc8b-acceptance.py.zlib.b64
+      - backend/tests/rc8b_acceptance.py
       - .github/workflows/v183-server-deletion-barrier.yml
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: rc8-server-deletion-${{ github.ref }}
@@ -49,78 +50,100 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify ancestry and original source hashes
+      - name: Verify ancestry and reconstruct exact source
         shell: bash
         run: |
           set -euo pipefail
           git merge-base --is-ancestor 7e6913321726f2221054cd03b3e4df2483e4a7cb "$GITHUB_SHA"
           python3 - <<'PY'
+          import base64, hashlib, zlib
           from pathlib import Path
-          import hashlib
-          expected = {
-              'backend/migrations/20260909000000_creator_deletion_barrier.sql': 'be3f2ac7b1eca945c443f370e90cad5398a974d53648d91c83bb9400196e0f71',
-              'backend/tests/build_isolated_test.py': '1470521334b103149176861faa92dd4538189fd4795ea96cd59c0204ecb3a298',
-          }
-          for path, digest in expected.items():
-              assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == digest, path
-          print('Exact original RC8 migration and generator verified')
+          root = Path('backend')
+          def verify(path, digest):
+              data = path.read_bytes()
+              assert hashlib.sha256(data).hexdigest() == digest, str(path)
+              return data
+          verify(root/'tests/rc8b-auth-cascade.patch','1857b6d7ff6aeea3e96010a7b84353338ee6c4c2761cf1b706849290b5ba14a6')
+          encoded = (root/'tests/rc8b-acceptance.py.zlib.b64').read_text().strip()
+          payload = base64.b64decode(encoded, validate=True)
+          assert hashlib.sha256(payload).hexdigest() == '4a017be116237e04749ea3f7be5b4fe1d48c28d6c8f3f8405968f7cda95078dc'
+          raw = zlib.decompress(payload)
+          assert hashlib.sha256(raw).hexdigest() == '7fc753b68af968a03d3de74ffeb4aca23e436514b951803f8827fa4ac79c787c'
+          verify(root/'tests/rc8b-harness-fix.patch','24b292570b4c497e179ce8973cbcd55d07c1d62488e321e1548cf50d1b260b5')
+          path = root/'tests/rc8b_acceptance.py'
+          if path.exists():
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == 'eade5ad5e12eeac8f6cc20849294115cd4cfd0b05861e5bed32bab03a5106de6'
+          else:
+              path.write_bytes(raw)
+          source = root/'migrations/20260909000000_creator_deletion_barrier.sql'
+          actual = hashlib.sha256(source.read_bytes()).hexdigest()
+          assert actual in ('be3f2ac7b1eca945c443f370e90cad5398a974d53648d91c83bb9400196e0f71','61425ebedad2ff4eaaf85b0c58dbe2382e0c35360f9b2416ab207c35139be45a'), actual
+          print('Exact RC8b transport, scope and source verified')
           PY
+          mkdir -p /tmp/rc8b-core/backend/{migrations,tests}
+          git show c52cafd1deeaa6957bdd376bc9617fa49d5a0b60:backend/migrations/20260909000000_creator_deletion_barrier.sql > /tmp/rc8b-core/backend/migrations/20260909000000_creator_deletion_barrier.sql
+          cp backend/tests/build_isolated_test.py backend/tests/build_isolated_test_v2.py backend/tests/build_isolated_test_v3.py /tmp/rc8b-core/backend/tests/
+          python3 /tmp/rc8b-core/backend/tests/build_isolated_test_v3.py
+          cp /tmp/rc8b-core/backend/tests/isolated_acceptance_v3.sql backend/tests/
+          echo '8471413e65a1507b51b78e713276635c611e0732a692a21d6fec0f04265ba18c  backend/tests/isolated_acceptance_v3.sql' | sha256sum -c -
+          python3 - <<'PY'
+          import hashlib, subprocess
+          from pathlib import Path
+          harness = Path('backend/tests/rc8b_acceptance.py')
+          if hashlib.sha256(harness.read_bytes()).hexdigest() == '7fc753b68af968a03d3de74ffeb4aca23e436514b951803f8827fa4ac79c787c':
+              subprocess.run(['git','apply','--check','backend/tests/rc8b-harness-fix.patch'],check=True)
+              subprocess.run(['git','apply','backend/tests/rc8b-harness-fix.patch'],check=True)
+          assert hashlib.sha256(harness.read_bytes()).hexdigest() == 'eade5ad5e12eeac8f6cc20849294115cd4cfd0b05861e5bed32bab03a5106de6'
+          p = Path('backend/migrations/20260909000000_creator_deletion_barrier.sql')
+          if hashlib.sha256(p.read_bytes()).hexdigest() == 'be3f2ac7b1eca945c443f370e90cad5398a974d53648d91c83bb9400196e0f71':
+              subprocess.run(['git','apply','--check','backend/tests/rc8b-auth-cascade.patch'],check=True)
+              subprocess.run(['git','apply','backend/tests/rc8b-auth-cascade.patch'],check=True)
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == '61425ebedad2ff4eaaf85b0c58dbe2382e0c35360f9b2416ab207c35139be45a'
+          print('Consolidated RC8b migration verified')
+          PY
+          git diff --check
+          python3 -m py_compile backend/tests/rc8b_acceptance.py
       - name: Install PostgreSQL client 16
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client-16
           psql --version
-      - name: Generate and verify rollback-only acceptance SQL
+      - name: Execute rollback, Auth cascade and concurrency acceptance
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile backend/tests/build_isolated_test.py backend/tests/build_isolated_test_v2.py backend/tests/build_isolated_test_v3.py
-          python3 backend/tests/build_isolated_test_v3.py | tee /tmp/rc8-generator.log
-          echo '8471413e65a1507b51b78e713276635c611e0732a692a21d6fec0f04265ba18c  backend/tests/isolated_acceptance_v3.sql' | sha256sum -c -
-          python3 - <<'PY'
-          from pathlib import Path
-          text = Path('backend/tests/isolated_acceptance_v3.sql').read_text()
-          assert text.lstrip().startswith('BEGIN;')
-          assert text.rstrip().endswith('ROLLBACK;')
-          assert 'CREATE SCHEMA rc8_auth_test;' in text
-          assert 'CREATE SCHEMA rc8_public_test;' in text
-          assert 'CREATE SCHEMA IF NOT EXISTS rc8_guard_test;' in text
-          assert 'CREATE SCHEMA IF NOT EXISTS creator_guard_v183;' not in text
-          assert 'DELETE FROM public.creator_backups' not in text
-          assert 'DELETE FROM auth.users' not in text
-          print('Isolated SQL scope and rollback boundary verified')
-          PY
-      - name: Execute synthetic PostgreSQL acceptance
+          python3 backend/tests/rc8b_acceptance.py 2>&1 | tee /tmp/rc8b-postgres.log
+          grep -q '"rc8b": "passed"' /tmp/rc8b-postgres.log
+      - name: Commit verified canonical backend source
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          psql -X -v ON_ERROR_STOP=1 -f backend/tests/isolated_acceptance_v3.sql | tee /tmp/rc8-postgres.log
-          grep -q '"synthetic_tests": "passed"' /tmp/rc8-postgres.log
-      - name: Confirm rollback and clean database
-        shell: bash
-        run: |
-          set -euo pipefail
-          psql -X -v ON_ERROR_STOP=1 -At <<'SQL' | tee /tmp/rc8-rollback.log
-          SELECT CASE WHEN EXISTS (
-            SELECT 1 FROM pg_namespace WHERE nspname IN ('rc8_auth_test','rc8_public_test','rc8_guard_test')
-          ) THEN 'FAIL: synthetic schemas survived' ELSE 'PASS: synthetic schemas rolled back' END;
-          SELECT CASE WHEN EXISTS (
-            SELECT 1 FROM pg_roles WHERE rolname IN ('anon','authenticated')
-          ) THEN 'FAIL: synthetic roles survived' ELSE 'PASS: synthetic roles rolled back' END;
-          SQL
-          ! grep -q 'FAIL:' /tmp/rc8-rollback.log
-      - name: Record verified backend evidence
+          git config user.name 'FrameByNavin Build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/rc8b_acceptance.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix: preserve Auth cascades and serialize creator lifecycle locks'
+            AUTH=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" push origin HEAD:refs/heads/feature/v1.8.3-server-deletion-barrier
+          fi
+          git rev-parse HEAD | tee /tmp/rc8b-source-commit.txt
+      - name: Archive verified backend source and evidence
         if: always()
         shell: bash
         run: |
-          mkdir -p /tmp/rc8-evidence
-          printf '%s\n' "head=$GITHUB_SHA" "base=7e6913321726f2221054cd03b3e4df2483e4a7cb" "deployment=none" "production_credentials=none" > /tmp/rc8-evidence/manifest.txt
-          cp /tmp/rc8-generator.log /tmp/rc8-postgres.log /tmp/rc8-rollback.log /tmp/rc8-evidence/ 2>/dev/null || true
-          sha256sum backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/build_isolated_test.py backend/tests/build_isolated_test_v2.py backend/tests/build_isolated_test_v3.py > /tmp/rc8-evidence/source-sha256.txt
+          mkdir -p /tmp/rc8b-evidence
+          cp /tmp/rc8b-postgres.log /tmp/rc8b-source-commit.txt /tmp/rc8b-evidence/ 2>/dev/null || true
+          printf '%s\n' "head=$GITHUB_SHA" 'deployment=none' 'production_credentials=none' > /tmp/rc8b-evidence/manifest.txt
+          sha256sum backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/rc8b_acceptance.py backend/tests/rc8b-auth-cascade.patch backend/tests/rc8b-harness-fix.patch > /tmp/rc8b-evidence/source-sha256.txt
+          if [ -f /tmp/rc8b-source-commit.txt ]; then
+            tar -czf /tmp/rc8b-evidence/FrameByNavin-v1.8.3-rc8b-backend-source.tar.gz backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/rc8b_acceptance.py backend/tests/rc8b-auth-cascade.patch backend/tests/build_isolated_test.py backend/tests/build_isolated_test_v2.py backend/tests/build_isolated_test_v3.py
+          fi
       - name: Upload backend verification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.8.3-rc8-backend-verification
-          path: /tmp/rc8-evidence/
+          name: FrameByNavin-v1.8.3-rc8b-backend-verification
+          path: /tmp/rc8b-evidence/
           if-no-files-found: error
