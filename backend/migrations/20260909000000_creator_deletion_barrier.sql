@@ -28,6 +28,12 @@ BEGIN
     IF p_user IS NULL THEN
         RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
     END IF;
+    -- Serialize with Auth identity deletion before taking creator-owned locks.
+    -- A deleted identity cannot be revived by a still-valid access token.
+    PERFORM 1 FROM auth.users WHERE id = p_user FOR KEY SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Creator account no longer exists' USING ERRCODE = '42501';
+    END IF;
     PERFORM pg_catalog.pg_advisory_xact_lock(183, pg_catalog.hashtext(p_user::text));
     INSERT INTO creator_guard_v183.lifecycle(user_id) VALUES (p_user)
     ON CONFLICT (user_id) DO NOTHING;
@@ -90,14 +96,28 @@ REVOKE ALL ON FUNCTION creator_guard_v183.assert_owned_write() FROM PUBLIC, anon
 -- Ordinary DELETE requests must also carry the current epoch after reactivation.
 -- The private transaction permit allows only creator_delete_owned_data() to delete
 -- while tombstoned. No public caller can write or forge this private row value.
+-- A SECURITY DEFINER trigger changes current_user, so test session_user.
+-- PostgREST's authenticator cannot assume either trusted login role.
+-- Trigger depth excludes direct creator-table DELETE statements. This is an
+-- internal database compatibility guard, not an endpoint or a user permission.
+CREATE OR REPLACE FUNCTION creator_guard_v183.trusted_auth_cascade()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $function$
+ SELECT auth.uid() IS NULL
+    AND pg_catalog.pg_trigger_depth() > 1
+    AND session_user IN ('supabase_auth_admin', 'postgres');
+$function$;
+REVOKE ALL ON FUNCTION creator_guard_v183.trusted_auth_cascade() FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION creator_guard_v183.lock_current_delete()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
 DECLARE v_phase text; v_generation bigint; v_permit bigint; v_header text;
 BEGIN
-    -- Auth's internal FK cascade may run with no user JWT. It can delete empty
-    -- tables after creator cleanup; the row guard still rejects any owned rows.
-    IF auth.uid() IS NULL THEN RETURN NULL; END IF;
+    -- Only a trusted database administration session may bypass the user fence
+    -- while executing a nested FK cascade. Ordinary API sessions, including
+    -- service_role requests through PostgREST, are not privileged here.
+    IF creator_guard_v183.trusted_auth_cascade() THEN RETURN NULL; END IF;
     SELECT s.phase, s.generation, s.delete_txid INTO v_phase, v_generation, v_permit
       FROM creator_guard_v183.lock_state(auth.uid()) AS s;
     IF v_permit IS NOT NULL AND v_permit = pg_catalog.txid_current() THEN RETURN NULL; END IF;
@@ -120,6 +140,7 @@ CREATE OR REPLACE FUNCTION creator_guard_v183.assert_owned_delete()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $function$
 BEGIN
+    IF creator_guard_v183.trusted_auth_cascade() THEN RETURN OLD; END IF;
     IF auth.uid() IS NULL OR OLD.user_id IS DISTINCT FROM auth.uid() THEN
         RAISE EXCEPTION 'Creator delete owner mismatch' USING ERRCODE = '42501';
     END IF;
