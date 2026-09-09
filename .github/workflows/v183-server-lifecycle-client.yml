@@ -8,6 +8,7 @@ on:
     paths:
       - '.github/workflows/v183-server-lifecycle-client.yml'
       - 'foundation/v183/rc8c-client.patch.xz'
+      - 'foundation/v183/rc8c-verify-source.py'
 
 permissions:
   contents: write
@@ -32,69 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import hashlib, lzma, os, pathlib, subprocess
-          BASE='7e6913321726f2221054cd03b3e4df2483e4a7cb'
-          STAGING='d1f823ca8f9fe9663976e7375aa6d5841fddf2ef'
-          def git(*args): return subprocess.check_output(['git',*args],text=True).strip()
-          def sha(data): return hashlib.sha256(data).hexdigest()
-          def blob(data): return hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
-          assert git('rev-parse','HEAD') == os.environ['GITHUB_SHA']
-          subprocess.run(['git','merge-base','--is-ancestor',BASE,'HEAD'],check=True)
-          assert git('rev-parse','HEAD^') == STAGING
-          expected_stage={'foundation/v183/rc8c-client.patch.xz','foundation/v183/rc8c-client-contract.md','.github/workflows/v183-server-lifecycle-client.yml'}
-          actual_stage=set(git('diff','--name-only',BASE,'HEAD').splitlines())
-          assert actual_stage == expected_stage,(actual_stage,expected_stage)
-          subprocess.run(['git','diff','--exit-code',BASE,'HEAD','--','app'],check=True)
-          packed=pathlib.Path('foundation/v183/rc8c-client.patch.xz').read_bytes()
-          assert blob(packed)=='f3d11cdb969a15626407b168ee8e491e5699ecfc'
-          assert sha(packed)=='8322e1c6f55d67b861efd3e651906ac59696fe7c0df9dcae74e77196e88c1aa1'
-          patch=lzma.decompress(packed)
-          assert sha(patch)=='43bdf8ecb5ec7f836ad5f18e88537c611855d9faeeceecad646a80754a860849'
-          pathlib.Path('/tmp/fbn183-rc8c.patch').write_bytes(patch)
-          subprocess.run(['git','apply','--check','/tmp/fbn183-rc8c.patch'],check=True)
-          subprocess.run(['git','apply','/tmp/fbn183-rc8c.patch'],check=True)
-          subprocess.run(['git','diff','--check'],check=True)
-          expected=set('''app/build.gradle.kts
-          app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt
-          app/src/main/java/com/framebynavin/app/cloud/CloudDeletionRecovery.kt
-          app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt
-          app/src/main/java/com/framebynavin/app/cloud/CloudModels.kt
-          app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
-          app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt
-          app/src/test/java/com/framebynavin/app/cloud/CloudDeletionRecoveryTest.kt
-          app/src/androidTest/java/com/framebynavin/app/cloud/CloudDeletionJournalV183Test.kt'''.splitlines())
-          actual=set(git('diff','--name-only').splitlines())
-          actual|=set(git('ls-files','--others','--exclude-standard','app').splitlines())
-          assert actual==expected,(actual,expected)
-          assert not any(pathlib.Path(p).is_symlink() for p in expected)
-          gradle=pathlib.Path('app/build.gradle.kts').read_text()
-          assert 'versionCode = 73' in gradle
-          assert 'versionName = "1.8.3-foundation-rc8c"' in gradle
-          assert 'const val SCHEMA_VERSION = 5' in pathlib.Path('app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt').read_text()
-          api=pathlib.Path('app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt').read_text()
-          assert api.count('writeEpoch = writeEpoch,')==4
-          assert 'x-creator-write-epoch' in api
-          assert 'creator_delete_owned_data' in api and 'creator_resume_owned_data' in api
-          assert '"DELETE", "/rest/v1/creator_backups' not in api
-          recovery=pathlib.Path('app/src/main/java/com/framebynavin/app/cloud/CloudDeletionRecovery.kt').read_text()
-          assert 'journal.pendingGeneration()' in recovery
-          assert recovery.index('journal.begin(userId, expected)') < recovery.index('remote.deleteOwnedData(userId, expected)') < recovery.index('journal.clear(userId)')
-          store=pathlib.Path('app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt').read_text()
-          assert 'pending_cloud_deletion_v183' in store and 'cloud_lifecycle_v183' in store
-          assert 'fun requireWritable(userId: String)' in store
-          manager=pathlib.Path('app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt').read_text()
-          assert 'CloudDeletionRecovery(local, remote)' in manager
-          assert 'private suspend fun requireActiveLifecycle' in manager
-          assert 'suspend fun resumeCloudData()' in manager
-          assert manager.count('api.resumeCloudData(')==1
-          assert 'api.hasCloudData(session)' in manager
-          subprocess.run(['git','add','--',*sorted(expected)],check=True)
-          subprocess.run(['git','diff','--cached','--check'],check=True)
-          pathlib.Path('foundation/verification').mkdir(parents=True,exist_ok=True)
-          pathlib.Path('foundation/verification/rc8c-payload.sha256').write_text(sha(packed)+'  rc8c-client.patch.xz\n'+sha(patch)+'  rc8c-client.patch\n')
-          print('Exact RC8c source scope, transport, version, signing baseline and lifecycle contracts verified')
-          PY
+          python3 foundation/v183/rc8c-verify-source.py
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -154,7 +93,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p foundation/source foundation/verification
-          git archive --format=tar.gz --output foundation/source/FrameByNavin-v1.8.3-foundation-rc8c-source.tar.gz HEAD app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties foundation/v183/rc8c-client-contract.md
+          git archive --format=tar.gz --output foundation/source/FrameByNavin-v1.8.3-foundation-rc8c-source.tar.gz HEAD app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties foundation/v183/rc8c-client-contract.md foundation/v183/rc8c-verify-source.py
           sha256sum foundation/source/FrameByNavin-v1.8.3-foundation-rc8c-source.tar.gz | tee foundation/verification/rc8c-source.sha256
           python3 - <<'PY'
           import hashlib,json,pathlib,subprocess
