@@ -1,0 +1,191 @@
+name: FrameByNavin v1.8.3 YouTube Cache Safety
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/v1.8.3-youtube-cache-lifecycle
+    paths:
+      - '.github/workflows/v183-youtube-cache-lifecycle.yml'
+      - 'foundation/v183/rc5-youtube-cache.patch.xz'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: framebynavin-v183-youtube-cache-lifecycle
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: ${{ github.repository == 'rayadinaveen98-ship-it/framebynavin-android' && github.event.repository.private == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact RC4 descendant
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Verify and apply reviewed source update
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=43953d7ad3826dd1035ee2c7cf2dc5ceda4f42c4
+          PAYLOAD=foundation/v183/rc5-youtube-cache.patch.xz
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git rev-parse HEAD^)" = "$BASE"
+          test "$(git hash-object "$PAYLOAD")" = '3e531e8267e0fc3ee3f137fc7df1367ba4a8ee7c'
+          echo 'f9b7df89376227396e8a8645103a15a7c6f1426d22f28fb959eb2501a6d7c1b2  foundation/v183/rc5-youtube-cache.patch.xz' | sha256sum -c -
+          git diff --exit-code "$BASE" HEAD -- app
+          git diff --exit-code -- app
+          python3 - <<'PY'
+          import subprocess
+          expected={'.github/workflows/v183-youtube-cache-lifecycle.yml','foundation/v183/rc5-youtube-cache.patch.xz'}
+          actual=set(subprocess.check_output(['git','diff','--name-only','43953d7ad3826dd1035ee2c7cf2dc5ceda4f42c4','HEAD'],text=True).splitlines())
+          assert actual==expected,(actual,expected)
+          PY
+          xz -dc "$PAYLOAD" > /tmp/fbn183-rc5.patch
+          echo 'af19f910f72f0c7b36a674389ff4178a3be24188bf93d6dec8ec199cb9b05be8  /tmp/fbn183-rc5.patch' | sha256sum -c -
+          git apply --check /tmp/fbn183-rc5.patch
+          git apply /tmp/fbn183-rc5.patch
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          expected={
+            'app/build.gradle.kts',
+            'app/src/main/java/com/framebynavin/app/youtube/YouTubeAnalyticsStore.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt',
+            'app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt',
+            'app/src/androidTest/java/com/framebynavin/app/youtube/YouTubeCacheLifecycleV183Test.kt',
+          }
+          actual=set(subprocess.check_output(['git','diff','--name-only'],text=True).splitlines())
+          actual|=set(subprocess.check_output(['git','ls-files','--others','--exclude-standard','app'],text=True).splitlines())
+          assert actual==expected,(actual,expected)
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 70' in gradle
+          assert 'versionName = "1.8.3-foundation-rc5"' in gradle
+          assert 'const val SCHEMA_VERSION = 5' in Path('app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt').read_text()
+          assert not any(Path(p).is_symlink() for p in expected)
+          store=Path('app/src/main/java/com/framebynavin/app/youtube/YouTubeAnalyticsStore.kt').read_text()
+          assert 'CreatorDataGate.readyTransaction(appContext)' in store
+          assert 'fun isCurrent(request: YouTubeCacheRequest)' in store
+          assert 'YouTubeMilestoneStore(appContext).captureFrom' in store
+          ui=Path('app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt').read_text()
+          assert 'store.save(fresh, request)' in ui
+          assert 'store.disconnect()' in ui
+          assert 'store.clearAll()' not in ui
+          assert 'milestoneStore.captureFrom' not in ui
+          subprocess.run(['git','add','--',*sorted(expected)],check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          print('Exact RC5 source scope, payload, version and lifecycle contracts verified')
+          PY
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Build candidate APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Verify version and established pilot signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p foundation/verification
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee foundation/verification/rc5-apk-signature.txt
+          grep -Fqi 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' foundation/verification/rc5-apk-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.framebynavin.app' versionCode='70' versionName='1.8.3-foundation-rc5'"
+          sha256sum "$APK" | tee foundation/verification/rc5-apk.sha256
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run Android emulator regression suite
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash hardening/rc2/run_emulator_tests.sh
+      - name: Commit verified canonical source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c user.name='FrameByNavin Build' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: invalidate stale YouTube cache and authorization work'
+          git push origin HEAD:refs/heads/fix/v1.8.3-youtube-cache-lifecycle
+      - name: Archive verified candidate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p foundation/source foundation/verification
+          git archive --format=tar.gz --output foundation/source/FrameByNavin-v1.8.3-foundation-rc5-source.tar.gz HEAD app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          sha256sum foundation/source/FrameByNavin-v1.8.3-foundation-rc5-source.tar.gz | tee foundation/verification/rc5-source.sha256
+          python3 - <<'PY'
+          import hashlib,json,pathlib,subprocess
+          source=pathlib.Path('foundation/source/FrameByNavin-v1.8.3-foundation-rc5-source.tar.gz')
+          apk=pathlib.Path('app/build/outputs/apk/debug/app-debug.apk')
+          sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          manifest={
+            'status':'internal foundation candidate; not a public release',
+            'versionName':'1.8.3-foundation-rc5','versionCode':70,'backupSchemaVersion':5,
+            'canonical_base':'43953d7ad3826dd1035ee2c7cf2dc5ceda4f42c4',
+            'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+            'source_sha256':sha(source),'apk_sha256':sha(apk),
+            'signing_certificate_sha256':'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0',
+            'scope':'YouTube cache generation, authorization/disconnect/restore safety, channel isolation and regression tests. No live backend migration or user-record mutation.'
+          }
+          pathlib.Path('foundation/verification/rc5-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          PY
+      - name: Upload verified candidate APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc5-candidate
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            foundation/verification/rc5-apk.sha256
+            foundation/verification/rc5-apk-signature.txt
+      - name: Upload verified candidate source
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc5-source
+          path: |
+            foundation/source/FrameByNavin-v1.8.3-foundation-rc5-source.tar.gz
+            foundation/verification/rc5-manifest.json
+            foundation/verification/rc5-source.sha256
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc5-diagnostics
+          if-no-files-found: ignore
+          path: |
+            foundation/verification/
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
+            app/build/outputs/androidTest-results/
+            app/build/reports/androidTests/
+            hardening/diagnostics/
