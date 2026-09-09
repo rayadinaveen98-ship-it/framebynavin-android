@@ -1,0 +1,17 @@
+--- a/backend/tests/rc8b_acceptance.py
++++ b/backend/tests/rc8b_acceptance.py
+@@ -187,9 +187,13 @@
+ 
+ 
+ def start(source: str) -> subprocess.Popen:
+-    return subprocess.Popen(['psql','-X','-A','-t','-v','ON_ERROR_STOP=1',
++    proc = subprocess.Popen(['psql','-X','-A','-t','-v','ON_ERROR_STOP=1',
+                              '-v','VERBOSITY=verbose','-P','pager=off'],
+                             stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
++    proc.stdin.write(source)
++    proc.stdin.close()
++    proc.stdin = None
++    return proc
+ 
+ 
+ def active_lock(user: str, timeout: float = 8):
