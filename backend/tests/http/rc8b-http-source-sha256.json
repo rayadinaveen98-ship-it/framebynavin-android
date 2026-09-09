@@ -1,0 +1,5 @@
+{
+  "backend/tests/http/rc8b-live-schema-fixture.sql": "08f887551f9e1a734320fca99e3c2c67e9451682686b8e26f8817c4442bae59f",
+  "backend/tests/http/rc8b-test-only-helper.sql": "ac01df2ae0bca08d63be3c71a2e938505e542c6d21ec4adb7aa7d857137857b0",
+  "backend/tests/http/rc8b_http_acceptance.py": "3de989bb6e72ed4f0db1c2ad04552ca7da8949bbc5829f1eacfe071eba70d34b"
+}
