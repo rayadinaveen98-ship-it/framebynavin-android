@@ -1,0 +1,200 @@
+name: FrameByNavin v1.8.3 Cloud Deletion Recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/v1.8.3-cloud-deletion-recovery
+    paths:
+      - '.github/workflows/v183-cloud-deletion-recovery.yml'
+      - 'foundation/v183/rc7-payload-*.b64'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: framebynavin-v183-cloud-deletion-recovery
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: ${{ github.repository == 'rayadinaveen98-ship-it/framebynavin-android' && github.event.repository.private == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact RC6 descendant
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Verify and apply reviewed source update
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, lzma, pathlib, subprocess
+          BASE='b0f0776e9e140cced1f32f870b95429ac9dfaeb7'
+          PREFIX='foundation/v183/rc7-payload-'
+          expected_hashes=['4dfbab51d9d9bef23a568ce5435d4076f7355245','05fe71499ad6521764025c5d473ef6a38693b62d','24c782150e23cb72289fc1956f875cefb191ff92','42790386988eec02f4b1206a9fbbd765bba6f744','101a0f411c8986ff43c09126feeea3aa73e3a400','d9a3cf39b090fbd78fe9122f9e15462d64afbd76','ef511258c77a61be10c919afacae275eb37be68c']
+          def git(*args): return subprocess.check_output(['git',*args],text=True).strip()
+          def sha(data): return hashlib.sha256(data).hexdigest()
+          def blob(data): return hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          assert git('rev-parse','HEAD')==__import__('os').environ['GITHUB_SHA']
+          subprocess.run(['git','merge-base','--is-ancestor',BASE,'HEAD'],check=True)
+          assert git('rev-parse','HEAD^')=='04134da1b160cc877395d8073f690eff1c60b6ba'
+          transport={f'{PREFIX}{i:02}.b64' for i in range(1,8)}
+          expected_stage=transport|{'.github/workflows/v183-cloud-deletion-recovery.yml','foundation/v183/rc7-cloud-deletion-readme.md','foundation/v183/rc7-cloud-deletion.patch.sha256'}
+          actual_stage=set(git('diff','--name-only',BASE,'HEAD').splitlines())
+          assert actual_stage==expected_stage,(actual_stage,expected_stage)
+          subprocess.run(['git','diff','--exit-code',BASE,'HEAD','--','app'],check=True)
+          subprocess.run(['git','diff','--exit-code','--','app'],check=True)
+          chunks=[]
+          for i, expected in enumerate(expected_hashes,1):
+              data=pathlib.Path(f'{PREFIX}{i:02}.b64').read_bytes()
+              assert blob(data)==expected,(i,blob(data))
+              chunks.append(data)
+          packed=base64.b64decode(b''.join(chunks),validate=True)
+          assert sha(packed)=='fb8726281bf2d5075ba067eff76039d00eb1dc56254bb65f2db42c876bcd9818'
+          patch=lzma.decompress(packed)
+          assert sha(patch)=='56bd7d744983b135d19f913fe531aba56af9436e594f26759b2aac8a0ff30cbb'
+          pathlib.Path('/tmp/fbn183-rc7.patch').write_bytes(patch)
+          subprocess.run(['git','apply','--check','/tmp/fbn183-rc7.patch'],check=True)
+          subprocess.run(['git','apply','/tmp/fbn183-rc7.patch'],check=True)
+          subprocess.run(['git','diff','--check'],check=True)
+          expected=set('''app/build.gradle.kts
+          app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt
+          app/src/main/java/com/framebynavin/app/cloud/CloudDeletionRecovery.kt
+          app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt
+          app/src/main/java/com/framebynavin/app/cloud/CloudModels.kt
+          app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt
+          app/src/test/java/com/framebynavin/app/cloud/CloudDeletionRecoveryTest.kt
+          app/src/androidTest/java/com/framebynavin/app/cloud/CloudDeletionJournalV183Test.kt'''.splitlines())
+          actual=set(git('diff','--name-only').splitlines())
+          actual|=set(git('ls-files','--others','--exclude-standard','app').splitlines())
+          assert actual==expected,(actual,expected)
+          assert not any(pathlib.Path(p).is_symlink() for p in expected)
+          gradle=pathlib.Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 72' in gradle
+          assert 'versionName = "1.8.3-foundation-rc7"' in gradle
+          assert 'const val SCHEMA_VERSION = 5' in pathlib.Path('app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt').read_text()
+          recovery=pathlib.Path('app/src/main/java/com/framebynavin/app/cloud/CloudDeletionRecovery.kt').read_text()
+          assert 'journal.begin(userId)' in recovery and 'remote.hasOwnedData(userId)' in recovery
+          assert recovery.index('journal.begin(userId)') < recovery.index('remote.deleteOwnedData(userId)') < recovery.index('remote.hasOwnedData(userId)') < recovery.index('journal.clear(userId)')
+          store=pathlib.Path('app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt').read_text()
+          assert 'pending_cloud_deletion_v183' in store and 'fun requireWritable(userId: String)' in store
+          manager=pathlib.Path('app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt').read_text()
+          assert 'CloudDeletionRecovery(local,' in manager and 'api.hasCloudData(session)' in manager
+          subprocess.run(['git','add','--',*sorted(expected)],check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          pathlib.Path('foundation/verification').mkdir(parents=True,exist_ok=True)
+          pathlib.Path('foundation/verification/rc7-payload.sha256').write_text(sha(packed)+'  rc7-cloud-deletion.patch.xz\n'+sha(patch)+'  rc7-cloud-deletion.patch\n')
+          print('Exact RC7 source scope, transport, version and deletion recovery contracts verified')
+          PY
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Build candidate APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Verify version and established pilot signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p foundation/verification
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | tee foundation/verification/rc7-apk-signature.txt
+          grep -Fqi 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' foundation/verification/rc7-apk-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.framebynavin.app' versionCode='72' versionName='1.8.3-foundation-rc7'"
+          sha256sum "$APK" | tee foundation/verification/rc7-apk.sha256
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run Android emulator regression suite
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash hardening/rc2/run_emulator_tests.sh
+      - name: Commit verified canonical source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c user.name='FrameByNavin Build' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: recover interrupted cloud creator-data deletion'
+          git push origin HEAD:refs/heads/fix/v1.8.3-cloud-deletion-recovery
+      - name: Archive verified candidate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p foundation/source foundation/verification
+          git archive --format=tar.gz --output foundation/source/FrameByNavin-v1.8.3-foundation-rc7-source.tar.gz HEAD app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          sha256sum foundation/source/FrameByNavin-v1.8.3-foundation-rc7-source.tar.gz | tee foundation/verification/rc7-source.sha256
+          python3 - <<'PY'
+          import hashlib,json,pathlib,subprocess
+          source=pathlib.Path('foundation/source/FrameByNavin-v1.8.3-foundation-rc7-source.tar.gz')
+          apk=pathlib.Path('app/build/outputs/apk/debug/app-debug.apk')
+          sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          manifest={
+            'status':'internal foundation candidate; not a public release',
+            'versionName':'1.8.3-foundation-rc7','versionCode':72,'backupSchemaVersion':5,
+            'canonical_base':'b0f0776e9e140cced1f32f870b95429ac9dfaeb7',
+            'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+            'source_sha256':sha(source),'apk_sha256':sha(apk),
+            'signing_certificate_sha256':'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0',
+            'scope':'Account-scoped creator-data deletion recovery, explicit retry/abandon, server-empty verification and synthetic regressions. No live backend migration or user-record mutation. Full Auth deletion and cross-device barriers remain pending.'
+          }
+          pathlib.Path('foundation/verification/rc7-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          PY
+      - name: Upload verified candidate APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc7-candidate
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            foundation/verification/rc7-apk.sha256
+            foundation/verification/rc7-apk-signature.txt
+      - name: Upload verified candidate source
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc7-source
+          path: |
+            foundation/source/FrameByNavin-v1.8.3-foundation-rc7-source.tar.gz
+            foundation/verification/rc7-manifest.json
+            foundation/verification/rc7-source.sha256
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.8.3-foundation-rc7-diagnostics
+          if-no-files-found: ignore
+          path: |
+            foundation/verification/
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
+            app/build/outputs/androidTest-results/
+            app/build/reports/androidTests/
+            hardening/diagnostics/
