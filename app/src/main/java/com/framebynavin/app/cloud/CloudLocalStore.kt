@@ -13,7 +13,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class CloudLocalStore(context: Context) {
+class CloudLocalStore(context: Context) : CloudDeletionJournal {
     private val app = context.applicationContext
     private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -90,6 +90,7 @@ class CloudLocalStore(context: Context) {
         lastError = prefs.getString(KEY_LAST_ERROR, "").orEmpty(),
         deviceKey = deviceKey(),
         reconciliationRequired = needsReconciliation(),
+        deletionPending = loadSession()?.userId?.let(::deletionPendingFor) ?: false,
     )
 
     fun setEnabled(value: Boolean) = prefs.edit().putBoolean(KEY_ENABLED, false).apply()
@@ -115,12 +116,50 @@ class CloudLocalStore(context: Context) {
             saveSession(session)
             true
         }
+    /** A durable, account-scoped retry record. Never backed up or automatically replayed. */
+    override fun pendingUserId(): String? = synchronized(accountLock) {
+        val raw = prefs.getString(KEY_PENDING_DELETION, null) ?: return@synchronized null
+        check(runCatching { UUID.fromString(raw).toString() == raw }.getOrDefault(false)) {
+            "Cloud deletion record is invalid. Cloud writes are blocked until it is reviewed."
+        }
+        raw
+    }
+
+    fun deletionPendingFor(userId: String): Boolean = pendingUserId() == userId
+
+    fun requireWritable(userId: String) {
+        if (deletionPendingFor(userId)) throw CloudDeletionPending()
+    }
+
+    override fun begin(userId: String) = synchronized(accountLock) {
+        require(UUID.fromString(userId).toString() == userId) { "Invalid cloud account identity" }
+        val pending = pendingUserId()
+        if (pending != null && pending != userId) throw CloudDeletionPending()
+        check(prefs.edit().putString(KEY_PENDING_DELETION, userId)
+            .remove(KEY_RECONCILED_USER).putBoolean(KEY_ENABLED, false).commit()) {
+            "Could not save cloud deletion retry record"
+        }
+    }
+
+    override fun clear(userId: String) = synchronized(accountLock) {
+        check(pendingUserId() == userId) { "Cloud deletion account mismatch" }
+        check(prefs.edit().remove(KEY_PENDING_DELETION).remove(KEY_RECONCILED_USER)
+            .putLong(KEY_LAST_SYNC, 0L).putString(KEY_LAST_ERROR, "").commit()) {
+            "Could not clear cloud deletion retry record"
+        }
+    }
+
+    /** Explicitly abandon an unfinished deletion only after rechecking that account's history. */
+    fun abandonDeletion(userId: String) = synchronized(accountLock) {
+        clear(userId)
+    }
+
     fun reconciledUser(): String = prefs.getString(KEY_RECONCILED_USER, "").orEmpty()
     fun approveUser(userId: String) = prefs.edit().putString(KEY_RECONCILED_USER, userId).commit()
     fun clearApproval() = prefs.edit().remove(KEY_RECONCILED_USER).commit()
     fun needsReconciliation(): Boolean {
         val session = loadSession() ?: return false
-        return reconciledUser() != session.userId
+        return deletionPendingFor(session.userId) || reconciledUser() != session.userId
     }
 
     fun setWifiOnly(value: Boolean) = prefs.edit().putBoolean(KEY_WIFI_ONLY, value).apply()
@@ -184,6 +223,7 @@ class CloudLocalStore(context: Context) {
         private const val KEY_DEVICE = "device_key"
         private const val KEY_GENERATION = "backup_generation_v181"
         private const val KEY_RECONCILED_USER = "backup_reconciled_user_v181"
+        private const val KEY_PENDING_DELETION = "pending_cloud_deletion_v183"
         private const val KEY_ALIAS = "framebynavin_cloud_session_v1"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val IV_BYTES = 12

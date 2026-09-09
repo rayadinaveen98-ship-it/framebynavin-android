@@ -10,6 +10,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.util.UUID
 
 class CloudHttpException(val statusCode: Int, override val message: String) : Exception(message)
 
@@ -39,9 +40,7 @@ class CloudApiClient {
     }
 
     suspend fun logout(accessToken: String) {
-        runCatching {
-            request("POST", "/auth/v1/logout", token = accessToken, body = "{}")
-        }
+        request("POST", "/auth/v1/logout", token = accessToken, body = "{}")
     }
 
     suspend fun upsertProfile(session: CloudSession) {
@@ -175,8 +174,20 @@ class CloudApiClient {
         return o.getString("payload") to o.getString("payload_sha256")
     }
 
+    /** Recheck every covered table, not just the twelve displayed restore points. */
+    suspend fun hasCloudData(session: CloudSession): Boolean {
+        val userId = UUID.fromString(session.userId).toString()
+        for (table in listOf("creator_backups", "creator_devices", "creator_profiles")) {
+            val raw = request("GET", "/rest/v1/$table?select=user_id&user_id=eq.$userId&limit=1",
+                token = session.accessToken)
+            if (JSONArray(raw).length() != 0) return true
+        }
+        return false
+    }
+
     suspend fun deleteCloudData(session: CloudSession) {
-        val suffix = "?user_id=eq.${session.userId}"
+        val userId = UUID.fromString(session.userId).toString()
+        val suffix = "?user_id=eq.$userId"
         request("DELETE", "/rest/v1/creator_backups$suffix", token = session.accessToken, prefer = "return=minimal")
         request("DELETE", "/rest/v1/creator_devices$suffix", token = session.accessToken, prefer = "return=minimal")
         request("DELETE", "/rest/v1/creator_profiles$suffix", token = session.accessToken, prefer = "return=minimal")
@@ -226,6 +237,8 @@ class CloudApiClient {
     ): String = withContext(Dispatchers.IO) {
         val connection = (URL(CloudConfig.SUPABASE_URL + path).openConnection() as HttpURLConnection).apply {
             requestMethod = method
+            useCaches = false
+            setRequestProperty("Cache-Control", "no-store")
             connectTimeout = 15_000
             readTimeout = 25_000
             setRequestProperty("apikey", CloudConfig.SUPABASE_PUBLISHABLE_KEY)

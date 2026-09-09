@@ -61,6 +61,7 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var restoreTarget by remember { mutableStateOf<CloudRestorePoint?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmAbandonDeletion by remember { mutableStateOf(false) }
     var confirmKeepLocal by remember { mutableStateOf(false) }
 
     fun reloadPoints() {
@@ -76,14 +77,21 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
         if (busy) return
         busy = true
         scope.launch {
-            val result = block()
-            message = when (result) {
-                is CloudOperationResult.Success -> result.message
-                is CloudOperationResult.Skipped -> result.message
-                is CloudOperationResult.Failure -> result.message
+            try {
+                val result = block()
+                message = when (result) {
+                    is CloudOperationResult.Success -> result.message
+                    is CloudOperationResult.Skipped -> result.message
+                    is CloudOperationResult.Failure -> result.message
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                message = "Cloud operation could not finish. Your local data is kept; review the account status before retrying."
+            } finally {
+                busy = false
+                reloadPoints()
             }
-            busy = false
-            reloadPoints()
         }
     }
 
@@ -232,7 +240,25 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                 }
 
                 Spacer(Modifier.height(12.dp))
-                if (state.settings.reconciliationRequired) {
+                if (state.settings.deletionPending) {
+                    CloudCard {
+                        Text("CLOUD DELETION NEEDS ATTENTION", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(8.dp))
+                        Text("A previous deletion did not finish or could not be verified. Some remote records may already be gone. Automatic uploads are off. Your phone data and sign-in identity remain. Only this account can retry its deletion.", color = ProjectorIvory, fontSize = 14.sp, lineHeight = 20.sp)
+                        Spacer(Modifier.height(14.dp))
+                        Button(
+                            onClick = { confirmDelete = true },
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        ) { Text("RETRY CLOUD DELETION", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(onClick = { confirmAbandonDeletion = true }, enabled = !busy) {
+                            Text("STOP RETRYING", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                } else if (state.settings.reconciliationRequired) {
                     CloudCard {
                         Text("CHOOSE YOUR STARTING COPY", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(8.dp))
@@ -281,7 +307,7 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                     CloudCard { Text("No restore points are available. Create a backup when you’re ready.", color = MutedText, fontSize = 13.sp) }
                 } else {
                     state.restorePoints.forEachIndexed { index, point ->
-                        CloudRestoreRow(point = point, onClick = { restoreTarget = point })
+                        CloudRestoreRow(point = point, onClick = { if (!state.settings.deletionPending) restoreTarget = point })
                         if (index != state.restorePoints.lastIndex) Spacer(Modifier.height(7.dp))
                     }
                 }
@@ -290,7 +316,7 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                 Text("ACCOUNT & DATA", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.height(8.dp))
                 CloudCard {
-                    CloudActionRow(Icons.Outlined.DeleteOutline, "Delete cloud creator data", "Deletes remote backups, profile and device records; keeps your phone and sign-in account") { confirmDelete = true }
+                    CloudActionRow(Icons.Outlined.DeleteOutline, if (state.settings.deletionPending) "Retry cloud creator-data deletion" else "Delete cloud creator data", "Deletes remote backups, profile and device records; keeps your phone and sign-in account") { confirmDelete = true }
                     HorizontalDivider(color = CinemaLine, modifier = Modifier.padding(vertical = 9.dp))
                     CloudActionRow(Icons.Outlined.Logout, "Sign out", "Phone data stays; backup approval is cleared") { signOut() }
                 }
@@ -334,12 +360,23 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
         )
     }
 
+    if (confirmAbandonDeletion) {
+        AlertDialog(
+            onDismissRequest = { confirmAbandonDeletion = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Stop retrying cloud deletion?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            text = { Text("This does not undo already-deleted records or claim that deletion completed. After checking this account's backup history, the pending retry is cleared. Some remote records may remain. Uploads stay off until you explicitly review the starting copy again.", color = MutedText, fontSize = 14.sp) },
+            confirmButton = { TextButton(onClick = { confirmAbandonDeletion = false; runOperation { manager.abandonCloudDeletion() } }) { Text("STOP RETRYING", color = RecRed, fontWeight = FontWeight.Black) } },
+            dismissButton = { TextButton(onClick = { confirmAbandonDeletion = false }) { Text("KEEP RETRY", color = MutedText) } },
+        )
+    }
+
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             containerColor = CinemaSurfaceRaised,
-            title = { Text("Delete cloud creator data?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("This removes your remote creator backups, profile and device records. Your phone data and Google sign-in account remain. Automatic uploads will stay off. To create another backup later, you must review the account history and explicitly choose to keep this phone's data.", color = MutedText, fontSize = 14.sp) },
+            title = { Text(if (state.settings.deletionPending) "Retry cloud deletion?" else "Delete cloud creator data?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            text = { Text("This removes your remote creator backups, profile and device records. Already-deleted rows may be absent. Your phone data and sign-in account remain. Automatic uploads stay off. A failed or cancelled request keeps its retry record until you explicitly finish or stop it. Another device may create new backups, so this is not full account deletion.", color = MutedText, fontSize = 14.sp) },
             confirmButton = { TextButton(onClick = { confirmDelete = false; runOperation { manager.deleteCloudData() } }) { Text("DELETE CLOUD DATA", color = RecRed, fontWeight = FontWeight.Black) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("CANCEL", color = MutedText) } },
         )
