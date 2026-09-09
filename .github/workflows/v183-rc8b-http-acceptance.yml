@@ -1,0 +1,176 @@
+name: FrameByNavin RC8b Local HTTP Acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/v183-rc8b-http-acceptance]
+    paths:
+      - .github/workflows/v183-rc8b-http-acceptance.yml
+      - backend/tests/http/**
+      - backend/migrations/20260909000000_creator_deletion_barrier.sql
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rc8b-http-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  local-auth-postgrest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      RC8B_DISPOSABLE: 'yes'
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_DB_URL: ''
+      SUPABASE_PROJECT_REF: ''
+      DATABASE_URL: ''
+    steps:
+      - name: Checkout immutable backend lineage
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.117.0
+      - name: Verify and unpack recovered HTTP source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 562fdfdc7ce48bdc7dfb905e077c21867dcab542 HEAD
+          echo '61425ebedad2ff4eaaf85b0c58dbe2382e0c35360f9b2416ab207c35139be45a  backend/migrations/20260909000000_creator_deletion_barrier.sql' | sha256sum -c -
+          echo '44b51404acfc2ed3a9b5c2453d8c895c238275f6080f4800db324d5a2012cbe8  backend/tests/http/rc8b-http-source.tar.gz' | sha256sum -c -
+          python3 - <<'PY'
+          import ast, hashlib, json, tarfile
+          from pathlib import Path
+          root = Path('backend/tests/http').resolve()
+          hashes = json.loads((root / 'rc8b-http-source-sha256.json').read_text())
+          with tarfile.open(root / 'rc8b-http-source.tar.gz', 'r:gz') as archive:
+              members = archive.getmembers()
+              assert len(members) == len(hashes)
+              for member in members:
+                  assert member.isfile() and member.name in hashes
+                  target = (Path.cwd() / member.name).resolve()
+                  assert target.is_relative_to(root) and not target.exists()
+                  data = archive.extractfile(member).read()
+                  assert hashlib.sha256(data).hexdigest() == hashes[member.name], member.name
+                  if target.suffix == '.py': ast.parse(data)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(data)
+          print('PASS: immutable RC8b source, archive integrity, and Python syntax')
+          PY
+          git diff --check
+      - name: Start disposable local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rc8b-http-ci" "$RUNNER_TEMP/rc8b-http-evidence"
+          cd "$RUNNER_TEMP/rc8b-http-ci"
+          supabase --version | tee "$RUNNER_TEMP/rc8b-http-evidence/cli-version.txt"
+          supabase init --yes
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, tomllib
+          path = Path('supabase/config.toml')
+          text = path.read_text()
+          text, count = re.subn(r'(?m)^project_id\s*=\s*[^\n]+', 'project_id = "framebynavin-rc8b-http-ci"', text, count=1)
+          assert count == 1
+          text, count = re.subn(r'(?m)^(\[db\]\s*\n)', r'\1major_version = 17\n', text, count=1) if 'major_version' not in text else (text, 1)
+          assert count == 1
+          text = re.sub(r'(?m)^major_version\s*=\s*\d+', 'major_version = 17', text)
+          # The isolated fixture uses immediate local email sessions; no SMTP or real emails.
+          text = re.sub(r'(?m)^(\[auth\.email\]\s*\n)', r'\1enable_confirmations = false\n', text, count=1) if 'enable_confirmations' not in text else text
+          text = re.sub(r'(?m)^enable_confirmations\s*=\s*(true|false)', 'enable_confirmations = false', text)
+          config = tomllib.loads(text)
+          assert config['project_id'] == 'framebynavin-rc8b-http-ci'
+          assert config['db']['major_version'] == 17
+          assert config['auth']['email']['enable_confirmations'] is False
+          path.write_text(text)
+          PY
+          supabase start
+          supabase status -o env > "$RUNNER_TEMP/rc8b-http-ci/local-status.env"
+      - name: Execute authenticated HTTP acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, shlex, pathlib
+          source = pathlib.Path(os.environ['RUNNER_TEMP']) / 'rc8b-http-ci/local-status.env'
+          values = {}
+          for line in source.read_text().splitlines():
+              if '=' in line:
+                  key, value = line.split('=', 1)
+                  values[key.strip()] = shlex.split(value)[0]
+          mapping = {'API_URL':'RC8B_LOCAL_API_URL', 'DB_URL':'RC8B_LOCAL_DB_URL', 'ANON_KEY':'RC8B_LOCAL_ANON_KEY', 'SERVICE_ROLE_KEY':'RC8B_LOCAL_SERVICE_KEY'}
+          assert all(values.get(key) for key in mapping)
+          output = pathlib.Path(os.environ['RUNNER_TEMP']) / 'rc8b-http-ci/local-test-env.sh'
+          lines = ['export '+target+'='+shlex.quote(values[key]) for key,target in mapping.items()]
+          lines += ['export RC8B_LOCAL_PROJECT_ID=framebynavin-rc8b-http-ci', 'export RC8B_MIGRATION_PATH='+shlex.quote(str(pathlib.Path.cwd()/'backend/migrations/20260909000000_creator_deletion_barrier.sql'))]
+          output.write_text('\n'.join(lines)+'\n')
+          output.chmod(0o600)
+          PY
+          source "$RUNNER_TEMP/rc8b-http-ci/local-test-env.sh"
+          python3 - <<'PY'
+          import os, urllib.parse
+          api = urllib.parse.urlparse(os.environ['RC8B_LOCAL_API_URL'])
+          db = urllib.parse.urlparse(os.environ['RC8B_LOCAL_DB_URL'])
+          assert (api.scheme,api.hostname,api.port) == ('http','127.0.0.1',54321)
+          assert (db.hostname,db.port,db.path) == ('127.0.0.1',54322,'/postgres')
+          assert os.environ['RC8B_LOCAL_PROJECT_ID'] == 'framebynavin-rc8b-http-ci'
+          PY
+          psql "$RC8B_LOCAL_DB_URL" -X -v ON_ERROR_STOP=1 -Atc 'show server_version;' > "$RUNNER_TEMP/rc8b-http-evidence/postgres-version.txt"
+          psql "$RC8B_LOCAL_DB_URL" -X -v ON_ERROR_STOP=1 -f backend/tests/http/rc8b-live-schema-fixture.sql > /dev/null
+          psql "$RC8B_LOCAL_DB_URL" -X -v ON_ERROR_STOP=1 -f "$RC8B_MIGRATION_PATH" > /dev/null
+          psql "$RC8B_LOCAL_DB_URL" -X -v ON_ERROR_STOP=1 -f backend/tests/http/rc8b-test-only-helper.sql > /dev/null
+          psql "$RC8B_LOCAL_DB_URL" -X -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';" > /dev/null
+          python3 - <<'PY'
+          import os,time,json,urllib.request,urllib.error
+          url=os.environ['RC8B_LOCAL_API_URL']+'/rest/v1/rpc/creator_cloud_status'
+          headers={'apikey':os.environ['RC8B_LOCAL_ANON_KEY'],'Authorization':'Bearer '+os.environ['RC8B_LOCAL_ANON_KEY'],'Content-Type':'application/json'}
+          for attempt in range(40):
+              req=urllib.request.Request(url,data=b'{}',headers=headers,method='POST')
+              try:
+                  urllib.request.urlopen(req,timeout=5)
+              except urllib.error.HTTPError as exc:
+                  body=json.loads(exc.read())
+                  if body.get('code')=='42501': break
+              time.sleep(.5)
+          else: raise RuntimeError('PostgREST schema cache did not expose the lifecycle RPC')
+          PY
+          python3 backend/tests/http/rc8b_http_acceptance.py 2>&1 | tee "$RUNNER_TEMP/rc8b-http-evidence/acceptance.log"
+          grep -q '"rc8b_http": "passed"' "$RUNNER_TEMP/rc8b-http-evidence/acceptance.log"
+      - name: Archive evidence and source provenance
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rc8b-http-evidence"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path(os.environ['GITHUB_WORKSPACE'])
+          folder=pathlib.Path(os.environ['RUNNER_TEMP'])/'rc8b-http-evidence'
+          files=['backend/migrations/20260909000000_creator_deletion_barrier.sql','backend/tests/http/rc8b-http-source.tar.gz','backend/tests/http/rc8b-http-source-sha256.json']
+          hashes={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in files}
+          manifest={'workflow_head':os.environ['GITHUB_SHA'],'backend_source':'562fdfdc7ce48bdc7dfb905e077c21867dcab542','android_source':'27e16f42ecff0896037154dfdb1d93d5a7ce3a34','environment':'disposable-local-supabase','managed_supabase_http':'not_tested','production_changes':False,'source_sha256':hashes}
+          (folder/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Stop and discard disposable stack
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/rc8b-http-ci/supabase/config.toml" ]; then
+            cd "$RUNNER_TEMP/rc8b-http-ci"
+            supabase stop --no-backup || true
+          fi
+          rm -f "$RUNNER_TEMP/rc8b-http-ci/local-status.env" "$RUNNER_TEMP/rc8b-http-ci/local-test-env.sh"
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FrameByNavin-v183-rc8b-local-http-verification
+          path: ${{ runner.temp }}/rc8b-http-evidence/
+          if-no-files-found: error
