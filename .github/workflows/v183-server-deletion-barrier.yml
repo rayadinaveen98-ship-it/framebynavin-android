@@ -8,6 +8,7 @@ on:
     paths:
       - backend/migrations/20260909000000_creator_deletion_barrier.sql
       - backend/tests/build_isolated_test.py
+      - backend/tests/build_isolated_test_v2.py
       - .github/workflows/v183-server-deletion-barrier.yml
 
 permissions:
@@ -60,8 +61,7 @@ jobs:
               'backend/tests/build_isolated_test.py': '1470521334b103149176861faa92dd4538189fd4795ea96cd59c0204ecb3a298',
           }
           for path, digest in expected.items():
-              actual = hashlib.sha256(Path(path).read_bytes()).hexdigest()
-              assert actual == digest, f'Source mismatch: {path}'
+              assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == digest, path
           print('Exact original RC8 migration and generator verified')
           PY
       - name: Install PostgreSQL client 16
@@ -73,12 +73,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile backend/tests/build_isolated_test.py
-          python3 backend/tests/build_isolated_test.py | tee /tmp/rc8-generator.log
-          echo 'ddca1e0321c05435db38a3af51608a8320b19fe762ef558622cb10dfc0df77ad  backend/tests/isolated_acceptance.sql' | sha256sum -c -
+          python3 -m py_compile backend/tests/build_isolated_test.py backend/tests/build_isolated_test_v2.py
+          python3 backend/tests/build_isolated_test_v2.py | tee /tmp/rc8-generator.log
+          echo '25a69ac78e24eacf869acaa519e2eb2cf7b5865cff3d755c87ce8cb6bf4fd4a7  backend/tests/isolated_acceptance_v2.sql' | sha256sum -c -
           python3 - <<'PY'
           from pathlib import Path
-          text = Path('backend/tests/isolated_acceptance.sql').read_text()
+          text = Path('backend/tests/isolated_acceptance_v2.sql').read_text()
           assert text.lstrip().startswith('BEGIN;')
           assert text.rstrip().endswith('ROLLBACK;')
           assert 'CREATE SCHEMA rc8_auth_test;' in text
@@ -93,7 +93,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          psql -X -v ON_ERROR_STOP=1 -f backend/tests/isolated_acceptance.sql | tee /tmp/rc8-postgres.log
+          psql -X -v ON_ERROR_STOP=1 -f backend/tests/isolated_acceptance_v2.sql | tee /tmp/rc8-postgres.log
           grep -q '"synthetic_tests": "passed"' /tmp/rc8-postgres.log
       - name: Confirm rollback and clean database
         shell: bash
@@ -115,7 +115,7 @@ jobs:
           mkdir -p /tmp/rc8-evidence
           printf '%s\n' "head=$GITHUB_SHA" "base=7e6913321726f2221054cd03b3e4df2483e4a7cb" "deployment=none" "production_credentials=none" > /tmp/rc8-evidence/manifest.txt
           cp /tmp/rc8-generator.log /tmp/rc8-postgres.log /tmp/rc8-rollback.log /tmp/rc8-evidence/ 2>/dev/null || true
-          sha256sum backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/build_isolated_test.py > /tmp/rc8-evidence/source-sha256.txt
+          sha256sum backend/migrations/20260909000000_creator_deletion_barrier.sql backend/tests/build_isolated_test.py backend/tests/build_isolated_test_v2.py > /tmp/rc8-evidence/source-sha256.txt
       - name: Upload backend verification evidence
         if: always()
         uses: actions/upload-artifact@v4
