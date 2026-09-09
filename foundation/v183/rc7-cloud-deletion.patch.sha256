@@ -1,0 +1,7 @@
+RC7 cloud creator-data deletion recovery candidate
+Canonical base: b0f0776e9e140cced1f32f870b95429ac9dfaeb7
+Version: 1.8.3-foundation-rc7 / versionCode 72
+Raw patch SHA-256: 56bd7d744983b135d19f913fe531aba56af9436e594f26759b2aac8a0ff30cbb
+Compressed patch SHA-256: fb8726281bf2d5075ba067eff76039d00eb1dc56254bb65f2db42c876bcd9818
+Compressed Git blob SHA-1: e1a4e17b75c23c4c42e34ca0b32753b97bd8eeb5
+Status: local patch verified; Android CI not yet run. No application source promoted.
