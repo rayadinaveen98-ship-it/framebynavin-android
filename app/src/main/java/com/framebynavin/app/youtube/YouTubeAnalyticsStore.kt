@@ -1,42 +1,148 @@
 package com.framebynavin.app.youtube
 
 import android.content.Context
+import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorWriteConflict
 import org.json.JSONArray
 import org.json.JSONObject
+
+/** A request is valid only for the cache and creator-data generations that issued it. */
+data class YouTubeCacheRequest internal constructor(
+    val epoch: Long,
+    val creatorGeneration: Long,
+    val expectedChannelId: String?,
+    val allowChannelChange: Boolean,
+)
 
 class YouTubeAnalyticsStore(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     init {
-        latest24HourReport = YouTubePulseStore(appContext).build24HourReport()
+        synchronized(cacheLock) {
+            ensureCurrentDataGenerationLocked()
+            latest24HourReport = if (prefs.getString(KEY_CHANNEL_ID, null).isNullOrBlank()) null
+                else YouTubePulseStore(appContext).build24HourReport()
+        }
     }
 
-    fun load(windowDays: Int): YouTubeAnalyticsSnapshot? {
-        val raw = prefs.getString(snapshotKey(windowDays), null) ?: return null
-        return runCatching { snapshotFromJson(JSONObject(raw)) }.getOrNull()
+    /** Starts a new request and invalidates every older authorization/sync callback. */
+    fun beginRequest(allowChannelChange: Boolean = false): YouTubeCacheRequest = synchronized(cacheLock) {
+        ensureCurrentDataGenerationLocked()
+        val epoch = nextEpochLocked()
+        check(prefs.edit().putLong(KEY_EPOCH, epoch).commit()) { "Could not start YouTube request" }
+        YouTubeCacheRequest(
+            epoch = epoch,
+            creatorGeneration = CreatorDataGate.generation(appContext),
+            expectedChannelId = prefs.getString(KEY_CHANNEL_ID, null)?.takeIf(String::isNotBlank),
+            allowChannelChange = allowChannelChange,
+        )
     }
 
-    fun save(snapshot: YouTubeAnalyticsSnapshot) {
-        prefs.edit()
-            .putString(snapshotKey(snapshot.windowDays), snapshotToJson(snapshot).toString())
-            .putString(KEY_CHANNEL_ID, snapshot.channel.channelId)
-            .putString(KEY_CHANNEL_TITLE, snapshot.channel.title)
-            .putLong(KEY_LAST_SYNC, snapshot.fetchedAtMillis)
-            .apply()
-
-        val pulseStore = YouTubePulseStore(appContext)
-        pulseStore.capture(snapshot)
-        latest24HourReport = pulseStore.build24HourReport()
+    fun isCurrent(request: YouTubeCacheRequest): Boolean = synchronized(cacheLock) {
+        ensureCurrentDataGenerationLocked()
+        isCurrentLocked(request)
     }
 
-    fun hasConnection(): Boolean = prefs.getString(KEY_CHANNEL_ID, null).isNullOrBlank().not()
+    /** Only an accepted request may publish analytics, pulse samples or creator milestones.
+     * The creator-data transaction makes the final commit atomic with respect to restore.
+     */
+    suspend fun save(snapshot: YouTubeAnalyticsSnapshot, request: YouTubeCacheRequest): Boolean =
+        CreatorDataGate.readyTransaction(appContext) {
+            synchronized(cacheLock) {
+                ensureCurrentDataGenerationLocked()
+                if (!isCurrentLocked(request)) return@synchronized false
+                val channelId = snapshot.channel.channelId
+                require(channelId.isNotBlank() && snapshot.windowDays in setOf(7, 28, 90)) {
+                    "Invalid YouTube analytics identity or window"
+                }
+                if (!request.allowChannelChange &&
+                    request.expectedChannelId != null && request.expectedChannelId != channelId) {
+                    throw CreatorWriteConflict("YouTube returned a different channel. Use Switch account to confirm it.")
+                }
+                val currentChannel = prefs.getString(KEY_CHANNEL_ID, null)
+                if (!currentChannel.isNullOrBlank() && currentChannel != channelId) {
+                    if (!request.allowChannelChange) {
+                        throw CreatorWriteConflict("The YouTube channel changed. Select the account again.")
+                    }
+                    clearDerivedLocked(request.epoch, request.creatorGeneration)
+                }
+                check(prefs.edit()
+                    .putString(snapshotKey(snapshot.windowDays), snapshotToJson(snapshot).toString())
+                    .putString(KEY_CHANNEL_ID, channelId)
+                    .putString(KEY_CHANNEL_TITLE, snapshot.channel.title)
+                    .putLong(KEY_LAST_SYNC, snapshot.fetchedAtMillis)
+                    .commit()) { "Could not save YouTube analytics" }
+                val pulseStore = YouTubePulseStore(appContext)
+                pulseStore.capture(snapshot)
+                latest24HourReport = pulseStore.build24HourReport()
+                YouTubeMilestoneStore(appContext).captureFrom(snapshot, linksLocked())
+                true
+            }
+        }
+
+    /** Cancel a superseded UI request without discarding the last accepted cache. */
+    fun cancelRequest(request: YouTubeCacheRequest) = synchronized(cacheLock) {
+        ensureCurrentDataGenerationLocked()
+        if (isCurrentLocked(request)) {
+            check(prefs.edit().putLong(KEY_EPOCH, nextEpochLocked()).commit()) {
+                "Could not cancel YouTube request"
+            }
+        }
+    }
+
+    /** A disconnect takes effect locally before remote OAuth revocation completes. */
+    fun disconnect() = synchronized(cacheLock) {
+        ensureCurrentDataGenerationLocked()
+        clearDerivedLocked(nextEpochLocked(), CreatorDataGate.generation(appContext))
+    }
+
+    /** Clear only derived analytics. Manual links and captured milestones are portable data. */
+    fun clearAnalytics() = disconnect()
+
+    /** Kept for older callers, but no longer deletes creator-owned links. */
+    fun clearAll() = disconnect()
+
+    fun load(windowDays: Int): YouTubeAnalyticsSnapshot? = synchronized(cacheLock) {
+        ensureCurrentDataGenerationLocked()
+        val channelId = prefs.getString(KEY_CHANNEL_ID, null)?.takeIf(String::isNotBlank) ?: return@synchronized null
+        val raw = prefs.getString(snapshotKey(windowDays), null) ?: return@synchronized null
+        runCatching { snapshotFromJson(JSONObject(raw)) }.getOrNull()
+            ?.takeIf { it.channel.channelId == channelId && it.windowDays == windowDays }
+    }
+
+    fun hasConnection(): Boolean = synchronized(cacheLock) {
+        ensureCurrentDataGenerationLocked()
+        !prefs.getString(KEY_CHANNEL_ID, null).isNullOrBlank()
+    }
 
     fun loadAny(): YouTubeAnalyticsSnapshot? = listOf(28, 7, 90).firstNotNullOfOrNull { load(it) }
-    fun channelTitle(): String? = prefs.getString(KEY_CHANNEL_TITLE, null)
-    fun lastSyncMillis(): Long = prefs.getLong(KEY_LAST_SYNC, 0L)
+    fun channelTitle(): String? = synchronized(cacheLock) {
+        ensureCurrentDataGenerationLocked()
+        prefs.getString(KEY_CHANNEL_TITLE, null)
+    }
+    fun lastSyncMillis(): Long = synchronized(cacheLock) {
+        ensureCurrentDataGenerationLocked()
+        prefs.getLong(KEY_LAST_SYNC, 0L)
+    }
 
-    fun links(): Map<String, String> {
+    fun links(): Map<String, String> = synchronized(cacheLock) { linksLocked() }
+
+    /** A queued link edit must not replay after a creator-data restore. */
+    suspend fun link(videoId: String, taskId: String?, expectedGeneration: Long) =
+        CreatorDataGate.readyTransaction(appContext) {
+            CreatorDataGate.checkGeneration(appContext, expectedGeneration)
+            synchronized(cacheLock) {
+                require(videoId.isNotBlank()) { "A video ID is required" }
+                val obj = JSONObject(prefs.getString(KEY_LINKS, "{}") ?: "{}")
+                if (taskId.isNullOrBlank()) obj.remove(videoId) else obj.put(videoId, taskId)
+                check(prefs.edit().putString(KEY_LINKS, obj.toString()).commit()) {
+                    "Could not save YouTube project link"
+                }
+            }
+        }
+
+    private fun linksLocked(): Map<String, String> {
         val raw = prefs.getString(KEY_LINKS, null) ?: return emptyMap()
         return runCatching {
             val obj = JSONObject(raw)
@@ -49,20 +155,28 @@ class YouTubeAnalyticsStore(context: Context) {
         }.getOrDefault(emptyMap())
     }
 
-    fun link(videoId: String, taskId: String?) {
-        val obj = JSONObject(prefs.getString(KEY_LINKS, "{}") ?: "{}")
-        if (taskId.isNullOrBlank()) obj.remove(videoId) else obj.put(videoId, taskId)
-        prefs.edit().putString(KEY_LINKS, obj.toString()).apply()
+    private fun isCurrentLocked(request: YouTubeCacheRequest): Boolean =
+        request.epoch == prefs.getLong(KEY_EPOCH, 0L) &&
+            request.creatorGeneration == CreatorDataGate.generation(appContext) &&
+            request.creatorGeneration == prefs.getLong(KEY_DATA_GENERATION, Long.MIN_VALUE)
+
+    private fun nextEpochLocked(): Long = Math.addExact(prefs.getLong(KEY_EPOCH, 0L), 1L)
+
+    /** Older unowned caches are discarded, never silently assigned to a new creator generation. */
+    private fun ensureCurrentDataGenerationLocked() {
+        val generation = CreatorDataGate.generation(appContext)
+        if (prefs.getLong(KEY_DATA_GENERATION, Long.MIN_VALUE) != generation) {
+            clearDerivedLocked(nextEpochLocked(), generation)
+        }
     }
 
-    fun clearAnalytics() {
+    private fun clearDerivedLocked(epoch: Long, generation: Long) {
         val links = prefs.getString(KEY_LINKS, null)
-        prefs.edit().clear().apply()
-        if (links != null) prefs.edit().putString(KEY_LINKS, links).apply()
-    }
-
-    fun clearAll() {
-        prefs.edit().clear().apply()
+        val editor = prefs.edit().clear()
+            .putLong(KEY_EPOCH, epoch)
+            .putLong(KEY_DATA_GENERATION, generation)
+        if (links != null) editor.putString(KEY_LINKS, links)
+        check(editor.commit()) { "Could not invalidate YouTube analytics" }
         YouTubePulseStore(appContext).clear()
         latest24HourReport = null
     }
@@ -159,7 +273,7 @@ class YouTubeAnalyticsStore(context: Context) {
         .put("likes", v.likes)
         .put("comments", v.comments)
 
-    private fun videoFromJson(o: JSONObject) = YouTubeVideoSnapshot(
+    private fun videoFromJson(o: JSONObject): YouTubeVideoSnapshot = YouTubeVideoSnapshot(
         videoId = o.optString("videoId"),
         title = o.optString("title"),
         publishedAtMillis = o.optLong("publishedAtMillis"),
@@ -180,7 +294,7 @@ class YouTubeAnalyticsStore(context: Context) {
         .put("subscribersGained", t.subscribersGained)
         .put("subscribersLost", t.subscribersLost)
 
-    private fun trendFromJson(o: JSONObject) = YouTubeTrendPoint(
+    private fun trendFromJson(o: JSONObject): YouTubeTrendPoint = YouTubeTrendPoint(
         date = o.optString("date"),
         views = o.optLong("views"),
         watchMinutes = o.optLong("watchMinutes"),
@@ -202,10 +316,13 @@ class YouTubeAnalyticsStore(context: Context) {
         var latest24HourReport: YouTube24HourReport? = null
             private set
 
+        private val cacheLock = Any()
         private const val PREFS = "youtube_analytics_v11"
         private const val KEY_CHANNEL_ID = "channel_id"
         private const val KEY_CHANNEL_TITLE = "channel_title"
         private const val KEY_LAST_SYNC = "last_sync"
         private const val KEY_LINKS = "video_project_links"
+        private const val KEY_EPOCH = "cache_epoch_v183"
+        private const val KEY_DATA_GENERATION = "creator_generation_v183"
     }
 }

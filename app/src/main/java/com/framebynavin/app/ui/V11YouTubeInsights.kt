@@ -3,6 +3,9 @@ package com.framebynavin.app.ui
 import android.app.Activity
 import android.content.Intent
 import androidx.activity.ComponentActivity
+import android.widget.Toast
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +35,7 @@ import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.youtube.*
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.RevokeAccessRequest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,105 +53,181 @@ internal fun V11InsightsScreen(
     val context = LocalContext.current
     val activity = context as? ComponentActivity
     val store = remember { YouTubeAnalyticsStore(context.applicationContext) }
-    val milestoneStore = remember { YouTubeMilestoneStore(context.applicationContext) }
     val api = remember { YouTubeApiClient() }
     val authClient = remember(activity) { activity?.let { Identity.getAuthorizationClient(it) } }
     val scope = rememberCoroutineScope()
 
     var windowDays by rememberSaveable { mutableIntStateOf(28) }
     var snapshot by remember { mutableStateOf(store.load(windowDays) ?: store.loadAny()) }
-    var pendingSyncDays by rememberSaveable { mutableIntStateOf(windowDays) }
-    var syncing by rememberSaveable { mutableStateOf(false) }
+    var syncing by remember { mutableStateOf(false) }
+    var revoking by remember { mutableStateOf(false) }
     var authError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedVideo by remember { mutableStateOf<YouTubeVideoSnapshot?>(null) }
     var links by remember { mutableStateOf(store.links()) }
+    var activeRequest by remember { mutableStateOf<YouTubeCacheRequest?>(null) }
+    var pendingResolution by remember { mutableStateOf<YouTubeCacheRequest?>(null) }
+    var pendingResolutionDays by remember { mutableIntStateOf(28) }
     val personalization by remember(creatorProfile) {
         derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
     }
 
+    fun refreshCacheView() {
+        snapshot = store.load(windowDays) ?: store.loadAny()
+        links = store.links()
+        val request = activeRequest
+        if (request != null && !store.isCurrent(request)) {
+            activeRequest = null
+            pendingResolution = null
+            syncing = false
+            selectedVideo = null
+        }
+    }
+
     LaunchedEffect(windowDays) {
-        store.load(windowDays)?.let { snapshot = it }
+        refreshCacheView()
         authError = null
     }
 
-    fun syncWithToken(token: String, days: Int = windowDays) {
+    // A restore may happen from another screen. Re-read the cache on return.
+    DisposableEffect(activity, store) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refreshCacheView()
+        }
+        activity?.lifecycle?.addObserver(observer)
+        onDispose {
+            activity?.lifecycle?.removeObserver(observer)
+            activeRequest?.let(store::cancelRequest)
+        }
+    }
+
+    fun isActive(request: YouTubeCacheRequest): Boolean =
+        activeRequest == request && store.isCurrent(request)
+
+    fun finishRequest(request: YouTubeCacheRequest, error: String? = null) {
+        if (!isActive(request)) return
+        store.cancelRequest(request)
+        activeRequest = null
+        pendingResolution = null
+        syncing = false
+        authError = error
+    }
+
+    fun syncWithToken(token: String, request: YouTubeCacheRequest, days: Int) {
+        if (!isActive(request)) return
         scope.launch {
             syncing = true
             authError = null
-            runCatching {
-                withContext(Dispatchers.IO) { api.sync(token, days) }
-            }.onSuccess { fresh ->
-                store.save(fresh)
-                milestoneStore.captureFrom(fresh, store.links())
-                snapshot = fresh
-            }.onFailure { error ->
-                authError = ytFriendlyError(error)
+            try {
+                val fresh = withContext(Dispatchers.IO) { api.sync(token, days) }
+                if (store.save(fresh, request) && isActive(request)) {
+                    snapshot = fresh
+                    links = store.links()
+                    selectedVideo = null
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                if (isActive(request)) {
+                    // A revoked/invalid credential must not leave an apparently connected cache.
+                    if (error is YouTubeApiException && error.httpCode == 401) {
+                        store.disconnect()
+                        snapshot = null
+                        selectedVideo = null
+                    }
+                    authError = ytFriendlyError(error)
+                }
+            } finally {
+                if (activeRequest == request) {
+                    activeRequest = null
+                    pendingResolution = null
+                    syncing = false
+                }
             }
-            syncing = false
         }
     }
 
     val resolutionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        val request = pendingResolution
+        pendingResolution = null
+        if (request == null || !isActive(request)) return@rememberLauncherForActivityResult
         if (result.resultCode != Activity.RESULT_OK || result.data == null) {
-            syncing = false
-            authError = "YouTube connection was cancelled."
+            finishRequest(request, "YouTube connection was cancelled.")
             return@rememberLauncherForActivityResult
         }
         val authResult = runCatching { authClient?.getAuthorizationResultFromIntent(result.data!!) }.getOrNull()
         val token = authResult?.accessToken
         if (token.isNullOrBlank()) {
-            syncing = false
-            authError = "Google did not return a YouTube access token."
+            finishRequest(request, "Google did not return a YouTube access token.")
         } else {
-            syncWithToken(token, pendingSyncDays)
+            syncWithToken(token, request, pendingResolutionDays)
         }
     }
 
     fun authorize(selectAccount: Boolean = false, days: Int = windowDays) {
+        if (revoking) return
         val client = authClient ?: run {
             authError = "Google authorization is unavailable on this device."
             return
         }
+        val request = store.beginRequest(selectAccount)
+        activeRequest = request
+        pendingResolution = null
         syncing = true
         authError = null
-        pendingSyncDays = days
         client.authorize(YouTubeAuthorization.request(selectAccount))
             .addOnSuccessListener { result ->
+                if (!isActive(request)) return@addOnSuccessListener
                 if (result.hasResolution()) {
                     val pending = result.pendingIntent
                     if (pending == null) {
-                        syncing = false
-                        authError = "Google authorization needs attention, but no consent screen was available."
+                        finishRequest(request, "Google authorization needs attention, but no consent screen was available.")
                     } else {
+                        pendingResolution = request
+                        pendingResolutionDays = days
                         resolutionLauncher.launch(IntentSenderRequest.Builder(pending.intentSender).build())
                     }
                 } else {
                     val token = result.accessToken
                     if (token.isNullOrBlank()) {
-                        syncing = false
-                        authError = "Google authorization completed without a YouTube access token."
+                        finishRequest(request, "Google authorization completed without a YouTube access token.")
                     } else {
-                        syncWithToken(token, pendingSyncDays)
+                        syncWithToken(token, request, days)
                     }
                 }
             }
-            .addOnFailureListener {
-                syncing = false
-                authError = ytFriendlyError(it)
+            .addOnFailureListener { error ->
+                if (isActive(request)) finishRequest(request, ytFriendlyError(error))
             }
     }
 
     fun disconnect() {
+        // Local invalidation must not wait for the network or Google Play services.
+        store.disconnect()
+        activeRequest = null
+        pendingResolution = null
+        syncing = false
+        revoking = true
+        snapshot = null
+        selectedVideo = null
+        links = store.links() // Creator-owned links are deliberately preserved.
+        authError = null
         val request = RevokeAccessRequest.builder().setScopes(YouTubeAuthorization.scopes).build()
-        authClient?.revokeAccess(request)?.addOnCompleteListener {
-            store.clearAll()
-            snapshot = null
-            links = emptyMap()
-            authError = null
-        } ?: run {
-            store.clearAll()
-            snapshot = null
-            links = emptyMap()
+        val client = authClient
+        if (client == null) {
+            revoking = false
+            authError = "Local analytics disconnected. Google access could not be revoked on this device."
+        } else {
+            try {
+                client.revokeAccess(request).addOnCompleteListener { task ->
+                    revoking = false
+                    if (!task.isSuccessful) {
+                        authError = "Local analytics disconnected. Google permission revocation could not be confirmed."
+                    }
+                }
+            } catch (error: Throwable) {
+                revoking = false
+                authError = "Local analytics disconnected. Google permission revocation could not be confirmed."
+            }
         }
     }
 
@@ -178,7 +258,7 @@ internal fun V11InsightsScreen(
 
             if (snapshot == null) {
                 YTConnectCard(
-                    syncing = syncing,
+                    syncing = syncing || revoking,
                     error = authError,
                     packageName = context.packageName,
                     sha1 = remember { YouTubeAuthorization.signingSha1(context) },
@@ -190,8 +270,8 @@ internal fun V11InsightsScreen(
                 val data = snapshot!!
                 YTChannelHeader(
                     data = data,
-                    syncing = syncing,
-                    windowDays = windowDays,
+                    syncing = syncing || revoking,
+                    windowDays = data.windowDays,
                     onWindow = { days ->
                         if (days != windowDays) {
                             windowDays = days
@@ -228,9 +308,20 @@ internal fun V11InsightsScreen(
             currentTaskId = links[video.videoId],
             onDismiss = { selectedVideo = null },
             onLink = { taskId ->
-                store.link(video.videoId, taskId)
-                links = store.links()
-                selectedVideo = null
+                val epoch = CreatorDataGate.generation(context.applicationContext)
+                scope.launch {
+                    try {
+                        store.link(video.videoId, taskId, epoch)
+                        if (CreatorDataGate.generation(context.applicationContext) == epoch) {
+                            links = store.links()
+                            selectedVideo = null
+                        }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Throwable) {
+                        Toast.makeText(context, error.message ?: "Could not save project link.", Toast.LENGTH_LONG).show()
+                    }
+                }
             },
         )
     }
@@ -598,6 +689,8 @@ private fun YTEmpty(text: String) {
 private fun ytFriendlyError(error: Throwable): String {
     val raw = error.message.orEmpty()
     return when {
+        error is CreatorWriteConflict -> raw.ifBlank { "The creator data changed. Review the latest state and retry." }
+        error is YouTubeApiException && error.httpCode == 401 -> "Your YouTube connection expired or was revoked. Connect again."
         raw.contains("DEVELOPER_ERROR", true) || raw.contains("10:") -> "YouTube sign-in is not fully set up for this app yet."
         raw.contains("403") || raw.contains("accessNotConfigured", true) || raw.contains("has not been used", true) -> "YouTube connection is not fully enabled yet."
         raw.contains("401") || raw.contains("invalid credentials", true) -> "Your YouTube connection expired. Connect again."
