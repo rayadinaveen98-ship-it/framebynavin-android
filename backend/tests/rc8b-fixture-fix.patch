@@ -1,0 +1,20 @@
+--- a/backend/tests/rc8b_acceptance.py
++++ b/backend/tests/rc8b_acceptance.py
+@@ -121,7 +121,7 @@
+ CREATE TABLE rc8_public_test.creator_devices(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES rc8_auth_test.users(id) ON DELETE CASCADE);
+ CREATE TABLE rc8_public_test.creator_profiles(user_id uuid PRIMARY KEY REFERENCES rc8_auth_test.users(id) ON DELETE CASCADE, username text);
+ '''
+-    source += isolated(revised) + '''
++    source += isolated(revised) + f'''
+ GRANT USAGE ON SCHEMA rc8_auth_test, rc8_public_test TO authenticated, supabase_auth_admin;
+ GRANT EXECUTE ON FUNCTION rc8_auth_test.uid() TO authenticated;
+ GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA rc8_public_test TO authenticated;
+@@ -133,7 +133,7 @@
+  END LOOP;
+ END $p$;
+ INSERT INTO rc8_auth_test.users VALUES
+- ('''' + A + ''''),('''' + B + ''''),('''' + C + ''''),('''' + D + '''');
++ ('{A}'),('{B}'),('{C}'),('{D}');
+ COMMIT;
+ '''
+     run(source)
