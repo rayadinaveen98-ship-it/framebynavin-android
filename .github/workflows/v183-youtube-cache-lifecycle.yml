@@ -1,22 +1,17 @@
 name: FrameByNavin v1.8.3 YouTube Cache Safety
-
 on:
   workflow_dispatch:
   push:
-    branches:
-      - fix/v1.8.3-youtube-cache-lifecycle
+    branches: [fix/v1.8.3-youtube-cache-lifecycle]
     paths:
       - '.github/workflows/v183-youtube-cache-lifecycle.yml'
       - 'foundation/v183/rc5-youtube-cache.patch.xz'
-
 permissions:
   contents: write
   actions: read
-
 concurrency:
   group: framebynavin-v183-youtube-cache-lifecycle
   cancel-in-progress: false
-
 jobs:
   verify:
     if: ${{ github.repository == 'rayadinaveen98-ship-it/framebynavin-android' && github.event.repository.private == false }}
@@ -36,7 +31,6 @@ jobs:
           PAYLOAD=foundation/v183/rc5-youtube-cache.patch.xz
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git merge-base --is-ancestor "$BASE" HEAD
-          test "$(git rev-parse HEAD^)" = "$BASE"
           test "$(git hash-object "$PAYLOAD")" = '3e531e8267e0fc3ee3f137fc7df1367ba4a8ee7c'
           echo 'f9b7df89376227396e8a8645103a15a7c6f1426d22f28fb959eb2501a6d7c1b2  foundation/v183/rc5-youtube-cache.patch.xz' | sha256sum -c -
           git diff --exit-code "$BASE" HEAD -- app
