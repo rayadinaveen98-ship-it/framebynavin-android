@@ -93,48 +93,46 @@ jobs:
           grep -Fq 'versionCode = 83' app/build.gradle.kts
           grep -Fq 'versionName = "1.9.0-content-project-rc3.1"' app/build.gradle.kts
 
-      - name: Validate materialized source
-        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest --stacktrace
-
-      - name: Stage app changes
+      - name: Stage clean RC3.1 source
         shell: bash
         run: |
           set -euo pipefail
           git add app
-
-      - name: Show staged RC3.1 delta
-        shell: bash
-        run: |
-          set -euo pipefail
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No RC3.1 app changes staged" >&2
+            exit 1
+          fi
           git status --short
           git diff --cached --stat
 
-      - name: Check staged RC3.1 whitespace
-        shell: bash
-        run: |
-          set -euo pipefail
-          git diff --cached --check
-
-      - name: Require staged RC3.1 changes
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --cached --quiet; then
-            echo "No validated RC3.1 app changes staged" >&2
-            exit 1
-          fi
-          echo "Validated RC3.1 app delta is staged."
-
-      - name: Commit validated RC3.1 source unsigned
+      - name: Commit clean RC3.1 source locally
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -c commit.gpgSign=false commit -m "fix(v1.9): materialize validated RC3.1 reminder delivery UX"
+          echo "RC31_SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Validate exact committed RC3.1 source
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Re-verify committed RC3.1 identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RC31_SOURCE_COMMIT"
+          git show HEAD:app/build.gradle.kts | grep -Fq 'versionCode = 83'
+          git show HEAD:app/build.gradle.kts | grep -Fq 'versionName = "1.9.0-content-project-rc3.1"'
+          git show HEAD:app/src/main/java/com/framebynavin/app/data/CreatorTask.kt | grep -Fq 'enum class ReminderDeliveryPreference'
+          git show HEAD:app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt | grep -Fq 'private fun resolvedDeliveryMode'
+          git show HEAD:app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt | grep -Fq 'REMINDER STYLE'
+          git show HEAD:app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt | grep -Fq 'Text("REPLAY"'
+          git show HEAD:app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt | grep -Fq 'Text("CHOOSE TIME"'
 
       - name: Push validated commit to staging
         shell: bash
         run: |
           set -euo pipefail
-          git push origin HEAD:refs/heads/staging/v1.9.0-rc3.1-materialized
+          git push origin HEAD:refs/heads/staging/v1.9.0-rc3.1-materialized-v2
