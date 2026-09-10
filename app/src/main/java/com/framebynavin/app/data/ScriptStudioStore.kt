@@ -42,7 +42,7 @@ class ScriptStudioStore(private val context: Context) {
             check(actualRevision == expectedRevision) {
                 "This script changed while you were editing. Reopen Script Studio to keep the newest version."
             }
-            val normalized = normalize(draft.copy(projectId = projectId, revision = expectedRevision + 1L))
+            val normalized = draft.copy(projectId = projectId, revision = expectedRevision + 1L).normalized()
             all[projectId] = normalized
             val encoded = encodeAll(all)
             context.scriptStudioDataStore.edit { mutable ->
@@ -58,45 +58,26 @@ class ScriptStudioStore(private val context: Context) {
         }
     }
 
-    private fun normalize(studio: CreatorScriptStudio): CreatorScriptStudio {
-        val hooks = studio.hooks
-            .map { it.copy(text = it.text.trim()) }
-            .filter { it.text.isNotBlank() }
-            .distinctBy { it.id }
-            .let { list ->
-                val selectedId = list.firstOrNull { it.selected }?.id
-                if (selectedId == null) list else list.map { it.copy(selected = it.id == selectedId) }
+    /**
+     * Alpha6 no longer uses this store as the source of truth. Delete old sidecar records when a
+     * project is deleted so a hidden weekly tombstone or a future accidental ID reuse cannot
+     * resurrect structured script content.
+     */
+    suspend fun deleteForProjects(projectIds: Set<String>) = CreatorDataGate.transaction {
+        scriptStudioMutex.withLock {
+            if (projectIds.isEmpty()) return@withLock
+            val prefs = context.scriptStudioDataStore.data.first()
+            val raw = prefs[primaryKey] ?: return@withLock
+            val all = decodeAll(raw).toMutableMap()
+            val changed = projectIds.fold(false) { removed, id -> (all.remove(id) != null) || removed }
+            if (!changed) return@withLock
+            val encoded = encodeAll(all)
+            context.scriptStudioDataStore.edit { mutable ->
+                decodeAll(raw)
+                mutable[backupKey] = raw
+                mutable[primaryKey] = encoded
             }
-        val titles = studio.titles
-            .map { it.copy(text = it.text.trim()) }
-            .filter { it.text.isNotBlank() }
-            .distinctBy { it.id }
-            .let { list ->
-                val selectedId = list.firstOrNull { it.selected }?.id
-                if (selectedId == null) list else list.map { it.copy(selected = it.id == selectedId) }
-            }
-        val beats = studio.beats
-            .map {
-                it.copy(
-                    label = it.label.trim(),
-                    purpose = it.purpose.trim(),
-                    narration = it.narration.trimEnd(),
-                    visualNotes = it.visualNotes.trimEnd(),
-                    bRollNotes = it.bRollNotes.trimEnd(),
-                    onScreenText = it.onScreenText.trimEnd(),
-                )
-            }
-            .filter { beat ->
-                beat.label.isNotBlank() || beat.purpose.isNotBlank() || beat.narration.isNotBlank() ||
-                    beat.visualNotes.isNotBlank() || beat.bRollNotes.isNotBlank() || beat.onScreenText.isNotBlank()
-            }
-            .distinctBy { it.id }
-        return studio.copy(
-            hooks = hooks,
-            titles = titles,
-            beats = beats,
-            creatorNotes = studio.creatorNotes.trimEnd(),
-        )
+        }
     }
 
     private fun encodeAll(items: Map<String, CreatorScriptStudio>): String {
@@ -204,6 +185,6 @@ class ScriptStudioStore(private val context: Context) {
             titles = titles,
             beats = beats,
             creatorNotes = item.optString("creatorNotes"),
-        )
+        ).normalized(projectId = projectId)
     }
 }
