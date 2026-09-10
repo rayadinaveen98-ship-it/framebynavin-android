@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 79
-        versionName = "1.9.0-content-project-alpha6"
+        versionCode = 80
+        versionName = "1.9.0-content-project-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -82,6 +82,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.7.5 RC1: original-quality user-managed Best Frames + cinematic splash polish.
-// Private signing material is intentionally not committed. Public CI uses standard debug signing
-// until a private signing key is supplied through GitHub Actions secrets.
+// v1.9 RC1: Content Project 2.0 feature freeze and release-candidate verification.
+// Public CI uses the established FrameByNavin development signing identity.
