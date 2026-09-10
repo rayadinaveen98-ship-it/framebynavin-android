@@ -1,0 +1,81 @@
+name: v1.9 Content Project Alpha1
+
+on:
+  push:
+    branches:
+      - "feature/v1.9-content-project-alpha1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v19-content-project-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Verify milestone identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 74' app/build.gradle.kts
+          grep -q 'versionName = "1.9.0-content-project-alpha1"' app/build.gradle.kts
+          test -s app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
+          test -s app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceUi.kt
+          test -s app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          test -s dev-signing/framebynavin-public-debug.jks
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation APK
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Build APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Build verification manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          sha256sum "$apk" | tee verification/apk.sha256
+          keytool -list -v -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev \
+            | grep -E 'SHA256:|Owner:|Issuer:' > verification/signing.txt
+          printf 'versionName=1.9.0-content-project-alpha1\nversionCode=74\ncommit=%s\n' "$GITHUB_SHA" > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.9.0-content-project-alpha1-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v1.9.0-content-project-alpha1-verification
+          path: verification/
+          if-no-files-found: error
