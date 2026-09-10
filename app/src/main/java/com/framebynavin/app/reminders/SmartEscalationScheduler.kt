@@ -8,12 +8,12 @@ import android.os.Build
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderMode
+import com.framebynavin.app.data.TaskPriority
 
 /**
- * Smart V2.1 is acknowledgement-driven and target-time based:
- * reminderAtMillis is the creator-selected FINAL Smart target. The first stage is scheduled
- * backwards from that target using the chosen gaps. After the sequence starts, only the immediate
- * successor is scheduled, so acknowledgement/snooze can cancel it and stages never overlap.
+ * Smart delivery is target-time based. reminderAtMillis is a hard FINAL target: RC3 never creates
+ * or recovers a Smart stage after it. If a delayed stage would cross the target, the strongest
+ * eligible stage is compressed to the target instead.
  */
 class SmartEscalationScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
@@ -28,6 +28,7 @@ class SmartEscalationScheduler(private val context: Context) {
         if (!isSmartEnabled(task)) return
         if (!isTargetBeforePublish(task)) return
         val now = System.currentTimeMillis()
+        if (task.reminderAtMillis <= now) return
         val config = configStore.get(task)
         if (!SmartEscalationPolicy.isWindowValid(task.priority, now, task.reminderAtMillis, config)) return
 
@@ -38,10 +39,10 @@ class SmartEscalationScheduler(private val context: Context) {
             finalTargetAtMillis = task.reminderAtMillis,
             nowMillis = now,
         ) ?: return
-        scheduleStage(task, Stage.SOFT, eligibleAt)
+        scheduleBounded(task, Stage.SOFT, eligibleAt)
     }
 
-    /** Rebuild the one pending stage after reboot/time/package recovery without compressing waits. */
+    /** Rebuild the one pending stage after reboot/time/package recovery without crossing target. */
     fun recover(task: CreatorTask) {
         if (!isSmartEnabled(task) || !isTargetBeforePublish(task)) {
             cancelPending(task.id, clearSession = true)
@@ -49,6 +50,10 @@ class SmartEscalationScheduler(private val context: Context) {
         }
 
         val now = System.currentTimeMillis()
+        if (task.reminderAtMillis <= now) {
+            cancelPending(task.id, clearSession = true)
+            return
+        }
         if (task.workingUntilMillis > now) {
             val config = configStore.get(task)
             val firstAt = SmartEscalationPolicy.firstStageAtMillis(task.priority, task.reminderAtMillis, config)
@@ -59,7 +64,7 @@ class SmartEscalationScheduler(private val context: Context) {
                 nowMillis = now,
             )
             cancelPending(task.id, clearSession = true)
-            if (resumeAt != null) scheduleStage(task, Stage.SOFT, resumeAt)
+            if (resumeAt != null) scheduleBounded(task, Stage.SOFT, resumeAt)
             return
         }
         val session = sessions.current(task.id)
@@ -68,8 +73,6 @@ class SmartEscalationScheduler(private val context: Context) {
             session.snoozedStage != null -> session.snoozedStage
             else -> SmartEscalationPolicy.nextStage(task.priority, session.stage)
         }
-        // Read the authoritative pending time before clearing OS state. Repeated recovery/resume
-        // then rebuilds the same stage at the same time instead of pushing it farther away.
         val preservedPendingAt = pendingStage?.let { ledger.scheduledAt(ledgerKey(task.id, it)) }
 
         cancelPending(task.id, clearSession = false)
@@ -77,23 +80,16 @@ class SmartEscalationScheduler(private val context: Context) {
         if (session == null) {
             val config = configStore.get(task)
             val firstAt = SmartEscalationPolicy.firstStageAtMillis(task.priority, task.reminderAtMillis, config)
-
-            // A still-future pending SOFT stage should keep its exact recovered time.
             if (preservedPendingAt != null && preservedPendingAt > now) {
-                scheduleStage(task, Stage.SOFT, preservedPendingAt)
+                scheduleBounded(task, Stage.SOFT, preservedPendingAt)
                 return
             }
-
             if (firstAt <= now) {
-                // Android may have delayed/lost the first stage even though the creator's FINAL
-                // Smart target is still ahead. Start SOFT shortly instead of silently abandoning
-                // the whole escalation chain. Later stages retain the configured full waits.
-                if (task.reminderAtMillis > now) scheduleStage(task, Stage.SOFT, now + 5_000L)
+                scheduleBounded(task, Stage.SOFT, now + 5_000L)
                 return
             }
-
             if (!SmartEscalationPolicy.isWindowValid(task.priority, now, task.reminderAtMillis, config)) return
-            scheduleStage(task, Stage.SOFT, firstAt)
+            scheduleBounded(task, Stage.SOFT, firstAt)
             return
         }
 
@@ -104,7 +100,7 @@ class SmartEscalationScheduler(private val context: Context) {
                 nowMillis = now,
                 fallbackDelayMillis = 5_000L,
             )
-            scheduleStage(task, snoozedStage, recoveredAt)
+            scheduleBounded(task, snoozedStage, recoveredAt)
             return
         }
 
@@ -112,41 +108,40 @@ class SmartEscalationScheduler(private val context: Context) {
         val config = configStore.get(task)
         val gapMinutes = SmartEscalationPolicy.gapAfterMinutes(task.priority, session.stage, config)
         val planned = session.stageStartedAtMillis + gapMinutes * 60_000L
-
-        // If Android/reboot recovery missed the planned point, preserve the full creator-selected
-        // wait. If a prior recovery already rebuilt that wait, reuse its exact pending time so
-        // repeated app resumes cannot postpone escalation indefinitely.
         val recoveredAt = SmartEscalationPolicy.recoveredStageAtMillis(
             plannedAtMillis = planned,
             preservedPendingAtMillis = if (pendingStage == next) preservedPendingAt else null,
             nowMillis = now,
             fallbackDelayMillis = gapMinutes * 60_000L,
         )
-        scheduleStage(task, next, recoveredAt)
+        scheduleBounded(task, next, recoveredAt)
     }
 
-    /** Called immediately after a stage fires. No full-window revalidation occurs mid-sequence. */
+    /** Called immediately after a stage fires. A successor may never exceed the final target. */
     fun scheduleNextIfUnanswered(
         task: CreatorTask,
         current: Stage,
         stageStartedAtMillis: Long = System.currentTimeMillis(),
     ) {
-        if (!isSmartEnabled(task)) return
+        if (!isSmartEnabled(task) || task.reminderAtMillis <= System.currentTimeMillis()) return
         if (!sessions.isCurrent(task.id, current)) return
 
         val next = SmartEscalationPolicy.nextStage(task.priority, current) ?: return
         val config = configStore.get(task)
         val gap = SmartEscalationPolicy.gapAfterMinutes(task.priority, current, config)
         val nextAt = stageStartedAtMillis + gap * 60_000L
-        if (nextAt > System.currentTimeMillis()) scheduleStage(task, next, nextAt)
+        scheduleBounded(task, next, nextAt)
     }
 
-    /** Snooze repeats the exact stage reached; it never restarts the chain at SOFT. */
+    /** Snooze repeats the reached stage unless the hard target requires final-stage compression. */
     fun snoozeStage(task: CreatorTask, stage: Stage, resumeAtMillis: Long) {
         cancelPending(task.id, clearSession = false)
-        if (!isSmartEnabled(task) || resumeAtMillis <= System.currentTimeMillis()) return
-        sessions.markSnoozed(task.id, stage, resumeAtMillis)
-        scheduleStage(task, stage, resumeAtMillis)
+        val now = System.currentTimeMillis()
+        if (!isSmartEnabled(task) || task.reminderAtMillis <= now || resumeAtMillis <= now) return
+        val bounded = resumeAtMillis.coerceAtMost(task.reminderAtMillis)
+        val scheduledStage = if (resumeAtMillis > task.reminderAtMillis) finalStage(task.priority) else stage
+        sessions.markSnoozed(task.id, scheduledStage, bounded)
+        scheduleStage(task, scheduledStage, bounded)
     }
 
     fun activeStage(taskId: String): Stage? {
@@ -166,7 +161,6 @@ class SmartEscalationScheduler(private val context: Context) {
         cancelPending(taskId, clearSession = true)
     }
 
-    /** Initial-save/recovery validation only: enough time must remain BEFORE the final target. */
     fun isWindowValid(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): Boolean {
         if (!isTargetBeforePublish(task)) return false
         return SmartEscalationPolicy.isWindowValid(
@@ -182,6 +176,23 @@ class SmartEscalationScheduler(private val context: Context) {
 
     private fun isTargetBeforePublish(task: CreatorTask): Boolean =
         task.dueAtMillis <= 0L || task.reminderAtMillis <= task.dueAtMillis
+
+    private fun finalStage(priority: TaskPriority): Stage = when (priority) {
+        TaskPriority.NORMAL -> Stage.SOFT
+        TaskPriority.IMPORTANT -> Stage.ALARM
+        TaskPriority.CRITICAL -> Stage.CRITICAL
+    }
+
+    private fun scheduleBounded(task: CreatorTask, preferredStage: Stage, candidateAtMillis: Long) {
+        val now = System.currentTimeMillis()
+        val target = task.reminderAtMillis
+        if (target <= now) return
+        if (candidateAtMillis <= target) {
+            scheduleStage(task, preferredStage, candidateAtMillis)
+        } else {
+            scheduleStage(task, finalStage(task.priority), target)
+        }
+    }
 
     private fun cancelPending(taskId: String, clearSession: Boolean) {
         if (clearSession) {
@@ -199,7 +210,7 @@ class SmartEscalationScheduler(private val context: Context) {
 
     private fun scheduleStage(task: CreatorTask, stage: Stage, atMillis: Long) {
         val now = System.currentTimeMillis()
-        if (atMillis <= now) return
+        if (atMillis <= now || atMillis > task.reminderAtMillis) return
         val exactDelivery = canScheduleExact()
         val pendingIntent = stagePendingIntent(task, stage, atMillis, exactDelivery)
         val key = ledgerKey(task.id, stage)
