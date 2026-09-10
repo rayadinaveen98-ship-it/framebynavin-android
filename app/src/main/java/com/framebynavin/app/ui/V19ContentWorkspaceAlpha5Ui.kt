@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,6 +22,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Calendar
 import java.util.Date
@@ -31,120 +33,37 @@ import java.util.UUID
 private enum class Alpha5PublicationAction { PUBLISH, UPDATE, REOPEN }
 
 @Composable
-internal fun V19ContentWorkspaceAlpha5Hub(
-    task: CreatorTask,
-    onDismiss: () -> Unit,
-    onOpenProject: () -> Unit,
-    onOpenScript: () -> Unit,
-    onOpenPublish: () -> Unit,
-) {
-    val workspace = task.workspace
-    val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
-    val ready = workspace.deliverables.count { it.status == CreatorDeliverableStatus.READY }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(
-                Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 18.dp),
-            ) {
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close", tint = ProjectorIvory) }
-                    Column(Modifier.weight(1f)) {
-                        Text("CONTENT PROJECT 2.0 · ALPHA 5", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
-                        Text(task.title, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                    }
-                    Text("R${workspace.revision}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(Modifier.height(20.dp))
-                Text("CREATOR WORKSPACE", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Text("Plan the work, shape the script, then publish each output without closing the whole project.", color = MutedText, fontSize = 10.sp)
-
-                Spacer(Modifier.height(18.dp))
-                Alpha5HubCard(
-                    Icons.Outlined.Dashboard,
-                    "PROJECT COMMAND CENTER",
-                    "Plan & Produce",
-                    "Brief, research, assets, production steps, templates, deliverables and learnings.",
-                    "${workspace.productionProgressPercent()}% production · ${workspace.deliverables.size} outputs",
-                    onOpenProject,
-                )
-                Spacer(Modifier.height(10.dp))
-                Alpha5HubCard(
-                    Icons.Outlined.EditNote,
-                    "SCRIPT STUDIO",
-                    "Write & Prepare",
-                    "Hooks, title ideas, structured beats, narration, visuals, B-roll and recording readiness.",
-                    "Structured script · creator notes · readiness",
-                    onOpenScript,
-                )
-                Spacer(Modifier.height(10.dp))
-                Alpha5HubCard(
-                    Icons.Outlined.RocketLaunch,
-                    "ALPHA 5",
-                    "Publish Studio",
-                    "Final metadata, title/cover variants, pre-publish gates, publication history and repurposing.",
-                    "$ready ready · $published published",
-                    onOpenPublish,
-                )
-
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Publishing one deliverable never completes this project or its remaining outputs.",
-                    color = MutedText,
-                    fontSize = 8.5.sp,
-                    modifier = Modifier.padding(bottom = 18.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun Alpha5HubCard(
-    icon: ImageVector,
-    eyebrow: String,
-    title: String,
-    body: String,
-    meta: String,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = MutedGold, modifier = Modifier.size(28.dp))
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(eyebrow, color = RecRed, fontSize = 7.8.sp, fontWeight = FontWeight.Black)
-                Text(title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Text(body, color = MutedText, fontSize = 9.5.sp)
-                Spacer(Modifier.height(5.dp))
-                Text(meta, color = MutedGold, fontSize = 8.3.sp, fontWeight = FontWeight.Bold)
-            }
-            Icon(Icons.Outlined.ChevronRight, null, tint = MutedText)
-        }
-    }
-}
-
-@Composable
 internal fun V19PublishStudioAlpha5Dialog(
     task: CreatorTask,
     onDismiss: () -> Unit,
     onSave: (String, Long, CreatorContentWorkspace) -> Unit,
 ) {
+    val context = LocalContext.current
     val originalRevision = task.workspace.revision
+    val draftStore = remember { CreatorEditorDraftStore(context.applicationContext) }
+    val recovered = remember(task.id, originalRevision) {
+        draftStore.loadPublish(task.id, originalRevision)
+    }
+    val canonicalEditorState = remember(task.id, originalRevision) {
+        task.workspace.deliverables.map(CreatorPublishWorkflow::ensureGate)
+    }
     var deliverables by remember(task.id, originalRevision) {
-        mutableStateOf(task.workspace.deliverables.map(CreatorPublishWorkflow::ensureGate))
+        mutableStateOf((recovered ?: canonicalEditorState).map(CreatorPublishWorkflow::ensureGate))
     }
     var selectedId by remember(task.id, originalRevision) {
         mutableStateOf(deliverables.firstOrNull()?.id.orEmpty())
     }
     var action by remember { mutableStateOf<Alpha5PublicationAction?>(null) }
     var actionError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(deliverables) {
+        delay(350)
+        val snapshot = deliverables
+        withContext(Dispatchers.IO) {
+            if (snapshot == canonicalEditorState) draftStore.clearPublish(task.id)
+            else draftStore.savePublish(task.id, originalRevision, snapshot)
+        }
+    }
 
     fun replace(changed: CreatorDeliverable) {
         val normalized = if (changed.status == CreatorDeliverableStatus.PUBLISHED) changed else changed.copy(
@@ -186,10 +105,16 @@ internal fun V19PublishStudioAlpha5Dialog(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("PUBLISH STUDIO · ALPHA 5", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("PUBLISH STUDIO · RC2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("R$originalRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+
+                if (recovered != null) {
+                    Surface(Modifier.fillMaxWidth(), color = MutedGold.copy(alpha = .08f)) {
+                        Text("Recovered unsaved Publish Studio draft", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
+                    }
                 }
 
                 Column(
@@ -197,7 +122,7 @@ internal fun V19PublishStudioAlpha5Dialog(
                 ) {
                     Alpha5PublishSummary(deliverables)
                     Spacer(Modifier.height(16.dp))
-                    Alpha5Title("OUTPUTS", "Choose the exact platform deliverable you are preparing.")
+                    Alpha5Title("OUTPUTS", "Choose the exact platform deliverable you are preparing. Publish Studio is the single live-state authority.")
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         deliverables.forEach { item ->
                             FilterChip(
