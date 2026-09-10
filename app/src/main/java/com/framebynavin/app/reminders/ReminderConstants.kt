@@ -4,6 +4,7 @@ object ReminderConstants {
     const val CHANNEL_ID = "creator_reminders"
     const val VOICE_CHANNEL_ID = "creator_voice_reminders_v1"
     const val ALARM_CHANNEL_ID = "creator_alarms_v1"
+    const val PULSE_PROMPT_CHANNEL_ID = "creator_stage_prompts_v1"
     const val EXTRA_TASK_ID = "task_id"
     const val EXTRA_TITLE = "title"
     const val EXTRA_PLATFORM = "platform"
@@ -35,10 +36,21 @@ object ReminderConstants {
     const val EXTRA_TASK_STATUS = "task_status"
     const val EXTRA_ACKNOWLEDGED_STAGE = "acknowledged_stage"
     const val EXTRA_ACKNOWLEDGED_DUE_AT = "acknowledged_due_at"
+    const val EXTRA_EXPECTED_STAGE = "expected_stage"
+    const val EXTRA_DATA_GENERATION = "data_generation"
+    const val EXTRA_DELAY_MINUTES = "delay_minutes"
+
     const val ACTION_RESCHEDULE = "com.framebynavin.app.reminder.RESCHEDULE"
     const val ACTION_STARTED = "com.framebynavin.app.reminder.STARTED"
+    /** Legacy RC2 action. RC3 intentionally continues interpreting this as dismiss-only. */
     const val ACTION_DONE = "com.framebynavin.app.reminder.DONE"
+    const val ACTION_DISMISS = "com.framebynavin.app.reminder.DISMISS"
+    const val ACTION_STAGE_DONE = "com.framebynavin.app.reminder.STAGE_DONE"
     const val ACTION_SNOOZE = "com.framebynavin.app.reminder.SNOOZE"
+    const val ACTION_PAUSE = "com.framebynavin.app.reminder.PAUSE"
+    const val ACTION_SET_NEXT_STAGE_CHECKIN = "com.framebynavin.app.reminder.SET_NEXT_STAGE_CHECKIN"
+
     const val SNOOZE_MINUTES = 10L
     const val WORKING_QUIET_MINUTES = 15L
+    const val DEFAULT_PAUSE_MINUTES = 120L
 }
