@@ -12,6 +12,15 @@ enum class ReminderMode {
     SMART,
 }
 
+/** User intent. AUTO lets Project Pulse adapt; explicit choices stay sticky across stages. */
+enum class ReminderDeliveryPreference {
+    AUTO,
+    NOTIFICATION,
+    VOICE,
+    ALARM,
+    SMART,
+}
+
 /** Creator-facing intent. Delivery details remain an implementation concern below this layer. */
 enum class ProjectAttentionPlan {
     OFF,
@@ -54,6 +63,7 @@ data class CreatorTask(
     val snoozeCount: Int = 0,
     val workingUntilMillis: Long = 0L,
     val reminderMode: ReminderMode = ReminderMode.SIMPLE,
+    val deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO,
     val voicePersona: VoicePersona = VoicePersona.WARM,
     val voiceRepeatCount: Int = 3,
     val voiceRepeatIntervalSeconds: Int = 20,

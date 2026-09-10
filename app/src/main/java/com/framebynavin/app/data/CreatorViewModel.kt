@@ -265,6 +265,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             voiceRepeatCount = 3,
             voiceRepeatIntervalSeconds = 10,
             alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
+            deliveryPreference = deliveryPreferenceFor(mode),
         )
     }
 
@@ -285,6 +286,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         voiceRepeatIntervalSeconds: Int,
         alarmTimeoutSeconds: Int,
         attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
+        deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO,
     ): String? {
         if (title.isBlank()) return null
         val enabled = reminderMode != ReminderMode.NONE
@@ -361,6 +363,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             snoozeCount = 0,
             workingUntilMillis = 0L,
             reminderMode = reminderMode,
+            deliveryPreference = deliveryPreference,
             voicePersona = voicePersona,
             voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
             voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
@@ -403,6 +406,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             snoozeCount = 0,
             workingUntilMillis = 0L,
             reminderMode = mode,
+            deliveryPreference = deliveryPreferenceFor(mode),
             attentionPlan = ProjectAttentionPlan.CUSTOM,
             pulseManagedReminder = false,
             acknowledgedCheckpointStageId = "",
@@ -1077,6 +1081,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         alertType == ReminderAlertType.ALARM -> ReminderMode.ALARM
         voiceEnabled -> ReminderMode.VOICE
         else -> ReminderMode.SIMPLE
+    }
+
+    private fun deliveryPreferenceFor(mode: ReminderMode): ReminderDeliveryPreference = when (mode) {
+        ReminderMode.NONE -> ReminderDeliveryPreference.AUTO
+        ReminderMode.SIMPLE -> ReminderDeliveryPreference.NOTIFICATION
+        ReminderMode.VOICE -> ReminderDeliveryPreference.VOICE
+        ReminderMode.ALARM -> ReminderDeliveryPreference.ALARM
+        ReminderMode.SMART -> ReminderDeliveryPreference.SMART
     }
 
     private fun updateTask(

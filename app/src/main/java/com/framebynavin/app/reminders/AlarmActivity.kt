@@ -258,7 +258,7 @@ private fun NativeAlarmScreen(
             }
             if (stageCheckIn) {
                 TextButton(onClick = onReschedule) {
-                    Icon(Icons.Outlined.Schedule, null, tint = MutedGold, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(5.dp)); Text("CHOOSE ANOTHER TIME", color = MutedGold, fontSize = 9.sp)
+                    Icon(Icons.Outlined.Schedule, null, tint = MutedGold, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(5.dp)); Text("CHOOSE TIME", color = MutedGold, fontSize = 9.sp)
                 }
             }
         }

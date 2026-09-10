@@ -54,6 +54,7 @@ internal data class PProjectDraft(
     val attentionPlan: ProjectAttentionPlan,
     val mode: ReminderMode,
     val reminderAtMillis: Long,
+    val deliveryPreference: ReminderDeliveryPreference,
     val priority: TaskPriority,
     val notes: String,
     val alarmSoundUri: String,
@@ -201,8 +202,8 @@ internal fun PProjectComposer(
     var attentionPlan by rememberSaveable(task?.id) {
         mutableStateOf(task?.attentionPlan ?: ProjectAttentionPlan.GUIDED)
     }
-    var customMode by rememberSaveable(task?.id) {
-        mutableStateOf(task?.reminderMode?.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE)
+    var deliveryPreference by rememberSaveable(task?.id) {
+        mutableStateOf(task?.deliveryPreference ?: ReminderDeliveryPreference.AUTO)
     }
     var customReminderAt by rememberSaveable(task?.id) {
         mutableLongStateOf(task?.reminderAtMillis?.takeIf { it > now } ?: (dueAt - 30 * 60_000L).coerceAtLeast(now + 5 * 60_000L))
@@ -232,7 +233,7 @@ internal fun PProjectComposer(
         }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH)).show()
     }
 
-    val previewTask = remember(title, platform, contentType, dueAt, attentionPlan, now) {
+    val previewTask = remember(title, platform, contentType, dueAt, attentionPlan, deliveryPreference, now) {
         CreatorTask(
             id = "pulse-preview",
             title = title.ifBlank { "Project" },
@@ -243,6 +244,7 @@ internal fun PProjectComposer(
             status = TaskStatus.PLANNED,
             workflowStageIndex = 0,
             attentionPlan = attentionPlan,
+            deliveryPreference = deliveryPreference,
             pulseManagedReminder = attentionPlan != ProjectAttentionPlan.OFF && attentionPlan != ProjectAttentionPlan.CUSTOM,
         )
     }
@@ -251,9 +253,14 @@ internal fun PProjectComposer(
         else ProjectPulseEngine.applyAttentionPlan(previewTask, attentionPlan, now).let { ProjectPulseEngine.snapshot(it, now) }
     }
     val customReady = attentionPlan != ProjectAttentionPlan.CUSTOM ||
-        (customReminderAt > now && customReminderAt <= dueAt && customMode != ReminderMode.NONE)
-    val requiresAdvancedPermissions = attentionPlan == ProjectAttentionPlan.URGENT ||
-        (attentionPlan == ProjectAttentionPlan.CUSTOM && customMode in setOf(ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART))
+        (customReminderAt > now && customReminderAt <= dueAt)
+    val effectiveReminderMode = when {
+        attentionPlan == ProjectAttentionPlan.OFF -> ReminderMode.NONE
+        deliveryPreference != ReminderDeliveryPreference.AUTO -> pDeliveryMode(deliveryPreference)
+        attentionPlan == ProjectAttentionPlan.CUSTOM -> ReminderMode.SIMPLE
+        else -> pulsePreview?.recommendedMode ?: ReminderMode.SIMPLE
+    }
+    val requiresAdvancedPermissions = effectiveReminderMode in setOf(ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART)
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -300,6 +307,28 @@ internal fun PProjectComposer(
                         Spacer(Modifier.height(7.dp))
                     }
 
+                    if (attentionPlan != ProjectAttentionPlan.OFF) {
+                        Spacer(Modifier.height(12.dp))
+                        PComposerLabel("REMINDER STYLE")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            ReminderDeliveryPreference.entries.forEach { value ->
+                                FilterChip(
+                                    selected = deliveryPreference == value,
+                                    onClick = { deliveryPreference = value },
+                                    label = { Text(pDeliveryPreferenceLabel(value), fontSize = 9.sp) },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            if (deliveryPreference == ReminderDeliveryPreference.AUTO) "Auto adapts delivery to project urgency. Choose another style to keep it for every stage."
+                            else "${pDeliveryPreferenceLabel(deliveryPreference)} will stay selected as this project moves through stages.",
+                            color = MutedText,
+                            fontSize = 8.5.sp,
+                            lineHeight = 12.sp,
+                        )
+                    }
+
                     pulsePreview?.let { pulse ->
                         Spacer(Modifier.height(8.dp))
                         Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), Color(0xFF151515), border = BorderStroke(1.dp, CinemaLine)) {
@@ -316,13 +345,6 @@ internal fun PProjectComposer(
                         Spacer(Modifier.height(18.dp))
                         PComposerLabel("REMINDER TIME")
                         PDateTimeButton(pFormatDateTime(customReminderAt)) { pickDateTime(customReminderAt) { customReminderAt = it } }
-                        Spacer(Modifier.height(14.dp))
-                        PComposerLabel("DELIVERY")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            listOf(ReminderMode.SIMPLE, ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART).forEach { value ->
-                                FilterChip(selected = customMode == value, onClick = { customMode = value }, label = { Text(pModeLabel(value), fontSize = 9.sp) })
-                            }
-                        }
                         Spacer(Modifier.height(14.dp))
                         PComposerLabel("IMPORTANCE")
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -370,8 +392,9 @@ internal fun PProjectComposer(
                                     contentType = contentType,
                                     dueAtMillis = dueAt,
                                     attentionPlan = attentionPlan,
-                                    mode = if (attentionPlan == ProjectAttentionPlan.CUSTOM) customMode else ReminderMode.NONE,
+                                    mode = if (attentionPlan == ProjectAttentionPlan.CUSTOM) pDeliveryMode(deliveryPreference) else ReminderMode.NONE,
                                     reminderAtMillis = if (attentionPlan == ProjectAttentionPlan.CUSTOM) customReminderAt else 0L,
+                                    deliveryPreference = deliveryPreference,
                                     priority = priority,
                                     notes = notes.trim(),
                                     alarmSoundUri = soundUri,
@@ -508,6 +531,21 @@ private fun PDateTimeButton(label: String, onClick: () -> Unit) {
         Text(label, color = ProjectorIvory, modifier = Modifier.weight(1f))
         Text("CHANGE", color = RecRed, fontSize = 8.sp)
     }
+}
+
+internal fun pDeliveryPreferenceLabel(preference: ReminderDeliveryPreference): String = when (preference) {
+    ReminderDeliveryPreference.AUTO -> "Auto"
+    ReminderDeliveryPreference.NOTIFICATION -> "Notification"
+    ReminderDeliveryPreference.VOICE -> "Voice"
+    ReminderDeliveryPreference.ALARM -> "Alarm"
+    ReminderDeliveryPreference.SMART -> "Smart"
+}
+
+internal fun pDeliveryMode(preference: ReminderDeliveryPreference): ReminderMode = when (preference) {
+    ReminderDeliveryPreference.AUTO, ReminderDeliveryPreference.NOTIFICATION -> ReminderMode.SIMPLE
+    ReminderDeliveryPreference.VOICE -> ReminderMode.VOICE
+    ReminderDeliveryPreference.ALARM -> ReminderMode.ALARM
+    ReminderDeliveryPreference.SMART -> ReminderMode.SMART
 }
 
 internal fun pModeLabel(mode: ReminderMode): String = when (mode) {

@@ -1,8 +1,11 @@
 package com.framebynavin.app.reminders
 
+import android.app.DatePickerDialog
 import android.app.NotificationManager
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -43,6 +46,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 
 class VoiceReminderActivity : ComponentActivity() {
     private val store by lazy { TaskStore(applicationContext) }
@@ -100,6 +104,7 @@ class VoiceReminderActivity : ComponentActivity() {
                     onRepeat = { VoiceReminderService.start(applicationContext, task.copy(voiceRepeatCount = 1), occurrenceId) },
                     onSnooze = { dispatchReminderAction(ReminderConstants.ACTION_SNOOZE, task.id) },
                     onPause = { dispatchReminderAction(ReminderConstants.ACTION_PAUSE, task.id) },
+                    onReschedule = { openReschedulePicker(task.id) },
                     onDismiss = { dispatchReminderAction(ReminderConstants.ACTION_DISMISS, task.id) },
                 )
             }
@@ -137,6 +142,37 @@ class VoiceReminderActivity : ComponentActivity() {
         lifecycleScope.launch { finishVoice() }
     }
 
+    private fun openReschedulePicker(taskId: String) {
+        val initial = Calendar.getInstance().apply { add(Calendar.MINUTE, 15) }
+        DatePickerDialog(
+            this,
+            { _, year, month, day ->
+                TimePickerDialog(
+                    this,
+                    { _, hour, minute ->
+                        val atMillis = Calendar.getInstance().apply {
+                            set(year, month, day, hour, minute, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.timeInMillis
+                        if (atMillis > System.currentTimeMillis()) {
+                            sendBroadcast(Intent(this, ReminderActionReceiver::class.java).apply {
+                                action = ReminderConstants.ACTION_RESCHEDULE
+                                putExtra(ReminderConstants.EXTRA_TASK_ID, taskId)
+                                putExtra(ReminderConstants.EXTRA_OCCURRENCE_ID, occurrenceId)
+                                putExtra(ReminderConstants.EXTRA_RESCHEDULE_AT, atMillis)
+                            })
+                            lifecycleScope.launch { finishVoice() }
+                        } else {
+                            Toast.makeText(this, "Choose a future time", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    initial.get(Calendar.HOUR_OF_DAY), initial.get(Calendar.MINUTE), false,
+                ).show()
+            },
+            initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH),
+        ).show()
+    }
+
     private suspend fun finishVoice() {
         VoiceReminderService.stop(applicationContext, taskId, occurrenceId)
         withContext(Dispatchers.Main) { if (!isFinishing) finishAndRemoveTask() }
@@ -153,6 +189,7 @@ private fun VoiceReminderScreen(
     onRepeat: () -> Unit,
     onSnooze: () -> Unit,
     onPause: () -> Unit,
+    onReschedule: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     BackHandler(enabled = true) { }
@@ -209,15 +246,21 @@ private fun VoiceReminderScreen(
             Spacer(Modifier.height(9.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
-                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("REPEAT", color = ProjectorIvory, fontSize = 9.sp)
+                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("REPLAY", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
                 }
                 OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
-                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("${snoozeMinutes}m", color = ProjectorIvory, fontSize = 9.sp)
+                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("SNOOZE ${snoozeMinutes}M", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
                 }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (stageCheckIn) {
-                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
-                        Icon(Icons.Outlined.PauseCircle, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("2H", color = ProjectorIvory, fontSize = 9.sp)
+                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                        Icon(Icons.Outlined.PauseCircle, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("PAUSE 2H", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
                     }
+                }
+                OutlinedButton(onClick = onReschedule, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, MutedGold.copy(alpha = .6f)), shape = RoundedCornerShape(15.dp)) {
+                    Text("CHOOSE TIME", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
             }
             Spacer(Modifier.height(6.dp))

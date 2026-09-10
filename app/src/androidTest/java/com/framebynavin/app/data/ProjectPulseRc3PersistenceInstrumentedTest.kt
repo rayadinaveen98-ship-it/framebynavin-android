@@ -36,6 +36,7 @@ class ProjectPulseRc3PersistenceInstrumentedTest {
             reminderEnabled = true,
             reminderAtMillis = checkpoint,
             reminderMode = ReminderMode.VOICE,
+            deliveryPreference = ReminderDeliveryPreference.VOICE,
             voiceEnabled = true,
             checkpointStageId = "script",
             checkpointAtMillis = checkpoint,
@@ -49,6 +50,7 @@ class ProjectPulseRc3PersistenceInstrumentedTest {
             assertTrue(restored.pulseManagedReminder)
             assertTrue(restored.reminderEnabled)
             assertEquals(ReminderMode.VOICE, restored.reminderMode)
+            assertEquals(ReminderDeliveryPreference.VOICE, restored.deliveryPreference)
             assertEquals(checkpoint, restored.reminderAtMillis)
             assertEquals("script", restored.checkpointStageId)
             assertEquals(checkpoint, restored.checkpointAtMillis)

@@ -44,6 +44,7 @@ class ProjectPulseRc3Test {
                 reminderEnabled = true,
                 reminderAtMillis = now + 2 * 60 * 60_000L,
                 reminderMode = ReminderMode.VOICE,
+                deliveryPreference = ReminderDeliveryPreference.VOICE,
             ),
             ProjectAttentionPlan.CUSTOM,
             now,
@@ -62,6 +63,7 @@ class ProjectPulseRc3Test {
                 reminderEnabled = true,
                 reminderAtMillis = now + 2 * 60 * 60_000L,
                 reminderMode = ReminderMode.ALARM,
+                deliveryPreference = ReminderDeliveryPreference.ALARM,
             ),
             ProjectAttentionPlan.CUSTOM,
             now,
@@ -85,6 +87,7 @@ class ProjectPulseRc3Test {
                 reminderEnabled = true,
                 reminderAtMillis = now + 90 * 60_000L,
                 reminderMode = ReminderMode.VOICE,
+                deliveryPreference = ReminderDeliveryPreference.VOICE,
             ),
             ProjectAttentionPlan.CUSTOM,
             now,
@@ -103,6 +106,23 @@ class ProjectPulseRc3Test {
         assertFalse(reconciled.reminderEnabled)
         assertEquals(0L, reconciled.checkpointAtMillis)
         assertEquals(ReminderMode.VOICE, reconciled.reminderMode)
+    }
+
+    @Test
+    fun explicitVoiceStaysVoiceAcrossGuidedStageAdvance() {
+        val managed = ProjectPulseEngine.applyAttentionPlan(
+            task().copy(deliveryPreference = ReminderDeliveryPreference.VOICE),
+            ProjectAttentionPlan.GUIDED,
+            now,
+        )
+        assertEquals(ReminderMode.VOICE, managed.reminderMode)
+
+        val advanced = ProjectPulseEngine.completeCurrentStep(managed, now + 10_000L)
+
+        assertEquals(1, CreatorWorkflowEngine.stageIndex(advanced))
+        assertTrue(advanced.reminderEnabled)
+        assertEquals(ReminderDeliveryPreference.VOICE, advanced.deliveryPreference)
+        assertEquals(ReminderMode.VOICE, advanced.reminderMode)
     }
 
     @Test

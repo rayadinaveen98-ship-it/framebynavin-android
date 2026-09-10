@@ -69,7 +69,7 @@ object ProjectPulseEngine {
                 ProjectAttentionPlan.CUSTOM -> "Custom stage check-in"
             },
             reason = reason(task, state, nowMillis),
-            recommendedMode = deliveryMode(task.attentionPlan, state, nextAt, nowMillis),
+            recommendedMode = resolvedDeliveryMode(task, state, nextAt, nowMillis),
         )
     }
 
@@ -158,6 +158,7 @@ object ProjectPulseEngine {
         if (plan == ProjectAttentionPlan.CUSTOM) {
             val stage = CreatorWorkflowEngine.currentStage(base)
             val validAt = base.reminderAtMillis.takeIf { base.reminderEnabled && it > nowMillis }
+            val mode = if (validAt != null) resolvedDeliveryMode(base.copy(attentionPlan = ProjectAttentionPlan.CUSTOM), state(base, nowMillis), validAt, nowMillis) else ReminderMode.NONE
             return base.copy(
                 attentionPlan = ProjectAttentionPlan.CUSTOM,
                 pulseManagedReminder = true,
@@ -165,7 +166,10 @@ object ProjectPulseEngine {
                 checkpointAtMillis = validAt ?: 0L,
                 reminderEnabled = validAt != null,
                 reminderAtMillis = validAt ?: 0L,
-                reminderMode = if (validAt != null && base.reminderMode != ReminderMode.NONE) base.reminderMode else ReminderMode.NONE,
+                reminderMode = mode,
+                alertType = if (mode == ReminderMode.ALARM || mode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION,
+                voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,
+                smartEscalationEnabled = mode == ReminderMode.SMART,
             )
         }
         val configured = base.copy(
@@ -193,7 +197,7 @@ object ProjectPulseEngine {
             val at = task.checkpointAtMillis.takeIf { it > nowMillis }
                 ?: task.reminderAtMillis.takeIf { task.reminderEnabled && it > nowMillis }
                 ?: return clearReminder(task).copy(attentionPlan = ProjectAttentionPlan.CUSTOM, pulseManagedReminder = true)
-            val mode = task.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE
+            val mode = resolvedDeliveryMode(task, state(task, nowMillis), at, nowMillis)
             return task.copy(
                 reminderEnabled = true,
                 reminderAtMillis = at,
@@ -210,7 +214,7 @@ object ProjectPulseEngine {
         val checkpoint = nextCheckpoint(task, task.attentionPlan, nowMillis)
             ?: return clearReminder(task).copy(attentionPlan = task.attentionPlan, pulseManagedReminder = true)
         val state = state(task, nowMillis)
-        val mode = deliveryMode(task.attentionPlan, state, checkpoint.atMillis, nowMillis)
+        val mode = resolvedDeliveryMode(task, state, checkpoint.atMillis, nowMillis)
         return task.copy(
             reminderEnabled = true,
             reminderAtMillis = checkpoint.atMillis,
@@ -310,7 +314,7 @@ object ProjectPulseEngine {
         )
         // Custom deliberately asks the creator for the next-stage time instead of inventing one.
         if (advanced.attentionPlan == ProjectAttentionPlan.CUSTOM) {
-            val customMode = managed.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE
+            val customMode = resolvedDeliveryMode(managed, state(managed, nowMillis), managed.reminderAtMillis, nowMillis)
             return clearReminder(advanced).copy(
                 attentionPlan = ProjectAttentionPlan.CUSTOM,
                 pulseManagedReminder = true,
@@ -332,7 +336,7 @@ object ProjectPulseEngine {
         val managed = ensureStageManaged(after.copy(attentionPlan = before.attentionPlan))
         val changed = CreatorWorkflowEngine.stageIndex(before) != CreatorWorkflowEngine.stageIndex(after)
         if (changed && before.attentionPlan == ProjectAttentionPlan.CUSTOM) {
-            val customMode = before.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE
+            val customMode = resolvedDeliveryMode(before, state(before, nowMillis), before.reminderAtMillis, nowMillis)
             return clearReminder(managed).copy(
                 attentionPlan = ProjectAttentionPlan.CUSTOM,
                 pulseManagedReminder = true,
@@ -463,9 +467,7 @@ object ProjectPulseEngine {
         val at = if (task.dueAtMillis > nowMillis) requestedAtMillis.coerceAtMost(task.dueAtMillis) else requestedAtMillis
         if (at <= nowMillis) return clearReminder(task)
         val state = state(task, nowMillis)
-        val mode = if (task.attentionPlan == ProjectAttentionPlan.CUSTOM) {
-            task.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE
-        } else deliveryMode(task.attentionPlan, state, at, nowMillis)
+        val mode = resolvedDeliveryMode(task, state, at, nowMillis)
         return task.copy(
             pulseManagedReminder = true,
             reminderEnabled = true,
@@ -491,6 +493,22 @@ object ProjectPulseEngine {
         checkpointAtMillis = 0L,
         snoozeCount = 0,
     )
+
+    private fun resolvedDeliveryMode(
+        task: CreatorTask,
+        state: ProjectPulseState,
+        checkpointAtMillis: Long,
+        nowMillis: Long,
+    ): ReminderMode {
+        if (task.attentionPlan == ProjectAttentionPlan.OFF) return ReminderMode.NONE
+        return when (task.deliveryPreference) {
+            ReminderDeliveryPreference.AUTO -> deliveryMode(task.attentionPlan, state, checkpointAtMillis, nowMillis)
+            ReminderDeliveryPreference.NOTIFICATION -> ReminderMode.SIMPLE
+            ReminderDeliveryPreference.VOICE -> ReminderMode.VOICE
+            ReminderDeliveryPreference.ALARM -> ReminderMode.ALARM
+            ReminderDeliveryPreference.SMART -> ReminderMode.SMART
+        }
+    }
 
     private fun deliveryMode(
         plan: ProjectAttentionPlan,

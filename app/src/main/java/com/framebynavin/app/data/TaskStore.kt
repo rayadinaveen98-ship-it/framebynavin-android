@@ -145,6 +145,7 @@ class TaskStore(private val context: Context) {
                     .put("snoozeCount", task.snoozeCount)
                     .put("workingUntilMillis", task.workingUntilMillis)
                     .put("reminderMode", task.reminderMode.name)
+                    .put("deliveryPreference", task.deliveryPreference.name)
                     .put("voicePersona", task.voicePersona.name)
                     .put("voiceRepeatCount", task.voiceRepeatCount)
                     .put("voiceRepeatIntervalSeconds", task.voiceRepeatIntervalSeconds)
@@ -205,6 +206,20 @@ class TaskStore(private val context: Context) {
                 val attentionPlan = runCatching {
                     ProjectAttentionPlan.valueOf(item.optString("attentionPlan", migratedAttentionPlan.name))
                 }.getOrDefault(migratedAttentionPlan)
+                val deliveryPreference = runCatching {
+                    ReminderDeliveryPreference.valueOf(item.optString("deliveryPreference"))
+                }.getOrElse {
+                    // Old Custom reminders represented an explicit creator choice; managed presets were automatic.
+                    if (attentionPlan == ProjectAttentionPlan.CUSTOM && reminderEnabled) {
+                        when (reminderMode) {
+                            ReminderMode.SIMPLE -> ReminderDeliveryPreference.NOTIFICATION
+                            ReminderMode.VOICE -> ReminderDeliveryPreference.VOICE
+                            ReminderMode.ALARM -> ReminderDeliveryPreference.ALARM
+                            ReminderMode.SMART -> ReminderDeliveryPreference.SMART
+                            ReminderMode.NONE -> ReminderDeliveryPreference.AUTO
+                        }
+                    } else ReminderDeliveryPreference.AUTO
+                }
                 val pulseManagedReminder = item.optBoolean("pulseManagedReminder", false) &&
                     attentionPlan != ProjectAttentionPlan.OFF
                 val progress = item.optInt("progress", 0).coerceIn(0, 100)
@@ -248,6 +263,7 @@ class TaskStore(private val context: Context) {
                         snoozeCount = item.optInt("snoozeCount", 0).coerceAtLeast(0),
                         workingUntilMillis = item.optLong("workingUntilMillis", 0L),
                         reminderMode = reminderMode,
+                        deliveryPreference = deliveryPreference,
                         voicePersona = runCatching {
                             VoicePersona.valueOf(item.optString("voicePersona", VoicePersona.WARM.name))
                         }.getOrDefault(VoicePersona.WARM),

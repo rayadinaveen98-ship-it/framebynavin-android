@@ -507,6 +507,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     voiceRepeatIntervalSeconds = draft.voiceRepeatIntervalSeconds,
                     alarmTimeoutSeconds = draft.alarmTimeoutSeconds,
                     attentionPlan = draft.attentionPlan,
+                    deliveryPreference = draft.deliveryPreference,
                 )
                 showComposer = false
                 if (task == null && V18CreatorJourney.afterProjectCreated(savedTaskId) == V18JourneyDestination.CREATE) {
