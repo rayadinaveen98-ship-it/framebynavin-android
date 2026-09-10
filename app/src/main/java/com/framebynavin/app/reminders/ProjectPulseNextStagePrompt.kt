@@ -13,7 +13,7 @@ import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 
-/** After Custom Stage Done, ask rather than inventing the next stage's check-in time. */
+/** Stage transition prompts that never mutate workflow by themselves. */
 object ProjectPulseNextStagePrompt {
     fun show(context: Context, task: CreatorTask) {
         val app = context.applicationContext
@@ -35,6 +35,24 @@ object ProjectPulseNextStagePrompt {
             .addAction(0, "2 HOURS", choice(app, task, stage.id, generation, 120, 2))
             .addAction(0, "TOMORROW", choice(app, task, stage.id, generation, 24 * 60, 3))
         app.getSystemService(NotificationManager::class.java).notify(promptId(task.id), builder.build())
+    }
+
+    fun showPublicationRequired(context: Context, task: CreatorTask) {
+        val app = context.applicationContext
+        if (!ReminderNotifications.canPost(app)) return
+        ensureChannel(app)
+        NotificationCompat.Builder(app, ReminderConstants.PULSE_PROMPT_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("Publication still needs confirmation")
+            .setContentText("Open Publish Studio before completing the ${CreatorWorkflowEngine.currentStage(task).label} stage.")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                "Project Pulse did not advance the workflow. Publish Studio remains the authority for live deliverables. Tap to open the project."
+            ))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openProject(app, task.id))
+            .build()
+            .also { app.getSystemService(NotificationManager::class.java).notify(promptId(task.id), it) }
     }
 
     fun cancel(context: Context, taskId: String) {
