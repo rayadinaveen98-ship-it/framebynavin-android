@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -87,6 +88,7 @@ internal fun V20TodayCommandCenter(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .statusBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(top = 18.dp, bottom = 128.dp),
         ) {
