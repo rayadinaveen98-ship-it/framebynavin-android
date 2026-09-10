@@ -22,21 +22,27 @@ private enum class Alpha6WorkspaceMode { HUB, PROJECT, SCRIPT, PUBLISH }
 class ContentWorkspaceActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROJECT_ID = "project_id"
+        private const val STATE_EDITOR_MODE = "content_project_editor_mode"
     }
 
     private val store by lazy { TaskStore(applicationContext) }
     /** Alpha4/5 compatibility source only. Alpha6+ saves structured scripts inside the project workspace. */
     private val legacyScriptStore by lazy { ScriptStudioStore(applicationContext) }
     private val publicationRecovery by lazy { CreatorPublicationRecovery(applicationContext) }
+    private val editorDrafts by lazy { CreatorEditorDraftStore(applicationContext) }
     private var task by mutableStateOf<CreatorTask?>(null)
     private var scriptStudio by mutableStateOf<CreatorScriptStudio?>(null)
     private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
+    private var restoreModeAfterLoad: Alpha6WorkspaceMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        restoreModeAfterLoad = savedInstanceState?.getString(STATE_EDITOR_MODE)?.let { saved ->
+            runCatching { Alpha6WorkspaceMode.valueOf(saved) }.getOrNull()
+        }?.takeUnless { it == Alpha6WorkspaceMode.HUB }
         val projectId = intent.getStringExtra(EXTRA_PROJECT_ID).orEmpty()
         setContent {
             FrameByNavinTheme {
@@ -97,6 +103,14 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             text = { Text("Changes since your last save will be discarded. Your previously saved project data stays safe.") },
                             confirmButton = {
                                 TextButton(onClick = {
+                                    task?.id?.let { projectId ->
+                                        when (mode) {
+                                            Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
+                                            Alpha6WorkspaceMode.SCRIPT -> editorDrafts.clearScript(projectId)
+                                            Alpha6WorkspaceMode.PUBLISH -> editorDrafts.clearPublish(projectId)
+                                            Alpha6WorkspaceMode.HUB -> Unit
+                                        }
+                                    }
                                     confirmEditorClose = false
                                     scriptStudio = null
                                     mode = Alpha6WorkspaceMode.HUB
@@ -111,6 +125,11 @@ class ContentWorkspaceActivity : ComponentActivity() {
             }
         }
         load(projectId)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_EDITOR_MODE, mode.name)
+        super.onSaveInstanceState(outState)
     }
 
     private fun load(projectId: String) {
@@ -134,8 +153,17 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 stabilized
             }
             withContext(Dispatchers.Main) {
-                result.onSuccess { task = it }
-                    .onFailure { error = it.message ?: "Could not open the latest project workspace." }
+                result.onSuccess { loaded ->
+                    task = loaded
+                    val restore = restoreModeAfterLoad
+                    restoreModeAfterLoad = null
+                    when (restore) {
+                        Alpha6WorkspaceMode.PROJECT -> mode = Alpha6WorkspaceMode.PROJECT
+                        Alpha6WorkspaceMode.PUBLISH -> mode = Alpha6WorkspaceMode.PUBLISH
+                        Alpha6WorkspaceMode.SCRIPT -> openScriptStudio(loaded)
+                        else -> mode = Alpha6WorkspaceMode.HUB
+                    }
+                }.onFailure { error = it.message ?: "Could not open the latest project workspace." }
             }
         }
     }
@@ -230,6 +258,11 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 // Parent publication is compatibility state for the existing reward/review engine.
                 // Reconciliation is idempotent and does not complete the project.
                 publicationRecovery.recoverAll()
+                when (editorMode) {
+                    Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
+                    Alpha6WorkspaceMode.PUBLISH -> editorDrafts.clearPublish(projectId)
+                    else -> Unit
+                }
                 updated
             }
             withContext(Dispatchers.Main) {
@@ -274,6 +307,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         )
                     )
                 } ?: error("This project no longer exists.")
+                editorDrafts.clearScript(projectId)
                 savedStudio to updatedProject
             }
             withContext(Dispatchers.Main) {
