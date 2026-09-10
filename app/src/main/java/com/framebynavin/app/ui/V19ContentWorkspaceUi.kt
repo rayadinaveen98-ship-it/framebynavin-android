@@ -17,11 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.framebynavin.app.data.CreatorContentWorkspace
-import com.framebynavin.app.data.CreatorDeliverable
-import com.framebynavin.app.data.CreatorDeliverableStatus
-import com.framebynavin.app.data.CreatorProjectReference
-import com.framebynavin.app.data.CreatorTask
+import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
 import java.util.UUID
 
@@ -39,15 +35,37 @@ internal fun V19ContentWorkspaceDialog(
     var hook by remember(task.id, originalRevision) { mutableStateOf(task.workspace.hook) }
     var script by remember(task.id, originalRevision) { mutableStateOf(task.workspace.script) }
     var references by remember(task.id, originalRevision) { mutableStateOf(task.workspace.references) }
+    var checklist by remember(task.id, originalRevision) { mutableStateOf(task.workspace.checklist) }
+    var assets by remember(task.id, originalRevision) { mutableStateOf(task.workspace.assets) }
     var deliverables by remember(task.id, originalRevision) { mutableStateOf(task.workspace.deliverables) }
+    var learnings by remember(task.id, originalRevision) { mutableStateOf(task.workspace.learnings) }
 
     fun addDeliverable(platform: String, format: String) {
-        if (deliverables.any { it.platform.equals(platform, true) && it.format.equals(format, true) }) return
+        if (deliverables.any { it.platform.equals(platform, true) && it.format.equals(format, true) && it.parentDeliverableId.isBlank() }) return
         deliverables = deliverables + CreatorDeliverable(
             id = UUID.randomUUID().toString(),
             platform = platform,
             format = format,
             title = task.title,
+        )
+    }
+
+    fun addStandardChecklist() {
+        if (checklist.isNotEmpty()) return
+        checklist = listOf("Research", "Script", "Record", "Edit", "Thumbnail", "Publish").map { title ->
+            CreatorChecklistItem(id = UUID.randomUUID().toString(), title = title)
+        }
+    }
+
+    fun addDerivative(parent: CreatorDeliverable) {
+        val defaultPlatform = if (parent.platform.equals("Instagram", true)) "YouTube" else "Instagram"
+        val defaultFormat = if (defaultPlatform == "YouTube") "Short" else "Reel"
+        deliverables = deliverables + CreatorDeliverable(
+            id = UUID.randomUUID().toString(),
+            platform = defaultPlatform,
+            format = defaultFormat,
+            title = parent.title.ifBlank { task.title },
+            parentDeliverableId = parent.id,
         )
     }
 
@@ -60,7 +78,7 @@ internal fun V19ContentWorkspaceDialog(
                 ) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close workspace", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("CONTENT PROJECT 2.0", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text("CONTENT PROJECT 2.0 · ALPHA 2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
@@ -81,6 +99,32 @@ internal fun V19ContentWorkspaceDialog(
                     V19SectionTitle("HOOK + SCRIPT", "Keep the opening and full narrative in the project")
                     V19Field("HOOK", hook, { hook = it }, "The first line, visual or question", minLines = 2)
                     V19Field("SCRIPT / OUTLINE", script, { script = it }, "Write the narration, outline, beats or shot notes here…", minLines = 8)
+
+                    Spacer(Modifier.height(24.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        V19SectionTitle("PRODUCTION CHECKLIST", "Track production without completing the whole project", Modifier.weight(1f))
+                        TextButton(onClick = { checklist = checklist + CreatorChecklistItem(id = UUID.randomUUID().toString()) }) {
+                            Icon(Icons.Outlined.Add, null, tint = MutedGold, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("ADD", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (checklist.isEmpty()) {
+                        V19EmptyCard("No production checklist", "Start with a simple creator workflow or add your own steps.")
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(onClick = { addStandardChecklist() }, modifier = Modifier.fillMaxWidth()) {
+                            Text("USE RESEARCH → SCRIPT → RECORD → EDIT → THUMBNAIL → PUBLISH", fontSize = 7.6.sp, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        checklist.forEach { item ->
+                            V19ChecklistCard(
+                                item = item,
+                                onChange = { changed -> checklist = checklist.map { if (it.id == changed.id) changed else it } },
+                                onRemove = { checklist = checklist.filterNot { it.id == item.id } },
+                            )
+                            Spacer(Modifier.height(7.dp))
+                        }
+                    }
 
                     Spacer(Modifier.height(24.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -130,28 +174,69 @@ internal fun V19ContentWorkspaceDialog(
                     }
 
                     Spacer(Modifier.height(24.dp))
-                    V19SectionTitle("DELIVERABLES", "One project can publish to multiple platforms independently")
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { addDeliverable("YouTube", "Long video") }, modifier = Modifier.weight(1f)) {
-                            Text("+ YOUTUBE", fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                        OutlinedButton(onClick = { addDeliverable("Instagram", "Reel") }, modifier = Modifier.weight(1f)) {
-                            Text("+ INSTAGRAM", fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        V19SectionTitle("ASSETS + REFERENCES", "Store locations only — large media stays outside the project database", Modifier.weight(1f))
+                        TextButton(onClick = {
+                            assets = assets + CreatorProjectAsset(id = UUID.randomUUID().toString())
+                        }) {
+                            Icon(Icons.Outlined.AttachFile, null, tint = MutedGold, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("ADD", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    if (deliverables.isEmpty()) {
-                        V19EmptyCard("No deliverables yet", "Add YouTube and Instagram outputs without creating separate projects.")
+                    if (assets.isEmpty()) {
+                        V19EmptyCard("No asset references", "Keep a content URI, file path or web link for footage, audio, documents and thumbnail material.")
                     } else {
-                        deliverables.forEach { deliverable ->
-                            V19DeliverableCard(
-                                deliverable = deliverable,
-                                onChange = { changed -> deliverables = deliverables.map { if (it.id == changed.id) changed else it } },
-                                onRemove = { deliverables = deliverables.filterNot { it.id == deliverable.id } },
+                        assets.forEach { asset ->
+                            V19AssetCard(
+                                asset = asset,
+                                onChange = { changed -> assets = assets.map { if (it.id == changed.id) changed else it } },
+                                onRemove = { assets = assets.filterNot { it.id == asset.id } },
                             )
                             Spacer(Modifier.height(8.dp))
                         }
                     }
+
+                    Spacer(Modifier.height(24.dp))
+                    V19SectionTitle("DELIVERABLES", "Each output has its own publishing state and metadata")
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { addDeliverable("YouTube", "Long video") }, modifier = Modifier.weight(1f)) {
+                            Text("+ YOUTUBE", fontSize = 8.2.sp, fontWeight = FontWeight.Bold)
+                        }
+                        OutlinedButton(onClick = { addDeliverable("Instagram", "Reel") }, modifier = Modifier.weight(1f)) {
+                            Text("+ INSTAGRAM", fontSize = 8.2.sp, fontWeight = FontWeight.Bold)
+                        }
+                        OutlinedButton(onClick = { addDeliverable("Other", "Custom") }, modifier = Modifier.weight(1f)) {
+                            Text("+ CUSTOM", fontSize = 8.2.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    if (deliverables.isEmpty()) {
+                        V19EmptyCard("No deliverables yet", "Add platform outputs without creating separate projects.")
+                    } else {
+                        deliverables.forEach { deliverable ->
+                            V19DeliverableCard(
+                                deliverable = deliverable,
+                                parentTitle = deliverable.parentDeliverableId.takeIf { it.isNotBlank() }?.let { parentId ->
+                                    deliverables.firstOrNull { it.id == parentId }?.title?.ifBlank { it.format }
+                                },
+                                onChange = { changed -> deliverables = deliverables.map { if (it.id == changed.id) changed else it } },
+                                onRemove = { deliverables = deliverables.filterNot { it.id == deliverable.id || it.parentDeliverableId == deliverable.id } },
+                                onDerivative = { addDerivative(deliverable) },
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+                    V19SectionTitle("LEARNINGS", "Keep what you want to carry into the next piece")
+                    V19Field(
+                        "PROJECT NOTES / LESSONS",
+                        learnings,
+                        { learnings = it },
+                        "What worked, what felt difficult, what should you repeat or change next time?",
+                        minLines = 5,
+                    )
                 }
 
                 Surface(color = Color(0xF20B0B0C), tonalElevation = 8.dp) {
@@ -169,7 +254,10 @@ internal fun V19ContentWorkspaceDialog(
                                     hook = hook,
                                     script = script,
                                     references = references,
+                                    checklist = checklist,
+                                    assets = assets,
                                     deliverables = deliverables,
+                                    learnings = learnings,
                                 ),
                             )
                         },
@@ -177,7 +265,7 @@ internal fun V19ContentWorkspaceDialog(
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     ) {
-                        Text("SAVE WORKSPACE", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text("SAVE CONTENT PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Black)
                     }
                 }
             }
@@ -220,10 +308,108 @@ private fun V19EmptyCard(title: String, body: String) {
 }
 
 @Composable
+private fun V19ChecklistCard(
+    item: CreatorChecklistItem,
+    onChange: (CreatorChecklistItem) -> Unit,
+    onRemove: () -> Unit,
+) {
+    val accent = when (item.status) {
+        CreatorChecklistStatus.TODO -> MutedText
+        CreatorChecklistStatus.DONE -> SuccessGreen
+        CreatorChecklistStatus.SKIPPED -> MutedGold
+    }
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .45f))) {
+        Row(Modifier.padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = {
+                val next = when (item.status) {
+                    CreatorChecklistStatus.TODO -> CreatorChecklistStatus.DONE
+                    CreatorChecklistStatus.DONE -> CreatorChecklistStatus.TODO
+                    CreatorChecklistStatus.SKIPPED -> CreatorChecklistStatus.TODO
+                }
+                onChange(item.copy(status = next))
+            }) {
+                Icon(
+                    if (item.status == CreatorChecklistStatus.DONE) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                    "Toggle checklist item",
+                    tint = accent,
+                )
+            }
+            OutlinedTextField(
+                value = item.title,
+                onValueChange = { onChange(item.copy(title = it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Production step") },
+                singleLine = true,
+            )
+            IconButton(onClick = {
+                onChange(item.copy(status = if (item.status == CreatorChecklistStatus.SKIPPED) CreatorChecklistStatus.TODO else CreatorChecklistStatus.SKIPPED))
+            }) {
+                Icon(Icons.Outlined.SkipNext, "Skip checklist item", tint = if (item.status == CreatorChecklistStatus.SKIPPED) MutedGold else MutedText)
+            }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Outlined.DeleteOutline, "Remove checklist item", tint = MutedText)
+            }
+        }
+    }
+}
+
+@Composable
+private fun V19AssetCard(
+    asset: CreatorProjectAsset,
+    onChange: (CreatorProjectAsset) -> Unit,
+    onRemove: () -> Unit,
+) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+        Column(Modifier.padding(13.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.AttachFile, null, tint = MutedGold, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("ASSET REFERENCE", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                TextButton(onClick = {
+                    val kinds = CreatorAssetKind.entries
+                    onChange(asset.copy(kind = kinds[(asset.kind.ordinal + 1) % kinds.size]))
+                }) {
+                    Text(asset.kind.name, color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+                }
+                IconButton(onClick = onRemove) {
+                    Icon(Icons.Outlined.DeleteOutline, "Remove asset reference", tint = MutedText, modifier = Modifier.size(17.dp))
+                }
+            }
+            OutlinedTextField(
+                value = asset.label,
+                onValueChange = { onChange(asset.copy(label = it)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Label") },
+                singleLine = true,
+            )
+            Spacer(Modifier.height(7.dp))
+            OutlinedTextField(
+                value = asset.location,
+                onValueChange = { onChange(asset.copy(location = it)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Content URI / path / web link") },
+                singleLine = true,
+            )
+            Spacer(Modifier.height(7.dp))
+            OutlinedTextField(
+                value = asset.notes,
+                onValueChange = { onChange(asset.copy(notes = it)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Notes") },
+                minLines = 2,
+            )
+            Text("Only the reference is saved here — not the media file itself.", color = MutedText, fontSize = 7.5.sp, modifier = Modifier.padding(top = 7.dp))
+        }
+    }
+}
+
+@Composable
 private fun V19DeliverableCard(
     deliverable: CreatorDeliverable,
+    parentTitle: String?,
     onChange: (CreatorDeliverable) -> Unit,
     onRemove: () -> Unit,
+    onDerivative: () -> Unit,
 ) {
     val accent = when (deliverable.status) {
         CreatorDeliverableStatus.PLANNED -> MutedText
@@ -243,12 +429,30 @@ private fun V19DeliverableCard(
                 Column(Modifier.weight(1f)) {
                     Text(deliverable.platform.uppercase(), color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
                     Text(deliverable.format, color = MutedText, fontSize = 8.3.sp)
+                    if (parentTitle != null) Text("Derivative of $parentTitle", color = MutedGold, fontSize = 7.5.sp)
                 }
                 Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .11f)) {
                     Text(deliverable.status.name, color = accent, fontSize = 7.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                 }
             }
             Spacer(Modifier.height(9.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                OutlinedTextField(
+                    value = deliverable.platform,
+                    onValueChange = { onChange(deliverable.copy(platform = it)) },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Platform") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = deliverable.format,
+                    onValueChange = { onChange(deliverable.copy(format = it)) },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Format") },
+                    singleLine = true,
+                )
+            }
+            Spacer(Modifier.height(7.dp))
             OutlinedTextField(
                 value = deliverable.title,
                 onValueChange = { onChange(deliverable.copy(title = it)) },
@@ -256,28 +460,70 @@ private fun V19DeliverableCard(
                 label = { Text("Deliverable title") },
                 singleLine = true,
             )
+            Spacer(Modifier.height(7.dp))
+            OutlinedTextField(
+                value = deliverable.deadlineLabel,
+                onValueChange = { onChange(deliverable.copy(deadlineLabel = it)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Deadline / publishing target") },
+                placeholder = { Text("Friday 8 PM, Sept 18, after main video…") },
+                singleLine = true,
+            )
+            Spacer(Modifier.height(7.dp))
+            OutlinedTextField(
+                value = deliverable.description,
+                onValueChange = { onChange(deliverable.copy(description = it)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Description / caption") },
+                minLines = 2,
+            )
+            Spacer(Modifier.height(7.dp))
+            OutlinedTextField(
+                value = deliverable.tags,
+                onValueChange = { onChange(deliverable.copy(tags = it)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Tags / hashtags") },
+                minLines = 2,
+            )
+            Spacer(Modifier.height(7.dp))
+            OutlinedTextField(
+                value = deliverable.thumbnailConcept,
+                onValueChange = { onChange(deliverable.copy(thumbnailConcept = it)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Thumbnail / cover concept") },
+                minLines = 2,
+            )
+            Spacer(Modifier.height(7.dp))
+            OutlinedTextField(
+                value = deliverable.publishedUrl,
+                onValueChange = { onChange(deliverable.copy(publishedUrl = it)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Published URL") },
+                singleLine = true,
+            )
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                if (deliverable.status == CreatorDeliverableStatus.PLANNED) {
-                    OutlinedButton(
+                when (deliverable.status) {
+                    CreatorDeliverableStatus.PLANNED -> OutlinedButton(
                         onClick = { onChange(deliverable.copy(status = CreatorDeliverableStatus.READY)) },
                         modifier = Modifier.weight(1f),
                     ) { Text("MARK READY", fontSize = 8.sp, fontWeight = FontWeight.Bold) }
-                } else if (deliverable.status == CreatorDeliverableStatus.READY) {
-                    Button(
+                    CreatorDeliverableStatus.READY -> Button(
                         onClick = {
                             onChange(deliverable.copy(status = CreatorDeliverableStatus.PUBLISHED, publishedAtMillis = System.currentTimeMillis()))
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
                     ) { Text("MARK PUBLISHED", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = CinemaBlack) }
-                } else {
-                    OutlinedButton(
-                        onClick = { onChange(deliverable.copy(status = CreatorDeliverableStatus.READY, publishedAtMillis = 0L, publishedUrl = "")) },
+                    CreatorDeliverableStatus.PUBLISHED -> OutlinedButton(
+                        onClick = { onChange(deliverable.copy(status = CreatorDeliverableStatus.READY, publishedAtMillis = 0L)) },
                         modifier = Modifier.weight(1f),
                     ) { Text("REOPEN", fontSize = 8.sp, fontWeight = FontWeight.Bold) }
                 }
-                TextButton(onClick = onRemove) {
+                OutlinedButton(onClick = onDerivative, modifier = Modifier.weight(1f)) {
+                    Text("DERIVATIVE", fontSize = 7.7.sp, fontWeight = FontWeight.Bold)
+                }
+                IconButton(onClick = onRemove) {
                     Icon(Icons.Outlined.DeleteOutline, "Remove deliverable", tint = MutedText, modifier = Modifier.size(16.dp))
                 }
             }
