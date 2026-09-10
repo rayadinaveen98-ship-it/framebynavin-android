@@ -44,13 +44,15 @@ class ReminderSafetyV182Test {
         assertEquals(0L, after.completedAtMillis)
     }
 
-    @Test fun managedAcknowledgementSurvivesRefreshButNotNewStageOrDeadline() {
+    @Test fun managedAcknowledgementNeverAdvancesStageAndRc3PulseCanResumeCheckIn() {
         val before = ProjectPulseEngine.applyAttentionPlan(task().copy(workflowStageIndex = 2),
             ProjectAttentionPlan.GUIDED, now)
         val after = ReminderActionSafety.acknowledge(before)
         assertTrue(after.pulseManagedReminder)
         assertEquals(before.workflowStageIndex, after.workflowStageIndex)
-        assertFalse(ProjectPulseEngine.refreshManagedReminder(after, now + 1_000L).reminderEnabled)
+        assertFalse(after.reminderEnabled)
+        // RC3 follows the same stage until explicit Stage Done, so a pulse refresh may check it again.
+        assertTrue(ProjectPulseEngine.refreshManagedReminder(after, now + 1_000L).reminderEnabled)
         assertTrue(ProjectPulseEngine.refreshManagedReminder(after.copy(workflowStageIndex = 3), now + 1_000L).reminderEnabled)
         assertTrue(ProjectPulseEngine.refreshManagedReminder(after.copy(dueAtMillis = before.dueAtMillis + 3_600_000L), now + 1_000L).reminderEnabled)
     }
