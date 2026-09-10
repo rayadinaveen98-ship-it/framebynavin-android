@@ -58,6 +58,7 @@ class CreatorContentProjectRc2InstrumentedTest {
             title = "RC2 Authority Test",
             platform = "YouTube",
             contentType = "Long-form",
+            dueLabel = "Today",
             status = TaskStatus.WORKING,
             progress = 55,
             workspace = workspace,
