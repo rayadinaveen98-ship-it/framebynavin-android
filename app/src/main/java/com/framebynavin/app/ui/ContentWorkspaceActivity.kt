@@ -11,12 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
-import com.framebynavin.app.data.CreatorContentWorkspace
-import com.framebynavin.app.data.CreatorDataGate
-import com.framebynavin.app.data.CreatorScriptStudio
-import com.framebynavin.app.data.CreatorTask
-import com.framebynavin.app.data.ScriptStudioStore
-import com.framebynavin.app.data.TaskStore
+import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,12 +25,14 @@ class ContentWorkspaceActivity : ComponentActivity() {
     }
 
     private val store by lazy { TaskStore(applicationContext) }
-    /** Alpha4/5 compatibility source only. Alpha6 saves structured scripts inside the project workspace. */
+    /** Alpha4/5 compatibility source only. Alpha6+ saves structured scripts inside the project workspace. */
     private val legacyScriptStore by lazy { ScriptStudioStore(applicationContext) }
+    private val publicationRecovery by lazy { CreatorPublicationRecovery(applicationContext) }
     private var task by mutableStateOf<CreatorTask?>(null)
     private var scriptStudio by mutableStateOf<CreatorScriptStudio?>(null)
     private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
     private var error by mutableStateOf<String?>(null)
+    private var confirmEditorClose by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,52 +40,72 @@ class ContentWorkspaceActivity : ComponentActivity() {
         val projectId = intent.getStringExtra(EXTRA_PROJECT_ID).orEmpty()
         setContent {
             FrameByNavinTheme {
-                when {
-                    error != null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
-                        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-                            Text("Workspace needs attention", color = Color.White)
-                            Spacer(Modifier.height(8.dp))
-                            Text(error.orEmpty(), color = Color.LightGray)
-                            Spacer(Modifier.height(12.dp))
-                            Button(onClick = { load(projectId) }) { Text("RELOAD PROJECT") }
-                            TextButton(onClick = { error = null; mode = Alpha6WorkspaceMode.HUB }) { Text("BACK TO HUB") }
-                            TextButton(onClick = { finish() }) { Text("CLOSE") }
+                Box(Modifier.fillMaxSize()) {
+                    when {
+                        error != null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                            Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
+                                Text("Workspace needs attention", color = Color.White)
+                                Spacer(Modifier.height(8.dp))
+                                Text(error.orEmpty(), color = Color.LightGray)
+                                Spacer(Modifier.height(12.dp))
+                                Button(onClick = { load(projectId) }) { Text("RELOAD PROJECT") }
+                                TextButton(onClick = { error = null; mode = Alpha6WorkspaceMode.HUB }) { Text("BACK TO HUB") }
+                                TextButton(onClick = { finish() }) { Text("CLOSE") }
+                            }
+                        }
+                        task == null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                        mode == Alpha6WorkspaceMode.HUB -> V19ContentWorkspaceAlpha6Hub(
+                            task = task!!,
+                            onDismiss = { finish() },
+                            onOpenProject = { mode = Alpha6WorkspaceMode.PROJECT },
+                            onOpenScript = { openScriptStudio(task!!) },
+                            onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
+                        )
+                        mode == Alpha6WorkspaceMode.PROJECT -> V19ContentWorkspaceAlpha3Dialog(
+                            task = task!!,
+                            onDismiss = { confirmEditorClose = true },
+                            onSave = { id, revision, workspace -> saveProject(id, revision, workspace, Alpha6WorkspaceMode.PROJECT) },
+                        )
+                        mode == Alpha6WorkspaceMode.SCRIPT && scriptStudio != null -> V19ScriptStudioAlpha4Dialog(
+                            task = task!!,
+                            studio = scriptStudio!!,
+                            onDismiss = { confirmEditorClose = true },
+                            onSave = { studioRevision, workspaceRevision, draft ->
+                                saveScriptStudio(task!!.id, studioRevision, workspaceRevision, draft)
+                            },
+                        )
+                        mode == Alpha6WorkspaceMode.PUBLISH -> V19PublishStudioAlpha5Dialog(
+                            task = task!!,
+                            onDismiss = { confirmEditorClose = true },
+                            onSave = { id, revision, workspace -> saveProject(id, revision, workspace, Alpha6WorkspaceMode.PUBLISH) },
+                        )
+                        else -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
                         }
                     }
-                    task == null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                    mode == Alpha6WorkspaceMode.HUB -> V19ContentWorkspaceAlpha6Hub(
-                        task = task!!,
-                        onDismiss = { finish() },
-                        onOpenProject = { mode = Alpha6WorkspaceMode.PROJECT },
-                        onOpenScript = { openScriptStudio(task!!) },
-                        onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
-                    )
-                    mode == Alpha6WorkspaceMode.PROJECT -> V19ContentWorkspaceAlpha3Dialog(
-                        task = task!!,
-                        onDismiss = { mode = Alpha6WorkspaceMode.HUB },
-                        onSave = { id, revision, workspace -> saveProject(id, revision, workspace) },
-                    )
-                    mode == Alpha6WorkspaceMode.SCRIPT && scriptStudio != null -> V19ScriptStudioAlpha4Dialog(
-                        task = task!!,
-                        studio = scriptStudio!!,
-                        onDismiss = { mode = Alpha6WorkspaceMode.HUB },
-                        onSave = { studioRevision, workspaceRevision, draft ->
-                            saveScriptStudio(task!!.id, studioRevision, workspaceRevision, draft)
-                        },
-                    )
-                    mode == Alpha6WorkspaceMode.PUBLISH -> V19PublishStudioAlpha5Dialog(
-                        task = task!!,
-                        onDismiss = { mode = Alpha6WorkspaceMode.HUB },
-                        onSave = { id, revision, workspace -> saveProject(id, revision, workspace) },
-                    )
-                    else -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
+
+                    if (confirmEditorClose && mode != Alpha6WorkspaceMode.HUB) {
+                        AlertDialog(
+                            onDismissRequest = { confirmEditorClose = false },
+                            title = { Text("Close this editor?") },
+                            text = { Text("Changes since your last save will be discarded. Your previously saved project data stays safe.") },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    confirmEditorClose = false
+                                    scriptStudio = null
+                                    mode = Alpha6WorkspaceMode.HUB
+                                }) { Text("DISCARD & CLOSE") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { confirmEditorClose = false }) { Text("KEEP EDITING") }
+                            },
+                        )
                     }
                 }
             }
@@ -100,6 +117,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         error = null
         scriptStudio = null
         mode = Alpha6WorkspaceMode.HUB
+        confirmEditorClose = false
         if (projectId.isBlank()) {
             error = "Project id is missing."
             return
@@ -110,7 +128,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     store.load().firstOrNull { it.id == projectId }
                         ?: error("This project no longer exists.")
                 }
-                migrateLegacyScriptIfNeeded(loaded)
+                val migrated = migrateLegacyScriptIfNeeded(loaded)
+                val stabilized = stabilizeLoadedProject(migrated)
+                publicationRecovery.recoverAll()
+                stabilized
             }
             withContext(Dispatchers.Main) {
                 result.onSuccess { task = it }
@@ -119,7 +140,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         }
     }
 
-    /** One-way Alpha4/5 migration. Existing sidecar data is never allowed to overwrite an embedded Alpha6 script. */
+    /** One-way Alpha4/5 migration. Existing sidecar data never overwrites an embedded script. */
     private suspend fun migrateLegacyScriptIfNeeded(project: CreatorTask): CreatorTask {
         if (project.workspace.scriptStudio != null) return project
         val legacy = legacyScriptStore.load(
@@ -142,9 +163,22 @@ class ContentWorkspaceActivity : ComponentActivity() {
         } ?: error("This project no longer exists.")
     }
 
+    /** Repair RC1-era derivative links and derive parent publication from live deliverables. */
+    private suspend fun stabilizeLoadedProject(project: CreatorTask): CreatorTask {
+        if (project.workspace.deliverables.isEmpty()) return project
+        val expectedGeneration = CreatorDataGate.generation(applicationContext)
+        return store.updateTask(project.id, expectedGeneration = expectedGeneration) { current ->
+            val repairedWorkspace = current.workspace.copy(
+                deliverables = CreatorContentStabilization.sanitizeDeliverableGraph(current.workspace.deliverables),
+            )
+            CreatorContentStabilization.syncParentPublication(current, repairedWorkspace)
+        } ?: error("This project no longer exists.")
+    }
+
     private fun openScriptStudio(project: CreatorTask) {
         error = null
         scriptStudio = null
+        confirmEditorClose = false
         mode = Alpha6WorkspaceMode.SCRIPT
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
@@ -162,26 +196,46 @@ class ContentWorkspaceActivity : ComponentActivity() {
         }
     }
 
-    private fun saveProject(projectId: String, expectedRevision: Long, draft: CreatorContentWorkspace) {
+    private fun saveProject(
+        projectId: String,
+        expectedRevision: Long,
+        draft: CreatorContentWorkspace,
+        editorMode: Alpha6WorkspaceMode,
+    ) {
         val expectedGeneration = CreatorDataGate.generation(applicationContext)
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
-                store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
+                val updated = store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
                     check(current.workspace.revision == expectedRevision) {
                         "This workspace changed while you were editing. Reopen it to keep the newest version."
                     }
-                    val normalized = normalizeWorkspace(draft, expectedRevision + 1L)
-                    current.copy(
-                        workspace = normalized.copy(
-                            // Alpha3/Alpha5 editors predate the embedded field; never let a normal project/publish save erase it.
-                            scriptStudio = normalized.scriptStudio ?: current.workspace.scriptStudio,
+                    var normalized = normalizeWorkspace(draft, expectedRevision + 1L)
+                    normalized = when (editorMode) {
+                        Alpha6WorkspaceMode.PROJECT -> CreatorContentStabilization.prepareProjectEditorSave(
+                            current = current.workspace,
+                            draft = normalized,
                         )
-                    )
+                        Alpha6WorkspaceMode.PUBLISH -> normalized.copy(
+                            // Publish Studio owns publication state, but never script content.
+                            hook = current.workspace.hook,
+                            script = current.workspace.script,
+                            scriptStudio = current.workspace.scriptStudio,
+                            deliverables = CreatorContentStabilization.sanitizeDeliverableGraph(normalized.deliverables),
+                        )
+                        else -> normalized.copy(scriptStudio = current.workspace.scriptStudio)
+                    }
+                    CreatorContentStabilization.syncParentPublication(current, normalized)
                 } ?: error("This project no longer exists.")
+
+                // Parent publication is compatibility state for the existing reward/review engine.
+                // Reconciliation is idempotent and does not complete the project.
+                publicationRecovery.recoverAll()
+                updated
             }
             withContext(Dispatchers.Main) {
                 result.onSuccess {
                     task = it
+                    confirmEditorClose = false
                     mode = Alpha6WorkspaceMode.HUB
                 }.onFailure {
                     error = it.message ?: "Could not save the workspace. Your previous project data was retained."
@@ -226,6 +280,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 result.onSuccess { (saved, updated) ->
                     scriptStudio = saved
                     task = updated
+                    confirmEditorClose = false
                     mode = Alpha6WorkspaceMode.HUB
                 }.onFailure {
                     error = it.message ?: "Could not save Script Studio. Existing project data was retained."
