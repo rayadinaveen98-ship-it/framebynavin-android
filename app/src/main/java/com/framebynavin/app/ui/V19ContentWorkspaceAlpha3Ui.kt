@@ -26,6 +26,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -44,18 +47,23 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
+    val draftStore = remember { CreatorEditorDraftStore(context.applicationContext) }
+    val recovered = remember(task.id, originalRevision) {
+        draftStore.loadProject(task.id, originalRevision)
+    }
+    val initial = recovered ?: task.workspace
     var section by remember { mutableStateOf(Alpha3Section.OVERVIEW) }
-    var audience by remember(task.id, originalRevision) { mutableStateOf(task.workspace.audience) }
-    var viewerProblem by remember(task.id, originalRevision) { mutableStateOf(task.workspace.viewerProblem) }
-    var promise by remember(task.id, originalRevision) { mutableStateOf(task.workspace.promise) }
-    var angle by remember(task.id, originalRevision) { mutableStateOf(task.workspace.angle) }
+    var audience by remember(task.id, originalRevision) { mutableStateOf(initial.audience) }
+    var viewerProblem by remember(task.id, originalRevision) { mutableStateOf(initial.viewerProblem) }
+    var promise by remember(task.id, originalRevision) { mutableStateOf(initial.promise) }
+    var angle by remember(task.id, originalRevision) { mutableStateOf(initial.angle) }
     val hook = task.workspace.hook
     val script = task.workspace.script
-    var references by remember(task.id, originalRevision) { mutableStateOf(task.workspace.references) }
-    var checklist by remember(task.id, originalRevision) { mutableStateOf(task.workspace.checklist) }
-    var assets by remember(task.id, originalRevision) { mutableStateOf(task.workspace.assets) }
-    var deliverables by remember(task.id, originalRevision) { mutableStateOf(task.workspace.deliverables) }
-    var learnings by remember(task.id, originalRevision) { mutableStateOf(task.workspace.learnings) }
+    var references by remember(task.id, originalRevision) { mutableStateOf(initial.references) }
+    var checklist by remember(task.id, originalRevision) { mutableStateOf(initial.checklist) }
+    var assets by remember(task.id, originalRevision) { mutableStateOf(initial.assets) }
+    var deliverables by remember(task.id, originalRevision) { mutableStateOf(initial.deliverables) }
+    var learnings by remember(task.id, originalRevision) { mutableStateOf(initial.learnings) }
     var appliedTemplate by remember { mutableStateOf("") }
     var assetError by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
 
@@ -74,6 +82,15 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         learnings = learnings,
         scriptStudio = task.workspace.scriptStudio,
     )
+
+    LaunchedEffect(audience, viewerProblem, promise, angle, references, checklist, assets, deliverables, learnings) {
+        delay(350)
+        val snapshot = draft()
+        withContext(Dispatchers.IO) {
+            if (snapshot == task.workspace) draftStore.clearProject(task.id)
+            else draftStore.saveProject(task.id, originalRevision, snapshot)
+        }
+    }
 
     fun moveChecklist(index: Int, delta: Int) {
         val target = index + delta
@@ -149,6 +166,12 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("R$originalRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+
+                if (recovered != null) {
+                    Surface(Modifier.fillMaxWidth(), color = MutedGold.copy(alpha = .08f)) {
+                        Text("Recovered unsaved Plan & Produce draft", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
+                    }
                 }
 
                 Row(
