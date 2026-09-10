@@ -287,6 +287,35 @@ class TaskStore(private val context: Context) {
         }
         val deliverables = JSONArray()
         workspace.deliverables.forEach { deliverable ->
+            val titleVariants = JSONArray()
+            deliverable.titleVariants.forEach { variant ->
+                titleVariants.put(JSONObject().put("id", variant.id).put("text", variant.text))
+            }
+            val thumbnailVariants = JSONArray()
+            deliverable.thumbnailVariants.forEach { variant ->
+                thumbnailVariants.put(JSONObject().put("id", variant.id).put("text", variant.text))
+            }
+            val publishGate = JSONArray()
+            deliverable.publishGate.forEach { gate ->
+                publishGate.put(JSONObject()
+                    .put("id", gate.id)
+                    .put("title", gate.title)
+                    .put("status", gate.status.name)
+                    .put("required", gate.required))
+            }
+            val publicationHistory = JSONArray()
+            deliverable.publicationHistory.forEach { event ->
+                publicationHistory.put(JSONObject()
+                    .put("id", event.id)
+                    .put("kind", event.kind.name)
+                    .put("atMillis", event.atMillis)
+                    .put("titleSnapshot", event.titleSnapshot)
+                    .put("thumbnailSnapshot", event.thumbnailSnapshot)
+                    .put("descriptionSnapshot", event.descriptionSnapshot)
+                    .put("tagsSnapshot", event.tagsSnapshot)
+                    .put("url", event.url)
+                    .put("note", event.note))
+            }
             deliverables.put(JSONObject()
                 .put("id", deliverable.id)
                 .put("platform", deliverable.platform)
@@ -299,7 +328,11 @@ class TaskStore(private val context: Context) {
                 .put("thumbnailConcept", deliverable.thumbnailConcept)
                 .put("parentDeliverableId", deliverable.parentDeliverableId)
                 .put("publishedAtMillis", deliverable.publishedAtMillis)
-                .put("publishedUrl", deliverable.publishedUrl))
+                .put("publishedUrl", deliverable.publishedUrl)
+                .put("titleVariants", titleVariants)
+                .put("thumbnailVariants", thumbnailVariants)
+                .put("publishGate", publishGate)
+                .put("publicationHistory", publicationHistory))
         }
         return JSONObject()
             .put("revision", workspace.revision)
@@ -370,6 +403,60 @@ class TaskStore(private val context: Context) {
                 val platform = deliverable.optString("platform").trim()
                 val format = deliverable.optString("format").trim()
                 if (id.isBlank() || platform.isBlank() || format.isBlank()) continue
+
+                fun variants(key: String): List<CreatorVariantIdea> {
+                    val array = deliverable.optJSONArray(key) ?: JSONArray()
+                    return buildList {
+                        for (index in 0 until array.length()) {
+                            val value = array.optJSONObject(index) ?: continue
+                            val variantId = value.optString("id").trim()
+                            val text = value.optString("text").trim()
+                            if (variantId.isNotBlank() && text.isNotBlank()) add(CreatorVariantIdea(variantId, text))
+                        }
+                    }
+                }
+
+                val gateArray = deliverable.optJSONArray("publishGate") ?: JSONArray()
+                val gate = buildList {
+                    for (index in 0 until gateArray.length()) {
+                        val value = gateArray.optJSONObject(index) ?: continue
+                        val gateId = value.optString("id").trim()
+                        val title = value.optString("title").trim()
+                        if (gateId.isBlank() || title.isBlank()) continue
+                        add(CreatorPublishGateItem(
+                            id = gateId,
+                            title = title,
+                            status = runCatching {
+                                CreatorPublishGateStatus.valueOf(value.optString("status", CreatorPublishGateStatus.TODO.name))
+                            }.getOrDefault(CreatorPublishGateStatus.TODO),
+                            required = value.optBoolean("required", true),
+                        ))
+                    }
+                }
+
+                val historyArray = deliverable.optJSONArray("publicationHistory") ?: JSONArray()
+                val history = buildList {
+                    for (index in 0 until historyArray.length()) {
+                        val value = historyArray.optJSONObject(index) ?: continue
+                        val eventId = value.optString("id").trim()
+                        val atMillis = value.optLong("atMillis", 0L)
+                        if (eventId.isBlank() || atMillis <= 0L) continue
+                        add(CreatorPublicationEvent(
+                            id = eventId,
+                            kind = runCatching {
+                                CreatorPublicationEventKind.valueOf(value.optString("kind", CreatorPublicationEventKind.PUBLISHED.name))
+                            }.getOrDefault(CreatorPublicationEventKind.PUBLISHED),
+                            atMillis = atMillis,
+                            titleSnapshot = value.optString("titleSnapshot").trim(),
+                            thumbnailSnapshot = value.optString("thumbnailSnapshot").trim(),
+                            descriptionSnapshot = value.optString("descriptionSnapshot"),
+                            tagsSnapshot = value.optString("tagsSnapshot").trim(),
+                            url = value.optString("url").trim(),
+                            note = value.optString("note").trim(),
+                        ))
+                    }
+                }
+
                 add(CreatorDeliverable(
                     id = id,
                     platform = platform,
@@ -385,6 +472,10 @@ class TaskStore(private val context: Context) {
                     parentDeliverableId = deliverable.optString("parentDeliverableId").trim(),
                     publishedAtMillis = deliverable.optLong("publishedAtMillis", 0L),
                     publishedUrl = deliverable.optString("publishedUrl").trim(),
+                    titleVariants = variants("titleVariants"),
+                    thumbnailVariants = variants("thumbnailVariants"),
+                    publishGate = gate,
+                    publicationHistory = history,
                 ))
             }
         }
