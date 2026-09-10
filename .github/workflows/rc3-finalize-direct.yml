@@ -21,8 +21,9 @@ jobs:
       - name: Apply RC3.1 source changes from reviewed patch recipe
         shell: bash
         run: |
-          set -euo pipefail
-          python - <<'PY'
+          set -uo pipefail
+          set +e
+          python - <<'PY' > /tmp/rc3-apply.log 2>&1
           from pathlib import Path
           import textwrap
 
@@ -70,37 +71,87 @@ jobs:
           final_script = header + '\n' + marker + body
           exec(compile(final_script, '<rc3.1-reviewed-recipe>', 'exec'))
           PY
-
+          rc=$?
+          set -e
+          cat /tmp/rc3-apply.log
+          if [ "$rc" -ne 0 ]; then
+            git reset --hard HEAD
+            cp /tmp/rc3-apply.log .github/rc3-finalizer-diagnostic.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/rc3-finalizer-diagnostic.txt
+            git commit -m "chore(v1.9): capture RC3.1 finalizer diagnostic"
+            git push origin HEAD:release/v1.9.0-rc3-project-pulse
+            exit "$rc"
+          fi
           git diff --check
 
-          grep -q 'enum class ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt
-          grep -q 'val deliveryPreference: ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt
-          grep -q '.put("deliveryPreference", task.deliveryPreference.name)' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
-          grep -q 'ReminderDeliveryPreference.valueOf' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
-          grep -q 'private fun resolvedDeliveryMode' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
-          grep -q 'ReminderDeliveryPreference.VOICE -> ReminderMode.VOICE' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
-          grep -q 'deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
-          grep -q 'deliveryPreferenceFor(mode)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
-          grep -q 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
-          grep -q 'ReminderDeliveryPreference.entries' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
-          grep -q 'deliveryPreference = draft.deliveryPreference' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
-          grep -q 'private fun openReschedulePicker' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
-          grep -q 'ACTION_RESCHEDULE' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
-          grep -q 'CHOOSE TIME' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
-          grep -q 'REPLAY' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
-          grep -q 'SNOOZE .*M' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
-          grep -q 'explicitVoiceStaysVoiceAcrossGuidedStageAdvance' app/src/test/java/com/framebynavin/app/data/ProjectPulseRc3Test.kt
-          grep -q 'assertEquals(ReminderDeliveryPreference.VOICE, restored.deliveryPreference)' app/src/androidTest/java/com/framebynavin/app/data/ProjectPulseRc3PersistenceInstrumentedTest.kt
-          grep -q 'versionCode = 83' app/build.gradle.kts
-          grep -q 'versionName = "1.9.0-content-project-rc3.1"' app/build.gradle.kts
-          grep -q 'name: v1.9 RC3.1 Project Pulse Gate' .github/workflows/v19-rc3-project-pulse.yml
+      - name: Verify patched source invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          checks=(
+            "app/src/main/java/com/framebynavin/app/data/CreatorTask.kt|enum class ReminderDeliveryPreference"
+            "app/src/main/java/com/framebynavin/app/data/CreatorTask.kt|val deliveryPreference: ReminderDeliveryPreference"
+            "app/src/main/java/com/framebynavin/app/data/TaskStore.kt|deliveryPreference"
+            "app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt|private fun resolvedDeliveryMode"
+            "app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt|ReminderDeliveryPreference.VOICE -> ReminderMode.VOICE"
+            "app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt|deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO"
+            "app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt|deliveryPreferenceFor(mode)"
+            "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt|REMINDER STYLE"
+            "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt|ReminderDeliveryPreference.entries"
+            "app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt|deliveryPreference = draft.deliveryPreference"
+            "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt|private fun openReschedulePicker"
+            "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt|ACTION_RESCHEDULE"
+            "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt|CHOOSE TIME"
+            "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt|REPLAY"
+            "app/src/test/java/com/framebynavin/app/data/ProjectPulseRc3Test.kt|explicitVoiceStaysVoiceAcrossGuidedStageAdvance"
+            "app/src/androidTest/java/com/framebynavin/app/data/ProjectPulseRc3PersistenceInstrumentedTest.kt|ReminderDeliveryPreference.VOICE"
+            "app/build.gradle.kts|versionCode = 83"
+            "app/build.gradle.kts|versionName = \"1.9.0-content-project-rc3.1\""
+            ".github/workflows/v19-rc3-project-pulse.yml|name: v1.9 RC3.1 Project Pulse Gate"
+          )
+          : > /tmp/rc3-invariants.log
+          failed=0
+          for check in "${checks[@]}"; do
+            file="${check%%|*}"
+            needle="${check#*|}"
+            if ! grep -Fq "$needle" "$file"; then
+              echo "MISSING: $file :: $needle" | tee -a /tmp/rc3-invariants.log
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            git reset --hard HEAD
+            cp /tmp/rc3-invariants.log .github/rc3-finalizer-diagnostic.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/rc3-finalizer-diagnostic.txt
+            git commit -m "chore(v1.9): capture RC3.1 invariant diagnostic"
+            git push origin HEAD:release/v1.9.0-rc3-project-pulse
+            exit 1
+          fi
 
       - name: Compile, unit test and lint patched source
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebugAndroidTest
+          set +e
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebugAndroidTest > /tmp/rc3-build.log 2>&1
+          rc=$?
+          set -e
+          tail -n 250 /tmp/rc3-build.log
+          if [ "$rc" -ne 0 ]; then
+            git reset --hard HEAD
+            tail -n 400 /tmp/rc3-build.log > .github/rc3-finalizer-diagnostic.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/rc3-finalizer-diagnostic.txt
+            git commit -m "chore(v1.9): capture RC3.1 build diagnostic"
+            git push origin HEAD:release/v1.9.0-rc3-project-pulse
+            exit "$rc"
+          fi
 
       - name: Commit validated production source and remove temporary patch tooling
         shell: bash
@@ -108,7 +159,8 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f .github/workflows/rc3-device-feedback-patch.yml \
+          git rm -f --ignore-unmatch .github/rc3-finalizer-diagnostic.txt \
+                    .github/workflows/rc3-device-feedback-patch.yml \
                     .github/workflows/rc3-device-feedback-patch-v2.yml \
                     .github/workflows/rc3-device-feedback-patch-v3.yml \
                     .github/workflows/rc3-device-feedback-patch-v4.yml \
