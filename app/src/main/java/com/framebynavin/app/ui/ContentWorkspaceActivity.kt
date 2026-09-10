@@ -60,7 +60,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             CircularProgressIndicator()
                         }
                     }
-                    mode == Alpha6WorkspaceMode.HUB -> V19ContentWorkspaceAlpha5Hub(
+                    mode == Alpha6WorkspaceMode.HUB -> V19ContentWorkspaceAlpha6Hub(
                         task = task!!,
                         onDismiss = { finish() },
                         onOpenProject = { mode = Alpha6WorkspaceMode.PROJECT },
