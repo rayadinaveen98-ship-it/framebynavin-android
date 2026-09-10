@@ -2,7 +2,15 @@ package com.framebynavin.app.data
 
 /** Publication is an observed creator action, not an inference from project completion. */
 object CreatorPublicationEngine {
+    /**
+     * Content Project 2.0 deliverables are the publication authority. For those projects the
+     * parent task fields are derived by CreatorContentStabilization and must never be written by
+     * the legacy workflow controls.
+     */
+    fun usesDeliverablePublication(task: CreatorTask): Boolean = task.workspace.deliverables.isNotEmpty()
+
     fun record(task: CreatorTask, atMillis: Long, url: String = ""): CreatorTask {
+        if (usesDeliverablePublication(task)) return task
         require(atMillis > 0L) { "Publication time must be positive" }
         require(atMillis <= System.currentTimeMillis() + 60_000L) { "Publication cannot be in the future" }
         val cleanUrl = url.trim()
@@ -17,8 +25,9 @@ object CreatorPublicationEngine {
         )
     }
 
-    /** Explicit correction, including removing an incorrect self-reported publication. */
+    /** Explicit correction for legacy/task-level publication records only. */
     fun correct(task: CreatorTask, atMillis: Long, url: String = ""): CreatorTask {
+        if (usesDeliverablePublication(task)) return task
         require(atMillis >= 0L)
         require(atMillis <= System.currentTimeMillis() + 60_000L) { "Publication cannot be in the future" }
         val cleanUrl = url.trim()
