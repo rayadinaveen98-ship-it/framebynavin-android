@@ -1,9 +1,9 @@
-name: v1.9 Content Project Alpha3
+name: v1.9 Content Project Alpha4
 
 on:
   push:
     branches:
-      - "feature/v1.9-content-project-alpha3"
+      - "feature/v1.9-content-project-alpha4"
   workflow_dispatch:
 
 permissions:
@@ -35,16 +35,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 76' app/build.gradle.kts
-          grep -q 'versionName = "1.9.0-content-project-alpha3"' app/build.gradle.kts
-          test -s app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
-          test -s app/src/main/java/com/framebynavin/app/data/CreatorProjectTemplates.kt
+          grep -q 'versionCode = 77' app/build.gradle.kts
+          grep -q 'versionName = "1.9.0-content-project-alpha4"' app/build.gradle.kts
+          test -s app/src/main/java/com/framebynavin/app/data/CreatorScriptStudio.kt
+          test -s app/src/main/java/com/framebynavin/app/data/ScriptStudioStore.kt
+          test -s app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha4Ui.kt
           test -s app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
           test -s app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
           test -s dev-signing/framebynavin-public-debug.jks
-          grep -q 'productionProgressPercent' app/src/main/java/com/framebynavin/app/data/CreatorProjectTemplates.kt
-          grep -q 'rememberLauncherForActivityResult' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
-          grep -q 'CONTENT PROJECT 2.0 · ALPHA 3' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
+          grep -q 'CreatorScriptBeat' app/src/main/java/com/framebynavin/app/data/CreatorScriptStudio.kt
+          grep -q 'creator_script_studio_v19' app/src/main/java/com/framebynavin/app/data/ScriptStudioStore.kt
+          grep -q 'SCRIPT STUDIO · ALPHA 4' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha4Ui.kt
+          grep -q 'compiledNarration' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
 
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
@@ -68,18 +70,18 @@ jobs:
           sha256sum "$apk" | tee verification/apk.sha256
           keytool -list -v -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev \
             | grep -E 'SHA256:|Owner:|Issuer:' > verification/signing.txt
-          printf 'versionName=1.9.0-content-project-alpha3\nversionCode=76\ncommit=%s\n' "$GITHUB_SHA" > verification/manifest.txt
+          printf 'versionName=1.9.0-content-project-alpha4\nversionCode=77\ncommit=%s\n' "$GITHUB_SHA" > verification/manifest.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.9.0-content-project-alpha3-apk
+          name: FrameByNavin-v1.9.0-content-project-alpha4-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Upload verification
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.9.0-content-project-alpha3-verification
+          name: FrameByNavin-v1.9.0-content-project-alpha4-verification
           path: verification/
           if-no-files-found: error
