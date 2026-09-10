@@ -5,6 +5,8 @@ import java.util.UUID
 enum class CreatorDeliverableStatus { PLANNED, READY, PUBLISHED }
 enum class CreatorChecklistStatus { TODO, DONE, SKIPPED }
 enum class CreatorAssetKind { IMAGE, VIDEO, AUDIO, DOCUMENT, LINK, OTHER }
+enum class CreatorPublishGateStatus { TODO, DONE, SKIPPED }
+enum class CreatorPublicationEventKind { PUBLISHED, UPDATED, REOPENED }
 
 data class CreatorProjectReference(
     val id: String = UUID.randomUUID().toString(),
@@ -27,6 +29,30 @@ data class CreatorProjectAsset(
     val notes: String = "",
 )
 
+data class CreatorVariantIdea(
+    val id: String = UUID.randomUUID().toString(),
+    val text: String = "",
+)
+
+data class CreatorPublishGateItem(
+    val id: String = UUID.randomUUID().toString(),
+    val title: String = "",
+    val status: CreatorPublishGateStatus = CreatorPublishGateStatus.TODO,
+    val required: Boolean = true,
+)
+
+data class CreatorPublicationEvent(
+    val id: String = UUID.randomUUID().toString(),
+    val kind: CreatorPublicationEventKind = CreatorPublicationEventKind.PUBLISHED,
+    val atMillis: Long = 0L,
+    val titleSnapshot: String = "",
+    val thumbnailSnapshot: String = "",
+    val descriptionSnapshot: String = "",
+    val tagsSnapshot: String = "",
+    val url: String = "",
+    val note: String = "",
+)
+
 data class CreatorDeliverable(
     val id: String = UUID.randomUUID().toString(),
     val platform: String,
@@ -41,6 +67,13 @@ data class CreatorDeliverable(
     val parentDeliverableId: String = "",
     val publishedAtMillis: Long = 0L,
     val publishedUrl: String = "",
+    /** Alpha5 alternatives are retained even after one becomes the final title/cover. */
+    val titleVariants: List<CreatorVariantIdea> = emptyList(),
+    val thumbnailVariants: List<CreatorVariantIdea> = emptyList(),
+    /** Pre-publish checks are deliverable-specific and never complete the parent project. */
+    val publishGate: List<CreatorPublishGateItem> = emptyList(),
+    /** Append-only publication/reopen/correction history for this output. */
+    val publicationHistory: List<CreatorPublicationEvent> = emptyList(),
 )
 
 data class CreatorContentWorkspace(
