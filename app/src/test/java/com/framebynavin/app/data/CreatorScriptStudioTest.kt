@@ -51,7 +51,7 @@ class CreatorScriptStudioTest {
         )
 
         assertEquals("Cinema begins here\n\nThen the image changes meaning", studio.compiledNarration())
-        assertEquals(9, studio.wordCount())
+        assertEquals(8, studio.wordCount())
     }
 
     @Test
