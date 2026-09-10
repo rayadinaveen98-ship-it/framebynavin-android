@@ -46,7 +46,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             TextButton(onClick = { finish() }) { Text("CLOSE") }
                         }
                     }
-                    task != null -> V19ContentWorkspaceDialog(
+                    task != null -> V19ContentWorkspaceAlpha3Dialog(
                         task = task!!,
                         onDismiss = { finish() },
                         onSave = { id, revision, workspace -> save(id, revision, workspace) },
