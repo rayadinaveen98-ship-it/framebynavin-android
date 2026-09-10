@@ -1,9 +1,9 @@
-name: v1.9 Content Project Alpha1
+name: v1.9 Content Project Alpha2
 
 on:
   push:
     branches:
-      - "feature/v1.9-content-project-alpha1"
+      - "feature/v1.9-content-project-alpha2"
   workflow_dispatch:
 
 permissions:
@@ -35,12 +35,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 74' app/build.gradle.kts
-          grep -q 'versionName = "1.9.0-content-project-alpha1"' app/build.gradle.kts
+          grep -q 'versionCode = 75' app/build.gradle.kts
+          grep -q 'versionName = "1.9.0-content-project-alpha2"' app/build.gradle.kts
           test -s app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
           test -s app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceUi.kt
           test -s app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
           test -s dev-signing/framebynavin-public-debug.jks
+          grep -q 'CreatorChecklistItem' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
+          grep -q 'CreatorProjectAsset' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
+          grep -q 'parentDeliverableId' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
+          grep -q 'learnings' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
 
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
@@ -64,18 +68,18 @@ jobs:
           sha256sum "$apk" | tee verification/apk.sha256
           keytool -list -v -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev \
             | grep -E 'SHA256:|Owner:|Issuer:' > verification/signing.txt
-          printf 'versionName=1.9.0-content-project-alpha1\nversionCode=74\ncommit=%s\n' "$GITHUB_SHA" > verification/manifest.txt
+          printf 'versionName=1.9.0-content-project-alpha2\nversionCode=75\ncommit=%s\n' "$GITHUB_SHA" > verification/manifest.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.9.0-content-project-alpha1-apk
+          name: FrameByNavin-v1.9.0-content-project-alpha2-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Upload verification
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.9.0-content-project-alpha1-verification
+          name: FrameByNavin-v1.9.0-content-project-alpha2-verification
           path: verification/
           if-no-files-found: error
