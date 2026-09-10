@@ -28,11 +28,8 @@ jobs:
         run: |
           set -euo pipefail
           git diff --check
-          grep -q 'attentionPlan != ProjectAttentionPlan.OFF' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
-          ! grep -q 'attentionPlan != ProjectAttentionPlan.CUSTOM && attentionPlan != ProjectAttentionPlan.OFF' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
-          grep -q 'val task = ProjectPulseEngine.applyAttentionPlan(baseTask, attentionPlan)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
-          grep -q 'val updated = ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
-          grep -q 'afterWorkflowStageChanged' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
+          grep -q 'SmartTargetBoundary.bound' app/src/main/java/com/framebynavin/app/reminders/SmartEscalationScheduler.kt
+          ! grep -q 'private fun finalStage' app/src/main/java/com/framebynavin/app/reminders/SmartEscalationScheduler.kt
 
       - name: Commit source-only patch
         shell: bash
@@ -40,10 +37,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            app/src/main/java/com/framebynavin/app/data/TaskStore.kt \
-            app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt \
-            app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
+          git add app/src/main/java/com/framebynavin/app/reminders/SmartEscalationScheduler.kt
           git diff --cached --quiet && { echo 'No patch produced'; exit 1; }
-          git commit -m "fix(v1.9): persist RC3 stage-aware Custom check-ins"
+          git commit -m "fix(v1.9): enforce Smart final-target boundary through pure policy"
           git push origin HEAD:release/v1.9.0-rc3-project-pulse
