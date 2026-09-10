@@ -97,19 +97,14 @@ jobs:
       - name: Compile, unit test, lint and instrumentation compile
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest --stacktrace
 
-      - name: Commit validated RC3.1 production source
+      - name: Commit validated RC3.1 app source
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f --ignore-unmatch .github/rc3-finalizer-diagnostic.txt \
-            .github/workflows/rc3-device-feedback-patch.yml \
-            .github/workflows/rc3-device-feedback-patch-v2.yml \
-            .github/workflows/rc3-device-feedback-patch-v3.yml \
-            .github/workflows/rc3-device-feedback-patch-v4.yml \
-            .github/workflows/rc3-finalize-direct.yml
-          git add app .github/workflows/v19-rc3-project-pulse.yml
+          git add app
           git diff --cached --check
+          git diff --cached --quiet && { echo "No validated RC3.1 app changes staged" >&2; exit 1; }
           git commit -m "fix(v1.9): finalize RC3.1 reminder delivery UX"
           git push origin HEAD:release/v1.9.0-rc3-project-pulse
