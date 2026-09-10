@@ -118,9 +118,30 @@ class ContentWorkspaceActivity : ComponentActivity() {
             .map { it.copy(label = it.label.trim(), url = it.url.trim()) }
             .filter { it.url.isNotBlank() }
             .distinctBy { it.id },
+        checklist = draft.checklist
+            .map { it.copy(title = it.title.trim()) }
+            .filter { it.title.isNotBlank() }
+            .distinctBy { it.id },
+        assets = draft.assets
+            .map { it.copy(label = it.label.trim(), location = it.location.trim(), notes = it.notes.trim()) }
+            .filter { it.location.isNotBlank() }
+            .distinctBy { it.id },
         deliverables = draft.deliverables
-            .map { it.copy(platform = it.platform.trim(), format = it.format.trim(), title = it.title.trim()) }
+            .map {
+                it.copy(
+                    platform = it.platform.trim(),
+                    format = it.format.trim(),
+                    title = it.title.trim(),
+                    deadlineLabel = it.deadlineLabel.trim(),
+                    description = it.description.trim(),
+                    tags = it.tags.trim(),
+                    thumbnailConcept = it.thumbnailConcept.trim(),
+                    parentDeliverableId = it.parentDeliverableId.trim(),
+                    publishedUrl = it.publishedUrl.trim(),
+                )
+            }
             .filter { it.platform.isNotBlank() && it.format.isNotBlank() }
             .distinctBy { it.id },
+        learnings = draft.learnings.trimEnd(),
     )
 }
