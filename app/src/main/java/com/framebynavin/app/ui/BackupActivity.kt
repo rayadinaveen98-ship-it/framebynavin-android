@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,6 +57,7 @@ private fun BackupScreen(onClose: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var isError by remember { mutableStateOf(false) }
+    val recoveryCount = remember { manager.recoveryCopies().size }
 
     val createDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -117,7 +119,7 @@ private fun BackupScreen(onClose: () -> Unit) {
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("Everything stays local unless you choose where to save a backup.", color = MutedText, fontSize = 12.sp, lineHeight = 15.sp)
+            Text("Everything stays local unless you explicitly export a backup or use FrameByNavin cloud backup.", color = MutedText, fontSize = 12.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(20.dp))
 
             BackupActionCard(
@@ -153,6 +155,21 @@ private fun BackupScreen(onClose: () -> Unit) {
                 openDocument.launch(arrayOf("application/octet-stream", "application/json", "text/plain", "*/*"))
             }
 
+            Spacer(Modifier.height(12.dp))
+            BackupActionCard(
+                title = "Recovery copies",
+                body = if (recoveryCount == 0) {
+                    "No retained pre-restore copies are currently stored on this device."
+                } else {
+                    "$recoveryCount retained pre-restore ${if (recoveryCount == 1) "copy" else "copies"} on this device. Export, restore or delete them explicitly."
+                },
+                icon = Icons.Outlined.Restore,
+                button = "OPEN RECOVERY COPIES",
+                enabled = !busy,
+            ) {
+                context.startActivity(Intent(context, RecoveryCopiesActivity::class.java))
+            }
+
             if (busy) {
                 Spacer(Modifier.height(18.dp))
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = RecRed, trackColor = Color(0xFF292929))
@@ -179,7 +196,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 Column(Modifier.padding(15.dp)) {
                     Text("RESTORE SAFETY", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                     Spacer(Modifier.height(6.dp))
-                    Text("Before restoring, FrameByNavin keeps a retained recovery copy on this device. A restore journal can recover after a crash. Existing cloud backups are not overwritten. Keep an exported copy somewhere safe before replacing data.", color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
+                    Text("Before restoring, FrameByNavin keeps a retained recovery copy on this device. A restore journal can recover after a crash. Existing cloud backups are not overwritten. You can manage retained copies from Recovery copies above.", color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
                 }
             }
         }
@@ -220,7 +237,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                                 }
                             } else {
                                 isError = true
-                                message = "Restore could not finish. Open recovery tools if your previous data is not visible; recovery copies are retained."
+                                message = "Restore could not finish. Open Recovery copies on this screen if your previous data is not visible. Retained copies were kept."
                             }
                         }
                     },
