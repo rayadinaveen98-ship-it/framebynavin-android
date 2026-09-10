@@ -1,0 +1,56 @@
+name: RC3 Device Feedback Patcher V2
+
+on:
+  push:
+    branches:
+      - "release/v1.9.0-rc3-project-pulse"
+    paths:
+      - ".github/workflows/rc3-device-feedback-patch-v2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run corrected fail-closed patch set
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/rc3-device-feedback-patch.yml').read_text()
+          bad = '''                    .put("reminderMode", task.reminderMode.name)\n                      .put("voicePersona", task.voicePersona.name)'''
+          good = '''                    .put("reminderMode", task.reminderMode.name)\n                    .put("voicePersona", task.voicePersona.name)'''
+          bad_new = '''                    .put("reminderMode", task.reminderMode.name)\n                      .put("deliveryPreference", task.deliveryPreference.name)\n                      .put("voicePersona", task.voicePersona.name)'''
+          good_new = '''                    .put("reminderMode", task.reminderMode.name)\n                    .put("deliveryPreference", task.deliveryPreference.name)\n                    .put("voicePersona", task.voicePersona.name)'''
+          if workflow.count(bad) != 1 or workflow.count(bad_new) != 1:
+              raise SystemExit('Known TaskStore matcher shape changed; refusing to continue')
+          workflow = workflow.replace(bad, good).replace(bad_new, good_new)
+
+          marker = "          from pathlib import Path\n"
+          start = workflow.index(marker)
+          end = workflow.index("          PY\n", start)
+          code = textwrap.dedent(workflow[start:end])
+          exec(compile(code, 'rc3-device-feedback-patch', 'exec'), {})
+          PY
+          git diff --check
+          git status --short
+
+      - name: Commit source changes only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app .github/workflows/v19-rc3-project-pulse.yml
+          git diff --cached --quiet && { echo "No source changes staged"; exit 1; }
+          git commit -m "fix(v1.9): finalize RC3 reminder delivery UX"
+          git push origin HEAD:release/v1.9.0-rc3-project-pulse
