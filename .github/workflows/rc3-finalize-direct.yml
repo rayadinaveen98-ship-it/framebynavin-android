@@ -70,6 +70,39 @@ jobs:
           ])
           final_script = header + '\n' + marker + body
           exec(compile(final_script, '<rc3.1-reviewed-recipe>', 'exec'))
+
+          # The action row had device-polish edits after the original recipe was authored.
+          # Replace the whole post-working action region by stable semantic anchors.
+          voice_path = Path('app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt')
+          voice = voice_path.read_text()
+          if 'Text("REPLAY"' not in voice or 'Text("CHOOSE TIME"' not in voice:
+              working_anchor = 'Text("I\'M WORKING ON IT"'
+              working_at = voice.index(working_anchor)
+              row_start = voice.index('            Row(Modifier.fillMaxWidth()', working_at)
+              dismiss_at = voice.index('            TextButton(onClick = onDismiss)', row_start)
+              replacement = '''            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("REPLAY", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
+                }
+                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("SNOOZE ${snoozeMinutes}M", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (stageCheckIn) {
+                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                        Icon(Icons.Outlined.PauseCircle, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("PAUSE 2H", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
+                    }
+                }
+                OutlinedButton(onClick = onReschedule, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, MutedGold.copy(alpha = .6f)), shape = RoundedCornerShape(15.dp)) {
+                    Text("CHOOSE TIME", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+'''
+              voice = voice[:row_start] + replacement + voice[dismiss_at:]
+              voice_path.write_text(voice)
           PY
           rc=$?
           set -e
@@ -80,7 +113,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add .github/rc3-finalizer-diagnostic.txt
-            git commit -m "chore(v1.9): capture RC3.1 finalizer diagnostic"
+            git commit -m "chore(v1.9): capture RC3.1 finalizer diagnostic" || true
             git push origin HEAD:release/v1.9.0-rc3-project-pulse
             exit "$rc"
           fi
@@ -127,7 +160,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add .github/rc3-finalizer-diagnostic.txt
-            git commit -m "chore(v1.9): capture RC3.1 invariant diagnostic"
+            git commit -m "chore(v1.9): capture RC3.1 invariant diagnostic" || true
             git push origin HEAD:release/v1.9.0-rc3-project-pulse
             exit 1
           fi
@@ -148,7 +181,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add .github/rc3-finalizer-diagnostic.txt
-            git commit -m "chore(v1.9): capture RC3.1 build diagnostic"
+            git commit -m "chore(v1.9): capture RC3.1 build diagnostic" || true
             git push origin HEAD:release/v1.9.0-rc3-project-pulse
             exit "$rc"
           fi
