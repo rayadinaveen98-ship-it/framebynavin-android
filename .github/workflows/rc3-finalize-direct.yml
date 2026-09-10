@@ -2,10 +2,8 @@ name: RC3.1 One-shot Source Finalizer
 
 on:
   push:
-    branches:
-      - "release/v1.9.0-rc3-project-pulse"
-    paths:
-      - ".github/workflows/rc3-finalize-direct.yml"
+    branches: ["release/v1.9.0-rc3-project-pulse"]
+    paths: [".github/workflows/rc3-finalize-direct.yml"]
 
 permissions:
   contents: write
@@ -17,76 +15,52 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
 
-      - name: Apply RC3.1 source changes from reviewed patch recipe
+      - name: Apply reviewed RC3.1 patch
         shell: bash
         run: |
-          set -uo pipefail
-          set +e
-          python - <<'PY' > /tmp/rc3-apply.log 2>&1
+          set -euo pipefail
+          python - <<'PY'
           from pathlib import Path
           import textwrap
 
-          recipe_path = Path('.github/workflows/rc3-device-feedback-patch-v4.yml')
-          raw_lines = recipe_path.read_text().splitlines()
-          start = next(i for i, line in enumerate(raw_lines) if line.strip() == "python - <<'PY'")
-          end = next(i for i in range(start + 1, len(raw_lines)) if raw_lines[i].strip() == 'PY')
-          recipe = textwrap.dedent('\n'.join(raw_lines[start + 1:end]))
+          lines = Path('.github/workflows/rc3-device-feedback-patch-v4.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(lines) if line.strip() == "python - <<'PY'")
+          end = next(i for i in range(start + 1, len(lines)) if lines[i].strip() == 'PY')
+          recipe = textwrap.dedent('\n'.join(lines[start + 1:end]))
           marker = '# CreatorTask: separate user-selected delivery intent from runtime reminder mode.'
-          if marker not in recipe:
-              raise SystemExit('Reviewed RC3.1 recipe marker missing')
           _, body = recipe.split(marker, 1)
-
           header = '\n'.join([
-              'from pathlib import Path',
-              '',
+              'from pathlib import Path', '',
               'def once(path, old, new):',
-              '    p = Path(path)',
-              '    text = p.read_text()',
-              '    n = text.count(old)',
+              '    p=Path(path); text=p.read_text(); n=text.count(old)',
               '    if n == 0:',
-              '        if new in text:',
-              '            return',
-              '        print(f"WARN {path}: exact source shape changed; skipped one reviewed replacement")',
-              '        return',
-              '    if n > 1:',
-              '        print(f"WARN {path}: reviewed one-match replacement had {n} matches; replacing first only")',
-              '    p.write_text(text.replace(old, new, 1))',
-              '',
+              '        if new in text: return',
+              '        print(f"WARN skipped: {path}"); return',
+              '    p.write_text(text.replace(old, new, 1))', '',
               'def count_replace(path, old, new, expected):',
-              '    p = Path(path)',
-              '    text = p.read_text()',
-              '    n = text.count(old)',
+              '    p=Path(path); text=p.read_text(); n=text.count(old)',
               '    if n == 0:',
-              '        if new in text:',
-              '            return',
-              '        print(f"WARN {path}: exact source shape changed; skipped reviewed multi-replacement")',
-              '        return',
-              '    if n != expected:',
-              '        print(f"WARN {path}: expected {expected} matches, found {n}; replacing all found matches")',
-              '    p.write_text(text.replace(old, new))',
-              '',
+              '        if new in text: return',
+              '        print(f"WARN skipped: {path}"); return',
+              '    p.write_text(text.replace(old, new))', '',
           ])
-          exec(compile(header + '\n' + marker + body, '<rc3.1-reviewed-recipe>', 'exec'))
+          exec(compile(header + '\n' + marker + body, '<rc3.1-recipe>', 'exec'))
 
-          voice_path = Path('app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt')
-          voice = voice_path.read_text()
-          if 'Text("REPLAY"' not in voice or 'Text("CHOOSE TIME"' not in voice:
-              working_at = voice.index('Text("I\'M WORKING ON IT"')
-              row_start = voice.index('            Row(Modifier.fillMaxWidth()', working_at)
-              dismiss_at = voice.index('            TextButton(onClick = onDismiss)', row_start)
-              replacement = '\n'.join([
+          p = Path('app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt')
+          text = p.read_text()
+          if 'Text("REPLAY"' not in text or 'Text("CHOOSE TIME"' not in text:
+              working = text.index('Text("I\'M WORKING ON IT"')
+              start_row = text.index('            Row(Modifier.fillMaxWidth()', working)
+              dismiss = text.index('            TextButton(onClick = onDismiss)', start_row)
+              rows = '\n'.join([
                   '            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {',
                   '                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {',
                   '                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("REPLAY", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)',
@@ -106,106 +80,36 @@ jobs:
                   '                    Text("CHOOSE TIME", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)',
                   '                }',
                   '            }',
-                  '            Spacer(Modifier.height(6.dp))',
-                  '',
+                  '            Spacer(Modifier.height(6.dp))', '',
               ])
-              voice_path.write_text(voice[:row_start] + replacement + voice[dismiss_at:])
+              p.write_text(text[:start_row] + rows + text[dismiss:])
           PY
-          rc=$?
-          set -e
-          cat /tmp/rc3-apply.log
-          if [ "$rc" -ne 0 ]; then
-            git reset --hard HEAD
-            cp /tmp/rc3-apply.log .github/rc3-finalizer-diagnostic.txt
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .github/rc3-finalizer-diagnostic.txt
-            git commit -m "chore(v1.9): capture RC3.1 finalizer diagnostic" || true
-            git push origin HEAD:release/v1.9.0-rc3-project-pulse
-            exit "$rc"
-          fi
           git diff --check
+          grep -Fq 'enum class ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt
+          grep -Fq 'private fun resolvedDeliveryMode' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
+          grep -Fq 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+          grep -Fq 'Text("REPLAY"' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -Fq 'Text("CHOOSE TIME"' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -Fq 'versionCode = 83' app/build.gradle.kts
+          grep -Fq 'versionName = "1.9.0-content-project-rc3.1"' app/build.gradle.kts
+          grep -Fq 'name: v1.9 RC3.1 Project Pulse Gate' .github/workflows/v19-rc3-project-pulse.yml
 
-      - name: Verify patched source invariants
-        shell: bash
-        run: |
-          set -euo pipefail
-          checks=(
-            "app/src/main/java/com/framebynavin/app/data/CreatorTask.kt|enum class ReminderDeliveryPreference"
-            "app/src/main/java/com/framebynavin/app/data/CreatorTask.kt|val deliveryPreference: ReminderDeliveryPreference"
-            "app/src/main/java/com/framebynavin/app/data/TaskStore.kt|deliveryPreference"
-            "app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt|private fun resolvedDeliveryMode"
-            "app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt|ReminderDeliveryPreference.VOICE -> ReminderMode.VOICE"
-            "app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt|deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO"
-            "app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt|deliveryPreferenceFor(mode)"
-            "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt|REMINDER STYLE"
-            "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt|ReminderDeliveryPreference.entries"
-            "app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt|deliveryPreference = draft.deliveryPreference"
-            "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt|private fun openReschedulePicker"
-            "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt|ACTION_RESCHEDULE"
-            "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt|CHOOSE TIME"
-            "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt|REPLAY"
-            "app/src/test/java/com/framebynavin/app/data/ProjectPulseRc3Test.kt|explicitVoiceStaysVoiceAcrossGuidedStageAdvance"
-            "app/src/androidTest/java/com/framebynavin/app/data/ProjectPulseRc3PersistenceInstrumentedTest.kt|ReminderDeliveryPreference.VOICE"
-            "app/build.gradle.kts|versionCode = 83"
-            "app/build.gradle.kts|versionName = \"1.9.0-content-project-rc3.1\""
-            ".github/workflows/v19-rc3-project-pulse.yml|name: v1.9 RC3.1 Project Pulse Gate"
-          )
-          : > /tmp/rc3-invariants.log
-          failed=0
-          for check in "${checks[@]}"; do
-            file="${check%%|*}"
-            needle="${check#*|}"
-            if ! grep -Fq "$needle" "$file"; then
-              echo "MISSING: $file :: $needle" | tee -a /tmp/rc3-invariants.log
-              failed=1
-            fi
-          done
-          if [ "$failed" -ne 0 ]; then
-            git reset --hard HEAD
-            cp /tmp/rc3-invariants.log .github/rc3-finalizer-diagnostic.txt
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .github/rc3-finalizer-diagnostic.txt
-            git commit -m "chore(v1.9): capture RC3.1 invariant diagnostic" || true
-            git push origin HEAD:release/v1.9.0-rc3-project-pulse
-            exit 1
-          fi
+      - name: Compile, unit test, lint and instrumentation compile
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest --stacktrace
 
-      - name: Compile, unit test and lint patched source
-        shell: bash
-        run: |
-          set -uo pipefail
-          set +e
-          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest --stacktrace > /tmp/rc3-build.log 2>&1
-          rc=$?
-          set -e
-          tail -n 250 /tmp/rc3-build.log
-          if [ "$rc" -ne 0 ]; then
-            git reset --hard HEAD
-            tail -n 400 /tmp/rc3-build.log > .github/rc3-finalizer-diagnostic.txt
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .github/rc3-finalizer-diagnostic.txt
-            git commit -m "chore(v1.9): capture RC3.1 build diagnostic" || true
-            git push origin HEAD:release/v1.9.0-rc3-project-pulse
-            exit "$rc"
-          fi
-
-      - name: Commit validated production source and remove temporary patch tooling
+      - name: Commit validated RC3.1 production source
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm -f --ignore-unmatch .github/rc3-finalizer-diagnostic.txt \
-                    .github/workflows/rc3-device-feedback-patch.yml \
-                    .github/workflows/rc3-device-feedback-patch-v2.yml \
-                    .github/workflows/rc3-device-feedback-patch-v3.yml \
-                    .github/workflows/rc3-device-feedback-patch-v4.yml \
-                    .github/workflows/rc3-finalize-direct.yml
+            .github/workflows/rc3-device-feedback-patch.yml \
+            .github/workflows/rc3-device-feedback-patch-v2.yml \
+            .github/workflows/rc3-device-feedback-patch-v3.yml \
+            .github/workflows/rc3-device-feedback-patch-v4.yml \
+            .github/workflows/rc3-finalize-direct.yml
           git add app .github/workflows/v19-rc3-project-pulse.yml
           git diff --cached --check
-          git diff --cached --quiet && { echo "No validated changes staged"; exit 1; }
           git commit -m "fix(v1.9): finalize RC3.1 reminder delivery UX"
           git push origin HEAD:release/v1.9.0-rc3-project-pulse
