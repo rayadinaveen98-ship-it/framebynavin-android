@@ -46,7 +46,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onDismiss) { Text("CLOSE") }
                     Column(Modifier.weight(1f)) {
-                        Text("CONTENT PROJECT 2.0 · ALPHA 6", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("CONTENT PROJECT 2.0 · RC1", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
                         Text(task.title, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("R${workspace.revision}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -63,7 +63,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         Icon(Icons.Outlined.CloudDone, null, tint = MutedGold)
                         Spacer(Modifier.width(10.dp))
                         Column {
-                            Text("HARDENED PROJECT DATA", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            Text("RELEASE-CANDIDATE DATA", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
                             Text(scriptMeta, color = MutedText, fontSize = 8.5.sp)
                         }
                     }
@@ -71,7 +71,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
 
                 Spacer(Modifier.height(18.dp))
                 Text("CREATOR WORKSPACE", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Text("Plan, write and publish from one project. Structured scripts and publication history stay attached to the project lifecycle.", color = MutedText, fontSize = 10.sp)
+                Text("One project from planning to publishing. RC1 is feature-frozen while lifecycle, migration and recovery are verified.", color = MutedText, fontSize = 10.sp)
 
                 Spacer(Modifier.height(18.dp))
                 Alpha6HubCard(
