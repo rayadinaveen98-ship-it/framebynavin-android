@@ -215,11 +215,14 @@ internal fun V19ContentWorkspaceDialog(
                         V19EmptyCard("No deliverables yet", "Add platform outputs without creating separate projects.")
                     } else {
                         deliverables.forEach { deliverable ->
+                            val parentTitle = deliverable.parentDeliverableId.takeIf { it.isNotBlank() }?.let { parentId ->
+                                deliverables.firstOrNull { candidate -> candidate.id == parentId }?.let { parent ->
+                                    parent.title.ifBlank { parent.format }
+                                }
+                            }
                             V19DeliverableCard(
                                 deliverable = deliverable,
-                                parentTitle = deliverable.parentDeliverableId.takeIf { it.isNotBlank() }?.let { parentId ->
-                                    deliverables.firstOrNull { it.id == parentId }?.title?.ifBlank { it.format }
-                                },
+                                parentTitle = parentTitle,
                                 onChange = { changed -> deliverables = deliverables.map { if (it.id == changed.id) changed else it } },
                                 onRemove = { deliverables = deliverables.filterNot { it.id == deliverable.id || it.parentDeliverableId == deliverable.id } },
                                 onDerivative = { addDerivative(deliverable) },
