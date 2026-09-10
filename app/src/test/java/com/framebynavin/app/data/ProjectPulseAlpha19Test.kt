@@ -49,6 +49,7 @@ class ProjectPulseAlpha19Test {
             reminderEnabled = true,
             reminderAtMillis = now + 2 * 60 * 60_000L,
             reminderMode = ReminderMode.VOICE,
+            deliveryPreference = ReminderDeliveryPreference.VOICE,
         )
         val custom = ProjectPulseEngine.applyAttentionPlan(manual, ProjectAttentionPlan.CUSTOM, now)
         assertEquals(ProjectAttentionPlan.CUSTOM, custom.attentionPlan)
