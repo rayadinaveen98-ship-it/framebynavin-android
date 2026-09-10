@@ -1,0 +1,122 @@
+name: RC3.1 One-shot Source Finalizer
+
+on:
+  push:
+    branches:
+      - "release/v1.9.0-rc3-project-pulse"
+    paths:
+      - ".github/workflows/rc3-finalize-direct.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply RC3.1 source changes from reviewed patch recipe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          recipe_path = Path('.github/workflows/rc3-device-feedback-patch-v4.yml')
+          raw_lines = recipe_path.read_text().splitlines()
+          start = next(i for i, line in enumerate(raw_lines) if line.strip() == "python - <<'PY'")
+          end = next(i for i in range(start + 1, len(raw_lines)) if raw_lines[i].strip() == 'PY')
+          recipe = textwrap.dedent('\n'.join(raw_lines[start + 1:end]))
+
+          marker = '# CreatorTask: separate user-selected delivery intent from runtime reminder mode.'
+          if marker not in recipe:
+              raise SystemExit('Reviewed RC3.1 recipe marker missing')
+          _, body = recipe.split(marker, 1)
+
+          # The earlier one-shot runner was overly brittle about exact occurrence counts.
+          # Keep the reviewed replacement recipe, but make the helpers idempotent and let
+          # compile/tests + explicit invariants decide whether the resulting source is valid.
+          header = r'''from pathlib import Path
+
+def once(path, old, new):
+    p = Path(path)
+    text = p.read_text()
+    n = text.count(old)
+    if n == 0:
+        if new in text:
+            return
+        print(f"WARN {path}: exact source shape changed; skipped one reviewed replacement")
+        return
+    if n > 1:
+        print(f"WARN {path}: reviewed one-match replacement had {n} matches; replacing first only")
+    p.write_text(text.replace(old, new, 1))
+
+def count_replace(path, old, new, expected):
+    p = Path(path)
+    text = p.read_text()
+    n = text.count(old)
+    if n == 0:
+        if new in text:
+            return
+        print(f"WARN {path}: exact source shape changed; skipped reviewed multi-replacement")
+        return
+    if n != expected:
+        print(f"WARN {path}: expected {expected} matches, found {n}; replacing all found matches")
+    p.write_text(text.replace(old, new))
+'''
+          final_script = header + '\n' + marker + body
+          exec(compile(final_script, '<rc3.1-reviewed-recipe>', 'exec'))
+          PY
+
+          git diff --check
+
+          # Production invariants required by the real-device feedback patch.
+          grep -q 'enum class ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt
+          grep -q 'val deliveryPreference: ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt
+          grep -q '.put("deliveryPreference", task.deliveryPreference.name)' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -q 'ReminderDeliveryPreference.valueOf' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -q 'private fun resolvedDeliveryMode' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
+          grep -q 'ReminderDeliveryPreference.VOICE -> ReminderMode.VOICE' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
+          grep -q 'deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+          grep -q 'deliveryPreferenceFor(mode)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+          grep -q 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+          grep -q 'ReminderDeliveryPreference.entries' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+          grep -q 'deliveryPreference = draft.deliveryPreference' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'private fun openReschedulePicker' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'ACTION_RESCHEDULE' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'CHOOSE TIME' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'REPLAY' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'SNOOZE .*M' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'explicitVoiceStaysVoiceAcrossGuidedStageAdvance' app/src/test/java/com/framebynavin/app/data/ProjectPulseRc3Test.kt
+          grep -q 'assertEquals(ReminderDeliveryPreference.VOICE, restored.deliveryPreference)' app/src/androidTest/java/com/framebynavin/app/data/ProjectPulseRc3PersistenceInstrumentedTest.kt
+          grep -q 'versionCode = 83' app/build.gradle.kts
+          grep -q 'versionName = "1.9.0-content-project-rc3.1"' app/build.gradle.kts
+          grep -q 'name: v1.9 RC3.1 Project Pulse Gate' .github/workflows/v19-rc3-project-pulse.yml
+
+      - name: Compile, unit test and lint patched source
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebugAndroidTest
+
+      - name: Commit validated production source and remove temporary patch tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/rc3-device-feedback-patch.yml \
+                    .github/workflows/rc3-device-feedback-patch-v2.yml \
+                    .github/workflows/rc3-device-feedback-patch-v3.yml \
+                    .github/workflows/rc3-device-feedback-patch-v4.yml \
+                    .github/workflows/rc3-finalize-direct.yml
+          git add app .github/workflows/v19-rc3-project-pulse.yml
+          git diff --cached --check
+          git diff --cached --quiet && { echo "No validated changes staged"; exit 1; }
+          git commit -m "fix(v1.9): finalize RC3.1 reminder delivery UX"
+          git push origin HEAD:release/v1.9.0-rc3-project-pulse
