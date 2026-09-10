@@ -64,6 +64,50 @@ data class CreatorScriptStudio(
             beat.visualNotes.isNotBlank() || beat.bRollNotes.isNotBlank() || beat.onScreenText.isNotBlank() } &&
         creatorNotes.isBlank()
 
+    /** Canonical normalization shared by the embedded project copy and the Alpha4/5 migration store. */
+    fun normalized(projectId: String = this.projectId, revision: Long = this.revision): CreatorScriptStudio {
+        val cleanHooks = hooks
+            .map { it.copy(text = it.text.trim()) }
+            .filter { it.text.isNotBlank() }
+            .distinctBy { it.id }
+            .let { list ->
+                val selectedId = list.firstOrNull { it.selected }?.id
+                if (selectedId == null) list else list.map { it.copy(selected = it.id == selectedId) }
+            }
+        val cleanTitles = titles
+            .map { it.copy(text = it.text.trim()) }
+            .filter { it.text.isNotBlank() }
+            .distinctBy { it.id }
+            .let { list ->
+                val selectedId = list.firstOrNull { it.selected }?.id
+                if (selectedId == null) list else list.map { it.copy(selected = it.id == selectedId) }
+            }
+        val cleanBeats = beats
+            .map {
+                it.copy(
+                    label = it.label.trim(),
+                    purpose = it.purpose.trim(),
+                    narration = it.narration.trimEnd(),
+                    visualNotes = it.visualNotes.trimEnd(),
+                    bRollNotes = it.bRollNotes.trimEnd(),
+                    onScreenText = it.onScreenText.trimEnd(),
+                )
+            }
+            .filter { beat ->
+                beat.label.isNotBlank() || beat.purpose.isNotBlank() || beat.narration.isNotBlank() ||
+                    beat.visualNotes.isNotBlank() || beat.bRollNotes.isNotBlank() || beat.onScreenText.isNotBlank()
+            }
+            .distinctBy { it.id }
+        return copy(
+            projectId = projectId,
+            revision = revision.coerceAtLeast(0L),
+            hooks = cleanHooks,
+            titles = cleanTitles,
+            beats = cleanBeats,
+            creatorNotes = creatorNotes.trimEnd(),
+        )
+    }
+
     companion object {
         fun fromLegacy(projectId: String, hook: String, script: String): CreatorScriptStudio {
             val hooks = hook.trim().takeIf { it.isNotBlank() }?.let {
