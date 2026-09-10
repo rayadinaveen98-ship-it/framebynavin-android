@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -19,6 +20,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 @Composable
@@ -38,7 +42,7 @@ internal fun V19ContentWorkspaceAlpha4Hub(
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("CONTENT PROJECT 2.0 · ALPHA 4", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("CONTENT PROJECT 2.0 · RC2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
                         Text(task.title, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("R${workspace.revision}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -46,21 +50,21 @@ internal fun V19ContentWorkspaceAlpha4Hub(
 
                 Spacer(Modifier.height(24.dp))
                 Text("CREATOR WORKSPACE", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Text("Choose the layer you want to work in. Script Studio is additive; the Alpha3 project command center stays intact.", color = MutedText, fontSize = 10.sp)
+                Text("Choose the layer you want to work in. Script Studio is the single writing authority; Plan & Produce keeps only its compiled summary.", color = MutedText, fontSize = 10.sp)
 
                 Spacer(Modifier.height(20.dp))
                 Alpha4HubCard(
                     icon = Icons.Outlined.Dashboard,
                     eyebrow = "PROJECT COMMAND CENTER",
                     title = "Plan & Produce",
-                    body = "Brief, research, assets, production steps, templates, deliverables and learnings.",
-                    meta = "$progress% production · ${workspace.assets.size} assets · ${workspace.deliverables.size} outputs",
+                    body = "Brief, research, assets, supporting checklist, templates, deliverables and learnings.",
+                    meta = "$progress% checklist · ${workspace.assets.size} assets · ${workspace.deliverables.size} outputs",
                     onClick = onOpenProject,
                 )
                 Spacer(Modifier.height(12.dp))
                 Alpha4HubCard(
                     icon = Icons.Outlined.EditNote,
-                    eyebrow = "ALPHA 4",
+                    eyebrow = "SINGLE SCRIPT AUTHORITY",
                     title = "Script Studio",
                     body = "Develop hooks and titles, structure beats, write narration, plan visuals and prepare the script for recording.",
                     meta = "Structured writing · shot notes · B-roll · readiness",
@@ -69,7 +73,7 @@ internal fun V19ContentWorkspaceAlpha4Hub(
 
                 Spacer(Modifier.weight(1f))
                 Text(
-                    "Selected hook and compiled narration are mirrored into the original project script fields for compatibility.",
+                    "Selected hook and compiled narration are mirrored into project summary fields for compatibility; they are edited only here.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     modifier = Modifier.padding(bottom = 18.dp),
@@ -115,13 +119,19 @@ internal fun V19ScriptStudioAlpha4Dialog(
     onDismiss: () -> Unit,
     onSave: (Long, Long, CreatorScriptStudio) -> Unit,
 ) {
+    val context = LocalContext.current
     val originalStudioRevision = studio.revision
     val originalWorkspaceRevision = task.workspace.revision
-    var status by remember(task.id, originalStudioRevision) { mutableStateOf(studio.status) }
-    var hooks by remember(task.id, originalStudioRevision) { mutableStateOf(studio.hooks) }
-    var titles by remember(task.id, originalStudioRevision) { mutableStateOf(studio.titles) }
-    var beats by remember(task.id, originalStudioRevision) { mutableStateOf(studio.beats) }
-    var creatorNotes by remember(task.id, originalStudioRevision) { mutableStateOf(studio.creatorNotes) }
+    val draftStore = remember { CreatorEditorDraftStore(context.applicationContext) }
+    val recovered = remember(task.id, originalWorkspaceRevision, originalStudioRevision) {
+        draftStore.loadScript(task.id, originalWorkspaceRevision, originalStudioRevision)
+    }
+    val initial = recovered ?: studio
+    var status by remember(task.id, originalStudioRevision) { mutableStateOf(initial.status) }
+    var hooks by remember(task.id, originalStudioRevision) { mutableStateOf(initial.hooks) }
+    var titles by remember(task.id, originalStudioRevision) { mutableStateOf(initial.titles) }
+    var beats by remember(task.id, originalStudioRevision) { mutableStateOf(initial.beats) }
+    var creatorNotes by remember(task.id, originalStudioRevision) { mutableStateOf(initial.creatorNotes) }
     var showPreview by remember { mutableStateOf(false) }
 
     fun draft() = CreatorScriptStudio(
@@ -133,6 +143,20 @@ internal fun V19ScriptStudioAlpha4Dialog(
         beats = beats,
         creatorNotes = creatorNotes,
     )
+
+    LaunchedEffect(status, hooks, titles, beats, creatorNotes) {
+        delay(350)
+        val snapshot = draft()
+        withContext(Dispatchers.IO) {
+            if (snapshot == studio) draftStore.clearScript(task.id)
+            else draftStore.saveScript(
+                projectId = task.id,
+                baseWorkspaceRevision = originalWorkspaceRevision,
+                baseStudioRevision = originalStudioRevision,
+                draft = snapshot,
+            )
+        }
+    }
 
     fun moveBeat(index: Int, delta: Int) {
         val target = index + delta
@@ -158,10 +182,16 @@ internal fun V19ScriptStudioAlpha4Dialog(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("SCRIPT STUDIO · ALPHA 4", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("SCRIPT STUDIO · RC2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("S$originalStudioRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+
+                if (recovered != null) {
+                    Surface(Modifier.fillMaxWidth(), color = MutedGold.copy(alpha = .08f)) {
+                        Text("Recovered unsaved Script Studio draft", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
+                    }
                 }
 
                 Column(
