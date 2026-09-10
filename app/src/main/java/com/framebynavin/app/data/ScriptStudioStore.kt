@@ -19,6 +19,12 @@ class ScriptStudioStore(private val context: Context) {
 
     suspend fun load(projectId: String, legacyHook: String = "", legacyScript: String = ""): CreatorScriptStudio =
         scriptStudioMutex.withLock {
+            // Alpha6 sidecar data is migration-only. Missing projects and hidden weekly deletion
+            // tombstones must never be able to pull an old structured script back into TaskStore.
+            val project = TaskStore(context).load().firstOrNull { it.id == projectId }
+            if (project == null || project.archivedAtMillis < 0L) {
+                return@withLock CreatorScriptStudio(projectId = projectId)
+            }
             val prefs = context.scriptStudioDataStore.data.first()
             val raw = prefs[primaryKey]
             if (raw.isNullOrBlank()) return@withLock CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
