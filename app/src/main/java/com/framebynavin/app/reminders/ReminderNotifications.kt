@@ -28,7 +28,7 @@ object ReminderNotifications {
                 "Creator reminders",
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "FrameByNavin task and publishing reminders"
+                description = "FrameByNavin task and stage check-in reminders"
                 enableVibration(true)
             }
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
@@ -60,6 +60,7 @@ object ReminderNotifications {
         if (!occurrences.matches(task, token)) return false
         val manager = context.getSystemService(NotificationManager::class.java)
         val snoozeMinutes = CreatorOsSettingsStore(context.applicationContext).snapshot().snoozeMinutes
+        val stageCheckIn = ProjectPulseEngine.isStageCheckIn(task)
         val builder = NotificationCompat.Builder(context, ReminderConstants.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(task.title)
@@ -76,9 +77,19 @@ object ReminderNotifications {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent(context, task.id))
-            .addAction(0, if (task.pulseManagedReminder) "START STEP" else "STARTED", actionIntent(context, task.id, token, ReminderConstants.ACTION_STARTED, 1))
-            .addAction(0, "SNOOZE ${snoozeMinutes}m", actionIntent(context, task.id, token, ReminderConstants.ACTION_SNOOZE, 2))
-            .addAction(0, "DISMISS REMINDER", actionIntent(context, task.id, token, ReminderConstants.ACTION_DONE, 3))
+
+        if (stageCheckIn) {
+            builder
+                .addAction(0, "STAGE DONE", actionIntent(context, task.id, token, ReminderConstants.ACTION_STAGE_DONE, 1))
+                .addAction(0, "I'M WORKING", actionIntent(context, task.id, token, ReminderConstants.ACTION_STARTED, 2))
+                .addAction(0, "REMIND ${snoozeMinutes}m", actionIntent(context, task.id, token, ReminderConstants.ACTION_SNOOZE, 3))
+                .addAction(0, "DISMISS FOR NOW", actionIntent(context, task.id, token, ReminderConstants.ACTION_DISMISS, 4))
+        } else {
+            builder
+                .addAction(0, "STARTED", actionIntent(context, task.id, token, ReminderConstants.ACTION_STARTED, 1))
+                .addAction(0, "SNOOZE ${snoozeMinutes}m", actionIntent(context, task.id, token, ReminderConstants.ACTION_SNOOZE, 2))
+                .addAction(0, "DISMISS REMINDER", actionIntent(context, task.id, token, ReminderConstants.ACTION_DISMISS, 3))
+        }
 
         when {
             stageLabel != null -> builder.setSubText(stageLabel)
@@ -96,9 +107,9 @@ object ReminderNotifications {
     }
 
     private fun notificationText(task: CreatorTask): String {
-        if (task.pulseManagedReminder) {
+        if (ProjectPulseEngine.isStageCheckIn(task)) {
             val pulse = ProjectPulseEngine.snapshot(task)
-            return "${CreatorWorkflowEngine.currentStage(task).label} · ${pulse.reason}"
+            return "${CreatorWorkflowEngine.currentStage(task).label} · How is this stage going? · ${pulse.reason}"
         }
         val prefix = when (task.priority) {
             TaskPriority.NORMAL -> "Reminder"
