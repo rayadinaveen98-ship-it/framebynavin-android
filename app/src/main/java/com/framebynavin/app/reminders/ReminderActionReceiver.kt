@@ -69,6 +69,9 @@ class ReminderActionReceiver : BroadcastReceiver() {
 
                     val updated = try {
                         store.updateTask(taskId) { task ->
+                            if (action == ReminderConstants.ACTION_STAGE_DONE && !ProjectPulseEngine.isStageCheckIn(task)) {
+                                return@updateTask task
+                            }
                             if ((action == ReminderConstants.ACTION_RESCHEDULE && rescheduleAt <= now) ||
                                 !occurrences.claim(task, token)) return@updateTask task
                             accepted = true
@@ -85,17 +88,20 @@ class ReminderActionReceiver : BroadcastReceiver() {
                                     ReminderActionSafety.start(task, now)
                                 }
                                 ReminderConstants.ACTION_STAGE_DONE -> {
-                                    if (!ProjectPulseEngine.isStageCheckIn(task)) {
-                                        accepted = false
-                                        task
-                                    } else if (!ProjectPulseEngine.canCompleteCurrentStep(task)) {
+                                    if (!ProjectPulseEngine.canCompleteCurrentStep(task)) {
                                         publicationBlocked = CreatorWorkflowEngine.isPublicationStage(CreatorWorkflowEngine.currentStage(task)) &&
                                             task.publishedAtMillis <= 0L
                                         response = ProjectPulseResponse.DISMISSED
                                         ProjectPulseEngine.afterDismiss(ProjectPulseEngine.ensureStageManaged(task), now)
                                     } else {
                                         response = ProjectPulseResponse.STAGE_DONE
-                                        ReminderActionSafety.stageDone(task, now)
+                                        val advanced = ReminderActionSafety.stageDone(task, now)
+                                        // Custom waits for a next-stage time, but its chosen delivery style survives.
+                                        if (task.attentionPlan == ProjectAttentionPlan.CUSTOM &&
+                                            advanced.status != TaskStatus.DONE && advanced.status != TaskStatus.SKIPPED &&
+                                            !advanced.reminderEnabled) {
+                                            advanced.copy(reminderMode = task.reminderMode, alertType = task.alertType)
+                                        } else advanced
                                     }
                                 }
                                 ReminderConstants.ACTION_SNOOZE -> {
@@ -139,7 +145,8 @@ class ReminderActionReceiver : BroadcastReceiver() {
 
                     if (!accepted || updated == null) return@readyTransaction
 
-                    before?.let { old -> response?.let { history.append(old, it, now, updated) } }
+                    // History is useful audit context, never a prerequisite for the authoritative project write.
+                    before?.let { old -> response?.let { runCatching { history.append(old, it, now, updated) } } }
                     scheduler.cancel(taskId)
                     smart.cancel(taskId)
 
