@@ -32,7 +32,6 @@ jobs:
           start = next(i for i, line in enumerate(raw_lines) if line.strip() == "python - <<'PY'")
           end = next(i for i in range(start + 1, len(raw_lines)) if raw_lines[i].strip() == 'PY')
           recipe = textwrap.dedent('\n'.join(raw_lines[start + 1:end]))
-
           marker = '# CreatorTask: separate user-selected delivery intent from runtime reminder mode.'
           if marker not in recipe:
               raise SystemExit('Reviewed RC3.1 recipe marker missing')
@@ -68,41 +67,38 @@ jobs:
               '    p.write_text(text.replace(old, new))',
               '',
           ])
-          final_script = header + '\n' + marker + body
-          exec(compile(final_script, '<rc3.1-reviewed-recipe>', 'exec'))
+          exec(compile(header + '\n' + marker + body, '<rc3.1-reviewed-recipe>', 'exec'))
 
-          # The action row had device-polish edits after the original recipe was authored.
-          # Replace the whole post-working action region by stable semantic anchors.
           voice_path = Path('app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt')
           voice = voice_path.read_text()
           if 'Text("REPLAY"' not in voice or 'Text("CHOOSE TIME"' not in voice:
-              working_anchor = 'Text("I\'M WORKING ON IT"'
-              working_at = voice.index(working_anchor)
+              working_at = voice.index('Text("I\'M WORKING ON IT"')
               row_start = voice.index('            Row(Modifier.fillMaxWidth()', working_at)
               dismiss_at = voice.index('            TextButton(onClick = onDismiss)', row_start)
-              replacement = '''            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
-                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("REPLAY", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
-                }
-                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
-                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("SNOOZE ${snoozeMinutes}M", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (stageCheckIn) {
-                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
-                        Icon(Icons.Outlined.PauseCircle, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("PAUSE 2H", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
-                    }
-                }
-                OutlinedButton(onClick = onReschedule, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, MutedGold.copy(alpha = .6f)), shape = RoundedCornerShape(15.dp)) {
-                    Text("CHOOSE TIME", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-'''
-              voice = voice[:row_start] + replacement + voice[dismiss_at:]
-              voice_path.write_text(voice)
+              replacement = '\n'.join([
+                  '            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {',
+                  '                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {',
+                  '                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("REPLAY", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)',
+                  '                }',
+                  '                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {',
+                  '                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("SNOOZE ${snoozeMinutes}M", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)',
+                  '                }',
+                  '            }',
+                  '            Spacer(Modifier.height(8.dp))',
+                  '            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {',
+                  '                if (stageCheckIn) {',
+                  '                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {',
+                  '                        Icon(Icons.Outlined.PauseCircle, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("PAUSE 2H", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)',
+                  '                    }',
+                  '                }',
+                  '                OutlinedButton(onClick = onReschedule, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, MutedGold.copy(alpha = .6f)), shape = RoundedCornerShape(15.dp)) {',
+                  '                    Text("CHOOSE TIME", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)',
+                  '                }',
+                  '            }',
+                  '            Spacer(Modifier.height(6.dp))',
+                  '',
+              ])
+              voice_path.write_text(voice[:row_start] + replacement + voice[dismiss_at:])
           PY
           rc=$?
           set -e
