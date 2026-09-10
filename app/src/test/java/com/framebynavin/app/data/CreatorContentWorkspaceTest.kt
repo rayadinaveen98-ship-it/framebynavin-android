@@ -93,4 +93,44 @@ class CreatorContentWorkspaceTest {
     fun learningsAloneMakeWorkspaceNonEmpty() {
         assertFalse(CreatorContentWorkspace(learnings = "Shorter intro worked better").isEmpty())
     }
+
+    @Test
+    fun productionProgressIgnoresSkippedSteps() {
+        val workspace = CreatorContentWorkspace(
+            checklist = listOf(
+                CreatorChecklistItem(id = "1", title = "Research", status = CreatorChecklistStatus.DONE),
+                CreatorChecklistItem(id = "2", title = "Script", status = CreatorChecklistStatus.TODO),
+                CreatorChecklistItem(id = "3", title = "Optional teaser", status = CreatorChecklistStatus.SKIPPED),
+            ),
+        )
+
+        assertEquals(50, workspace.productionProgressPercent())
+        assertEquals("Script", workspace.nextProductionStep()?.title)
+    }
+
+    @Test
+    fun contentTemplateMergePreservesExistingWorkAndAvoidsDuplicates() {
+        val existing = CreatorContentWorkspace(
+            checklist = listOf(CreatorChecklistItem(id = "research", title = "Research", status = CreatorChecklistStatus.DONE)),
+            deliverables = listOf(
+                CreatorDeliverable(
+                    id = "yt",
+                    platform = "YouTube",
+                    format = "Long video",
+                    title = "Existing title",
+                    status = CreatorDeliverableStatus.PUBLISHED,
+                    publishedAtMillis = 44L,
+                ),
+            ),
+        )
+        val template = CreatorProjectTemplates.contentTemplates.first { it.id == "youtube_long" }
+        val merged = CreatorProjectTemplates.applyContentTemplate(existing, template, "Project title")
+
+        assertEquals(1, merged.checklist.count { it.title.equals("Research", ignoreCase = true) })
+        assertEquals(CreatorChecklistStatus.DONE, merged.checklist.first { it.title == "Research" }.status)
+        assertEquals(1, merged.deliverables.count { it.platform == "YouTube" && it.format == "Long video" })
+        assertEquals(CreatorDeliverableStatus.PUBLISHED, merged.deliverables.first().status)
+        assertEquals(44L, merged.deliverables.first().publishedAtMillis)
+        assertTrue(merged.checklist.any { it.title == "Thumbnail + title" })
+    }
 }
