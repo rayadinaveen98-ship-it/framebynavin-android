@@ -78,7 +78,21 @@ class TaskStore(private val context: Context) {
         CreatorWidgetUpdater.updateAll(context, tasks)
     }
 
-    suspend fun exportJson(): String = encode(load())
+    /**
+     * Portable export also folds in the Alpha4/5 sidecar Script Studio when an older project has
+     * not been reopened in Alpha6 yet. This is read-only: export never changes the live project.
+     */
+    suspend fun exportJson(): String {
+        val legacyStore = ScriptStudioStore(context)
+        val portable = load().map { task ->
+            if (task.workspace.scriptStudio != null) return@map task
+            val legacy = legacyStore.load(task.id, task.workspace.hook, task.workspace.script)
+                .normalized(projectId = task.id)
+            if (legacy.isEmpty()) task
+            else task.copy(workspace = task.workspace.copy(scriptStudio = legacy))
+        }
+        return encode(portable)
+    }
 
     suspend fun importJson(raw: String): List<CreatorTask> {
         val decoded = decode(raw)
@@ -254,7 +268,7 @@ class TaskStore(private val context: Context) {
                         acknowledgedCheckpointDueAtMillis = item.optLong("acknowledgedCheckpointDueAtMillis", 0L),
                         publicationIsLegacy = item.optBoolean("publicationIsLegacy", false) ||
                             (!item.has("publishedAtMillis") && item.optString("status") == TaskStatus.DONE.name),
-                        workspace = decodeWorkspace(item.optJSONObject("workspace")),
+                        workspace = decodeWorkspace(id, item.optJSONObject("workspace")),
                     )
                 )
             }
@@ -347,9 +361,101 @@ class TaskStore(private val context: Context) {
             .put("assets", assets)
             .put("deliverables", deliverables)
             .put("learnings", workspace.learnings)
+            .put("scriptStudio", workspace.scriptStudio?.let(::encodeScriptStudio) ?: JSONObject.NULL)
     }
 
-    private fun decodeWorkspace(item: JSONObject?): CreatorContentWorkspace {
+    private fun encodeScriptStudio(studio: CreatorScriptStudio): JSONObject {
+        val normalized = studio.normalized()
+        val hooks = JSONArray()
+        normalized.hooks.forEach { hook ->
+            hooks.put(JSONObject().put("id", hook.id).put("text", hook.text).put("selected", hook.selected))
+        }
+        val titles = JSONArray()
+        normalized.titles.forEach { title ->
+            titles.put(JSONObject().put("id", title.id).put("text", title.text).put("selected", title.selected))
+        }
+        val beats = JSONArray()
+        normalized.beats.forEach { beat ->
+            beats.put(
+                JSONObject()
+                    .put("id", beat.id)
+                    .put("label", beat.label)
+                    .put("purpose", beat.purpose)
+                    .put("narration", beat.narration)
+                    .put("visualNotes", beat.visualNotes)
+                    .put("bRollNotes", beat.bRollNotes)
+                    .put("onScreenText", beat.onScreenText)
+                    .put("status", beat.status.name)
+            )
+        }
+        return JSONObject()
+            .put("revision", normalized.revision)
+            .put("status", normalized.status.name)
+            .put("hooks", hooks)
+            .put("titles", titles)
+            .put("beats", beats)
+            .put("creatorNotes", normalized.creatorNotes)
+    }
+
+    private fun decodeScriptStudio(projectId: String, item: JSONObject?): CreatorScriptStudio? {
+        if (item == null) return null
+        val hooksArray = item.optJSONArray("hooks") ?: JSONArray()
+        val hooks = buildList {
+            for (i in 0 until hooksArray.length()) {
+                val entry = hooksArray.optJSONObject(i) ?: continue
+                val id = entry.optString("id").trim()
+                val text = entry.optString("text").trim()
+                if (id.isBlank() || text.isBlank()) continue
+                add(CreatorHookIdea(id = id, text = text, selected = entry.optBoolean("selected", false)))
+            }
+        }
+        val titlesArray = item.optJSONArray("titles") ?: JSONArray()
+        val titles = buildList {
+            for (i in 0 until titlesArray.length()) {
+                val entry = titlesArray.optJSONObject(i) ?: continue
+                val id = entry.optString("id").trim()
+                val text = entry.optString("text").trim()
+                if (id.isBlank() || text.isBlank()) continue
+                add(CreatorTitleIdea(id = id, text = text, selected = entry.optBoolean("selected", false)))
+            }
+        }
+        val beatsArray = item.optJSONArray("beats") ?: JSONArray()
+        val beats = buildList {
+            for (i in 0 until beatsArray.length()) {
+                val entry = beatsArray.optJSONObject(i) ?: continue
+                val id = entry.optString("id").trim()
+                if (id.isBlank()) continue
+                add(
+                    CreatorScriptBeat(
+                        id = id,
+                        label = entry.optString("label"),
+                        purpose = entry.optString("purpose"),
+                        narration = entry.optString("narration"),
+                        visualNotes = entry.optString("visualNotes"),
+                        bRollNotes = entry.optString("bRollNotes"),
+                        onScreenText = entry.optString("onScreenText"),
+                        status = runCatching {
+                            CreatorScriptBeatStatus.valueOf(entry.optString("status", CreatorScriptBeatStatus.DRAFT.name))
+                        }.getOrDefault(CreatorScriptBeatStatus.DRAFT),
+                    )
+                )
+            }
+        }
+        val studio = CreatorScriptStudio(
+            projectId = projectId,
+            revision = item.optLong("revision", 0L).coerceAtLeast(0L),
+            status = runCatching {
+                CreatorScriptStatus.valueOf(item.optString("status", CreatorScriptStatus.DRAFTING.name))
+            }.getOrDefault(CreatorScriptStatus.DRAFTING),
+            hooks = hooks,
+            titles = titles,
+            beats = beats,
+            creatorNotes = item.optString("creatorNotes"),
+        ).normalized(projectId = projectId)
+        return studio.takeUnless { it.isEmpty() }
+    }
+
+    private fun decodeWorkspace(projectId: String, item: JSONObject?): CreatorContentWorkspace {
         if (item == null) return CreatorContentWorkspace()
         val references = item.optJSONArray("references") ?: JSONArray()
         val decodedReferences = buildList {
@@ -492,6 +598,7 @@ class TaskStore(private val context: Context) {
             assets = decodedAssets,
             deliverables = decodedDeliverables,
             learnings = item.optString("learnings"),
+            scriptStudio = decodeScriptStudio(projectId, item.optJSONObject("scriptStudio")),
         )
     }
 }
