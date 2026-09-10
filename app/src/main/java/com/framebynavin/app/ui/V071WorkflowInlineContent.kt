@@ -37,6 +37,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.data.CreatorDeliverableStatus
+import com.framebynavin.app.data.CreatorPublicationEngine
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskStatus
@@ -51,9 +53,8 @@ import com.framebynavin.app.ui.theme.SuccessGreen
 /**
  * Current reusable project-workflow detail panel.
  *
- * This used to live inside the removed V07 Studio screen. The current app still uses the
- * detail panel from its active Studio route, so it now lives independently rather than
- * keeping an entire obsolete app generation compiled just for one composable.
+ * Content Project 2.0 keeps this workflow authoritative for project stages and reminder progress,
+ * while Script Studio owns writing and Publish Studio owns per-deliverable live state.
  */
 @Composable
 internal fun V071WorkflowInlineContent(
@@ -69,6 +70,18 @@ internal fun V071WorkflowInlineContent(
     val currentStep = CreatorWorkflowEngine.currentStage(task)
     val done = task.status == TaskStatus.DONE
     val context = LocalContext.current
+    val deliverablePublication = CreatorPublicationEngine.usesDeliverablePublication(task)
+    val publicationStage = CreatorWorkflowEngine.isPublicationStage(currentStep)
+    val liveOutputExists = task.workspace.deliverables.any {
+        it.status == CreatorDeliverableStatus.PUBLISHED && it.publishedAtMillis > 0L
+    }
+
+    fun openContentWorkspace() {
+        context.startActivity(
+            Intent(context, ContentWorkspaceActivity::class.java)
+                .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, task.id)
+        )
+    }
 
     Surface(
         modifier = Modifier
@@ -151,6 +164,9 @@ internal fun V071WorkflowInlineContent(
                         Text(
                             when {
                                 completed -> "Completed"
+                                current && deliverablePublication && CreatorWorkflowEngine.isPublicationStage(step) ->
+                                    if (liveOutputExists) "Live output recorded in Publish Studio. Complete this workflow step when ready."
+                                    else "Publish the exact output from Content Workspace → Publish Studio."
                                 current -> step.action
                                 else -> "Upcoming"
                             },
@@ -176,12 +192,7 @@ internal fun V071WorkflowInlineContent(
             }
 
             OutlinedButton(
-                onClick = {
-                    context.startActivity(
-                        Intent(context, ContentWorkspaceActivity::class.java)
-                            .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, task.id)
-                    )
-                },
+                onClick = ::openContentWorkspace,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, RecRed.copy(alpha = .65f)),
             ) {
@@ -195,7 +206,7 @@ internal fun V071WorkflowInlineContent(
 
             Spacer(Modifier.height(8.dp))
 
-            if (task.publishedAtMillis > 0L || task.publicationIsLegacy || done) {
+            if (!deliverablePublication && (task.publishedAtMillis > 0L || task.publicationIsLegacy || done)) {
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(onClick = onEditPublication, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     Text(if (task.publishedAtMillis > 0L) "EDIT PUBLICATION DETAILS" else "RECORD PUBLICATION DATE", fontSize = 12.sp)
@@ -214,7 +225,13 @@ internal fun V071WorkflowInlineContent(
                         Text("NEXT", color = MutedText, fontSize = 8.3.sp, letterSpacing = 1.sp)
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            currentStep.action,
+                            when {
+                                deliverablePublication && publicationStage && !liveOutputExists ->
+                                    "Open Publish Studio and record the exact output that went live."
+                                deliverablePublication && publicationStage ->
+                                    "A live output is recorded. Complete this workflow step when the project is ready to move on."
+                                else -> currentStep.action
+                            },
                             color = ProjectorIvory,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -224,14 +241,22 @@ internal fun V071WorkflowInlineContent(
 
                 Spacer(Modifier.height(11.dp))
                 Button(
-                    onClick = onFocus,
+                    onClick = {
+                        if (deliverablePublication && publicationStage && !liveOutputExists) openContentWorkspace()
+                        else onFocus()
+                    },
                     modifier = Modifier.fillMaxWidth().height(49.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     shape = RoundedCornerShape(14.dp),
                 ) {
                     Icon(Icons.Outlined.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(7.dp))
-                    Text("WORK ON · ${currentStep.label.uppercase()}", fontWeight = FontWeight.Black)
+                    Text(
+                        if (deliverablePublication && publicationStage && !liveOutputExists)
+                            "OPEN PUBLISH STUDIO"
+                        else "WORK ON · ${currentStep.label.uppercase()}",
+                        fontWeight = FontWeight.Black,
+                    )
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -251,12 +276,19 @@ internal fun V071WorkflowInlineContent(
                         Text("BACK", color = ProjectorIvory, fontSize = 12.sp)
                     }
                     Button(
-                        onClick = onAdvance,
+                        onClick = {
+                            if (deliverablePublication && publicationStage && !liveOutputExists) openContentWorkspace()
+                            else onAdvance()
+                        },
                         modifier = Modifier.weight(1.45f),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF272727)),
                     ) {
                         Text(
-                            CreatorWorkflowEngine.stageActionLabel(task),
+                            when {
+                                deliverablePublication && publicationStage && !liveOutputExists -> "PUBLISH IN WORKSPACE"
+                                deliverablePublication && publicationStage -> "COMPLETE STEP"
+                                else -> CreatorWorkflowEngine.stageActionLabel(task)
+                            },
                             color = ProjectorIvory,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -266,7 +298,7 @@ internal fun V071WorkflowInlineContent(
             } else {
                 Spacer(Modifier.height(13.dp))
                 Text(
-                    if (task.publishedAtMillis > 0L) "✓ Published · Project complete" else "✓ Project complete",
+                    if (task.publishedAtMillis > 0L) "✓ Published output recorded · Project complete" else "✓ Project complete",
                     color = SuccessGreen,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
