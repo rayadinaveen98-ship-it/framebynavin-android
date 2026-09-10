@@ -1,9 +1,9 @@
-name: v1.9 Content Project Alpha5
+name: v1.9 Content Project Alpha6
 
 on:
   push:
     branches:
-      - "feature/v1.9-content-project-alpha5"
+      - "feature/v1.9-content-project-alpha6"
   workflow_dispatch:
 
 permissions:
@@ -35,19 +35,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 78' app/build.gradle.kts
-          grep -q 'versionName = "1.9.0-content-project-alpha5"' app/build.gradle.kts
-          test -s app/src/main/java/com/framebynavin/app/data/CreatorPublishWorkflow.kt
-          test -s app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha5Ui.kt
+          grep -q 'versionCode = 79' app/build.gradle.kts
+          grep -q 'versionName = "1.9.0-content-project-alpha6"' app/build.gradle.kts
+          test -s app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
           test -s app/src/main/java/com/framebynavin/app/data/CreatorScriptStudio.kt
-          test -s app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha4Ui.kt
-          test -s app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
+          test -s app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          test -s app/src/main/java/com/framebynavin/app/data/ScriptStudioStore.kt
+          test -s app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
           test -s app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          test -s app/src/test/java/com/framebynavin/app/data/CreatorContentProjectAlpha6Test.kt
           test -s dev-signing/framebynavin-public-debug.jks
-          grep -q 'CreatorPublicationEvent' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
-          grep -q 'publicationHistory' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
-          grep -q 'PUBLISH STUDIO · ALPHA 5' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha5Ui.kt
-          grep -q 'Alpha5WorkspaceMode.PUBLISH' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -q 'val scriptStudio: CreatorScriptStudio?' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
+          grep -q 'scriptStudio.*encodeScriptStudio' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -q 'legacyStore.load' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -q 'migrateLegacyScriptIfNeeded' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -q 'actualStudioRevision' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -q 'CONTENT PROJECT 2.0 · ALPHA 6' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
 
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
@@ -71,18 +74,18 @@ jobs:
           sha256sum "$apk" | tee verification/apk.sha256
           keytool -list -v -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev \
             | grep -E 'SHA256:|Owner:|Issuer:' > verification/signing.txt
-          printf 'versionName=1.9.0-content-project-alpha5\nversionCode=78\ncommit=%s\n' "$GITHUB_SHA" > verification/manifest.txt
+          printf 'versionName=1.9.0-content-project-alpha6\nversionCode=79\ncommit=%s\n' "$GITHUB_SHA" > verification/manifest.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.9.0-content-project-alpha5-apk
+          name: FrameByNavin-v1.9.0-content-project-alpha6-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Upload verification
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.9.0-content-project-alpha5-verification
+          name: FrameByNavin-v1.9.0-content-project-alpha6-verification
           path: verification/
           if-no-files-found: error
