@@ -159,9 +159,11 @@ class CreatorContentProjectRc1InstrumentedTest {
                 .map(tasks::getJSONObject)
                 .first { it.getString("id") == tombstoneId }
 
-            assertTrue(portableProject.getJSONObject("workspace").has("scriptStudio"))
+            val portableWorkspace = portableProject.getJSONObject("workspace")
+            assertTrue(portableWorkspace.has("scriptStudio"))
+            assertFalse(portableWorkspace.isNull("scriptStudio"))
             val scrubbed = portableTombstone.getJSONObject("workspace")
-            assertFalse(scrubbed.has("scriptStudio"))
+            assertTrue(scrubbed.isNull("scriptStudio"))
             assertEquals(0, scrubbed.getJSONArray("deliverables").length())
             assertEquals(0, scrubbed.getJSONArray("assets").length())
 
