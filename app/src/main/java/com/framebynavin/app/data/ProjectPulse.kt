@@ -14,6 +14,14 @@ enum class ProjectPulseState {
     CALM,
 }
 
+enum class ProjectPulseResponse {
+    DISMISSED,
+    WORKING,
+    SNOOZED,
+    STAGE_DONE,
+    PAUSED,
+}
+
 data class ProjectCheckpoint(
     val stageIndex: Int,
     val stageId: String,
@@ -33,40 +41,40 @@ data class ProjectPulseSnapshot(
 )
 
 /**
- * A project-aware layer above reminder delivery.
+ * Project Pulse owns check-in policy while CreatorWorkflowEngine owns stage truth.
  *
- * The engine creates logical workflow checkpoints and materializes only the next one into the
- * existing reliable reminder stack. Completing a step invalidates that checkpoint and creates the
- * next one, so Android alarms follow project progress instead of becoming independent task data.
+ * RC3 treats every delivered reminder as a one-use occurrence. Handling an occurrence does not
+ * silence a workflow stage forever: Dismiss/Working/Snooze/Pause create a later check-in, while
+ * Stage Done is the only reminder response allowed to advance the workflow. Custom is a
+ * stage-aware attention plan as well; after Stage Done it deliberately waits for the creator to
+ * choose the next stage's check-in time.
  */
 object ProjectPulseEngine {
     fun snapshot(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): ProjectPulseSnapshot {
         val stage = CreatorWorkflowEngine.currentStage(task)
         val state = state(task, nowMillis)
-        val checkpoint = nextCheckpoint(task, task.attentionPlan, nowMillis)
-        val nextAt = when {
-            task.pulseManagedReminder && task.checkpointAtMillis > 0L -> task.checkpointAtMillis
-            checkpoint != null -> checkpoint.atMillis
-            task.reminderEnabled -> task.reminderAtMillis
-            else -> 0L
-        }
+        // UI truth must reflect a materialized reminder, never a hypothetical checkpoint.
+        val nextAt = task.reminderAtMillis.takeIf { task.reminderEnabled && it > 0L } ?: 0L
         return ProjectPulseSnapshot(
             state = state,
             stateLabel = stateLabel(state),
             currentStage = stage,
-            nextAction = if (task.status == TaskStatus.DONE) "Published and complete" else stage.action,
+            nextAction = if (task.status == TaskStatus.DONE) "Project finished" else stage.action,
             nextCheckpointAtMillis = nextAt,
             checkpointLabel = when (task.attentionPlan) {
                 ProjectAttentionPlan.OFF -> "Off"
                 ProjectAttentionPlan.LIGHT -> "Light check-in"
                 ProjectAttentionPlan.GUIDED -> "Stage check-in"
                 ProjectAttentionPlan.URGENT -> "Protected checkpoint"
-                ProjectAttentionPlan.CUSTOM -> "Custom reminder"
+                ProjectAttentionPlan.CUSTOM -> "Custom stage check-in"
             },
             reason = reason(task, state, nowMillis),
             recommendedMode = deliveryMode(task.attentionPlan, state, nextAt, nowMillis),
         )
     }
+
+    fun isStageCheckIn(task: CreatorTask): Boolean =
+        task.pulseManagedReminder || (task.attentionPlan == ProjectAttentionPlan.CUSTOM && task.reminderEnabled)
 
     fun checkpoints(
         task: CreatorTask,
@@ -74,7 +82,7 @@ object ProjectPulseEngine {
         nowMillis: Long = System.currentTimeMillis(),
     ): List<ProjectCheckpoint> {
         if (plan == ProjectAttentionPlan.OFF || plan == ProjectAttentionPlan.CUSTOM) return emptyList()
-        if (task.status == TaskStatus.DONE || task.status == TaskStatus.SKIPPED || task.archivedAtMillis > 0L) return emptyList()
+        if (task.status == TaskStatus.DONE || task.status == TaskStatus.SKIPPED || task.archivedAtMillis != 0L) return emptyList()
         val due = task.dueAtMillis
         if (due <= 0L) return emptyList()
         val template = CreatorWorkflowEngine.templateFor(task)
@@ -111,6 +119,13 @@ object ProjectPulseEngine {
         plan: ProjectAttentionPlan = task.attentionPlan,
         nowMillis: Long = System.currentTimeMillis(),
     ): ProjectCheckpoint? {
+        if (plan == ProjectAttentionPlan.CUSTOM) {
+            val stage = CreatorWorkflowEngine.currentStage(task)
+            val at = task.checkpointAtMillis.takeIf { it > nowMillis }
+                ?: task.reminderAtMillis.takeIf { task.reminderEnabled && it > nowMillis }
+                ?: return null
+            return ProjectCheckpoint(CreatorWorkflowEngine.stageIndex(task), stage.id, stage.label, at)
+        }
         val quietUntil = task.workingUntilMillis.takeIf { it > nowMillis }
         val checkpoint = checkpoints(task, plan, nowMillis).firstOrNull() ?: return null
         if (quietUntil == null) return checkpoint
@@ -124,14 +139,6 @@ object ProjectPulseEngine {
         nowMillis: Long = System.currentTimeMillis(),
     ): CreatorTask {
         val base = task.copy(acknowledgedCheckpointStageId = "", acknowledgedCheckpointDueAtMillis = 0L)
-        if (plan == ProjectAttentionPlan.CUSTOM) {
-            return base.copy(
-                attentionPlan = ProjectAttentionPlan.CUSTOM,
-                pulseManagedReminder = false,
-                checkpointStageId = "",
-                checkpointAtMillis = 0L,
-            )
-        }
         if (plan == ProjectAttentionPlan.OFF) {
             return base.copy(
                 attentionPlan = ProjectAttentionPlan.OFF,
@@ -146,6 +153,19 @@ object ProjectPulseEngine {
                 snoozeCount = 0,
                 workingUntilMillis = 0L,
                 autoStageReminder = false,
+            )
+        }
+        if (plan == ProjectAttentionPlan.CUSTOM) {
+            val stage = CreatorWorkflowEngine.currentStage(base)
+            val validAt = base.reminderAtMillis.takeIf { base.reminderEnabled && it > nowMillis }
+            return base.copy(
+                attentionPlan = ProjectAttentionPlan.CUSTOM,
+                pulseManagedReminder = true,
+                checkpointStageId = if (validAt != null) stage.id else "",
+                checkpointAtMillis = validAt ?: 0L,
+                reminderEnabled = validAt != null,
+                reminderAtMillis = validAt ?: 0L,
+                reminderMode = if (validAt != null && base.reminderMode != ReminderMode.NONE) base.reminderMode else ReminderMode.NONE,
             )
         }
         val configured = base.copy(
@@ -164,31 +184,31 @@ object ProjectPulseEngine {
 
     fun refreshManagedReminder(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): CreatorTask {
         if (!task.pulseManagedReminder) return task
-        if (task.attentionPlan == ProjectAttentionPlan.OFF || task.attentionPlan == ProjectAttentionPlan.CUSTOM) {
-            return applyAttentionPlan(task, task.attentionPlan, nowMillis)
+        if (task.attentionPlan == ProjectAttentionPlan.OFF) return applyAttentionPlan(task, ProjectAttentionPlan.OFF, nowMillis)
+        if (task.status == TaskStatus.DONE || task.status == TaskStatus.SKIPPED || task.archivedAtMillis != 0L) {
+            return clearReminder(task)
         }
-        if (task.status == TaskStatus.DONE || task.status == TaskStatus.SKIPPED || task.archivedAtMillis > 0L) {
+        val stage = CreatorWorkflowEngine.currentStage(task)
+        if (task.attentionPlan == ProjectAttentionPlan.CUSTOM) {
+            val at = task.checkpointAtMillis.takeIf { it > nowMillis }
+                ?: task.reminderAtMillis.takeIf { task.reminderEnabled && it > nowMillis }
+                ?: return clearReminder(task).copy(attentionPlan = ProjectAttentionPlan.CUSTOM, pulseManagedReminder = true)
+            val mode = task.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE
             return task.copy(
-                reminderEnabled = false,
-                reminderAtMillis = 0L,
-                reminderMode = ReminderMode.NONE,
-                smartEscalationEnabled = false,
-                voiceEnabled = false,
-                checkpointStageId = "",
-                checkpointAtMillis = 0L,
+                reminderEnabled = true,
+                reminderAtMillis = at,
+                reminderMode = mode,
+                alertType = if (mode == ReminderMode.ALARM || mode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION,
+                voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,
+                smartEscalationEnabled = mode == ReminderMode.SMART,
+                checkpointStageId = stage.id,
+                checkpointAtMillis = at,
+                acknowledgedCheckpointStageId = "",
+                acknowledgedCheckpointDueAtMillis = 0L,
             )
         }
-        val stageId = CreatorWorkflowEngine.currentStage(task).id
-        if (task.acknowledgedCheckpointStageId == stageId &&
-            task.acknowledgedCheckpointDueAtMillis == task.dueAtMillis) {
-            // Acknowledging a check-in is not completing a workflow stage. Keep the
-            // managed plan, but do not recreate the same acknowledged stage alert.
-            return task.copy(reminderEnabled = false, reminderAtMillis = 0L,
-                reminderMode = ReminderMode.NONE, smartEscalationEnabled = false,
-                voiceEnabled = false, checkpointStageId = "", checkpointAtMillis = 0L)
-        }
         val checkpoint = nextCheckpoint(task, task.attentionPlan, nowMillis)
-            ?: return task.copy(reminderEnabled = false, reminderAtMillis = 0L, checkpointStageId = "", checkpointAtMillis = 0L)
+            ?: return clearReminder(task).copy(attentionPlan = task.attentionPlan, pulseManagedReminder = true)
         val state = state(task, nowMillis)
         val mode = deliveryMode(task.attentionPlan, state, checkpoint.atMillis, nowMillis)
         return task.copy(
@@ -205,6 +225,101 @@ object ProjectPulseEngine {
             snoozeCount = 0,
         )
     }
+
+    /** Adopt an RC2 one-shot CUSTOM reminder into RC3's stage-aware loop on first response. */
+    fun ensureStageManaged(task: CreatorTask): CreatorTask = when {
+        task.attentionPlan == ProjectAttentionPlan.OFF -> task
+        task.pulseManagedReminder -> task
+        task.attentionPlan == ProjectAttentionPlan.CUSTOM -> task.copy(pulseManagedReminder = true)
+        else -> task.copy(pulseManagedReminder = true)
+    }
+
+    fun afterDismiss(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): CreatorTask {
+        if (!isStageCheckIn(task)) return clearReminder(task).copy(
+            acknowledgedCheckpointStageId = task.acknowledgedCheckpointStageId,
+            acknowledgedCheckpointDueAtMillis = task.acknowledgedCheckpointDueAtMillis,
+        )
+        val managed = ensureStageManaged(task)
+        return scheduleFollowUp(managed, ProjectPulseResponse.DISMISSED, nowMillis)
+    }
+
+    fun afterWorking(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): CreatorTask {
+        val started = task.copy(status = if (task.status == TaskStatus.PLANNED) TaskStatus.WORKING else task.status)
+        if (!isStageCheckIn(task)) return started
+        val managed = ensureStageManaged(started)
+        val delay = followUpDelayMillis(managed.attentionPlan, ProjectPulseResponse.WORKING)
+        val at = boundedFollowUpAt(managed, nowMillis, delay)
+        return scheduleAt(managed.copy(workingUntilMillis = at), at, nowMillis)
+    }
+
+    fun afterSnooze(task: CreatorTask, atMillis: Long, nowMillis: Long = System.currentTimeMillis()): CreatorTask {
+        if (!isStageCheckIn(task)) return task.copy(
+            reminderEnabled = true,
+            reminderAtMillis = atMillis,
+            snoozeCount = task.snoozeCount + 1,
+            workingUntilMillis = 0L,
+        )
+        val managed = ensureStageManaged(task)
+        return scheduleAt(managed.copy(snoozeCount = managed.snoozeCount + 1, workingUntilMillis = 0L), atMillis, nowMillis)
+    }
+
+    fun pause(task: CreatorTask, pauseUntilMillis: Long, nowMillis: Long = System.currentTimeMillis()): CreatorTask {
+        if (!isStageCheckIn(task) || pauseUntilMillis <= nowMillis) return task
+        val managed = ensureStageManaged(task)
+        return scheduleAt(managed.copy(workingUntilMillis = pauseUntilMillis), pauseUntilMillis, nowMillis)
+    }
+
+    fun canCompleteCurrentStep(task: CreatorTask): Boolean {
+        if (task.status == TaskStatus.DONE || task.status == TaskStatus.SKIPPED) return false
+        val stage = CreatorWorkflowEngine.currentStage(task)
+        return !CreatorWorkflowEngine.isPublicationStage(stage) || task.publishedAtMillis > 0L
+    }
+
+    fun completeCurrentStep(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): CreatorTask {
+        if (!canCompleteCurrentStep(task)) return task
+        val managed = ensureStageManaged(task)
+        val template = CreatorWorkflowEngine.templateFor(managed)
+        val current = CreatorWorkflowEngine.stageIndex(managed)
+        if (current >= template.stages.lastIndex) {
+            return managed.copy(
+                status = TaskStatus.DONE,
+                progress = 100,
+                workflowStageIndex = template.stages.lastIndex,
+                reminderEnabled = false,
+                reminderAtMillis = 0L,
+                reminderMode = ReminderMode.NONE,
+                smartEscalationEnabled = false,
+                voiceEnabled = false,
+                pulseManagedReminder = false,
+                checkpointStageId = "",
+                checkpointAtMillis = 0L,
+                workingUntilMillis = 0L,
+                completedAtMillis = managed.completedAtMillis.takeIf { it > 0L } ?: nowMillis,
+                acknowledgedCheckpointStageId = "",
+                acknowledgedCheckpointDueAtMillis = 0L,
+            )
+        }
+        val next = current + 1
+        val advanced = managed.copy(
+            status = TaskStatus.WORKING,
+            workflowStageIndex = next,
+            progress = CreatorWorkflowEngine.progressForStage(next, template.stages.size),
+            workingUntilMillis = 0L,
+            acknowledgedCheckpointStageId = "",
+            acknowledgedCheckpointDueAtMillis = 0L,
+        )
+        // Custom deliberately asks the creator for the next-stage time instead of inventing one.
+        if (advanced.attentionPlan == ProjectAttentionPlan.CUSTOM) {
+            return clearReminder(advanced).copy(attentionPlan = ProjectAttentionPlan.CUSTOM, pulseManagedReminder = true)
+        }
+        return refreshManagedReminder(advanced, nowMillis)
+    }
+
+    fun needsCustomNextStagePrompt(before: CreatorTask, after: CreatorTask): Boolean =
+        before.attentionPlan == ProjectAttentionPlan.CUSTOM &&
+            after.status != TaskStatus.DONE && after.status != TaskStatus.SKIPPED &&
+            CreatorWorkflowEngine.stageIndex(after) > CreatorWorkflowEngine.stageIndex(before) &&
+            !after.reminderEnabled
 
     /**
      * Alpha19 Voice/Alarm screens accidentally marked a pulse-managed project DONE without
@@ -231,37 +346,6 @@ object ProjectPulseEngine {
         return refreshManagedReminder(restored, nowMillis)
     }
 
-    fun completeCurrentStep(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): CreatorTask {
-        if (task.status == TaskStatus.DONE || task.status == TaskStatus.SKIPPED) return task
-        val template = CreatorWorkflowEngine.templateFor(task)
-        val current = CreatorWorkflowEngine.stageIndex(task)
-        if (current >= template.stages.lastIndex) {
-            return task.copy(
-                status = TaskStatus.DONE,
-                progress = 100,
-                workflowStageIndex = template.stages.lastIndex,
-                reminderEnabled = false,
-                reminderAtMillis = 0L,
-                reminderMode = ReminderMode.NONE,
-                smartEscalationEnabled = false,
-                voiceEnabled = false,
-                pulseManagedReminder = false,
-                checkpointStageId = "",
-                checkpointAtMillis = 0L,
-                workingUntilMillis = 0L,
-                completedAtMillis = task.completedAtMillis.takeIf { it > 0L } ?: nowMillis,
-            )
-        }
-        val next = current + 1
-        val advanced = task.copy(
-            status = TaskStatus.WORKING,
-            workflowStageIndex = next,
-            progress = CreatorWorkflowEngine.progressForStage(next, template.stages.size),
-            workingUntilMillis = 0L,
-        )
-        return if (advanced.pulseManagedReminder) refreshManagedReminder(advanced, nowMillis) else advanced
-    }
-
     fun state(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): ProjectPulseState {
         if (task.status == TaskStatus.DONE) return ProjectPulseState.COMPLETE
         val due = task.dueAtMillis
@@ -277,7 +361,7 @@ object ProjectPulseEngine {
     }
 
     fun stateLabel(state: ProjectPulseState): String = when (state) {
-        ProjectPulseState.COMPLETE -> "PUBLISHED"
+        ProjectPulseState.COMPLETE -> "COMPLETE"
         ProjectPulseState.OVERDUE -> "OVERDUE"
         ProjectPulseState.NEEDS_ATTENTION -> "NEEDS ATTENTION"
         ProjectPulseState.AT_RISK -> "AT RISK"
@@ -294,12 +378,91 @@ object ProjectPulseEngine {
     }
 
     fun planDescription(plan: ProjectAttentionPlan): String = when (plan) {
-        ProjectAttentionPlan.OFF -> "No automatic check-ins."
-        ProjectAttentionPlan.LIGHT -> "One gentle check before publish."
-        ProjectAttentionPlan.GUIDED -> "Stage-aware check-ins that move with the project."
-        ProjectAttentionPlan.URGENT -> "Closer protection with escalation when the deadline is at risk."
-        ProjectAttentionPlan.CUSTOM -> "Choose an exact reminder time and delivery method."
+        ProjectAttentionPlan.OFF -> "No automatic stage check-ins."
+        ProjectAttentionPlan.LIGHT -> "Quiet stage-aware check-ins with long follow-up gaps."
+        ProjectAttentionPlan.GUIDED -> "Recommended · follows every stage until you confirm it is done."
+        ProjectAttentionPlan.URGENT -> "Closer stage follow-up with stronger delivery near the deadline."
+        ProjectAttentionPlan.CUSTOM -> "Choose the first check-in and delivery; after Stage Done, choose the next stage time."
     }
+
+    fun followUpDelayMillis(plan: ProjectAttentionPlan, response: ProjectPulseResponse): Long {
+        val minutes = when (plan) {
+            ProjectAttentionPlan.LIGHT -> when (response) {
+                ProjectPulseResponse.WORKING -> 240
+                ProjectPulseResponse.DISMISSED -> 360
+                ProjectPulseResponse.PAUSED -> 240
+                else -> 120
+            }
+            ProjectAttentionPlan.GUIDED -> when (response) {
+                ProjectPulseResponse.WORKING -> 90
+                ProjectPulseResponse.DISMISSED -> 180
+                ProjectPulseResponse.PAUSED -> 120
+                else -> 60
+            }
+            ProjectAttentionPlan.URGENT -> when (response) {
+                ProjectPulseResponse.WORKING -> 30
+                ProjectPulseResponse.DISMISSED -> 45
+                ProjectPulseResponse.PAUSED -> 60
+                else -> 30
+            }
+            ProjectAttentionPlan.CUSTOM -> when (response) {
+                ProjectPulseResponse.WORKING -> 60
+                ProjectPulseResponse.DISMISSED -> 120
+                ProjectPulseResponse.PAUSED -> 120
+                else -> 60
+            }
+            ProjectAttentionPlan.OFF -> 0
+        }
+        return minutes * PULSE_MINUTE
+    }
+
+    private fun scheduleFollowUp(task: CreatorTask, response: ProjectPulseResponse, nowMillis: Long): CreatorTask {
+        val delay = followUpDelayMillis(task.attentionPlan, response)
+        if (delay <= 0L) return clearReminder(task)
+        return scheduleAt(task.copy(workingUntilMillis = 0L), boundedFollowUpAt(task, nowMillis, delay), nowMillis)
+    }
+
+    private fun boundedFollowUpAt(task: CreatorTask, nowMillis: Long, delayMillis: Long): Long {
+        val candidate = nowMillis + delayMillis.coerceAtLeast(PULSE_MINUTE)
+        val due = task.dueAtMillis
+        if (due <= nowMillis) return candidate
+        return candidate.coerceAtMost(due).coerceAtLeast(nowMillis + minOf(PULSE_MINUTE, due - nowMillis))
+    }
+
+    private fun scheduleAt(task: CreatorTask, requestedAtMillis: Long, nowMillis: Long): CreatorTask {
+        if (task.attentionPlan == ProjectAttentionPlan.OFF || requestedAtMillis <= nowMillis) return clearReminder(task)
+        val stage = CreatorWorkflowEngine.currentStage(task)
+        val at = if (task.dueAtMillis > nowMillis) requestedAtMillis.coerceAtMost(task.dueAtMillis) else requestedAtMillis
+        if (at <= nowMillis) return clearReminder(task)
+        val state = state(task, nowMillis)
+        val mode = if (task.attentionPlan == ProjectAttentionPlan.CUSTOM) {
+            task.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE
+        } else deliveryMode(task.attentionPlan, state, at, nowMillis)
+        return task.copy(
+            pulseManagedReminder = true,
+            reminderEnabled = true,
+            reminderAtMillis = at,
+            reminderMode = mode,
+            alertType = if (mode == ReminderMode.ALARM || mode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION,
+            voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,
+            smartEscalationEnabled = mode == ReminderMode.SMART,
+            checkpointStageId = stage.id,
+            checkpointAtMillis = at,
+            acknowledgedCheckpointStageId = "",
+            acknowledgedCheckpointDueAtMillis = 0L,
+        )
+    }
+
+    private fun clearReminder(task: CreatorTask): CreatorTask = task.copy(
+        reminderEnabled = false,
+        reminderAtMillis = 0L,
+        reminderMode = ReminderMode.NONE,
+        smartEscalationEnabled = false,
+        voiceEnabled = false,
+        checkpointStageId = "",
+        checkpointAtMillis = 0L,
+        snoozeCount = 0,
+    )
 
     private fun deliveryMode(
         plan: ProjectAttentionPlan,
@@ -326,7 +489,7 @@ object ProjectPulseEngine {
         return when (state) {
             ProjectPulseState.COMPLETE -> "Project finished"
             ProjectPulseState.OVERDUE -> "Publish time passed · ${stage.label} is still active"
-            ProjectPulseState.NEEDS_ATTENTION -> "${stage.label} checkpoint passed"
+            ProjectPulseState.NEEDS_ATTENTION -> "${stage.label} check-in is due"
             ProjectPulseState.AT_RISK -> if (remaining > 0L) "Deadline is getting close for ${stage.label}" else "${stage.label} needs attention"
             ProjectPulseState.ON_TRACK -> "${stage.label} is the current step"
             ProjectPulseState.CALM -> "No interruption needed yet"
