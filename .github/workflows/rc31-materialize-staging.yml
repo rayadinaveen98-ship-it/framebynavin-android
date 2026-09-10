@@ -1,0 +1,114 @@
+name: RC3.1 Materialize Staging
+
+on:
+  push:
+    branches: ["release/v1.9.0-rc3-project-pulse"]
+    paths: [".github/workflows/rc31-materialize-staging.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply reviewed RC3.1 patch exactly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          lines = Path('.github/workflows/rc3-device-feedback-patch-v4.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(lines) if line.strip() == "python - <<'PY'")
+          end = next(i for i in range(start + 1, len(lines)) if lines[i].strip() == 'PY')
+          recipe = textwrap.dedent('\n'.join(lines[start + 1:end]))
+          marker = '# CreatorTask: separate user-selected delivery intent from runtime reminder mode.'
+          _, body = recipe.split(marker, 1)
+          header = '\n'.join([
+              'from pathlib import Path', '',
+              'def once(path, old, new):',
+              '    p=Path(path); text=p.read_text(); n=text.count(old)',
+              '    if n == 0:',
+              '        if new in text: return',
+              '        print(f"WARN skipped: {path}"); return',
+              '    p.write_text(text.replace(old, new, 1))', '',
+              'def count_replace(path, old, new, expected):',
+              '    p=Path(path); text=p.read_text(); n=text.count(old)',
+              '    if n == 0:',
+              '        if new in text: return',
+              '        print(f"WARN skipped: {path}"); return',
+              '    p.write_text(text.replace(old, new))', '',
+          ])
+          exec(compile(header + '\n' + marker + body, '<rc3.1-recipe>', 'exec'))
+
+          p = Path('app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt')
+          text = p.read_text()
+          if 'Text("REPLAY"' not in text or 'Text("CHOOSE TIME"' not in text:
+              working = text.index('Text("I\'M WORKING ON IT"')
+              start_row = text.index('            Row(Modifier.fillMaxWidth()', working)
+              dismiss = text.index('            TextButton(onClick = onDismiss)', start_row)
+              rows = '\n'.join([
+                  '            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {',
+                  '                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {',
+                  '                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("REPLAY", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)',
+                  '                }',
+                  '                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {',
+                  '                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("SNOOZE ${snoozeMinutes}M", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)',
+                  '                }',
+                  '            }',
+                  '            Spacer(Modifier.height(8.dp))',
+                  '            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {',
+                  '                if (stageCheckIn) {',
+                  '                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {',
+                  '                        Icon(Icons.Outlined.PauseCircle, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("PAUSE 2H", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)',
+                  '                    }',
+                  '                }',
+                  '                OutlinedButton(onClick = onReschedule, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, MutedGold.copy(alpha = .6f)), shape = RoundedCornerShape(15.dp)) {',
+                  '                    Text("CHOOSE TIME", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)',
+                  '                }',
+                  '            }',
+                  '            Spacer(Modifier.height(6.dp))', '',
+              ])
+              p.write_text(text[:start_row] + rows + text[dismiss:])
+          PY
+          git diff --check
+          grep -Fq 'enum class ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt
+          grep -Fq 'private fun resolvedDeliveryMode' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
+          grep -Fq 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+          grep -Fq 'Text("REPLAY"' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -Fq 'Text("CHOOSE TIME"' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -Fq 'versionCode = 83' app/build.gradle.kts
+          grep -Fq 'versionName = "1.9.0-content-project-rc3.1"' app/build.gradle.kts
+
+      - name: Validate materialized source
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Commit validated RC3.1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app
+          git diff --cached --check
+          git diff --cached --quiet && { echo "No validated RC3.1 app changes staged" >&2; exit 1; }
+          git commit -m "fix(v1.9): materialize validated RC3.1 reminder delivery UX"
+
+      - name: Push validated commit to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:refs/heads/staging/v1.9.0-rc3.1-materialized
