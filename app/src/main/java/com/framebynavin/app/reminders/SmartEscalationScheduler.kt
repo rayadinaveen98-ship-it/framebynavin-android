@@ -138,10 +138,9 @@ class SmartEscalationScheduler(private val context: Context) {
         cancelPending(task.id, clearSession = false)
         val now = System.currentTimeMillis()
         if (!isSmartEnabled(task) || task.reminderAtMillis <= now || resumeAtMillis <= now) return
-        val bounded = resumeAtMillis.coerceAtMost(task.reminderAtMillis)
-        val scheduledStage = if (resumeAtMillis > task.reminderAtMillis) finalStage(task.priority) else stage
-        sessions.markSnoozed(task.id, scheduledStage, bounded)
-        scheduleStage(task, scheduledStage, bounded)
+        val bounded = SmartTargetBoundary.bound(task.priority, stage, resumeAtMillis, task.reminderAtMillis) ?: return
+        sessions.markSnoozed(task.id, bounded.stage, bounded.atMillis)
+        scheduleStage(task, bounded.stage, bounded.atMillis)
     }
 
     fun activeStage(taskId: String): Stage? {
@@ -177,21 +176,12 @@ class SmartEscalationScheduler(private val context: Context) {
     private fun isTargetBeforePublish(task: CreatorTask): Boolean =
         task.dueAtMillis <= 0L || task.reminderAtMillis <= task.dueAtMillis
 
-    private fun finalStage(priority: TaskPriority): Stage = when (priority) {
-        TaskPriority.NORMAL -> Stage.SOFT
-        TaskPriority.IMPORTANT -> Stage.ALARM
-        TaskPriority.CRITICAL -> Stage.CRITICAL
-    }
-
     private fun scheduleBounded(task: CreatorTask, preferredStage: Stage, candidateAtMillis: Long) {
         val now = System.currentTimeMillis()
         val target = task.reminderAtMillis
         if (target <= now) return
-        if (candidateAtMillis <= target) {
-            scheduleStage(task, preferredStage, candidateAtMillis)
-        } else {
-            scheduleStage(task, finalStage(task.priority), target)
-        }
+        val bounded = SmartTargetBoundary.bound(task.priority, preferredStage, candidateAtMillis, target) ?: return
+        scheduleStage(task, bounded.stage, bounded.atMillis)
     }
 
     private fun cancelPending(taskId: String, clearSession: Boolean) {
