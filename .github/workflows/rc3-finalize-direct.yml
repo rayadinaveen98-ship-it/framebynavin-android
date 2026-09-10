@@ -18,6 +18,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
       - name: Apply RC3.1 source changes from reviewed patch recipe
         shell: bash
         run: |
@@ -165,9 +176,8 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          chmod +x gradlew
           set +e
-          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebugAndroidTest > /tmp/rc3-build.log 2>&1
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest --stacktrace > /tmp/rc3-build.log 2>&1
           rc=$?
           set -e
           tail -n 250 /tmp/rc3-build.log
