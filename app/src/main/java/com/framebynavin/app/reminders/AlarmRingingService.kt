@@ -28,6 +28,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.framebynavin.app.data.CreatorTask
+import com.framebynavin.app.data.ProjectAttentionPlan
 import com.framebynavin.app.data.ReminderAlertType
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
@@ -68,8 +69,6 @@ class AlarmRingingService : Service() {
         val previousToken = currentToken
         if (previous != null && (previous.id != task.id || previousToken != token) &&
             ReminderOccurrenceStore(applicationContext).matches(previous, previousToken)) {
-            // A single Android service can ring only one task at a time. Preserve the displaced
-            // task as an actionable notification rather than silently dropping its reminder.
             runCatching { ReminderNotifications.show(applicationContext, previous,
                 stageLabel = "Another reminder is ringing", occurrenceId = previousToken) }
         }
@@ -284,14 +283,12 @@ class AlarmRingingService : Service() {
             ContextCompat.startForegroundService(context, intent)
         }
 
-        /** Unconditional stop is reserved for explicit global teardown, such as restore. */
         fun stop(context: Context) { context.stopService(Intent(context, AlarmRingingService::class.java)) }
         fun stop(context: Context, taskId: String, occurrenceId: String? = null) {
             Handler(Looper.getMainLooper()).post { activeInstance?.get()?.stopIfCurrent(taskId, occurrenceId) }
         }
         fun notificationId(taskId: String): Int = taskId.hashCode() xor 0x7100
     }
-
 }
 
 internal fun Intent.putTask(task: CreatorTask): Intent =
@@ -317,6 +314,7 @@ internal fun Intent.putTask(task: CreatorTask): Intent =
         .putExtra(ReminderConstants.EXTRA_CHECKPOINT_STAGE, task.checkpointStageId)
         .putExtra(ReminderConstants.EXTRA_CHECKPOINT_AT, task.checkpointAtMillis)
         .putExtra(ReminderConstants.EXTRA_PULSE_MANAGED, task.pulseManagedReminder)
+        .putExtra(ReminderConstants.EXTRA_ATTENTION_PLAN, task.attentionPlan.name)
         .putExtra(ReminderConstants.EXTRA_SCHEDULE_OCCURRENCE, task.scheduleOccurrenceKey)
         .putExtra(ReminderConstants.EXTRA_TASK_STATUS, task.status.name)
         .putExtra(ReminderConstants.EXTRA_ACKNOWLEDGED_STAGE, task.acknowledgedCheckpointStageId)
@@ -336,6 +334,9 @@ internal fun Intent.toTask(): CreatorTask? {
     val persona = runCatching {
         VoicePersona.valueOf(getStringExtra(ReminderConstants.EXTRA_VOICE_PERSONA).orEmpty())
     }.getOrDefault(VoicePersona.WARM)
+    val attentionPlan = runCatching {
+        ProjectAttentionPlan.valueOf(getStringExtra(ReminderConstants.EXTRA_ATTENTION_PLAN).orEmpty())
+    }.getOrDefault(ProjectAttentionPlan.OFF)
 
     return CreatorTask(
         id = taskId,
@@ -350,6 +351,7 @@ internal fun Intent.toTask(): CreatorTask? {
         checkpointStageId = getStringExtra(ReminderConstants.EXTRA_CHECKPOINT_STAGE).orEmpty(),
         checkpointAtMillis = getLongExtra(ReminderConstants.EXTRA_CHECKPOINT_AT, 0L),
         pulseManagedReminder = getBooleanExtra(ReminderConstants.EXTRA_PULSE_MANAGED, false),
+        attentionPlan = attentionPlan,
         scheduleOccurrenceKey = getStringExtra(ReminderConstants.EXTRA_SCHEDULE_OCCURRENCE).orEmpty(),
         acknowledgedCheckpointStageId = getStringExtra(ReminderConstants.EXTRA_ACKNOWLEDGED_STAGE).orEmpty(),
         acknowledgedCheckpointDueAtMillis = getLongExtra(ReminderConstants.EXTRA_ACKNOWLEDGED_DUE_AT, 0L),
