@@ -23,9 +23,28 @@ object CreatorPublishWorkflow {
         }
     }
 
-    fun ensureGate(deliverable: CreatorDeliverable): CreatorDeliverable =
-        if (deliverable.publishGate.isNotEmpty()) deliverable
+    fun ensureGate(deliverable: CreatorDeliverable): CreatorDeliverable {
+        var normalized = if (deliverable.publishGate.isNotEmpty()) deliverable
         else deliverable.copy(publishGate = defaultGate(deliverable.platform, deliverable.format))
+        if (
+            normalized.status == CreatorDeliverableStatus.PUBLISHED &&
+            normalized.publishedAtMillis > 0L &&
+            normalized.publicationHistory.isEmpty()
+        ) {
+            normalized = normalized.copy(
+                publicationHistory = listOf(
+                    snapshot(
+                        deliverable = normalized,
+                        kind = CreatorPublicationEventKind.PUBLISHED,
+                        atMillis = normalized.publishedAtMillis,
+                        url = normalized.publishedUrl,
+                        note = "Imported from pre-Alpha5 publication state",
+                    )
+                )
+            )
+        }
+        return normalized
+    }
 
     fun unresolvedRequired(deliverable: CreatorDeliverable): List<CreatorPublishGateItem> =
         ensureGate(deliverable).publishGate.filter {
@@ -42,6 +61,19 @@ object CreatorPublishWorkflow {
 
     fun validPublicationUrl(url: String): Boolean =
         url.isBlank() || url.trim().startsWith("https://", ignoreCase = true)
+
+    fun hasUnrecordedPublishedChanges(deliverable: CreatorDeliverable): Boolean {
+        val normalized = ensureGate(deliverable)
+        if (normalized.status != CreatorDeliverableStatus.PUBLISHED) return false
+        val latest = normalized.publicationHistory.lastOrNull {
+            it.kind == CreatorPublicationEventKind.PUBLISHED || it.kind == CreatorPublicationEventKind.UPDATED
+        } ?: return true
+        return latest.titleSnapshot != normalized.title.trim() ||
+            latest.thumbnailSnapshot != normalized.thumbnailConcept.trim() ||
+            latest.descriptionSnapshot != normalized.description.trimEnd() ||
+            latest.tagsSnapshot != normalized.tags.trim() ||
+            latest.url != normalized.publishedUrl.trim()
+    }
 
     fun publish(
         deliverable: CreatorDeliverable,
