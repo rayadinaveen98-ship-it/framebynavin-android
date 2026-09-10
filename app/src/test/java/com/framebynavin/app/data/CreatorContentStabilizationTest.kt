@@ -110,7 +110,13 @@ class CreatorContentStabilizationTest {
             publishedAtMillis = 5_000L,
             publishedUrl = "https://example.com/short",
         )
-        val task = CreatorTask(id = "p1", title = "Project")
+        val task = CreatorTask(
+            id = "p1",
+            title = "Project",
+            platform = "YouTube",
+            contentType = "Long-form",
+            dueLabel = "Today",
+        )
         val workspace = CreatorContentWorkspace(deliverables = listOf(later, earlier, derivative))
 
         val synced = CreatorContentStabilization.syncParentPublication(task, workspace)
