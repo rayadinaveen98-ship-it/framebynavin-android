@@ -269,6 +269,22 @@ class TaskStore(private val context: Context) {
                 .put("label", reference.label)
                 .put("url", reference.url))
         }
+        val checklist = JSONArray()
+        workspace.checklist.forEach { item ->
+            checklist.put(JSONObject()
+                .put("id", item.id)
+                .put("title", item.title)
+                .put("status", item.status.name))
+        }
+        val assets = JSONArray()
+        workspace.assets.forEach { asset ->
+            assets.put(JSONObject()
+                .put("id", asset.id)
+                .put("label", asset.label)
+                .put("location", asset.location)
+                .put("kind", asset.kind.name)
+                .put("notes", asset.notes))
+        }
         val deliverables = JSONArray()
         workspace.deliverables.forEach { deliverable ->
             deliverables.put(JSONObject()
@@ -277,6 +293,11 @@ class TaskStore(private val context: Context) {
                 .put("format", deliverable.format)
                 .put("title", deliverable.title)
                 .put("status", deliverable.status.name)
+                .put("deadlineLabel", deliverable.deadlineLabel)
+                .put("description", deliverable.description)
+                .put("tags", deliverable.tags)
+                .put("thumbnailConcept", deliverable.thumbnailConcept)
+                .put("parentDeliverableId", deliverable.parentDeliverableId)
                 .put("publishedAtMillis", deliverable.publishedAtMillis)
                 .put("publishedUrl", deliverable.publishedUrl))
         }
@@ -289,7 +310,10 @@ class TaskStore(private val context: Context) {
             .put("hook", workspace.hook)
             .put("script", workspace.script)
             .put("references", references)
+            .put("checklist", checklist)
+            .put("assets", assets)
             .put("deliverables", deliverables)
+            .put("learnings", workspace.learnings)
     }
 
     private fun decodeWorkspace(item: JSONObject?): CreatorContentWorkspace {
@@ -302,6 +326,40 @@ class TaskStore(private val context: Context) {
                 val url = reference.optString("url").trim()
                 if (id.isBlank() || url.isBlank()) continue
                 add(CreatorProjectReference(id = id, label = reference.optString("label").trim(), url = url))
+            }
+        }
+        val checklist = item.optJSONArray("checklist") ?: JSONArray()
+        val decodedChecklist = buildList {
+            for (i in 0 until checklist.length()) {
+                val entry = checklist.optJSONObject(i) ?: continue
+                val id = entry.optString("id").trim()
+                val title = entry.optString("title").trim()
+                if (id.isBlank() || title.isBlank()) continue
+                add(CreatorChecklistItem(
+                    id = id,
+                    title = title,
+                    status = runCatching {
+                        CreatorChecklistStatus.valueOf(entry.optString("status", CreatorChecklistStatus.TODO.name))
+                    }.getOrDefault(CreatorChecklistStatus.TODO),
+                ))
+            }
+        }
+        val assets = item.optJSONArray("assets") ?: JSONArray()
+        val decodedAssets = buildList {
+            for (i in 0 until assets.length()) {
+                val asset = assets.optJSONObject(i) ?: continue
+                val id = asset.optString("id").trim()
+                val location = asset.optString("location").trim()
+                if (id.isBlank() || location.isBlank()) continue
+                add(CreatorProjectAsset(
+                    id = id,
+                    label = asset.optString("label").trim(),
+                    location = location,
+                    kind = runCatching {
+                        CreatorAssetKind.valueOf(asset.optString("kind", CreatorAssetKind.OTHER.name))
+                    }.getOrDefault(CreatorAssetKind.OTHER),
+                    notes = asset.optString("notes").trim(),
+                ))
             }
         }
         val deliverables = item.optJSONArray("deliverables") ?: JSONArray()
@@ -317,8 +375,14 @@ class TaskStore(private val context: Context) {
                     platform = platform,
                     format = format,
                     title = deliverable.optString("title").trim(),
-                    status = runCatching { CreatorDeliverableStatus.valueOf(deliverable.optString("status", CreatorDeliverableStatus.PLANNED.name)) }
-                        .getOrDefault(CreatorDeliverableStatus.PLANNED),
+                    status = runCatching {
+                        CreatorDeliverableStatus.valueOf(deliverable.optString("status", CreatorDeliverableStatus.PLANNED.name))
+                    }.getOrDefault(CreatorDeliverableStatus.PLANNED),
+                    deadlineLabel = deliverable.optString("deadlineLabel").trim(),
+                    description = deliverable.optString("description").trim(),
+                    tags = deliverable.optString("tags").trim(),
+                    thumbnailConcept = deliverable.optString("thumbnailConcept").trim(),
+                    parentDeliverableId = deliverable.optString("parentDeliverableId").trim(),
                     publishedAtMillis = deliverable.optLong("publishedAtMillis", 0L),
                     publishedUrl = deliverable.optString("publishedUrl").trim(),
                 ))
@@ -333,7 +397,10 @@ class TaskStore(private val context: Context) {
             hook = item.optString("hook").trim(),
             script = item.optString("script"),
             references = decodedReferences,
+            checklist = decodedChecklist,
+            assets = decodedAssets,
             deliverables = decodedDeliverables,
+            learnings = item.optString("learnings"),
         )
     }
 }
