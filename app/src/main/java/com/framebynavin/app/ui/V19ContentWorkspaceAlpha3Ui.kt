@@ -49,14 +49,15 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     var viewerProblem by remember(task.id, originalRevision) { mutableStateOf(task.workspace.viewerProblem) }
     var promise by remember(task.id, originalRevision) { mutableStateOf(task.workspace.promise) }
     var angle by remember(task.id, originalRevision) { mutableStateOf(task.workspace.angle) }
-    var hook by remember(task.id, originalRevision) { mutableStateOf(task.workspace.hook) }
-    var script by remember(task.id, originalRevision) { mutableStateOf(task.workspace.script) }
+    val hook = task.workspace.hook
+    val script = task.workspace.script
     var references by remember(task.id, originalRevision) { mutableStateOf(task.workspace.references) }
     var checklist by remember(task.id, originalRevision) { mutableStateOf(task.workspace.checklist) }
     var assets by remember(task.id, originalRevision) { mutableStateOf(task.workspace.assets) }
     var deliverables by remember(task.id, originalRevision) { mutableStateOf(task.workspace.deliverables) }
     var learnings by remember(task.id, originalRevision) { mutableStateOf(task.workspace.learnings) }
     var appliedTemplate by remember { mutableStateOf("") }
+    var assetError by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
 
     fun draft() = CreatorContentWorkspace(
         revision = originalRevision,
@@ -71,6 +72,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         assets = assets,
         deliverables = deliverables,
         learnings = learnings,
+        scriptStudio = task.workspace.scriptStudio,
     )
 
     fun moveChecklist(index: Int, delta: Int) {
@@ -103,28 +105,34 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
 
     val assetPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            runCatching {
+            val persisted = runCatching {
                 context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            val mime = context.contentResolver.getType(uri).orEmpty()
-            val label = runCatching {
-                context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                true
+            }.getOrDefault(false)
+            if (!persisted) {
+                assetError = "This file provider did not grant durable read access. Choose the file from another provider so the project does not keep a broken asset link."
+            } else {
+                assetError = null
+                val mime = context.contentResolver.getType(uri).orEmpty()
+                val label = runCatching {
+                    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) cursor.getString(0) else null
+                    }
+                }.getOrNull().orEmpty().ifBlank { uri.lastPathSegment.orEmpty().ifBlank { "Picked asset" } }
+                val kind = when {
+                    mime.startsWith("image/") -> CreatorAssetKind.IMAGE
+                    mime.startsWith("video/") -> CreatorAssetKind.VIDEO
+                    mime.startsWith("audio/") -> CreatorAssetKind.AUDIO
+                    mime.isNotBlank() -> CreatorAssetKind.DOCUMENT
+                    else -> CreatorAssetKind.OTHER
                 }
-            }.getOrNull().orEmpty().ifBlank { uri.lastPathSegment.orEmpty().ifBlank { "Picked asset" } }
-            val kind = when {
-                mime.startsWith("image/") -> CreatorAssetKind.IMAGE
-                mime.startsWith("video/") -> CreatorAssetKind.VIDEO
-                mime.startsWith("audio/") -> CreatorAssetKind.AUDIO
-                mime.isNotBlank() -> CreatorAssetKind.DOCUMENT
-                else -> CreatorAssetKind.OTHER
+                assets = assets + CreatorProjectAsset(
+                    id = UUID.randomUUID().toString(),
+                    label = label,
+                    location = uri.toString(),
+                    kind = kind,
+                )
             }
-            assets = assets + CreatorProjectAsset(
-                id = UUID.randomUUID().toString(),
-                label = label,
-                location = uri.toString(),
-                kind = kind,
-            )
         }
     }
 
@@ -137,7 +145,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 ) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("CONTENT PROJECT 2.0 · ALPHA 3", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text("CONTENT PROJECT 2.0 · RC2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("R$originalRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -179,9 +187,10 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             A3Field("ANGLE", angle, { angle = it }, "Why is your take different?")
                         }
                         Alpha3Section.SCRIPT -> {
-                            A3Title("SCRIPT", "Keep the hook and narrative together.")
-                            A3Field("HOOK", hook, { hook = it }, "Opening line, visual or question", 2)
-                            A3Field("SCRIPT / OUTLINE", script, { script = it }, "Narration, beats, shot notes…", 12)
+                            A3Title("SCRIPT", "Script Studio is the single writing source of truth. Edit hooks, beats and narration there so structured and compiled script versions never diverge.")
+                            A3ReadOnly("CURRENT HOOK", hook.ifBlank { "No hook saved yet." })
+                            Spacer(Modifier.height(10.dp))
+                            A3ReadOnly("COMPILED SCRIPT", script.ifBlank { "No structured script saved yet. Open Script Studio from the workspace hub." })
                         }
                         Alpha3Section.RESEARCH -> {
                             A3Title("RESEARCH", "Sources stay attached to the project.")
@@ -198,9 +207,13 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             if (references.isEmpty()) A3Empty("No research sources yet.")
                         }
                         Alpha3Section.ASSETS -> {
-                            A3Title("ASSETS", "Pick real files from Android. Only their content URI/reference is stored.")
+                            A3Title("ASSETS", "Pick real files from Android. Only durable content URI references are stored; media bytes are never copied into the project JSON.")
                             Button(onClick = { assetPicker.launch(arrayOf("image/*", "video/*", "audio/*", "application/pdf", "text/*")) }) {
                                 Icon(Icons.Outlined.AttachFile, null); Spacer(Modifier.width(5.dp)); Text("PICK FROM DEVICE")
+                            }
+                            assetError?.let {
+                                Spacer(Modifier.height(8.dp))
+                                Text(it, color = RecRed, fontSize = 8.5.sp)
                             }
                             Spacer(Modifier.height(10.dp))
                             assets.forEach { asset ->
@@ -212,7 +225,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             if (assets.isEmpty()) A3Empty("No assets linked yet.")
                         }
                         Alpha3Section.PRODUCTION -> {
-                            A3Title("PRODUCTION", "Order the actual steps. Progress comes from these states.")
+                            A3Title("PRODUCTION CHECKLIST", "Flexible supporting steps for this content project. The main project workflow remains authoritative for stage progress, Project Pulse and reminders.")
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(onClick = { checklist = checklist + CreatorChecklistItem(id = UUID.randomUUID().toString(), title = "New step") }) { Text("ADD STEP") }
                                 OutlinedButton(onClick = {
@@ -234,10 +247,10 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                                 )
                                 Spacer(Modifier.height(7.dp))
                             }
-                            if (checklist.isEmpty()) A3Empty("No production workflow yet. Apply a template from Overview.")
+                            if (checklist.isEmpty()) A3Empty("No supporting production checklist yet. Apply a template from Overview.")
                         }
                         Alpha3Section.DELIVERABLES -> {
-                            A3Title("DELIVERABLES", "Plan and publish each output independently.")
+                            A3Title("DELIVERABLES", "Plan outputs and derivatives here. Readiness, publication, live links and publication history are controlled only in Publish Studio.")
                             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                 OutlinedButton(onClick = { addDeliverable("YouTube", "Long video") }) { Text("+ YT") }
                                 OutlinedButton(onClick = { addDeliverable("Instagram", "Reel") }) { Text("+ IG") }
@@ -255,7 +268,10 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                                     onDown = { moveDeliverable(index, 1) },
                                     onChange = { changed -> deliverables = deliverables.map { if (it.id == changed.id) changed else it } },
                                     onDerivative = { addDeliverable(if (d.platform.equals("Instagram", true)) "YouTube" else "Instagram", if (d.platform.equals("Instagram", true)) "Short" else "Reel", d.id) },
-                                    onRemove = { deliverables = deliverables.filterNot { it.id == d.id || it.parentDeliverableId == d.id } },
+                                    onRemove = {
+                                        val removed = CreatorContentStabilization.descendantIds(deliverables, setOf(d.id))
+                                        deliverables = deliverables.filterNot { it.id in removed }
+                                    },
                                 )
                                 Spacer(Modifier.height(8.dp))
                             }
@@ -289,17 +305,17 @@ private fun Alpha3Overview(
     onJump: (Alpha3Section) -> Unit,
 ) {
     val progress = workspace.productionProgressPercent()
-    val next = workspace.nextProductionStep()?.title ?: "No production step queued"
+    val next = workspace.nextProductionStep()?.title ?: "No checklist step queued"
     val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
     val pending = workspace.deliverables.size - published
-    A3Title("PROJECT COMMAND CENTER", "See the creative state before opening the details.")
+    A3Title("PROJECT COMMAND CENTER", "Checklist completion is supporting context; main project workflow remains the execution authority.")
     if (appliedTemplate.isNotBlank()) Text("Template merged: $appliedTemplate", color = SuccessGreen, fontSize = 9.sp)
     Spacer(Modifier.height(8.dp))
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
-            Text("PRODUCTION $progress%", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 12.sp)
+            Text("CHECKLIST $progress%", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 12.sp)
             Spacer(Modifier.height(7.dp)); LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(10.dp)); Text("Next: $next", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp)); Text("Next checklist item: $next", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 A3Metric("Sources", workspace.references.size.toString())
@@ -339,6 +355,15 @@ private fun Alpha3Overview(
 @Composable private fun A3Metric(label: String, value: String) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(value, color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 16.sp); Text(label, color = MutedText, fontSize = 7.5.sp) } }
 @Composable private fun A3Title(title: String, subtitle: String) { Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black); Text(subtitle, color = MutedText, fontSize = 8.7.sp); Spacer(Modifier.height(10.dp)) }
 @Composable private fun A3Empty(text: String) { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) { Text(text, color = MutedText, fontSize = 9.sp, modifier = Modifier.padding(14.dp)) } }
+
+@Composable
+private fun A3ReadOnly(label: String, value: String) {
+    Text(label, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+    Spacer(Modifier.height(4.dp))
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+        Text(value, color = ProjectorIvory, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(13.dp))
+    }
+}
 
 @Composable
 private fun A3Field(label: String, value: String, onChange: (String) -> Unit, placeholder: String, minLines: Int = 1) {
@@ -410,6 +435,7 @@ private fun A3DeliverableCard(
 ) {
     val context = LocalContext.current
     var expanded by remember(deliverable.id) { mutableStateOf(false) }
+    val published = deliverable.status == CreatorDeliverableStatus.PUBLISHED
     val accent = when (deliverable.status) { CreatorDeliverableStatus.PLANNED -> MutedText; CreatorDeliverableStatus.READY -> MutedGold; CreatorDeliverableStatus.PUBLISHED -> SuccessGreen }
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .55f))) {
         Column(Modifier.padding(12.dp)) {
@@ -422,33 +448,42 @@ private fun A3DeliverableCard(
                 Text(deliverable.status.name, color = accent, fontSize = 7.5.sp, fontWeight = FontWeight.Black)
                 IconButton(onClick = { expanded = !expanded }) { Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, "Details") }
             }
-            OutlinedTextField(deliverable.title, { onChange(deliverable.copy(title = it)) }, Modifier.fillMaxWidth(), label = { Text("Title") }, singleLine = true)
+            OutlinedTextField(
+                deliverable.title,
+                { onChange(deliverable.copy(title = it)) },
+                Modifier.fillMaxWidth(),
+                label = { Text("Title") },
+                singleLine = true,
+                enabled = !published,
+            )
             Spacer(Modifier.height(7.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { pickDateTime(context) { label -> onChange(deliverable.copy(deadlineLabel = label)) } }) { Text(if (deliverable.deadlineLabel.isBlank()) "SET TARGET" else "CHANGE TARGET", fontSize = 7.5.sp) }
+                OutlinedButton(onClick = { pickDateTime(context) { label -> onChange(deliverable.copy(deadlineLabel = label)) } }, enabled = !published) { Text(if (deliverable.deadlineLabel.isBlank()) "SET TARGET" else "CHANGE TARGET", fontSize = 7.5.sp) }
                 IconButton(onClick = onUp, enabled = canUp) { Icon(Icons.Outlined.KeyboardArrowUp, "Move up") }
                 IconButton(onClick = onDown, enabled = canDown) { Icon(Icons.Outlined.KeyboardArrowDown, "Move down") }
                 IconButton(onClick = onRemove) { Icon(Icons.Outlined.DeleteOutline, "Remove") }
             }
             Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                when (deliverable.status) {
-                    CreatorDeliverableStatus.PLANNED -> OutlinedButton(onClick = { onChange(deliverable.copy(status = CreatorDeliverableStatus.READY)) }) { Text("READY") }
-                    CreatorDeliverableStatus.READY -> Button(onClick = { onChange(deliverable.copy(status = CreatorDeliverableStatus.PUBLISHED, publishedAtMillis = System.currentTimeMillis())) }, colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)) { Text("PUBLISHED") }
-                    CreatorDeliverableStatus.PUBLISHED -> OutlinedButton(onClick = { onChange(deliverable.copy(status = CreatorDeliverableStatus.READY, publishedAtMillis = 0L)) }) { Text("REOPEN") }
-                }
-                OutlinedButton(onClick = onDerivative) { Text("DERIVE") }
-            }
+            Text(
+                if (published) "Live metadata and reopen actions are locked to Publish Studio so history stays complete."
+                else "Readiness and publication are managed in Publish Studio.",
+                color = if (published) SuccessGreen else MutedGold,
+                fontSize = 8.sp,
+            )
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(onClick = onDerivative) { Text("DERIVE") }
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(deliverable.platform, { onChange(deliverable.copy(platform = it)) }, Modifier.weight(1f), label = { Text("Platform") }, singleLine = true)
-                    OutlinedTextField(deliverable.format, { onChange(deliverable.copy(format = it)) }, Modifier.weight(1f), label = { Text("Format") }, singleLine = true)
+                    OutlinedTextField(deliverable.platform, { onChange(deliverable.copy(platform = it)) }, Modifier.weight(1f), label = { Text("Platform") }, singleLine = true, enabled = !published)
+                    OutlinedTextField(deliverable.format, { onChange(deliverable.copy(format = it)) }, Modifier.weight(1f), label = { Text("Format") }, singleLine = true, enabled = !published)
                 }
-                Spacer(Modifier.height(6.dp)); OutlinedTextField(deliverable.description, { onChange(deliverable.copy(description = it)) }, Modifier.fillMaxWidth(), label = { Text("Caption / description") }, minLines = 3)
-                Spacer(Modifier.height(6.dp)); OutlinedTextField(deliverable.tags, { onChange(deliverable.copy(tags = it)) }, Modifier.fillMaxWidth(), label = { Text("Tags / hashtags") }, minLines = 2)
-                Spacer(Modifier.height(6.dp)); OutlinedTextField(deliverable.thumbnailConcept, { onChange(deliverable.copy(thumbnailConcept = it)) }, Modifier.fillMaxWidth(), label = { Text("Thumbnail / cover concept") }, minLines = 2)
-                Spacer(Modifier.height(6.dp)); OutlinedTextField(deliverable.publishedUrl, { onChange(deliverable.copy(publishedUrl = it)) }, Modifier.fillMaxWidth(), label = { Text("Published URL") }, singleLine = true)
+                Spacer(Modifier.height(6.dp)); OutlinedTextField(deliverable.description, { onChange(deliverable.copy(description = it)) }, Modifier.fillMaxWidth(), label = { Text("Caption / description") }, minLines = 3, enabled = !published)
+                Spacer(Modifier.height(6.dp)); OutlinedTextField(deliverable.tags, { onChange(deliverable.copy(tags = it)) }, Modifier.fillMaxWidth(), label = { Text("Tags / hashtags") }, minLines = 2, enabled = !published)
+                Spacer(Modifier.height(6.dp)); OutlinedTextField(deliverable.thumbnailConcept, { onChange(deliverable.copy(thumbnailConcept = it)) }, Modifier.fillMaxWidth(), label = { Text("Thumbnail / cover concept") }, minLines = 2, enabled = !published)
+                if (deliverable.publishedUrl.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp)); A3ReadOnly("LIVE URL", deliverable.publishedUrl)
+                }
             }
         }
     }
