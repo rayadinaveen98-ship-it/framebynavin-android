@@ -80,11 +80,13 @@ class TaskStore(private val context: Context) {
 
     /**
      * Portable export also folds in the Alpha4/5 sidecar Script Studio when an older project has
-     * not been reopened in Alpha6 yet. This is read-only: export never changes the live project.
+     * not been reopened in Alpha6 yet. Deleted weekly tombstones are intentionally scrubbed and
+     * never receive sidecar content during export.
      */
     suspend fun exportJson(): String {
         val legacyStore = ScriptStudioStore(context)
         val portable = load().map { task ->
+            if (task.archivedAtMillis < 0L) return@map task.copy(workspace = CreatorContentWorkspace())
             if (task.workspace.scriptStudio != null) return@map task
             val legacy = legacyStore.load(task.id, task.workspace.hook, task.workspace.script)
                 .normalized(projectId = task.id)
@@ -120,6 +122,7 @@ class TaskStore(private val context: Context) {
     private fun encode(tasks: List<CreatorTask>): String {
         val array = JSONArray()
         tasks.forEach { task ->
+            val portableWorkspace = if (task.archivedAtMillis < 0L) CreatorContentWorkspace() else task.workspace
             array.put(
                 JSONObject()
                     .put("id", task.id)
@@ -162,7 +165,7 @@ class TaskStore(private val context: Context) {
                     .put("publicationIsLegacy", task.publicationIsLegacy)
                     .put("acknowledgedCheckpointStageId", task.acknowledgedCheckpointStageId)
                     .put("acknowledgedCheckpointDueAtMillis", task.acknowledgedCheckpointDueAtMillis)
-                    .put("workspace", encodeWorkspace(task.workspace))
+                    .put("workspace", encodeWorkspace(portableWorkspace))
             )
         }
         return array.toString()
