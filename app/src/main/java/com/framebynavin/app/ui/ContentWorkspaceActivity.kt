@@ -22,7 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Alpha5WorkspaceMode { HUB, PROJECT, SCRIPT, PUBLISH }
+private enum class Alpha6WorkspaceMode { HUB, PROJECT, SCRIPT, PUBLISH }
 
 class ContentWorkspaceActivity : ComponentActivity() {
     companion object {
@@ -30,10 +30,11 @@ class ContentWorkspaceActivity : ComponentActivity() {
     }
 
     private val store by lazy { TaskStore(applicationContext) }
-    private val scriptStore by lazy { ScriptStudioStore(applicationContext) }
+    /** Alpha4/5 compatibility source only. Alpha6 saves structured scripts inside the project workspace. */
+    private val legacyScriptStore by lazy { ScriptStudioStore(applicationContext) }
     private var task by mutableStateOf<CreatorTask?>(null)
     private var scriptStudio by mutableStateOf<CreatorScriptStudio?>(null)
-    private var mode by mutableStateOf(Alpha5WorkspaceMode.HUB)
+    private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
     private var error by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,7 +51,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             Text(error.orEmpty(), color = Color.LightGray)
                             Spacer(Modifier.height(12.dp))
                             Button(onClick = { load(projectId) }) { Text("RELOAD PROJECT") }
-                            TextButton(onClick = { error = null; mode = Alpha5WorkspaceMode.HUB }) { Text("BACK TO HUB") }
+                            TextButton(onClick = { error = null; mode = Alpha6WorkspaceMode.HUB }) { Text("BACK TO HUB") }
                             TextButton(onClick = { finish() }) { Text("CLOSE") }
                         }
                     }
@@ -59,29 +60,29 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             CircularProgressIndicator()
                         }
                     }
-                    mode == Alpha5WorkspaceMode.HUB -> V19ContentWorkspaceAlpha5Hub(
+                    mode == Alpha6WorkspaceMode.HUB -> V19ContentWorkspaceAlpha5Hub(
                         task = task!!,
                         onDismiss = { finish() },
-                        onOpenProject = { mode = Alpha5WorkspaceMode.PROJECT },
+                        onOpenProject = { mode = Alpha6WorkspaceMode.PROJECT },
                         onOpenScript = { openScriptStudio(task!!) },
-                        onOpenPublish = { mode = Alpha5WorkspaceMode.PUBLISH },
+                        onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
                     )
-                    mode == Alpha5WorkspaceMode.PROJECT -> V19ContentWorkspaceAlpha3Dialog(
+                    mode == Alpha6WorkspaceMode.PROJECT -> V19ContentWorkspaceAlpha3Dialog(
                         task = task!!,
-                        onDismiss = { mode = Alpha5WorkspaceMode.HUB },
+                        onDismiss = { mode = Alpha6WorkspaceMode.HUB },
                         onSave = { id, revision, workspace -> saveProject(id, revision, workspace) },
                     )
-                    mode == Alpha5WorkspaceMode.SCRIPT && scriptStudio != null -> V19ScriptStudioAlpha4Dialog(
+                    mode == Alpha6WorkspaceMode.SCRIPT && scriptStudio != null -> V19ScriptStudioAlpha4Dialog(
                         task = task!!,
                         studio = scriptStudio!!,
-                        onDismiss = { mode = Alpha5WorkspaceMode.HUB },
+                        onDismiss = { mode = Alpha6WorkspaceMode.HUB },
                         onSave = { studioRevision, workspaceRevision, draft ->
                             saveScriptStudio(task!!.id, studioRevision, workspaceRevision, draft)
                         },
                     )
-                    mode == Alpha5WorkspaceMode.PUBLISH -> V19PublishStudioAlpha5Dialog(
+                    mode == Alpha6WorkspaceMode.PUBLISH -> V19PublishStudioAlpha5Dialog(
                         task = task!!,
-                        onDismiss = { mode = Alpha5WorkspaceMode.HUB },
+                        onDismiss = { mode = Alpha6WorkspaceMode.HUB },
                         onSave = { id, revision, workspace -> saveProject(id, revision, workspace) },
                     )
                     else -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
@@ -98,17 +99,18 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private fun load(projectId: String) {
         error = null
         scriptStudio = null
-        mode = Alpha5WorkspaceMode.HUB
+        mode = Alpha6WorkspaceMode.HUB
         if (projectId.isBlank()) {
             error = "Project id is missing."
             return
         }
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
-                CreatorDataGate.readyTransaction(applicationContext) {
+                val loaded = CreatorDataGate.readyTransaction(applicationContext) {
                     store.load().firstOrNull { it.id == projectId }
                         ?: error("This project no longer exists.")
                 }
+                migrateLegacyScriptIfNeeded(loaded)
             }
             withContext(Dispatchers.Main) {
                 result.onSuccess { task = it }
@@ -117,17 +119,41 @@ class ContentWorkspaceActivity : ComponentActivity() {
         }
     }
 
+    /** One-way Alpha4/5 migration. Existing sidecar data is never allowed to overwrite an embedded Alpha6 script. */
+    private suspend fun migrateLegacyScriptIfNeeded(project: CreatorTask): CreatorTask {
+        if (project.workspace.scriptStudio != null) return project
+        val legacy = legacyScriptStore.load(
+            projectId = project.id,
+            legacyHook = project.workspace.hook,
+            legacyScript = project.workspace.script,
+        ).normalized(projectId = project.id)
+        if (legacy.isEmpty()) return project
+        val expectedGeneration = CreatorDataGate.generation(applicationContext)
+        return store.updateTask(project.id, expectedGeneration = expectedGeneration) { current ->
+            if (current.workspace.scriptStudio != null) current
+            else current.copy(
+                workspace = current.workspace.copy(
+                    revision = current.workspace.revision + 1L,
+                    hook = current.workspace.hook.ifBlank { legacy.selectedHook() },
+                    script = current.workspace.script.ifBlank { legacy.compiledNarration() },
+                    scriptStudio = legacy,
+                )
+            )
+        } ?: error("This project no longer exists.")
+    }
+
     private fun openScriptStudio(project: CreatorTask) {
         error = null
         scriptStudio = null
-        mode = Alpha5WorkspaceMode.SCRIPT
+        mode = Alpha6WorkspaceMode.SCRIPT
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
-                scriptStore.load(
-                    projectId = project.id,
-                    legacyHook = project.workspace.hook,
-                    legacyScript = project.workspace.script,
-                )
+                project.workspace.scriptStudio?.normalized(projectId = project.id)
+                    ?: legacyScriptStore.load(
+                        projectId = project.id,
+                        legacyHook = project.workspace.hook,
+                        legacyScript = project.workspace.script,
+                    ).normalized(projectId = project.id)
             }
             withContext(Dispatchers.Main) {
                 result.onSuccess { scriptStudio = it }
@@ -140,19 +166,23 @@ class ContentWorkspaceActivity : ComponentActivity() {
         val expectedGeneration = CreatorDataGate.generation(applicationContext)
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
-                CreatorDataGate.readyTransaction(applicationContext) {
-                    store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
-                        check(current.workspace.revision == expectedRevision) {
-                            "This workspace changed while you were editing. Reopen it to keep the newest version."
-                        }
-                        current.copy(workspace = normalizeWorkspace(draft, expectedRevision + 1L))
-                    } ?: error("This project no longer exists.")
-                }
+                store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
+                    check(current.workspace.revision == expectedRevision) {
+                        "This workspace changed while you were editing. Reopen it to keep the newest version."
+                    }
+                    val normalized = normalizeWorkspace(draft, expectedRevision + 1L)
+                    current.copy(
+                        workspace = normalized.copy(
+                            // Alpha3/Alpha5 editors predate the embedded field; never let a normal project/publish save erase it.
+                            scriptStudio = normalized.scriptStudio ?: current.workspace.scriptStudio,
+                        )
+                    )
+                } ?: error("This project no longer exists.")
             }
             withContext(Dispatchers.Main) {
                 result.onSuccess {
                     task = it
-                    mode = Alpha5WorkspaceMode.HUB
+                    mode = Alpha6WorkspaceMode.HUB
                 }.onFailure {
                     error = it.message ?: "Could not save the workspace. Your previous project data was retained."
                 }
@@ -169,33 +199,34 @@ class ContentWorkspaceActivity : ComponentActivity() {
         val expectedGeneration = CreatorDataGate.generation(applicationContext)
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
-                val savedStudio = scriptStore.save(
+                val savedStudio = draft.normalized(
                     projectId = projectId,
-                    expectedRevision = expectedStudioRevision,
-                    expectedGeneration = expectedGeneration,
-                    draft = draft,
+                    revision = expectedStudioRevision + 1L,
                 )
-                val updatedProject = CreatorDataGate.readyTransaction(applicationContext) {
-                    store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
-                        check(current.workspace.revision == expectedWorkspaceRevision) {
-                            "The project changed while Script Studio was open. Your structured script is safe; reopen the project before syncing its summary."
-                        }
-                        current.copy(
-                            workspace = current.workspace.copy(
-                                revision = current.workspace.revision + 1L,
-                                hook = savedStudio.selectedHook(),
-                                script = savedStudio.compiledNarration(),
-                            )
+                val updatedProject = store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
+                    check(current.workspace.revision == expectedWorkspaceRevision) {
+                        "The project changed while Script Studio was open. Reopen it to keep the newest project state."
+                    }
+                    val actualStudioRevision = current.workspace.scriptStudio?.revision ?: 0L
+                    check(actualStudioRevision == expectedStudioRevision) {
+                        "This structured script changed while you were editing. Reopen Script Studio to keep the newest version."
+                    }
+                    current.copy(
+                        workspace = current.workspace.copy(
+                            revision = current.workspace.revision + 1L,
+                            hook = savedStudio.selectedHook(),
+                            script = savedStudio.compiledNarration(),
+                            scriptStudio = savedStudio,
                         )
-                    } ?: error("This project no longer exists.")
-                }
+                    )
+                } ?: error("This project no longer exists.")
                 savedStudio to updatedProject
             }
             withContext(Dispatchers.Main) {
                 result.onSuccess { (saved, updated) ->
                     scriptStudio = saved
                     task = updated
-                    mode = Alpha5WorkspaceMode.HUB
+                    mode = Alpha6WorkspaceMode.HUB
                 }.onFailure {
                     error = it.message ?: "Could not save Script Studio. Existing project data was retained."
                 }
@@ -265,5 +296,6 @@ class ContentWorkspaceActivity : ComponentActivity() {
             .filter { it.platform.isNotBlank() && it.format.isNotBlank() }
             .distinctBy { it.id },
         learnings = draft.learnings.trimEnd(),
+        scriptStudio = draft.scriptStudio?.normalized(),
     )
 }
