@@ -257,12 +257,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             )
         } else {
             when (tab) {
-                PTab.TODAY -> PTodayScreen(
+                PTab.TODAY -> V20TodayCommandCenter(
                     creatorProfile = settings.creatorProfile,
                     tasks = vm.tasks,
                     onAdd = { openComposer() },
+                    onCapture = { showQuickCapture = true },
                     onStart = vm::startTask,
-                    onAdvance = ::advanceWorkflowWithJourney,
                     onViewAllReminders = { showReminders = true },
                     onFocus = { focusTaskId = it },
                     onOpenProject = ::openProject,
