@@ -1,0 +1,122 @@
+name: v2.0 Alpha 1 Today Insets Gate
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1-today"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha1-insets-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  inset-fix:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[v20-inset-done]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply edge-to-edge safe inset
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("app/src/main/java/com/framebynavin/app/ui/V20TodayCommandCenter.kt")
+          text = path.read_text()
+          if 'import androidx.compose.foundation.layout.statusBarsPadding' not in text:
+              anchor = 'import androidx.compose.foundation.layout.size\n'
+              if anchor not in text:
+                  raise SystemExit('layout import anchor missing')
+              text = text.replace(anchor, anchor + 'import androidx.compose.foundation.layout.statusBarsPadding\n', 1)
+          if '.statusBarsPadding()' not in text:
+              anchor = '                .verticalScroll(rememberScrollState())\n                .padding(horizontal = 20.dp)'
+              if anchor not in text:
+                  raise SystemExit('Today column anchor missing')
+              text = text.replace(
+                  anchor,
+                  '                .verticalScroll(rememberScrollState())\n                .statusBarsPadding()\n                .padding(horizontal = 20.dp)',
+                  1,
+              )
+          path.write_text(text)
+          PY
+          git diff --check
+          grep -q 'statusBarsPadding()' app/src/main/java/com/framebynavin/app/ui/V20TodayCommandCenter.kt
+          grep -q 'versionCode = 84' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-today-alpha1"' app/build.gradle.kts
+          grep -q 'PTab.TODAY -> V20TodayCommandCenter(' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+
+      - name: Commit exact inset-safe source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V20TodayCommandCenter.kt
+          git diff --cached --check
+          git -c commit.gpgSign=false commit -m "fix(v2.0) [v20-materialized] [v20-inset-done] keep Today below system bars"
+          git rev-parse HEAD | tee /tmp/alpha1_commit
+
+      - name: Validate full Alpha 1 app
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Create verified APK package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-today-alpha1.apk
+          sha256sum verification/FrameByNavin-v2.0.0-today-alpha1.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-today-alpha1"
+            echo "versionCode=84"
+            echo "commit=$(cat /tmp/alpha1_commit)"
+            echo "todayCommandCenter=true"
+            echo "edgeToEdgeStatusInset=true"
+            echo "priorityAuthority=CreatorPriorityEngine"
+            echo "upNextLimit=3"
+            echo "commandCenterMutatesLifecycle=false"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-today-alpha1-inset-safe-apk
+          path: verification/FrameByNavin-v2.0.0-today-alpha1.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-today-alpha1-inset-safe-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated inset-safe Alpha 1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:develop/v2.0-alpha1-today
