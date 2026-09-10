@@ -2,7 +2,6 @@ package com.framebynavin.app.reminders
 
 import android.app.NotificationManager
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -19,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Snooze
 import androidx.compose.material.icons.outlined.Work
@@ -28,16 +28,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.CreatorOsSettingsStore
+import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
-import com.framebynavin.app.data.ReminderMode
-import com.framebynavin.app.data.TaskStatus
+import com.framebynavin.app.data.ProjectPulseEngine
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
@@ -47,8 +46,6 @@ import kotlinx.coroutines.withContext
 
 class VoiceReminderActivity : ComponentActivity() {
     private val store by lazy { TaskStore(applicationContext) }
-    private val scheduler by lazy { ReminderScheduler(applicationContext) }
-    private val smartScheduler by lazy { SmartEscalationScheduler(applicationContext) }
     private var occurrenceId = ""
     private var taskId = ""
 
@@ -69,10 +66,7 @@ class VoiceReminderActivity : ComponentActivity() {
                 android.view.WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
         )
 
-        val task = intent.toTask() ?: run {
-            finish()
-            return
-        }
+        val task = intent.toTask() ?: run { finish(); return }
         taskId = task.id
         occurrenceId = intent.getStringExtra(ReminderConstants.EXTRA_OCCURRENCE_ID).orEmpty()
         if (!ReminderOccurrenceStore(applicationContext).matches(task, occurrenceId)) {
@@ -82,7 +76,6 @@ class VoiceReminderActivity : ComponentActivity() {
         ReminderSurfaceRegistry.attachVoice(this, taskId, occurrenceId)
         val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
-        // Keep the full-screen UI lifecycle aligned with the TTS service lifecycle.
         lifecycleScope.launch {
             delay(VoiceReminderService.totalWindowMillis(task) + 750L)
             if (!isFinishing && !isDestroyed) {
@@ -101,10 +94,13 @@ class VoiceReminderActivity : ComponentActivity() {
                 VoiceReminderScreen(
                     task = task,
                     snoozeMinutes = snoozeMinutes,
+                    stageCheckIn = ProjectPulseEngine.isStageCheckIn(task),
+                    onStageDone = { dispatchReminderAction(ReminderConstants.ACTION_STAGE_DONE, task.id) },
                     onWorking = { dispatchReminderAction(ReminderConstants.ACTION_STARTED, task.id) },
                     onRepeat = { VoiceReminderService.start(applicationContext, task.copy(voiceRepeatCount = 1), occurrenceId) },
                     onSnooze = { dispatchReminderAction(ReminderConstants.ACTION_SNOOZE, task.id) },
-                    onDone = { dispatchReminderAction(ReminderConstants.ACTION_DONE, task.id) },
+                    onPause = { dispatchReminderAction(ReminderConstants.ACTION_PAUSE, task.id) },
+                    onDismiss = { dispatchReminderAction(ReminderConstants.ACTION_DISMISS, task.id) },
                 )
             }
         }
@@ -124,7 +120,6 @@ class VoiceReminderActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Never silently rebind an older full-screen action to a new occurrence.
         if (intent.getStringExtra(ReminderConstants.EXTRA_OCCURRENCE_ID) != occurrenceId) finishAndRemoveTask()
     }
 
@@ -134,13 +129,11 @@ class VoiceReminderActivity : ComponentActivity() {
     }
 
     private fun dispatchReminderAction(action: String, taskId: String) {
-        sendBroadcast(
-            Intent(this, ReminderActionReceiver::class.java).apply {
-                this.action = action
-                putExtra(ReminderConstants.EXTRA_TASK_ID, taskId)
-                putExtra(ReminderConstants.EXTRA_OCCURRENCE_ID, occurrenceId)
-            }
-        )
+        sendBroadcast(Intent(this, ReminderActionReceiver::class.java).apply {
+            this.action = action
+            putExtra(ReminderConstants.EXTRA_TASK_ID, taskId)
+            putExtra(ReminderConstants.EXTRA_OCCURRENCE_ID, occurrenceId)
+        })
         lifecycleScope.launch { finishVoice() }
     }
 
@@ -152,12 +145,15 @@ class VoiceReminderActivity : ComponentActivity() {
 
 @Composable
 private fun VoiceReminderScreen(
-    task: com.framebynavin.app.data.CreatorTask,
+    task: CreatorTask,
     snoozeMinutes: Int,
+    stageCheckIn: Boolean,
+    onStageDone: () -> Unit,
     onWorking: () -> Unit,
     onRepeat: () -> Unit,
     onSnooze: () -> Unit,
-    onDone: () -> Unit,
+    onPause: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
     BackHandler(enabled = true) { }
     val transition = rememberInfiniteTransition(label = "voice")
@@ -168,12 +164,9 @@ private fun VoiceReminderScreen(
         label = "voicePulse"
     )
     Box(
-        Modifier
-            .fillMaxSize()
+        Modifier.fillMaxSize()
             .background(Brush.radialGradient(listOf(MutedGold.copy(alpha = .10f), CinemaBlack), radius = 900f))
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(24.dp)
+            .statusBarsPadding().navigationBarsPadding().padding(24.dp)
     ) {
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
@@ -187,38 +180,49 @@ private fun VoiceReminderScreen(
                 }
             }
 
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(24.dp))
+            Text(if (stageCheckIn) "STAGE CHECK-IN" else "VOICE REMINDER", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
             Spacer(Modifier.height(4.dp))
             Text(task.title, color = ProjectorIvory, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            if (stageCheckIn) {
+                Spacer(Modifier.height(8.dp))
+                Text("${CreatorWorkflowEngine.currentStage(task).label} · How is this stage going?", color = MutedGold, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            }
             Spacer(Modifier.height(13.dp))
 
-            Surface(shape = RoundedCornerShape(100.dp), color = Color(0xFF17130F), border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f))) {
-                Text(task.dueLabel, color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp))
-            }
-
             if (task.notes.isNotBlank()) {
-                Spacer(Modifier.height(18.dp))
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                     Text(task.notes, color = MutedText, fontSize = 11.sp, lineHeight = 17.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(13.dp))
                 }
+                Spacer(Modifier.height(16.dp))
             }
 
-            Spacer(Modifier.height(31.dp))
-            Button(onClick = onWorking, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(17.dp)) {
+            if (stageCheckIn) {
+                Button(onClick = onStageDone, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen), shape = RoundedCornerShape(17.dp)) {
+                    Icon(Icons.Outlined.Check, null); Spacer(Modifier.width(8.dp)); Text("STAGE DONE", fontWeight = FontWeight.Black)
+                }
+                Spacer(Modifier.height(9.dp))
+            }
+            Button(onClick = onWorking, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(17.dp)) {
                 Icon(Icons.Outlined.Work, null); Spacer(Modifier.width(8.dp)); Text("I'M WORKING ON IT", fontWeight = FontWeight.Black)
             }
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
-                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(5.dp)); Text("REPEAT", color = ProjectorIvory, fontSize = 9.5.sp)
+            Spacer(Modifier.height(9.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("REPEAT", color = ProjectorIvory, fontSize = 9.sp)
                 }
-                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(52.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
-                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(5.dp)); Text("SNOOZE ${snoozeMinutes}m", color = ProjectorIvory, fontSize = 9.5.sp)
+                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("${snoozeMinutes}m", color = ProjectorIvory, fontSize = 9.sp)
+                }
+                if (stageCheckIn) {
+                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                        Icon(Icons.Outlined.PauseCircle, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text("2H", color = ProjectorIvory, fontSize = 9.sp)
+                    }
                 }
             }
-            Spacer(Modifier.height(9.dp))
-            TextButton(onClick = onDone) {
-                Icon(Icons.Outlined.Check, null, tint = SuccessGreen); Spacer(Modifier.width(6.dp)); Text("DISMISS REMINDER", color = SuccessGreen, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            TextButton(onClick = onDismiss) {
+                Text(if (stageCheckIn) "DISMISS FOR NOW" else "DISMISS REMINDER", color = MutedText, fontWeight = FontWeight.Bold)
             }
         }
     }
