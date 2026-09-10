@@ -13,12 +13,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.CreatorContentWorkspace
 import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorScriptStudio
 import com.framebynavin.app.data.CreatorTask
+import com.framebynavin.app.data.ScriptStudioStore
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private enum class Alpha4WorkspaceMode { HUB, PROJECT, SCRIPT }
 
 class ContentWorkspaceActivity : ComponentActivity() {
     companion object {
@@ -26,7 +30,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
     }
 
     private val store by lazy { TaskStore(applicationContext) }
+    private val scriptStore by lazy { ScriptStudioStore(applicationContext) }
     private var task by mutableStateOf<CreatorTask?>(null)
+    private var scriptStudio by mutableStateOf<CreatorScriptStudio?>(null)
+    private var mode by mutableStateOf(Alpha4WorkspaceMode.HUB)
     private var error by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,14 +49,34 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             Spacer(Modifier.height(8.dp))
                             Text(error.orEmpty(), color = Color.LightGray)
                             Spacer(Modifier.height(12.dp))
-                            Button(onClick = { load(projectId) }) { Text("RELOAD") }
+                            Button(onClick = { load(projectId) }) { Text("RELOAD PROJECT") }
+                            TextButton(onClick = { error = null; mode = Alpha4WorkspaceMode.HUB }) { Text("BACK TO HUB") }
                             TextButton(onClick = { finish() }) { Text("CLOSE") }
                         }
                     }
-                    task != null -> V19ContentWorkspaceAlpha3Dialog(
+                    task == null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                    mode == Alpha4WorkspaceMode.HUB -> V19ContentWorkspaceAlpha4Hub(
                         task = task!!,
                         onDismiss = { finish() },
-                        onSave = { id, revision, workspace -> save(id, revision, workspace) },
+                        onOpenProject = { mode = Alpha4WorkspaceMode.PROJECT },
+                        onOpenScript = { openScriptStudio(task!!) },
+                    )
+                    mode == Alpha4WorkspaceMode.PROJECT -> V19ContentWorkspaceAlpha3Dialog(
+                        task = task!!,
+                        onDismiss = { mode = Alpha4WorkspaceMode.HUB },
+                        onSave = { id, revision, workspace -> saveProject(id, revision, workspace) },
+                    )
+                    mode == Alpha4WorkspaceMode.SCRIPT && scriptStudio != null -> V19ScriptStudioAlpha4Dialog(
+                        task = task!!,
+                        studio = scriptStudio!!,
+                        onDismiss = { mode = Alpha4WorkspaceMode.HUB },
+                        onSave = { studioRevision, workspaceRevision, draft ->
+                            saveScriptStudio(task!!.id, studioRevision, workspaceRevision, draft)
+                        },
                     )
                     else -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
                         Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
@@ -64,6 +91,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
 
     private fun load(projectId: String) {
         error = null
+        scriptStudio = null
+        mode = Alpha4WorkspaceMode.HUB
         if (projectId.isBlank()) {
             error = "Project id is missing."
             return
@@ -82,7 +111,26 @@ class ContentWorkspaceActivity : ComponentActivity() {
         }
     }
 
-    private fun save(projectId: String, expectedRevision: Long, draft: CreatorContentWorkspace) {
+    private fun openScriptStudio(project: CreatorTask) {
+        error = null
+        scriptStudio = null
+        mode = Alpha4WorkspaceMode.SCRIPT
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                scriptStore.load(
+                    projectId = project.id,
+                    legacyHook = project.workspace.hook,
+                    legacyScript = project.workspace.script,
+                )
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess { scriptStudio = it }
+                    .onFailure { error = it.message ?: "Could not open Script Studio." }
+            }
+        }
+    }
+
+    private fun saveProject(projectId: String, expectedRevision: Long, draft: CreatorContentWorkspace) {
         val expectedGeneration = CreatorDataGate.generation(applicationContext)
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
@@ -98,9 +146,52 @@ class ContentWorkspaceActivity : ComponentActivity() {
             withContext(Dispatchers.Main) {
                 result.onSuccess {
                     task = it
-                    finish()
+                    mode = Alpha4WorkspaceMode.HUB
                 }.onFailure {
                     error = it.message ?: "Could not save the workspace. Your previous project data was retained."
+                }
+            }
+        }
+    }
+
+    private fun saveScriptStudio(
+        projectId: String,
+        expectedStudioRevision: Long,
+        expectedWorkspaceRevision: Long,
+        draft: CreatorScriptStudio,
+    ) {
+        val expectedGeneration = CreatorDataGate.generation(applicationContext)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val savedStudio = scriptStore.save(
+                    projectId = projectId,
+                    expectedRevision = expectedStudioRevision,
+                    expectedGeneration = expectedGeneration,
+                    draft = draft,
+                )
+                val updatedProject = CreatorDataGate.readyTransaction(applicationContext) {
+                    store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
+                        check(current.workspace.revision == expectedWorkspaceRevision) {
+                            "The project changed while Script Studio was open. Your structured script is safe; reopen the project before syncing its summary."
+                        }
+                        current.copy(
+                            workspace = current.workspace.copy(
+                                revision = current.workspace.revision + 1L,
+                                hook = savedStudio.selectedHook(),
+                                script = savedStudio.compiledNarration(),
+                            )
+                        )
+                    } ?: error("This project no longer exists.")
+                }
+                savedStudio to updatedProject
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess { (saved, updated) ->
+                    scriptStudio = saved
+                    task = updated
+                    mode = Alpha4WorkspaceMode.HUB
+                }.onFailure {
+                    error = it.message ?: "Could not save Script Studio. Existing project data was retained."
                 }
             }
         }
