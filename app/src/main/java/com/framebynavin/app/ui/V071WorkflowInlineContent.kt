@@ -1,5 +1,6 @@
 package com.framebynavin.app.ui
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,6 +68,7 @@ internal fun V071WorkflowInlineContent(
     val progress = CreatorWorkflowEngine.progress(task)
     val currentStep = CreatorWorkflowEngine.currentStage(task)
     val done = task.status == TaskStatus.DONE
+    val context = LocalContext.current
 
     Surface(
         modifier = Modifier
@@ -171,6 +174,26 @@ internal fun V071WorkflowInlineContent(
                     )
                 }
             }
+
+            OutlinedButton(
+                onClick = {
+                    context.startActivity(
+                        Intent(context, ContentWorkspaceActivity::class.java)
+                            .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, task.id)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, RecRed.copy(alpha = .65f)),
+            ) {
+                Text(
+                    if (task.workspace.isEmpty()) "OPEN CONTENT WORKSPACE" else "EDIT CONTENT WORKSPACE",
+                    color = RecRed,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
 
             if (task.publishedAtMillis > 0L || task.publicationIsLegacy || done) {
                 Spacer(Modifier.height(12.dp))
