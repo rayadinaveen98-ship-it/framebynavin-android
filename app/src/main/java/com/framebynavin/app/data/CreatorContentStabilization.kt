@@ -5,8 +5,9 @@ package com.framebynavin.app.data
  *
  * Publish Studio is the only writer of deliverable publication state. Plan & Produce may edit
  * planning metadata, order, checklist and assets, but it cannot publish/reopen an output or
- * overwrite the structured Script Studio. The legacy CreatorTask publication fields are retained
- * only as a derived compatibility summary for the existing rewards/post-publish engines.
+ * overwrite the structured Script Studio. Published metadata is also locked to Publish Studio so
+ * every live edit can be recorded in publication history. The legacy CreatorTask publication
+ * fields are retained only as a derived compatibility summary for rewards/post-publish engines.
  */
 object CreatorContentStabilization {
 
@@ -23,15 +24,15 @@ object CreatorContentStabilization {
             .filterNot { it.id in removedTree }
             .map { candidate ->
                 val existing = currentById[candidate.id]
-                if (existing == null) {
-                    candidate.copy(
+                when {
+                    existing == null -> candidate.copy(
                         status = CreatorDeliverableStatus.PLANNED,
                         publishedAtMillis = 0L,
                         publishedUrl = "",
                         publicationHistory = emptyList(),
                     )
-                } else {
-                    candidate.copy(
+                    existing.status == CreatorDeliverableStatus.PUBLISHED -> existing
+                    else -> candidate.copy(
                         status = existing.status,
                         publishedAtMillis = existing.publishedAtMillis,
                         publishedUrl = existing.publishedUrl,
