@@ -32,6 +32,7 @@ object ReminderConstants {
     const val EXTRA_CHECKPOINT_STAGE = "checkpoint_stage"
     const val EXTRA_CHECKPOINT_AT = "checkpoint_at"
     const val EXTRA_PULSE_MANAGED = "pulse_managed"
+    const val EXTRA_ATTENTION_PLAN = "attention_plan"
     const val EXTRA_SCHEDULE_OCCURRENCE = "schedule_occurrence"
     const val EXTRA_TASK_STATUS = "task_status"
     const val EXTRA_ACKNOWLEDGED_STAGE = "acknowledged_stage"
