@@ -148,6 +148,7 @@ class TaskStore(private val context: Context) {
                     .put("publicationIsLegacy", task.publicationIsLegacy)
                     .put("acknowledgedCheckpointStageId", task.acknowledgedCheckpointStageId)
                     .put("acknowledgedCheckpointDueAtMillis", task.acknowledgedCheckpointDueAtMillis)
+                    .put("workspace", encodeWorkspace(task.workspace))
             )
         }
         return array.toString()
@@ -253,9 +254,86 @@ class TaskStore(private val context: Context) {
                         acknowledgedCheckpointDueAtMillis = item.optLong("acknowledgedCheckpointDueAtMillis", 0L),
                         publicationIsLegacy = item.optBoolean("publicationIsLegacy", false) ||
                             (!item.has("publishedAtMillis") && item.optString("status") == TaskStatus.DONE.name),
+                        workspace = decodeWorkspace(item.optJSONObject("workspace")),
                     )
                 )
             }
         }
+    }
+
+    private fun encodeWorkspace(workspace: CreatorContentWorkspace): JSONObject {
+        val references = JSONArray()
+        workspace.references.forEach { reference ->
+            references.put(JSONObject()
+                .put("id", reference.id)
+                .put("label", reference.label)
+                .put("url", reference.url))
+        }
+        val deliverables = JSONArray()
+        workspace.deliverables.forEach { deliverable ->
+            deliverables.put(JSONObject()
+                .put("id", deliverable.id)
+                .put("platform", deliverable.platform)
+                .put("format", deliverable.format)
+                .put("title", deliverable.title)
+                .put("status", deliverable.status.name)
+                .put("publishedAtMillis", deliverable.publishedAtMillis)
+                .put("publishedUrl", deliverable.publishedUrl))
+        }
+        return JSONObject()
+            .put("revision", workspace.revision)
+            .put("audience", workspace.audience)
+            .put("viewerProblem", workspace.viewerProblem)
+            .put("promise", workspace.promise)
+            .put("angle", workspace.angle)
+            .put("hook", workspace.hook)
+            .put("script", workspace.script)
+            .put("references", references)
+            .put("deliverables", deliverables)
+    }
+
+    private fun decodeWorkspace(item: JSONObject?): CreatorContentWorkspace {
+        if (item == null) return CreatorContentWorkspace()
+        val references = item.optJSONArray("references") ?: JSONArray()
+        val decodedReferences = buildList {
+            for (i in 0 until references.length()) {
+                val reference = references.optJSONObject(i) ?: continue
+                val id = reference.optString("id").trim()
+                val url = reference.optString("url").trim()
+                if (id.isBlank() || url.isBlank()) continue
+                add(CreatorProjectReference(id = id, label = reference.optString("label").trim(), url = url))
+            }
+        }
+        val deliverables = item.optJSONArray("deliverables") ?: JSONArray()
+        val decodedDeliverables = buildList {
+            for (i in 0 until deliverables.length()) {
+                val deliverable = deliverables.optJSONObject(i) ?: continue
+                val id = deliverable.optString("id").trim()
+                val platform = deliverable.optString("platform").trim()
+                val format = deliverable.optString("format").trim()
+                if (id.isBlank() || platform.isBlank() || format.isBlank()) continue
+                add(CreatorDeliverable(
+                    id = id,
+                    platform = platform,
+                    format = format,
+                    title = deliverable.optString("title").trim(),
+                    status = runCatching { CreatorDeliverableStatus.valueOf(deliverable.optString("status", CreatorDeliverableStatus.PLANNED.name)) }
+                        .getOrDefault(CreatorDeliverableStatus.PLANNED),
+                    publishedAtMillis = deliverable.optLong("publishedAtMillis", 0L),
+                    publishedUrl = deliverable.optString("publishedUrl").trim(),
+                ))
+            }
+        }
+        return CreatorContentWorkspace(
+            revision = item.optLong("revision", 0L).coerceAtLeast(0L),
+            audience = item.optString("audience").trim(),
+            viewerProblem = item.optString("viewerProblem").trim(),
+            promise = item.optString("promise").trim(),
+            angle = item.optString("angle").trim(),
+            hook = item.optString("hook").trim(),
+            script = item.optString("script"),
+            references = decodedReferences,
+            deliverables = decodedDeliverables,
+        )
     }
 }
