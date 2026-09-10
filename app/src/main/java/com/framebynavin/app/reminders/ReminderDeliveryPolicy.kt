@@ -29,7 +29,11 @@ object ReminderDeliveryPolicy {
         if (task.reminderAtMillis != targetAtMillis) return SmartDeliveryDecision.DROP
         if (task.dueAtMillis > 0L && task.reminderAtMillis > task.dueAtMillis) return SmartDeliveryDecision.DROP
         if (!stageAllowed(task.priority, stage)) return SmartDeliveryDecision.DROP
-        if (task.workingUntilMillis > nowMillis) return SmartDeliveryDecision.DEFER
+        // reminderAtMillis is the creator's hard FINAL Smart target, not a soft anchor.
+        if (nowMillis > targetAtMillis) return SmartDeliveryDecision.DROP
+        if (task.workingUntilMillis > nowMillis) {
+            return if (task.workingUntilMillis <= targetAtMillis) SmartDeliveryDecision.DEFER else SmartDeliveryDecision.DROP
+        }
         return SmartDeliveryDecision.DELIVER
     }
 
