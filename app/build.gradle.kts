@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 81
-        versionName = "1.9.0-content-project-rc2"
+        versionCode = 82
+        versionName = "1.9.0-content-project-rc3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -82,6 +82,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// v1.9 RC2: stabilization-only candidate. No new product scope.
+// v1.9 RC3: Project Pulse stage-aware check-in candidate.
 // This debug APK intentionally keeps the public development signing identity for sideload testing.
 // A private production signing identity remains mandatory before any public stable distribution.
