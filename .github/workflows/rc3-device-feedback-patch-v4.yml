@@ -1,0 +1,319 @@
+name: RC3.1 Direct Device Feedback Patch
+
+on:
+  push:
+    branches:
+      - "release/v1.9.0-rc3-project-pulse"
+    paths:
+      - ".github/workflows/rc3-device-feedback-patch-v4.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply strict RC3.1 source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              n = text.count(old)
+              if n != 1:
+                  raise SystemExit(f"{path}: expected 1 exact match, found {n}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          def count_replace(path, old, new, expected):
+              p = Path(path)
+              text = p.read_text()
+              n = text.count(old)
+              if n != expected:
+                  raise SystemExit(f"{path}: expected {expected} exact matches, found {n}: {old[:120]!r}")
+              p.write_text(text.replace(old, new))
+
+          # CreatorTask: separate user-selected delivery intent from runtime reminder mode.
+          path = "app/src/main/java/com/framebynavin/app/data/CreatorTask.kt"
+          once(path,
+              "enum class ReminderMode {\n    NONE,\n    SIMPLE,\n    VOICE,\n    ALARM,\n    SMART,\n}\n\n/** Creator-facing intent.",
+              "enum class ReminderMode {\n    NONE,\n    SIMPLE,\n    VOICE,\n    ALARM,\n    SMART,\n}\n\n/** User intent. AUTO lets Project Pulse adapt; explicit choices stay sticky across stages. */\nenum class ReminderDeliveryPreference {\n    AUTO,\n    NOTIFICATION,\n    VOICE,\n    ALARM,\n    SMART,\n}\n\n/** Creator-facing intent."
+          )
+          once(path,
+              "    val reminderMode: ReminderMode = ReminderMode.SIMPLE,\n    val voicePersona: VoicePersona = VoicePersona.WARM,",
+              "    val reminderMode: ReminderMode = ReminderMode.SIMPLE,\n    val deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO,\n    val voicePersona: VoicePersona = VoicePersona.WARM,"
+          )
+
+          # TaskStore: persist preference and migrate old RC3 data safely.
+          path = "app/src/main/java/com/framebynavin/app/data/TaskStore.kt"
+          once(path,
+              "                    .put(\"reminderMode\", task.reminderMode.name)\n                    .put(\"voicePersona\", task.voicePersona.name)",
+              "                    .put(\"reminderMode\", task.reminderMode.name)\n                    .put(\"deliveryPreference\", task.deliveryPreference.name)\n                    .put(\"voicePersona\", task.voicePersona.name)"
+          )
+          once(path,
+              "                val attentionPlan = runCatching {\n                    ProjectAttentionPlan.valueOf(item.optString(\"attentionPlan\", migratedAttentionPlan.name))\n                }.getOrDefault(migratedAttentionPlan)\n                val pulseManagedReminder = item.optBoolean(\"pulseManagedReminder\", false) &&\n                    attentionPlan != ProjectAttentionPlan.OFF",
+              "                val attentionPlan = runCatching {\n                    ProjectAttentionPlan.valueOf(item.optString(\"attentionPlan\", migratedAttentionPlan.name))\n                }.getOrDefault(migratedAttentionPlan)\n                val deliveryPreference = runCatching {\n                    ReminderDeliveryPreference.valueOf(item.optString(\"deliveryPreference\"))\n                }.getOrElse {\n                    // Old Custom reminders represented an explicit creator choice; managed presets were automatic.\n                    if (attentionPlan == ProjectAttentionPlan.CUSTOM && reminderEnabled) {\n                        when (reminderMode) {\n                            ReminderMode.SIMPLE -> ReminderDeliveryPreference.NOTIFICATION\n                            ReminderMode.VOICE -> ReminderDeliveryPreference.VOICE\n                            ReminderMode.ALARM -> ReminderDeliveryPreference.ALARM\n                            ReminderMode.SMART -> ReminderDeliveryPreference.SMART\n                            ReminderMode.NONE -> ReminderDeliveryPreference.AUTO\n                        }\n                    } else ReminderDeliveryPreference.AUTO\n                }\n                val pulseManagedReminder = item.optBoolean(\"pulseManagedReminder\", false) &&\n                    attentionPlan != ProjectAttentionPlan.OFF"
+          )
+          once(path,
+              "                        reminderMode = reminderMode,\n                        voicePersona = runCatching {",
+              "                        reminderMode = reminderMode,\n                        deliveryPreference = deliveryPreference,\n                        voicePersona = runCatching {"
+          )
+
+          # Project Pulse: cadence belongs to Attention Plan; delivery belongs to Reminder Style.
+          path = "app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt"
+          once(path,
+              "            recommendedMode = deliveryMode(task.attentionPlan, state, nextAt, nowMillis),",
+              "            recommendedMode = resolvedDeliveryMode(task, state, nextAt, nowMillis),"
+          )
+          once(path,
+              "            val validAt = base.reminderAtMillis.takeIf { base.reminderEnabled && it > nowMillis }\n            return base.copy(",
+              "            val validAt = base.reminderAtMillis.takeIf { base.reminderEnabled && it > nowMillis }\n            val mode = if (validAt != null) resolvedDeliveryMode(base.copy(attentionPlan = ProjectAttentionPlan.CUSTOM), state(base, nowMillis), validAt, nowMillis) else ReminderMode.NONE\n            return base.copy("
+          )
+          once(path,
+              "                reminderMode = if (validAt != null && base.reminderMode != ReminderMode.NONE) base.reminderMode else ReminderMode.NONE,\n            )",
+              "                reminderMode = mode,\n                alertType = if (mode == ReminderMode.ALARM || mode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION,\n                voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,\n                smartEscalationEnabled = mode == ReminderMode.SMART,\n            )"
+          )
+          once(path,
+              "            val mode = task.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE\n            return task.copy(",
+              "            val mode = resolvedDeliveryMode(task, state(task, nowMillis), at, nowMillis)\n            return task.copy("
+          )
+          once(path,
+              "        val mode = deliveryMode(task.attentionPlan, state, checkpoint.atMillis, nowMillis)",
+              "        val mode = resolvedDeliveryMode(task, state, checkpoint.atMillis, nowMillis)"
+          )
+          once(path,
+              "            val customMode = managed.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE",
+              "            val customMode = resolvedDeliveryMode(managed, state(managed, nowMillis), managed.reminderAtMillis, nowMillis)"
+          )
+          once(path,
+              "            val customMode = before.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE",
+              "            val customMode = resolvedDeliveryMode(before, state(before, nowMillis), before.reminderAtMillis, nowMillis)"
+          )
+          once(path,
+              "        val mode = if (task.attentionPlan == ProjectAttentionPlan.CUSTOM) {\n            task.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE\n        } else deliveryMode(task.attentionPlan, state, at, nowMillis)",
+              "        val mode = resolvedDeliveryMode(task, state, at, nowMillis)"
+          )
+          once(path,
+              "    private fun deliveryMode(\n        plan: ProjectAttentionPlan,",
+              "    private fun resolvedDeliveryMode(\n        task: CreatorTask,\n        state: ProjectPulseState,\n        checkpointAtMillis: Long,\n        nowMillis: Long,\n    ): ReminderMode {\n        if (task.attentionPlan == ProjectAttentionPlan.OFF) return ReminderMode.NONE\n        return when (task.deliveryPreference) {\n            ReminderDeliveryPreference.AUTO -> deliveryMode(task.attentionPlan, state, checkpointAtMillis, nowMillis)\n            ReminderDeliveryPreference.NOTIFICATION -> ReminderMode.SIMPLE\n            ReminderDeliveryPreference.VOICE -> ReminderMode.VOICE\n            ReminderDeliveryPreference.ALARM -> ReminderMode.ALARM\n            ReminderDeliveryPreference.SMART -> ReminderMode.SMART\n        }\n    }\n\n    private fun deliveryMode(\n        plan: ProjectAttentionPlan,"
+          )
+
+          # ViewModel: save the preference and treat explicit legacy/manual reminder modes as sticky.
+          path = "app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt"
+          once(path,
+              "        attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,\n    ): String? {",
+              "        attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,\n        deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO,\n    ): String? {"
+          )
+          count_replace(path,
+              "            reminderMode = reminderMode,\n            voicePersona = voicePersona,",
+              "            reminderMode = reminderMode,\n            deliveryPreference = deliveryPreference,\n            voicePersona = voicePersona,",
+              2
+          )
+          once(path,
+              "            reminderMode = mode,\n            attentionPlan = ProjectAttentionPlan.CUSTOM,",
+              "            reminderMode = mode,\n            deliveryPreference = deliveryPreferenceFor(mode),\n            attentionPlan = ProjectAttentionPlan.CUSTOM,"
+          )
+          once(path,
+              "            alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,\n        )\n    }\n\n    fun saveTaskConfiguration(",
+              "            alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,\n            deliveryPreference = deliveryPreferenceFor(mode),\n        )\n    }\n\n    fun saveTaskConfiguration("
+          )
+          once(path,
+              "    private fun updateTask(\n",
+              "    private fun deliveryPreferenceFor(mode: ReminderMode): ReminderDeliveryPreference = when (mode) {\n        ReminderMode.NONE -> ReminderDeliveryPreference.AUTO\n        ReminderMode.SIMPLE -> ReminderDeliveryPreference.NOTIFICATION\n        ReminderMode.VOICE -> ReminderDeliveryPreference.VOICE\n        ReminderMode.ALARM -> ReminderDeliveryPreference.ALARM\n        ReminderMode.SMART -> ReminderDeliveryPreference.SMART\n    }\n\n    private fun updateTask(\n"
+          )
+
+          # Composer: expose Reminder Style independently from attention cadence.
+          path = "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt"
+          once(path,
+              "    val reminderAtMillis: Long,\n    val priority: TaskPriority,",
+              "    val reminderAtMillis: Long,\n    val deliveryPreference: ReminderDeliveryPreference,\n    val priority: TaskPriority,"
+          )
+          once(path,
+              "    var customMode by rememberSaveable(task?.id) {\n        mutableStateOf(task?.reminderMode?.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE)\n    }",
+              "    var deliveryPreference by rememberSaveable(task?.id) {\n        mutableStateOf(task?.deliveryPreference ?: ReminderDeliveryPreference.AUTO)\n    }"
+          )
+          once(path,
+              "    val previewTask = remember(title, platform, contentType, dueAt, attentionPlan, now) {",
+              "    val previewTask = remember(title, platform, contentType, dueAt, attentionPlan, deliveryPreference, now) {"
+          )
+          once(path,
+              "            attentionPlan = attentionPlan,\n            pulseManagedReminder = attentionPlan != ProjectAttentionPlan.OFF && attentionPlan != ProjectAttentionPlan.CUSTOM,",
+              "            attentionPlan = attentionPlan,\n            deliveryPreference = deliveryPreference,\n            pulseManagedReminder = attentionPlan != ProjectAttentionPlan.OFF && attentionPlan != ProjectAttentionPlan.CUSTOM,"
+          )
+          once(path,
+              "    val customReady = attentionPlan != ProjectAttentionPlan.CUSTOM ||\n        (customReminderAt > now && customReminderAt <= dueAt && customMode != ReminderMode.NONE)\n    val requiresAdvancedPermissions = attentionPlan == ProjectAttentionPlan.URGENT ||\n        (attentionPlan == ProjectAttentionPlan.CUSTOM && customMode in setOf(ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART))",
+              "    val customReady = attentionPlan != ProjectAttentionPlan.CUSTOM ||\n        (customReminderAt > now && customReminderAt <= dueAt)\n    val effectiveReminderMode = when {\n        attentionPlan == ProjectAttentionPlan.OFF -> ReminderMode.NONE\n        deliveryPreference != ReminderDeliveryPreference.AUTO -> pDeliveryMode(deliveryPreference)\n        attentionPlan == ProjectAttentionPlan.CUSTOM -> ReminderMode.SIMPLE\n        else -> pulsePreview?.recommendedMode ?: ReminderMode.SIMPLE\n    }\n    val requiresAdvancedPermissions = effectiveReminderMode in setOf(ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART)"
+          )
+          once(path,
+              "                    pulsePreview?.let { pulse ->",
+              "                    if (attentionPlan != ProjectAttentionPlan.OFF) {\n                        Spacer(Modifier.height(12.dp))\n                        PComposerLabel(\"REMINDER STYLE\")\n                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {\n                            ReminderDeliveryPreference.entries.forEach { value ->\n                                FilterChip(\n                                    selected = deliveryPreference == value,\n                                    onClick = { deliveryPreference = value },\n                                    label = { Text(pDeliveryPreferenceLabel(value), fontSize = 9.sp) },\n                                )\n                            }\n                        }\n                        Spacer(Modifier.height(5.dp))\n                        Text(\n                            if (deliveryPreference == ReminderDeliveryPreference.AUTO) \"Auto adapts delivery to project urgency. Choose another style to keep it for every stage.\"\n                            else \"${pDeliveryPreferenceLabel(deliveryPreference)} will stay selected as this project moves through stages.\",\n                            color = MutedText,\n                            fontSize = 8.5.sp,\n                            lineHeight = 12.sp,\n                        )\n                    }\n\n                    pulsePreview?.let { pulse ->"
+          )
+          once(path,
+              "                        Spacer(Modifier.height(14.dp))\n                        PComposerLabel(\"DELIVERY\")\n                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {\n                            listOf(ReminderMode.SIMPLE, ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART).forEach { value ->\n                                FilterChip(selected = customMode == value, onClick = { customMode = value }, label = { Text(pModeLabel(value), fontSize = 9.sp) })\n                            }\n                        }\n                        Spacer(Modifier.height(14.dp))\n                        PComposerLabel(\"IMPORTANCE\")",
+              "                        Spacer(Modifier.height(14.dp))\n                        PComposerLabel(\"IMPORTANCE\")"
+          )
+          once(path,
+              "                                    mode = if (attentionPlan == ProjectAttentionPlan.CUSTOM) customMode else ReminderMode.NONE,\n                                    reminderAtMillis = if (attentionPlan == ProjectAttentionPlan.CUSTOM) customReminderAt else 0L,\n                                    priority = priority,",
+              "                                    mode = if (attentionPlan == ProjectAttentionPlan.CUSTOM) pDeliveryMode(deliveryPreference) else ReminderMode.NONE,\n                                    reminderAtMillis = if (attentionPlan == ProjectAttentionPlan.CUSTOM) customReminderAt else 0L,\n                                    deliveryPreference = deliveryPreference,\n                                    priority = priority,"
+          )
+          once(path,
+              "internal fun pModeLabel(mode: ReminderMode): String = when (mode) {",
+              "internal fun pDeliveryPreferenceLabel(preference: ReminderDeliveryPreference): String = when (preference) {\n    ReminderDeliveryPreference.AUTO -> \"Auto\"\n    ReminderDeliveryPreference.NOTIFICATION -> \"Notification\"\n    ReminderDeliveryPreference.VOICE -> \"Voice\"\n    ReminderDeliveryPreference.ALARM -> \"Alarm\"\n    ReminderDeliveryPreference.SMART -> \"Smart\"\n}\n\ninternal fun pDeliveryMode(preference: ReminderDeliveryPreference): ReminderMode = when (preference) {\n    ReminderDeliveryPreference.AUTO, ReminderDeliveryPreference.NOTIFICATION -> ReminderMode.SIMPLE\n    ReminderDeliveryPreference.VOICE -> ReminderMode.VOICE\n    ReminderDeliveryPreference.ALARM -> ReminderMode.ALARM\n    ReminderDeliveryPreference.SMART -> ReminderMode.SMART\n}\n\ninternal fun pModeLabel(mode: ReminderMode): String = when (mode) {"
+          )
+
+          # Main app: pass Reminder Style into authoritative save.
+          path = "app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
+          once(path,
+              "                    attentionPlan = draft.attentionPlan,\n                )",
+              "                    attentionPlan = draft.attentionPlan,\n                    deliveryPreference = draft.deliveryPreference,\n                )"
+          )
+
+          # Voice reminder: exact-time reschedule while active + uncluttered two-row actions.
+          path = "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt"
+          once(path,
+              "import android.app.NotificationManager\nimport android.content.Intent\nimport android.os.Bundle",
+              "import android.app.DatePickerDialog\nimport android.app.NotificationManager\nimport android.app.TimePickerDialog\nimport android.content.Intent\nimport android.os.Bundle\nimport android.widget.Toast"
+          )
+          once(path,
+              "import kotlinx.coroutines.withContext\n",
+              "import kotlinx.coroutines.withContext\nimport java.util.Calendar\n"
+          )
+          once(path,
+              "                    onPause = { dispatchReminderAction(ReminderConstants.ACTION_PAUSE, task.id) },\n                    onDismiss = { dispatchReminderAction(ReminderConstants.ACTION_DISMISS, task.id) },",
+              "                    onPause = { dispatchReminderAction(ReminderConstants.ACTION_PAUSE, task.id) },\n                    onReschedule = { openReschedulePicker(task.id) },\n                    onDismiss = { dispatchReminderAction(ReminderConstants.ACTION_DISMISS, task.id) },"
+          )
+          once(path,
+              "    private suspend fun finishVoice() {",
+              "    private fun openReschedulePicker(taskId: String) {\n        val initial = Calendar.getInstance().apply { add(Calendar.MINUTE, 15) }\n        DatePickerDialog(\n            this,\n            { _, year, month, day ->\n                TimePickerDialog(\n                    this,\n                    { _, hour, minute ->\n                        val atMillis = Calendar.getInstance().apply {\n                            set(year, month, day, hour, minute, 0)\n                            set(Calendar.MILLISECOND, 0)\n                        }.timeInMillis\n                        if (atMillis > System.currentTimeMillis()) {\n                            sendBroadcast(Intent(this, ReminderActionReceiver::class.java).apply {\n                                action = ReminderConstants.ACTION_RESCHEDULE\n                                putExtra(ReminderConstants.EXTRA_TASK_ID, taskId)\n                                putExtra(ReminderConstants.EXTRA_OCCURRENCE_ID, occurrenceId)\n                                putExtra(ReminderConstants.EXTRA_RESCHEDULE_AT, atMillis)\n                            })\n                            lifecycleScope.launch { finishVoice() }\n                        } else {\n                            Toast.makeText(this, \"Choose a future time\", Toast.LENGTH_SHORT).show()\n                        }\n                    },\n                    initial.get(Calendar.HOUR_OF_DAY), initial.get(Calendar.MINUTE), false,\n                ).show()\n            },\n            initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH),\n        ).show()\n    }\n\n    private suspend fun finishVoice() {"
+          )
+          once(path,
+              "    onPause: () -> Unit,\n    onDismiss: () -> Unit,",
+              "    onPause: () -> Unit,\n    onReschedule: () -> Unit,\n    onDismiss: () -> Unit,"
+          )
+          old_actions = """            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text(\"REPEAT\", color = ProjectorIvory, fontSize = 9.sp)
+                }
+                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text(\"${snoozeMinutes}m\", color = ProjectorIvory, fontSize = 9.sp)
+                }
+                if (stageCheckIn) {
+                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                        Icon(Icons.Outlined.PauseCircle, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text(\"2H\", color = ProjectorIvory, fontSize = 9.sp)
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))"""
+          new_actions = """            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onRepeat, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Replay, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text(\"REPLAY\", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
+                }
+                OutlinedButton(onClick = onSnooze, modifier = Modifier.weight(1f).height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                    Icon(Icons.Outlined.Snooze, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text(\"SNOOZE ${snoozeMinutes}M\", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (stageCheckIn) {
+                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(15.dp)) {
+                        Icon(Icons.Outlined.PauseCircle, null, tint = ProjectorIvory); Spacer(Modifier.width(4.dp)); Text(\"PAUSE 2H\", color = ProjectorIvory, fontSize = 9.sp, maxLines = 1)
+                    }
+                }
+                OutlinedButton(onClick = onReschedule, modifier = Modifier.weight(1f).height(48.dp), border = BorderStroke(1.dp, MutedGold.copy(alpha = .6f)), shape = RoundedCornerShape(15.dp)) {
+                    Text(\"CHOOSE TIME\", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+            }
+            Spacer(Modifier.height(6.dp))"""
+          once(path, old_actions, new_actions)
+
+          # Alarm already supports exact reschedule; align copy.
+          path = "app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt"
+          once(path, "Text(\"CHOOSE ANOTHER TIME\", color = MutedGold, fontSize = 9.sp)", "Text(\"CHOOSE TIME\", color = MutedGold, fontSize = 9.sp)")
+
+          # Unit coverage: old Custom tests explicitly express their intended sticky delivery.
+          path = "app/src/test/java/com/framebynavin/app/data/ProjectPulseRc3Test.kt"
+          count_replace(path,
+              "                reminderMode = ReminderMode.VOICE,\n",
+              "                reminderMode = ReminderMode.VOICE,\n                deliveryPreference = ReminderDeliveryPreference.VOICE,\n",
+              2
+          )
+          once(path,
+              "                reminderMode = ReminderMode.ALARM,\n",
+              "                reminderMode = ReminderMode.ALARM,\n                deliveryPreference = ReminderDeliveryPreference.ALARM,\n"
+          )
+          once(path,
+              "    @Test\n    fun publicationStageCannotBeCompletedByReminderWithoutPublicationProof() {",
+              "    @Test\n    fun explicitVoiceStaysVoiceAcrossGuidedStageAdvance() {\n        val managed = ProjectPulseEngine.applyAttentionPlan(\n            task().copy(deliveryPreference = ReminderDeliveryPreference.VOICE),\n            ProjectAttentionPlan.GUIDED,\n            now,\n        )\n        assertEquals(ReminderMode.VOICE, managed.reminderMode)\n\n        val advanced = ProjectPulseEngine.completeCurrentStep(managed, now + 10_000L)\n\n        assertEquals(1, CreatorWorkflowEngine.stageIndex(advanced))\n        assertTrue(advanced.reminderEnabled)\n        assertEquals(ReminderDeliveryPreference.VOICE, advanced.deliveryPreference)\n        assertEquals(ReminderMode.VOICE, advanced.reminderMode)\n    }\n\n    @Test\n    fun publicationStageCannotBeCompletedByReminderWithoutPublicationProof() {"
+          )
+
+          # Android persistence coverage.
+          path = "app/src/androidTest/java/com/framebynavin/app/data/ProjectPulseRc3PersistenceInstrumentedTest.kt"
+          once(path,
+              "            reminderMode = ReminderMode.VOICE,\n            voiceEnabled = true,",
+              "            reminderMode = ReminderMode.VOICE,\n            deliveryPreference = ReminderDeliveryPreference.VOICE,\n            voiceEnabled = true,"
+          )
+          once(path,
+              "            assertEquals(ReminderMode.VOICE, restored.reminderMode)\n            assertEquals(checkpoint, restored.reminderAtMillis)",
+              "            assertEquals(ReminderMode.VOICE, restored.reminderMode)\n            assertEquals(ReminderDeliveryPreference.VOICE, restored.deliveryPreference)\n            assertEquals(checkpoint, restored.reminderAtMillis)"
+          )
+
+          # Candidate identity.
+          path = "app/build.gradle.kts"
+          once(path,
+              "        versionCode = 82\n        versionName = \"1.9.0-content-project-rc3\"",
+              "        versionCode = 83\n        versionName = \"1.9.0-content-project-rc3.1\""
+          )
+
+          # Upgrade the authoritative gate identity/invariants/artifact labels.
+          path = ".github/workflows/v19-rc3-project-pulse.yml"
+          once(path, "name: v1.9 RC3 Project Pulse Gate", "name: v1.9 RC3.1 Project Pulse Gate")
+          once(path,
+              "          grep -q 'versionCode = 82' app/build.gradle.kts\n          grep -q 'versionName = \"1.9.0-content-project-rc3\"' app/build.gradle.kts",
+              "          grep -q 'versionCode = 83' app/build.gradle.kts\n          grep -q 'versionName = \"1.9.0-content-project-rc3.1\"' app/build.gradle.kts"
+          )
+          once(path,
+              "          grep -q 'ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt",
+              "          grep -q 'ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt\n          grep -q 'enum class ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt\n          grep -q 'deliveryPreference' app/src/main/java/com/framebynavin/app/data/TaskStore.kt\n          grep -q 'resolvedDeliveryMode' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt\n          grep -q 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt\n          grep -q 'CHOOSE TIME' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt\n          grep -q 'REPLAY' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt"
+          )
+          count_replace(path, "FrameByNavin-v1.9-rc3-project-pulse-emulator-report", "FrameByNavin-v1.9-rc3.1-project-pulse-emulator-report", 1)
+          once(path,
+              "          printf 'projectPulseStageLoop=true\\ncustomStageAware=true\\nlegacyDoneDismissOnly=true\\nsmartFinalTargetBounded=true\\n' >> verification/manifest.txt",
+              "          printf 'projectPulseStageLoop=true\\ncustomStageAware=true\\nlegacyDoneDismissOnly=true\\nsmartFinalTargetBounded=true\\nstickyDeliveryPreference=true\\nactiveReminderExactReschedule=true\\n' >> verification/manifest.txt"
+          )
+          count_replace(path, "FrameByNavin-v1.9.0-content-project-rc3-apk", "FrameByNavin-v1.9.0-content-project-rc3.1-apk", 1)
+          count_replace(path, "FrameByNavin-v1.9.0-content-project-rc3-verification", "FrameByNavin-v1.9.0-content-project-rc3.1-verification", 1)
+
+          print("RC3.1 source patch complete")
+          PY
+          git diff --check
+          git status --short
+
+      - name: Compile and test patched tree before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebugAndroidTest
+
+      - name: Commit validated source and remove patch tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/rc3-device-feedback-patch.yml \
+                    .github/workflows/rc3-device-feedback-patch-v2.yml \
+                    .github/workflows/rc3-device-feedback-patch-v3.yml \
+                    .github/workflows/rc3-device-feedback-patch-v4.yml
+          git add app .github/workflows/v19-rc3-project-pulse.yml
+          git diff --cached --quiet && { echo "No validated changes staged"; exit 1; }
+          git commit -m "fix(v1.9): finalize RC3.1 reminder delivery UX"
+          git push origin HEAD:release/v1.9.0-rc3-project-pulse
