@@ -1,4 +1,4 @@
-name: v1.9 RC3 Project Pulse Gate
+name: v1.9 RC3.1 Project Pulse Gate
 
 on:
   push:
@@ -31,12 +31,12 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Verify RC3 Project Pulse invariants
+      - name: Verify RC3.1 Project Pulse invariants
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 82' app/build.gradle.kts
-          grep -q 'versionName = "1.9.0-content-project-rc3"' app/build.gradle.kts
+          grep -q 'versionCode = 83' app/build.gradle.kts
+          grep -q 'versionName = "1.9.0-content-project-rc3.1"' app/build.gradle.kts
           test -s dev-signing/framebynavin-public-debug.jks
           test -s app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
           test -s app/src/main/java/com/framebynavin/app/data/ProjectPulseHistoryStore.kt
@@ -46,6 +46,12 @@ jobs:
           test -s app/src/test/java/com/framebynavin/app/reminders/ReminderActionSafetyRc3Test.kt
           test -s app/src/test/java/com/framebynavin/app/reminders/SmartTargetBoundaryRc3Test.kt
           test -s app/src/androidTest/java/com/framebynavin/app/data/ProjectPulseRc3PersistenceInstrumentedTest.kt
+          grep -q 'enum class ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt
+          grep -q 'deliveryPreference' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -q 'private fun resolvedDeliveryMode' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
+          grep -q 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+          grep -q 'Text("REPLAY"' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'Text("CHOOSE TIME"' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
           grep -q 'ACTION_STAGE_DONE' app/src/main/java/com/framebynavin/app/reminders/ReminderConstants.kt
           grep -q 'Legacy RC2 action' app/src/main/java/com/framebynavin/app/reminders/ReminderConstants.kt
           grep -q 'afterWorkflowStageChanged' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
@@ -80,7 +86,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run RC3 lifecycle and persistence suite on Android 35
+      - name: Run RC3.1 lifecycle and persistence suite on Android 35
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -96,7 +102,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.9-rc3-project-pulse-emulator-report
+          name: FrameByNavin-v1.9-rc3.1-project-pulse-emulator-report
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
@@ -119,19 +125,20 @@ jobs:
           version_code=$(grep -E 'versionCode = [0-9]+' app/build.gradle.kts | head -n1 | grep -Eo '[0-9]+')
           printf 'versionName=%s\nversionCode=%s\ncommit=%s\n' "$version_name" "$version_code" "$GITHUB_SHA" > verification/manifest.txt
           printf 'projectPulseStageLoop=true\ncustomStageAware=true\nlegacyDoneDismissOnly=true\nsmartFinalTargetBounded=true\n' >> verification/manifest.txt
+          printf 'reminderDeliveryPreference=true\nstickyManualReminderStyle=true\nvoiceReplay=true\nvoiceChooseTime=true\n' >> verification/manifest.txt
           printf 'publicationAuthority=deliverable-publish-studio\nprojectWorkflowAuthority=creator-workflow-engine\n' >> verification/manifest.txt
           printf 'androidApi=35\nosAutoBackup=false\ndistributionSigning=development-sideload-only\n' >> verification/manifest.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.9.0-content-project-rc3-apk
+          name: FrameByNavin-v1.9.0-content-project-rc3.1-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Upload verification
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v1.9.0-content-project-rc3-verification
+          name: FrameByNavin-v1.9.0-content-project-rc3.1-verification
           path: verification/
           if-no-files-found: error
