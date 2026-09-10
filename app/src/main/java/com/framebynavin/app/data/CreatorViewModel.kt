@@ -322,9 +322,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 origin = CreatorTaskOrigin.MANUAL,
                 attentionPlan = if (enabled) ProjectAttentionPlan.CUSTOM else ProjectAttentionPlan.OFF,
             )
-            val task = if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
-                baseTask.copy(attentionPlan = if (enabled) ProjectAttentionPlan.CUSTOM else ProjectAttentionPlan.OFF)
-            } else ProjectPulseEngine.applyAttentionPlan(baseTask, attentionPlan)
+            val task = ProjectPulseEngine.applyAttentionPlan(baseTask, attentionPlan)
             if (task.reminderMode == ReminderMode.SMART) putSmartConfig(task)
             tasks.add(0, task)
             persist()
@@ -375,8 +373,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             checkpointStageId = "",
             checkpointAtMillis = 0L,
         )
-        val updated = if (attentionPlan == ProjectAttentionPlan.CUSTOM) configured
-        else ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan)
+        val updated = ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan)
         if (updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
         tasks[index] = updated
         persist()
@@ -414,8 +411,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             checkpointAtMillis = 0L,
             autoStageReminder = false,
         )
-        scheduleTask(updated)
-        updated
+        val managed = ProjectPulseEngine.applyAttentionPlan(updated, ProjectAttentionPlan.CUSTOM)
+        scheduleTask(managed)
+        managed
     }
 
     fun cancelReminder(id: String) = updateTask(id) { task ->
@@ -462,13 +460,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             val now = System.currentTimeMillis()
             val stage = CreatorWorkflowEngine.currentStage(task)
             stageReward = CreatorRewardEngine.stageCompleted(id, stage.id, stage.label, now)
-            val updated = CreatorPublicationEngine.advance(task, now)
+            val advanced = CreatorPublicationEngine.advance(task, now)
+            val updated = ProjectPulseEngine.afterWorkflowStageChanged(task, advanced, now)
             if (updated.status == TaskStatus.DONE) {
                 cancelTaskAlerts(task.id)
                 updated
             } else {
                 val nextIndex = CreatorWorkflowEngine.stageIndex(updated)
-                val scheduled = if (updated.pulseManagedReminder) ProjectPulseEngine.refreshManagedReminder(updated)
+                val scheduled = if (updated.pulseManagedReminder) updated
                 else applyAutoStageReminder(updated, nextIndex)
                 if (scheduled.reminderMode == ReminderMode.SMART) putSmartConfig(scheduled)
                 scheduleTask(scheduled)
@@ -479,17 +478,19 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     fun moveWorkflowBack(id: String) = updateTask(id) { task ->
         if (task.status == TaskStatus.DONE) return@updateTask task
+        val now = System.currentTimeMillis()
         val template = CreatorWorkflowEngine.templateFor(task)
         val currentIndex = CreatorWorkflowEngine.stageIndex(task)
         val previous = (currentIndex - 1).coerceAtLeast(0)
-        var updated = task.copy(
+        val moved = task.copy(
             status = TaskStatus.WORKING,
             workflowStageIndex = previous,
             progress = CreatorWorkflowEngine.progressForStage(previous, template.stages.size),
             workingUntilMillis = 0L,
         )
-        updated = if (updated.pulseManagedReminder) ProjectPulseEngine.refreshManagedReminder(updated)
-        else applyAutoStageReminder(updated, previous)
+        var updated = if (ProjectPulseEngine.isStageCheckIn(task))
+            ProjectPulseEngine.afterWorkflowStageChanged(task, moved, now)
+        else applyAutoStageReminder(moved, previous)
         if (updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
         scheduleTask(updated)
         updated

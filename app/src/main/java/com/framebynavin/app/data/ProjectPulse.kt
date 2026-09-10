@@ -310,9 +310,37 @@ object ProjectPulseEngine {
         )
         // Custom deliberately asks the creator for the next-stage time instead of inventing one.
         if (advanced.attentionPlan == ProjectAttentionPlan.CUSTOM) {
-            return clearReminder(advanced).copy(attentionPlan = ProjectAttentionPlan.CUSTOM, pulseManagedReminder = true)
+            val customMode = managed.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE
+            return clearReminder(advanced).copy(
+                attentionPlan = ProjectAttentionPlan.CUSTOM,
+                pulseManagedReminder = true,
+                reminderMode = customMode,
+                alertType = managed.alertType,
+            )
         }
         return refreshManagedReminder(advanced, nowMillis)
+    }
+
+    /** Keep manual Studio stage changes on the same Project Pulse lifecycle as reminder Stage Done. */
+    fun afterWorkflowStageChanged(
+        before: CreatorTask,
+        after: CreatorTask,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): CreatorTask {
+        if (after.status == TaskStatus.DONE || after.status == TaskStatus.SKIPPED) return after
+        if (!isStageCheckIn(before)) return after
+        val managed = ensureStageManaged(after.copy(attentionPlan = before.attentionPlan))
+        val changed = CreatorWorkflowEngine.stageIndex(before) != CreatorWorkflowEngine.stageIndex(after)
+        if (changed && before.attentionPlan == ProjectAttentionPlan.CUSTOM) {
+            val customMode = before.reminderMode.takeIf { it != ReminderMode.NONE } ?: ReminderMode.SIMPLE
+            return clearReminder(managed).copy(
+                attentionPlan = ProjectAttentionPlan.CUSTOM,
+                pulseManagedReminder = true,
+                reminderMode = customMode,
+                alertType = before.alertType,
+            )
+        }
+        return refreshManagedReminder(managed, nowMillis)
     }
 
     fun needsCustomNextStagePrompt(before: CreatorTask, after: CreatorTask): Boolean =

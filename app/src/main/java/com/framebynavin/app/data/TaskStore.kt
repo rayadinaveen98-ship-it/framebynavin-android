@@ -206,7 +206,7 @@ class TaskStore(private val context: Context) {
                     ProjectAttentionPlan.valueOf(item.optString("attentionPlan", migratedAttentionPlan.name))
                 }.getOrDefault(migratedAttentionPlan)
                 val pulseManagedReminder = item.optBoolean("pulseManagedReminder", false) &&
-                    attentionPlan != ProjectAttentionPlan.CUSTOM && attentionPlan != ProjectAttentionPlan.OFF
+                    attentionPlan != ProjectAttentionPlan.OFF
                 val progress = item.optInt("progress", 0).coerceIn(0, 100)
                 val platform = item.optString("platform", "Instagram")
                 val contentType = item.optString("contentType", "Content")
