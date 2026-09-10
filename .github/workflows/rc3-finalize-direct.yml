@@ -37,44 +37,42 @@ jobs:
               raise SystemExit('Reviewed RC3.1 recipe marker missing')
           _, body = recipe.split(marker, 1)
 
-          # The earlier one-shot runner was overly brittle about exact occurrence counts.
-          # Keep the reviewed replacement recipe, but make the helpers idempotent and let
-          # compile/tests + explicit invariants decide whether the resulting source is valid.
-          header = r'''from pathlib import Path
-
-def once(path, old, new):
-    p = Path(path)
-    text = p.read_text()
-    n = text.count(old)
-    if n == 0:
-        if new in text:
-            return
-        print(f"WARN {path}: exact source shape changed; skipped one reviewed replacement")
-        return
-    if n > 1:
-        print(f"WARN {path}: reviewed one-match replacement had {n} matches; replacing first only")
-    p.write_text(text.replace(old, new, 1))
-
-def count_replace(path, old, new, expected):
-    p = Path(path)
-    text = p.read_text()
-    n = text.count(old)
-    if n == 0:
-        if new in text:
-            return
-        print(f"WARN {path}: exact source shape changed; skipped reviewed multi-replacement")
-        return
-    if n != expected:
-        print(f"WARN {path}: expected {expected} matches, found {n}; replacing all found matches")
-    p.write_text(text.replace(old, new))
-'''
+          header = '\n'.join([
+              'from pathlib import Path',
+              '',
+              'def once(path, old, new):',
+              '    p = Path(path)',
+              '    text = p.read_text()',
+              '    n = text.count(old)',
+              '    if n == 0:',
+              '        if new in text:',
+              '            return',
+              '        print(f"WARN {path}: exact source shape changed; skipped one reviewed replacement")',
+              '        return',
+              '    if n > 1:',
+              '        print(f"WARN {path}: reviewed one-match replacement had {n} matches; replacing first only")',
+              '    p.write_text(text.replace(old, new, 1))',
+              '',
+              'def count_replace(path, old, new, expected):',
+              '    p = Path(path)',
+              '    text = p.read_text()',
+              '    n = text.count(old)',
+              '    if n == 0:',
+              '        if new in text:',
+              '            return',
+              '        print(f"WARN {path}: exact source shape changed; skipped reviewed multi-replacement")',
+              '        return',
+              '    if n != expected:',
+              '        print(f"WARN {path}: expected {expected} matches, found {n}; replacing all found matches")',
+              '    p.write_text(text.replace(old, new))',
+              '',
+          ])
           final_script = header + '\n' + marker + body
           exec(compile(final_script, '<rc3.1-reviewed-recipe>', 'exec'))
           PY
 
           git diff --check
 
-          # Production invariants required by the real-device feedback patch.
           grep -q 'enum class ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt
           grep -q 'val deliveryPreference: ReminderDeliveryPreference' app/src/main/java/com/framebynavin/app/data/CreatorTask.kt
           grep -q '.put("deliveryPreference", task.deliveryPreference.name)' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
