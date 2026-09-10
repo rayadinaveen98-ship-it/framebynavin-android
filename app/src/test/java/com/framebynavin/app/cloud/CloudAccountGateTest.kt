@@ -28,7 +28,13 @@ class CloudAccountGateTest {
             entered.await()
             val captured = CompletableDeferred<Unit>()
             val second = async(Dispatchers.Default) {
-                runCatching { gate.current({ captured.complete(Unit); generation.get() }) { "wrong account" } }
+                runCatching {
+                    gate.current({
+                        val snapshot = generation.get()
+                        captured.complete(Unit)
+                        snapshot
+                    }) { "wrong account" }
+                }
             }
             captured.await()
             generation.incrementAndGet()
