@@ -48,6 +48,9 @@ jobs:
           grep -q 'val scriptStudio: CreatorScriptStudio?' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
           grep -q 'scriptStudio.*encodeScriptStudio' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
           grep -q 'legacyStore.load' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -q 'archivedAtMillis < 0L.*CreatorContentWorkspace' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -q 'project == null || project.archivedAtMillis < 0L' app/src/main/java/com/framebynavin/app/data/ScriptStudioStore.kt
+          grep -q 'deleteForProjects' app/src/main/java/com/framebynavin/app/data/ScriptStudioStore.kt
           grep -q 'migrateLegacyScriptIfNeeded' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
           grep -q 'actualStudioRevision' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
           grep -q 'CONTENT PROJECT 2.0 · ALPHA 6' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
