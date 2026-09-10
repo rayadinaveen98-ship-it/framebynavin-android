@@ -102,14 +102,28 @@ jobs:
           set -euo pipefail
           git add app
 
-      - name: Verify staged RC3.1 delta
+      - name: Show staged RC3.1 delta
         shell: bash
         run: |
           set -euo pipefail
           git status --short
           git diff --cached --stat
+
+      - name: Check staged RC3.1 whitespace
+        shell: bash
+        run: |
+          set -euo pipefail
           git diff --cached --check
-          git diff --cached --quiet && { echo "No validated RC3.1 app changes staged" >&2; exit 1; }
+
+      - name: Require staged RC3.1 changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --cached --quiet; then
+            echo "No validated RC3.1 app changes staged" >&2
+            exit 1
+          fi
+          echo "Validated RC3.1 app delta is staged."
 
       - name: Commit validated RC3.1 source unsigned
         shell: bash
