@@ -89,8 +89,10 @@ data class CreatorContentWorkspace(
     val assets: List<CreatorProjectAsset> = emptyList(),
     val deliverables: List<CreatorDeliverable> = emptyList(),
     val learnings: String = "",
+    /** Alpha6 source of truth for the structured writing workspace; included in normal project export/restore. */
+    val scriptStudio: CreatorScriptStudio? = null,
 ) {
     fun isEmpty(): Boolean = audience.isBlank() && viewerProblem.isBlank() && promise.isBlank() &&
         angle.isBlank() && hook.isBlank() && script.isBlank() && references.isEmpty() && checklist.isEmpty() &&
-        assets.isEmpty() && deliverables.isEmpty() && learnings.isBlank()
+        assets.isEmpty() && deliverables.isEmpty() && learnings.isBlank() && (scriptStudio == null || scriptStudio.isEmpty())
 }
