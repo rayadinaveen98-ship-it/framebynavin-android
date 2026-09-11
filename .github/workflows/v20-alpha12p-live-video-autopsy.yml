@@ -1,0 +1,123 @@
+name: v2.0 Alpha 1.2P Live Video Autopsy
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.2p-live-video-autopsy"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha12p-live-video-autopsy
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Verify v105 Firebase and AI invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 105' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.2p-live-video-autopsy"' app/build.gradle.kts
+          grep -q 'id("com.google.gms.google-services")' app/build.gradle.kts
+          grep -q 'implementation("com.google.firebase:firebase-ai")' app/build.gradle.kts
+          grep -q 'debugImplementation("com.google.firebase:firebase-appcheck-debug")' app/build.gradle.kts
+          grep -q 'implementation("com.google.firebase:firebase-appcheck-playintegrity")' app/build.gradle.kts
+          python3 - <<'PY'
+          import json
+          with open('app/google-services.json', encoding='utf-8') as f:
+              data=json.load(f)
+          assert data['project_info']['project_number']=='792920886199'
+          assert any(c['client_info']['android_client_info']['package_name']=='com.framebynavin.app' for c in data['client'])
+          PY
+          grep -q 'DebugAppCheckProviderFactory' app/src/debug/java/com/framebynavin/app/CreatorAppCheck.kt
+          grep -q 'PlayIntegrityAppCheckProviderFactory' app/src/release/java/com/framebynavin/app/CreatorAppCheck.kt
+          grep -q 'CreatorAppCheck.install(applicationContext)' app/src/main/java/com/framebynavin/app/MainActivity.kt
+          grep -q 'class CreatorGeminiVideoAutopsyProvider' app/src/main/java/com/framebynavin/app/ai/CreatorGeminiVideoAutopsyProvider.kt
+          grep -q 'gemini-3.8-flash' app/src/main/java/com/framebynavin/app/ai/CreatorGeminiVideoAutopsyProvider.kt
+          grep -q 'fileData(it, "video/mp4")' app/src/main/java/com/framebynavin/app/ai/CreatorGeminiVideoAutopsyProvider.kt
+          grep -q 'class CreatorAiReportStore' app/src/main/java/com/framebynavin/app/data/CreatorAiReportStore.kt
+          grep -q 'ANALYZE VIDEO WITH GEMINI' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'AI is off by default' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'full script withheld in v104' app/src/main/java/com/framebynavin/app/data/CreatorAiEvidencePack.kt
+          grep -q 'PTab.TODAY -> PTodayScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          if grep -R --line-number 'AIzaSy' app/src/main app/src/debug app/src/release; then
+            echo 'Firebase API keys must not be copied into Kotlin/Java source.' >&2
+            exit 1
+          fi
+          git diff --check
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.2p-live-video-autopsy.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.2p-live-video-autopsy.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.2p-live-video-autopsy"
+            echo "versionCode=105"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "firebaseProjectNumber=792920886199"
+            echo "firebasePackage=com.framebynavin.app"
+            echo "firebaseAiLogic=true"
+            echo "geminiModel=gemini-3.8-flash"
+            echo "youtubeUrlVideoInput=true"
+            echo "appCheckDebugForDebug=true"
+            echo "appCheckPlayIntegrityForRelease=true"
+            echo "aiConsentDefaultOff=true"
+            echo "fullScriptsWithheld=true"
+            echo "evidenceCitations=true"
+            echo "localAutopsyMemory=true"
+            echo "acceptedCinematicHomePreserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2p-live-video-autopsy-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.2p-live-video-autopsy.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2p-live-video-autopsy-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:staging/v2.0-alpha1.2p-live-video-autopsy-validated
