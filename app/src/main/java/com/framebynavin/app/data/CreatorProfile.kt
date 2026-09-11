@@ -64,7 +64,12 @@ data class CreatorProfile(
             primaryCreatorMode = primaryMode,
             secondaryCreatorModes = normalizedSecondaryModes,
             platforms = platforms.map { it.trim() }.filter { it.isNotBlank() }.toSet(),
-            productionStyles = productionStyles.map { it.trim() }.filter { it.isNotBlank() }.take(MAX_PRODUCTION_STYLES).toSet(),
+            productionStyles = productionStyles
+                .map(ProductionStyleRegistry::canonicalLabel)
+                .filter { it.isNotBlank() }
+                .distinct()
+                .take(MAX_PRODUCTION_STYLES)
+                .toSet(),
             primaryGoal = normalizedPrimaryGoal,
             secondaryGoals = normalizedSecondaryGoals,
             weeklyPublishingTarget = weeklyPublishingTarget.coerceIn(1, 14),
