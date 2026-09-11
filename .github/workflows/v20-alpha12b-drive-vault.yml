@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: v20-alpha12b-drive-vault
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   validate:
@@ -59,6 +59,9 @@ jobs:
           test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudBackupEnvelope.kt
           test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudDeletionRecovery.kt
           test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudRecoveryPolicy.kt
+          test ! -e app/src/androidTest/java/com/framebynavin/app/cloud/CloudDeletionJournalV183Test.kt
+          test ! -e app/src/androidTest/java/com/framebynavin/app/cloud/CloudLegacyRestoreV183Test.kt
+          test -e app/src/androidTest/java/com/framebynavin/app/cloud/DriveVaultV20InstrumentedTest.kt
           for needle in creator_backups creator_devices creator_cloud_status save_creator_backup creator_restore_points creator_download_backup creator_delete_owned_data creator_resume_owned_data; do
             ! grep -R "$needle" app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt
           done
@@ -98,6 +101,8 @@ jobs:
             echo "backgroundCloudBackupWorkerRemoved=true"
             echo "freshInstallDriveRecoveryGate=true"
             echo "emptySnapshotProtection=true"
+            echo "obsoleteCloudInstrumentationRemoved=true"
+            echo "driveVaultInstrumentation=true"
             echo "homeRoutePreserved=true"
             echo "distributionSigning=development-sideload-only"
           } > verification/manifest.txt
