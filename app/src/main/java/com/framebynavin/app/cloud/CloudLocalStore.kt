@@ -139,6 +139,16 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
         check(editor.commit()) { "Could not save cloud lifecycle state" }
     }
 
+    fun clearLifecycle() = synchronized(accountLock) {
+        check(
+            prefs.edit()
+                .remove(KEY_LIFECYCLE)
+                .remove(KEY_RECONCILED_USER)
+                .putBoolean(KEY_ENABLED, false)
+                .commit()
+        ) { "Could not clear cloud lifecycle state" }
+    }
+
     /** Legacy RC7 journal strings have no safe replay generation. */
     override fun pendingUserId(): String? = synchronized(accountLock) {
         val raw = prefs.getString(KEY_PENDING_DELETION, null) ?: return@synchronized null

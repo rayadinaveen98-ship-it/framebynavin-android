@@ -72,21 +72,48 @@ class CloudSyncManager(context: Context) {
             runCatching {
                 val session = api.signInWithGoogle(idToken)
                 require(session.userId.isNotBlank()) { "Account identity missing" }
-                val lifecycle = api.cloudStatus(session)
+                accountGate.requireCurrent(epoch, local.generation())
+
+                // Authentication is identity. Persist it before optional cloud-backup inspection.
+                check(local.clearApproval()) { "Could not clear cloud backup approval" }
+                local.clearLifecycle()
+                local.saveSession(session)
+                local.clearCreatorProfile()
+
+                // Read-only lookup lets a returning creator recover identity without enabling sync.
+                val profile = runCatching { api.fetchCreatorProfile(session) }
+                    .onFailure { it.rethrowCancellation() }
+                    .getOrNull()
+                accountGate.requireCurrent(epoch, local.generation())
+                require(profile == null || profile.userId == session.userId) { "Account profile mismatch" }
+                profile?.let(local::saveCreatorProfile)
+
+                val lifecycle = try {
+                    api.cloudStatus(session)
+                } catch (error: Throwable) {
+                    error.rethrowCancellation()
+                    if (isCloudSafetyServiceUnavailable(error)) {
+                        val message = "Google account connected. Cloud backup safety is temporarily unavailable, so uploads remain off."
+                        local.markError(message)
+                        return@runCatching CloudOperationResult.Success(message)
+                    }
+                    throw error
+                }
+
                 accountGate.requireCurrent(epoch, local.generation())
                 local.saveLifecycle(session.userId, lifecycle)
                 val writable = lifecycle.active && !local.deletionPendingFor(session.userId)
-                if (writable) api.upsertProfile(session, lifecycle.generation)
-                val profile = if (writable) api.fetchCreatorProfile(session) else null
-                require(profile == null || profile.userId == session.userId) { "Account profile mismatch" }
-                if (writable)
+                if (writable) {
+                    api.upsertProfile(session, lifecycle.generation)
+                    val refreshedProfile = api.fetchCreatorProfile(session)
+                    accountGate.requireCurrent(epoch, local.generation())
+                    require(refreshedProfile == null || refreshedProfile.userId == session.userId) { "Account profile mismatch" }
+                    if (refreshedProfile != null) local.saveCreatorProfile(refreshedProfile)
                     api.upsertDevice(session, local.deviceKey(), deviceLabel(), BuildConfig.VERSION_NAME, lifecycle.generation)
+                }
                 val points = api.listRestorePoints(session)
                 accountGate.requireCurrent(epoch, local.generation())
-                check(local.clearApproval()) { "Could not clear cloud backup approval" }
-                local.saveSession(session)
-                local.clearCreatorProfile()
-                profile?.let(local::saveCreatorProfile)
+
                 if (!lifecycle.active) {
                     CloudOperationResult.Success("Account connected. Cloud creator data is deleted. Your phone data is safe. Review the account state before explicitly starting a new cloud history.")
                 } else if (local.deletionPendingFor(session.userId)) {
@@ -106,6 +133,18 @@ class CloudSyncManager(context: Context) {
             }
         }
     }
+
+    /** Read-only creator identity refresh. It never requires or grants cloud-backup authority. */
+    suspend fun refreshCreatorIdentity(): Result<CloudCreatorProfile?> = runCatching {
+        currentAccount { epoch ->
+            val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
+            val profile = api.fetchCreatorProfile(session)
+            accountGate.requireCurrent(epoch, local.generation())
+            require(profile == null || profile.userId == session.userId) { "Account profile mismatch" }
+            if (profile == null) local.clearCreatorProfile() else local.saveCreatorProfile(profile)
+            profile
+        }
+    }.onFailure { it.rethrowCancellation() }
 
     suspend fun refreshCreatorProfile(): Result<CloudCreatorProfile?> = runCatching {
         currentAccount { epoch ->
@@ -437,13 +476,17 @@ class CloudSyncManager(context: Context) {
 
     private fun deviceLabel(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
 
-    private fun cloudMessage(error: Throwable, fallback: String): String = when (error) {
-        is CloudHttpException -> if (error.statusCode == 404 || error.message.contains("PGRST202"))
-            "Cloud safety service is not available yet. Creator data remains on this phone; no upload was started."
-        else error.message.ifBlank { fallback }
+    private fun cloudMessage(error: Throwable, fallback: String): String = when {
+        isCloudSafetyServiceUnavailable(error) ->
+            "Cloud backup safety service is not available yet. Creator data remains on this phone; no upload was started."
+        error is CloudHttpException -> error.message.ifBlank { fallback }
         else -> fallback
     }
 
     private data class CloudPackage(val payload: String, val localBackup: String)
     private data class NetworkState(val connected: Boolean, val wifi: Boolean)
 }
+
+internal fun isCloudSafetyServiceUnavailable(error: Throwable): Boolean =
+    error is CloudHttpException &&
+        (error.statusCode == 404 || error.message.contains("PGRST202", ignoreCase = true))

@@ -83,8 +83,16 @@ internal fun V23AccountOnboarding(
                 } else {
                     when (val resultState = manager.completeGoogleSignIn(idToken)) {
                         is CloudOperationResult.Success -> {
-                            manager.refreshCreatorProfile()
+                            manager.refreshCreatorIdentity()
                             reload()
+                            val connectedSession = manager.localState().session
+                            val connectedProfile = manager.cachedCreatorProfile()
+                            when {
+                                connectedSession != null && !connectedProfile?.username.isNullOrBlank() ->
+                                    onComplete(connectedProfile!!.displayName.ifBlank { connectedSession.displayName })
+                                connectedSession != null && resultState.message.startsWith("Google account connected.") ->
+                                    onComplete(connectedSession.displayName)
+                            }
                         }
                         is CloudOperationResult.Skipped -> error = resultState.message
                         is CloudOperationResult.Failure -> error = resultState.message
@@ -132,8 +140,13 @@ internal fun V23AccountOnboarding(
 
     LaunchedEffect(Unit) {
         if (session != null) {
-            manager.refreshCreatorProfile()
+            manager.refreshCreatorIdentity()
             reload()
+            val connectedSession = manager.localState().session
+            val connectedProfile = manager.cachedCreatorProfile()
+            if (connectedSession != null && !connectedProfile?.username.isNullOrBlank()) {
+                onComplete(connectedProfile!!.displayName.ifBlank { connectedSession.displayName })
+            }
         }
     }
 
