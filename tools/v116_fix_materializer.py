@@ -21,5 +21,10 @@ text = text[:composer_column] + new_column + text[composer_column + len(old_colu
 '''
 if old not in text:
     raise RuntimeError("IME materializer block not found")
-path.write_text(text.replace(old, new, 1), encoding="utf-8")
-print("v116 materializer IME patch fixed")
+text = text.replace(old, new, 1)
+
+cleanup = '''\n\n# Normalize generated Kotlin whitespace so git diff --check stays strict.\nfor _path in [\n    "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt",\n    "app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt",\n    "app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt",\n    "app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt",\n]:\n    _value = load(_path)\n    _had_newline = _value.endswith("\\n")\n    _value = "\\n".join(line.rstrip() for line in _value.splitlines())\n    save(_path, _value + ("\\n" if _had_newline else ""))\n'''
+if "Normalize generated Kotlin whitespace" not in text:
+    text += cleanup
+path.write_text(text, encoding="utf-8")
+print("v116 materializer IME and whitespace patch fixed")
