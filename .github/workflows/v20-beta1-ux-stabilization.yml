@@ -26,6 +26,7 @@ jobs:
         run: |
           python tools/v116_fix_materializer.py
           python tools/v20_beta1_ux_stabilization.py
+          python tools/v116_workspace_cleanup.py
 
       - name: Verify v116 UX invariants
         shell: bash
@@ -45,6 +46,10 @@ jobs:
           grep -q 'CHANNEL SIGNALS' app/src/main/java/com/framebynavin/app/ui/V20InsightsFoundationUi.kt
           grep -q 'WHY THIS?' app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
           grep -q 'Normal Insights still works' app/src/main/java/com/framebynavin/app/youtube/YouTubeReachReporting.kt
+          grep -q 'Plan, write and publish from one place.' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+          ! grep -q 'RC2 is stabilization-only' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+          ! grep -q 'SINGLE SCRIPT AUTHORITY' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+          ! grep -q 'SINGLE PUBLISH AUTHORITY' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
           grep -q 'ANALYZE VIDEO WITH GEMINI' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
           grep -q 'ProjectPulseEngine::repairFalseSurfaceCompletion' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
           grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
@@ -89,6 +94,7 @@ jobs:
             echo "projectComposerProgressiveDisclosure=true"
             echo "projectComposerImeSafe=true"
             echo "technicalCopyReduced=true"
+            echo "creatorWorkspaceSimplified=true"
             echo "reachApiFailureCreatorFriendly=true"
             echo "liveGeminiVideoAutopsyPreserved=true"
             echo "reminderCompletionSafetyPreserved=true"
