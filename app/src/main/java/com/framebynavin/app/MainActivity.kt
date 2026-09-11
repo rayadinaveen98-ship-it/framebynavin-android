@@ -41,6 +41,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
+        // Install the variant-specific Firebase App Check provider before any optional AI request.
+        // Debug builds use Firebase's debug provider; release builds use Play Integrity.
+        CreatorAppCheck.install(applicationContext)
         splash.setKeepOnScreenCondition { !startupReady && startupError == null }
         externalLaunch = widgetLaunch(intent)
         enableEdgeToEdge()
