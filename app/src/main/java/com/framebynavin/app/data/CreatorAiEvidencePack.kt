@@ -153,7 +153,14 @@ object CreatorAiEvidencePackBuilder {
     }
 
     private fun public(id: String, klass: CreatorAiEvidenceClass, label: String, value: String) =
-        CreatorAiEvidence(id, klass, CreatorAiEvidenceVisibility.PUBLIC, label, value)
+        CreatorAiEvidence(
+            id,
+            klass,
+            if (klass == CreatorAiEvidenceClass.PLATFORM_ANALYTICS) CreatorAiEvidenceVisibility.PRIVATE_CREATOR_DATA
+            else CreatorAiEvidenceVisibility.PUBLIC,
+            label,
+            value,
+        )
 
     private fun privateEvidence(id: String, klass: CreatorAiEvidenceClass, label: String, value: String) =
         CreatorAiEvidence(id, klass, CreatorAiEvidenceVisibility.PRIVATE_CREATOR_DATA, label, value)

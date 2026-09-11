@@ -105,6 +105,9 @@ internal fun V20VideoPostmortemCard(
                 fontSize = 7.2.sp,
                 lineHeight = 10.sp,
             )
+
+            Spacer(Modifier.height(10.dp))
+            V20GeminiIntelligenceCard(postmortem)
         }
     }
 }
