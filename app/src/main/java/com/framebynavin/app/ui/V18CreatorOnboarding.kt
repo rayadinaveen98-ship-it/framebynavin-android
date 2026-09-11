@@ -18,20 +18,8 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorModeRegistry
 import com.framebynavin.app.data.CreatorProfile
 import com.framebynavin.app.data.CreatorPlatformRegistry
+import com.framebynavin.app.data.ProductionStyleRegistry
 import com.framebynavin.app.ui.theme.*
-
-private val productionStyles = listOf(
-    "Voiceover",
-    "Talking Head",
-    "Gameplay Capture",
-    "Screen Recording",
-    "Camera / B-roll",
-    "Livestream",
-    "Audio-only",
-    "Animation / Motion",
-    "Writing",
-    "Mixed / Hybrid",
-)
 
 private val creatorGoals = listOf(
     "Publish consistently",
@@ -89,7 +77,7 @@ internal fun V18CreatorOnboarding(
 
     val selectedModeDefinition = CreatorModeRegistry.definition(primaryMode)
     val orderedProductionStyles = remember(primaryMode) {
-        (selectedModeDefinition.suggestedProductionStyles + productionStyles).distinct()
+        ProductionStyleRegistry.orderedForMode(primaryMode)
     }
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
