@@ -27,8 +27,12 @@ post = '''\n\n# Opportunity details use a lightweight disclosure instead of an a
 if "Opportunity details use a lightweight disclosure" not in text:
     text += post
 
+archetype_patch = '''\n\n# Composer content-type options are creator-mode relevant instead of dumping the full registry.\n_comp_path = "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt"\n_comp = load(_comp_path)\n_comp = replace_once(\n    _comp,\n    "    val archetypeOptions = remember(creatorModeId, archetypeId) {\\n        (ContentArchetypeRegistry.suggestedForMode(creatorModeId) + ContentArchetypeRegistry.definitions)\\n            .distinctBy { it.id }\\n    }\\n",\n    "    val archetypeOptions = remember(creatorModeId, archetypeId) {\\n        val suggested = ContentArchetypeRegistry.suggestedForMode(creatorModeId)\\n        val selected = ContentArchetypeRegistry.definition(archetypeId)\\n        if (selected != null && suggested.none { it.id == selected.id }) suggested + selected else suggested\\n    }\\n",\n    "creator-mode content type options",\n)\nsave(_comp_path, _comp)\n'''
+if "Composer content-type options are creator-mode relevant" not in text:
+    text += archetype_patch
+
 cleanup = '''\n\n# Normalize generated Kotlin whitespace so git diff --check stays strict.\nfor _path in [\n    "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt",\n    "app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt",\n    "app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt",\n    "app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt",\n]:\n    _value = load(_path)\n    _had_newline = _value.endswith("\\n")\n    _value = "\\n".join(line.rstrip() for line in _value.splitlines())\n    save(_path, _value + ("\\n" if _had_newline else ""))\n'''
 if "Normalize generated Kotlin whitespace" not in text:
     text += cleanup
 path.write_text(text, encoding="utf-8")
-print("v116 materializer IME, opportunity disclosure and whitespace patch fixed")
+print("v116 materializer IME, opportunity disclosure, taxonomy and whitespace patch fixed")
