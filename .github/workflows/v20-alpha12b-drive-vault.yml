@@ -38,6 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/v20_alpha12b_drive_vault.py
+          python3 tools/v20_alpha12b_drive_vault_fix1.py
           git diff --check
 
       - name: Verify storage architecture invariants
@@ -47,6 +48,7 @@ jobs:
           grep -q 'versionCode = 88' app/build.gradle.kts
           grep -q 'versionName = "2.0.0-alpha1.2b-drive-vault"' app/build.gradle.kts
           grep -q 'Scopes.DRIVE_APPFOLDER' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          grep -q 'com.google.android.gms.common.api.Scope' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
           grep -q 'spaces=appDataFolder' app/src/main/java/com/framebynavin/app/cloud/DriveVaultApi.kt
           grep -q '"appDataFolder"' app/src/main/java/com/framebynavin/app/cloud/DriveVaultApi.kt
           grep -q 'DriveVaultPolicy.shouldBlockEmptySnapshot' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
