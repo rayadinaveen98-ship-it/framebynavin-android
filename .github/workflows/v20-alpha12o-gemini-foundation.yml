@@ -1,0 +1,123 @@
+name: v2.0 Alpha 1.2O Gemini Foundation
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.2o-gemini-foundation"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha12o-gemini-foundation
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Materialize v104 integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/v20_alpha12o_gemini_foundation.py
+          git diff --check
+          git status --short
+          git config user.name "FrameByNavin CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add app
+          git commit -m "feat(v2.0): build Gemini Intelligence foundation"
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Verify v104 invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 104' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.2o-gemini-foundation"' app/build.gradle.kts
+          grep -q 'data class CreatorAiConsent' app/src/main/java/com/framebynavin/app/data/CreatorAiEvidencePack.kt
+          grep -q 'if (!consent.enabled)' app/src/main/java/com/framebynavin/app/data/CreatorAiEvidencePack.kt
+          grep -q 'full script withheld in v104' app/src/main/java/com/framebynavin/app/data/CreatorAiEvidencePack.kt
+          grep -q 'Never invent missing metrics' app/src/main/java/com/framebynavin/app/data/CreatorAiEvidencePack.kt
+          grep -q 'cite the relevant evidence id' app/src/main/java/com/framebynavin/app/data/CreatorAiEvidencePack.kt
+          grep -q 'PLATFORM_ANALYTICS) CreatorAiEvidenceVisibility.PRIVATE_CREATOR_DATA' app/src/main/java/com/framebynavin/app/data/CreatorAiEvidencePack.kt
+          grep -q 'Intentionally excluded from cloud backup' app/src/main/java/com/framebynavin/app/data/CreatorAiSettingsStore.kt
+          grep -q 'AI is off by default' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'embeds no Gemini API key' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'V20GeminiIntelligenceCard(postmortem)' app/src/main/java/com/framebynavin/app/ui/V20VideoPostmortemUi.kt
+          grep -q 'object CreatorCreativeIntelligenceEngine' app/src/main/java/com/framebynavin/app/data/CreatorCreativeIntelligence.kt
+          grep -q 'object CreatorVideoPostmortemEngine' app/src/main/java/com/framebynavin/app/data/CreatorVideoPostmortem.kt
+          grep -q 'PTab.TODAY -> PTodayScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          git diff --check
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.2o-gemini-foundation.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.2o-gemini-foundation.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.2o-gemini-foundation"
+            echo "versionCode=104"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "aiOptional=true"
+            echo "aiDefaultOff=true"
+            echo "apiKeyEmbedded=false"
+            echo "deviceLocalConsent=true"
+            echo "cloudRestoreDoesNotReenableAi=true"
+            echo "evidenceIdsRequired=true"
+            echo "fullScriptsWithheld=true"
+            echo "platformAnalyticsPrivate=true"
+            echo "firebaseAiLogicProviderPending=true"
+            echo "videoPostmortemPreserved=true"
+            echo "creativeIntelligencePreserved=true"
+            echo "acceptedCinematicHomePreserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2o-gemini-foundation-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.2o-gemini-foundation.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2o-gemini-foundation-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:staging/v2.0-alpha1.2o-gemini-foundation-validated
