@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowIntelligenceEngine
+import com.framebynavin.app.data.CreatorWorkflowTimelineStore
+import com.framebynavin.app.data.CreatorWorkflowTimingBasis
 import com.framebynavin.app.data.ProjectPulseHistoryStore
 import com.framebynavin.app.ui.theme.*
 import java.util.Locale
@@ -23,7 +25,11 @@ import java.util.Locale
 internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
     val context = LocalContext.current.applicationContext
     val snapshot = remember(tasks) {
-        CreatorWorkflowIntelligenceEngine.snapshot(tasks, ProjectPulseHistoryStore(context).loadAll())
+        CreatorWorkflowIntelligenceEngine.snapshot(
+            tasks = tasks,
+            events = ProjectPulseHistoryStore(context).loadAll(),
+            timeline = CreatorWorkflowTimelineStore(context).loadAll(),
+        )
     }
 
     Surface(
@@ -53,6 +59,15 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
             Spacer(Modifier.height(10.dp))
             val bottleneck = snapshot.historicalBottleneck
             when {
+                bottleneck?.timingBasis == CreatorWorkflowTimingBasis.TIMELINE_EXACT -> {
+                    Text("CONSISTENT BOTTLENECK", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text(
+                        "${bottleneck.stageLabel} currently has your longest measured time in stage · median ${workflowDuration(bottleneck.medianTimeInStageMillis)} across ${bottleneck.exactTimelineSamples} transition-measured exits.",
+                        color = ProjectorIvory,
+                        fontSize = 9.sp,
+                        lineHeight = 13.sp,
+                    )
+                }
                 bottleneck != null -> {
                     Text("OBSERVED BOTTLENECK", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Text(
@@ -71,8 +86,14 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
                         lineHeight = 13.sp,
                     )
                 }
+                snapshot.measuredTimelineExits > 0 -> Text(
+                    "${snapshot.measuredTimelineExits} stage exits are measured so far. FrameByNavin waits for repeated evidence before naming a consistent bottleneck.",
+                    color = MutedText,
+                    fontSize = 8.5.sp,
+                    lineHeight = 12.sp,
+                )
                 else -> Text(
-                    "FrameByNavin is learning stage timing. A duration appears only when a stage has a recorded check-in before Stage Done.",
+                    "FrameByNavin is learning stage timing. Existing stages start as observed lower-bound measurements; future stage transitions are timed from entry to exit.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     lineHeight = 12.sp,
@@ -81,7 +102,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
 
             Spacer(Modifier.height(8.dp))
             Text(
-                "Observed span is not active work time — it is the lower-bound time between the first recorded stage check-in and Stage Done.",
+                "Time in stage is elapsed workflow residence, not active hands-on work. FrameByNavin will not turn elapsed time into fake work hours.",
                 color = MutedText.copy(alpha = .78f),
                 fontSize = 7.6.sp,
                 lineHeight = 11.sp,
