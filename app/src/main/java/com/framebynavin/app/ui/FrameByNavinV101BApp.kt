@@ -92,6 +92,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val context = LocalContext.current
     val activity = context as? ComponentActivity
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
+    val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
+    var driveRecoveryRevision by rememberSaveable { mutableIntStateOf(0) }
     var settings by remember { mutableStateOf(settingsStore.snapshot()) }
     var permissions by remember { mutableStateOf(pPermissions(context)) }
     var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
@@ -541,14 +543,22 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         )
     } else if ((!settings.onboardingComplete || !settings.creatorProfile.isComplete) &&
         CloudSyncManager(context.applicationContext).localState().session?.let { session ->
-            !DriveVaultLocalStore(context.applicationContext).recoveryReviewed(session.email)
+            // Read revision so marking recovery reviewed causes this gate to be re-evaluated immediately.
+            driveRecoveryRevision
+            !driveVaultLocalStore.recoveryReviewed(session.email)
         } == true
     ) {
         val connected = CloudSyncManager(context.applicationContext).localState().session!!
         V20DriveRecoveryGate(
             session = connected,
-            onRecovered = { settings = settingsStore.snapshot() },
-            onStartNew = { settings = settingsStore.snapshot() },
+            onRecovered = {
+                driveRecoveryRevision += 1
+                settings = settingsStore.snapshot()
+            },
+            onStartNew = {
+                driveRecoveryRevision += 1
+                settings = settingsStore.snapshot()
+            },
         )
     } else if (!settings.onboardingComplete || !settings.creatorProfile.isComplete) {
         V18CreatorOnboarding(
