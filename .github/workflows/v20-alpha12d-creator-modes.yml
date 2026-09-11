@@ -1,0 +1,121 @@
+name: v2.0 Alpha 1.2D Creator Modes
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.2d-creator-mode-registry"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha12d-creator-modes
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Materialize Creator Modes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/v20_alpha12d_creator_modes.py
+          git diff --check
+
+      - name: Verify Creator Mode invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 91' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.2d-creator-modes"' app/build.gradle.kts
+          grep -q 'object CreatorModeRegistry' app/src/main/java/com/framebynavin/app/data/CreatorModeRegistry.kt
+          grep -q 'label = "Gaming"' app/src/main/java/com/framebynavin/app/data/CreatorModeRegistry.kt
+          grep -q 'label = "Film & Entertainment"' app/src/main/java/com/framebynavin/app/data/CreatorModeRegistry.kt
+          grep -q 'suggestion("gameplay", "Gameplay Video")' app/src/main/java/com/framebynavin/app/data/CreatorModeRegistry.kt
+          grep -q 'suggestion("highlights", "Cinematic Moments")' app/src/main/java/com/framebynavin/app/data/CreatorModeRegistry.kt
+          grep -q 'CreatorModeRegistry.canonicalLabel' app/src/main/java/com/framebynavin/app/data/CreatorProfile.kt
+          grep -q 'CreatorModeRegistry.labels' app/src/main/java/com/framebynavin/app/ui/V18CreatorOnboarding.kt
+          grep -q 'orderedProductionStyles' app/src/main/java/com/framebynavin/app/ui/V18CreatorOnboarding.kt
+          grep -q 'PTab.TODAY -> PTodayScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudSyncWorker.kt
+
+      - name: Pin exact app source before Gradle
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A app
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git -c commit.gpgSign=false commit -m "feat(v2.0): ship Creator Mode Registry"
+          fi
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.2d-creator-modes.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.2d-creator-modes.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.2d-creator-modes"
+            echo "versionCode=91"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "creatorModeRegistry=true"
+            echo "legacyModeAliasesCanonicalized=true"
+            echo "modeSpecificArchetypeSuggestions=true"
+            echo "modeSpecificProductionDefaults=true"
+            echo "modesAreRecommendationsNotPermissions=true"
+            echo "creatorProfileV2Preserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "acceptedCinematicHomePreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2d-creator-modes-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.2d-creator-modes.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2d-creator-modes-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:staging/v2.0-alpha1.2d-creator-modes-validated
