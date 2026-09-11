@@ -63,7 +63,11 @@ data class CreatorProfile(
             category = primaryMode,
             primaryCreatorMode = primaryMode,
             secondaryCreatorModes = normalizedSecondaryModes,
-            platforms = platforms.map { it.trim() }.filter { it.isNotBlank() }.toSet(),
+            platforms = platforms
+                .map(CreatorPlatformRegistry::canonicalName)
+                .filter { it.isNotBlank() }
+                .distinct()
+                .toSet(),
             productionStyles = productionStyles
                 .map(ProductionStyleRegistry::canonicalLabel)
                 .filter { it.isNotBlank() }
