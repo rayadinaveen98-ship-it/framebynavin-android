@@ -8,6 +8,10 @@ enum class CreatorBrainDimension {
     PLATFORM,
     DELIVERY_FORMAT,
     HOOK_STYLE,
+    ANGLE_STYLE,
+    TOPIC,
+    SERIES,
+    COMBINATION,
     WORKFLOW_PACE,
 }
 
@@ -45,6 +49,7 @@ data class CreatorBrainSnapshot(
 
     val evaluatedPatternCount: Int get() = patterns.size
     val activePatternCount: Int get() = activePatterns.size
+    val combinationPatternCount: Int get() = patterns.count { it.dimension == CreatorBrainDimension.COMBINATION }
 }
 
 data class CreatorBrainMatch(
@@ -53,16 +58,18 @@ data class CreatorBrainMatch(
 )
 
 /**
- * Alpha 1.4A Creator Brain foundation.
+ * Alpha 1.4B Creator Brain combinations.
  *
- * This layer learns finer creator-specific patterns only from recommendation outcomes that have
- * reached real YouTube evaluation. It does not infer success from draft projects, clicks, Gemini,
- * or a single strong upload. Patterns need repeated evidence before they can influence ranking:
- * three evaluated outcomes can become EMERGING, four are required for PROVEN or CAUTION.
+ * The Brain still learns only from recommendation outcomes that reached real YouTube evaluation,
+ * but it can now remember repeatable combinations instead of treating every trait in isolation.
+ * Structured Content DNA, hook family, angle family and explicitly identifiable topic/series memory
+ * can form combinations such as archetype + hook, format + hook or angle + hook.
  *
- * Brain adjustments are deliberately smaller than current opportunity evidence and are capped when
- * multiple matching patterns overlap, so Content DNA history can inform a decision without taking
- * over live urgency, readiness, momentum or the Creator Playbook.
+ * Topic and series are intentionally conservative: they are read only from explicit `topic:` /
+ * `series:` metadata, hashtags, or clear Episode/Part/Chapter naming. Arbitrary video titles are not
+ * silently converted into topic rules. Three evaluated outcomes can become EMERGING; four are still
+ * required for PROVEN or CAUTION. Matching remains capped so Brain history cannot overpower current
+ * urgency, readiness, live platform momentum, the Creator Playbook or optional Gemini evidence.
  */
 object CreatorBrainEngine {
     fun build(
@@ -90,6 +97,7 @@ object CreatorBrainEngine {
             .map { (_, group) -> buildPattern(group) }
             .sortedWith(
                 compareByDescending<CreatorBrainPattern> { stateRank(it.state) }
+                    .thenByDescending { it.dimension == CreatorBrainDimension.COMBINATION }
                     .thenByDescending { it.evaluatedCount }
                     .thenByDescending { it.positiveRatePercent }
                     .thenBy { it.label }
@@ -107,7 +115,8 @@ object CreatorBrainEngine {
         val matches = snapshot.activePatterns
             .filter { (it.dimension to it.key) in candidateIds }
             .sortedWith(
-                compareByDescending<CreatorBrainPattern> { kotlin.math.abs(it.rankingDelta) }
+                compareByDescending<CreatorBrainPattern> { it.dimension == CreatorBrainDimension.COMBINATION }
+                    .thenByDescending { kotlin.math.abs(it.rankingDelta) }
                     .thenByDescending { it.evaluatedCount }
             )
             .take(2)
@@ -131,6 +140,42 @@ object CreatorBrainEngine {
             clean.length <= 72 -> "direct"
             else -> "contextual"
         }
+    }
+
+    internal fun classifyAngleStyle(angle: String): String {
+        val clean = angle.trim().lowercase()
+        if (clean.isBlank()) return ""
+        return when {
+            Regex("\\b(vs|versus|compare|comparison|better than|worse than|contrast)\\b").containsMatchIn(clean) -> "comparison"
+            Regex("\\b(cinematography|camera|shot|frame|lighting|editing|screenplay|sound|bgm|performance|blocking|composition|craft)\\b").containsMatchIn(clean) -> "craft"
+            Regex("\\b(emotion|emotional|love|fear|grief|pain|sad|sadness|relationship|mother|father|loss)\\b").containsMatchIn(clean) -> "emotional"
+            Regex("\\b(explain|explained|meaning|ending|timeline|understand|breakdown|how|why)\\b").containsMatchIn(clean) -> "explanatory"
+            Regex("\\b(review|my take|opinion|overrated|underrated|deserved|worth watching)\\b").containsMatchIn(clean) -> "opinion"
+            else -> "focused"
+        }
+    }
+
+    internal fun extractTopicKey(task: CreatorTask): String =
+        explicitNamedValue("topic", listOf(task.notes, task.workspace.angle))
+
+    internal fun extractSeriesKey(task: CreatorTask): String {
+        explicitNamedValue("series", listOf(task.notes, task.workspace.angle)).takeIf { it.isNotBlank() }?.let { return it }
+
+        Regex("#([A-Za-z][A-Za-z0-9_]{2,40})")
+            .find(task.title)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.let(::normalize)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+
+        val episode = Regex("(?i)\\b(?:episode|ep\\.?|part|chapter)\\s*#?\\d+\\b").find(task.title) ?: return ""
+        val stem = task.title
+            .removeRange(episode.range)
+            .replace(Regex("[|:–—-]+"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        return stem.takeIf { it.length in 3..60 }?.let(::normalize).orEmpty()
     }
 
     private fun buildPattern(group: List<Observation>): CreatorBrainPattern {
@@ -197,35 +242,94 @@ object CreatorBrainEngine {
 
     private fun currentSignals(task: CreatorTask): List<BrainSignal> {
         val dna = CreatorContentDnaEngine.effective(task)
+        val archetype = dna.archetypeId.takeIf { it.isNotBlank() }?.let(::normalize).orEmpty()
+        val contentType = task.contentType.takeIf { it.isNotBlank() }?.let(::normalize).orEmpty()
+        val platform = dna.platform.takeIf { it.isNotBlank() }?.let(::normalize).orEmpty()
+        val format = dna.deliveryFormat.takeIf { it.isNotBlank() }?.let(::normalize).orEmpty()
+        val hookStyle = classifyHookStyle(task.workspace.hook)
+        val angleStyle = classifyAngleStyle(task.workspace.angle)
+        val topic = extractTopicKey(task)
+        val series = extractSeriesKey(task)
+        val styles = dna.productionStyles
+            .map(::normalize)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(2)
+
         val signals = buildList {
             dna.creatorModeId.takeIf { it.isNotBlank() }?.let {
                 add(BrainSignal(CreatorBrainDimension.CREATOR_MODE, normalize(it), "Creator mode · ${pretty(it)}"))
             }
-            dna.archetypeId.takeIf { it.isNotBlank() }?.let {
-                add(BrainSignal(CreatorBrainDimension.ARCHETYPE, normalize(it), "Archetype · ${pretty(it)}"))
+            if (archetype.isNotBlank()) {
+                add(BrainSignal(CreatorBrainDimension.ARCHETYPE, archetype, "Archetype · ${pretty(archetype)}"))
             }
-            task.contentType.takeIf { it.isNotBlank() }?.let {
-                add(BrainSignal(CreatorBrainDimension.CONTENT_TYPE, normalize(it), "Content type · ${pretty(it)}"))
+            if (contentType.isNotBlank()) {
+                add(BrainSignal(CreatorBrainDimension.CONTENT_TYPE, contentType, "Content type · ${pretty(contentType)}"))
             }
-            dna.productionStyles.forEach { style ->
-                if (style.isNotBlank()) {
-                    add(BrainSignal(CreatorBrainDimension.PRODUCTION_STYLE, normalize(style), "Style · ${pretty(style)}"))
-                }
+            styles.forEach { style ->
+                add(BrainSignal(CreatorBrainDimension.PRODUCTION_STYLE, style, "Style · ${pretty(style)}"))
             }
-            dna.platform.takeIf { it.isNotBlank() }?.let {
-                add(BrainSignal(CreatorBrainDimension.PLATFORM, normalize(it), "Platform · ${pretty(it)}"))
+            if (platform.isNotBlank()) {
+                add(BrainSignal(CreatorBrainDimension.PLATFORM, platform, "Platform · ${pretty(platform)}"))
             }
-            dna.deliveryFormat.takeIf { it.isNotBlank() }?.let {
-                add(BrainSignal(CreatorBrainDimension.DELIVERY_FORMAT, normalize(it), "Format · ${pretty(it)}"))
+            if (format.isNotBlank()) {
+                add(BrainSignal(CreatorBrainDimension.DELIVERY_FORMAT, format, "Format · ${pretty(format)}"))
             }
-            classifyHookStyle(task.workspace.hook).takeIf { it.isNotBlank() }?.let {
-                add(BrainSignal(CreatorBrainDimension.HOOK_STYLE, it, "Hook · ${pretty(it)}"))
+            if (hookStyle.isNotBlank()) {
+                add(BrainSignal(CreatorBrainDimension.HOOK_STYLE, hookStyle, "Hook · ${pretty(hookStyle)}"))
             }
+            if (angleStyle.isNotBlank()) {
+                add(BrainSignal(CreatorBrainDimension.ANGLE_STYLE, angleStyle, "Angle · ${pretty(angleStyle)}"))
+            }
+            if (topic.isNotBlank()) {
+                add(BrainSignal(CreatorBrainDimension.TOPIC, topic, "Topic · ${pretty(topic)}"))
+            }
+            if (series.isNotBlank()) {
+                add(BrainSignal(CreatorBrainDimension.SERIES, series, "Series · ${pretty(series)}"))
+            }
+
+            addCombination("archetype_hook", archetype, hookStyle, "${pretty(archetype)} + ${pretty(hookStyle)} hook")
+            addCombination("format_hook", format, hookStyle, "${pretty(format)} + ${pretty(hookStyle)} hook")
+            addCombination("angle_hook", angleStyle, hookStyle, "${pretty(angleStyle)} angle + ${pretty(hookStyle)} hook")
+            addCombination("archetype_format", archetype, format, "${pretty(archetype)} + ${pretty(format)}")
+            styles.forEach { style ->
+                addCombination("archetype_style", archetype, style, "${pretty(archetype)} + ${pretty(style)} style")
+            }
+            addCombination("topic_hook", topic, hookStyle, "${pretty(topic)} topic + ${pretty(hookStyle)} hook")
+            addCombination("series_hook", series, hookStyle, "${pretty(series)} series + ${pretty(hookStyle)} hook")
         }
         return signals.distinctBy { it.dimension to it.key }
     }
 
-    private fun normalize(value: String): String = value.trim().lowercase().replace(Regex("\\s+"), "_")
+    private fun MutableList<BrainSignal>.addCombination(
+        family: String,
+        left: String,
+        right: String,
+        label: String,
+    ) {
+        if (left.isBlank() || right.isBlank() || left == right) return
+        add(
+            BrainSignal(
+                dimension = CreatorBrainDimension.COMBINATION,
+                key = "$family:$left+$right",
+                label = "Combination · $label",
+            )
+        )
+    }
+
+    private fun explicitNamedValue(name: String, sources: List<String>): String {
+        val regex = Regex("(?i)(?:^|[|;\\n])\\s*$name\\s*[:=]\\s*([^|;\\n]{2,60})")
+        return sources.firstNotNullOfOrNull { source ->
+            regex.find(source)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
+        }?.let(::normalize).orEmpty()
+    }
+
+    private fun normalize(value: String): String = value
+        .trim()
+        .lowercase()
+        .replace(Regex("[^a-z0-9]+"), "_")
+        .trim('_')
+        .take(64)
 
     private fun pretty(value: String): String = value
         .trim()
