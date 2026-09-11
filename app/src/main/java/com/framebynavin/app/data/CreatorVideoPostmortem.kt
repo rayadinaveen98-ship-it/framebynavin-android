@@ -272,6 +272,5 @@ object CreatorVideoPostmortemEngine {
         return points.minByOrNull { abs(it.elapsedVideoTimeRatio - target) }?.audienceWatchRatio
     }
 
-    private fun scriptStudioCharacters(studio: CreatorScriptStudio): Int =
-        studio.sections.sumOf { it.content.length }
+    private fun scriptStudioCharacters(studio: CreatorScriptStudio): Int = studio.compiledNarration().length
 }
