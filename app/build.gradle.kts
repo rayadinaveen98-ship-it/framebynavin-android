@@ -22,8 +22,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 105
-        versionName = "2.0.0-alpha1.2p-live-video-autopsy"
+        versionCode = 106
+        versionName = "2.0.0-alpha1.3-opportunity-engine"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
