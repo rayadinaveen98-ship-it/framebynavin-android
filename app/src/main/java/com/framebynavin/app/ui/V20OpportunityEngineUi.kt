@@ -39,11 +39,20 @@ internal fun V20OpportunityEngineCard(
 ) {
     val context = LocalContext.current.applicationContext
     val analyticsStore = remember { YouTubeAnalyticsStore(context) }
+    val outcomeStore = remember { CreatorRecommendationOutcomeStore(context) }
+    var learningRefresh by remember { mutableIntStateOf(0) }
     val analytics = remember(tasks, ideas) { analyticsStore.loadAny() }
+    val performanceSignals = remember(analytics) { buildPerformanceSignals(analytics) }
+    val outcomes = remember(tasks, analytics, learningRefresh) {
+        outcomeStore.reconcile(tasks, performanceSignals)
+    }
+    val learningSummary = remember(outcomes) { CreatorRecommendationOutcomeEngine.summary(outcomes) }
     val snapshot = remember(tasks, ideas, analytics) {
         buildOpportunitySnapshot(context, tasks, ideas, analytics)
     }
-    V20OpportunitySurface(snapshot) { opportunity ->
+    V20OpportunitySurface(snapshot, learningSummary) { opportunity ->
+        outcomeStore.recordAction(opportunity)
+        learningRefresh += 1
         when (opportunity.targetKind) {
             CreatorOpportunityTargetKind.INSIGHTS -> onOpenInsights()
             CreatorOpportunityTargetKind.IDEA_VAULT -> onOpenIdeaVault()
@@ -75,7 +84,27 @@ internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapsho
     val snapshot = remember(local, analytics) {
         buildOpportunitySnapshot(context, local.tasks, local.ideas, analytics)
     }
-    V20OpportunitySurface(snapshot, onAction = null)
+    val learningSummary = remember(local, analytics) {
+        val store = CreatorRecommendationOutcomeStore(context)
+        val outcomes = store.reconcile(local.tasks, buildPerformanceSignals(analytics))
+        CreatorRecommendationOutcomeEngine.summary(outcomes)
+    }
+    V20OpportunitySurface(snapshot, learningSummary, onAction = null)
+}
+
+private fun buildPerformanceSignals(
+    analytics: YouTubeAnalyticsSnapshot?,
+): List<CreatorPlatformOpportunitySignal> {
+    val performances = analytics?.let(YouTubeInsightEngine::videoPerformance).orEmpty()
+    return performances.take(12).map { performance ->
+        CreatorPlatformOpportunitySignal(
+            videoId = performance.video.videoId,
+            title = performance.video.title,
+            periodViews = performance.video.periodViews,
+            baselineMultiple = performance.baselineMultiple,
+            viewSharePercent = performance.viewSharePercent,
+        )
+    }
 }
 
 private fun buildOpportunitySnapshot(
@@ -86,21 +115,12 @@ private fun buildOpportunitySnapshot(
 ): CreatorOpportunitySnapshot {
     val pulse = YouTubePulseStore(context).build24HourReport()
     val youtubeAlerts = YouTubeOpportunityEngine.build(pulse, ideas)
-    val performances = analytics?.let(YouTubeInsightEngine::videoPerformance).orEmpty()
-    val performanceSignals = performances.take(5).map { performance ->
-        CreatorPlatformOpportunitySignal(
-            videoId = performance.video.videoId,
-            title = performance.video.title,
-            periodViews = performance.video.periodViews,
-            baselineMultiple = performance.baselineMultiple,
-            viewSharePercent = performance.viewSharePercent,
-        )
-    }
+    val performanceSignals = buildPerformanceSignals(analytics)
     val aiStore = CreatorAiReportStore(context)
-    val aiSignals = performances.take(8).mapNotNull { performance ->
-        aiStore.load(performance.video.videoId)?.let { report ->
+    val aiSignals = performanceSignals.take(8).mapNotNull { performance ->
+        aiStore.load(performance.videoId)?.let { report ->
             CreatorAiOpportunitySignal(
-                videoId = performance.video.videoId,
+                videoId = performance.videoId,
                 citedEvidenceCount = report.citedEvidenceIds.size,
             )
         }
@@ -117,6 +137,7 @@ private fun buildOpportunitySnapshot(
 @Composable
 private fun V20OpportunitySurface(
     snapshot: CreatorOpportunitySnapshot,
+    learningSummary: CreatorRecommendationLearningSummary,
     onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
     val primary = snapshot.now.firstOrNull() ?: snapshot.primary ?: return
@@ -211,6 +232,31 @@ private fun V20OpportunitySurface(
             if (snapshot.later.isNotEmpty()) {
                 Spacer(Modifier.height(15.dp))
                 V20HorizonList("LATER", snapshot.later, MutedText, onAction)
+            }
+
+            if (learningSummary.acted > 0) {
+                Spacer(Modifier.height(14.dp))
+                HorizontalDivider(color = MutedText.copy(alpha = .16f))
+                Spacer(Modifier.height(10.dp))
+                Text("RECOMMENDATION LEARNING", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    "${learningSummary.acted} acted · ${learningSummary.projectsCreated} projects · ${learningSummary.published} published · ${learningSummary.evaluated} evaluated",
+                    color = ProjectorIvory.copy(alpha = .84f),
+                    fontSize = 8.2.sp,
+                    lineHeight = 12.sp,
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    if (learningSummary.evaluated > 0) {
+                        "${learningSummary.positiveRatePercent}% of evaluated recommendations are positive so far. FrameByNavin keeps the evidence rather than assuming every recommendation worked."
+                    } else {
+                        "The app is now following acted recommendations through project creation, publication and YouTube performance before judging the result."
+                    },
+                    color = MutedText,
+                    fontSize = 7.sp,
+                    lineHeight = 10.5.sp,
+                )
             }
 
             Spacer(Modifier.height(10.dp))
