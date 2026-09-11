@@ -125,6 +125,9 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
             }
         }
     }
+
+    Spacer(Modifier.height(10.dp))
+    V20OpportunityEngineInsightsCard(snapshot)
 }
 
 private fun statusText(label: String, state: YouTubeDatasetState?): String = when (state) {
