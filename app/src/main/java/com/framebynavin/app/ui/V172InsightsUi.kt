@@ -3,6 +3,8 @@ package com.framebynavin.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -407,7 +409,7 @@ private fun V172VideoDetailDialog(
             }
         },
         text = {
-            Column {
+            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
                 val baseline = if (performance.baselineMultiple > 0) {
                     val difference = ((performance.baselineMultiple - 1.0) * 100).toInt()
                     if (difference >= 0) "$difference% above your usual" else "${abs(difference)}% below your usual"
@@ -435,6 +437,10 @@ private fun V172VideoDetailDialog(
                         Spacer(Modifier.height(3.dp))
                         Text(linkedTask?.title ?: "Not connected yet", color = if (linkedTask != null) ProjectorIvory else RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
+                }
+                linkedTask?.let { task ->
+                    Spacer(Modifier.height(12.dp))
+                    V20VideoPostmortemCard(task = task, video = video, windowDays = windowDays)
                 }
             }
         },
