@@ -24,6 +24,7 @@ import com.framebynavin.app.data.CreatorContentBlueprint
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.ui.theme.*
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun V20ContentBlueprintDialog(
     task: CreatorTask,

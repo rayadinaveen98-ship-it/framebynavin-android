@@ -2,8 +2,11 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.EditNote
@@ -18,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.framebynavin.app.data.CreatorContentBlueprint
 import com.framebynavin.app.data.CreatorDeliverableStatus
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.productionProgressPercent
@@ -26,7 +30,9 @@ import com.framebynavin.app.ui.theme.*
 @Composable
 internal fun V19ContentWorkspaceAlpha6Hub(
     task: CreatorTask,
+    blueprint: CreatorContentBlueprint,
     onDismiss: () -> Unit,
+    onOpenBlueprint: () -> Unit,
     onOpenProject: () -> Unit,
     onOpenScript: () -> Unit,
     onOpenPublish: () -> Unit,
@@ -41,7 +47,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
             Column(
-                Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 18.dp),
+                Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp),
             ) {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onDismiss) { Text("CLOSE") }
@@ -75,6 +81,15 @@ internal fun V19ContentWorkspaceAlpha6Hub(
 
                 Spacer(Modifier.height(18.dp))
                 Alpha6HubCard(
+                    icon = Icons.Outlined.AutoAwesome,
+                    eyebrow = "CONTENT DNA · PERSONALIZED",
+                    title = blueprint.headline,
+                    body = "Recommended workflow, project prompts, writing structure, quality checks and useful working tools for this project.",
+                    meta = "${blueprint.modeLabel} · ${blueprint.archetypeLabel}",
+                    onClick = onOpenBlueprint,
+                )
+                Spacer(Modifier.height(10.dp))
+                Alpha6HubCard(
                     icon = Icons.Outlined.Dashboard,
                     eyebrow = "PROJECT COMMAND CENTER",
                     title = "Plan & Produce",
@@ -101,7 +116,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     onClick = onOpenPublish,
                 )
 
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(24.dp))
                 Text(
                     "Main workflow controls project stages/reminders. Script Studio controls writing. Publish Studio controls live output state.",
                     color = MutedText,

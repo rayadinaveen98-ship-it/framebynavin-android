@@ -17,7 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Alpha6WorkspaceMode { HUB, PROJECT, SCRIPT, PUBLISH }
+private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH }
 
 class ContentWorkspaceActivity : ComponentActivity() {
     companion object {
@@ -66,10 +66,23 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         }
                         mode == Alpha6WorkspaceMode.HUB -> V19ContentWorkspaceAlpha6Hub(
                             task = task!!,
+                            blueprint = CreatorContentBlueprintEngine.forTask(
+                                task = task!!,
+                                profile = CreatorOsSettingsStore(applicationContext).snapshot().creatorProfile,
+                            ),
                             onDismiss = { finish() },
+                            onOpenBlueprint = { mode = Alpha6WorkspaceMode.BLUEPRINT },
                             onOpenProject = { mode = Alpha6WorkspaceMode.PROJECT },
                             onOpenScript = { openScriptStudio(task!!) },
                             onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
+                        )
+                        mode == Alpha6WorkspaceMode.BLUEPRINT -> V20ContentBlueprintDialog(
+                            task = task!!,
+                            blueprint = CreatorContentBlueprintEngine.forTask(
+                                task = task!!,
+                                profile = CreatorOsSettingsStore(applicationContext).snapshot().creatorProfile,
+                            ),
+                            onDismiss = { mode = Alpha6WorkspaceMode.HUB },
                         )
                         mode == Alpha6WorkspaceMode.PROJECT -> V19ContentWorkspaceAlpha3Dialog(
                             task = task!!,
@@ -108,7 +121,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                             Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
                                             Alpha6WorkspaceMode.SCRIPT -> editorDrafts.clearScript(projectId)
                                             Alpha6WorkspaceMode.PUBLISH -> editorDrafts.clearPublish(projectId)
-                                            Alpha6WorkspaceMode.HUB -> Unit
+                                            Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB -> Unit
                                         }
                                     }
                                     confirmEditorClose = false
@@ -158,6 +171,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     val restore = restoreModeAfterLoad
                     restoreModeAfterLoad = null
                     when (restore) {
+                        Alpha6WorkspaceMode.BLUEPRINT -> mode = Alpha6WorkspaceMode.BLUEPRINT
                         Alpha6WorkspaceMode.PROJECT -> mode = Alpha6WorkspaceMode.PROJECT
                         Alpha6WorkspaceMode.PUBLISH -> mode = Alpha6WorkspaceMode.PUBLISH
                         Alpha6WorkspaceMode.SCRIPT -> openScriptStudio(loaded)
