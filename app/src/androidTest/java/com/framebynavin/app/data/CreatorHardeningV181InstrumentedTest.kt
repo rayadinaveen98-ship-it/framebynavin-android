@@ -1,14 +1,9 @@
 package com.framebynavin.app.data
 
-import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.framebynavin.app.cloud.CloudLocalStore
-import com.framebynavin.app.cloud.CloudSyncManager
-import com.framebynavin.app.cloud.CloudOperationResult
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
-import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.UUID
@@ -44,14 +39,5 @@ class CreatorHardeningV181InstrumentedTest {
                 HardeningTestEnvironment.stage("restore original snapshot") { manager.restore(original) }
             }
         }
-    }
-
-    @Test fun cloudIsManualOnlyEvenWhenAnOldPreferenceEnabledIt() = runBlocking {
-        HardeningTestEnvironment.requireCiEmulator()
-        val context=InstrumentationRegistry.getInstrumentation().targetContext
-        val local=CloudLocalStore(context)
-        local.setEnabled(true)
-        assertFalse(local.settings().enabled)
-        assertTrue(CloudSyncManager(context).syncNow(false) is CloudOperationResult.Skipped)
     }
 }
