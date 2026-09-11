@@ -143,7 +143,7 @@ internal fun V18CreatorOnboarding(
                                 FilterChip(
                                     selected = primaryMode == item,
                                     onClick = { primaryMode = item },
-                                    leadingIcon = if (primaryMode == item) {{ Icon(Icons.Outlined.Star, null, modifier = Modifier.size(15.dp)) }} else null,
+                                    leadingIcon = if (primaryMode == item) { { Icon(Icons.Outlined.Star, null, modifier = Modifier.size(15.dp)) } } else null,
                                     label = { Text(item, fontSize = 10.sp) },
                                 )
                             }
@@ -186,7 +186,7 @@ internal fun V18CreatorOnboarding(
                                 FilterChip(
                                     selected = selected,
                                     onClick = { platforms = if (selected) platforms - item else platforms + item },
-                                    leadingIcon = if (selected) {{ Icon(Icons.Outlined.Check, null, modifier = Modifier.size(16.dp)) }} else null,
+                                    leadingIcon = if (selected) { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(16.dp)) } } else null,
                                     label = { Text(item, fontSize = 10.sp) },
                                 )
                             }
@@ -212,7 +212,7 @@ internal fun V18CreatorOnboarding(
                                             else -> styles
                                         }
                                     },
-                                    leadingIcon = if (selected) {{ Icon(Icons.Outlined.Check, null, modifier = Modifier.size(16.dp)) }} else null,
+                                    leadingIcon = if (selected) { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(16.dp)) } } else null,
                                     label = { Text(item, fontSize = 10.sp) },
                                 )
                             }
@@ -241,8 +241,8 @@ internal fun V18CreatorOnboarding(
                                         if (primaryGoal.isBlank() && item in selectedGoals) primaryGoal = item
                                     },
                                     leadingIcon = when {
-                                        item == primaryGoal && selected -> {{ Icon(Icons.Outlined.Star, null, modifier = Modifier.size(15.dp)) }}
-                                        selected -> {{ Icon(Icons.Outlined.Check, null, modifier = Modifier.size(15.dp)) }}
+                                        item == primaryGoal && selected -> { { Icon(Icons.Outlined.Star, null, modifier = Modifier.size(15.dp)) } }
+                                        selected -> { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(15.dp)) } }
                                         else -> null
                                     },
                                     label = { Text(item, fontSize = 10.sp) },
@@ -260,7 +260,7 @@ internal fun V18CreatorOnboarding(
                                     FilterChip(
                                         selected = primaryGoal == item,
                                         onClick = { primaryGoal = item },
-                                        leadingIcon = if (primaryGoal == item) {{ Icon(Icons.Outlined.Star, null, modifier = Modifier.size(15.dp)) }} else null,
+                                        leadingIcon = if (primaryGoal == item) { { Icon(Icons.Outlined.Star, null, modifier = Modifier.size(15.dp)) } } else null,
                                         label = { Text(item, fontSize = 10.sp) },
                                     )
                                 }

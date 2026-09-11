@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 89
-        versionName = "2.0.0-alpha1.2b.1-drive-gate-hotfix"
+        versionCode = 90
+        versionName = "2.0.0-alpha1.2c-creator-profile-v2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
