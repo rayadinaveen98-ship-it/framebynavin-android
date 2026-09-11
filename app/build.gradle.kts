@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 102
-        versionName = "2.0.0-alpha1.2m-video-postmortem"
+        versionCode = 103
+        versionName = "2.0.0-alpha1.2n-creative-intelligence"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

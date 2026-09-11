@@ -179,7 +179,7 @@ object CreatorVideoPostmortemEngine {
                 viewerProblem = workspace.viewerProblem,
                 promise = workspace.promise,
                 angle = workspace.angle,
-                hook = workspace.hook,
+                hook = workspace.scriptStudio?.selectedHook().orEmpty().ifBlank { workspace.hook },
                 scriptPresent = workspace.script.isNotBlank() || workspace.scriptStudio?.isEmpty() == false,
                 scriptCharacterCount = workspace.script.length + (workspace.scriptStudio?.let(::scriptStudioCharacters) ?: 0),
                 referenceCount = workspace.references.size,
