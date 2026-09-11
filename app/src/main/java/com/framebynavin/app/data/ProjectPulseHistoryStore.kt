@@ -52,6 +52,42 @@ class ProjectPulseHistoryStore(context: Context) {
         check(prefs.edit().clear().commit()) { "Could not clear Project Pulse history" }
     }
 
+    fun loadAll(): List<ProjectPulseHistoryEvent> = synchronized(lock) {
+        prefs.all.keys.flatMap { taskId -> load(taskId) }.sortedBy { it.atMillis }
+    }
+
+    /** Creator-owned workflow evidence is portable; active reminder delivery state is not. */
+    fun exportJson(): String = synchronized(lock) {
+        JSONObject().apply {
+            prefs.all.forEach { (taskId, value) ->
+                if (value is String) {
+                    decode(taskId, value) // validate before exporting
+                    put(taskId, JSONArray(value))
+                }
+            }
+        }.toString()
+    }
+
+    fun validateJson(raw: String): Int {
+        val root = JSONObject(raw)
+        var count = 0
+        root.keys().forEach { taskId ->
+            val encoded = root.getJSONArray(taskId).toString()
+            count += decode(taskId, encoded).size
+        }
+        return count
+    }
+
+    fun importJson(raw: String) = synchronized(lock) {
+        validateJson(raw)
+        val root = JSONObject(raw)
+        val editor = prefs.edit().clear()
+        root.keys().forEach { taskId ->
+            editor.putString(taskId, root.getJSONArray(taskId).toString())
+        }
+        check(editor.commit()) { "Could not restore Project Pulse history" }
+    }
+
     private fun encode(events: List<ProjectPulseHistoryEvent>): String = JSONArray().apply {
         events.forEach { event ->
             put(JSONObject()

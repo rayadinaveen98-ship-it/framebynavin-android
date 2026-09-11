@@ -42,6 +42,7 @@ class CreatorBackupManager(private val context: Context) {
         val youtubeLinksJson: String? = null,
         val youtubeMilestonesJson: String? = null,
         val youtubePublishCheckpointsJson: String? = null,
+        val projectPulseHistoryJson: String? = null,
     )
 
     private val appContext = context.applicationContext
@@ -52,6 +53,7 @@ class CreatorBackupManager(private val context: Context) {
     private val smartConfigStore = SmartEscalationConfigStore(appContext)
     private val postPublishStore = CreatorPostPublishStore(appContext)
     private val rewardStore = CreatorRewardStore(appContext)
+    private val projectPulseHistoryStore = ProjectPulseHistoryStore(appContext)
     private val regularScheduler = ReminderScheduler(appContext)
     private val smartScheduler = SmartEscalationScheduler(appContext)
     private val smartSessions = SmartSessionStore(appContext)
@@ -92,6 +94,10 @@ class CreatorBackupManager(private val context: Context) {
             require(root.has("youtubePublishCheckpoints")) { "Backup is missing YouTube publish checkpoints" }
         }
         optionalSection(root, "youtubePublishCheckpoints")?.let { JSONArray(it) }
+        if (schema >= 7) {
+            require(root.has("projectPulseHistory")) { "Backup is missing Project Pulse workflow history" }
+        }
+        optionalSection(root, "projectPulseHistory")?.let(projectPulseHistoryStore::validateJson)
 
         val projectCount = taskStore.validateJson(tasksRaw)
         val ideaCount = ideaStore.validateJson(ideasRaw)
@@ -218,6 +224,7 @@ class CreatorBackupManager(private val context: Context) {
         youtubeLinksJson = youtubeLinksRaw(),
         youtubeMilestonesJson = youtubeMilestonesRaw(),
         youtubePublishCheckpointsJson = youtubePublishCheckpointsRaw(),
+        projectPulseHistoryJson = projectPulseHistoryStore.exportJson(),
     )
 
     private fun encode(snapshot: Snapshot, createdAtMillis: Long): String {
@@ -236,6 +243,7 @@ class CreatorBackupManager(private val context: Context) {
             .put("youtubeProjectLinks", requireNotNull(snapshot.youtubeLinksJson))
             .put("youtubeMilestones", requireNotNull(snapshot.youtubeMilestonesJson))
             .put("youtubePublishCheckpoints", requireNotNull(snapshot.youtubePublishCheckpointsJson))
+            .put("projectPulseHistory", requireNotNull(snapshot.projectPulseHistoryJson))
             .put("manifest", backupManifest())
         return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
     }
@@ -245,6 +253,7 @@ class CreatorBackupManager(private val context: Context) {
         val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
             "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
         val allKeys = when {
+            schema >= 7 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory")
             schema >= 6 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints")
             schema >= 4 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones")
             else -> keys
@@ -306,6 +315,7 @@ class CreatorBackupManager(private val context: Context) {
             youtubeLinksJson = optionalSection(root, "youtubeProjectLinks"),
             youtubeMilestonesJson = optionalSection(root, "youtubeMilestones"),
             youtubePublishCheckpointsJson = optionalSection(root, "youtubePublishCheckpoints"),
+            projectPulseHistoryJson = optionalSection(root, "projectPulseHistory"),
         )
     }
 
@@ -322,6 +332,7 @@ class CreatorBackupManager(private val context: Context) {
         snapshot.youtubeLinksJson?.let { importYoutubeLinks(it) }
         snapshot.youtubeMilestonesJson?.let { importYoutubeMilestones(it) }
         snapshot.youtubePublishCheckpointsJson?.let { importYoutubePublishCheckpoints(it) }
+        snapshot.projectPulseHistoryJson?.let { projectPulseHistoryStore.importJson(it) }
         // A portable restore never imports OAuth state or derived analytics. Invalidate
         // cached reports under the restored creator generation, retaining links/milestones.
         com.framebynavin.app.youtube.YouTubeAnalyticsStore(appContext).clearAnalytics()
@@ -410,16 +421,20 @@ class CreatorBackupManager(private val context: Context) {
 
     companion object {
         const val FORMAT = "FrameByNavinBackup"
-        const val SCHEMA_VERSION = 6
+        const val SCHEMA_VERSION = 7
         private val INCLUDED_SECTIONS_V5 = listOf(
             "tasks", "ideas", "weeklySchedule", "settings", "smartEscalationConfig",
             "postPublish", "rewards", "personalFrames", "youtubeProjectLinks", "youtubeMilestones",
         )
-        private val INCLUDED_SECTIONS = INCLUDED_SECTIONS_V5 + "youtubePublishCheckpoints"
+        private val INCLUDED_SECTIONS_V6 = INCLUDED_SECTIONS_V5 + "youtubePublishCheckpoints"
+        private val INCLUDED_SECTIONS = INCLUDED_SECTIONS_V6 + "projectPulseHistory"
         private val ROOT_KEYS = setOf("format", "schemaVersion", "createdAtMillis", "manifest",
             "payloadSha256") + INCLUDED_SECTIONS
-        private fun includedSectionsFor(schema: Int): List<String> =
-            if (schema >= 6) INCLUDED_SECTIONS else INCLUDED_SECTIONS_V5
+        private fun includedSectionsFor(schema: Int): List<String> = when {
+            schema >= 7 -> INCLUDED_SECTIONS
+            schema >= 6 -> INCLUDED_SECTIONS_V6
+            else -> INCLUDED_SECTIONS_V5
+        }
         private val EXCLUDED_SECTIONS = listOf(
             "accountCredentials", "oauthTokens", "cloudSessions", "youtubeAnalyticsCache",
             "reminderOccurrenceTokens", "alarmDeliveryLedger", "activeSmartSessions", "activeMediaServices",

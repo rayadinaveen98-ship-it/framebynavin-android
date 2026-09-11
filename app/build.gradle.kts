@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 99
-        versionName = "2.0.0-alpha1.2k.1-reach-reporting"
+        versionCode = 100
+        versionName = "2.0.0-alpha1.2l-workflow-intelligence"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

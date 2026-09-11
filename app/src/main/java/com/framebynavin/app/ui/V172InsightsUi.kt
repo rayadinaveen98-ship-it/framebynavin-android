@@ -376,6 +376,9 @@ private fun V172Creator(
         }
     }
 
+    Spacer(Modifier.height(10.dp))
+    V20WorkflowIntelligenceCard(tasks)
+
     Spacer(Modifier.height(18.dp))
     val formats = YouTubeInsightEngine.formatPerformance(snapshot, tasks, links)
     Text("WHAT PAYS OFF", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
