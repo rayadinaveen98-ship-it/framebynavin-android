@@ -1,0 +1,122 @@
+name: v2.0 Alpha 1.2A.1 Returning Recovery
+
+on:
+  push:
+    branches:
+      - "fix/v2.0-alpha1.2a.1-returning-recovery"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha12a1-returning-recovery
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply reviewed recovery hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/v20_alpha12a1_recovery_hotfix.py
+          git diff --check
+
+      - name: Verify recovery invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 87' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.2a.1-recovery"' app/build.gradle.kts
+          grep -q '/rest/v1/rpc/creator_restore_points' app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt
+          grep -q '/rest/v1/rpc/creator_download_backup' app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt
+          grep -q 'prepareReturningCreatorRecovery' app/src/main/java/com/framebynavin/app/ui/V23AccountOnboarding.kt
+          grep -q 'CloudRecoveryPolicy.recommended' app/src/main/java/com/framebynavin/app/ui/V23AccountOnboarding.kt
+          grep -q 'onComplete("")' app/src/main/java/com/framebynavin/app/ui/V23AccountOnboarding.kt
+          grep -q 'RESTORE HISTORY COULDN' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          grep -q 'restorePointsLoading' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          grep -q 'empty newer snapshot is never preferred automatically' app/src/main/java/com/framebynavin/app/ui/V23AccountOnboarding.kt
+          grep -q 'newest backup that still contains creator work' app/src/main/java/com/framebynavin/app/ui/V23AccountOnboarding.kt
+          test -s app/src/main/java/com/framebynavin/app/cloud/CloudRecoveryPolicy.kt
+          test -s app/src/test/java/com/framebynavin/app/cloud/CloudRecoveryPolicyTest.kt
+          test -s supabase/migrations/20260911_creator_restore_rpc_v20.sql
+
+      - name: Commit exact clean app source before Gradle
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app
+          git diff --cached --check
+          git -c commit.gpgSign=false commit -m "fix(v2.0): recover returning creator cloud history"
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.2a.1-recovery.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.2a.1-recovery.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.2a.1-recovery"
+            echo "versionCode=87"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "returningIdentityPreserved=true"
+            echo "returningRecoveryBeforeCreatorSetup=true"
+            echo "restoreCatalogRpc=true"
+            echo "restoreDownloadRpc=true"
+            echo "restoreLoadingStateExplicit=true"
+            echo "restoreFailureStateExplicit=true"
+            echo "recommendedRecoverySkipsNewerEmptySnapshots=true"
+            echo "restoredCreatorSettingsNotOverwritten=true"
+            echo "manualBackupRequiresRecoveryDecision=true"
+            echo "existingBackupsAppendOnlyAndPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2a.1-recovery-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.2a.1-recovery.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2a.1-recovery-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push exact validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:staging/v2.0-alpha1.2a.1-recovery-validated
