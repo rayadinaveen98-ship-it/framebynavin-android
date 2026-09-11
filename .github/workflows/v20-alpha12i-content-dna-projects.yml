@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/v20_alpha12i_content_dna_projects.py
+          python3 tools/v20_alpha12i_runner.py
           git diff --check
           git status --short
           git config user.name "FrameByNavin CI"
