@@ -15,25 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.data.CreatorModeRegistry
 import com.framebynavin.app.data.CreatorProfile
 import com.framebynavin.app.data.CreatorPlatformRegistry
 import com.framebynavin.app.ui.theme.*
-
-private val creatorModes = listOf(
-    "Film & Entertainment",
-    "Gaming",
-    "Education",
-    "Tech",
-    "Lifestyle",
-    "Business & Career",
-    "Music & Audio",
-    "Art & Design",
-    "News & Commentary",
-    "Food",
-    "Travel & Outdoors",
-    "Health & Fitness",
-    "Other / Hybrid",
-)
 
 private val productionStyles = listOf(
     "Voiceover",
@@ -102,6 +87,11 @@ internal fun V18CreatorOnboarding(
         else -> true
     }
 
+    val selectedModeDefinition = CreatorModeRegistry.definition(primaryMode)
+    val orderedProductionStyles = remember(primaryMode) {
+        (selectedModeDefinition.suggestedProductionStyles + productionStyles).distinct()
+    }
+
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
             Modifier
@@ -135,11 +125,15 @@ internal fun V18CreatorOnboarding(
                         Text("What do you create most?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(7.dp))
                         Text("Your primary mode sets smart defaults. Secondary modes keep FrameByNavin flexible when your work crosses niches.", color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
+                        if (primaryMode.isNotBlank()) {
+                            Spacer(Modifier.height(7.dp))
+                            Text(selectedModeDefinition.description, color = MutedGold.copy(alpha = .82f), fontSize = 10.5.sp, lineHeight = 15.sp)
+                        }
                         Spacer(Modifier.height(20.dp))
                         V18OnboardingLabel("PRIMARY CREATOR MODE")
                         Spacer(Modifier.height(9.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            creatorModes.forEach { item ->
+                            CreatorModeRegistry.labels.forEach { item ->
                                 FilterChip(
                                     selected = primaryMode == item,
                                     onClick = { primaryMode = item },
@@ -155,7 +149,7 @@ internal fun V18CreatorOnboarding(
                             Text("Choose up to ${CreatorProfile.MAX_SECONDARY_MODES}. These influence suggestions but never restrict what you can make.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
                             Spacer(Modifier.height(9.dp))
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                creatorModes.filter { it != primaryMode }.forEach { item ->
+                                CreatorModeRegistry.labels.filter { it != primaryMode }.forEach { item ->
                                     val selected = item in secondaryModes
                                     FilterChip(
                                         selected = selected,
@@ -198,10 +192,10 @@ internal fun V18CreatorOnboarding(
                         Spacer(Modifier.height(14.dp))
                         Text("How do you usually create?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(7.dp))
-                        Text("This describes production, not your niche. It will let workflows distinguish gameplay capture from screen recording, voiceover, live work and more.", color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
+                        Text("This describes production, not your niche. Suggestions for ${selectedModeDefinition.label} appear first, but every production style stays available.", color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
                         Spacer(Modifier.height(20.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            productionStyles.forEach { item ->
+                            orderedProductionStyles.forEach { item ->
                                 val selected = item in styles
                                 FilterChip(
                                     selected = selected,
