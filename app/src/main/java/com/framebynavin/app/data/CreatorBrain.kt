@@ -22,6 +22,19 @@ enum class CreatorBrainPatternState {
     CAUTION,
 }
 
+enum class CreatorBrainFreshness {
+    FRESH,
+    AGING,
+    STALE,
+}
+
+enum class CreatorBrainTrajectory {
+    INSUFFICIENT,
+    STABLE,
+    IMPROVING,
+    WEAKENING,
+}
+
 data class CreatorBrainPattern(
     val dimension: CreatorBrainDimension,
     val key: String,
@@ -34,6 +47,10 @@ data class CreatorBrainPattern(
     val averageViewSharePercent: Int,
     val state: CreatorBrainPatternState,
     val rankingDelta: Int,
+    val latestEvaluatedAtMillis: Long = 0L,
+    val recentEvaluatedCount: Int = 0,
+    val freshness: CreatorBrainFreshness = CreatorBrainFreshness.FRESH,
+    val trajectory: CreatorBrainTrajectory = CreatorBrainTrajectory.INSUFFICIENT,
 ) {
     val positiveRatePercent: Int
         get() = if (evaluatedCount <= 0) 0 else ((positiveCount * 100.0) / evaluatedCount).toInt().coerceIn(0, 100)
@@ -45,11 +62,20 @@ data class CreatorBrainSnapshot(
     val patterns: List<CreatorBrainPattern> = emptyList(),
 ) {
     val activePatterns: List<CreatorBrainPattern>
-        get() = patterns.filter { it.state != CreatorBrainPatternState.LEARNING }
+        get() = patterns.filter {
+            it.state != CreatorBrainPatternState.LEARNING &&
+                it.freshness != CreatorBrainFreshness.STALE &&
+                it.rankingDelta != 0
+        }
 
     val evaluatedPatternCount: Int get() = patterns.size
     val activePatternCount: Int get() = activePatterns.size
     val combinationPatternCount: Int get() = patterns.count { it.dimension == CreatorBrainDimension.COMBINATION }
+    val freshPatternCount: Int get() = patterns.count { it.freshness == CreatorBrainFreshness.FRESH }
+    val agingPatternCount: Int get() = patterns.count { it.freshness == CreatorBrainFreshness.AGING }
+    val stalePatternCount: Int get() = patterns.count { it.freshness == CreatorBrainFreshness.STALE }
+    val improvingPatternCount: Int get() = patterns.count { it.trajectory == CreatorBrainTrajectory.IMPROVING }
+    val weakeningPatternCount: Int get() = patterns.count { it.trajectory == CreatorBrainTrajectory.WEAKENING }
 }
 
 data class CreatorBrainMatch(
@@ -58,23 +84,30 @@ data class CreatorBrainMatch(
 )
 
 /**
- * Alpha 1.4B Creator Brain combinations.
+ * Alpha 1.4C Deeper Creator Memory.
  *
- * The Brain still learns only from recommendation outcomes that reached real YouTube evaluation,
- * but it can now remember repeatable combinations instead of treating every trait in isolation.
- * Structured Content DNA, hook family, angle family and explicitly identifiable topic/series memory
- * can form combinations such as archetype + hook, format + hook or angle + hook.
+ * The Brain still learns only from recommendation outcomes that reached real YouTube evaluation.
+ * Alpha 1.4C makes those memories time-aware so a pattern that worked months ago cannot dominate
+ * forever. Fresh memories keep their normal influence, aging memories decay, and stale memories are
+ * retained as history but stop changing opportunity ranking until new evaluated evidence refreshes
+ * them.
  *
- * Topic and series are intentionally conservative: they are read only from explicit `topic:` /
- * `series:` metadata, hashtags, or clear Episode/Part/Chapter naming. Arbitrary video titles are not
- * silently converted into topic rules. Three evaluated outcomes can become EMERGING; four are still
- * required for PROVEN or CAUTION. Matching remains capped so Brain history cannot overpower current
- * urgency, readiness, live platform momentum, the Creator Playbook or optional Gemini evidence.
+ * Repeated patterns also get a conservative trajectory. With at least six evaluated outcomes the
+ * latest three are compared with the previous three, allowing the Brain to mark a pattern as
+ * IMPROVING or WEAKENING without throwing away its longer history. Trajectory changes only adjust
+ * an already-qualified rule; it can never turn a one-off result into a rule.
+ *
+ * Alpha 1.4B combination learning remains intact: structured Content DNA, hook family, angle family,
+ * explicit topic/series memory and combinations such as archetype + hook, format + hook and
+ * topic/series + hook are still learned. Three evaluated outcomes can become EMERGING; four are
+ * required for PROVEN or CAUTION. All Brain influence stays capped below current urgency, readiness,
+ * live platform momentum, the Creator Playbook and optional Gemini evidence.
  */
 object CreatorBrainEngine {
     fun build(
         outcomes: List<CreatorRecommendationOutcome>,
         tasks: List<CreatorTask>,
+        nowMillis: Long = System.currentTimeMillis(),
     ): CreatorBrainSnapshot {
         val tasksById = tasks.associateBy { it.id }
         val observations = mutableListOf<Observation>()
@@ -94,9 +127,10 @@ object CreatorBrainEngine {
 
         val patterns = observations
             .groupBy { it.signal.dimension to it.signal.key }
-            .map { (_, group) -> buildPattern(group) }
+            .map { (_, group) -> buildPattern(group, nowMillis) }
             .sortedWith(
-                compareByDescending<CreatorBrainPattern> { stateRank(it.state) }
+                compareByDescending<CreatorBrainPattern> { freshnessRank(it.freshness) }
+                    .thenByDescending { stateRank(it.state) }
                     .thenByDescending { it.dimension == CreatorBrainDimension.COMBINATION }
                     .thenByDescending { it.evaluatedCount }
                     .thenByDescending { it.positiveRatePercent }
@@ -116,6 +150,7 @@ object CreatorBrainEngine {
             .filter { (it.dimension to it.key) in candidateIds }
             .sortedWith(
                 compareByDescending<CreatorBrainPattern> { it.dimension == CreatorBrainDimension.COMBINATION }
+                    .thenByDescending { freshnessRank(it.freshness) }
                     .thenByDescending { kotlin.math.abs(it.rankingDelta) }
                     .thenByDescending { it.evaluatedCount }
             )
@@ -178,7 +213,7 @@ object CreatorBrainEngine {
         return stem.takeIf { it.length in 3..60 }?.let(::normalize).orEmpty()
     }
 
-    private fun buildPattern(group: List<Observation>): CreatorBrainPattern {
+    private fun buildPattern(group: List<Observation>, nowMillis: Long): CreatorBrainPattern {
         val signal = group.first().signal
         val history = group.map { it.outcome }
         val positive = history.count {
@@ -196,12 +231,21 @@ object CreatorBrainEngine {
             count >= 3 && positiveRate >= 67 -> CreatorBrainPatternState.EMERGING
             else -> CreatorBrainPatternState.LEARNING
         }
-        val delta = when (state) {
+
+        val latestEvaluatedAtMillis = history.maxOfOrNull { it.evaluatedAtMillis } ?: 0L
+        val freshness = classifyFreshness(latestEvaluatedAtMillis, nowMillis)
+        val recentEvaluatedCount = history.count {
+            it.evaluatedAtMillis > 0L && nowMillis - it.evaluatedAtMillis in 0..RECENT_WINDOW_MILLIS
+        }
+        val trajectory = classifyTrajectory(history)
+
+        val baseDelta = when (state) {
             CreatorBrainPatternState.PROVEN -> (8 + (count - 4).coerceAtMost(3) + strong.coerceAtMost(2)).coerceAtMost(13)
             CreatorBrainPatternState.EMERGING -> 5
             CreatorBrainPatternState.CAUTION -> (-6 - weak.coerceAtMost(3)).coerceAtLeast(-10)
             CreatorBrainPatternState.LEARNING -> 0
         }
+        val rankingDelta = timeAwareDelta(baseDelta, freshness, trajectory)
 
         return CreatorBrainPattern(
             dimension = signal.dimension,
@@ -214,8 +258,78 @@ object CreatorBrainEngine {
             averageBaselineMultiple = history.map { it.baselineMultiple }.average().takeIf { !it.isNaN() } ?: 0.0,
             averageViewSharePercent = history.map { it.viewSharePercent }.average().takeIf { !it.isNaN() }?.toInt() ?: 0,
             state = state,
-            rankingDelta = delta,
+            rankingDelta = rankingDelta,
+            latestEvaluatedAtMillis = latestEvaluatedAtMillis,
+            recentEvaluatedCount = recentEvaluatedCount,
+            freshness = freshness,
+            trajectory = trajectory,
         )
+    }
+
+    internal fun classifyFreshness(
+        latestEvaluatedAtMillis: Long,
+        nowMillis: Long,
+    ): CreatorBrainFreshness {
+        if (latestEvaluatedAtMillis <= 0L || nowMillis <= latestEvaluatedAtMillis) return CreatorBrainFreshness.FRESH
+        val age = nowMillis - latestEvaluatedAtMillis
+        return when {
+            age <= FRESH_WINDOW_MILLIS -> CreatorBrainFreshness.FRESH
+            age <= AGING_WINDOW_MILLIS -> CreatorBrainFreshness.AGING
+            else -> CreatorBrainFreshness.STALE
+        }
+    }
+
+    internal fun classifyTrajectory(history: List<CreatorRecommendationOutcome>): CreatorBrainTrajectory {
+        val ordered = history
+            .filter { it.evaluatedAtMillis > 0L }
+            .sortedBy { it.evaluatedAtMillis }
+        if (ordered.size < 6) return CreatorBrainTrajectory.INSUFFICIENT
+
+        val recent = ordered.takeLast(3).map(::trajectoryScore).average()
+        val previous = ordered.dropLast(3).takeLast(3).map(::trajectoryScore).average()
+        val delta = recent - previous
+        return when {
+            delta >= 1.0 -> CreatorBrainTrajectory.IMPROVING
+            delta <= -1.0 -> CreatorBrainTrajectory.WEAKENING
+            else -> CreatorBrainTrajectory.STABLE
+        }
+    }
+
+    private fun trajectoryScore(outcome: CreatorRecommendationOutcome): Int = when (outcome.verdict) {
+        CreatorRecommendationVerdict.STRONG -> 2
+        CreatorRecommendationVerdict.PROMISING -> 1
+        CreatorRecommendationVerdict.MIXED -> 0
+        CreatorRecommendationVerdict.WEAK -> -1
+        CreatorRecommendationVerdict.PENDING -> 0
+    }
+
+    private fun timeAwareDelta(
+        baseDelta: Int,
+        freshness: CreatorBrainFreshness,
+        trajectory: CreatorBrainTrajectory,
+    ): Int {
+        if (baseDelta == 0 || freshness == CreatorBrainFreshness.STALE) return 0
+
+        var delta = when (freshness) {
+            CreatorBrainFreshness.FRESH -> baseDelta
+            CreatorBrainFreshness.AGING -> decayTowardZero(baseDelta)
+            CreatorBrainFreshness.STALE -> 0
+        }
+
+        delta = when (trajectory) {
+            CreatorBrainTrajectory.IMPROVING -> if (delta > 0) delta + 2 else decayTowardZero(delta)
+            CreatorBrainTrajectory.WEAKENING -> if (delta > 0) decayTowardZero(delta) else delta - 2
+            CreatorBrainTrajectory.STABLE,
+            CreatorBrainTrajectory.INSUFFICIENT,
+            -> delta
+        }
+        return delta.coerceIn(-10, 13)
+    }
+
+    private fun decayTowardZero(value: Int): Int = when {
+        value > 0 -> ((value + 1) / 2).coerceAtLeast(1)
+        value < 0 -> -((kotlin.math.abs(value) + 1) / 2).coerceAtLeast(1)
+        else -> 0
     }
 
     private fun outcomeSignals(
@@ -344,6 +458,12 @@ object CreatorBrainEngine {
         CreatorBrainPatternState.LEARNING -> 1
     }
 
+    private fun freshnessRank(freshness: CreatorBrainFreshness): Int = when (freshness) {
+        CreatorBrainFreshness.FRESH -> 3
+        CreatorBrainFreshness.AGING -> 2
+        CreatorBrainFreshness.STALE -> 1
+    }
+
     private data class BrainSignal(
         val dimension: CreatorBrainDimension,
         val key: String,
@@ -356,4 +476,7 @@ object CreatorBrainEngine {
     )
 
     private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
+    private const val FRESH_WINDOW_MILLIS = 45L * DAY_MILLIS
+    private const val RECENT_WINDOW_MILLIS = 60L * DAY_MILLIS
+    private const val AGING_WINDOW_MILLIS = 120L * DAY_MILLIS
 }
