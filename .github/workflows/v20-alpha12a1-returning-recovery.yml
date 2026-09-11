@@ -33,11 +33,15 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Apply reviewed recovery hotfix
+      - name: Apply reviewed recovery hotfix when needed
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/v20_alpha12a1_recovery_hotfix.py
+          if grep -q 'versionName = "2.0.0-alpha1.2a.1-recovery"' app/build.gradle.kts; then
+            echo "Recovery hotfix is already materialized; validating current source."
+          else
+            python3 tools/v20_alpha12a1_recovery_hotfix.py
+          fi
           git diff --check
 
       - name: Verify recovery invariants
@@ -59,7 +63,7 @@ jobs:
           test -s app/src/test/java/com/framebynavin/app/cloud/CloudRecoveryPolicyTest.kt
           test -s supabase/migrations/20260911_creator_restore_rpc_v20.sql
 
-      - name: Commit exact clean app source before Gradle
+      - name: Pin exact clean app source before Gradle
         shell: bash
         run: |
           set -euo pipefail
@@ -67,7 +71,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app
           git diff --cached --check
-          git -c commit.gpgSign=false commit -m "fix(v2.0): recover returning creator cloud history"
+          if git diff --cached --quiet; then
+            echo "Current app source is already materialized."
+          else
+            git -c commit.gpgSign=false commit -m "fix(v2.0): recover returning creator cloud history"
+          fi
           git rev-parse HEAD | tee /tmp/validated_commit
 
       - name: Full Android validation
