@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 85
-        versionName = "2.0.0-today-alpha1.1"
+        versionCode = 86
+        versionName = "2.0.0-alpha1.2a-account-cloud"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -77,11 +77,5 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-
-    debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
-
-// v2.0 Alpha 1: Today Command Center execution candidate.
-// This debug APK intentionally keeps the public development signing identity for sideload testing.
-// A private production signing identity remains mandatory before any public stable distribution.
