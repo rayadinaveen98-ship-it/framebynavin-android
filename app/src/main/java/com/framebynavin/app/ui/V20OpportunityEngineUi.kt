@@ -47,10 +47,11 @@ internal fun V20OpportunityEngineCard(
         outcomeStore.reconcile(tasks, performanceSignals)
     }
     val learningSummary = remember(outcomes) { CreatorRecommendationOutcomeEngine.summary(outcomes) }
-    val snapshot = remember(tasks, ideas, analytics) {
-        buildOpportunitySnapshot(context, tasks, ideas, analytics)
+    val playbook = remember(outcomes) { CreatorPlaybookEngine.build(outcomes) }
+    val snapshot = remember(tasks, ideas, analytics, playbook) {
+        buildOpportunitySnapshot(context, tasks, ideas, analytics, playbook)
     }
-    V20OpportunitySurface(snapshot, learningSummary) { opportunity ->
+    V20OpportunitySurface(snapshot, learningSummary, playbook) { opportunity ->
         outcomeStore.recordAction(opportunity)
         learningRefresh += 1
         when (opportunity.targetKind) {
@@ -81,15 +82,16 @@ internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapsho
             }.getOrDefault(OpportunityLocalState())
         }
     }
-    val snapshot = remember(local, analytics) {
-        buildOpportunitySnapshot(context, local.tasks, local.ideas, analytics)
-    }
-    val learningSummary = remember(local, analytics) {
+    val outcomeState = remember(local, analytics) {
         val store = CreatorRecommendationOutcomeStore(context)
-        val outcomes = store.reconcile(local.tasks, buildPerformanceSignals(analytics))
-        CreatorRecommendationOutcomeEngine.summary(outcomes)
+        store.reconcile(local.tasks, buildPerformanceSignals(analytics))
     }
-    V20OpportunitySurface(snapshot, learningSummary, onAction = null)
+    val learningSummary = remember(outcomeState) { CreatorRecommendationOutcomeEngine.summary(outcomeState) }
+    val playbook = remember(outcomeState) { CreatorPlaybookEngine.build(outcomeState) }
+    val snapshot = remember(local, analytics, playbook) {
+        buildOpportunitySnapshot(context, local.tasks, local.ideas, analytics, playbook)
+    }
+    V20OpportunitySurface(snapshot, learningSummary, playbook, onAction = null)
 }
 
 private fun buildPerformanceSignals(
@@ -112,6 +114,7 @@ private fun buildOpportunitySnapshot(
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     analytics: YouTubeAnalyticsSnapshot?,
+    playbook: CreatorPlaybookSnapshot,
 ): CreatorOpportunitySnapshot {
     val pulse = YouTubePulseStore(context).build24HourReport()
     val youtubeAlerts = YouTubeOpportunityEngine.build(pulse, ideas)
@@ -131,6 +134,7 @@ private fun buildOpportunitySnapshot(
         youtubeAlerts = youtubeAlerts,
         performanceSignals = performanceSignals,
         aiSignals = aiSignals,
+        playbook = playbook,
     )
 }
 
@@ -138,6 +142,7 @@ private fun buildOpportunitySnapshot(
 private fun V20OpportunitySurface(
     snapshot: CreatorOpportunitySnapshot,
     learningSummary: CreatorRecommendationLearningSummary,
+    playbook: CreatorPlaybookSnapshot,
     onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
     val primary = snapshot.now.firstOrNull() ?: snapshot.primary ?: return
@@ -197,7 +202,7 @@ private fun V20OpportunitySurface(
                 }
             }
             Spacer(Modifier.height(7.dp))
-            primary.evidence.take(2).forEach { evidence ->
+            primary.evidence.take(3).forEach { evidence ->
                 Text("• ${evidence.label}", color = MutedText, fontSize = 7.8.sp, lineHeight = 11.sp)
             }
 
@@ -251,7 +256,7 @@ private fun V20OpportunitySurface(
                     if (learningSummary.evaluated > 0) {
                         "${learningSummary.positiveRatePercent}% of evaluated recommendations are positive so far. FrameByNavin keeps the evidence rather than assuming every recommendation worked."
                     } else {
-                        "The app is now following acted recommendations through project creation, publication and YouTube performance before judging the result."
+                        "The app is following acted recommendations through project creation, publication and YouTube performance before judging the result."
                     },
                     color = MutedText,
                     fontSize = 7.sp,
@@ -259,10 +264,30 @@ private fun V20OpportunitySurface(
                 )
             }
 
+            if (playbook.patterns.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text("CREATOR PLAYBOOK", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Spacer(Modifier.height(5.dp))
+                playbook.patterns.take(3).forEach { pattern ->
+                    V20PlaybookPatternRow(pattern)
+                }
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    "Playbook history can gently adjust ranking only after repeated evaluated outcomes. It never changes NOW/NEXT/LATER by itself and one result never becomes a rule.",
+                    color = MutedText.copy(alpha = .78f),
+                    fontSize = 6.8.sp,
+                    lineHeight = 10.sp,
+                )
+            }
+
             Spacer(Modifier.height(10.dp))
             Text(
-                if (snapshot.aiEvidenceUsed) "Ranking is led by your data + YouTube evidence. Saved Gemini analysis can strengthen evidence, but never creates an opportunity by itself."
-                else "Ranking uses urgency, momentum, readiness, evidence strength and strategic value. Gemini remains optional.",
+                when {
+                    snapshot.playbookEvidenceUsed && snapshot.aiEvidenceUsed -> "Ranking is led by current creator + YouTube evidence, then lightly informed by repeated outcome history and optional Gemini evidence."
+                    snapshot.playbookEvidenceUsed -> "Current evidence stays dominant. Repeated Creator Playbook outcomes only add a small outcome-weighted adjustment."
+                    snapshot.aiEvidenceUsed -> "Ranking is led by your data + YouTube evidence. Saved Gemini analysis can strengthen evidence, but never creates an opportunity by itself."
+                    else -> "Ranking uses urgency, momentum, readiness, evidence strength and strategic value. Gemini remains optional."
+                },
                 color = MutedText.copy(alpha = .72f),
                 fontSize = 6.9.sp,
                 lineHeight = 10.sp,
@@ -292,6 +317,41 @@ private fun V20DecisionScorecard(scorecard: CreatorOpportunityScorecard) {
                     Text(label, color = MutedText, fontSize = 5.5.sp, maxLines = 1)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun V20PlaybookPatternRow(pattern: CreatorPlaybookPattern) {
+    val accent = when (pattern.state) {
+        CreatorPlaybookState.PROVEN -> SuccessGreen
+        CreatorPlaybookState.CAUTION -> RecRed
+        CreatorPlaybookState.LEARNING -> MutedText
+    }
+    val stateLabel = when (pattern.state) {
+        CreatorPlaybookState.PROVEN -> "PROVEN"
+        CreatorPlaybookState.CAUTION -> "CAUTION"
+        CreatorPlaybookState.LEARNING -> "LEARNING"
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .12f)) {
+            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 5.8.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.width(7.dp))
+        Column(Modifier.weight(1f)) {
+            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 6.4.sp)
+        }
+        if (pattern.rankingDelta != 0) {
+            Text(
+                if (pattern.rankingDelta > 0) "+${pattern.rankingDelta}" else pattern.rankingDelta.toString(),
+                color = accent,
+                fontSize = 7.2.sp,
+                fontWeight = FontWeight.Black,
+            )
         }
     }
 }
@@ -341,10 +401,12 @@ private fun opportunitySourceLabel(source: CreatorOpportunitySource): String = w
     CreatorOpportunitySource.LOCAL -> "YOUR DATA"
     CreatorOpportunitySource.YOUTUBE -> "YOUTUBE"
     CreatorOpportunitySource.GEMINI -> "GEMINI EVIDENCE"
+    CreatorOpportunitySource.PLAYBOOK -> "PLAYBOOK"
 }
 
 private fun opportunitySourceColor(source: CreatorOpportunitySource): Color = when (source) {
     CreatorOpportunitySource.LOCAL -> ProjectorIvory
     CreatorOpportunitySource.YOUTUBE -> RecRed
     CreatorOpportunitySource.GEMINI -> MutedGold
+    CreatorOpportunitySource.PLAYBOOK -> SuccessGreen
 }
