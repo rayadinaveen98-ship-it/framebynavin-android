@@ -10,7 +10,7 @@ enum class CreatorOpportunityKind {
     PROJECT_MOMENTUM,
 }
 
-enum class CreatorOpportunitySource { LOCAL, YOUTUBE, GEMINI }
+enum class CreatorOpportunitySource { LOCAL, YOUTUBE, GEMINI, PLAYBOOK }
 enum class CreatorOpportunityTargetKind { INSIGHTS, IDEA_VAULT, PROJECT }
 enum class CreatorOpportunityHorizon { NOW, NEXT, LATER }
 
@@ -69,6 +69,7 @@ data class CreatorOpportunity(
     val scorecard: CreatorOpportunityScorecard = CreatorOpportunityScorecard(),
 ) {
     val usesAiEvidence: Boolean get() = evidence.any { it.source == CreatorOpportunitySource.GEMINI }
+    val usesPlaybookEvidence: Boolean get() = evidence.any { it.source == CreatorOpportunitySource.PLAYBOOK }
 }
 
 data class CreatorOpportunitySnapshot(
@@ -82,6 +83,7 @@ data class CreatorOpportunitySnapshot(
         get() = (now + next + later).ifEmpty { listOfNotNull(primary).plus(alternatives) }
 
     val aiEvidenceUsed: Boolean get() = visible.any { it.usesAiEvidence }
+    val playbookEvidenceUsed: Boolean get() = visible.any { it.usesPlaybookEvidence }
     val evidenceSourceCount: Int get() = visible
         .flatMap { it.evidence }
         .map { it.source }
@@ -96,9 +98,10 @@ data class CreatorOpportunitySnapshot(
  * Gemini reports may strengthen an already-grounded video opportunity, but AI never becomes a
  * prerequisite for ranking or silently creates a recommendation on its own.
  *
- * Alpha 1.3B adds a decision scorecard and NOW / NEXT / LATER horizons. The scorecard is not a
- * prediction of success; it is a transparent way to compare urgency, momentum, readiness,
- * evidence strength and strategic value using creator-owned and platform evidence already present.
+ * Alpha 1.3D adds conservative outcome-weighting from the Creator Playbook. A single result never
+ * changes ranking, positive history requires at least two evaluated outcomes, and negative history
+ * requires at least three. The small playbook delta cannot change an opportunity's NOW/NEXT/LATER
+ * horizon; live urgency, readiness and platform evidence stay dominant.
  */
 object CreatorOpportunityEngine {
     fun build(
@@ -107,6 +110,7 @@ object CreatorOpportunityEngine {
         youtubeAlerts: List<CreatorOpportunityAlert> = emptyList(),
         performanceSignals: List<CreatorPlatformOpportunitySignal> = emptyList(),
         aiSignals: List<CreatorAiOpportunitySignal> = emptyList(),
+        playbook: CreatorPlaybookSnapshot = CreatorPlaybookSnapshot(),
         nowMillis: Long = System.currentTimeMillis(),
     ): CreatorOpportunitySnapshot {
         val candidates = mutableListOf<CreatorOpportunity>()
@@ -292,7 +296,7 @@ object CreatorOpportunityEngine {
         }
 
         val aiByVideo = aiSignals.associateBy { it.videoId }
-        val enriched = candidates.map { opportunity ->
+        val aiEnriched = candidates.map { opportunity ->
             val videoId = opportunity.videoId ?: return@map opportunity
             val ai = aiByVideo[videoId] ?: return@map opportunity
             if (ai.citedEvidenceCount <= 0) return@map opportunity
@@ -310,7 +314,35 @@ object CreatorOpportunityEngine {
             )
         }
 
-        val ranked = enriched
+        val outcomeWeighted = aiEnriched.map { opportunity ->
+            val pattern = playbook.patternFor(opportunity.kind) ?: return@map opportunity
+            if (pattern.state == CreatorPlaybookState.LEARNING || pattern.rankingDelta == 0) return@map opportunity
+
+            val positive = pattern.rankingDelta > 0
+            val strategicDelta = (pattern.rankingDelta / 2).coerceIn(-9, 14)
+            opportunity.copy(
+                confidence = if (positive) {
+                    (opportunity.confidence + 2).coerceAtMost(95)
+                } else {
+                    (opportunity.confidence - 1).coerceAtLeast(45)
+                },
+                score = opportunity.score + pattern.rankingDelta,
+                scorecard = opportunity.scorecard.copy(
+                    strategicValue = (opportunity.scorecard.strategicValue + strategicDelta).coerceIn(0, 100),
+                ),
+                evidence = opportunity.evidence + CreatorOpportunityEvidence(
+                    id = "playbook.${opportunity.kind.name.lowercase()}",
+                    label = if (positive) {
+                        "Creator Playbook · ${pattern.positiveCount}/${pattern.evaluatedCount} ${pattern.label} outcomes positive"
+                    } else {
+                        "Creator Playbook caution · ${pattern.positiveCount}/${pattern.evaluatedCount} ${pattern.label} outcomes positive"
+                    },
+                    source = CreatorOpportunitySource.PLAYBOOK,
+                ),
+            )
+        }
+
+        val ranked = outcomeWeighted
             .distinctBy { it.kind to (it.targetId.ifBlank { it.title }) }
             .sortedWith(
                 compareByDescending<CreatorOpportunity> { it.score }
