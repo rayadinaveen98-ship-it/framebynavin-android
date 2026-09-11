@@ -49,10 +49,11 @@ internal fun V20OpportunityEngineCard(
     val learningSummary = remember(outcomes) { CreatorRecommendationOutcomeEngine.summary(outcomes) }
     val playbook = remember(outcomes) { CreatorPlaybookEngine.build(outcomes) }
     val brain = remember(outcomes, tasks) { CreatorBrainEngine.build(outcomes, tasks) }
+    val brainGuidance = remember(brain, tasks) { CreatorBrainRecommendationEngine.build(brain, tasks) }
     val snapshot = remember(tasks, ideas, analytics, playbook, brain) {
         buildOpportunitySnapshot(context, tasks, ideas, analytics, playbook, brain)
     }
-    V20OpportunitySurface(snapshot, learningSummary, playbook, brain) { opportunity ->
+    V20OpportunitySurface(snapshot, learningSummary, playbook, brain, brainGuidance, onOpenProject) { opportunity ->
         outcomeStore.recordAction(opportunity)
         learningRefresh += 1
         when (opportunity.targetKind) {
@@ -90,10 +91,11 @@ internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapsho
     val learningSummary = remember(outcomeState) { CreatorRecommendationOutcomeEngine.summary(outcomeState) }
     val playbook = remember(outcomeState) { CreatorPlaybookEngine.build(outcomeState) }
     val brain = remember(outcomeState, local.tasks) { CreatorBrainEngine.build(outcomeState, local.tasks) }
+    val brainGuidance = remember(brain, local.tasks) { CreatorBrainRecommendationEngine.build(brain, local.tasks) }
     val snapshot = remember(local, analytics, playbook, brain) {
         buildOpportunitySnapshot(context, local.tasks, local.ideas, analytics, playbook, brain)
     }
-    V20OpportunitySurface(snapshot, learningSummary, playbook, brain, onAction = null)
+    V20OpportunitySurface(snapshot, learningSummary, playbook, brain, brainGuidance, onBrainProject = null, onAction = null)
 }
 
 private fun buildPerformanceSignals(
@@ -148,6 +150,8 @@ private fun V20OpportunitySurface(
     learningSummary: CreatorRecommendationLearningSummary,
     playbook: CreatorPlaybookSnapshot,
     brain: CreatorBrainSnapshot,
+    brainGuidance: List<CreatorBrainRecommendation>,
+    onBrainProject: ((String) -> Unit)?,
     onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
     val primary = snapshot.now.firstOrNull() ?: snapshot.primary ?: return
@@ -285,16 +289,34 @@ private fun V20OpportunitySurface(
                 )
             }
 
+            if (brainGuidance.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                HorizontalDivider(color = MutedGold.copy(alpha = .14f))
+                Spacer(Modifier.height(10.dp))
+                Text("CREATOR BRAIN · GUIDANCE", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Spacer(Modifier.height(5.dp))
+                brainGuidance.take(3).forEach { recommendation ->
+                    V20CreatorBrainRecommendationRow(recommendation, onBrainProject)
+                }
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    "Guidance comes only from repeated evaluated creator outcomes. It can suggest a tailwind, a controlled retest, a warning or a rework — never a guaranteed result.",
+                    color = MutedText.copy(alpha = .78f),
+                    fontSize = 6.8.sp,
+                    lineHeight = 10.sp,
+                )
+            }
+
             if (brain.patterns.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
-                Text("CREATOR BRAIN · EARLY MEMORY", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Text("CREATOR BRAIN · MEMORY", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                 Spacer(Modifier.height(5.dp))
                 brain.patterns.take(4).forEach { pattern ->
                     V20CreatorBrainPatternRow(pattern)
                 }
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    "Creator Brain learns Content DNA, content type, platform, hook style and workflow patterns only from evaluated outcomes. Three results can become Emerging; four are required for Proven or Caution.",
+                    "Memory is time-aware: fresh patterns can guide, aging patterns are discounted, and stale patterns stay visible without changing ranking until new evidence refreshes them.",
                     color = MutedText.copy(alpha = .78f),
                     fontSize = 6.8.sp,
                     lineHeight = 10.sp,
@@ -374,6 +396,50 @@ private fun V20PlaybookPatternRow(pattern: CreatorPlaybookPattern) {
                 fontSize = 7.2.sp,
                 fontWeight = FontWeight.Black,
             )
+        }
+    }
+}
+
+@Composable
+private fun V20CreatorBrainRecommendationRow(
+    recommendation: CreatorBrainRecommendation,
+    onOpenProject: ((String) -> Unit)?,
+) {
+    val accent = when (recommendation.kind) {
+        CreatorBrainRecommendationKind.LEAN_IN -> SuccessGreen
+        CreatorBrainRecommendationKind.TEST_MORE -> MutedGold
+        CreatorBrainRecommendationKind.WATCH -> MutedGold
+        CreatorBrainRecommendationKind.AVOID_FOR_NOW -> RecRed
+        CreatorBrainRecommendationKind.REFRESH_EVIDENCE -> MutedText
+    }
+    val label = when (recommendation.kind) {
+        CreatorBrainRecommendationKind.LEAN_IN -> "LEAN IN"
+        CreatorBrainRecommendationKind.TEST_MORE -> "TEST"
+        CreatorBrainRecommendationKind.WATCH -> "WATCH"
+        CreatorBrainRecommendationKind.AVOID_FOR_NOW -> "REWORK"
+        CreatorBrainRecommendationKind.REFRESH_EVIDENCE -> "REFRESH"
+    }
+    val clickable = recommendation.taskId.isNotBlank() && onOpenProject != null
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = clickable) { onOpenProject?.invoke(recommendation.taskId) }
+            .padding(vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .12f)) {
+            Text(label, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp), color = accent, fontSize = 5.8.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.width(7.dp))
+        Column(Modifier.weight(1f)) {
+            Text(recommendation.title, color = ProjectorIvory.copy(alpha = .9f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(2.dp))
+            Text(recommendation.body, color = MutedText, fontSize = 6.6.sp, lineHeight = 9.5.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text("${recommendation.confidence}% evidence confidence · ${recommendation.patternIds.size} Brain pattern${if (recommendation.patternIds.size == 1) "" else "s"}", color = accent.copy(alpha = .86f), fontSize = 6.sp, fontWeight = FontWeight.Bold)
+        }
+        if (clickable) {
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Outlined.ArrowForward, null, tint = accent, modifier = Modifier.size(14.dp))
         }
     }
 }
