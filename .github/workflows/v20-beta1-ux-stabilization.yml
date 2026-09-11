@@ -23,7 +23,9 @@ jobs:
           fetch-depth: 0
 
       - name: Materialize v116 UX stabilization
-        run: python tools/v20_beta1_ux_stabilization.py
+        run: |
+          python tools/v116_fix_materializer.py
+          python tools/v20_beta1_ux_stabilization.py
 
       - name: Verify v116 UX invariants
         shell: bash
