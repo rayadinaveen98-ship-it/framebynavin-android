@@ -10,7 +10,7 @@ enum class CreatorOpportunityKind {
     PROJECT_MOMENTUM,
 }
 
-enum class CreatorOpportunitySource { LOCAL, YOUTUBE, GEMINI, PLAYBOOK }
+enum class CreatorOpportunitySource { LOCAL, YOUTUBE, GEMINI, PLAYBOOK, CREATOR_BRAIN }
 enum class CreatorOpportunityTargetKind { INSIGHTS, IDEA_VAULT, PROJECT }
 enum class CreatorOpportunityHorizon { NOW, NEXT, LATER }
 
@@ -70,6 +70,7 @@ data class CreatorOpportunity(
 ) {
     val usesAiEvidence: Boolean get() = evidence.any { it.source == CreatorOpportunitySource.GEMINI }
     val usesPlaybookEvidence: Boolean get() = evidence.any { it.source == CreatorOpportunitySource.PLAYBOOK }
+    val usesCreatorBrainEvidence: Boolean get() = evidence.any { it.source == CreatorOpportunitySource.CREATOR_BRAIN }
 }
 
 data class CreatorOpportunitySnapshot(
@@ -84,6 +85,7 @@ data class CreatorOpportunitySnapshot(
 
     val aiEvidenceUsed: Boolean get() = visible.any { it.usesAiEvidence }
     val playbookEvidenceUsed: Boolean get() = visible.any { it.usesPlaybookEvidence }
+    val creatorBrainEvidenceUsed: Boolean get() = visible.any { it.usesCreatorBrainEvidence }
     val evidenceSourceCount: Int get() = visible
         .flatMap { it.evidence }
         .map { it.source }
@@ -98,10 +100,10 @@ data class CreatorOpportunitySnapshot(
  * Gemini reports may strengthen an already-grounded video opportunity, but AI never becomes a
  * prerequisite for ranking or silently creates a recommendation on its own.
  *
- * Alpha 1.3D adds conservative outcome-weighting from the Creator Playbook. A single result never
- * changes ranking, positive history requires at least two evaluated outcomes, and negative history
- * requires at least three. The small playbook delta cannot change an opportunity's NOW/NEXT/LATER
- * horizon; live urgency, readiness and platform evidence stay dominant.
+ * Alpha 1.4A adds the first Creator Brain memory across Content DNA, content type, platform, hook
+ * style and workflow pace. Brain patterns require repeated evaluated outcomes and only add a tightly
+ * capped adjustment to recommendations that can be linked to a real project. Current urgency,
+ * readiness, YouTube evidence and the broader Creator Playbook remain dominant.
  */
 object CreatorOpportunityEngine {
     fun build(
@@ -111,6 +113,7 @@ object CreatorOpportunityEngine {
         performanceSignals: List<CreatorPlatformOpportunitySignal> = emptyList(),
         aiSignals: List<CreatorAiOpportunitySignal> = emptyList(),
         playbook: CreatorPlaybookSnapshot = CreatorPlaybookSnapshot(),
+        brain: CreatorBrainSnapshot = CreatorBrainSnapshot(),
         nowMillis: Long = System.currentTimeMillis(),
     ): CreatorOpportunitySnapshot {
         val candidates = mutableListOf<CreatorOpportunity>()
@@ -211,6 +214,9 @@ object CreatorOpportunityEngine {
                     kind = CreatorOpportunityKind.VIDEO_MOMENTUM,
                     targetKind = CreatorOpportunityTargetKind.INSIGHTS,
                     targetId = signal.videoId,
+                    taskId = tasks.firstOrNull { task ->
+                        CreatorRecommendationOutcomeEngine.extractYouTubeVideoId(task.publishedUrl) == signal.videoId
+                    }?.id,
                     videoId = signal.videoId,
                     confidence = if (signal.baselineMultiple >= 1.5) 86 else 78,
                     score = 850 + ((signal.baselineMultiple * 30).toInt()).coerceAtMost(90) + signal.viewSharePercent.coerceAtMost(40) + scorecard.weightedScore,
@@ -342,7 +348,40 @@ object CreatorOpportunityEngine {
             )
         }
 
-        val ranked = outcomeWeighted
+        val brainWeighted = outcomeWeighted.map { opportunity ->
+            val linkedTask = opportunity.taskId?.let { id -> tasks.firstOrNull { it.id == id } }
+                ?: opportunity.videoId?.let { videoId ->
+                    tasks.firstOrNull { task ->
+                        CreatorRecommendationOutcomeEngine.extractYouTubeVideoId(task.publishedUrl) == videoId
+                    }
+                }
+                ?: return@map opportunity
+            val match = CreatorBrainEngine.matchForTask(linkedTask, brain)
+            if (match.rankingDelta == 0 || match.patterns.isEmpty()) return@map opportunity
+
+            val positive = match.rankingDelta > 0
+            val strategicDelta = (match.rankingDelta / 2).coerceIn(-7, 8)
+            opportunity.copy(
+                confidence = if (positive) {
+                    (opportunity.confidence + 1).coerceAtMost(95)
+                } else {
+                    (opportunity.confidence - 1).coerceAtLeast(45)
+                },
+                score = opportunity.score + match.rankingDelta,
+                scorecard = opportunity.scorecard.copy(
+                    strategicValue = (opportunity.scorecard.strategicValue + strategicDelta).coerceIn(0, 100),
+                ),
+                evidence = opportunity.evidence + match.patterns.map { pattern ->
+                    CreatorOpportunityEvidence(
+                        id = "brain.${pattern.id}",
+                        label = "Creator Brain ${pattern.state.name.lowercase()} · ${pattern.label} · ${pattern.positiveCount}/${pattern.evaluatedCount} positive",
+                        source = CreatorOpportunitySource.CREATOR_BRAIN,
+                    )
+                },
+            )
+        }
+
+        val ranked = brainWeighted
             .distinctBy { it.kind to (it.targetId.ifBlank { it.title }) }
             .sortedWith(
                 compareByDescending<CreatorOpportunity> { it.score }

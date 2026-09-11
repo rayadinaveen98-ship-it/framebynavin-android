@@ -48,10 +48,11 @@ internal fun V20OpportunityEngineCard(
     }
     val learningSummary = remember(outcomes) { CreatorRecommendationOutcomeEngine.summary(outcomes) }
     val playbook = remember(outcomes) { CreatorPlaybookEngine.build(outcomes) }
-    val snapshot = remember(tasks, ideas, analytics, playbook) {
-        buildOpportunitySnapshot(context, tasks, ideas, analytics, playbook)
+    val brain = remember(outcomes, tasks) { CreatorBrainEngine.build(outcomes, tasks) }
+    val snapshot = remember(tasks, ideas, analytics, playbook, brain) {
+        buildOpportunitySnapshot(context, tasks, ideas, analytics, playbook, brain)
     }
-    V20OpportunitySurface(snapshot, learningSummary, playbook) { opportunity ->
+    V20OpportunitySurface(snapshot, learningSummary, playbook, brain) { opportunity ->
         outcomeStore.recordAction(opportunity)
         learningRefresh += 1
         when (opportunity.targetKind) {
@@ -88,10 +89,11 @@ internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapsho
     }
     val learningSummary = remember(outcomeState) { CreatorRecommendationOutcomeEngine.summary(outcomeState) }
     val playbook = remember(outcomeState) { CreatorPlaybookEngine.build(outcomeState) }
-    val snapshot = remember(local, analytics, playbook) {
-        buildOpportunitySnapshot(context, local.tasks, local.ideas, analytics, playbook)
+    val brain = remember(outcomeState, local.tasks) { CreatorBrainEngine.build(outcomeState, local.tasks) }
+    val snapshot = remember(local, analytics, playbook, brain) {
+        buildOpportunitySnapshot(context, local.tasks, local.ideas, analytics, playbook, brain)
     }
-    V20OpportunitySurface(snapshot, learningSummary, playbook, onAction = null)
+    V20OpportunitySurface(snapshot, learningSummary, playbook, brain, onAction = null)
 }
 
 private fun buildPerformanceSignals(
@@ -115,6 +117,7 @@ private fun buildOpportunitySnapshot(
     ideas: List<CreatorIdea>,
     analytics: YouTubeAnalyticsSnapshot?,
     playbook: CreatorPlaybookSnapshot,
+    brain: CreatorBrainSnapshot,
 ): CreatorOpportunitySnapshot {
     val pulse = YouTubePulseStore(context).build24HourReport()
     val youtubeAlerts = YouTubeOpportunityEngine.build(pulse, ideas)
@@ -135,6 +138,7 @@ private fun buildOpportunitySnapshot(
         performanceSignals = performanceSignals,
         aiSignals = aiSignals,
         playbook = playbook,
+        brain = brain,
     )
 }
 
@@ -143,6 +147,7 @@ private fun V20OpportunitySurface(
     snapshot: CreatorOpportunitySnapshot,
     learningSummary: CreatorRecommendationLearningSummary,
     playbook: CreatorPlaybookSnapshot,
+    brain: CreatorBrainSnapshot,
     onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
     val primary = snapshot.now.firstOrNull() ?: snapshot.primary ?: return
@@ -280,9 +285,26 @@ private fun V20OpportunitySurface(
                 )
             }
 
+            if (brain.patterns.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text("CREATOR BRAIN · EARLY MEMORY", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Spacer(Modifier.height(5.dp))
+                brain.patterns.take(4).forEach { pattern ->
+                    V20CreatorBrainPatternRow(pattern)
+                }
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    "Creator Brain learns Content DNA, content type, platform, hook style and workflow patterns only from evaluated outcomes. Three results can become Emerging; four are required for Proven or Caution.",
+                    color = MutedText.copy(alpha = .78f),
+                    fontSize = 6.8.sp,
+                    lineHeight = 10.sp,
+                )
+            }
+
             Spacer(Modifier.height(10.dp))
             Text(
                 when {
+                    snapshot.creatorBrainEvidenceUsed -> "Current evidence stays dominant. Repeated Creator Brain patterns add only a small, capped adjustment when a recommendation matches a real project."
                     snapshot.playbookEvidenceUsed && snapshot.aiEvidenceUsed -> "Ranking is led by current creator + YouTube evidence, then lightly informed by repeated outcome history and optional Gemini evidence."
                     snapshot.playbookEvidenceUsed -> "Current evidence stays dominant. Repeated Creator Playbook outcomes only add a small outcome-weighted adjustment."
                     snapshot.aiEvidenceUsed -> "Ranking is led by your data + YouTube evidence. Saved Gemini analysis can strengthen evidence, but never creates an opportunity by itself."
@@ -357,6 +379,38 @@ private fun V20PlaybookPatternRow(pattern: CreatorPlaybookPattern) {
 }
 
 @Composable
+private fun V20CreatorBrainPatternRow(pattern: CreatorBrainPattern) {
+    val accent = when (pattern.state) {
+        CreatorBrainPatternState.PROVEN -> SuccessGreen
+        CreatorBrainPatternState.EMERGING -> MutedGold
+        CreatorBrainPatternState.CAUTION -> RecRed
+        CreatorBrainPatternState.LEARNING -> MutedText
+    }
+    val stateLabel = pattern.state.name
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .12f)) {
+            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 5.7.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.width(7.dp))
+        Column(Modifier.weight(1f)) {
+            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 6.4.sp)
+        }
+        if (pattern.rankingDelta != 0) {
+            Text(
+                if (pattern.rankingDelta > 0) "+${pattern.rankingDelta}" else pattern.rankingDelta.toString(),
+                color = accent,
+                fontSize = 7.2.sp,
+                fontWeight = FontWeight.Black,
+            )
+        }
+    }
+}
+
+@Composable
 private fun V20HorizonList(
     label: String,
     opportunities: List<CreatorOpportunity>,
@@ -402,6 +456,7 @@ private fun opportunitySourceLabel(source: CreatorOpportunitySource): String = w
     CreatorOpportunitySource.YOUTUBE -> "YOUTUBE"
     CreatorOpportunitySource.GEMINI -> "GEMINI EVIDENCE"
     CreatorOpportunitySource.PLAYBOOK -> "PLAYBOOK"
+    CreatorOpportunitySource.CREATOR_BRAIN -> "CREATOR BRAIN"
 }
 
 private fun opportunitySourceColor(source: CreatorOpportunitySource): Color = when (source) {
@@ -409,4 +464,5 @@ private fun opportunitySourceColor(source: CreatorOpportunitySource): Color = wh
     CreatorOpportunitySource.YOUTUBE -> RecRed
     CreatorOpportunitySource.GEMINI -> MutedGold
     CreatorOpportunitySource.PLAYBOOK -> SuccessGreen
+    CreatorOpportunitySource.CREATOR_BRAIN -> MutedGold
 }
