@@ -23,13 +23,13 @@ class V18CreatorJourneyAlpha12Test {
     }
 
     @Test
-    fun onlyPublishingStepContinuesIntoInsights() {
+    fun finishingProjectStaysInCreate() {
         val base = task(stage = 0)
         assertNull(V18CreatorJourney.afterWorkflowAdvance(base))
 
         val finalIndex = CreatorWorkflowEngine.templateFor(base).stages.lastIndex
         val finalTask = base.copy(workflowStageIndex = finalIndex)
-        assertEquals(V18JourneyDestination.INSIGHTS, V18CreatorJourney.afterWorkflowAdvance(finalTask))
+        assertEquals(V18JourneyDestination.CREATE, V18CreatorJourney.afterWorkflowAdvance(finalTask))
     }
 
     @Test
