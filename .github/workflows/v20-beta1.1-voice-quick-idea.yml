@@ -1,0 +1,115 @@
+name: v2.0 Beta 1.1 Voice Quick Idea
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-beta1.1-voice-quick-idea"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-beta1.1-voice-quick-idea
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify v117 voice invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 117' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-beta1.1-voice-quick-idea"' app/build.gradle.kts
+          grep -q 'android.permission.RECORD_AUDIO' app/src/main/AndroidManifest.xml
+          grep -q 'android.speech.RecognitionService' app/src/main/AndroidManifest.xml
+          grep -q 'createOnDeviceSpeechRecognizer' app/src/main/java/com/framebynavin/app/voice/IdeaVoiceTranscriber.kt
+          grep -q 'EXTRA_ENABLE_LANGUAGE_SWITCH' app/src/main/java/com/framebynavin/app/voice/IdeaVoiceTranscriber.kt
+          grep -q '"te-IN", "en-IN"' app/src/main/java/com/framebynavin/app/voice/IdeaVoiceTranscriber.kt
+          grep -q 'EXTRA_PARTIAL_RESULTS' app/src/main/java/com/framebynavin/app/voice/IdeaVoiceTranscriber.kt
+          grep -q 'V117VoiceIdeaInput' app/src/main/java/com/framebynavin/app/ui/V14QuickCaptureUi.kt
+          grep -q 'V117VoiceIdeaInput' app/src/main/java/com/framebynavin/app/widget/QuickIdeaActivity.kt
+          grep -q 'FrameByNavin does not save the audio' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          grep -q 'VoiceIdeaTextTest' app/src/test/java/com/framebynavin/app/voice/VoiceIdeaTextTest.kt
+          grep -q 'V18JourneyDestination.CREATE else null' app/src/main/java/com/framebynavin/app/ui/V18CreatorJourney.kt
+          ! grep -q 'V20OpportunityEngineCard(' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -q 'onCapture = { openComposer() }' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'ANALYZE VIDEO WITH GEMINI' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'ProjectPulseEngine::repairFalseSurfaceCompletion' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+          if grep -R --line-number 'AIzaSy' app/src/main app/src/debug app/src/release; then
+            echo 'Firebase API keys must not be copied into Kotlin/Java source.' >&2
+            exit 1
+          fi
+          git diff --check
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-beta1.1-voice-quick-idea.apk
+          sha256sum verification/FrameByNavin-v2.0.0-beta1.1-voice-quick-idea.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-beta1.1-voice-quick-idea"
+            echo "versionCode=117"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "quickIdeaVoice=true"
+            echo "widgetQuickIdeaVoice=true"
+            echo "livePartialTranscript=true"
+            echo "appendVoice=true"
+            echo "autoTeluguEnglishApi34=true"
+            echo "manualTelugu=true"
+            echo "manualEnglish=true"
+            echo "onDevicePreferredApi31=true"
+            echo "systemRecognizerFallback=true"
+            echo "audioPersisted=false"
+            echo "uxBeta1Preserved=true"
+            echo "reminderCompletionSafetyPreserved=true"
+            echo "liveGeminiVideoAutopsyPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-beta1.1-voice-quick-idea-apk
+          path: verification/FrameByNavin-v2.0.0-beta1.1-voice-quick-idea.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-beta1.1-voice-quick-idea-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push --force-with-lease origin HEAD:staging/v2.0-beta1.1-voice-quick-idea-validated
