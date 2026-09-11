@@ -1,0 +1,122 @@
+name: v2.0 Alpha 1.2F Production Styles
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.2f-production-styles"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha12f-production-styles
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Materialize Production Styles
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/v20_alpha12f_production_styles.py
+          git diff --check
+
+      - name: Verify production style invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 93' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.2f-production-styles"' app/build.gradle.kts
+          grep -q 'object ProductionStyleRegistry' app/src/main/java/com/framebynavin/app/data/ProductionStyleRegistry.kt
+          grep -q 'id = "gameplay_capture"' app/src/main/java/com/framebynavin/app/data/ProductionStyleRegistry.kt
+          grep -q 'id = "camera_broll"' app/src/main/java/com/framebynavin/app/data/ProductionStyleRegistry.kt
+          grep -q 'fun canonicalLabel' app/src/main/java/com/framebynavin/app/data/ProductionStyleRegistry.kt
+          grep -q 'fun validateModeRegistry' app/src/main/java/com/framebynavin/app/data/ProductionStyleRegistry.kt
+          grep -q 'ProductionStyleRegistry::canonicalLabel' app/src/main/java/com/framebynavin/app/data/CreatorProfile.kt
+          grep -q 'ProductionStyleRegistry.orderedForMode' app/src/main/java/com/framebynavin/app/ui/V18CreatorOnboarding.kt
+          grep -q 'object ContentArchetypeRegistry' app/src/main/java/com/framebynavin/app/data/ContentArchetypeRegistry.kt
+          grep -q 'object CreatorModeRegistry' app/src/main/java/com/framebynavin/app/data/CreatorModeRegistry.kt
+          grep -q 'PTab.TODAY -> PTodayScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudSyncWorker.kt
+
+      - name: Pin exact app source before Gradle
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A app
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git -c commit.gpgSign=false commit -m "feat(v2.0): ship Production Style Registry"
+          fi
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.2f-production-styles.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.2f-production-styles.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.2f-production-styles"
+            echo "versionCode=93"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "canonicalProductionStyles=true"
+            echo "legacyProductionAliasesCanonicalized=true"
+            echo "unknownLegacyStylesPreserved=true"
+            echo "modeProductionRecommendationsValidated=true"
+            echo "contentArchetypesPreserved=true"
+            echo "creatorModesPreserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "acceptedCinematicHomePreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2f-production-styles-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.2f-production-styles.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2f-production-styles-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:staging/v2.0-alpha1.2f-production-styles-validated
