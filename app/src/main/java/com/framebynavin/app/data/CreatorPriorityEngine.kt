@@ -9,6 +9,10 @@ data class CreatorRecommendation(
     val urgencyLabel: String,
     val reason: String,
     val score: Int,
+    /** Deterministic rough effort for the current workflow stage; never presented as measured actual time. */
+    val estimatedMinutes: Int = 30,
+    /** Small evidence set explaining why this action is being recommended. */
+    val signals: List<String> = emptyList(),
 )
 
 object CreatorPriorityEngine {
@@ -49,7 +53,33 @@ object CreatorPriorityEngine {
             urgencyLabel = urgency,
             reason = reason,
             score = score(task, now),
+            estimatedMinutes = estimateStageMinutes(task),
+            signals = evidence(task, now).take(3),
         )
+    }
+
+    /**
+     * Rough, deterministic stage estimate used for planning guidance. It is deliberately conservative
+     * and does not pretend to be measured creator history. Alpha 3 can later fit work to available time.
+     */
+    fun estimateStageMinutes(task: CreatorTask): Int {
+        val stage = CreatorWorkflowEngine.currentStage(task).id
+        val longWork = task.contentType.trim().lowercase() in setOf("long-form", "video", "episode", "article", "newsletter")
+        return when (stage) {
+            "idea", "angle", "select" -> 20
+            "research" -> if (longWork) 50 else 30
+            "outline" -> 30
+            "script", "draft" -> if (longWork) 50 else 25
+            "voice", "record" -> if (longWork) 35 else 20
+            "edit" -> if (longWork) 60 else 35
+            "sound_grade" -> 40
+            "thumbnail", "create" -> 30
+            "caption", "copy", "metadata" -> 20
+            "review", "proof", "verify" -> 15
+            "upload", "send", "published" -> 15
+            "promote", "engage" -> 20
+            else -> 30
+        }
     }
 
     fun score(task: CreatorTask, now: Long = System.currentTimeMillis()): Int {
@@ -88,5 +118,36 @@ object CreatorPriorityEngine {
             if (reminderDelta <= 2 * HOUR_MS) score += 35
         }
         return score
+    }
+
+    private fun evidence(task: CreatorTask, now: Long): List<String> = buildList {
+        val due = task.dueAtMillis
+        if (due > 0L) {
+            val delta = due - now
+            add(
+                when {
+                    delta < 0L -> "Deadline is overdue"
+                    delta <= 2 * HOUR_MS -> "Deadline is within 2 hours"
+                    delta <= DAY_MS -> "Due today"
+                    delta <= 2 * DAY_MS -> "Due within 2 days"
+                    else -> "Deadline still has buffer"
+                }
+            )
+        }
+        if (task.status == TaskStatus.WORKING) add("Already in progress")
+        if (task.priority == TaskPriority.CRITICAL) add("Critical priority")
+        else if (task.priority == TaskPriority.IMPORTANT) add("Important priority")
+
+        val progress = CreatorWorkflowEngine.progress(task)
+        add("${CreatorWorkflowEngine.currentStage(task).label} · $progress% workflow")
+
+        val unfinished = task.workspace.checklist.count { it.status == CreatorChecklistStatus.TODO }
+        val requiredPublishChecks = task.workspace.deliverables.sumOf { deliverable ->
+            deliverable.publishGate.count { it.required && it.status == CreatorPublishGateStatus.TODO }
+        }
+        val remaining = unfinished + requiredPublishChecks
+        if (remaining > 0) add("$remaining unfinished check${if (remaining == 1) "" else "s"}")
+
+        if (task.reminderEnabled && task.reminderAtMillis in 1..(now + 2 * HOUR_MS)) add("Reminder is due soon")
     }
 }
