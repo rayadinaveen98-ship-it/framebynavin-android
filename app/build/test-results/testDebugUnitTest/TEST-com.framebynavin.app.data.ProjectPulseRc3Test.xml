@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.ProjectPulseRc3Test" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:08" hostname="runnervmlun5p" time="0.003">
+  <properties/>
+  <testcase name="dismiss_keepsCurrentStageAndCreatesLaterCheckIn" classname="com.framebynavin.app.data.ProjectPulseRc3Test" time="0.0"/>
+  <testcase name="manualCustomStageChangeDoesNotReusePreviousStageCheckpoint" classname="com.framebynavin.app.data.ProjectPulseRc3Test" time="0.0"/>
+  <testcase name="customStageDoneAdvancesExactlyOneStageAndWaitsForNextChoice" classname="com.framebynavin.app.data.ProjectPulseRc3Test" time="0.0"/>
+  <testcase name="publicationStageCannotBeCompletedByReminderWithoutPublicationProof" classname="com.framebynavin.app.data.ProjectPulseRc3Test" time="0.0"/>
+  <testcase name="working_keepsStageAndDoesNotInventProgress" classname="com.framebynavin.app.data.ProjectPulseRc3Test" time="0.001"/>
+  <testcase name="explicitVoiceStaysVoiceAcrossGuidedStageAdvance" classname="com.framebynavin.app.data.ProjectPulseRc3Test" time="0.0"/>
+  <testcase name="customPlanIsStageManagedAndPreservesChosenDelivery" classname="com.framebynavin.app.data.ProjectPulseRc3Test" time="0.0"/>
+  <testcase name="finalNonPublicationStageCanFinishWithoutInventingPublication" classname="com.framebynavin.app.data.ProjectPulseRc3Test" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

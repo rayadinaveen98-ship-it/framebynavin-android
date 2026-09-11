@@ -113,14 +113,6 @@ internal fun PTodayScreen(
             }
             Spacer(Modifier.height(14.dp))
             V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
-            Spacer(Modifier.height(14.dp))
-            V20OpportunityEngineCard(
-                tasks = tasks,
-                ideas = ideas,
-                onOpenIdeaVault = onOpenIdeaVault,
-                onOpenInsights = onOpenInsights,
-                onOpenProject = onOpenProject,
-            )
             Spacer(Modifier.height(18.dp))
 
             if (selected == null) {
@@ -232,58 +224,33 @@ private fun V18CreatorFocusCard(
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(19.dp),
+        shape = RoundedCornerShape(16.dp),
         color = Color(0xFF171310),
-        border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f)),
+        border = BorderStroke(1.dp, MutedGold.copy(alpha = .22f)),
     ) {
-        Column(Modifier.padding(15.dp)) {
+        Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("CREATOR FOCUS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                    Spacer(Modifier.height(3.dp))
-                    Text(profile.primaryGoal, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                    Text("WEEKLY FOCUS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Spacer(Modifier.height(2.dp))
+                    Text(profile.primaryGoal, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Text(
-                    "${personalization.publishedThisWeek} / ${personalization.weeklyTarget}",
+                    "${personalization.publishedThisWeek}/${personalization.weeklyTarget}",
                     color = if (personalization.weeklyProgress >= 1f) SuccessGreen else MutedGold,
-                    fontSize = 20.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Black,
                 )
+                Spacer(Modifier.width(5.dp))
+                Icon(Icons.Outlined.ChevronRight, "Open weekly focus", tint = MutedGold, modifier = Modifier.size(16.dp))
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(7.dp))
             LinearProgressIndicator(
                 progress = { personalization.weeklyProgress },
-                modifier = Modifier.fillMaxWidth().height(4.dp),
+                modifier = Modifier.fillMaxWidth().height(3.dp),
                 color = if (personalization.weeklyProgress >= 1f) SuccessGreen else MutedGold,
                 trackColor = CinemaLine,
             )
-            Spacer(Modifier.height(7.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "${personalization.publishedThisWeek} / ${personalization.weeklyTarget} published this week",
-                    color = MutedText,
-                    fontSize = 8.8.sp,
-                )
-                Spacer(Modifier.weight(1f))
-                Text(personalization.platformSummary, color = MutedText, fontSize = 8.3.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.height(7.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val remaining = (personalization.weeklyTarget - personalization.publishedThisWeek).coerceAtLeast(0)
-                val above = (personalization.publishedThisWeek - personalization.weeklyTarget).coerceAtLeast(0)
-                Text(
-                    when {
-                        above > 0 -> "WEEKLY TARGET COMPLETE · +$above ABOVE"
-                        remaining == 0 -> "WEEKLY TARGET COMPLETE"
-                        else -> "$remaining PUBLISH${if (remaining == 1) "" else "ES"} REMAINING"
-                    },
-                    color = if (remaining == 0) SuccessGreen else ProjectorIvory.copy(alpha = .78f),
-                    fontSize = 8.5.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.weight(1f))
-                Icon(Icons.Outlined.ChevronRight, "Open weekly focus", tint = MutedGold, modifier = Modifier.size(17.dp))
-            }
         }
     }
 }

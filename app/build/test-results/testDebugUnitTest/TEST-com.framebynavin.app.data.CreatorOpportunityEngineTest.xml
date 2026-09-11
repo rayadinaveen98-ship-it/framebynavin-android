@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.CreatorOpportunityEngineTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.024">
+  <properties/>
+  <testcase name="saved Gemini report strengthens grounded video signal but never creates one alone" classname="com.framebynavin.app.data.CreatorOpportunityEngineTest" time="0.014"/>
+  <testcase name="high potential ready idea remains useful with no YouTube or AI data" classname="com.framebynavin.app.data.CreatorOpportunityEngineTest" time="0.005"/>
+  <testcase name="matched platform idea outranks ordinary active project" classname="com.framebynavin.app.data.CreatorOpportunityEngineTest" time="0.005"/>
+  <testcase name="decision map separates live momentum ready work and developing ideas" classname="com.framebynavin.app.data.CreatorOpportunityEngineTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

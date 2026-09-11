@@ -233,6 +233,7 @@ internal fun PStudioProject(
     val current = CreatorWorkflowEngine.currentStage(task)
     val progress = CreatorWorkflowEngine.progress(task)
     val done = task.status == TaskStatus.DONE
+    val compactCard = selectionMode || (done && !expanded)
     val pulse = ProjectPulseEngine.snapshot(task)
     val pulseAccent = when (pulse.state) {
         ProjectPulseState.COMPLETE -> SuccessGreen
@@ -251,10 +252,10 @@ internal fun PStudioProject(
             color = if (selected) RecRed.copy(alpha = .10f) else if (expanded) Color(0xFF16130F) else CinemaSurface,
             border = BorderStroke(1.dp, if (selected) RecRed else if (expanded) MutedGold.copy(alpha = .5f) else CinemaLine),
         ) {
-            Column(Modifier.padding(15.dp)) {
+            Column(Modifier.padding(if (compactCard) 10.dp else 15.dp)) {
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
-                        Text(task.title, color = ProjectorIvory, fontSize = 15.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(task.title, color = ProjectorIvory, fontSize = if (compactCard) 13.sp else 15.5.sp, fontWeight = FontWeight.Bold, maxLines = if (compactCard) 1 else 2, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.height(3.dp))
                         Text("${task.platform} · ${task.contentType} · ${task.dueLabel}", color = MutedText, fontSize = 8.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -265,24 +266,38 @@ internal fun PStudioProject(
                         Icon(if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = MutedText)
                     }
                 }
+                if (compactCard) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (done) "COMPLETED" else pulse.stateLabel,
+                            color = if (done) SuccessGreen else pulseAccent,
+                            fontSize = 7.5.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text("$progress%", color = if (done) SuccessGreen else MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
                 Spacer(Modifier.height(11.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = RoundedCornerShape(100.dp), color = pulseAccent.copy(alpha = .11f)) {
-                        Text(pulse.stateLabel, color = pulseAccent, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = RoundedCornerShape(100.dp), color = pulseAccent.copy(alpha = .11f)) {
+                            Text(pulse.stateLabel, color = pulseAccent, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Text("$progress%", color = if (done) SuccessGreen else MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
                     }
-                    Spacer(Modifier.weight(1f))
-                    Text("$progress%", color = if (done) SuccessGreen else MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-                }
-                if (!done) {
-                    Spacer(Modifier.height(9.dp))
-                    Text("NEXT · ${pulse.nextAction}", color = ProjectorIvory, fontSize = 9.3.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (pulse.nextCheckpointAtMillis > 0L) {
-                        Spacer(Modifier.height(3.dp))
-                        Text("${pulse.checkpointLabel} · ${pFormatDateTime(pulse.nextCheckpointAtMillis)}", color = MutedText, fontSize = 8.3.sp)
+                    if (!done) {
+                        Spacer(Modifier.height(9.dp))
+                        Text("NEXT · ${pulse.nextAction}", color = ProjectorIvory, fontSize = 9.3.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (pulse.nextCheckpointAtMillis > 0L) {
+                            Spacer(Modifier.height(3.dp))
+                            Text("${pulse.checkpointLabel} · ${pFormatDateTime(pulse.nextCheckpointAtMillis)}", color = MutedText, fontSize = 8.3.sp)
+                        }
                     }
-                }
-                Spacer(Modifier.height(8.dp))
-                PStageRail(task)
+                    Spacer(Modifier.height(8.dp))
+                    PStageRail(task)
+                    }
             }
         }
 

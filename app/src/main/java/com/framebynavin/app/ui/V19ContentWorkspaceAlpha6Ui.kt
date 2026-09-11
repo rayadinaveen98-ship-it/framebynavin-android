@@ -41,8 +41,8 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
     val ready = workspace.deliverables.count { it.status == CreatorDeliverableStatus.READY }
     val scriptMeta = workspace.scriptStudio?.let {
-        "Embedded · S${it.revision} · ${it.beats.size} beats · backup/restore ready"
-    } ?: "Legacy-compatible · embeds automatically on open/save/export"
+        "${it.beats.size} script beats ready"
+    } ?: "Start or continue your script"
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -52,10 +52,10 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onDismiss) { Text("CLOSE") }
                     Column(Modifier.weight(1f)) {
-                        Text("CONTENT PROJECT 2.0 · RC2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("PROJECT WORKSPACE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
                         Text(task.title, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
-                    Text("R${workspace.revision}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("${workspace.productionProgressPercent()}%", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -69,56 +69,56 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         Icon(Icons.Outlined.CloudDone, null, tint = MutedGold)
                         Spacer(Modifier.width(10.dp))
                         Column {
-                            Text("STABILIZATION DATA", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            Text("PROJECT SAVED", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
                             Text(scriptMeta, color = MutedText, fontSize = 8.5.sp)
                         }
                     }
                 }
 
-                Spacer(Modifier.height(18.dp))
-                Text("CREATOR WORKSPACE", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Text("One project from planning to publishing. RC2 is stabilization-only: publication, script and reminder authority are being consolidated before stable.", color = MutedText, fontSize = 10.sp)
+                Spacer(Modifier.height(14.dp))
+                Text("Your project", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                Text("Plan, write and publish from one place.", color = MutedText, fontSize = 10.sp)
 
                 Spacer(Modifier.height(18.dp))
                 Alpha6HubCard(
                     icon = Icons.Outlined.AutoAwesome,
-                    eyebrow = "CONTENT DNA · PERSONALIZED",
+                    eyebrow = "PROJECT STYLE",
                     title = blueprint.headline,
-                    body = "Recommended workflow, project prompts, writing structure, quality checks and useful working tools for this project.",
+                    body = "A simple guide based on how you make this kind of content.",
                     meta = "${blueprint.modeLabel} · ${blueprint.archetypeLabel}",
                     onClick = onOpenBlueprint,
                 )
                 Spacer(Modifier.height(10.dp))
                 Alpha6HubCard(
                     icon = Icons.Outlined.Dashboard,
-                    eyebrow = "PROJECT COMMAND CENTER",
+                    eyebrow = "PROJECT",
                     title = "Plan & Produce",
-                    body = "Brief, research, assets, supporting checklist, templates, deliverables and learnings.",
-                    meta = "${workspace.productionProgressPercent()}% checklist · ${workspace.deliverables.size} outputs",
+                    body = "Brief, research, assets, checklist and outputs.",
+                    meta = "${workspace.productionProgressPercent()}% ready · ${workspace.deliverables.size} outputs",
                     onClick = onOpenProject,
                 )
                 Spacer(Modifier.height(10.dp))
                 Alpha6HubCard(
                     icon = Icons.Outlined.EditNote,
-                    eyebrow = "SINGLE SCRIPT AUTHORITY",
+                    eyebrow = "SCRIPT",
                     title = "Script Studio",
-                    body = "Hooks, title ideas, beats, narration, visuals, B-roll, notes and recording readiness.",
+                    body = "Write your hook, narration, beats and visual notes.",
                     meta = scriptMeta,
                     onClick = onOpenScript,
                 )
                 Spacer(Modifier.height(10.dp))
                 Alpha6HubCard(
                     icon = Icons.Outlined.Publish,
-                    eyebrow = "SINGLE PUBLISH AUTHORITY",
+                    eyebrow = "PUBLISH",
                     title = "Publish Studio",
-                    body = "Final metadata, title/cover variants, pre-publish gates, publication history and repurposing.",
+                    body = "Prepare the title, cover, description and final publish check.",
                     meta = "$ready ready · $published published",
                     onClick = onOpenPublish,
                 )
 
                 Spacer(Modifier.height(24.dp))
                 Text(
-                    "Main workflow controls project stages/reminders. Script Studio controls writing. Publish Studio controls live output state.",
+                    "Everything stays connected to this project.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     modifier = Modifier.padding(bottom = 18.dp),

@@ -1,5 +1,6 @@
 package com.framebynavin.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -83,7 +84,7 @@ internal fun V20OpportunityEngineCard(
     }
 }
 
-/** Read-only Opportunity Engine surface inside Insights. Today owns the actionable version. */
+/** Opportunity guidance belongs in Insights; Today stays focused on current work. */
 @Composable
 internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapshot) {
     val context = LocalContext.current.applicationContext
@@ -191,6 +192,7 @@ private fun V20OpportunitySurface(
     onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
     val primary = snapshot.now.firstOrNull() ?: snapshot.primary ?: return
+    var showDetails by remember(primary.id) { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -208,11 +210,11 @@ private fun V20OpportunitySurface(
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("OPPORTUNITY ENGINE", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                    Text("NOW · NEXT · LATER", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                    Text("NEXT MOVE", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                    Text("What to do next", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("DECISION", color = MutedText, fontSize = 6.5.sp, fontWeight = FontWeight.Black)
+                    Text("FIT", color = MutedText, fontSize = 6.5.sp, fontWeight = FontWeight.Black)
                     Text("${primary.scorecard.weightedScore}", color = MutedGold, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 }
             }
@@ -230,31 +232,38 @@ private fun V20OpportunitySurface(
             Spacer(Modifier.height(5.dp))
             Text(primary.title, color = ProjectorIvory, fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(6.dp))
-            Text(primary.body, color = MutedText, fontSize = 9.4.sp, lineHeight = 14.sp)
+            Text(primary.body, color = MutedText, fontSize = 9.4.sp, lineHeight = 14.sp, maxLines = if (showDetails) 8 else 3, overflow = TextOverflow.Ellipsis)
 
+            TextButton(onClick = { showDetails = !showDetails }, modifier = Modifier.padding(top = 4.dp)) {
+                Text(if (showDetails) "HIDE DETAILS" else "WHY THIS?", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            }
+            AnimatedVisibility(visible = showDetails) {
+                Column {
             Spacer(Modifier.height(11.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                primary.evidence.map { it.source }.distinct().forEach { source ->
-                    Surface(shape = RoundedCornerShape(100.dp), color = opportunitySourceColor(source).copy(alpha = .12f)) {
-                        Text(
-                            opportunitySourceLabel(source),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            color = opportunitySourceColor(source),
-                            fontSize = 6.9.sp,
-                            fontWeight = FontWeight.Black,
-                        )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    primary.evidence.map { it.source }.distinct().forEach { source ->
+                        Surface(shape = RoundedCornerShape(100.dp), color = opportunitySourceColor(source).copy(alpha = .12f)) {
+                            Text(
+                                opportunitySourceLabel(source),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                color = opportunitySourceColor(source),
+                                fontSize = 6.9.sp,
+                                fontWeight = FontWeight.Black,
+                            )
+                        }
                     }
                 }
-            }
-            Spacer(Modifier.height(7.dp))
-            primary.evidence.take(3).forEach { evidence ->
-                Text("• ${evidence.label}", color = MutedText, fontSize = 7.8.sp, lineHeight = 11.sp)
-            }
+                Spacer(Modifier.height(7.dp))
+                primary.evidence.take(3).forEach { evidence ->
+                    Text("• ${evidence.label}", color = MutedText, fontSize = 7.8.sp, lineHeight = 11.sp)
+                }
 
-            Spacer(Modifier.height(10.dp))
-            Text("WHY THIS RANKED", color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-            Spacer(Modifier.height(5.dp))
-            V20DecisionScorecard(primary.scorecard)
+                Spacer(Modifier.height(10.dp))
+                Text("WHY THIS RANKED", color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                Spacer(Modifier.height(5.dp))
+                V20DecisionScorecard(primary.scorecard)
+                    }
+            }
 
             if (onAction != null) {
                 Spacer(Modifier.height(14.dp))
@@ -284,7 +293,7 @@ private fun V20OpportunitySurface(
                 V20HorizonList("LATER", snapshot.later, MutedText, onAction)
             }
 
-            if (learningSummary.acted > 0) {
+            if (showDetails && learningSummary.acted > 0) {
                 Spacer(Modifier.height(14.dp))
                 HorizontalDivider(color = MutedText.copy(alpha = .16f))
                 Spacer(Modifier.height(10.dp))
@@ -309,7 +318,7 @@ private fun V20OpportunitySurface(
                 )
             }
 
-            if (playbook.patterns.isNotEmpty()) {
+            if (showDetails && playbook.patterns.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Text("CREATOR PLAYBOOK", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                 Spacer(Modifier.height(5.dp))
@@ -325,7 +334,7 @@ private fun V20OpportunitySurface(
                 )
             }
 
-            if (brainGuidance.isNotEmpty()) {
+            if (showDetails && brainGuidance.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))
                 HorizontalDivider(color = MutedGold.copy(alpha = .14f))
                 Spacer(Modifier.height(10.dp))
@@ -343,7 +352,7 @@ private fun V20OpportunitySurface(
                 )
             }
 
-            if (brainExplainability.explanations.isNotEmpty()) {
+            if (showDetails && brainExplainability.explanations.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))
                 HorizontalDivider(color = MutedGold.copy(alpha = .14f))
                 Spacer(Modifier.height(10.dp))
@@ -367,7 +376,7 @@ private fun V20OpportunitySurface(
                 )
             }
 
-            if (brain.patterns.isNotEmpty()) {
+            if (showDetails && brain.patterns.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Text("CREATOR BRAIN · MEMORY", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                 Spacer(Modifier.height(5.dp))
@@ -383,9 +392,10 @@ private fun V20OpportunitySurface(
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
-            Text(
-                when {
+            if (showDetails) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    when {
                     snapshot.creatorBrainEvidenceUsed -> "Current evidence stays dominant. Repeated Creator Brain patterns add only a small, capped adjustment when a recommendation matches a real project."
                     snapshot.playbookEvidenceUsed && snapshot.aiEvidenceUsed -> "Ranking is led by current creator + YouTube evidence, then lightly informed by repeated outcome history and optional Gemini evidence."
                     snapshot.playbookEvidenceUsed -> "Current evidence stays dominant. Repeated Creator Playbook outcomes only add a small outcome-weighted adjustment."
@@ -394,8 +404,9 @@ private fun V20OpportunitySurface(
                 },
                 color = MutedText.copy(alpha = .72f),
                 fontSize = 6.9.sp,
-                lineHeight = 10.sp,
-            )
+                    lineHeight = 10.sp,
+                )
+            }
         }
     }
 }

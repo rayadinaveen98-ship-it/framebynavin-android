@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.CreatorPersonalizationAlpha11Test" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.022">
+  <properties/>
+  <testcase name="platformPriorityKeepsYouTubePrimaryForMultiPlatformCreator" classname="com.framebynavin.app.data.CreatorPersonalizationAlpha11Test" time="0.0"/>
+  <testcase name="growAudienceGuidanceUsesCreatorCategoryAndPlatform" classname="com.framebynavin.app.data.CreatorPersonalizationAlpha11Test" time="0.015"/>
+  <testcase name="weeklyProgressCountsOnlyCurrentWeekObservedCompletions" classname="com.framebynavin.app.data.CreatorPersonalizationAlpha11Test" time="0.0"/>
+  <testcase name="weeklyProgressCapsAtCompleteWhenCreatorBeatsTarget" classname="com.framebynavin.app.data.CreatorPersonalizationAlpha11Test" time="0.001"/>
+  <testcase name="customGoalStillProducesUsefulCreatorSpecificFallback" classname="com.framebynavin.app.data.CreatorPersonalizationAlpha11Test" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

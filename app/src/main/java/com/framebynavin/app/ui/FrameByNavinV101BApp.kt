@@ -202,19 +202,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     fun advanceWorkflowWithJourney(id: String) {
         val taskBeforeAdvance = vm.tasks.firstOrNull { it.id == id }
         val destination = taskBeforeAdvance?.let(V18CreatorJourney::afterWorkflowAdvance)
-        val loopAction = taskBeforeAdvance?.let { task ->
-            if (destination == V18JourneyDestination.INSIGHTS) {
-                V18CreatorLoop.afterPublished(task, hasIdeas = vm.ideas.isNotEmpty())
-            } else null
-        }
         vm.advanceWorkflow(id)
         routeJourney(destination)
-        when (loopAction) {
-            V18CreatorLoopAction.CAPTURE_NEXT_IDEA -> showQuickCapture = true
-            V18CreatorLoopAction.REVIEW_INSIGHTS,
-            V18CreatorLoopAction.START_NEXT_PROJECT,
-            null -> Unit
-        }
     }
 
     LaunchedEffect(controlExpanded) {
@@ -325,7 +314,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             PBottomNav(
                 selected = tab,
                 onSelect = { tab = it },
-                onCapture = { showQuickCapture = true },
+                onCapture = { openComposer() },
                 modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
             )
 

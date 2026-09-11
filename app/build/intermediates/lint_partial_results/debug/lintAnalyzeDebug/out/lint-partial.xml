@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 8.9.2" type="partial_results">
+    <map id="CredentialManagerMisuse">
+            <map id="GET_CREDENTIAL_CALLS">
+                <location id="0"
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CloudSyncActivity.kt"
+                    line="138"
+                    column="30"
+                    startOffset="6492"
+                    endLine="138"
+                    endColumn="109"
+                    endOffset="6571"/>
+                <location id="1"
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V23AccountOnboarding.kt"
+                    line="70"
+                    column="30"
+                    startOffset="3482"
+                    endLine="70"
+                    endColumn="109"
+                    endOffset="3561"/>
+            </map>
+        <entry
+            name="SAW_NO_CREDENTIAL_EXCEPTION"
+            boolean="true"/>
+    </map>
+    <map id="CredentialManagerSignInWithGoogle">
+            <map id="OPTION_REFS">
+                <location id="0"
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CloudSyncActivity.kt"
+                    line="136"
+                    column="30"
+                    startOffset="6290"
+                    endLine="136"
+                    endColumn="55"
+                    endOffset="6315"/>
+                <location id="1"
+                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V23AccountOnboarding.kt"
+                    line="68"
+                    column="30"
+                    startOffset="3280"
+                    endLine="68"
+                    endColumn="55"
+                    endOffset="3305"/>
+            </map>
+    </map>
+    <map id="NotificationPermission">
+        <entry
+            name="source"
+            boolean="true"/>
+    </map>
+    <map id="ScheduleExactAlarm">
+        <location id="0"
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ReminderScheduler.kt"
+            line="48"
+            column="21"
+            startOffset="2045"
+            endLine="51"
+            endColumn="22"
+            endOffset="2221"/>
+        <location id="1"
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ReminderScheduler.kt"
+            line="73"
+            column="17"
+            startOffset="3111"
+            endLine="77"
+            endColumn="18"
+            endOffset="3291"/>
+        <location id="2"
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/SmartEscalationScheduler.kt"
+            line="218"
+            column="17"
+            startOffset="9728"
+            endLine="218"
+            endColumn="109"
+            endOffset="9820"/>
+        <location id="3"
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/SmartEscalationScheduler.kt"
+            line="220"
+            column="17"
+            startOffset="9877"
+            endLine="220"
+            endColumn="105"
+            endOffset="9965"/>
+        <entry
+            name="ChecksExactAlarmPermission"
+            boolean="true"/>
+    </map>
+    <map id="UnsafeImplicitIntentLaunch">
+            <map id="actionsSent">
+                    <map id="android.settings.APPLICATION_DETAILS_SETTINGS (used to start an activity)">
+                        <location id="0"
+                            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
+                            line="179"
+                            column="48"
+                            startOffset="8361"
+                            endLine="179"
+                            endColumn="100"
+                            endOffset="8413"/>
+                    </map>
+                    <map id="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS (used to start an activity)">
+                        <location id="0"
+                            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
+                            line="178"
+                            column="45"
+                            startOffset="8250"
+                            endLine="178"
+                            endColumn="105"
+                            endOffset="8310"/>
+                    </map>
+                    <map id="android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT (used to start an activity)">
+                        <location id="0"
+                            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
+                            line="174"
+                            column="35"
+                            startOffset="8038"
+                            endLine="174"
+                            endColumn="92"
+                            endOffset="8095"/>
+                    </map>
+                    <map id="android.settings.REQUEST_SCHEDULE_EXACT_ALARM (used to start an activity)">
+                        <location id="0"
+                            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
+                            line="169"
+                            column="35"
+                            startOffset="7800"
+                            endLine="169"
+                            endColumn="87"
+                            endOffset="7852"/>
+                    </map>
+            </map>
+    </map>
+    <map id="UnsafeIntentLaunch">
+            <map id="unprotected">
+                <entry
+                    name="com.framebynavin.app.MainActivity"
+                    boolean="true"/>
+            </map>
+    </map>
+    <map id="UnusedResources">
+        <location id="R.xml.creator_backup_rules"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/xml/creator_backup_rules.xml"
+            line="2"
+            column="1"
+            startOffset="39"
+            endLine="7"
+            endColumn="23"
+            endOffset="344"/>
+        <location id="R.xml.creator_data_extraction_rules"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/xml/creator_data_extraction_rules.xml"
+            line="2"
+            column="1"
+            startOffset="39"
+            endLine="14"
+            endColumn="25"
+            endOffset="653"/>
+        <entry
+            name="model"
+            string="drawable[ic_framebynavin_launcher(U),ic_framebynavin_splash(U),widget_creator_bg(U),widget_creator_button(U),widget_creator_button_red(U)],id[widget_root(U),widget_title(U),widget_project(U),widget_stage(U),widget_due(U),widget_reminder(U),widget_idea(U),widget_large_title(U),widget_large_today_count(U),widget_large_project_area(U),widget_large_project(U),widget_large_stage(U),widget_large_progress(U),widget_large_reminder(U),widget_large_idea(U),widget_large_project_button(U),widget_large_release(U),widget_large_brief(U),widget_large_calendar(U)],layout[widget_creator_compact(U),widget_creator_large(U)],style[Theme_FrameByNavin(U),Theme_FrameByNavin_Starting(U),Theme_SplashScreen(R)],xml[widget_creator_compact_info(U),widget_creator_large_info(U),creator_backup_rules(D),creator_data_extraction_rules(D)];18^2^4,19^2^3^4,1b^1c^1^1a,1d^18,1e^19;;;"/>
+    </map>
+
+</incidents>

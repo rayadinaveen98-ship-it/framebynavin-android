@@ -42,10 +42,11 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
     val country = foundation.health(YouTubeFoundationDataset.COUNTRY)?.state
     val retention = foundation.health(YouTubeFoundationDataset.RETENTION)?.state
     val reachHealth = foundation.health(YouTubeFoundationDataset.REACH)
-    val reach = reachHealth?.state
+    val reachState = reachHealth?.state
     val reachSummary = remember(snapshot.channel.channelId, snapshot.startDate, snapshot.endDate, snapshot.fetchedAtMillis) {
         YouTubeReachStore(context).summary(snapshot.startDate, snapshot.endDate)
     }
+    val reach = if (reachSummary != null) YouTubeDatasetState.READY else reachState
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -56,11 +57,11 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
         Column(Modifier.padding(14.dp)) {
             Row(Modifier.fillMaxWidth()) {
                 Column(Modifier.weight(1f)) {
-                    Text("INSIGHTS FOUNDATION 2.0", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Text("CHANNEL SIGNALS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(3.dp))
-                    Text("Deeper signals are now being collected", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                    Text("What your audience is telling you", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
                 }
-                Text("${foundation.readyDatasetCount()} READY", color = SuccessGreen, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text("${foundation.readyDatasetCount()} ready", color = SuccessGreen, fontSize = 8.sp, fontWeight = FontWeight.Black)
             }
 
             Spacer(Modifier.height(9.dp))
@@ -81,7 +82,7 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
             if (foundation.periodEngagedViews > 0L) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Engaged views: ${compactFoundation(foundation.periodEngagedViews)} · stored separately from public views",
+                    "Engaged views: ${compactFoundation(foundation.periodEngagedViews)}",
                     color = ProjectorIvory.copy(alpha = .78f),
                     fontSize = 8.5.sp,
                 )
@@ -89,8 +90,7 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
 
             if (foundation.metricContract.crossesPublicViewBoundary) {
                 Spacer(Modifier.height(8.dp))
-                Text("METRIC SAFETY", color = RecRed, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                Text(foundation.metricContract.note, color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
+                Text("YouTube changed how some views are counted. FrameByNavin handles older comparisons carefully.", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
             }
 
             Spacer(Modifier.height(8.dp))
@@ -117,7 +117,7 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
                     lineHeight = 12.sp,
                 )
                 reach == YouTubeDatasetState.NOT_CONFIGURED -> Text(
-                    "Reach/CTR is intentionally not guessed. It will appear only from YouTube's official reach reports.",
+                    "Reach will appear after YouTube finishes its first reach report.",
                     color = MutedText,
                     fontSize = 8.1.sp,
                     lineHeight = 12.sp,

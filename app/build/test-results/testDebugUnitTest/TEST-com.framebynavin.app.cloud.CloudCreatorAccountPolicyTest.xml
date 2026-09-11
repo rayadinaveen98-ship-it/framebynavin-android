@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:06" hostname="runnervmlun5p" time="0.007">
+  <properties/>
+  <testcase name="authenticatedUserWithoutCreatorProfile_needsCreatorId" classname="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" time="0.0"/>
+  <testcase name="signedOut_requiresGoogleSignIn" classname="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" time="0.0"/>
+  <testcase name="profileWithoutUsername_isNotTreatedAsExistingCreatorId" classname="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" time="0.0"/>
+  <testcase name="sameAuthenticatedUserWithUsername_isReturningCreator" classname="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" time="0.005"/>
+  <testcase name="cachedProfileFromAnotherUser_cannotBypassOnboarding" classname="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

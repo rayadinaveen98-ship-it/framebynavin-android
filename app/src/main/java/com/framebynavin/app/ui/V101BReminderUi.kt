@@ -11,6 +11,7 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -242,11 +243,13 @@ internal fun PProjectComposer(
     var repeatCount by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatCount ?: 3) }
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 10) }
     var alarmTimeout by rememberSaveable(task?.id) { mutableIntStateOf(task?.alarmTimeoutSeconds ?: defaults.defaultAlarmTimeoutSeconds) }
+    var showCreativeSetup by rememberSaveable(task?.id) { mutableStateOf(false) }
 
     val modeOptions = CreatorModeRegistry.definitions
     val archetypeOptions = remember(creatorModeId, archetypeId) {
-        (ContentArchetypeRegistry.suggestedForMode(creatorModeId) + ContentArchetypeRegistry.definitions)
-            .distinctBy { it.id }
+        val suggested = ContentArchetypeRegistry.suggestedForMode(creatorModeId)
+        val selected = ContentArchetypeRegistry.definition(archetypeId)
+        if (selected != null && suggested.none { it.id == selected.id }) suggested + selected else suggested
     }
     val productionStyleOptions = remember(creatorModeId) { ProductionStyleRegistry.orderedForMode(creatorModeId) }
     val platformOptions = remember(defaults.creatorProfile, task?.platform, initialDna.platform) {
@@ -295,7 +298,7 @@ internal fun PProjectComposer(
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Spacer(Modifier.width(4.dp))
@@ -310,41 +313,66 @@ internal fun PProjectComposer(
                     PComposerLabel("PROJECT")
                     OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Project title") }, singleLine = true, shape = RoundedCornerShape(16.dp))
                     Spacer(Modifier.height(22.dp))
+                    Surface(
+                        onClick = { showCreativeSetup = !showCreativeSetup },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = CinemaSurface,
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("CREATIVE OPTIONS · OPTIONAL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                                Text("Mode, content type and production style", color = MutedText, fontSize = 8.5.sp)
+                            }
+                            Icon(
+                                if (showCreativeSetup) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                                null,
+                                tint = MutedGold,
+                            )
+                        }
+                    }
+                    AnimatedVisibility(visible = showCreativeSetup) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
                     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-                        Column(Modifier.padding(14.dp)) {
-                            Text("CONTENT DNA", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                            Text("What this project is and how you are making it.", color = MutedText, fontSize = 8.5.sp)
-                            Spacer(Modifier.height(14.dp))
-                            PComposerLabel("CREATOR MODE")
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                modeOptions.forEach { mode ->
-                                    FilterChip(selected = creatorModeId == mode.id, onClick = { creatorModeId = mode.id }, label = { Text(mode.label, fontSize = 8.8.sp) })
+                                    Column(Modifier.padding(14.dp)) {
+                                        Text("CREATIVE OPTIONS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                                        Text("Optional details that help FrameByNavin learn what works for you.", color = MutedText, fontSize = 8.5.sp)
+                                        Spacer(Modifier.height(14.dp))
+                                        PComposerLabel("CREATOR MODE")
+                                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                            modeOptions.forEach { mode ->
+                                                FilterChip(selected = creatorModeId == mode.id, onClick = { creatorModeId = mode.id }, label = { Text(mode.label, fontSize = 8.8.sp) })
+                                            }
+                                        }
+                                        Spacer(Modifier.height(14.dp))
+                                        PComposerLabel("CONTENT TYPE")
+                                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                            archetypeOptions.forEach { archetype ->
+                                                val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
+                                                FilterChip(selected = archetypeId == archetype.id, onClick = { archetypeId = archetype.id }, label = { Text(label, fontSize = 8.6.sp) })
+                                            }
+                                        }
+                                        Spacer(Modifier.height(14.dp))
+                                        PComposerLabel("PRODUCTION STYLE · UP TO ${CreatorProfile.MAX_PRODUCTION_STYLES}")
+                                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                            productionStyleOptions.forEach { style ->
+                                                val selected = style in productionStyles
+                                                FilterChip(
+                                                    selected = selected,
+                                                    onClick = {
+                                                        productionStyles = if (selected) productionStyles - style
+                                                        else if (productionStyles.size < CreatorProfile.MAX_PRODUCTION_STYLES) productionStyles + style
+                                                        else productionStyles
+                                                    },
+                                                    label = { Text(style, fontSize = 8.6.sp) },
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
-                            }
-                            Spacer(Modifier.height(14.dp))
-                            PComposerLabel("CONTENT TYPE")
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                archetypeOptions.forEach { archetype ->
-                                    val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
-                                    FilterChip(selected = archetypeId == archetype.id, onClick = { archetypeId = archetype.id }, label = { Text(label, fontSize = 8.6.sp) })
-                                }
-                            }
-                            Spacer(Modifier.height(14.dp))
-                            PComposerLabel("PRODUCTION STYLE · UP TO ${CreatorProfile.MAX_PRODUCTION_STYLES}")
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                productionStyleOptions.forEach { style ->
-                                    val selected = style in productionStyles
-                                    FilterChip(
-                                        selected = selected,
-                                        onClick = {
-                                            productionStyles = if (selected) productionStyles - style
-                                            else if (productionStyles.size < CreatorProfile.MAX_PRODUCTION_STYLES) productionStyles + style
-                                            else productionStyles
-                                        },
-                                        label = { Text(style, fontSize = 8.6.sp) },
-                                    )
-                                }
-                            }
+
                         }
                     }
                     Spacer(Modifier.height(22.dp))
@@ -446,7 +474,7 @@ internal fun PProjectComposer(
                     if (task != null && (task.reminderEnabled || task.attentionPlan != ProjectAttentionPlan.OFF)) {
                         Spacer(Modifier.height(12.dp))
                         TextButton(onClick = onRemoveReminder, modifier = Modifier.fillMaxWidth()) {
-                            Text("TURN OFF PROJECT ATTENTION", color = MutedText, fontSize = 8.5.sp)
+                            Text("TURN OFF REMINDERS", color = MutedText, fontSize = 8.5.sp)
                         }
                     }
                 }

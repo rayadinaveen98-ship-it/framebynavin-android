@@ -1,0 +1,25 @@
+#Fri Sep 11 17:46:21 UTC 2026
+path.4=4/classes.dex
+path.3=2/classes.dex
+path.2=13/classes.dex
+path.1=0/classes.dex
+path.7=8/classes.dex
+path.6=6/classes.dex
+path.5=5/classes.dex
+path.0=classes.dex
+base.4=/home/runner/work/framebynavin-android/framebynavin-android/app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/4/classes.dex
+base.3=/home/runner/work/framebynavin-android/framebynavin-android/app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/2/classes.dex
+base.2=/home/runner/work/framebynavin-android/framebynavin-android/app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/13/classes.dex
+base.1=/home/runner/work/framebynavin-android/framebynavin-android/app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/0/classes.dex
+base.0=/home/runner/work/framebynavin-android/framebynavin-android/app/build/intermediates/dex/debugAndroidTest/mergeExtDexDebugAndroidTest/classes.dex
+renamed.3=classes4.dex
+renamed.2=classes3.dex
+renamed.1=classes2.dex
+renamed.0=classes.dex
+renamed.7=classes8.dex
+renamed.6=classes7.dex
+base.7=/home/runner/work/framebynavin-android/framebynavin-android/app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/8/classes.dex
+renamed.5=classes6.dex
+base.6=/home/runner/work/framebynavin-android/framebynavin-android/app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/6/classes.dex
+renamed.4=classes5.dex
+base.5=/home/runner/work/framebynavin-android/framebynavin-android/app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/5/classes.dex

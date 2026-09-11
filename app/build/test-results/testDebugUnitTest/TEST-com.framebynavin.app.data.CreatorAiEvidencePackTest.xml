@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.CreatorAiEvidencePackTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:06" hostname="runnervmlun5p" time="0.07">
+  <properties/>
+  <testcase name="disabledConsentEmitsNothing" classname="com.framebynavin.app.data.CreatorAiEvidencePackTest" time="0.006"/>
+  <testcase name="projectContextSharesScriptSizeButNeverFullScript" classname="com.framebynavin.app.data.CreatorAiEvidencePackTest" time="0.041"/>
+  <testcase name="publicVideoOnlyDoesNotLeakProjectContext" classname="com.framebynavin.app.data.CreatorAiEvidencePackTest" time="0.0"/>
+  <testcase name="promptRequiresEvidenceCitationsAndNoInventedMetrics" classname="com.framebynavin.app.data.CreatorAiEvidencePackTest" time="0.016"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

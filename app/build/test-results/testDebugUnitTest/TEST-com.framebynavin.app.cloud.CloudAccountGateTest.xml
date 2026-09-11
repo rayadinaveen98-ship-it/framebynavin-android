@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.cloud.CloudAccountGateTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:06" hostname="runnervmlun5p" time="0.176">
+  <properties/>
+  <testcase name="currentOperationReturnsItsCapturedGeneration" classname="com.framebynavin.app.cloud.CloudAccountGateTest" time="0.107"/>
+  <testcase name="staleRefreshAndInvalidatedLoginAreRejected" classname="com.framebynavin.app.cloud.CloudAccountGateTest" time="0.002"/>
+  <testcase name="accountTransitionsSerializeAndInvalidateQueuedWork" classname="com.framebynavin.app.cloud.CloudAccountGateTest" time="0.049"/>
+  <testcase name="supersededTransitionCannotAdoptTheNewerGeneration" classname="com.framebynavin.app.cloud.CloudAccountGateTest" time="0.007"/>
+  <testcase name="queuedReadCannotCrossAccountSwitch" classname="com.framebynavin.app.cloud.CloudAccountGateTest" time="0.007"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

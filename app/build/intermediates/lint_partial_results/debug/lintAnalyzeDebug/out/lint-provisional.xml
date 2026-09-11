@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 8.9.2" type="conditional_incidents">
+
+    <incident
+        id="NotificationPermission"
+        severity="error"
+        message="When targeting Android 13 or higher, posting a permission requires holding the `POST_NOTIFICATIONS` permission">
+        <fix-data missing="android.permission.POST_NOTIFICATIONS"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/CreatorAutomationWorkers.kt"
+            line="218"
+            column="9"
+            startOffset="9560"
+            endLine="218"
+            endColumn="96"
+            endOffset="9647"/>
+    </incident>
+
+    <incident
+        id="NotificationPermission"
+        severity="error"
+        message="When targeting Android 13 or higher, posting a permission requires holding the `POST_NOTIFICATIONS` permission">
+        <fix-data missing="android.permission.POST_NOTIFICATIONS"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/CreatorContextNudgeWorker.kt"
+            line="64"
+            column="9"
+            startOffset="2911"
+            endLine="64"
+            endColumn="54"
+            endOffset="2956"/>
+    </incident>
+
+    <incident
+        id="NotificationPermission"
+        severity="error"
+        message="When targeting Android 13 or higher, posting a permission requires holding the `POST_NOTIFICATIONS` permission">
+        <fix-data missing="android.permission.POST_NOTIFICATIONS"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt"
+            line="37"
+            column="9"
+            startOffset="1824"
+            endLine="37"
+            endColumn="105"
+            endOffset="1920"/>
+    </incident>
+
+    <incident
+        id="NotificationPermission"
+        severity="error"
+        message="When targeting Android 13 or higher, posting a permission requires holding the `POST_NOTIFICATIONS` permission">
+        <fix-data missing="android.permission.POST_NOTIFICATIONS"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt"
+            line="55"
+            column="21"
+            startOffset="2891"
+            endLine="55"
+            endColumn="104"
+            endOffset="2974"/>
+    </incident>
+
+    <incident
+        id="NotificationPermission"
+        severity="error"
+        message="When targeting Android 13 or higher, posting a permission requires holding the `POST_NOTIFICATIONS` permission">
+        <fix-data missing="android.permission.POST_NOTIFICATIONS"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ReminderNotifications.kt"
+            line="101"
+            column="9"
+            startOffset="4792"
+            endLine="101"
+            endColumn="60"
+            endOffset="4843"/>
+    </incident>
+
+    <incident
+        id="UnusedAttribute"
+        severity="warning"
+        message="">
+        <fix-data minSdk="26-∞" requiresApi="27-∞"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
+            line="35"
+            column="13"
+            startOffset="1651"
+            endLine="35"
+            endColumn="42"
+            endOffset="1680"/>
+        <map>
+            <entry
+                name="message"
+                string="Attribute `showWhenLocked` is only used in API level 27 and higher (current min is %1$s)"/>
+            <api-levels id="minSdk"
+                value="26-∞"/>
+            <api-levels id="requiresApi"
+                value="27-∞"/>
+        </map>
+    </incident>
+
+    <incident
+        id="UnusedAttribute"
+        severity="warning"
+        message="">
+        <fix-data minSdk="26-∞" requiresApi="27-∞"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
+            line="36"
+            column="13"
+            startOffset="1693"
+            endLine="36"
+            endColumn="40"
+            endOffset="1720"/>
+        <map>
+            <entry
+                name="message"
+                string="Attribute `turnScreenOn` is only used in API level 27 and higher (current min is %1$s)"/>
+            <api-levels id="minSdk"
+                value="26-∞"/>
+            <api-levels id="requiresApi"
+                value="27-∞"/>
+        </map>
+    </incident>
+
+    <incident
+        id="UnusedAttribute"
+        severity="warning"
+        message="">
+        <fix-data minSdk="26-∞" requiresApi="27-∞"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
+            line="44"
+            column="13"
+            startOffset="1994"
+            endLine="44"
+            endColumn="42"
+            endOffset="2023"/>
+        <map>
+            <entry
+                name="message"
+                string="Attribute `showWhenLocked` is only used in API level 27 and higher (current min is %1$s)"/>
+            <api-levels id="minSdk"
+                value="26-∞"/>
+            <api-levels id="requiresApi"
+                value="27-∞"/>
+        </map>
+    </incident>
+
+    <incident
+        id="UnusedAttribute"
+        severity="warning"
+        message="">
+        <fix-data minSdk="26-∞" requiresApi="27-∞"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
+            line="45"
+            column="13"
+            startOffset="2036"
+            endLine="45"
+            endColumn="40"
+            endOffset="2063"/>
+        <map>
+            <entry
+                name="message"
+                string="Attribute `turnScreenOn` is only used in API level 27 and higher (current min is %1$s)"/>
+            <api-levels id="minSdk"
+                value="26-∞"/>
+            <api-levels id="requiresApi"
+                value="27-∞"/>
+        </map>
+    </incident>
+
+    <incident
+        id="UnusedAttribute"
+        severity="warning"
+        message="">
+        <fix-data minSdk="26-∞" requiresApi="31-∞"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/xml/widget_creator_compact_info.xml"
+            line="6"
+            column="5"
+            startOffset="240"
+            endLine="6"
+            endColumn="59"
+            endOffset="294"/>
+        <map>
+            <entry
+                name="message"
+                string="Attribute `previewLayout` is only used in API level 31 and higher (current min is %1$s)"/>
+            <api-levels id="minSdk"
+                value="26-∞"/>
+            <api-levels id="requiresApi"
+                value="31-∞"/>
+        </map>
+    </incident>
+
+    <incident
+        id="UnusedAttribute"
+        severity="warning"
+        message="">
+        <fix-data minSdk="26-∞" requiresApi="31-∞"/>
+        <location
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/xml/widget_creator_large_info.xml"
+            line="6"
+            column="5"
+            startOffset="238"
+            endLine="6"
+            endColumn="57"
+            endOffset="290"/>
+        <map>
+            <entry
+                name="message"
+                string="Attribute `previewLayout` is only used in API level 31 and higher (current min is %1$s)"/>
+            <api-levels id="minSdk"
+                value="26-∞"/>
+            <api-levels id="requiresApi"
+                value="31-∞"/>
+        </map>
+    </incident>
+
+</incidents>

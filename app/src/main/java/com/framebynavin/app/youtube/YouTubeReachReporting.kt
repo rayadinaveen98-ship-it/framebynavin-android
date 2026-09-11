@@ -400,15 +400,13 @@ class YouTubeReachReportingClient(private val store: YouTubeReachStore) {
     }
 
     private fun friendlyError(error: Throwable): String {
-        val message = error.message.orEmpty()
+        val message = error.message.orEmpty().lowercase(Locale.US)
         return when {
-            message.contains("has not been used", true) || message.contains("disabled", true) ->
-                "YouTube Reporting API needs to be enabled for this app's Google Cloud project. Your normal Insights data is unaffected."
-            error is YouTubeApiException && error.httpCode == 401 ->
-                "Reach reporting authorization expired. Reconnect YouTube and try again."
-            error is YouTubeApiException && error.httpCode == 403 ->
-                "YouTube did not allow reach reporting for this account or project yet."
-            else -> "Thumbnail reach data could not be refreshed right now. Normal Insights still works."
+            "disabled" in message || "has not been used" in message || "accessnotconfigured" in message ->
+                "Reach data needs a one-time YouTube Reporting setup. Normal Insights still works."
+            "permission" in message || "forbidden" in message ->
+                "YouTube reach data is not available for this account yet. Normal Insights still works."
+            else -> "Reach data could not be refreshed right now. Normal Insights still works."
         }
     }
 

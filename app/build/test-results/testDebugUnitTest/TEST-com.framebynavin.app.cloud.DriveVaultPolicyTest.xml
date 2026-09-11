@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.cloud.DriveVaultPolicyTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:06" hostname="runnervmlun5p" time="0.013">
+  <properties/>
+  <testcase name="recommended recovery skips newer empty snapshot" classname="com.framebynavin.app.cloud.DriveVaultPolicyTest" time="0.008"/>
+  <testcase name="empty local snapshot is blocked when vault has creator work" classname="com.framebynavin.app.cloud.DriveVaultPolicyTest" time="0.001"/>
+  <testcase name="empty vault can accept initial creator setup snapshot" classname="com.framebynavin.app.cloud.DriveVaultPolicyTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

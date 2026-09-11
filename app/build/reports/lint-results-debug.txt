@@ -1,0 +1,762 @@
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:17: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().putLong(key(taskId), scheduledAtMillis).commit()
+                                                             ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:39: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().remove(key(taskId)).commit()
+                                         ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:47: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().remove(entryKey).commit()
+                                      ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:53: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().putLong(deliveredKey(taskId), sourceReminderAtMillis).commit()
+                                                                           ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:62: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().remove(deliveredKey(taskId)).commit()
+                                                  ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt:33: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+            if (prefs.getString(KEY_SESSION, null) == encrypted) prefs.edit().remove(KEY_SESSION).commit()
+                                                                                                  ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:122: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+            .commit().also { check(it) { "Could not restore creator settings" } }
+             ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt:183: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+            .commit().also { check(it) { "Could not save personal frame selection" } }
+             ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeInsightsFoundation.kt:381: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        if (!current.isNullOrBlank() && current != snapshot.channelId) prefs.edit().clear().commit()
+                                                                                            ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeReachReporting.kt:62: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        if (!existing.isNullOrBlank() && existing != channelId) prefs.edit().clear().commit()
+                                                                                     ~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeReachReporting.kt:63: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        prefs.edit().putString(KEY_CHANNEL_ID, channelId).commit()
+                                                          ~~~~~~~~
+
+   Explanation for issues of type "ApplySharedPref":
+   Consider using apply() instead of commit on shared preferences. Whereas
+   commit blocks and writes its data to persistent storage immediately, apply
+   will handle it in the background.
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt:461: Warning: Implicitly using the default locale is a common source of bugs: Use String.format(Locale, ...) instead [DefaultLocale]
+            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 6.4.sp)
+                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt:585: Warning: Implicitly using the default locale is a common source of bugs: Use String.format(Locale, ...) instead [DefaultLocale]
+                            "• ${evidence.title} · ${evidence.verdict.name.lowercase()} · ${String.format("%.2f", evidence.baselineMultiple)}× baseline${if (evidence.videoId.isBlank()) "" else " · ${evidence.videoId}"}",
+                                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt:636: Warning: Implicitly using the default locale is a common source of bugs: Use String.format(Locale, ...) instead [DefaultLocale]
+            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 6.4.sp)
+                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "DefaultLocale":
+   Calling String#toLowerCase() or #toUpperCase() without specifying an
+   explicit locale is a common source of bugs. The reason for that is that
+   those methods will use the current locale on the user's device, and even
+   though the code appears to work correctly when you are developing the app,
+   it will fail in some locales. For example, in the Turkish locale, the
+   uppercase replacement for i is not I.
+
+   If you want the methods to just perform ASCII replacement, for example to
+   convert an enum name, call String#toUpperCase(Locale.ROOT) instead. If you
+   really want to use the current locale, call
+   String#toUpperCase(Locale.getDefault()) instead.
+
+   https://developer.android.com/reference/java/util/Locale.html#default_locale
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmRingingService.kt:286: Warning: This argument is a new instance so stopService will not remove anything [ImplicitSamInstance]
+        fun stop(context: Context) { context.stopService(Intent(context, AlarmRingingService::class.java)) }
+                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/VoiceReminderService.kt:211: Warning: This argument is a new instance so stopService will not remove anything [ImplicitSamInstance]
+        fun stop(context: Context) { context.stopService(Intent(context, VoiceReminderService::class.java)) }
+                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ImplicitSamInstance":
+   Kotlin's support for SAM (single abstract method) interfaces lets you pass
+   a lambda to the interface. This will create a new instance on the fly even
+   though there is no explicit constructor call. If you pass one of these
+   lambdas or method references into a method which (for example) stores or
+   compares the object identity, unexpected results may happen.
+
+   In particular, passing a lambda variable in as a listener, and then later
+   attempting to remove the listener will not work because a different
+   instance is passed in.
+
+   https://kotlinlang.org/docs/fun-interfaces.html#sam-conversions
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:24: Warning: Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the android.os.Build.VERSION_CODES javadoc for details. [OldTargetApi]
+        targetSdk = 35
+        ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "OldTargetApi":
+   When your application or sdk runs on a version of Android that is more
+   recent than your targetSdkVersion specifies that it has been tested with,
+   various compatibility modes kick in. This ensures that your application
+   continues to work, but it may look out of place. For example, if the
+   targetSdkVersion is less than 14, your app may get an option button in the
+   UI.
+
+   To fix this issue, set the targetSdkVersion to the highest available value.
+   Then test your app to make sure everything works correctly. You may want to
+   consult the compatibility notes to see what changes apply to each version
+   you are adding support for:
+   https://developer.android.com/reference/android/os/Build.VERSION_CODES.html
+   as well as follow this guide:
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.
+   html
+
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.html
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:35: Warning: Attribute showWhenLocked is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
+            android:showWhenLocked="true"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:36: Warning: Attribute turnScreenOn is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
+            android:turnScreenOn="true"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:44: Warning: Attribute showWhenLocked is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
+            android:showWhenLocked="true"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:45: Warning: Attribute turnScreenOn is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
+            android:turnScreenOn="true"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/xml/widget_creator_compact_info.xml:6: Warning: Attribute previewLayout is only used in API level 31 and higher (current min is 26) [UnusedAttribute]
+    android:previewLayout="@layout/widget_creator_compact"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/xml/widget_creator_large_info.xml:6: Warning: Attribute previewLayout is only used in API level 31 and higher (current min is 26) [UnusedAttribute]
+    android:previewLayout="@layout/widget_creator_large"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnusedAttribute":
+   This check finds attributes set in XML files that were introduced in a
+   version newer than the oldest version targeted by your application (with
+   the minSdkVersion attribute).
+
+   This is not an error; the application will simply ignore the attribute.
+   However, if the attribute is important to the appearance or functionality
+   of your application, you should consider finding an alternative way to
+   achieve the same result with only available attributes, and then you can
+   optionally create a copy of the layout in a layout-vNN folder which will be
+   used on API NN or higher where you can take advantage of the newer
+   attribute.
+
+   Note: This check does not only apply to attributes. For example, some tags
+   can be unused too, such as the new <tag> element in layouts introduced in
+   API 21.
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt:136: Warning: Use of :googleid classes without use of GoogleIdTokenCredential [CredentialManagerSignInWithGoogle]
+                val option = GetSignInWithGoogleOption.Builder(CloudConfig.GOOGLE_WEB_CLIENT_ID).build()
+                             ~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/V23AccountOnboarding.kt:68: Warning: Use of :googleid classes without use of GoogleIdTokenCredential [CredentialManagerSignInWithGoogle]
+                val option = GetSignInWithGoogleOption.Builder(CloudConfig.GOOGLE_WEB_CLIENT_ID).build()
+                             ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "CredentialManagerSignInWithGoogle":
+   When using :googleid classes like GetGoogleIdOption and
+   GetSignInWithGoogleOption, you typically must handle the response using
+   GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL or
+   GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_SIWG_CREDENTIAL.
+
+   This check reports all uses of these :googleid classes if there are no
+   references to GoogleIdTokenCredential.
+
+   https://developer.android.com/identity/sign-in/credential-manager-siwg#create-sign
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:56: Warning: A newer version of androidx.compose:compose-bom than 2025.04.01 is available: 2026.09.00 [GradleDependency]
+    implementation(platform("androidx.compose:compose-bom:2025.04.01"))
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:57: Warning: A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0 [GradleDependency]
+    implementation("androidx.activity:activity-compose:1.10.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:58: Warning: A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.19.0 [GradleDependency]
+    implementation("androidx.core:core-ktx:1.16.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:59: Warning: A newer version of androidx.core:core-splashscreen than 1.0.1 is available: 1.2.0 [GradleDependency]
+    implementation("androidx.core:core-splashscreen:1.0.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:64: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.9.0 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:65: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-ktx than 2.9.0 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:66: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.9.0 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:67: Warning: A newer version of androidx.datastore:datastore-preferences than 1.1.7 is available: 1.2.1 [GradleDependency]
+    implementation("androidx.datastore:datastore-preferences:1.1.7")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:68: Warning: A newer version of androidx.work:work-runtime-ktx than 2.10.1 is available: 2.11.2 [GradleDependency]
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:69: Warning: A newer version of com.google.android.gms:play-services-auth than 21.6.0 is available: 22.0.0 [GradleDependency]
+    implementation("com.google.android.gms:play-services-auth:21.6.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:74: Warning: A newer version of com.google.firebase:firebase-bom than 34.18.0 is available: 34.19.0 [GradleDependency]
+    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:81: Warning: A newer version of androidx.compose:compose-bom than 2025.04.01 is available: 2026.09.00 [GradleDependency]
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.04.01"))
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:82: Warning: A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0 [GradleDependency]
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:83: Warning: A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0 [GradleDependency]
+    androidTestImplementation("androidx.test:runner:1.6.2")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/build.gradle.kts:84: Warning: A newer version of androidx.test.espresso:espresso-core than 3.6.1 is available: 3.7.0 [GradleDependency]
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:969: Warning: Modifier parameter should be the first optional parameter [ModifierParameter from androidx.compose.ui]
+    modifier: Modifier = Modifier,
+    ~~~~~~~~
+
+   Explanation for issues of type "ModifierParameter":
+   The first (or only) Modifier parameter in a Composable function should
+   follow the following rules:
+   - Be named modifier
+   - Have a type of Modifier
+   - Either have no default value, or have a default value of Modifier
+   - If optional, be the first optional parameter in the parameter list
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:14: Warning: The attribute android:allowBackup is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute android:dataExtractionRules specifying an @xml resource which configures cloud backups and device transfers on Android 12 and higher. [DataExtractionRules]
+        android:allowBackup="false"
+                             ~~~~~
+
+   Explanation for issues of type "DataExtractionRules":
+   Before Android 12, the attributes android:allowBackup and
+   android:fullBackupContent were used to configure all forms of backup,
+   including cloud backups, device-to-device transfers and adb backup.
+
+   In Android 12 and higher, these attributes have been deprecated and will
+   only apply to cloud backups. You should instead use the attribute
+   android:dataExtractionRules, specifying an @xml resource that configures
+   which files to back up, for cloud backups and for device-to-device
+   transfers, separately. If your minSdkVersion supports older versions,
+   you'll still want to specify an android:fullBackupContent resource if the
+   default behavior is not right for your app.
+
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   https://goo.gle/DataExtractionRules
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmRingingService.kt:156: Warning: Unnecessary; SDK_INT is always >= 26 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmRingingService.kt:204: Warning: Unnecessary; SDK_INT is always >= 26 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt:63: Warning: Unnecessary; SDK_INT is always >= 26 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ReminderNotifications.kt:25: Warning: Unnecessary; SDK_INT is always >= 26 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ReminderNotifications.kt:42: Warning: Unnecessary; SDK_INT is always >= 26 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/VoiceReminderService.kt:147: Warning: Unnecessary; SDK_INT is always >= 26 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt:59: Information: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    private var pendingWrites by mutableStateOf(0)
+                                 ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "AutoboxingStateCreation":
+   Calling mutableStateOf<T>() when T is either backed by a primitive type on
+   the JVM or is a value class results in a state implementation that requires
+   all state values to be boxed. This usually causes an additional allocation
+   for each state write, and adds some additional work to auto-unbox values
+   when reading the value of the state. Instead, prefer to use a specialized
+   primitive state implementation for Int, Long, Float, and Double when the
+   state does not need to track null values and does not override the default
+   SnapshotMutationPolicy. See mutableIntStateOf(), mutableLongStateOf(),
+   mutableFloatStateOf(), and mutableDoubleStateOf() for more information.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.runtime
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/xml/creator_backup_rules.xml:2: Warning: The resource R.xml.creator_backup_rules appears to be unused [UnusedResources]
+<full-backup-content>
+^
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/xml/creator_data_extraction_rules.xml:2: Warning: The resource R.xml.creator_data_extraction_rules appears to be unused [UnusedResources]
+<data-extraction-rules>
+^
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests =true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests =true.
+   ,
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt:132: Warning: State backed values should use the lambda overload of Modifier.offset [UseOfNonLambdaOffsetOverload from androidx.compose.foundation]
+                        .offset(x = ((sweep.value - .5f) * 80).dp)
+                         ~~~~~~
+
+   Explanation for issues of type "UseOfNonLambdaOffsetOverload":
+   Modifier.offset() is recommended to be used with static arguments only to
+   avoid unnecessary recompositions. Modifier.offset{ } is preferred in the
+   cases where the arguments are backed by a State.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.foundation
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_compact.xml:16: Warning: Avoid using sizes smaller than 11sp: 10sp [SmallSp]
+        android:textSize="10sp"
+        ~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_compact.xml:47: Warning: Avoid using sizes smaller than 11sp: 10sp [SmallSp]
+        android:textSize="10sp" />
+        ~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_compact.xml:58: Warning: Avoid using sizes smaller than 11sp: 10sp [SmallSp]
+        android:textSize="10sp" />
+        ~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_compact.xml:69: Warning: Avoid using sizes smaller than 11sp: 10sp [SmallSp]
+        android:textSize="10sp"
+        ~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:21: Warning: Avoid using sizes smaller than 11sp: 10sp [SmallSp]
+            android:textSize="10sp"
+            ~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:29: Warning: Avoid using sizes smaller than 11sp: 9sp [SmallSp]
+            android:textSize="9sp"
+            ~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:77: Warning: Avoid using sizes smaller than 11sp: 10sp [SmallSp]
+        android:textSize="10sp" />
+        ~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:94: Warning: Avoid using sizes smaller than 11sp: 9sp [SmallSp]
+            android:textSize="9sp"
+            ~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:106: Warning: Avoid using sizes smaller than 11sp: 9sp [SmallSp]
+            android:textSize="9sp"
+            ~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:117: Warning: Avoid using sizes smaller than 11sp: 9sp [SmallSp]
+            android:textSize="9sp"
+            ~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:136: Warning: Avoid using sizes smaller than 11sp: 8sp [SmallSp]
+            android:textSize="8sp"
+            ~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:147: Warning: Avoid using sizes smaller than 11sp: 8sp [SmallSp]
+            android:textSize="8sp"
+            ~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SmallSp":
+   Avoid using sizes smaller than 11sp.
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:17: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putLong(key(taskId), scheduledAtMillis).commit()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:35: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().clear().commit()) { "Could not clear alarm delivery ledger" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:39: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().remove(key(taskId)).commit()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:47: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().remove(entryKey).commit()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:53: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putLong(deliveredKey(taskId), sourceReminderAtMillis).commit()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmLedger.kt:62: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().remove(deliveredKey(taskId)).commit()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmRingingService.kt:132: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                data = android.net.Uri.parse("framebynavin://alarm/${android.net.Uri.encode(task.id)}/${android.net.Uri.encode(token)}")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmRingingService.kt:132: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                data = android.net.Uri.parse("framebynavin://alarm/${android.net.Uri.encode(task.id)}/${android.net.Uri.encode(token)}")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/AlarmRingingService.kt:173: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+        val chosen = task.alarmSoundUri.takeIf { it.isNotBlank() }?.let { runCatching { Uri.parse(it) }.getOrNull() }
+                                                                                        ~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt:33: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            if (prefs.getString(KEY_SESSION, null) == encrypted) prefs.edit().remove(KEY_SESSION).commit()
+                                                                 ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt:48: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putString(KEY_SESSION, encrypt(raw)).commit()) { "Could not save account session" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt:52: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().remove(KEY_SESSION).commit()) { "Could not clear account session" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt:79: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY_CREATOR_PROFILE, raw).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt:82: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun clearCreatorProfile() = prefs.edit().remove(KEY_CREATOR_PROFILE).apply()
+                                ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt:88: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putLong(KEY_GENERATION, next).commit()) { "Could not invalidate account operation" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorAiReportStore.kt:20: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putString(key(report.videoId), encode(report).toString()).commit()) {
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorAiReportStore.kt:26: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().remove(key(videoId)).commit()) { "Could not clear Video Autopsy" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorAiSettingsStore.kt:18: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit()
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorAiSettingsStore.kt:28: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().clear().commit()) { "Could not clear AI consent" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorAutomation.kt:111: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putBoolean(KEY_DAILY_BRIEF, value).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorAutomation.kt:115: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putBoolean(KEY_WEEKLY_REVIEW, value).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorAutomation.kt:119: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putBoolean(KEY_IDEA_REVIEW, value).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorAutomation.kt:134: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorAutomation.kt:145: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString("routine_${routine.name}", token).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt:381: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(appContext.getSharedPreferences("youtube_analytics_v11", Context.MODE_PRIVATE)
+              ^
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt:394: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val editor = appContext.getSharedPreferences("youtube_milestones_v12", Context.MODE_PRIVATE)
+                     ^
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorBrainExplainability.kt:117: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY, array.toString()).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/CreatorContextNudgeWorker.kt:65: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY_LAST_NUDGE, nudge.key).putLong(KEY_LAST_AT, now).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorDataGate.kt:87: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putLong("generation", next).commit()) { "Could not invalidate pending edits" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorEditorDraftStore.kt:97: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putString(key, root.toString()).commit()) { "Could not preserve editor draft" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorEditorDraftStore.kt:106: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().remove(key).commit()) { "Could not clear editor draft" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorHeroArchive.kt:89: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:113: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:149: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putBoolean(KEY_ACCOUNT_ONBOARDING_COMPLETE, value).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:153: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:158: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putProfile(profile).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:162: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY_DEFAULT_VOICE, value.name).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:166: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putInt(KEY_ALARM_TIMEOUT, value.coerceIn(30, 300)).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:170: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putInt(KEY_SNOOZE_MINUTES, value.coerceIn(5, 30)).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:174: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putBoolean(KEY_WEEKLY_AUTO_PLAN, value).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorOsSettings.kt:178: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putBoolean(KEY_CONTEXT_NUDGES, value).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorPublicationRecovery.kt:20: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().remove("pending").commit()) { "Could not clear publication recovery marker" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorPublicationRecovery.kt:44: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            check(prefs.edit().putString("pending", marker.toString()).commit()) {
+                  ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorRecommendationOutcomeLearning.kt:213: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY, array.toString()).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorWorkflowTimelineStore.kt:94: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().clear().commit()) { "Could not clear workflow timeline" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorWorkflowTimelineStore.kt:118: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val editor = prefs.edit().clear()
+                     ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/CreatorWorkflowTimelineStore.kt:158: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putString(taskId, encode(kept)).commit()) { "Could not persist workflow timeline" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/DriveVaultLocalStore.kt:13: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY_REVIEWED_EMAIL, email.trim().lowercase()).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/DriveVaultLocalStore.kt:16: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun clearRecoveryReview() = prefs.edit().remove(KEY_REVIEWED_EMAIL).apply()
+                                ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:169: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = Uri.parse("package:${context.packageName}") })
+                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:169: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = Uri.parse("package:${context.packageName}") })
+                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:174: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            context.startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply { data = Uri.parse("package:${context.packageName}") })
+                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:174: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            context.startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply { data = Uri.parse("package:${context.packageName}") })
+                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:179: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            .onFailure { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") }) }
+                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:179: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            .onFailure { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") }) }
+                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/ProjectPulseHistoryStore.kt:39: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putString(taskBefore.id, encode(kept)).commit()) { "Could not persist Project Pulse history" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/ProjectPulseHistoryStore.kt:48: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().remove(taskId).commit()) { "Could not remove Project Pulse history" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/ProjectPulseHistoryStore.kt:52: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().clear().commit()) { "Could not clear Project Pulse history" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/ProjectPulseHistoryStore.kt:84: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val editor = prefs.edit().clear()
+                     ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt:83: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            .setData(Uri.parse("framebynavin://pulse-next/${Uri.encode(task.id)}/${Uri.encode(stageId)}/$minutes"))
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ReminderNotifications.kt:137: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            .setData(Uri.parse("framebynavin://reminder-action/${Uri.encode(taskId)}/${Uri.encode(token)}/$salt"))
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ReminderOccurrenceStore.kt:17: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putString(task.id, record(task, token).toString()).commit()) { "Could not persist reminder occurrence" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ReminderOccurrenceStore.kt:33: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().remove(task.id).commit()) { "Could not consume reminder occurrence" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ReminderOccurrenceStore.kt:48: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(task.id, restored.toString()).commit()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ReminderOccurrenceStore.kt:52: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().remove(taskId).commit()) { "Could not invalidate reminder occurrence" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/ReminderOccurrenceStore.kt:59: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().clear().commit()) { "Could not invalidate reminder occurrences" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/SmartEscalationConfigStore.kt:23: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit().putString(idKey, encode(config)).remove(legacyKey).apply()
+            ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/SmartEscalationConfigStore.kt:46: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/SmartEscalationConfigStore.kt:53: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(idKey(task.id), encode(config.normalized())).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/SmartEscalationConfigStore.kt:58: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(idKey(taskId), encode(config.normalized())).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/SmartEscalationConfigStore.kt:63: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().remove(idKey(taskId)).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/SmartEscalationConfigStore.kt:74: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val editor = prefs.edit().clear()
+                     ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/SmartSessionStore.kt:68: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().remove(taskId).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/SmartSessionStore.kt:72: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().clear().apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/SmartSessionStore.kt:76: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(session.taskId, JSONObject()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt:126: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit().putBoolean(KEY_ALPHA17_RESET, true).apply()
+            ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt:176: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_ORDER).commit()) { "Could not clear personal frame selection" }
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt:180: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        ^
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/VoiceReminderService.kt:124: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                data = android.net.Uri.parse("framebynavin://voice/${android.net.Uri.encode(task.id)}/${android.net.Uri.encode(token)}")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/reminders/VoiceReminderService.kt:124: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                data = android.net.Uri.parse("framebynavin://voice/${android.net.Uri.encode(task.id)}/${android.net.Uri.encode(token)}")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTube24HourPulse.kt:67: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit().clear().apply()
+            ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTube24HourPulse.kt:99: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY_CHANNEL_ID, channelId).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTube24HourPulse.kt:167: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun clear() = prefs.edit().clear().apply()
+                  ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTube24HourPulse.kt:198: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY_SAMPLES, array.toString()).apply()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeAnalyticsStore.kt:33: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putLong(KEY_EPOCH, epoch).commit()) { "Could not start YouTube request" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeAnalyticsStore.kt:70: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                check(prefs.edit()
+                      ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeAnalyticsStore.kt:88: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            check(prefs.edit().putLong(KEY_EPOCH, nextEpochLocked()).commit()) {
+                  ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeAnalyticsStore.kt:139: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                check(prefs.edit().putString(KEY_LINKS, obj.toString()).commit()) {
+                      ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeAnalyticsStore.kt:175: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val editor = prefs.edit().clear()
+                     ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeInsightsFoundation.kt:383: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit()
+            ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeInsightsFoundation.kt:399: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().clear().commit()) { "Could not clear Insights 2.0 foundation data" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeMilestoneSnapshots.kt:69: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                prefs.edit().putString(key(video.videoId, milestone), toJson(value).toString()).apply()
+                ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeMilestoneSnapshots.kt:81: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun clear() = prefs.edit().clear().apply()
+                  ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubePublishCheckpointsV2.kt:103: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                    check(prefs.edit().putString(key, toJson(checkpoint).toString()).commit()) {
+                          ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubePublishCheckpointsV2.kt:127: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val editor = prefs.edit()
+                     ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeReachReporting.kt:63: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY_CHANNEL_ID, channelId).commit()
+        ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeReachReporting.kt:72: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putString(KEY_JOB_ID, jobId).commit()) { "Could not save YouTube reach job" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeReachReporting.kt:76: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().clear().commit()) { "Could not clear YouTube reach cache" }
+              ~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/youtube/YouTubeReachReporting.kt:90: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val editor = prefs.edit()
+                     ~~~~~~~~~~~~
+
+   Explanation for issues of type "UseKtx":
+   The Android KTX libraries decorates the Android platform SDK as well as
+   various libraries with more convenient extension functions available from
+   Kotlin, allowing you to use default parameters, named parameters, and
+   more.
+
+   Available options:
+
+   **remove-defaults** (default is true):
+   Whether to skip arguments that match the defaults provided by the extension.
+
+   Extensions often provide default values for some of the parameters. For example:
+   ```kotlin
+   fun Path.readLines(charset: Charset = Charsets.UTF_8): List<String> { return Files.readAllLines(this, charset) }
+   ```
+   This lint check will by default automatically omit parameters that match the default, so if your code was calling ```kotlin
+   Files.readAllLines(file, Charset.UTF_8)
+   ```
+   lint would replace this with
+   ```kotlin
+   file.readLines()
+   ```
+   rather than
+   ```kotlin
+   file.readLines(Charset.UTF_8
+   ```
+   You can turn this behavior off using this option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="remove-defaults" value="true" />
+       </issue>
+   </lint>
+   ```
+
+   **require-present** (default is true):
+   Whether to only offer extensions already available.
+
+   This option lets you only have lint suggest extension replacements if those extensions are already available on the class path (in other words, you're already depending on the library containing the extension method.)
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="require-present" value="true" />
+       </issue>
+   </lint>
+   ```
+
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_compact.xml:14: Warning: Hardcoded string "FRAMEBYNAVIN", should use @string resource [HardcodedText]
+        android:text="FRAMEBYNAVIN"
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_compact.xml:67: Warning: Hardcoded string "+  QUICK IDEA", should use @string resource [HardcodedText]
+        android:text="+  QUICK IDEA"
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:19: Warning: Hardcoded string "FRAMEBYNAVIN", should use @string resource [HardcodedText]
+            android:text="FRAMEBYNAVIN"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:92: Warning: Hardcoded string "+ IDEA", should use @string resource [HardcodedText]
+            android:text="+ IDEA"
+            ~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:104: Warning: Hardcoded string "+ PROJECT", should use @string resource [HardcodedText]
+            android:text="+ PROJECT"
+            ~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:115: Warning: Hardcoded string "RELEASE", should use @string resource [HardcodedText]
+            android:text="RELEASE"
+            ~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:134: Warning: Hardcoded string "DAILY BRIEF", should use @string resource [HardcodedText]
+            android:text="DAILY BRIEF"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/layout/widget_creator_large.xml:145: Warning: Hardcoded string "CALENDAR", should use @string resource [HardcodedText]
+            android:text="CALENDAR"
+            ~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "HardcodedText":
+   Hardcoding text attributes directly in layout files is bad for several
+   reasons:
+
+   * When creating configuration variations (for example for landscape or
+   portrait) you have to repeat the actual text (and keep it up to date when
+   making changes)
+
+   * The application cannot be translated to other languages by just adding
+   new translations for existing string resources.
+
+   There are quickfixes to automatically extract this hardcoded string into a
+   resource lookup.
+
+0 errors, 170 warnings

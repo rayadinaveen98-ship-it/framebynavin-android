@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_web_client_id" translatable="false">792920886199-l5ukj5btvhf00fmc7lohe440lkbonjfl.apps.googleusercontent.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">792920886199</string>
+    <string name="google_api_key" translatable="false">AIzaSyBW5x8gB43ry8Qd8_ya6Ry6UeubVQTKBs8</string>
+    <string name="google_app_id" translatable="false">1:792920886199:android:8cca5939976ebd7ac67632</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyBW5x8gB43ry8Qd8_ya6Ry6UeubVQTKBs8</string>
+    <string name="google_storage_bucket" translatable="false">project-34cdfc3d-b4a1-4dd8-889.firebasestorage.app</string>
+    <string name="project_id" translatable="false">project-34cdfc3d-b4a1-4dd8-889</string>
+    <style name="Theme.FrameByNavin" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">#050506</item>
+        <item name="android:navigationBarColor">#050506</item>
+        <item name="android:windowBackground">#050506</item>
+    </style>
+    <style name="Theme.FrameByNavin.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#050506</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_framebynavin_splash</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
+        <item name="postSplashScreenTheme">@style/Theme.FrameByNavin</item>
+    </style>
+</resources>

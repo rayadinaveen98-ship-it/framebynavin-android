@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.CreatorWorkflowIntelligenceTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:08" hostname="runnervmlun5p" time="0.014">
+  <properties/>
+  <testcase name="old responses do not inflate creator week" classname="com.framebynavin.app.data.CreatorWorkflowIntelligenceTest" time="0.009"/>
+  <testcase name="consistent historical bottleneck requires at least two measured completions" classname="com.framebynavin.app.data.CreatorWorkflowIntelligenceTest" time="0.001"/>
+  <testcase name="exact stage transitions become preferred bottleneck evidence" classname="com.framebynavin.app.data.CreatorWorkflowIntelligenceTest" time="0.0"/>
+  <testcase name="stage done without an earlier check in does not invent duration" classname="com.framebynavin.app.data.CreatorWorkflowIntelligenceTest" time="0.0"/>
+  <testcase name="counts recent project pulse responses without calling them work hours" classname="com.framebynavin.app.data.CreatorWorkflowIntelligenceTest" time="0.0"/>
+  <testcase name="observed current entry remains lower bound and cannot create consistent bottleneck" classname="com.framebynavin.app.data.CreatorWorkflowIntelligenceTest" time="0.0"/>
+  <testcase name="active pressure is separate from historical bottleneck" classname="com.framebynavin.app.data.CreatorWorkflowIntelligenceTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

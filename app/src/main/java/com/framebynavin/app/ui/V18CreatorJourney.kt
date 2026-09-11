@@ -18,6 +18,6 @@ internal object V18CreatorJourney {
     fun afterWorkflowAdvance(taskBeforeAdvance: CreatorTask): V18JourneyDestination? {
         val template = CreatorWorkflowEngine.templateFor(taskBeforeAdvance)
         val stage = CreatorWorkflowEngine.stageIndex(taskBeforeAdvance)
-        return if (CreatorWorkflowEngine.isPublicationStage(template.stages[stage]) || stage >= template.stages.lastIndex) V18JourneyDestination.INSIGHTS else null
+        return if (CreatorWorkflowEngine.isPublicationStage(template.stages[stage]) || stage >= template.stages.lastIndex) V18JourneyDestination.CREATE else null
     }
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.CreatorWorkflowV14Test" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:08" hostname="runnervmlun5p" time="0.0">
+  <properties/>
+  <testcase name="presetsMapToSupportedCreatorFormats" classname="com.framebynavin.app.data.CreatorWorkflowV14Test" time="0.0"/>
+  <testcase name="shortWorkflowEndsWithPromotion" classname="com.framebynavin.app.data.CreatorWorkflowV14Test" time="0.0"/>
+  <testcase name="youtubeLongFormKeepsExistingStagesAndAddsPromotionAtTail" classname="com.framebynavin.app.data.CreatorWorkflowV14Test" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

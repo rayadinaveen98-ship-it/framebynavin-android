@@ -1,0 +1,46 @@
+[
+    {
+        "merged": "com.framebynavin.app-debug-70:/drawable_widget_creator_button.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/widget_creator_button.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/layout_widget_creator_large.xml.flat",
+        "source": "com.framebynavin.app-main-72:/layout/widget_creator_large.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/xml_creator_data_extraction_rules.xml.flat",
+        "source": "com.framebynavin.app-main-72:/xml/creator_data_extraction_rules.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/drawable_widget_creator_button_red.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/widget_creator_button_red.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/layout_widget_creator_compact.xml.flat",
+        "source": "com.framebynavin.app-main-72:/layout/widget_creator_compact.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/xml_widget_creator_large_info.xml.flat",
+        "source": "com.framebynavin.app-main-72:/xml/widget_creator_large_info.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/drawable_widget_creator_bg.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/widget_creator_bg.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/xml_creator_backup_rules.xml.flat",
+        "source": "com.framebynavin.app-main-72:/xml/creator_backup_rules.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/xml_widget_creator_compact_info.xml.flat",
+        "source": "com.framebynavin.app-main-72:/xml/widget_creator_compact_info.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/drawable_ic_framebynavin_splash.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/ic_framebynavin_splash.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/drawable_ic_framebynavin_launcher.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/ic_framebynavin_launcher.xml"
+    }
+]

@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.framebynavin.app-mergeDebugResources-68:/values-v31/values-v31.xml",
+            "map": [
+                {
+                    "source": "/home/runner/.gradle/caches/8.11.1/transforms/3476e6fc42eca542195bd12d9392624d/transformed/core-splashscreen-1.0.1/res/values-v31/values-v31.xml",
+                    "from": {
+                        "startLines": "2,9",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,473",
+                        "endLines": "8,13",
+                        "endColumns": "12,12",
+                        "endOffsets": "468,697"
+                    }
+                }
+            ]
+        }
+    ]
+}
