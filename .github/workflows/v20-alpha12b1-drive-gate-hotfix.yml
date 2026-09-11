@@ -1,0 +1,114 @@
+name: v2.0 Alpha 1.2B.1 Drive Gate Hotfix
+
+on:
+  push:
+    branches:
+      - "fix/v2.0-alpha1.2b.1-drive-gate-transition"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha12b1-drive-gate-hotfix
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Materialize hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/v20_alpha12b1_drive_gate_hotfix.py
+          git diff --check
+
+      - name: Verify hotfix invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 89' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.2b.1-drive-gate-hotfix"' app/build.gradle.kts
+          grep -q 'var driveRecoveryRevision by rememberSaveable' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'driveRecoveryRevision += 1' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'driveVaultLocalStore.recoveryReviewed' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'Drive vault needs attention' app/src/main/java/com/framebynavin/app/ui/V20DriveRecoveryGate.kt
+          grep -q 'RETRY' app/src/main/java/com/framebynavin/app/ui/V20DriveRecoveryGate.kt
+          grep -q 'PTab.TODAY -> PTodayScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudSyncWorker.kt
+
+      - name: Pin exact app source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A app
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git -c commit.gpgSign=false commit -m "fix(v2.0): leave Drive recovery gate after user decision"
+          fi
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.2b.1-drive-gate-hotfix.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.2b.1-drive-gate-hotfix.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.2b.1-drive-gate-hotfix"
+            echo "versionCode=89"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "newWorkspaceTransitionFixed=true"
+            echo "restoreTransitionFixed=true"
+            echo "driveErrorUiActionable=true"
+            echo "acceptedCinematicHomePreserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2b.1-drive-gate-hotfix-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.2b.1-drive-gate-hotfix.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2b.1-drive-gate-hotfix-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:staging/v2.0-alpha1.2b.1-drive-gate-hotfix-validated
