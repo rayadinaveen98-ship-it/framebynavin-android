@@ -9,7 +9,7 @@ class CreatorBrainTest {
     @Test
     fun `one strong upload never becomes a brain rule`() {
         val task = sampleTask("t1", "How did this scene work?")
-        val brain = CreatorBrainEngine.build(
+        val brain = buildBrain(
             outcomes = listOf(sampleOutcome("o1", task.id, CreatorRecommendationVerdict.STRONG, 1.8)),
             tasks = listOf(task),
         )
@@ -26,10 +26,11 @@ class CreatorBrainTest {
             sampleOutcome("o$index", task.id, CreatorRecommendationVerdict.PROMISING, 1.2 + index * 0.1)
         }
 
-        val brain = CreatorBrainEngine.build(outcomes, tasks)
+        val brain = buildBrain(outcomes, tasks)
         val hook = brain.patterns.first { it.dimension == CreatorBrainDimension.HOOK_STYLE }
 
         assertEquals(CreatorBrainPatternState.EMERGING, hook.state)
+        assertEquals(CreatorBrainFreshness.FRESH, hook.freshness)
         assertEquals(3, hook.evaluatedCount)
         assertEquals(5, hook.rankingDelta)
     }
@@ -40,7 +41,7 @@ class CreatorBrainTest {
         val outcomes = tasks.mapIndexed { index, task ->
             sampleOutcome("o$index", task.id, CreatorRecommendationVerdict.STRONG, 1.5)
         }
-        val brain = CreatorBrainEngine.build(outcomes, tasks)
+        val brain = buildBrain(outcomes, tasks)
         val candidate = sampleTask("candidate", "How did this frame create tension?")
         val match = CreatorBrainEngine.matchForTask(candidate, brain)
 
@@ -56,13 +57,99 @@ class CreatorBrainTest {
         val outcomes = tasks.mapIndexed { index, task ->
             sampleOutcome("o$index", task.id, CreatorRecommendationVerdict.WEAK, 0.6)
         }
-        val brain = CreatorBrainEngine.build(outcomes, tasks)
+        val brain = buildBrain(outcomes, tasks)
         val candidate = sampleTask("candidate", "The truth behind this scene")
         val match = CreatorBrainEngine.matchForTask(candidate, brain)
 
         val hook = brain.patterns.first { it.dimension == CreatorBrainDimension.HOOK_STYLE }
         assertEquals(CreatorBrainPatternState.CAUTION, hook.state)
         assertTrue(match.rankingDelta in -14..-1)
+    }
+
+    @Test
+    fun `aging memory decays and stale memory stops changing ranking`() {
+        val tasks = (1..4).map { sampleTask("age-$it", "Why does this scene work?") }
+        val agingAt = NOW - 80L * DAY
+        val staleAt = NOW - 180L * DAY
+
+        val aging = buildBrain(
+            tasks.mapIndexed { index, task ->
+                sampleOutcome("aging-$index", task.id, CreatorRecommendationVerdict.STRONG, 1.5, agingAt)
+            },
+            tasks,
+        )
+        val stale = buildBrain(
+            tasks.mapIndexed { index, task ->
+                sampleOutcome("stale-$index", task.id, CreatorRecommendationVerdict.STRONG, 1.5, staleAt)
+            },
+            tasks,
+        )
+
+        val agingHook = aging.patterns.first { it.dimension == CreatorBrainDimension.HOOK_STYLE }
+        val staleHook = stale.patterns.first { it.dimension == CreatorBrainDimension.HOOK_STYLE }
+        val candidate = sampleTask("candidate-age", "How did this shot work?")
+
+        assertEquals(CreatorBrainFreshness.AGING, agingHook.freshness)
+        assertTrue(agingHook.rankingDelta in 1..7)
+        assertEquals(CreatorBrainFreshness.STALE, staleHook.freshness)
+        assertEquals(0, staleHook.rankingDelta)
+        assertTrue(CreatorBrainEngine.matchForTask(candidate, stale).patterns.isEmpty())
+    }
+
+    @Test
+    fun `six outcomes can detect improving trajectory`() {
+        val tasks = (1..6).map { sampleTask("up-$it", "Why does this frame work?") }
+        val verdicts = listOf(
+            CreatorRecommendationVerdict.WEAK,
+            CreatorRecommendationVerdict.MIXED,
+            CreatorRecommendationVerdict.WEAK,
+            CreatorRecommendationVerdict.PROMISING,
+            CreatorRecommendationVerdict.STRONG,
+            CreatorRecommendationVerdict.STRONG,
+        )
+        val outcomes = tasks.mapIndexed { index, task ->
+            sampleOutcome(
+                id = "up-o$index",
+                taskId = task.id,
+                verdict = verdicts[index],
+                baseline = if (index < 3) 0.75 else 1.45,
+                evaluatedAtMillis = NOW - (6L - index) * DAY,
+            )
+        }
+
+        val brain = buildBrain(outcomes, tasks)
+        val hook = brain.patterns.first { it.dimension == CreatorBrainDimension.HOOK_STYLE }
+
+        assertEquals(CreatorBrainTrajectory.IMPROVING, hook.trajectory)
+        assertEquals(CreatorBrainFreshness.FRESH, hook.freshness)
+        assertTrue(hook.recentEvaluatedCount >= 3)
+    }
+
+    @Test
+    fun `six outcomes can detect weakening trajectory`() {
+        val tasks = (1..6).map { sampleTask("down-$it", "Why does this frame work?") }
+        val verdicts = listOf(
+            CreatorRecommendationVerdict.STRONG,
+            CreatorRecommendationVerdict.STRONG,
+            CreatorRecommendationVerdict.PROMISING,
+            CreatorRecommendationVerdict.MIXED,
+            CreatorRecommendationVerdict.WEAK,
+            CreatorRecommendationVerdict.WEAK,
+        )
+        val outcomes = tasks.mapIndexed { index, task ->
+            sampleOutcome(
+                id = "down-o$index",
+                taskId = task.id,
+                verdict = verdicts[index],
+                baseline = if (index < 3) 1.5 else 0.7,
+                evaluatedAtMillis = NOW - (6L - index) * DAY,
+            )
+        }
+
+        val brain = buildBrain(outcomes, tasks)
+        val hook = brain.patterns.first { it.dimension == CreatorBrainDimension.HOOK_STYLE }
+
+        assertEquals(CreatorBrainTrajectory.WEAKENING, hook.trajectory)
     }
 
     @Test
@@ -78,7 +165,7 @@ class CreatorBrainTest {
             sampleOutcome("combo-o$index", task.id, CreatorRecommendationVerdict.PROMISING, 1.3)
         }
 
-        val brain = CreatorBrainEngine.build(outcomes, tasks)
+        val brain = buildBrain(outcomes, tasks)
         val combinations = brain.patterns.filter { it.dimension == CreatorBrainDimension.COMBINATION }
 
         assertTrue(combinations.isNotEmpty())
@@ -100,7 +187,7 @@ class CreatorBrainTest {
             sampleOutcome("topic-o$index", task.id, CreatorRecommendationVerdict.STRONG, 1.4)
         }
 
-        val brain = CreatorBrainEngine.build(outcomes, tasks)
+        val brain = buildBrain(outcomes, tasks)
         val topic = brain.patterns.first { it.dimension == CreatorBrainDimension.TOPIC }
         val combo = brain.patterns.first { it.dimension == CreatorBrainDimension.COMBINATION && it.key.startsWith("topic_hook:") }
 
@@ -143,6 +230,11 @@ class CreatorBrainTest {
         assertFalse(CreatorBrainEngine.classifyAngleStyle("A focused look at the movie").isBlank())
     }
 
+    private fun buildBrain(
+        outcomes: List<CreatorRecommendationOutcome>,
+        tasks: List<CreatorTask>,
+    ) = CreatorBrainEngine.build(outcomes, tasks, nowMillis = NOW)
+
     private fun sampleTask(
         id: String,
         hook: String,
@@ -170,6 +262,7 @@ class CreatorBrainTest {
         taskId: String,
         verdict: CreatorRecommendationVerdict,
         baseline: Double,
+        evaluatedAtMillis: Long = NOW - 2L * DAY,
     ) = CreatorRecommendationOutcome(
         id = id,
         opportunityId = "opp-$id",
@@ -177,14 +270,19 @@ class CreatorBrainTest {
         targetKind = CreatorOpportunityTargetKind.PROJECT,
         targetId = taskId,
         title = id,
-        actedAtMillis = 1_000L,
+        actedAtMillis = evaluatedAtMillis - 4L * DAY,
         taskId = taskId,
         status = CreatorRecommendationOutcomeStatus.EVALUATED,
-        publishedAtMillis = 2L * 24L * 60L * 60L * 1000L,
-        evaluatedAtMillis = 3L * 24L * 60L * 60L * 1000L,
+        publishedAtMillis = evaluatedAtMillis - 2L * DAY,
+        evaluatedAtMillis = evaluatedAtMillis,
         baselineMultiple = baseline,
         viewSharePercent = if (verdict == CreatorRecommendationVerdict.WEAK) 8 else 28,
         periodViews = 1_000L,
         verdict = verdict,
     )
+
+    private companion object {
+        const val DAY = 24L * 60L * 60L * 1000L
+        const val NOW = 2_000_000_000_000L
+    }
 }
