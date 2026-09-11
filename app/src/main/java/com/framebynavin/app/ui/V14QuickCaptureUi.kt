@@ -22,6 +22,7 @@ import com.framebynavin.app.data.CreatorQuickCaptureEngine
 import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.IdeaVaultLabels
 import com.framebynavin.app.ui.theme.*
+import com.framebynavin.app.voice.VoiceIdeaText
 
 @Composable
 internal fun V14QuickCaptureDialog(
@@ -39,7 +40,7 @@ internal fun V14QuickCaptureDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -62,39 +63,44 @@ internal fun V14QuickCaptureDialog(
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Idea") },
                         placeholder = { Text("A scene, hook, topic or idea worth exploring") },
-                        singleLine = false,
+                        minLines = 2,
+                        maxLines = 6,
                         shape = RoundedCornerShape(16.dp),
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    V117VoiceIdeaInput(
+                        onTranscript = { spoken -> title = VoiceIdeaText.append(title, spoken) },
                     )
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = notes,
                         onValueChange = { notes = it },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 90.dp),
                         label = { Text("Notes · optional") },
                         placeholder = { Text("Angle, scene, hook or anything worth remembering…") },
+                        maxLines = 5,
                         shape = RoundedCornerShape(16.dp),
                     )
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(14.dp))
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = CinemaSurface,
                         border = BorderStroke(1.dp, CinemaLine),
                     ) {
-                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Bolt, null, tint = MutedGold, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(10.dp))
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Bolt, null, tint = MutedGold, modifier = Modifier.size(19.dp))
+                            Spacer(Modifier.width(9.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("AUTO-SORT IN IDEA VAULT", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
-                                Spacer(Modifier.height(3.dp))
-                                Text(IdeaVaultLabels.category(suggestion.category), color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                                Text("${suggestion.platformHint} · ${suggestion.formatHint}", color = MutedText, fontSize = 8.8.sp)
+                                Text("IDEA VAULT", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                                Text(IdeaVaultLabels.category(suggestion.category), color = ProjectorIvory, fontSize = 10.8.sp, fontWeight = FontWeight.Bold)
+                                Text("${suggestion.platformHint} · ${suggestion.formatHint}", color = MutedText, fontSize = 8.4.sp)
                             }
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text("You can refine or convert it to a project later from Idea Vault.", color = MutedText, fontSize = 8.8.sp)
+                    Spacer(Modifier.height(7.dp))
+                    Text("You can refine or turn it into a project later.", color = MutedText, fontSize = 8.5.sp)
                 }
 
                 Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
