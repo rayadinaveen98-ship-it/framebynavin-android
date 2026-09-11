@@ -23,7 +23,9 @@ import com.framebynavin.app.data.CreatorIdea
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorWriteConflict
 import com.framebynavin.app.data.IdeaVaultStore
+import com.framebynavin.app.ui.V117VoiceIdeaInput
 import com.framebynavin.app.ui.theme.*
+import com.framebynavin.app.voice.VoiceIdeaText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,6 +58,7 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
             Modifier.fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .imePadding()
                 .padding(22.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -66,18 +69,18 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory) }
             }
 
-            Spacer(Modifier.height(30.dp))
-            Text("Catch it before it disappears.", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(7.dp))
-            Text("It lands in Idea Vault as an Inbox idea. You can shape it properly later.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(22.dp))
+            Text("Catch it before it disappears.", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(6.dp))
+            Text("Type it or say it. It lands in Idea Vault and you can shape it later.", color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
+            Spacer(Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = title,
-                onValueChange = { title = it.take(180) },
+                onValueChange = { title = it },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,
-                maxLines = 5,
+                maxLines = 6,
                 placeholder = { Text("Movie, scene, thought, hook…", color = MutedText) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = ProjectorIvory,
@@ -89,8 +92,14 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
                 shape = RoundedCornerShape(18.dp),
             )
 
+            Spacer(Modifier.height(10.dp))
+            V117VoiceIdeaInput(
+                onTranscript = { spoken -> title = VoiceIdeaText.append(title, spoken) },
+            )
+
             saveError?.let { error ->
-                Text(error, color = RecRed, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
+                Spacer(Modifier.height(8.dp))
+                Text(error, color = RecRed, fontSize = 11.sp)
             }
             Spacer(Modifier.weight(1f))
             Button(
