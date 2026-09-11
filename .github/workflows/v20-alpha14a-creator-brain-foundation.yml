@@ -1,0 +1,128 @@
+name: v2.0 Alpha 1.4A Creator Brain Foundation
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.4a-creator-brain-foundation"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha14a-creator-brain-foundation
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Materialize v111 Creator Brain integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/v111_creator_brain_patch.py
+          git diff --check
+          git config user.name "rayadinaveen98-ship-it"
+          git config user.email "rayadinaveen98@gmail.com"
+          if ! git diff --quiet; then
+            git add app/build.gradle.kts \
+              app/src/main/java/com/framebynavin/app/data/CreatorOpportunityEngine.kt \
+              app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+            git commit -m "feat(v111): integrate Creator Brain foundation [skip ci]"
+          fi
+          echo "VALIDATED_SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Verify v111 Creator Brain invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 111' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.4a-creator-brain-foundation"' app/build.gradle.kts
+          grep -q 'object CreatorBrainEngine' app/src/main/java/com/framebynavin/app/data/CreatorBrain.kt
+          grep -q 'CreatorBrainPatternState.EMERGING' app/src/main/java/com/framebynavin/app/data/CreatorBrain.kt
+          grep -q 'count >= 3 && positiveRate >= 67' app/src/main/java/com/framebynavin/app/data/CreatorBrain.kt
+          grep -q 'count >= 4 && positiveRate >= 75' app/src/main/java/com/framebynavin/app/data/CreatorBrain.kt
+          grep -q 'CreatorOpportunitySource.CREATOR_BRAIN' app/src/main/java/com/framebynavin/app/data/CreatorOpportunityEngine.kt
+          grep -q 'brain: CreatorBrainSnapshot' app/src/main/java/com/framebynavin/app/data/CreatorOpportunityEngine.kt
+          grep -q 'CreatorBrainEngine.matchForTask' app/src/main/java/com/framebynavin/app/data/CreatorOpportunityEngine.kt
+          grep -q 'CREATOR BRAIN · EARLY MEMORY' app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+          grep -q 'CreatorPlaybookEngine.build' app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+          grep -q 'ANALYZE VIDEO WITH GEMINI' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'ProjectPulseEngine::repairFalseSurfaceCompletion' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+          grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          if grep -R --line-number 'AIzaSy' app/src/main app/src/debug app/src/release; then
+            echo 'Firebase API keys must not be copied into Kotlin/Java source.' >&2
+            exit 1
+          fi
+          git diff --check HEAD^
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.4a-creator-brain-foundation.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.4a-creator-brain-foundation.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.4a-creator-brain-foundation"
+            echo "versionCode=111"
+            echo "commit=$VALIDATED_SOURCE_SHA"
+            echo "creatorBrainFoundation=true"
+            echo "contentDnaPatternLearning=true"
+            echo "hookStylePatternLearning=true"
+            echo "workflowPacePatternLearning=true"
+            echo "minimumThreeEvaluatedForEmerging=true"
+            echo "minimumFourEvaluatedForProvenOrCaution=true"
+            echo "brainRankingAdjustmentCapped=true"
+            echo "creatorPlaybookPreserved=true"
+            echo "recommendationOutcomeLearningPreserved=true"
+            echo "liveGeminiVideoAutopsyPreserved=true"
+            echo "reminderCompletionSafetyPreserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.4a-creator-brain-foundation-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.4a-creator-brain-foundation.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.4a-creator-brain-foundation-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to develop and staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:develop/v2.0-alpha1.4a-creator-brain-foundation
+          git push origin HEAD:staging/v2.0-alpha1.4a-creator-brain-foundation-validated
