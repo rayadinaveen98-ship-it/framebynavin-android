@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 100
-        versionName = "2.0.0-alpha1.2l-workflow-intelligence"
+        versionCode = 101
+        versionName = "2.0.0-alpha1.2l.1-stage-timeline"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

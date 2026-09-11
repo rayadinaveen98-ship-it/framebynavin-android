@@ -17,6 +17,7 @@ private val Context.creatorDataStore by preferencesDataStore(name = "creator_v0"
 private val creatorTaskMutationMutex = Mutex()
 
 class TaskStore(private val context: Context) {
+    private val workflowTimeline = CreatorWorkflowTimelineStore(context.applicationContext)
     private val tasksKey = stringPreferencesKey("tasks_json")
     private val tasksBackupKey = stringPreferencesKey("tasks_json_last_good")
 
@@ -32,7 +33,13 @@ class TaskStore(private val context: Context) {
         }
     }
 
-    suspend fun load(): List<CreatorTask> = tasksFlow.first()
+    suspend fun load(): List<CreatorTask> {
+        val tasks = tasksFlow.first()
+        // Legacy/current projects begin as explicitly lower-bound observations. This sidecar must
+        // never make creator data unreadable if timeline persistence itself has a problem.
+        runCatching { workflowTimeline.seedCurrent(tasks) }
+        return tasks
+    }
 
     suspend fun save(tasks: List<CreatorTask>) = CreatorDataGate.transaction {
         creatorTaskMutationMutex.withLock { saveUnlocked(tasks) }
@@ -63,17 +70,22 @@ class TaskStore(private val context: Context) {
         }
     }
 
-    private suspend fun saveUnlocked(tasks: List<CreatorTask>) {
+    private suspend fun saveUnlocked(tasks: List<CreatorTask>, recordWorkflowTimeline: Boolean = true) {
         val encoded = encode(tasks)
+        var previous = emptyList<CreatorTask>()
         context.creatorDataStore.edit { prefs ->
             val current = prefs[tasksKey]
             if (current != null) {
-                decode(current) // Never overwrite a damaged primary with an empty or stale snapshot.
+                previous = decode(current) // Never overwrite a damaged primary with an empty or stale snapshot.
                 prefs[tasksBackupKey] = current
             } else if (prefs[tasksBackupKey] == null) {
                 prefs[tasksBackupKey] = encoded
             }
             prefs[tasksKey] = encoded
+        }
+        if (recordWorkflowTimeline) {
+            // Core task persistence stays authoritative. Timeline evidence is a best-effort sidecar.
+            runCatching { workflowTimeline.recordTransitions(previous, tasks) }
         }
         CreatorWidgetUpdater.updateAll(context, tasks)
     }
@@ -98,7 +110,9 @@ class TaskStore(private val context: Context) {
 
     suspend fun importJson(raw: String): List<CreatorTask> {
         val decoded = decode(raw)
-        save(decoded)
+        CreatorDataGate.transaction {
+            creatorTaskMutationMutex.withLock { saveUnlocked(decoded, recordWorkflowTimeline = false) }
+        }
         return decoded
     }
 

@@ -43,6 +43,7 @@ class CreatorBackupManager(private val context: Context) {
         val youtubeMilestonesJson: String? = null,
         val youtubePublishCheckpointsJson: String? = null,
         val projectPulseHistoryJson: String? = null,
+        val workflowTimelineJson: String? = null,
     )
 
     private val appContext = context.applicationContext
@@ -54,6 +55,7 @@ class CreatorBackupManager(private val context: Context) {
     private val postPublishStore = CreatorPostPublishStore(appContext)
     private val rewardStore = CreatorRewardStore(appContext)
     private val projectPulseHistoryStore = ProjectPulseHistoryStore(appContext)
+    private val workflowTimelineStore = CreatorWorkflowTimelineStore(appContext)
     private val regularScheduler = ReminderScheduler(appContext)
     private val smartScheduler = SmartEscalationScheduler(appContext)
     private val smartSessions = SmartSessionStore(appContext)
@@ -98,6 +100,10 @@ class CreatorBackupManager(private val context: Context) {
             require(root.has("projectPulseHistory")) { "Backup is missing Project Pulse workflow history" }
         }
         optionalSection(root, "projectPulseHistory")?.let(projectPulseHistoryStore::validateJson)
+        if (schema >= 8) {
+            require(root.has("workflowStageTimeline")) { "Backup is missing workflow stage timeline" }
+        }
+        optionalSection(root, "workflowStageTimeline")?.let(workflowTimelineStore::validateJson)
 
         val projectCount = taskStore.validateJson(tasksRaw)
         val ideaCount = ideaStore.validateJson(ideasRaw)
@@ -225,6 +231,7 @@ class CreatorBackupManager(private val context: Context) {
         youtubeMilestonesJson = youtubeMilestonesRaw(),
         youtubePublishCheckpointsJson = youtubePublishCheckpointsRaw(),
         projectPulseHistoryJson = projectPulseHistoryStore.exportJson(),
+        workflowTimelineJson = workflowTimelineStore.exportJson(),
     )
 
     private fun encode(snapshot: Snapshot, createdAtMillis: Long): String {
@@ -244,6 +251,7 @@ class CreatorBackupManager(private val context: Context) {
             .put("youtubeMilestones", requireNotNull(snapshot.youtubeMilestonesJson))
             .put("youtubePublishCheckpoints", requireNotNull(snapshot.youtubePublishCheckpointsJson))
             .put("projectPulseHistory", requireNotNull(snapshot.projectPulseHistoryJson))
+            .put("workflowStageTimeline", requireNotNull(snapshot.workflowTimelineJson))
             .put("manifest", backupManifest())
         return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
     }
@@ -253,6 +261,7 @@ class CreatorBackupManager(private val context: Context) {
         val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
             "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
         val allKeys = when {
+            schema >= 8 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory", "workflowStageTimeline")
             schema >= 7 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory")
             schema >= 6 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints")
             schema >= 4 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones")
@@ -316,6 +325,7 @@ class CreatorBackupManager(private val context: Context) {
             youtubeMilestonesJson = optionalSection(root, "youtubeMilestones"),
             youtubePublishCheckpointsJson = optionalSection(root, "youtubePublishCheckpoints"),
             projectPulseHistoryJson = optionalSection(root, "projectPulseHistory"),
+            workflowTimelineJson = optionalSection(root, "workflowStageTimeline"),
         )
     }
 
@@ -333,6 +343,13 @@ class CreatorBackupManager(private val context: Context) {
         snapshot.youtubeMilestonesJson?.let { importYoutubeMilestones(it) }
         snapshot.youtubePublishCheckpointsJson?.let { importYoutubePublishCheckpoints(it) }
         snapshot.projectPulseHistoryJson?.let { projectPulseHistoryStore.importJson(it) }
+        if (snapshot.workflowTimelineJson != null) {
+            workflowTimelineStore.importJson(snapshot.workflowTimelineJson)
+        } else {
+            // A pre-v101 restore must not retain timeline evidence from the workspace being replaced.
+            workflowTimelineStore.clear()
+            workflowTimelineStore.seedCurrent(taskStore.load())
+        }
         // A portable restore never imports OAuth state or derived analytics. Invalidate
         // cached reports under the restored creator generation, retaining links/milestones.
         com.framebynavin.app.youtube.YouTubeAnalyticsStore(appContext).clearAnalytics()
@@ -421,17 +438,19 @@ class CreatorBackupManager(private val context: Context) {
 
     companion object {
         const val FORMAT = "FrameByNavinBackup"
-        const val SCHEMA_VERSION = 7
+        const val SCHEMA_VERSION = 8
         private val INCLUDED_SECTIONS_V5 = listOf(
             "tasks", "ideas", "weeklySchedule", "settings", "smartEscalationConfig",
             "postPublish", "rewards", "personalFrames", "youtubeProjectLinks", "youtubeMilestones",
         )
         private val INCLUDED_SECTIONS_V6 = INCLUDED_SECTIONS_V5 + "youtubePublishCheckpoints"
-        private val INCLUDED_SECTIONS = INCLUDED_SECTIONS_V6 + "projectPulseHistory"
+        private val INCLUDED_SECTIONS_V7 = INCLUDED_SECTIONS_V6 + "projectPulseHistory"
+        private val INCLUDED_SECTIONS = INCLUDED_SECTIONS_V7 + "workflowStageTimeline"
         private val ROOT_KEYS = setOf("format", "schemaVersion", "createdAtMillis", "manifest",
             "payloadSha256") + INCLUDED_SECTIONS
         private fun includedSectionsFor(schema: Int): List<String> = when {
-            schema >= 7 -> INCLUDED_SECTIONS
+            schema >= 8 -> INCLUDED_SECTIONS
+            schema >= 7 -> INCLUDED_SECTIONS_V7
             schema >= 6 -> INCLUDED_SECTIONS_V6
             else -> INCLUDED_SECTIONS_V5
         }
