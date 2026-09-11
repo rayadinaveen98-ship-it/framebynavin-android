@@ -1,6 +1,7 @@
 package com.framebynavin.app.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -65,26 +66,103 @@ class CreatorBrainTest {
     }
 
     @Test
-    fun `hook classifier keeps explainable families`() {
+    fun `brain learns combinations only after repeated evaluated outcomes`() {
+        val tasks = (1..3).map {
+            sampleTask(
+                id = "combo-$it",
+                hook = "Why does this frame work?",
+                angle = "Cinematography and lighting craft breakdown",
+            )
+        }
+        val outcomes = tasks.mapIndexed { index, task ->
+            sampleOutcome("combo-o$index", task.id, CreatorRecommendationVerdict.PROMISING, 1.3)
+        }
+
+        val brain = CreatorBrainEngine.build(outcomes, tasks)
+        val combinations = brain.patterns.filter { it.dimension == CreatorBrainDimension.COMBINATION }
+
+        assertTrue(combinations.isNotEmpty())
+        assertTrue(combinations.any { it.key.startsWith("archetype_hook:") && it.state == CreatorBrainPatternState.EMERGING })
+        assertTrue(combinations.any { it.key.startsWith("angle_hook:") && it.state == CreatorBrainPatternState.EMERGING })
+        assertTrue(brain.combinationPatternCount >= 2)
+    }
+
+    @Test
+    fun `explicit topic memory can participate in hook combinations`() {
+        val tasks = (1..3).map {
+            sampleTask(
+                id = "topic-$it",
+                hook = "Why does visual storytelling matter?",
+                notes = "topic: visual storytelling",
+            )
+        }
+        val outcomes = tasks.mapIndexed { index, task ->
+            sampleOutcome("topic-o$index", task.id, CreatorRecommendationVerdict.STRONG, 1.4)
+        }
+
+        val brain = CreatorBrainEngine.build(outcomes, tasks)
+        val topic = brain.patterns.first { it.dimension == CreatorBrainDimension.TOPIC }
+        val combo = brain.patterns.first { it.dimension == CreatorBrainDimension.COMBINATION && it.key.startsWith("topic_hook:") }
+
+        assertEquals("visual_storytelling", topic.key)
+        assertEquals(CreatorBrainPatternState.EMERGING, topic.state)
+        assertEquals(CreatorBrainPatternState.EMERGING, combo.state)
+    }
+
+    @Test
+    fun `series memory requires explicit repeatable naming instead of guessing normal titles`() {
+        val episode = sampleTask(
+            id = "series-1",
+            hook = "Why does this shot work?",
+            title = "Frame Study Episode 1",
+        )
+        val hashtag = sampleTask(
+            id = "series-2",
+            hook = "Why does this shot work?",
+            title = "#TheFrameOfToday · Blue and orange",
+        )
+        val plain = sampleTask(
+            id = "plain",
+            hook = "Why does this shot work?",
+            title = "A beautiful frame from the movie",
+        )
+
+        assertEquals("frame_study", CreatorBrainEngine.extractSeriesKey(episode))
+        assertEquals("theframeoftoday", CreatorBrainEngine.extractSeriesKey(hashtag))
+        assertTrue(CreatorBrainEngine.extractSeriesKey(plain).isBlank())
+    }
+
+    @Test
+    fun `hook and angle classifiers keep explainable families`() {
         assertEquals("question", CreatorBrainEngine.classifyHookStyle("Why does this scene work?"))
         assertEquals("contrast", CreatorBrainEngine.classifyHookStyle("Great visuals but weak emotion"))
         assertEquals("bold_claim", CreatorBrainEngine.classifyHookStyle("The truth behind this ending"))
         assertEquals("narrative", CreatorBrainEngine.classifyHookStyle("Imagine waking up inside the film"))
+        assertEquals("craft", CreatorBrainEngine.classifyAngleStyle("Break down the cinematography and lighting"))
+        assertEquals("emotional", CreatorBrainEngine.classifyAngleStyle("Why the grief and loss feel real"))
+        assertFalse(CreatorBrainEngine.classifyAngleStyle("A focused look at the movie").isBlank())
     }
 
-    private fun sampleTask(id: String, hook: String) = CreatorTask(
+    private fun sampleTask(
+        id: String,
+        hook: String,
+        title: String = "Project $id",
+        angle: String = "",
+        notes: String = "",
+    ) = CreatorTask(
         id = id,
-        title = "Project $id",
+        title = title,
         platform = "YouTube",
         contentType = "Long-form",
         dueLabel = "",
+        notes = notes,
         contentDna = CreatorContentDna(
             archetypeId = "video",
             productionStyles = setOf("Cinematic"),
             platform = "YouTube",
             deliveryFormat = "Long-form",
         ),
-        workspace = CreatorContentWorkspace(hook = hook),
+        workspace = CreatorContentWorkspace(hook = hook, angle = angle),
     )
 
     private fun sampleOutcome(
