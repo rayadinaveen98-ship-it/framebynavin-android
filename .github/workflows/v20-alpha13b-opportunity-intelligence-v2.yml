@@ -1,0 +1,109 @@
+name: v2.0 Alpha 1.3B Opportunity Intelligence V2
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.3b-opportunity-intelligence-v2"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha13b-opportunity-intelligence-v2
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Verify v108 Opportunity Intelligence invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 108' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.3b-opportunity-intelligence-v2"' app/build.gradle.kts
+          grep -q 'enum class CreatorOpportunityHorizon { NOW, NEXT, LATER }' app/src/main/java/com/framebynavin/app/data/CreatorOpportunityEngine.kt
+          grep -q 'data class CreatorOpportunityScorecard' app/src/main/java/com/framebynavin/app/data/CreatorOpportunityEngine.kt
+          grep -q 'val weightedScore: Int' app/src/main/java/com/framebynavin/app/data/CreatorOpportunityEngine.kt
+          grep -q 'NOW · NEXT · LATER' app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+          grep -q 'WHY THIS RANKED' app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+          grep -q 'V20DecisionScorecard' app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+          grep -q 'V20OpportunityEngineCard(' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -q 'onOpenIdeaVault = { tab = PTab.IDEAS }' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'onOpenInsights = { tab = PTab.INSIGHTS }' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'ANALYZE VIDEO WITH GEMINI' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'ProjectPulseEngine::repairFalseSurfaceCompletion' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+          grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          if grep -R --line-number 'AIzaSy' app/src/main app/src/debug app/src/release; then
+            echo 'Firebase API keys must not be copied into Kotlin/Java source.' >&2
+            exit 1
+          fi
+          git diff --check
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.3b-opportunity-intelligence-v2.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.3b-opportunity-intelligence-v2.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.3b-opportunity-intelligence-v2"
+            echo "versionCode=108"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "opportunityEngine=true"
+            echo "todayOpportunitySurface=true"
+            echo "nowNextLaterDecisionMap=true"
+            echo "transparentDecisionScorecard=true"
+            echo "localYoutubeGeminiEvidence=true"
+            echo "geminiOptionalOnly=true"
+            echo "liveGeminiVideoAutopsyPreserved=true"
+            echo "reminderCompletionSafetyPreserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.3b-opportunity-intelligence-v2-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.3b-opportunity-intelligence-v2.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.3b-opportunity-intelligence-v2-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:staging/v2.0-alpha1.3b-opportunity-intelligence-v2-validated
