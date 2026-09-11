@@ -43,9 +43,11 @@ class CreatorOpportunityEngineTest {
         )
 
         assertEquals(CreatorOpportunityKind.MATCHED_IDEA, snapshot.primary?.kind)
+        assertEquals(CreatorOpportunityHorizon.NOW, snapshot.primary?.horizon)
         assertEquals(idea.id, snapshot.primary?.ideaId)
         assertTrue(snapshot.primary!!.evidence.any { it.source == CreatorOpportunitySource.YOUTUBE })
         assertTrue(snapshot.primary!!.evidence.any { it.source == CreatorOpportunitySource.LOCAL })
+        assertTrue(snapshot.primary!!.scorecard.weightedScore >= 80)
     }
 
     @Test
@@ -57,18 +59,22 @@ class CreatorOpportunityEngineTest {
         )
         assertNull(aiOnly.primary)
 
+        val signal = CreatorPlatformOpportunitySignal(
+            videoId = "video-1",
+            title = "A strong video",
+            periodViews = 1_000,
+            baselineMultiple = 1.7,
+            viewSharePercent = 38,
+        )
+        val withoutAi = CreatorOpportunityEngine.build(
+            tasks = emptyList(),
+            ideas = emptyList(),
+            performanceSignals = listOf(signal),
+        )
         val grounded = CreatorOpportunityEngine.build(
             tasks = emptyList(),
             ideas = emptyList(),
-            performanceSignals = listOf(
-                CreatorPlatformOpportunitySignal(
-                    videoId = "video-1",
-                    title = "A strong video",
-                    periodViews = 1_000,
-                    baselineMultiple = 1.7,
-                    viewSharePercent = 38,
-                )
-            ),
+            performanceSignals = listOf(signal),
             aiSignals = listOf(CreatorAiOpportunitySignal("video-1", 4)),
         )
 
@@ -76,6 +82,7 @@ class CreatorOpportunityEngineTest {
         assertTrue(grounded.primary!!.usesAiEvidence)
         assertTrue(grounded.primary!!.evidence.any { it.source == CreatorOpportunitySource.YOUTUBE })
         assertTrue(grounded.primary!!.evidence.any { it.source == CreatorOpportunitySource.GEMINI })
+        assertTrue(grounded.primary!!.scorecard.evidenceStrength > withoutAi.primary!!.scorecard.evidenceStrength)
     }
 
     @Test
@@ -93,8 +100,45 @@ class CreatorOpportunityEngineTest {
         )
 
         assertEquals(CreatorOpportunityKind.READY_IDEA, snapshot.primary?.kind)
+        assertEquals(CreatorOpportunityHorizon.NOW, snapshot.primary?.horizon)
         assertEquals(CreatorOpportunityTargetKind.IDEA_VAULT, snapshot.primary?.targetKind)
         assertFalse(snapshot.aiEvidenceUsed)
         assertEquals(listOf(CreatorOpportunitySource.LOCAL), snapshot.primary!!.evidence.map { it.source }.distinct())
+    }
+
+    @Test
+    fun `decision map separates live momentum ready work and developing ideas`() {
+        val ready = CreatorIdea(
+            id = "idea-ready",
+            title = "Ready follow-up",
+            status = IdeaStatus.READY_TO_PRODUCE,
+            potential = IdeaPotential.HIGH,
+        )
+        val later = CreatorIdea(
+            id = "idea-later",
+            title = "Promising research idea",
+            status = IdeaStatus.WORTH_EXPLORING,
+            potential = IdeaPotential.HIGH,
+        )
+
+        val snapshot = CreatorOpportunityEngine.build(
+            tasks = emptyList(),
+            ideas = listOf(ready, later),
+            performanceSignals = listOf(
+                CreatorPlatformOpportunitySignal(
+                    videoId = "video-hot",
+                    title = "Current breakout",
+                    periodViews = 12_000,
+                    baselineMultiple = 1.8,
+                    viewSharePercent = 42,
+                )
+            ),
+        )
+
+        assertEquals(CreatorOpportunityKind.VIDEO_MOMENTUM, snapshot.now.first().kind)
+        assertTrue(snapshot.next.any { it.ideaId == ready.id })
+        assertTrue(snapshot.later.any { it.ideaId == later.id })
+        assertTrue(snapshot.now.first().scorecard.momentum >= 80)
+        assertTrue(snapshot.next.first { it.ideaId == ready.id }.scorecard.readiness >= 90)
     }
 }
