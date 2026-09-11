@@ -1,0 +1,127 @@
+name: v2.0 Alpha 1.3A Opportunity Today
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.3a-opportunity-today"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha13a-opportunity-today
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Materialize v107 Today opportunity surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/v20_alpha13a_opportunity_today.py
+          git diff --check
+
+      - name: Verify v107 product invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 107' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.3a-opportunity-today"' app/build.gradle.kts
+          grep -q 'ideas: List<CreatorIdea>' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -q 'V20OpportunityEngineCard(' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -q 'onOpenIdeaVault = onOpenIdeaVault' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -q 'onOpenInsights = onOpenInsights' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -q 'ideas = vm.ideas' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'onOpenIdeaVault = { tab = PTab.IDEAS }' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'onOpenInsights = { tab = PTab.INSIGHTS }' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'object CreatorOpportunityEngine' app/src/main/java/com/framebynavin/app/data/CreatorOpportunityEngine.kt
+          grep -q 'CreatorAiReportStore' app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+          grep -q 'ANALYZE VIDEO WITH GEMINI' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'ProjectPulseEngine::repairFalseSurfaceCompletion' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+          grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          if grep -R --line-number 'AIzaSy' app/src/main app/src/debug app/src/release; then
+            echo 'Firebase API keys must not be copied into Kotlin/Java source.' >&2
+            exit 1
+          fi
+          git diff --check
+
+      - name: Pin exact app source before validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A app
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git -c commit.gpgSign=false commit -m "feat(v2.0): surface Opportunity Engine on Today"
+          fi
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.3a-opportunity-today.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.3a-opportunity-today.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.3a-opportunity-today"
+            echo "versionCode=107"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "opportunityEngine=true"
+            echo "todayOpportunitySurface=true"
+            echo "ideaVaultRouting=true"
+            echo "insightsRouting=true"
+            echo "projectRouting=true"
+            echo "liveGeminiVideoAutopsyPreserved=true"
+            echo "reminderCompletionSafetyPreserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.3a-opportunity-today-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.3a-opportunity-today.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.3a-opportunity-today-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:staging/v2.0-alpha1.3a-opportunity-today-validated
