@@ -178,6 +178,7 @@ class YouTubeAnalyticsStore(context: Context) {
         if (links != null) editor.putString(KEY_LINKS, links)
         check(editor.commit()) { "Could not invalidate YouTube analytics" }
         YouTubePulseStore(appContext).clear()
+        YouTubeInsightsFoundationStore(appContext).clear()
         latest24HourReport = null
     }
 

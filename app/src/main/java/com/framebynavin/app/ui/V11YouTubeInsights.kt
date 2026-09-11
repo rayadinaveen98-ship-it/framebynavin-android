@@ -54,6 +54,9 @@ internal fun V11InsightsScreen(
     val activity = context as? ComponentActivity
     val store = remember { YouTubeAnalyticsStore(context.applicationContext) }
     val api = remember { YouTubeApiClient() }
+    val foundationApi = remember { YouTubeInsightsFoundationClient() }
+    val foundationStore = remember { YouTubeInsightsFoundationStore(context.applicationContext) }
+    val checkpointStore = remember { YouTubePublishCheckpointStore(context.applicationContext) }
     val authClient = remember(activity) { activity?.let { Identity.getAuthorizationClient(it) } }
     val scope = rememberCoroutineScope()
 
@@ -118,8 +121,13 @@ internal fun V11InsightsScreen(
             syncing = true
             authError = null
             try {
-                val fresh = withContext(Dispatchers.IO) { api.sync(token, days) }
+                val (fresh, foundation) = withContext(Dispatchers.IO) {
+                    val base = api.sync(token, days)
+                    base to foundationApi.sync(token, base)
+                }
                 if (store.save(fresh, request) && isActive(request)) {
+                    foundationStore.save(foundation)
+                    checkpointStore.captureFrom(fresh, store.links())
                     snapshot = fresh
                     links = store.links()
                     selectedVideo = null
@@ -203,6 +211,7 @@ internal fun V11InsightsScreen(
     fun disconnect() {
         // Local invalidation must not wait for the network or Google Play services.
         store.disconnect()
+        foundationStore.clear()
         activeRequest = null
         pendingResolution = null
         syncing = false

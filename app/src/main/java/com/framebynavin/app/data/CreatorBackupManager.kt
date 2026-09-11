@@ -41,6 +41,7 @@ class CreatorBackupManager(private val context: Context) {
         val heroJson: String? = null,
         val youtubeLinksJson: String? = null,
         val youtubeMilestonesJson: String? = null,
+        val youtubePublishCheckpointsJson: String? = null,
     )
 
     private val appContext = context.applicationContext
@@ -74,7 +75,7 @@ class CreatorBackupManager(private val context: Context) {
         val smartRaw = optionalSection(root, "smartEscalationConfig")
         val postPublishRaw = optionalSection(root, "postPublish")
         val rewardsRaw = optionalSection(root, "rewards")
-        if (schema >= 5) validateManifest(root)
+        if (schema >= 5) validateManifest(root, schema)
         if (schema >= 3) {
             require(root.has("payloadSha256")) { "Backup integrity information is missing" }
             require(sha256(fingerprint(root, schema)) == root.getString("payloadSha256")) { "Backup integrity check failed" }
@@ -87,6 +88,10 @@ class CreatorBackupManager(private val context: Context) {
         }
         optionalSection(root, "youtubeProjectLinks")?.let { JSONObject(it) }
         optionalSection(root, "youtubeMilestones")?.let { JSONObject(it) }
+        if (schema >= 6) {
+            require(root.has("youtubePublishCheckpoints")) { "Backup is missing YouTube publish checkpoints" }
+        }
+        optionalSection(root, "youtubePublishCheckpoints")?.let { JSONArray(it) }
 
         val projectCount = taskStore.validateJson(tasksRaw)
         val ideaCount = ideaStore.validateJson(ideasRaw)
@@ -212,6 +217,7 @@ class CreatorBackupManager(private val context: Context) {
         heroJson = CreatorHeroArchive.export(appContext),
         youtubeLinksJson = youtubeLinksRaw(),
         youtubeMilestonesJson = youtubeMilestonesRaw(),
+        youtubePublishCheckpointsJson = youtubePublishCheckpointsRaw(),
     )
 
     private fun encode(snapshot: Snapshot, createdAtMillis: Long): String {
@@ -229,6 +235,7 @@ class CreatorBackupManager(private val context: Context) {
             .put("personalFrames", requireNotNull(snapshot.heroJson))
             .put("youtubeProjectLinks", requireNotNull(snapshot.youtubeLinksJson))
             .put("youtubeMilestones", requireNotNull(snapshot.youtubeMilestonesJson))
+            .put("youtubePublishCheckpoints", requireNotNull(snapshot.youtubePublishCheckpointsJson))
             .put("manifest", backupManifest())
         return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
     }
@@ -237,7 +244,11 @@ class CreatorBackupManager(private val context: Context) {
     private fun fingerprint(root: JSONObject, schema: Int): String = buildString {
         val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
             "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
-        val allKeys = if (schema >= 4) keys + listOf("youtubeProjectLinks", "youtubeMilestones") else keys
+        val allKeys = when {
+            schema >= 6 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints")
+            schema >= 4 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones")
+            else -> keys
+        }
         (if (schema >= 5) allKeys + "manifest" else allKeys).forEach { key ->
             val value = root.optString(key, "")
             append(key.length).append(':').append(key).append(value.length).append(':').append(value)
@@ -254,17 +265,19 @@ class CreatorBackupManager(private val context: Context) {
         .put("checksum", "SHA-256")
         .put("authenticated", false)
 
-    private fun validateManifest(root: JSONObject) {
-        require(INCLUDED_SECTIONS.all { root.has(it) && !root.isNull(it) }) {
+    private fun validateManifest(root: JSONObject, schema: Int) {
+        val includedSections = includedSectionsFor(schema)
+        val rootKeys = setOf("format", "schemaVersion", "createdAtMillis", "manifest", "payloadSha256") + includedSections
+        require(includedSections.all { root.has(it) && !root.isNull(it) }) {
             "Backup is missing a required creator-data section"
         }
-        require(root.keys().asSequence().toSet() == ROOT_KEYS) {
+        require(root.keys().asSequence().toSet() == rootKeys) {
             "Backup contains unexpected or missing schema sections"
         }
         val manifest = root.getJSONObject("manifest")
         require(manifest.optInt("manifestVersion") == 1) { "Unsupported backup manifest" }
         val included = manifest.getJSONArray("included")
-        require((0 until included.length()).map(included::getString) == INCLUDED_SECTIONS) {
+        require((0 until included.length()).map(included::getString) == includedSections) {
             "Backup inclusion manifest does not match its schema"
         }
         val excluded = manifest.getJSONArray("excluded")
@@ -292,6 +305,7 @@ class CreatorBackupManager(private val context: Context) {
             heroJson = optionalSection(root, "personalFrames"),
             youtubeLinksJson = optionalSection(root, "youtubeProjectLinks"),
             youtubeMilestonesJson = optionalSection(root, "youtubeMilestones"),
+            youtubePublishCheckpointsJson = optionalSection(root, "youtubePublishCheckpoints"),
         )
     }
 
@@ -307,6 +321,7 @@ class CreatorBackupManager(private val context: Context) {
         snapshot.heroJson?.let { CreatorHeroArchive.import(appContext, it) }
         snapshot.youtubeLinksJson?.let { importYoutubeLinks(it) }
         snapshot.youtubeMilestonesJson?.let { importYoutubeMilestones(it) }
+        snapshot.youtubePublishCheckpointsJson?.let { importYoutubePublishCheckpoints(it) }
         // A portable restore never imports OAuth state or derived analytics. Invalidate
         // cached reports under the restored creator generation, retaining links/milestones.
         com.framebynavin.app.youtube.YouTubeAnalyticsStore(appContext).clearAnalytics()
@@ -354,6 +369,13 @@ class CreatorBackupManager(private val context: Context) {
         check(editor.commit()) { "Could not restore YouTube milestones" }
     }
 
+    private fun youtubePublishCheckpointsRaw(): String =
+        com.framebynavin.app.youtube.YouTubePublishCheckpointStore(appContext).exportJson().toString()
+
+    private fun importYoutubePublishCheckpoints(raw: String) {
+        com.framebynavin.app.youtube.YouTubePublishCheckpointStore(appContext).importJson(JSONArray(raw))
+    }
+
     private fun stopAndCancel(tasks: List<CreatorTask>) {
         // Restore is the only global reset: orphaned occurrences may belong to
         // tasks absent from either snapshot. No pre-restore button may act afterward.
@@ -388,13 +410,16 @@ class CreatorBackupManager(private val context: Context) {
 
     companion object {
         const val FORMAT = "FrameByNavinBackup"
-        const val SCHEMA_VERSION = 5
-        private val INCLUDED_SECTIONS = listOf(
+        const val SCHEMA_VERSION = 6
+        private val INCLUDED_SECTIONS_V5 = listOf(
             "tasks", "ideas", "weeklySchedule", "settings", "smartEscalationConfig",
             "postPublish", "rewards", "personalFrames", "youtubeProjectLinks", "youtubeMilestones",
         )
+        private val INCLUDED_SECTIONS = INCLUDED_SECTIONS_V5 + "youtubePublishCheckpoints"
         private val ROOT_KEYS = setOf("format", "schemaVersion", "createdAtMillis", "manifest",
             "payloadSha256") + INCLUDED_SECTIONS
+        private fun includedSectionsFor(schema: Int): List<String> =
+            if (schema >= 6) INCLUDED_SECTIONS else INCLUDED_SECTIONS_V5
         private val EXCLUDED_SECTIONS = listOf(
             "accountCredentials", "oauthTokens", "cloudSessions", "youtubeAnalyticsCache",
             "reminderOccurrenceTokens", "alarmDeliveryLedger", "activeSmartSessions", "activeMediaServices",

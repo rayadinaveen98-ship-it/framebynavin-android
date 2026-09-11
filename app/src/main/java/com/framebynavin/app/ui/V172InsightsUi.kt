@@ -109,6 +109,8 @@ private fun V172Overview(
     onVideo: (YouTubeVideoSnapshot) -> Unit,
 ) {
     V172PulseCard(snapshot)
+    Spacer(Modifier.height(10.dp))
+    V20InsightsFoundationCard(snapshot)
     Spacer(Modifier.height(18.dp))
 
     Text("THIS IS WHAT MATTERS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
