@@ -264,11 +264,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 PTab.TODAY -> PTodayScreen(
                     creatorProfile = settings.creatorProfile,
                     tasks = vm.tasks,
+                    ideas = vm.ideas,
                     onAdd = { openComposer() },
                     onStart = vm::startTask,
                     onAdvance = ::advanceWorkflowWithJourney,
                     onViewAllReminders = { showReminders = true },
                     onFocus = { focusTaskId = it },
+                    onOpenIdeaVault = { tab = PTab.IDEAS },
+                    onOpenInsights = { tab = PTab.INSIGHTS },
                     onOpenProject = ::openProject,
                 )
                 PTab.IDEAS -> V09IdeaVaultScreen(

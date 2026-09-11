@@ -79,11 +79,14 @@ import java.util.Locale
 internal fun PTodayScreen(
     creatorProfile: CreatorProfile,
     tasks: List<CreatorTask>,
+    ideas: List<CreatorIdea> = emptyList(),
     onAdd: () -> Unit,
     onStart: (String) -> Unit,
     onAdvance: (String) -> Unit,
     onViewAllReminders: () -> Unit,
     onFocus: (String) -> Unit,
+    onOpenIdeaVault: () -> Unit = {},
+    onOpenInsights: () -> Unit = {},
     onOpenProject: (String) -> Unit = {},
 ) {
     val queue by remember { derivedStateOf { pActiveQueue(tasks).take(10) } }
@@ -110,6 +113,14 @@ internal fun PTodayScreen(
             }
             Spacer(Modifier.height(14.dp))
             V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
+            Spacer(Modifier.height(14.dp))
+            V20OpportunityEngineCard(
+                tasks = tasks,
+                ideas = ideas,
+                onOpenIdeaVault = onOpenIdeaVault,
+                onOpenInsights = onOpenInsights,
+                onOpenProject = onOpenProject,
+            )
             Spacer(Modifier.height(18.dp))
 
             if (selected == null) {
