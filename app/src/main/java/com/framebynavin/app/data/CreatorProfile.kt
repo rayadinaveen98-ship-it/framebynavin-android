@@ -42,10 +42,11 @@ data class CreatorProfile(
         get() = displayName.trim().ifBlank { "Creator" }
 
     fun normalized(): CreatorProfile {
-        val primaryMode = resolvedPrimaryCreatorMode.take(60)
+        val rawPrimaryMode = resolvedPrimaryCreatorMode.take(60)
+        val primaryMode = CreatorModeRegistry.canonicalLabel(rawPrimaryMode)
         val normalizedPrimaryGoal = primaryGoal.trim().take(80)
         val normalizedSecondaryModes = secondaryCreatorModes
-            .map(String::trim)
+            .map { CreatorModeRegistry.canonicalLabel(it.trim()) }
             .filter { it.isNotBlank() && it != primaryMode }
             .distinct()
             .take(MAX_SECONDARY_MODES)
