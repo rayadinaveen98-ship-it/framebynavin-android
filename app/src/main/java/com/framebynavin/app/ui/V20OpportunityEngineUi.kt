@@ -8,8 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,6 +20,13 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.youtube.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private data class OpportunityLocalState(
+    val tasks: List<CreatorTask> = emptyList(),
+    val ideas: List<CreatorIdea> = emptyList(),
+)
 
 @Composable
 internal fun V20OpportunityEngineCard(
@@ -32,48 +38,86 @@ internal fun V20OpportunityEngineCard(
 ) {
     val context = LocalContext.current.applicationContext
     val analyticsStore = remember { YouTubeAnalyticsStore(context) }
-    val pulseStore = remember { YouTubePulseStore(context) }
-    val aiReportStore = remember { CreatorAiReportStore(context) }
-
     val analytics = remember(tasks, ideas) { analyticsStore.loadAny() }
-    val pulse = remember(analytics?.fetchedAtMillis) { pulseStore.build24HourReport() }
-    val youtubeAlerts = remember(pulse, ideas) { YouTubeOpportunityEngine.build(pulse, ideas) }
-    val performanceSignals = remember(analytics) {
-        analytics?.let(YouTubeInsightEngine::videoPerformance)
-            .orEmpty()
-            .take(5)
-            .map { performance ->
-                CreatorPlatformOpportunitySignal(
-                    videoId = performance.video.videoId,
-                    title = performance.video.title,
-                    periodViews = performance.video.periodViews,
-                    baselineMultiple = performance.baselineMultiple,
-                    viewSharePercent = performance.viewSharePercent,
-                )
-            }
+    val snapshot = remember(tasks, ideas, analytics) {
+        buildOpportunitySnapshot(context, tasks, ideas, analytics)
     }
-    val aiSignals = remember(analytics) {
-        analytics?.let(YouTubeInsightEngine::videoPerformance)
-            .orEmpty()
-            .take(8)
-            .mapNotNull { performance ->
-                aiReportStore.load(performance.video.videoId)?.let { report ->
-                    CreatorAiOpportunitySignal(
-                        videoId = performance.video.videoId,
-                        citedEvidenceCount = report.citedEvidenceIds.size,
+    V20OpportunitySurface(snapshot) { primary ->
+        when (primary.targetKind) {
+            CreatorOpportunityTargetKind.INSIGHTS -> onOpenInsights()
+            CreatorOpportunityTargetKind.IDEA_VAULT -> onOpenIdeaVault()
+            CreatorOpportunityTargetKind.PROJECT -> onOpenProject(primary.targetId)
+        }
+    }
+}
+
+/** Read-only Opportunity Engine proof surface inside Insights until the Today route is wired. */
+@Composable
+internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapshot) {
+    val context = LocalContext.current.applicationContext
+    val local by produceState(
+        initialValue = OpportunityLocalState(),
+        key1 = context,
+        key2 = analytics.fetchedAtMillis,
+    ) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                CreatorDataGate.readyTransaction(context) {
+                    OpportunityLocalState(
+                        tasks = TaskStore(context).load(),
+                        ideas = IdeaVaultStore(context).load(),
                     )
                 }
-            }
+            }.getOrDefault(OpportunityLocalState())
+        }
     }
-    val snapshot = remember(tasks, ideas, youtubeAlerts, performanceSignals, aiSignals) {
-        CreatorOpportunityEngine.build(
-            tasks = tasks,
-            ideas = ideas,
-            youtubeAlerts = youtubeAlerts,
-            performanceSignals = performanceSignals,
-            aiSignals = aiSignals,
+    val snapshot = remember(local, analytics) {
+        buildOpportunitySnapshot(context, local.tasks, local.ideas, analytics)
+    }
+    V20OpportunitySurface(snapshot, onAction = null)
+}
+
+private fun buildOpportunitySnapshot(
+    context: android.content.Context,
+    tasks: List<CreatorTask>,
+    ideas: List<CreatorIdea>,
+    analytics: YouTubeAnalyticsSnapshot?,
+): CreatorOpportunitySnapshot {
+    val pulse = YouTubePulseStore(context).build24HourReport()
+    val youtubeAlerts = YouTubeOpportunityEngine.build(pulse, ideas)
+    val performances = analytics?.let(YouTubeInsightEngine::videoPerformance).orEmpty()
+    val performanceSignals = performances.take(5).map { performance ->
+        CreatorPlatformOpportunitySignal(
+            videoId = performance.video.videoId,
+            title = performance.video.title,
+            periodViews = performance.video.periodViews,
+            baselineMultiple = performance.baselineMultiple,
+            viewSharePercent = performance.viewSharePercent,
         )
     }
+    val aiStore = CreatorAiReportStore(context)
+    val aiSignals = performances.take(8).mapNotNull { performance ->
+        aiStore.load(performance.video.videoId)?.let { report ->
+            CreatorAiOpportunitySignal(
+                videoId = performance.video.videoId,
+                citedEvidenceCount = report.citedEvidenceIds.size,
+            )
+        }
+    }
+    return CreatorOpportunityEngine.build(
+        tasks = tasks,
+        ideas = ideas,
+        youtubeAlerts = youtubeAlerts,
+        performanceSignals = performanceSignals,
+        aiSignals = aiSignals,
+    )
+}
+
+@Composable
+private fun V20OpportunitySurface(
+    snapshot: CreatorOpportunitySnapshot,
+    onAction: ((CreatorOpportunity) -> Unit)?,
+) {
     val primary = snapshot.primary ?: return
 
     Surface(
@@ -132,22 +176,18 @@ internal fun V20OpportunityEngineCard(
                 Text("• ${evidence.label}", color = MutedText, fontSize = 7.8.sp, lineHeight = 11.sp)
             }
 
-            Spacer(Modifier.height(14.dp))
-            Button(
-                onClick = {
-                    when (primary.targetKind) {
-                        CreatorOpportunityTargetKind.INSIGHTS -> onOpenInsights()
-                        CreatorOpportunityTargetKind.IDEA_VAULT -> onOpenIdeaVault()
-                        CreatorOpportunityTargetKind.PROJECT -> onOpenProject(primary.targetId)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                shape = RoundedCornerShape(15.dp),
-            ) {
-                Text(primary.actionLabel, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.width(6.dp))
-                Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(16.dp))
+            if (onAction != null) {
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = { onAction(primary) },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                    shape = RoundedCornerShape(15.dp),
+                ) {
+                    Text(primary.actionLabel, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(16.dp))
+                }
             }
 
             if (snapshot.alternatives.isNotEmpty()) {
