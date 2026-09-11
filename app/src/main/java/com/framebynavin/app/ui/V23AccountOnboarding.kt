@@ -58,6 +58,16 @@ internal fun V23AccountOnboarding(
         if (username.isBlank()) username = cloudProfile?.username.orEmpty()
     }
 
+    fun finishReturningCreatorIfAvailable(): Boolean {
+        val connectedSession = manager.localState().session
+        val connectedProfile = manager.cachedCreatorProfile()
+        if (CloudCreatorAccountPolicy.route(connectedSession, connectedProfile) != CloudCreatorAccountRoute.RETURNING_CREATOR) {
+            return false
+        }
+        onComplete(connectedProfile!!.displayName.ifBlank { connectedSession!!.displayName })
+        return true
+    }
+
     fun startGoogleSignIn() {
         if (busy || CloudConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) return
         busy = true
@@ -83,19 +93,24 @@ internal fun V23AccountOnboarding(
                 } else {
                     when (val resultState = manager.completeGoogleSignIn(idToken)) {
                         is CloudOperationResult.Success -> {
-                            manager.refreshCreatorIdentity()
                             reload()
-                            val connectedSession = manager.localState().session
-                            val connectedProfile = manager.cachedCreatorProfile()
-                            when {
-                                connectedSession != null && !connectedProfile?.username.isNullOrBlank() ->
-                                    onComplete(connectedProfile!!.displayName.ifBlank { connectedSession.displayName })
-                                connectedSession != null && resultState.message.startsWith("Google account connected.") ->
-                                    onComplete(connectedSession.displayName)
+                            if (!finishReturningCreatorIfAvailable()) {
+                                manager.refreshCreatorIdentity()
+                                reload()
+                                finishReturningCreatorIfAvailable()
                             }
                         }
-                        is CloudOperationResult.Skipped -> error = resultState.message
-                        is CloudOperationResult.Failure -> error = resultState.message
+                        is CloudOperationResult.Skipped -> {
+                            reload()
+                            if (!finishReturningCreatorIfAvailable()) error = resultState.message
+                        }
+                        is CloudOperationResult.Failure -> {
+                            // Authentication and creator identity are independent from backup health.
+                            // If the authenticated user already owns a creator profile, do not send
+                            // them through account creation because a later cloud operation failed.
+                            reload()
+                            if (!finishReturningCreatorIfAvailable()) error = resultState.message
+                        }
                     }
                 }
             } catch (_: GetCredentialCancellationException) {
@@ -140,15 +155,15 @@ internal fun V23AccountOnboarding(
 
     LaunchedEffect(Unit) {
         if (session != null) {
-            manager.refreshCreatorIdentity()
-            reload()
-            val connectedSession = manager.localState().session
-            val connectedProfile = manager.cachedCreatorProfile()
-            if (connectedSession != null && !connectedProfile?.username.isNullOrBlank()) {
-                onComplete(connectedProfile!!.displayName.ifBlank { connectedSession.displayName })
+            if (!finishReturningCreatorIfAvailable()) {
+                manager.refreshCreatorIdentity()
+                reload()
+                finishReturningCreatorIfAvailable()
             }
         }
     }
+
+    val accountRoute = CloudCreatorAccountPolicy.route(session, cloudProfile)
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -161,7 +176,7 @@ internal fun V23AccountOnboarding(
             Text("FRAMEBYNAVIN", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
             Spacer(Modifier.height(34.dp))
 
-            if (session == null) {
+            if (accountRoute == CloudCreatorAccountRoute.SIGN_IN_REQUIRED) {
                 Surface(
                     modifier = Modifier.size(58.dp),
                     shape = RoundedCornerShape(18.dp),
@@ -171,7 +186,7 @@ internal fun V23AccountOnboarding(
                 Text("Your creator identity starts here.", color = ProjectorIvory, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(9.dp))
                 Text(
-                    "Sign in with Google to create your FrameByNavin identity and unlock cloud backup. Your projects still live locally and keep working offline after sign-in.",
+                    "Sign in with Google to connect your FrameByNavin identity and cloud backup. If this account already exists, we'll restore that identity instead of asking you to create it again.",
                     color = MutedText,
                     fontSize = 11.5.sp,
                     lineHeight = 17.sp,
@@ -202,6 +217,18 @@ internal fun V23AccountOnboarding(
                 }
                 Spacer(Modifier.height(14.dp))
                 Text("You can connect an account later from Profile & Account.", color = MutedText, fontSize = 8.8.sp)
+            } else if (accountRoute == CloudCreatorAccountRoute.RETURNING_CREATOR) {
+                Surface(
+                    modifier = Modifier.size(58.dp),
+                    shape = CircleShape,
+                    color = SuccessGreen.copy(alpha = .13f),
+                ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.CloudDone, null, tint = SuccessGreen, modifier = Modifier.size(28.dp)) } }
+                Spacer(Modifier.height(18.dp))
+                Text("Welcome back.", color = ProjectorIvory, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(8.dp))
+                Text("Restoring your existing FrameByNavin creator identity…", color = MutedText, fontSize = 11.5.sp, lineHeight = 17.sp)
+                Spacer(Modifier.height(22.dp))
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MutedGold)
             } else {
                 Surface(
                     modifier = Modifier.size(58.dp),
@@ -211,7 +238,7 @@ internal fun V23AccountOnboarding(
                 Spacer(Modifier.height(18.dp))
                 Text("Choose your creator identity.", color = ProjectorIvory, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(8.dp))
-                Text("Your username is unique across FrameByNavin. It does not make your projects public.", color = MutedText, fontSize = 11.5.sp, lineHeight = 17.sp)
+                Text("This Google account does not have a FrameByNavin creator ID yet. Your username is unique and does not make your projects public.", color = MutedText, fontSize = 11.5.sp, lineHeight = 17.sp)
                 Spacer(Modifier.height(24.dp))
 
                 OutlinedTextField(
