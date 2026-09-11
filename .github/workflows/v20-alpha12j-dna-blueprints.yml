@@ -1,0 +1,119 @@
+name: v2.0 Alpha 1.2J DNA Blueprints
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.2j-dna-blueprints"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha12j-dna-blueprints
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Materialize v97 workspace integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/v20_alpha12j_dna_blueprints.py
+          git diff --check
+          git status --short
+          git config user.name "FrameByNavin CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add app
+          git commit -m "feat(v2.0): let Content DNA drive creator blueprints"
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Verify v97 invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 97' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.2j-dna-blueprints"' app/build.gradle.kts
+          grep -q 'object CreatorContentBlueprintEngine' app/src/main/java/com/framebynavin/app/data/CreatorContentBlueprint.kt
+          grep -q 'This engine is deliberately deterministic and advisory' app/src/main/java/com/framebynavin/app/data/CreatorContentBlueprint.kt
+          grep -q 'Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH }' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -q 'mode == Alpha6WorkspaceMode.BLUEPRINT' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -q 'onOpenBlueprint' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+          grep -q 'DNA BLUEPRINT' app/src/main/java/com/framebynavin/app/ui/V20ContentBlueprintUi.kt
+          grep -q 'ADVISORY ONLY' app/src/main/java/com/framebynavin/app/ui/V20ContentBlueprintUi.kt
+          grep -q 'PTab.TODAY -> PTodayScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudSyncWorker.kt
+          git diff --check
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.2j-dna-blueprints.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.2j-dna-blueprints.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.2j-dna-blueprints"
+            echo "versionCode=97"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "dnaBlueprintEngine=true"
+            echo "dnaRecommendedWorkflow=true"
+            echo "dnaWorkspacePrompts=true"
+            echo "dnaScriptStructure=true"
+            echo "dnaQualityChecklist=true"
+            echo "dnaProductionStyleGuidance=true"
+            echo "dnaPlatformGuidance=true"
+            echo "blueprintReadOnlyAdvisory=true"
+            echo "workflowAuthorityUnchanged=true"
+            echo "reminderAuthorityUnchanged=true"
+            echo "publicationAuthorityUnchanged=true"
+            echo "acceptedCinematicHomePreserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2j-dna-blueprints-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.2j-dna-blueprints.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2j-dna-blueprints-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push --force-with-lease origin HEAD:staging/v2.0-alpha1.2j-dna-blueprints-validated
