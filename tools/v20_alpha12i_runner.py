@@ -19,6 +19,11 @@ patches = [
         "'    fun saveTaskConfiguration(\\n        id: String?,\\n        title: String,\\n        platform: String,\\n        contentType: String,\\n        contentDna: CreatorContentDna = CreatorContentDna(),\\n        dueLabel: String,'",
         "ViewModel new signature anchor",
     ),
+    (
+        'CreatorTask("v96", "V96", "YouTube", "Long-form", "Today", 1L, contentDna = dna)',
+        'CreatorTask(id = "v96", title = "V96", platform = "YouTube", contentType = "Long-form", dueLabel = "Today", dueAtMillis = 1L, contentDna = dna)',
+        "instrumented CreatorTask constructor",
+    ),
 ]
 for old, new, label in patches:
     if old not in source:
