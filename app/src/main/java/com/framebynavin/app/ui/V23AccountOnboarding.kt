@@ -50,6 +50,10 @@ internal fun V23AccountOnboarding(
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var displayName by rememberSaveable { mutableStateOf(session?.displayName.orEmpty()) }
     var username by rememberSaveable { mutableStateOf(cloudProfile?.username.orEmpty()) }
+    var recoveryPoints by remember { mutableStateOf<List<CloudRestorePoint>?>(null) }
+    var recoveryLoading by rememberSaveable { mutableStateOf(false) }
+    var recoveryError by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmUseThisPhone by rememberSaveable { mutableStateOf(false) }
 
     fun reload() {
         session = manager.localState().session
@@ -58,14 +62,84 @@ internal fun V23AccountOnboarding(
         if (username.isBlank()) username = cloudProfile?.username.orEmpty()
     }
 
-    fun finishReturningCreatorIfAvailable(): Boolean {
-        val connectedSession = manager.localState().session
-        val connectedProfile = manager.cachedCreatorProfile()
+    fun returningIdentity(): Pair<CloudSession, CloudCreatorProfile>? {
+        val connectedSession = manager.localState().session ?: return null
+        val connectedProfile = manager.cachedCreatorProfile() ?: return null
         if (CloudCreatorAccountPolicy.route(connectedSession, connectedProfile) != CloudCreatorAccountRoute.RETURNING_CREATOR) {
-            return false
+            return null
         }
-        onComplete(connectedProfile!!.displayName.ifBlank { connectedSession!!.displayName })
+        return connectedSession to connectedProfile
+    }
+
+    suspend fun prepareReturningCreatorRecovery(): Boolean {
+        val identity = returningIdentity() ?: return false
+        recoveryLoading = true
+        recoveryError = null
+        val result = manager.restorePoints()
+        recoveryLoading = false
+        if (result.isFailure) {
+            recoveryPoints = null
+            recoveryError = result.exceptionOrNull()?.message ?: "Couldn't load your cloud restore points. Your cloud data was not changed."
+            return true
+        }
+
+        val points = result.getOrThrow()
+        if (points.isEmpty()) {
+            when (val keep = manager.keepLocalData()) {
+                is CloudOperationResult.Success -> onComplete(identity.second.displayName.ifBlank { identity.first.displayName })
+                is CloudOperationResult.Skipped -> recoveryError = keep.message
+                is CloudOperationResult.Failure -> recoveryError = keep.message
+            }
+        } else {
+            recoveryPoints = points
+        }
         return true
+    }
+
+    fun retryReturningRecovery() {
+        if (busy || recoveryLoading) return
+        scope.launch { prepareReturningCreatorRecovery() }
+    }
+
+    fun restoreReturningCreator(point: CloudRestorePoint) {
+        if (busy) return
+        busy = true
+        recoveryError = null
+        scope.launch {
+            try {
+                when (val result = manager.restore(point)) {
+                    is CloudOperationResult.Success -> {
+                        recoveryPoints = null
+                        // The backup includes CreatorOsSettings. Passing a blank name prevents the
+                        // parent account callback from overwriting restored category/platform/goal.
+                        onComplete("")
+                    }
+                    is CloudOperationResult.Skipped -> recoveryError = result.message
+                    is CloudOperationResult.Failure -> recoveryError = result.message
+                }
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun useThisPhoneInstead() {
+        if (busy) return
+        val identity = returningIdentity() ?: return
+        busy = true
+        recoveryError = null
+        scope.launch {
+            try {
+                when (val result = manager.keepLocalData()) {
+                    is CloudOperationResult.Success ->
+                        onComplete(identity.second.displayName.ifBlank { identity.first.displayName })
+                    is CloudOperationResult.Skipped -> recoveryError = result.message
+                    is CloudOperationResult.Failure -> recoveryError = result.message
+                }
+            } finally {
+                busy = false
+            }
+        }
     }
 
     fun startGoogleSignIn() {
@@ -94,22 +168,21 @@ internal fun V23AccountOnboarding(
                     when (val resultState = manager.completeGoogleSignIn(idToken)) {
                         is CloudOperationResult.Success -> {
                             reload()
-                            if (!finishReturningCreatorIfAvailable()) {
+                            if (!prepareReturningCreatorRecovery()) {
                                 manager.refreshCreatorIdentity()
                                 reload()
-                                finishReturningCreatorIfAvailable()
+                                prepareReturningCreatorRecovery()
                             }
                         }
                         is CloudOperationResult.Skipped -> {
                             reload()
-                            if (!finishReturningCreatorIfAvailable()) error = resultState.message
+                            if (!prepareReturningCreatorRecovery()) error = resultState.message
                         }
                         is CloudOperationResult.Failure -> {
                             // Authentication and creator identity are independent from backup health.
-                            // If the authenticated user already owns a creator profile, do not send
-                            // them through account creation because a later cloud operation failed.
+                            // A returning creator stays in recovery rather than falling into new setup.
                             reload()
-                            if (!finishReturningCreatorIfAvailable()) error = resultState.message
+                            if (!prepareReturningCreatorRecovery()) error = resultState.message
                         }
                     }
                 }
@@ -155,10 +228,10 @@ internal fun V23AccountOnboarding(
 
     LaunchedEffect(Unit) {
         if (session != null) {
-            if (!finishReturningCreatorIfAvailable()) {
+            if (!prepareReturningCreatorRecovery()) {
                 manager.refreshCreatorIdentity()
                 reload()
-                finishReturningCreatorIfAvailable()
+                prepareReturningCreatorRecovery()
             }
         }
     }
@@ -226,9 +299,84 @@ internal fun V23AccountOnboarding(
                 Spacer(Modifier.height(18.dp))
                 Text("Welcome back.", color = ProjectorIvory, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(8.dp))
-                Text("Restoring your existing FrameByNavin creator identity…", color = MutedText, fontSize = 11.5.sp, lineHeight = 17.sp)
+                Text(
+                    "@${cloudProfile?.username.orEmpty()} is your existing FrameByNavin identity. Before setup continues, choose the creator-data copy you want on this phone.",
+                    color = MutedText,
+                    fontSize = 11.5.sp,
+                    lineHeight = 17.sp,
+                )
                 Spacer(Modifier.height(22.dp))
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MutedGold)
+
+                val points = recoveryPoints.orEmpty()
+                val recommended = CloudRecoveryPolicy.recommended(points)
+                when {
+                    recoveryLoading -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MutedGold)
+                            Spacer(Modifier.width(10.dp))
+                            Text("Loading your cloud restore history…", color = MutedText, fontSize = 10.sp)
+                        }
+                    }
+                    recoveryError != null -> {
+                        Surface(
+                            Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, CinemaLine),
+                        ) {
+                            Column(Modifier.padding(14.dp)) {
+                                Text("RESTORE HISTORY NEEDS A RETRY", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Spacer(Modifier.height(7.dp))
+                                Text(recoveryError.orEmpty(), color = ProjectorIvory, fontSize = 10.sp, lineHeight = 15.sp)
+                                Spacer(Modifier.height(12.dp))
+                                OutlinedButton(onClick = ::retryReturningRecovery, enabled = !busy) { Text("RETRY", fontWeight = FontWeight.Black) }
+                            }
+                        }
+                    }
+                    recommended != null -> {
+                        Text("We found ${points.size} cloud restore point${if (points.size == 1) "" else "s"}.", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(10.dp))
+                        Surface(
+                            Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp),
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, MutedGold.copy(alpha = .45f)),
+                        ) {
+                            Column(Modifier.padding(15.dp)) {
+                                Text("RECOMMENDED RECOVERY", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                                Spacer(Modifier.height(7.dp))
+                                Text("${recommended.projectCount} projects · ${recommended.ideaCount} ideas", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                                Spacer(Modifier.height(4.dp))
+                                Text("${recommended.appVersion} · ${recommended.snapshotDay}", color = MutedText, fontSize = 9.5.sp)
+                                Spacer(Modifier.height(9.dp))
+                                Text("Chosen as the newest backup that still contains creator work; an empty newer snapshot is never preferred automatically.", color = MutedText, fontSize = 9.sp, lineHeight = 14.sp)
+                                Spacer(Modifier.height(14.dp))
+                                Button(
+                                    onClick = { restoreReturningCreator(recommended) },
+                                    enabled = !busy,
+                                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                                    shape = RoundedCornerShape(15.dp),
+                                ) { Text(if (busy) "RESTORING…" else "RESTORE THIS COPY", fontWeight = FontWeight.Black) }
+                            }
+                        }
+                        if (points.size > 1) {
+                            Spacer(Modifier.height(9.dp))
+                            Text("Other restore points remain preserved and can be selected later in Cloud Backup.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = { confirmUseThisPhone = true },
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            border = BorderStroke(1.dp, CinemaLine),
+                            shape = RoundedCornerShape(15.dp),
+                        ) { Text("USE THIS PHONE INSTEAD", color = MutedText, fontSize = 9.5.sp, fontWeight = FontWeight.Bold) }
+                    }
+                    else -> {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MutedGold)
+                    }
+                }
             } else {
                 Surface(
                     modifier = Modifier.size(58.dp),
@@ -299,5 +447,20 @@ internal fun V23AccountOnboarding(
                 }
             }
         }
+    }
+
+    if (confirmUseThisPhone) {
+        AlertDialog(
+            onDismissRequest = { confirmUseThisPhone = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Use this phone's current data?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            text = { Text("This skips restoring an older cloud copy on this phone. Your existing cloud restore points stay preserved and are not overwritten. You may need creator setup if this installation is new.", color = MutedText, fontSize = 13.sp, lineHeight = 19.sp) },
+            confirmButton = {
+                TextButton(onClick = { confirmUseThisPhone = false; useThisPhoneInstead() }) {
+                    Text("USE THIS PHONE", color = RecRed, fontWeight = FontWeight.Black)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmUseThisPhone = false }) { Text("GO BACK", color = MutedText) } },
+        )
     }
 }

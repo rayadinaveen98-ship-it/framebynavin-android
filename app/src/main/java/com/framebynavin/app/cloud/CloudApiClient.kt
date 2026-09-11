@@ -140,11 +140,11 @@ class CloudApiClient {
     }
 
     suspend fun listRestorePoints(session: CloudSession): List<CloudRestorePoint> {
-        val select = "id,backup_kind,captured_at,snapshot_day,app_version,project_count,idea_count,weekly_slot_count,active_reminder_count"
         val raw = request(
-            "GET",
-            "/rest/v1/creator_backups?select=$select&order=captured_at.desc&limit=12",
+            "POST",
+            "/rest/v1/rpc/creator_restore_points",
             token = session.accessToken,
+            body = "{}",
         )
         val array = JSONArray(raw)
         return buildList {
@@ -168,14 +168,14 @@ class CloudApiClient {
     }
 
     suspend fun downloadBackup(session: CloudSession, id: String): Pair<String, String> {
+        UUID.fromString(id)
         val raw = request(
-            "GET",
-            "/rest/v1/creator_backups?select=payload,payload_sha256&id=eq.$id&limit=1",
+            "POST",
+            "/rest/v1/rpc/creator_download_backup",
             token = session.accessToken,
+            body = JSONObject().put("p_backup_id", id).toString(),
         )
-        val array = JSONArray(raw)
-        if (array.length() == 0) throw IllegalStateException("Cloud backup no longer exists")
-        val o = array.getJSONObject(0)
+        val o = JSONObject(raw)
         return o.getString("payload") to o.getString("payload_sha256")
     }
 

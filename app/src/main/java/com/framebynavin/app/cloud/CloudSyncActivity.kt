@@ -64,13 +64,27 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
     var confirmResume by remember { mutableStateOf(false) }
     var confirmAbandonDeletion by remember { mutableStateOf(false) }
     var confirmKeepLocal by remember { mutableStateOf(false) }
+    var restorePointsLoading by remember { mutableStateOf(state.session != null) }
+    var restorePointsError by remember { mutableStateOf<String?>(null) }
 
     fun reloadPoints() {
         state = manager.localState()
-        if (state.session != null) {
-            scope.launch {
-                manager.restorePoints().onSuccess { state = manager.localState().copy(restorePoints = it) }
+        if (state.session == null) {
+            restorePointsLoading = false
+            restorePointsError = null
+            return
+        }
+        restorePointsLoading = true
+        restorePointsError = null
+        scope.launch {
+            val result = manager.restorePoints()
+            result.onSuccess {
+                state = manager.localState().copy(restorePoints = it)
+                restorePointsError = null
+            }.onFailure { error ->
+                restorePointsError = error.message ?: "Couldn't load restore points. Your cloud data was not changed."
             }
+            restorePointsLoading = false
         }
     }
 
@@ -312,6 +326,10 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(13.dp),
                     ) { Text(if (busy) "WORKING…" else "BACK UP NOW", fontSize = 12.sp, fontWeight = FontWeight.Black) }
+                    if (state.settings.reconciliationRequired) {
+                        Spacer(Modifier.height(9.dp))
+                        Text("Backup is locked until you restore a cloud copy or explicitly keep this phone's data. This prevents an empty reinstall from overwriting your recovery path.", color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    }
                     if (state.settings.lastError.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
                         Text(state.settings.lastError, color = MutedGold, fontSize = 13.sp, lineHeight = 19.sp)
@@ -321,12 +339,40 @@ private fun CloudSyncScreen(onClose: () -> Unit) {
                 Spacer(Modifier.height(22.dp))
                 Text("RESTORE POINTS", color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.height(8.dp))
-                if (state.restorePoints.isEmpty()) {
-                    CloudCard { Text("No restore points are available. Create a backup when you’re ready.", color = MutedText, fontSize = 13.sp) }
-                } else {
-                    state.restorePoints.forEachIndexed { index, point ->
-                        CloudRestoreRow(point = point, onClick = { if (!state.settings.deletionPending) restoreTarget = point })
-                        if (index != state.restorePoints.lastIndex) Spacer(Modifier.height(7.dp))
+                when {
+                    restorePointsLoading -> CloudCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MutedGold)
+                            Spacer(Modifier.width(10.dp))
+                            Text("Loading restore points…", color = MutedText, fontSize = 13.sp)
+                        }
+                    }
+                    restorePointsError != null -> CloudCard {
+                        Text("RESTORE HISTORY COULDN'T LOAD", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(7.dp))
+                        Text(restorePointsError.orEmpty(), color = ProjectorIvory, fontSize = 13.sp, lineHeight = 19.sp)
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedButton(onClick = ::reloadPoints, enabled = !busy) { Text("RETRY") }
+                    }
+                    state.restorePoints.isEmpty() -> {
+                        CloudCard { Text("No restore points exist for this account yet.", color = MutedText, fontSize = 13.sp) }
+                    }
+                    else -> {
+                        val recommended = CloudRecoveryPolicy.recommended(state.restorePoints)
+                        recommended?.let {
+                            CloudCard {
+                                Text("RECOMMENDED RECOVERY", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Spacer(Modifier.height(5.dp))
+                                Text("${it.projectCount} projects · ${it.ideaCount} ideas · ${it.snapshotDay}", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(7.dp))
+                                Text("Newest restore point that contains creator work.", color = MutedText, fontSize = 11.sp)
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        state.restorePoints.forEachIndexed { index, point ->
+                            CloudRestoreRow(point = point, onClick = { if (!state.settings.deletionPending) restoreTarget = point })
+                            if (index != state.restorePoints.lastIndex) Spacer(Modifier.height(7.dp))
+                        }
                     }
                 }
 

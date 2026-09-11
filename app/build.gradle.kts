@@ -21,8 +21,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 86
-        versionName = "2.0.0-alpha1.2a-account-cloud"
+        versionCode = 87
+        versionName = "2.0.0-alpha1.2a.1-recovery"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
