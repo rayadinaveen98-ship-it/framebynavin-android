@@ -19,7 +19,6 @@ import com.framebynavin.app.data.CreatorDataGate
 import kotlinx.coroutines.withContext
 import androidx.lifecycle.lifecycleScope
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.framebynavin.app.cloud.CloudSyncScheduler
 import com.framebynavin.app.reminders.CreatorAutoPlanWorker
 import com.framebynavin.app.reminders.CreatorContextNudgeWorker
 import com.framebynavin.app.reminders.CreatorRoutineWorker
@@ -80,8 +79,6 @@ class MainActivity : ComponentActivity() {
                 CreatorContextNudgeWorker.ensurePeriodic(applicationContext)
                 CreatorAutoPlanWorker.ensurePeriodic(applicationContext)
                 CreatorRoutineWorker.ensurePeriodic(applicationContext)
-                CloudSyncScheduler.ensurePeriodic(applicationContext)
-                CloudSyncScheduler.enqueueNow(applicationContext)
                 ReminderRecoveryEngine.reconcile(applicationContext)
             }
             withContext(Dispatchers.Main) {

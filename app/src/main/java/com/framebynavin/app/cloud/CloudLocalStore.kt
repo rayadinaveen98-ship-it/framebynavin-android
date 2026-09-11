@@ -7,19 +7,18 @@ import android.util.Base64
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
-import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class CloudLocalStore(context: Context) : CloudDeletionJournal {
-    private val app = context.applicationContext
-    private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+/** Local cache for authentication/Creator ID only. Creator projects are not stored here. */
+class CloudLocalStore(context: Context) {
+    private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun loadSession(): CloudSession? = synchronized(accountLock) {
-        val encrypted = prefs.getString(KEY_SESSION, null) ?: return null
-        return runCatching {
+    fun loadSession(): CloudSession? = synchronized(lock) {
+        val encrypted = prefs.getString(KEY_SESSION, null) ?: return@synchronized null
+        runCatching {
             val o = JSONObject(decrypt(encrypted))
             CloudSession(
                 userId = o.getString("userId"),
@@ -36,7 +35,7 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
         }
     }
 
-    fun saveSession(session: CloudSession) = synchronized(accountLock) {
+    fun saveSession(session: CloudSession) = synchronized(lock) {
         val raw = JSONObject()
             .put("userId", session.userId)
             .put("email", session.email)
@@ -46,11 +45,11 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
             .put("refreshToken", session.refreshToken)
             .put("expiresAtMillis", session.expiresAtMillis)
             .toString()
-        check(prefs.edit().putString(KEY_SESSION, encrypt(raw)).commit()) { "Could not save cloud session" }
+        check(prefs.edit().putString(KEY_SESSION, encrypt(raw)).commit()) { "Could not save account session" }
     }
 
-    fun clearSession() = synchronized(accountLock) {
-        check(prefs.edit().remove(KEY_SESSION).commit()) { "Could not clear cloud session" }
+    fun clearSession() = synchronized(lock) {
+        check(prefs.edit().remove(KEY_SESSION).commit()) { "Could not clear account session" }
     }
 
     fun loadCreatorProfile(): CloudCreatorProfile? {
@@ -82,141 +81,20 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
 
     fun clearCreatorProfile() = prefs.edit().remove(KEY_CREATOR_PROFILE).apply()
 
-    fun settings(): CloudSyncSettings = CloudSyncSettings(
-        enabled = false, // v1.8.1 is explicit, append-only backup; no background uploads.
+    fun generation(): Long = synchronized(lock) { prefs.getLong(KEY_GENERATION, 0L) }
 
-        wifiOnly = prefs.getBoolean(KEY_WIFI_ONLY, false),
-        lastSyncAtMillis = prefs.getLong(KEY_LAST_SYNC, 0L),
-        lastError = prefs.getString(KEY_LAST_ERROR, "").orEmpty(),
-        deviceKey = deviceKey(),
-        reconciliationRequired = needsReconciliation(),
-        deletionPending = loadSession()?.userId?.let(::deletionPendingFor) ?: false,
-        lifecyclePhase = loadSession()?.userId?.let(::lifecycleState)?.phase ?: "unknown",
-        lifecycleGeneration = loadSession()?.userId?.let(::lifecycleState)?.generation,
-    )
-
-    fun setEnabled(value: Boolean) = prefs.edit().putBoolean(KEY_ENABLED, false).apply()
-
-    /** A durable generation invalidates queued operations after sign-out/delete/account switch. */
-    fun generation(): Long = synchronized(accountLock) { prefs.getLong(KEY_GENERATION, 0L) }
-
-    /** Durable account epoch shared by all manager instances. */
-    fun invalidateOperations(): Long = synchronized(accountLock) {
+    fun invalidateOperations(): Long = synchronized(lock) {
         val next = prefs.getLong(KEY_GENERATION, 0L) + 1L
-        check(prefs.edit().putLong(KEY_GENERATION, next).putBoolean(KEY_ENABLED, false).commit()) {
-            "Could not invalidate pending cloud operations"
-        }
+        check(prefs.edit().putLong(KEY_GENERATION, next).commit()) { "Could not invalidate account operation" }
         next
     }
 
-    /** A late refresh cannot recreate a signed-out session or cross an account switch. */
-    fun saveRefreshedSession(session: CloudSession, expectedGeneration: Long, expectedUserId: String): Boolean =
-        synchronized(accountLock) {
-            if (prefs.getLong(KEY_GENERATION, 0L) != expectedGeneration) return@synchronized false
-            val current = loadSession() ?: return@synchronized false
-            if (current.userId != expectedUserId || session.userId != expectedUserId) return@synchronized false
-            saveSession(session)
-            true
-        }
-    /** One account-scoped server-state cache. Never treat a cache as authorization. */
-    fun lifecycleState(userId: String): CloudLifecycleState? = synchronized(accountLock) {
-        val raw = prefs.getString(KEY_LIFECYCLE, null) ?: return@synchronized null
-        runCatching {
-            val o = JSONObject(raw)
-            if (o.getString("userId") != userId) return@synchronized null
-            CloudLifecycleState(o.getString("phase"), o.getLong("generation"))
-        }.getOrNull()
-    }
-
-    fun saveLifecycle(userId: String, state: CloudLifecycleState) = synchronized(accountLock) {
-        require(UUID.fromString(userId).toString() == userId)
-        val previous = lifecycleState(userId)
-        val raw = JSONObject().put("userId", userId).put("phase", state.phase)
-            .put("generation", state.generation).toString()
-        val editor = prefs.edit().putString(KEY_LIFECYCLE, raw)
-            .putBoolean(KEY_ENABLED, false)
-        if (previous != state) editor.remove(KEY_RECONCILED_USER)
-        check(editor.commit()) { "Could not save cloud lifecycle state" }
-    }
-
-    fun clearLifecycle() = synchronized(accountLock) {
-        check(
-            prefs.edit()
-                .remove(KEY_LIFECYCLE)
-                .remove(KEY_RECONCILED_USER)
-                .putBoolean(KEY_ENABLED, false)
-                .commit()
-        ) { "Could not clear cloud lifecycle state" }
-    }
-
-    /** Legacy RC7 journal strings have no safe replay generation. */
-    override fun pendingUserId(): String? = synchronized(accountLock) {
-        val raw = prefs.getString(KEY_PENDING_DELETION, null) ?: return@synchronized null
-        val userId = runCatching { if (raw.startsWith("{")) JSONObject(raw).getString("userId") else raw }
-            .getOrElse { throw CloudDeletionPending() }
-        check(runCatching { UUID.fromString(userId).toString() == userId }.getOrDefault(false)) {
-            "Cloud deletion record is invalid. Cloud writes are blocked until it is reviewed."
-        }
-        userId
-    }
-
-    override fun pendingGeneration(): Long? = synchronized(accountLock) {
-        val raw = prefs.getString(KEY_PENDING_DELETION, null) ?: return@synchronized null
-        if (!raw.startsWith("{")) return@synchronized null
-        runCatching {
-            val generation = JSONObject(raw).getLong("expectedGeneration")
-            require(generation >= 0)
-            generation
-        }.getOrElse { throw CloudDeletionPending() }
-    }
-
-    fun deletionPendingFor(userId: String): Boolean = pendingUserId() == userId
-
-    fun requireWritable(userId: String) {
-        if (deletionPendingFor(userId)) throw CloudDeletionPending()
-        if (lifecycleState(userId)?.active != true) throw CloudLifecycleChanged()
-    }
-
-    override fun begin(userId: String, expectedGeneration: Long) = synchronized(accountLock) {
-        require(UUID.fromString(userId).toString() == userId && expectedGeneration >= 0)
-        val pending = pendingUserId()
-        if (pending != null) throw CloudDeletionPending()
-        val raw = JSONObject().put("userId", userId).put("expectedGeneration", expectedGeneration).toString()
-        check(prefs.edit().putString(KEY_PENDING_DELETION, raw)
-            .remove(KEY_RECONCILED_USER).putBoolean(KEY_ENABLED, false).commit()) {
-            "Could not save cloud deletion retry record"
-        }
-    }
-
-    override fun clear(userId: String) = synchronized(accountLock) {
-        check(pendingUserId() == userId) { "Cloud deletion account mismatch" }
-        check(prefs.edit().remove(KEY_PENDING_DELETION).remove(KEY_RECONCILED_USER)
-            .putLong(KEY_LAST_SYNC, 0L).putString(KEY_LAST_ERROR, "").commit()) {
-            "Could not clear cloud deletion retry record"
-        }
-    }
-
-    /** Stopping a retry never changes the server lifecycle or authorizes uploads. */
-    fun abandonDeletion(userId: String) = synchronized(accountLock) { clear(userId) }
-
-    fun reconciledUser(): String = prefs.getString(KEY_RECONCILED_USER, "").orEmpty()
-    fun approveUser(userId: String) = prefs.edit().putString(KEY_RECONCILED_USER, userId).commit()
-    fun clearApproval() = prefs.edit().remove(KEY_RECONCILED_USER).commit()
-    fun needsReconciliation(): Boolean {
-        val session = loadSession() ?: return false
-        return deletionPendingFor(session.userId) || lifecycleState(session.userId)?.active != true || reconciledUser() != session.userId
-    }
-
-    fun setWifiOnly(value: Boolean) = prefs.edit().putBoolean(KEY_WIFI_ONLY, value).apply()
-    fun markSyncSuccess(now: Long) = prefs.edit().putLong(KEY_LAST_SYNC, now).putString(KEY_LAST_ERROR, "").apply()
-    fun markError(message: String) = prefs.edit().putString(KEY_LAST_ERROR, message.take(300)).apply()
-
-    fun deviceKey(): String {
-        val existing = prefs.getString(KEY_DEVICE, null)
-        if (!existing.isNullOrBlank()) return existing
-        val value = "device-${UUID.randomUUID()}"
-        prefs.edit().putString(KEY_DEVICE, value).apply()
-        return value
+    fun saveRefreshedSession(session: CloudSession, expectedGeneration: Long, expectedUserId: String): Boolean = synchronized(lock) {
+        if (generation() != expectedGeneration) return@synchronized false
+        val current = loadSession() ?: return@synchronized false
+        if (current.userId != expectedUserId || session.userId != expectedUserId) return@synchronized false
+        saveSession(session)
+        true
     }
 
     private fun encrypt(text: String): String {
@@ -244,10 +122,7 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
         (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
         generator.init(
-            KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
-                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-            )
+            KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setRandomizedEncryptionRequired(true)
@@ -257,19 +132,11 @@ class CloudLocalStore(context: Context) : CloudDeletionJournal {
     }
 
     companion object {
-        private val accountLock = Any()
+        private val lock = Any()
         private const val PREFS = "creator_cloud_v13"
         private const val KEY_SESSION = "session"
         private const val KEY_CREATOR_PROFILE = "creator_profile_v23"
-        private const val KEY_ENABLED = "enabled"
-        private const val KEY_WIFI_ONLY = "wifi_only"
-        private const val KEY_LAST_SYNC = "last_sync"
-        private const val KEY_LAST_ERROR = "last_error"
-        private const val KEY_DEVICE = "device_key"
-        private const val KEY_GENERATION = "backup_generation_v181"
-        private const val KEY_RECONCILED_USER = "backup_reconciled_user_v181"
-        private const val KEY_PENDING_DELETION = "pending_cloud_deletion_v183"
-        private const val KEY_LIFECYCLE = "cloud_lifecycle_v183"
+        private const val KEY_GENERATION = "account_generation_v20"
         private const val KEY_ALIAS = "framebynavin_cloud_session_v1"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val IV_BYTES = 12

@@ -61,6 +61,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.cloud.CloudSyncActivity
+import com.framebynavin.app.cloud.CloudSyncManager
+import com.framebynavin.app.cloud.DriveVaultLocalStore
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.VoicePersonaEngine
@@ -536,6 +538,17 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 settingsStore.setAccountOnboardingComplete(true)
                 settings = settingsStore.snapshot()
             },
+        )
+    } else if ((!settings.onboardingComplete || !settings.creatorProfile.isComplete) &&
+        CloudSyncManager(context.applicationContext).localState().session?.let { session ->
+            !DriveVaultLocalStore(context.applicationContext).recoveryReviewed(session.email)
+        } == true
+    ) {
+        val connected = CloudSyncManager(context.applicationContext).localState().session!!
+        V20DriveRecoveryGate(
+            session = connected,
+            onRecovered = { settings = settingsStore.snapshot() },
+            onStartNew = { settings = settingsStore.snapshot() },
         )
     } else if (!settings.onboardingComplete || !settings.creatorProfile.isComplete) {
         V18CreatorOnboarding(

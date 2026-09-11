@@ -141,7 +141,7 @@ internal fun V23ProfileAccountScreen(
             Spacer(Modifier.height(9.dp))
             V23ActionRow(
                 title = if (session == null) "Google account" else "Google account connected",
-                subtitle = if (session == null) "Sign in, claim a username and create manual backups" else session?.email.orEmpty(),
+                subtitle = if (session == null) "Sign in, claim a Creator ID and connect your private Drive vault" else session?.email.orEmpty(),
                 icon = Icons.Outlined.AccountCircle,
                 onClick = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
             )
@@ -155,7 +155,7 @@ internal fun V23ProfileAccountScreen(
             Spacer(Modifier.height(24.dp))
             V23SectionTitle("ACCOUNT & DATA", "FrameByNavin stays offline-first even when an account is connected.")
             Spacer(Modifier.height(9.dp))
-            V23ActionRow("Cloud Backup", "Manual restore points and safe recovery", Icons.Outlined.CloudSync) {
+            V23ActionRow("Google Drive Vault", "Private account-owned snapshots and safe recovery", Icons.Outlined.CloudSync) {
                 context.startActivity(Intent(context, CloudSyncActivity::class.java))
             }
 
