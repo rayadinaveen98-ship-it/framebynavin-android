@@ -22,8 +22,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 114
-        versionName = "2.0.0-alpha1.4d-creator-brain-recommendations"
+        versionCode = 115
+        versionName = "2.0.0-alpha1.4e-brain-explainability-controls"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
