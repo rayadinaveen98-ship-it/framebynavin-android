@@ -1,0 +1,125 @@
+name: v2.0 Alpha 1.2B Google Drive Vault
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.2b-google-drive-vault"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha12b-drive-vault
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Materialize Drive vault architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/v20_alpha12b_drive_vault.py
+          git diff --check
+
+      - name: Verify storage architecture invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 88' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.2b-drive-vault"' app/build.gradle.kts
+          grep -q 'Scopes.DRIVE_APPFOLDER' app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt
+          grep -q 'spaces=appDataFolder' app/src/main/java/com/framebynavin/app/cloud/DriveVaultApi.kt
+          grep -q '"appDataFolder"' app/src/main/java/com/framebynavin/app/cloud/DriveVaultApi.kt
+          grep -q 'DriveVaultPolicy.shouldBlockEmptySnapshot' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          grep -q 'V20DriveRecoveryGate' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'PTab.TODAY -> PTodayScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          ! grep -q 'CloudSyncScheduler' app/src/main/java/com/framebynavin/app/MainActivity.kt
+          test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudSyncWorker.kt
+          test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudBackupEnvelope.kt
+          test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudDeletionRecovery.kt
+          test ! -e app/src/main/java/com/framebynavin/app/cloud/CloudRecoveryPolicy.kt
+          for needle in creator_backups creator_devices creator_cloud_status save_creator_backup creator_restore_points creator_download_backup creator_delete_owned_data creator_resume_owned_data; do
+            ! grep -R "$needle" app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt
+          done
+
+      - name: Pin exact clean app source before Gradle
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A app
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git -c commit.gpgSign=false commit -m "feat(v2.0): move creator backups to Google Drive vault"
+          fi
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.2b-drive-vault.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.2b-drive-vault.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.2b-drive-vault"
+            echo "versionCode=88"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "localCreatorDataAuthority=true"
+            echo "driveAppDataVault=true"
+            echo "driveScope=drive.appdata"
+            echo "supabaseCreatorBackupAuthority=false"
+            echo "supabaseCreatorIdOnly=true"
+            echo "backgroundCloudBackupWorkerRemoved=true"
+            echo "freshInstallDriveRecoveryGate=true"
+            echo "emptySnapshotProtection=true"
+            echo "homeRoutePreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2b-drive-vault-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.2b-drive-vault.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2b-drive-vault-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push exact validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:staging/v2.0-alpha1.2b-drive-vault-validated
