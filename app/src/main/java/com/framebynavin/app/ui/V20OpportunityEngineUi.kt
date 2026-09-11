@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -42,16 +43,16 @@ internal fun V20OpportunityEngineCard(
     val snapshot = remember(tasks, ideas, analytics) {
         buildOpportunitySnapshot(context, tasks, ideas, analytics)
     }
-    V20OpportunitySurface(snapshot) { primary ->
-        when (primary.targetKind) {
+    V20OpportunitySurface(snapshot) { opportunity ->
+        when (opportunity.targetKind) {
             CreatorOpportunityTargetKind.INSIGHTS -> onOpenInsights()
             CreatorOpportunityTargetKind.IDEA_VAULT -> onOpenIdeaVault()
-            CreatorOpportunityTargetKind.PROJECT -> onOpenProject(primary.targetId)
+            CreatorOpportunityTargetKind.PROJECT -> onOpenProject(opportunity.targetId)
         }
     }
 }
 
-/** Read-only Opportunity Engine proof surface inside Insights until the Today route is wired. */
+/** Read-only Opportunity Engine surface inside Insights. Today owns the actionable version. */
 @Composable
 internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapshot) {
     val context = LocalContext.current.applicationContext
@@ -118,7 +119,7 @@ private fun V20OpportunitySurface(
     snapshot: CreatorOpportunitySnapshot,
     onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
-    val primary = snapshot.primary ?: return
+    val primary = snapshot.now.firstOrNull() ?: snapshot.primary ?: return
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -137,22 +138,25 @@ private fun V20OpportunitySurface(
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text("OPPORTUNITY ENGINE", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                    Text("What should you do next?", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                    Text("NOW · NEXT · LATER", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
                 }
-                Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurfaceRaised) {
-                    Text(
-                        "${primary.confidence}%",
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                        color = if (primary.confidence >= 80) SuccessGreen else MutedGold,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black,
-                    )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("DECISION", color = MutedText, fontSize = 6.5.sp, fontWeight = FontWeight.Black)
+                    Text("${primary.scorecard.weightedScore}", color = MutedGold, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 }
             }
 
             Spacer(Modifier.height(14.dp))
-            Text(primary.kicker, color = RecRed, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
-            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = RoundedCornerShape(100.dp), color = RecRed.copy(alpha = .16f)) {
+                    Text("NOW", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = RecRed, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                }
+                Spacer(Modifier.width(7.dp))
+                Text(primary.kicker, color = MutedText, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Spacer(Modifier.weight(1f))
+                Text("${primary.confidence}% confidence", color = if (primary.confidence >= 80) SuccessGreen else MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(5.dp))
             Text(primary.title, color = ProjectorIvory, fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(6.dp))
             Text(primary.body, color = MutedText, fontSize = 9.4.sp, lineHeight = 14.sp)
@@ -176,6 +180,11 @@ private fun V20OpportunitySurface(
                 Text("• ${evidence.label}", color = MutedText, fontSize = 7.8.sp, lineHeight = 11.sp)
             }
 
+            Spacer(Modifier.height(10.dp))
+            Text("WHY THIS RANKED", color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+            Spacer(Modifier.height(5.dp))
+            V20DecisionScorecard(primary.scorecard)
+
             if (onAction != null) {
                 Spacer(Modifier.height(14.dp))
                 Button(
@@ -190,35 +199,94 @@ private fun V20OpportunitySurface(
                 }
             }
 
-            if (snapshot.alternatives.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
-                Text("OTHER SIGNALS", color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                Spacer(Modifier.height(5.dp))
-                snapshot.alternatives.forEach { alternative ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(5.dp).background(MutedGold, RoundedCornerShape(100.dp)))
-                        Spacer(Modifier.width(7.dp))
-                        Text(
-                            alternative.title,
-                            modifier = Modifier.weight(1f),
-                            color = ProjectorIvory.copy(alpha = .82f),
-                            fontSize = 8.4.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text("${alternative.confidence}%", color = MutedText, fontSize = 7.2.sp)
-                    }
-                }
+            val additionalNow = snapshot.now.drop(1)
+            if (additionalNow.isNotEmpty()) {
+                Spacer(Modifier.height(15.dp))
+                V20HorizonList("ALSO NOW", additionalNow, RecRed, onAction)
+            }
+            if (snapshot.next.isNotEmpty()) {
+                Spacer(Modifier.height(15.dp))
+                V20HorizonList("NEXT", snapshot.next, MutedGold, onAction)
+            }
+            if (snapshot.later.isNotEmpty()) {
+                Spacer(Modifier.height(15.dp))
+                V20HorizonList("LATER", snapshot.later, MutedText, onAction)
             }
 
-            Spacer(Modifier.height(9.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
-                if (snapshot.aiEvidenceUsed) "Local + YouTube evidence lead the ranking. A saved Gemini autopsy only strengthens an already-grounded signal."
-                else "Built from your creator state and available platform evidence. Gemini is optional and not required.",
+                if (snapshot.aiEvidenceUsed) "Ranking is led by your data + YouTube evidence. Saved Gemini analysis can strengthen evidence, but never creates an opportunity by itself."
+                else "Ranking uses urgency, momentum, readiness, evidence strength and strategic value. Gemini remains optional.",
                 color = MutedText.copy(alpha = .72f),
                 fontSize = 6.9.sp,
                 lineHeight = 10.sp,
             )
+        }
+    }
+}
+
+@Composable
+private fun V20DecisionScorecard(scorecard: CreatorOpportunityScorecard) {
+    val dimensions = listOf(
+        "URGENCY" to scorecard.urgency,
+        "MOMENTUM" to scorecard.momentum,
+        "READY" to scorecard.readiness,
+        "EVIDENCE" to scorecard.evidenceStrength,
+        "VALUE" to scorecard.strategicValue,
+    )
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        dimensions.forEach { (label, value) ->
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                color = CinemaSurfaceRaised,
+            ) {
+                Column(Modifier.padding(horizontal = 5.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(value.toString(), color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text(label, color = MutedText, fontSize = 5.5.sp, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun V20HorizonList(
+    label: String,
+    opportunities: List<CreatorOpportunity>,
+    accent: Color,
+    onAction: ((CreatorOpportunity) -> Unit)?,
+) {
+    Text(label, color = accent, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+    Spacer(Modifier.height(5.dp))
+    opportunities.take(2).forEach { opportunity ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = onAction != null) { onAction?.invoke(opportunity) }
+                .padding(vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(5.dp).background(accent, RoundedCornerShape(100.dp)))
+            Spacer(Modifier.width(7.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    opportunity.title,
+                    color = ProjectorIvory.copy(alpha = .88f),
+                    fontSize = 8.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "Decision ${opportunity.scorecard.weightedScore} · ${opportunity.evidence.size} evidence",
+                    color = MutedText,
+                    fontSize = 6.7.sp,
+                )
+            }
+            if (onAction != null) {
+                Icon(Icons.Outlined.ArrowForward, null, tint = accent, modifier = Modifier.size(14.dp))
+            }
         }
     }
 }
