@@ -13,9 +13,11 @@ class CreatorPriorityEngineTest {
         val futureWorking = task("future", dueAt = now + 5 * 24 * 60 * 60_000L, status = TaskStatus.WORKING)
 
         val ranked = CreatorPriorityEngine.rankActive(listOf(futureWorking, overdue), now)
+        val recommendation = CreatorPriorityEngine.recommendation(overdue, now)
 
         assertEquals("overdue", ranked.first().id)
-        assertEquals("OVERDUE", CreatorPriorityEngine.recommendation(overdue, now).urgencyLabel)
+        assertEquals("OVERDUE", recommendation.urgencyLabel)
+        assertTrue(recommendation.signals.contains("Deadline is overdue"))
     }
 
     @Test
@@ -27,6 +29,41 @@ class CreatorPriorityEngineTest {
 
         assertEquals("critical", ranked.first().id)
         assertTrue(CreatorPriorityEngine.score(critical, now) > CreatorPriorityEngine.score(normal, now))
+        assertTrue(CreatorPriorityEngine.recommendation(critical, now).signals.contains("Critical priority"))
+    }
+
+    @Test
+    fun currentStageProducesTransparentRoughEffort() {
+        val script = task("script", dueAt = now + 3 * 24 * 60 * 60_000L).copy(workflowStageIndex = 2)
+        val upload = task("upload", dueAt = now + 3 * 24 * 60 * 60_000L).copy(workflowStageIndex = 6)
+
+        assertEquals(50, CreatorPriorityEngine.estimateStageMinutes(script))
+        assertEquals(15, CreatorPriorityEngine.estimateStageMinutes(upload))
+        assertEquals(50, CreatorPriorityEngine.recommendation(script, now).estimatedMinutes)
+    }
+
+    @Test
+    fun recommendationSurfacesUnfinishedWorkspaceEvidenceWithoutInventingBlockers() {
+        val withChecks = task("checks", dueAt = now + 2 * 24 * 60 * 60_000L).copy(
+            workspace = CreatorContentWorkspace(
+                checklist = listOf(
+                    CreatorChecklistItem(title = "Verify quote"),
+                    CreatorChecklistItem(title = "Check export", status = CreatorChecklistStatus.DONE),
+                ),
+                deliverables = listOf(
+                    CreatorDeliverable(
+                        platform = "YouTube",
+                        format = "Long-form",
+                        publishGate = listOf(CreatorPublishGateItem(title = "Thumbnail ready")),
+                    )
+                ),
+            )
+        )
+
+        val recommendation = CreatorPriorityEngine.recommendation(withChecks, now)
+
+        assertTrue(recommendation.signals.any { it.contains("unfinished check") })
+        assertTrue(recommendation.signals.none { it.contains("blocked", ignoreCase = true) })
     }
 
     @Test
