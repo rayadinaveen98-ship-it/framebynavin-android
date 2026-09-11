@@ -1,0 +1,117 @@
+name: v2.0 Alpha 1.2L Workflow Intelligence
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-alpha1.2l-workflow-intelligence"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-alpha12l-workflow-intelligence
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Materialize v100 integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/v20_alpha12l_workflow_intelligence.py
+          git diff --check
+          git status --short
+          git config user.name "FrameByNavin CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add app
+          git commit -m "feat(v2.0): build Workflow Intelligence measurement foundation"
+          git rev-parse HEAD | tee /tmp/validated_commit
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Verify v100 invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 100' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-alpha1.2l-workflow-intelligence"' app/build.gradle.kts
+          grep -q 'observedSpan' app/src/main/java/com/framebynavin/app/data/CreatorWorkflowIntelligence.kt
+          grep -q 'completionSamples >= 2' app/src/main/java/com/framebynavin/app/data/CreatorWorkflowIntelligence.kt
+          grep -q 'responseCount7Days' app/src/main/java/com/framebynavin/app/data/CreatorWorkflowIntelligence.kt
+          grep -q 'fun loadAll()' app/src/main/java/com/framebynavin/app/data/ProjectPulseHistoryStore.kt
+          grep -q 'fun exportJson()' app/src/main/java/com/framebynavin/app/data/ProjectPulseHistoryStore.kt
+          grep -q 'SCHEMA_VERSION = 7' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -q 'projectPulseHistory' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -q 'V20WorkflowIntelligenceCard(tasks)' app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt
+          grep -q 'Observed span is not active work time' app/src/main/java/com/framebynavin/app/ui/V20WorkflowIntelligenceUi.kt
+          grep -q 'PTab.TODAY -> PTodayScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'channel_reach_basic_a1' app/src/main/java/com/framebynavin/app/youtube/YouTubeReachReporting.kt
+          grep -q 'DriveVaultManager' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+          git diff --check
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-alpha1.2l-workflow-intelligence.apk
+          sha256sum verification/FrameByNavin-v2.0.0-alpha1.2l-workflow-intelligence.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-alpha1.2l-workflow-intelligence"
+            echo "versionCode=100"
+            echo "commit=$(cat /tmp/validated_commit)"
+            echo "workflowIntelligence=deterministic-local-only"
+            echo "projectPulseResponseAggregation=true"
+            echo "observedStageSpanNotActiveWorkTime=true"
+            echo "historicalBottleneckMinSamples=2"
+            echo "projectPulseHistoryPortableBackup=true"
+            echo "backupSchema=7"
+            echo "reachReportingPreserved=true"
+            echo "acceptedCinematicHomePreserved=true"
+            echo "driveVaultFoundationPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2l-workflow-intelligence-apk
+          path: verification/FrameByNavin-v2.0.0-alpha1.2l-workflow-intelligence.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-alpha1.2l-workflow-intelligence-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push --force-with-lease origin HEAD:staging/v2.0-alpha1.2l-workflow-intelligence-validated
