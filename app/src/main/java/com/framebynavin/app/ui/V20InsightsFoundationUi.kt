@@ -23,6 +23,7 @@ import com.framebynavin.app.youtube.YouTubeAnalyticsSnapshot
 import com.framebynavin.app.youtube.YouTubeDatasetState
 import com.framebynavin.app.youtube.YouTubeFoundationDataset
 import com.framebynavin.app.youtube.YouTubeInsightsFoundationStore
+import com.framebynavin.app.youtube.YouTubeReachStore
 
 /**
  * Small, additive proof surface for Insights Foundation 2.0.
@@ -40,7 +41,11 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
     val device = foundation.health(YouTubeFoundationDataset.DEVICE)?.state
     val country = foundation.health(YouTubeFoundationDataset.COUNTRY)?.state
     val retention = foundation.health(YouTubeFoundationDataset.RETENTION)?.state
-    val reach = foundation.health(YouTubeFoundationDataset.REACH)?.state
+    val reachHealth = foundation.health(YouTubeFoundationDataset.REACH)
+    val reach = reachHealth?.state
+    val reachSummary = remember(snapshot.channel.channelId, snapshot.startDate, snapshot.endDate, snapshot.fetchedAtMillis) {
+        YouTubeReachStore(context).summary(snapshot.startDate, snapshot.endDate)
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -66,6 +71,7 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
                     statusText("Devices", device),
                     statusText("Geography", country),
                     statusText("Retention", retention),
+                    statusText("Reach", reach),
                 ).joinToString("  ·  "),
                 color = MutedText,
                 fontSize = 8.6.sp,
@@ -87,10 +93,31 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
                 Text(foundation.metricContract.note, color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
             }
 
-            if (reach == YouTubeDatasetState.NOT_CONFIGURED) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Reach/CTR is intentionally not guessed. It will appear after the YouTube Reporting API reach importer is connected.",
+            Spacer(Modifier.height(8.dp))
+            when {
+                reach == YouTubeDatasetState.READY && reachSummary != null -> {
+                    Text("THUMBNAIL REACH", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text(
+                        "${compactFoundation(reachSummary.impressions)} impressions · ${String.format(java.util.Locale.US, "%.1f", reachSummary.ctrPercent)}% CTR",
+                        color = ProjectorIvory,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                reach == YouTubeDatasetState.PENDING -> Text(
+                    reachHealth?.note ?: "Reach reporting is waiting for YouTube's first daily report.",
+                    color = MutedText,
+                    fontSize = 8.1.sp,
+                    lineHeight = 12.sp,
+                )
+                reach == YouTubeDatasetState.UNAVAILABLE -> Text(
+                    reachHealth?.note ?: "Reach reporting is unavailable right now. Normal Insights still works.",
+                    color = MutedText,
+                    fontSize = 8.1.sp,
+                    lineHeight = 12.sp,
+                )
+                reach == YouTubeDatasetState.NOT_CONFIGURED -> Text(
+                    "Reach/CTR is intentionally not guessed. It will appear only from YouTube's official reach reports.",
                     color = MutedText,
                     fontSize = 8.1.sp,
                     lineHeight = 12.sp,
@@ -103,6 +130,7 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
 private fun statusText(label: String, state: YouTubeDatasetState?): String = when (state) {
     YouTubeDatasetState.READY -> "$label ✓"
     YouTubeDatasetState.EMPTY -> "$label —"
+    YouTubeDatasetState.PENDING -> "$label waiting"
     YouTubeDatasetState.UNAVAILABLE -> "$label unavailable"
     YouTubeDatasetState.NOT_CONFIGURED -> "$label pending"
     null -> "$label waiting"

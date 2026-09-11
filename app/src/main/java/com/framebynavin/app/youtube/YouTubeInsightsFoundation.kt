@@ -21,7 +21,7 @@ enum class YouTubeFoundationDataset {
     REACH,
 }
 
-enum class YouTubeDatasetState { READY, EMPTY, UNAVAILABLE, NOT_CONFIGURED }
+enum class YouTubeDatasetState { READY, EMPTY, PENDING, UNAVAILABLE, NOT_CONFIGURED }
 
 data class YouTubeDatasetHealth(
     val dataset: YouTubeFoundationDataset,

@@ -57,6 +57,8 @@ internal fun V11InsightsScreen(
     val foundationApi = remember { YouTubeInsightsFoundationClient() }
     val foundationStore = remember { YouTubeInsightsFoundationStore(context.applicationContext) }
     val checkpointStore = remember { YouTubePublishCheckpointStore(context.applicationContext) }
+    val reachStore = remember { YouTubeReachStore(context.applicationContext) }
+    val reachApi = remember { YouTubeReachReportingClient(reachStore) }
     val authClient = remember(activity) { activity?.let { Identity.getAuthorizationClient(it) } }
     val scope = rememberCoroutineScope()
 
@@ -126,7 +128,15 @@ internal fun V11InsightsScreen(
                     base to foundationApi.sync(token, base)
                 }
                 if (store.save(fresh, request) && isActive(request)) {
-                    foundationStore.save(foundation)
+                    val reach = withContext(Dispatchers.IO) {
+                        reachApi.sync(token, fresh.channel.channelId)
+                    }
+                    val withReach = foundation.copy(
+                        health = foundation.health
+                            .filterNot { it.dataset == YouTubeFoundationDataset.REACH } +
+                            YouTubeDatasetHealth(YouTubeFoundationDataset.REACH, reach.state, reach.note)
+                    )
+                    foundationStore.save(withReach)
                     checkpointStore.captureFrom(fresh, store.links())
                     snapshot = fresh
                     links = store.links()
@@ -212,6 +222,7 @@ internal fun V11InsightsScreen(
         // Local invalidation must not wait for the network or Google Play services.
         store.disconnect()
         foundationStore.clear()
+        reachStore.clear()
         activeRequest = null
         pendingResolution = null
         syncing = false
