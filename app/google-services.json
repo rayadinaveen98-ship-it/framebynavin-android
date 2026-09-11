@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "792920886199",
+    "project_id": "project-34cdfc3d-b4a1-4dd8-889",
+    "storage_bucket": "project-34cdfc3d-b4a1-4dd8-889.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:792920886199:android:8cca5939976ebd7ac67632",
+        "android_client_info": {
+          "package_name": "com.framebynavin.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "792920886199-l5ukj5btvhf00fmc7lohe440lkbonjfl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBW5x8gB43ry8Qd8_ya6Ry6UeubVQTKBs8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "792920886199-l5ukj5btvhf00fmc7lohe440lkbonjfl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
