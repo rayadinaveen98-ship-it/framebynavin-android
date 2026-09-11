@@ -207,9 +207,9 @@ ui_path.write_text(ui)
 
 build_path = Path("app/build.gradle.kts")
 build = build_path.read_text()
-build = build.replace("versionCode = 109", "versionCode = 111", 1)
+build = build.replace("versionCode = 110", "versionCode = 111", 1)
 build = build.replace(
-    'versionName = "2.0.0-alpha1.3c-recommendation-outcome-learning"',
+    'versionName = "2.0.0-alpha1.3d-creator-playbook"',
     'versionName = "2.0.0-alpha1.4a-creator-brain-foundation"',
     1,
 )
