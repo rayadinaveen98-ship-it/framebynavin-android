@@ -166,6 +166,7 @@ class TaskStore(private val context: Context) {
                     .put("publicationIsLegacy", task.publicationIsLegacy)
                     .put("acknowledgedCheckpointStageId", task.acknowledgedCheckpointStageId)
                     .put("acknowledgedCheckpointDueAtMillis", task.acknowledgedCheckpointDueAtMillis)
+                    .put("contentDna", encodeContentDna(task.contentDna))
                     .put("workspace", encodeWorkspace(portableWorkspace))
             )
         }
@@ -287,11 +288,45 @@ class TaskStore(private val context: Context) {
                         acknowledgedCheckpointDueAtMillis = item.optLong("acknowledgedCheckpointDueAtMillis", 0L),
                         publicationIsLegacy = item.optBoolean("publicationIsLegacy", false) ||
                             (!item.has("publishedAtMillis") && item.optString("status") == TaskStatus.DONE.name),
+                        contentDna = decodeContentDna(item.optJSONObject("contentDna")),
                         workspace = decodeWorkspace(id, item.optJSONObject("workspace")),
                     )
                 )
             }
         }
+    }
+
+    private fun encodeContentDna(dna: CreatorContentDna): JSONObject {
+        val normalized = dna.normalized()
+        val styles = JSONArray()
+        normalized.productionStyles.forEach(styles::put)
+        return JSONObject()
+            .put("creatorModeId", normalized.creatorModeId)
+            .put("archetypeId", normalized.archetypeId)
+            .put("productionStyles", styles)
+            .put("platform", normalized.platform)
+            .put("deliveryFormat", normalized.deliveryFormat)
+            .put("legacyContentType", normalized.legacyContentType)
+            .put("inferredFromLegacy", normalized.inferredFromLegacy)
+    }
+
+    private fun decodeContentDna(item: JSONObject?): CreatorContentDna {
+        if (item == null) return CreatorContentDna()
+        val styles = item.optJSONArray("productionStyles") ?: JSONArray()
+        val decodedStyles = buildSet {
+            for (i in 0 until styles.length()) {
+                styles.optString(i).trim().takeIf { it.isNotBlank() }?.let(::add)
+            }
+        }
+        return CreatorContentDna(
+            creatorModeId = item.optString("creatorModeId"),
+            archetypeId = item.optString("archetypeId"),
+            productionStyles = decodedStyles,
+            platform = item.optString("platform"),
+            deliveryFormat = item.optString("deliveryFormat"),
+            legacyContentType = item.optString("legacyContentType"),
+            inferredFromLegacy = item.optBoolean("inferredFromLegacy", false),
+        ).normalized()
     }
 
     private fun encodeWorkspace(workspace: CreatorContentWorkspace): JSONObject {

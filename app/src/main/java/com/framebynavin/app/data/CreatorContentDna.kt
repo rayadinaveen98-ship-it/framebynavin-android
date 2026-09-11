@@ -124,6 +124,30 @@ object CreatorContentDnaEngine {
         ).normalized()
     }
 
+    fun effective(task: CreatorTask, profile: CreatorProfile = CreatorProfile()): CreatorContentDna {
+        val legacy = resolve(task, profile)
+        val explicit = task.contentDna.normalized()
+        if (explicit.isEmpty) return legacy
+
+        val selectedPlatform = explicit.platform.ifBlank { legacy.platform }
+        val selectedFormat = when {
+            explicit.deliveryFormat.isNotBlank() -> explicit.deliveryFormat
+            legacy.deliveryFormat.isNotBlank() && CreatorPlatformRegistry.acceptsFormat(selectedPlatform, legacy.deliveryFormat) -> legacy.deliveryFormat
+            else -> selectedPlatform.takeIf { it.isNotBlank() }?.let(CreatorPlatformRegistry::defaultFormat).orEmpty()
+        }
+        val merged = CreatorContentDna(
+            creatorModeId = explicit.creatorModeId.ifBlank { legacy.creatorModeId },
+            archetypeId = explicit.archetypeId.ifBlank { legacy.archetypeId },
+            productionStyles = explicit.productionStyles.ifEmpty { legacy.productionStyles },
+            platform = selectedPlatform,
+            deliveryFormat = selectedFormat,
+            legacyContentType = legacy.legacyContentType,
+            inferredFromLegacy = explicit.creatorModeId.isBlank() || explicit.archetypeId.isBlank() ||
+                explicit.productionStyles.isEmpty() || explicit.platform.isBlank() || explicit.deliveryFormat.isBlank(),
+        )
+        return merged.normalized()
+    }
+
     fun forNewProject(
         profile: CreatorProfile,
         platform: String,

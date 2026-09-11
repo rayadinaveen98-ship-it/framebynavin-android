@@ -274,6 +274,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         title: String,
         platform: String,
         contentType: String,
+        contentDna: CreatorContentDna = CreatorContentDna(),
         dueLabel: String,
         dueAtMillis: Long,
         reminderMode: ReminderMode,
@@ -289,6 +290,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO,
     ): String? {
         if (title.isBlank()) return null
+        val normalizedDna = contentDna.normalized()
+        val projectPlatform = normalizedDna.platform.ifBlank { platform }
+        val projectFormat = normalizedDna.deliveryFormat.ifBlank { contentType }
+        val storedDna = if (normalizedDna.isEmpty) CreatorContentDna() else normalizedDna.copy(
+            platform = projectPlatform,
+            deliveryFormat = projectFormat,
+            inferredFromLegacy = false,
+        ).normalized()
         val enabled = reminderMode != ReminderMode.NONE
         val normalizedReminderAt = if (enabled) reminderAtMillis else 0L
         val internalAlertType = if (reminderMode == ReminderMode.ALARM || reminderMode == ReminderMode.SMART)
@@ -300,8 +309,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             val baseTask = CreatorTask(
                 id = UUID.randomUUID().toString(),
                 title = title.trim(),
-                platform = platform,
-                contentType = contentType,
+                platform = projectPlatform,
+                contentType = projectFormat,
+                contentDna = storedDna,
                 dueLabel = dueLabel.ifBlank { "Today" },
                 dueAtMillis = dueAtMillis,
                 status = TaskStatus.PLANNED,
@@ -334,8 +344,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val index = tasks.indexOfFirst { it.id == id }
         if (index == -1) return null
         val current = tasks[index]
-        val formatChanged = current.platform != platform || current.contentType != contentType
-        val newTemplate = CreatorWorkflowEngine.templateFor(platform, contentType)
+        val formatChanged = current.platform != projectPlatform || current.contentType != projectFormat
+        val newTemplate = CreatorWorkflowEngine.templateFor(projectPlatform, projectFormat)
         val nextStageIndex = if (formatChanged) {
             CreatorWorkflowEngine.stageIndexFromProgress(current.progress, newTemplate.stages.size)
         } else {
@@ -346,8 +356,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
         val configured = current.copy(
             title = title.trim(),
-            platform = platform,
-            contentType = contentType,
+            platform = projectPlatform,
+            contentType = projectFormat,
+            contentDna = storedDna,
             dueLabel = dueLabel.ifBlank { current.dueLabel },
             dueAtMillis = dueAtMillis,
             progress = nextProgress,

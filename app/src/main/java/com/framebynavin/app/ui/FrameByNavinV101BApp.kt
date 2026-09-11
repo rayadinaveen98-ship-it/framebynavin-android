@@ -499,6 +499,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     title = draft.title,
                     platform = draft.platform,
                     contentType = draft.contentType,
+                    contentDna = draft.contentDna,
                     dueLabel = pDueLabel(draft.dueAtMillis),
                     dueAtMillis = draft.dueAtMillis,
                     reminderMode = draft.mode,

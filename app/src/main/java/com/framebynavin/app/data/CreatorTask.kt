@@ -95,7 +95,7 @@ data class CreatorTask(
     /** Acknowledged managed stage; prevents the same check-in being recreated by refresh. */
     val acknowledgedCheckpointStageId: String = "",
     val acknowledgedCheckpointDueAtMillis: Long = 0L,
-    /** Content Project 2.0 workspace. Missing legacy data decodes to an empty workspace. */
+    val contentDna: CreatorContentDna = CreatorContentDna(),
     val workspace: CreatorContentWorkspace = CreatorContentWorkspace(),
 
 )

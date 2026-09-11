@@ -50,6 +50,7 @@ internal data class PProjectDraft(
     val title: String,
     val platform: String,
     val contentType: String,
+    val contentDna: CreatorContentDna,
     val dueAtMillis: Long,
     val attentionPlan: ProjectAttentionPlan,
     val mode: ReminderMode,
@@ -187,6 +188,21 @@ internal fun PProjectComposer(
     val context = LocalContext.current
     val defaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
     val defaultPlatform = remember(defaults.creatorProfile) { CreatorPlatformRegistry.primaryPlatform(defaults.creatorProfile) }
+    val initialDna = remember(task?.id, task?.contentDna, defaults.creatorProfile, defaultPlatform) {
+        task?.let { CreatorContentDnaEngine.effective(it, defaults.creatorProfile) } ?: run {
+            val mode = defaults.creatorProfile.resolvedPrimaryCreatorMode
+            val archetype = ContentArchetypeRegistry.suggestedForMode(mode).firstOrNull()?.id ?: "video"
+            val styles = defaults.creatorProfile.productionStyles.ifEmpty {
+                ProductionStyleRegistry.orderedForMode(mode).take(1).toSet()
+            }
+            CreatorContentDnaEngine.forNewProject(
+                profile = defaults.creatorProfile,
+                platform = defaultPlatform,
+                archetypeId = archetype,
+                productionStyles = styles,
+            )
+        }
+    }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -196,8 +212,17 @@ internal fun PProjectComposer(
     }
     val fallbackDue = now + 60 * 60_000L
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title.orEmpty()) }
-    var platform by rememberSaveable(task?.id) { mutableStateOf(task?.platform ?: defaultPlatform) }
-    var contentType by rememberSaveable(task?.id) { mutableStateOf(task?.contentType ?: CreatorPlatformRegistry.defaultFormat(task?.platform ?: defaultPlatform)) }
+    var creatorModeId by rememberSaveable(task?.id) { mutableStateOf(initialDna.creatorModeId) }
+    var archetypeId by rememberSaveable(task?.id) { mutableStateOf(initialDna.archetypeId) }
+    var productionStyles by remember(task?.id) { mutableStateOf(initialDna.productionStyles) }
+    var platform by rememberSaveable(task?.id) { mutableStateOf(initialDna.platform.ifBlank { task?.platform ?: defaultPlatform }) }
+    var contentType by rememberSaveable(task?.id) {
+        mutableStateOf(initialDna.deliveryFormat.ifBlank {
+            val candidate = task?.contentType.orEmpty()
+            if (CreatorPlatformRegistry.acceptsFormat(initialDna.platform.ifBlank { task?.platform ?: defaultPlatform }, candidate)) candidate
+            else CreatorPlatformRegistry.defaultFormat(initialDna.platform.ifBlank { task?.platform ?: defaultPlatform })
+        })
+    }
     var dueAt by rememberSaveable(task?.id) { mutableLongStateOf(task?.dueAtMillis?.takeIf { it > now } ?: fallbackDue) }
     var attentionPlan by rememberSaveable(task?.id) {
         mutableStateOf(task?.attentionPlan ?: ProjectAttentionPlan.GUIDED)
@@ -218,8 +243,14 @@ internal fun PProjectComposer(
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 10) }
     var alarmTimeout by rememberSaveable(task?.id) { mutableIntStateOf(task?.alarmTimeoutSeconds ?: defaults.defaultAlarmTimeoutSeconds) }
 
-    val platformOptions = remember(defaults.creatorProfile, task?.platform) {
-        CreatorPlatformRegistry.orderedSelected(defaults.creatorProfile, include = task?.platform)
+    val modeOptions = CreatorModeRegistry.definitions
+    val archetypeOptions = remember(creatorModeId, archetypeId) {
+        (ContentArchetypeRegistry.suggestedForMode(creatorModeId) + ContentArchetypeRegistry.definitions)
+            .distinctBy { it.id }
+    }
+    val productionStyleOptions = remember(creatorModeId) { ProductionStyleRegistry.orderedForMode(creatorModeId) }
+    val platformOptions = remember(defaults.creatorProfile, task?.platform, initialDna.platform) {
+        CreatorPlatformRegistry.orderedSelected(defaults.creatorProfile, include = initialDna.platform.ifBlank { task?.platform })
     }
     val formats = pFormats(platform)
     LaunchedEffect(platform) { if (contentType !in formats) contentType = formats.first() }
@@ -278,6 +309,44 @@ internal fun PProjectComposer(
                     Spacer(Modifier.height(10.dp))
                     PComposerLabel("PROJECT")
                     OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Project title") }, singleLine = true, shape = RoundedCornerShape(16.dp))
+                    Spacer(Modifier.height(22.dp))
+                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("CONTENT DNA", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                            Text("What this project is and how you are making it.", color = MutedText, fontSize = 8.5.sp)
+                            Spacer(Modifier.height(14.dp))
+                            PComposerLabel("CREATOR MODE")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                modeOptions.forEach { mode ->
+                                    FilterChip(selected = creatorModeId == mode.id, onClick = { creatorModeId = mode.id }, label = { Text(mode.label, fontSize = 8.8.sp) })
+                                }
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            PComposerLabel("CONTENT TYPE")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                archetypeOptions.forEach { archetype ->
+                                    val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
+                                    FilterChip(selected = archetypeId == archetype.id, onClick = { archetypeId = archetype.id }, label = { Text(label, fontSize = 8.6.sp) })
+                                }
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            PComposerLabel("PRODUCTION STYLE · UP TO ${CreatorProfile.MAX_PRODUCTION_STYLES}")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                productionStyleOptions.forEach { style ->
+                                    val selected = style in productionStyles
+                                    FilterChip(
+                                        selected = selected,
+                                        onClick = {
+                                            productionStyles = if (selected) productionStyles - style
+                                            else if (productionStyles.size < CreatorProfile.MAX_PRODUCTION_STYLES) productionStyles + style
+                                            else productionStyles
+                                        },
+                                        label = { Text(style, fontSize = 8.6.sp) },
+                                    )
+                                }
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(22.dp))
                     PComposerLabel("PUBLISH ON")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -390,6 +459,14 @@ internal fun PProjectComposer(
                                     title = title.trim(),
                                     platform = platform,
                                     contentType = contentType,
+                                    contentDna = CreatorContentDna(
+                                        creatorModeId = creatorModeId,
+                                        archetypeId = archetypeId,
+                                        productionStyles = productionStyles,
+                                        platform = platform,
+                                        deliveryFormat = contentType,
+                                        inferredFromLegacy = false,
+                                    ).normalized(),
                                     dueAtMillis = dueAt,
                                     attentionPlan = attentionPlan,
                                     mode = if (attentionPlan == ProjectAttentionPlan.CUSTOM) pDeliveryMode(deliveryPreference) else ReminderMode.NONE,
