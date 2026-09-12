@@ -27,6 +27,19 @@ The RC build gate checks that:
 
 Physical Android 16 testing is still required before production readiness.
 
+## 64-bit and 16 KB page-size gate
+
+FrameByNavin is not a pure Java/Kotlin package: current AndroidX dependencies contribute small native libraries. v121 therefore verifies the built release APK instead of assuming compatibility.
+
+CI now checks that:
+
+- every 32-bit ARM native library has an `arm64-v8a` counterpart;
+- every 32-bit x86 native library has an `x86_64` counterpart;
+- every 64-bit ELF `LOAD` segment is aligned to at least `0x4000` (16 KB);
+- the release APK passes Android build-tools `zipalign -P 16` verification.
+
+This creates a repeatable Play-compatibility gate for the native libraries actually shipped by the app.
+
 ## Production signing path prepared
 
 Production signing material is never committed to GitHub.
