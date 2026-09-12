@@ -22,8 +22,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 118
-        versionName = "2.0.0-beta2-ux-reliability-audit"
+        versionCode = 119
+        versionName = "2.0.0-beta2.1-release-hardening"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -35,6 +35,14 @@ android {
     buildTypes {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("prototypeStable")
+        }
+        getByName("release") {
+            // Production signing is intentionally not stored in the repository.
+            // CI compiles this variant unsigned so release-only source sets (including
+            // Play Integrity App Check) cannot silently rot while sideload builds remain debug-signed.
+            isDebuggable = false
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 
