@@ -19,6 +19,7 @@
 
     <application
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:icon="@drawable/ic_framebynavin_launcher"
         android:roundIcon="@drawable/ic_framebynavin_launcher"
         android:label="FrameByNavin"
