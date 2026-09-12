@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorBrainTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.063">
+<testsuite name="com.framebynavin.app.data.CreatorBrainTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.035">
   <properties/>
-  <testcase name="six outcomes can detect weakening trajectory" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.008"/>
-  <testcase name="three repeated positive outcomes can become emerging" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.002"/>
+  <testcase name="six outcomes can detect weakening trajectory" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.006"/>
+  <testcase name="three repeated positive outcomes can become emerging" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.001"/>
   <testcase name="series memory requires explicit repeatable naming instead of guessing normal titles" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.005"/>
-  <testcase name="four repeated positive outcomes become proven and can gently match a project" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.008"/>
+  <testcase name="four repeated positive outcomes become proven and can gently match a project" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.002"/>
   <testcase name="hook and angle classifiers keep explainable families" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.0"/>
-  <testcase name="six outcomes can detect improving trajectory" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.009"/>
+  <testcase name="six outcomes can detect improving trajectory" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.004"/>
   <testcase name="one strong upload never becomes a brain rule" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.001"/>
-  <testcase name="brain learns combinations only after repeated evaluated outcomes" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.008"/>
-  <testcase name="aging memory decays and stale memory stops changing ranking" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.009"/>
-  <testcase name="repeated weak outcomes can create caution but never large penalty" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.008"/>
+  <testcase name="brain learns combinations only after repeated evaluated outcomes" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.004"/>
+  <testcase name="aging memory decays and stale memory stops changing ranking" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.002"/>
+  <testcase name="repeated weak outcomes can create caution but never large penalty" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.009"/>
   <testcase name="explicit topic memory can participate in hook combinations" classname="com.framebynavin.app.data.CreatorBrainTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>

@@ -313,10 +313,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="56"
             column="20"
-            startOffset="1307"
+            startOffset="1311"
             endLine="56"
             endColumn="71"
-            endOffset="1358"/>
+            endOffset="1362"/>
     </incident>
 
     <incident
@@ -333,10 +333,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="57"
             column="20"
-            startOffset="1379"
+            startOffset="1383"
             endLine="57"
             endColumn="63"
-            endOffset="1422"/>
+            endOffset="1426"/>
     </incident>
 
     <incident
@@ -353,10 +353,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="58"
             column="20"
-            startOffset="1443"
+            startOffset="1447"
             endLine="58"
             endColumn="51"
-            endOffset="1474"/>
+            endOffset="1478"/>
     </incident>
 
     <incident
@@ -373,10 +373,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="59"
             column="20"
-            startOffset="1495"
+            startOffset="1499"
             endLine="59"
             endColumn="59"
-            endOffset="1534"/>
+            endOffset="1538"/>
     </incident>
 
     <incident
@@ -393,10 +393,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="64"
             column="20"
-            startOffset="1792"
+            startOffset="1796"
             endLine="64"
             endColumn="74"
-            endOffset="1846"/>
+            endOffset="1850"/>
     </incident>
 
     <incident
@@ -413,10 +413,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="65"
             column="20"
-            startOffset="1867"
+            startOffset="1871"
             endLine="65"
             endColumn="70"
-            endOffset="1917"/>
+            endOffset="1921"/>
     </incident>
 
     <incident
@@ -433,10 +433,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="66"
             column="20"
-            startOffset="1938"
+            startOffset="1942"
             endLine="66"
             endColumn="68"
-            endOffset="1986"/>
+            endOffset="1990"/>
     </incident>
 
     <incident
@@ -453,10 +453,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="67"
             column="20"
-            startOffset="2007"
+            startOffset="2011"
             endLine="67"
             endColumn="68"
-            endOffset="2055"/>
+            endOffset="2059"/>
     </incident>
 
     <incident
@@ -473,10 +473,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="68"
             column="20"
-            startOffset="2076"
+            startOffset="2080"
             endLine="68"
             endColumn="59"
-            endOffset="2115"/>
+            endOffset="2119"/>
     </incident>
 
     <incident
@@ -493,10 +493,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="69"
             column="20"
-            startOffset="2136"
+            startOffset="2140"
             endLine="69"
             endColumn="70"
-            endOffset="2186"/>
+            endOffset="2190"/>
     </incident>
 
     <incident
@@ -513,10 +513,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="74"
             column="20"
-            startOffset="2433"
+            startOffset="2437"
             endLine="74"
             endColumn="72"
-            endOffset="2485"/>
+            endOffset="2489"/>
     </incident>
 
     <incident
@@ -533,10 +533,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="81"
             column="31"
-            startOffset="2763"
+            startOffset="2767"
             endLine="81"
             endColumn="82"
-            endOffset="2814"/>
+            endOffset="2818"/>
     </incident>
 
     <incident
@@ -553,10 +553,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="82"
             column="31"
-            startOffset="2846"
+            startOffset="2850"
             endLine="82"
             endColumn="62"
-            endOffset="2877"/>
+            endOffset="2881"/>
     </incident>
 
     <incident
@@ -573,10 +573,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="83"
             column="31"
-            startOffset="2909"
+            startOffset="2913"
             endLine="83"
             endColumn="59"
-            endOffset="2937"/>
+            endOffset="2941"/>
     </incident>
 
     <incident
@@ -593,10 +593,10 @@
             file="${:app*projectDir}/build.gradle.kts"
             line="84"
             column="31"
-            startOffset="2969"
+            startOffset="2973"
             endLine="84"
             endColumn="75"
-            endOffset="3013"/>
+            endOffset="3017"/>
     </incident>
 
     <incident
@@ -605,12 +605,12 @@
         message="Modifier parameter should be the first optional parameter">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="969"
+            line="1005"
             column="5"
-            startOffset="51358"
-            endLine="969"
+            startOffset="53219"
+            endLine="1005"
             endColumn="13"
-            endOffset="51366"/>
+            endOffset="53227"/>
     </incident>
 
     <incident
@@ -4472,17 +4472,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="7868"
-                endOffset="7911"/>
+                startOffset="7940"
+                endOffset="7983"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="169"
+            line="172"
             column="103"
-            startOffset="7868"
-            endLine="169"
+            startOffset="7940"
+            endLine="172"
             endColumn="146"
-            endOffset="7911"/>
+            endOffset="7983"/>
     </incident>
 
     <incident
@@ -4501,17 +4501,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="7868"
-                endOffset="7911"/>
+                startOffset="7940"
+                endOffset="7983"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="169"
+            line="172"
             column="103"
-            startOffset="7868"
-            endLine="169"
+            startOffset="7940"
+            endLine="172"
             endColumn="146"
-            endOffset="7911"/>
+            endOffset="7983"/>
     </incident>
 
     <incident
@@ -4530,17 +4530,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="8111"
-                endOffset="8154"/>
+                startOffset="8183"
+                endOffset="8226"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="174"
+            line="177"
             column="108"
-            startOffset="8111"
-            endLine="174"
+            startOffset="8183"
+            endLine="177"
             endColumn="151"
-            endOffset="8154"/>
+            endOffset="8226"/>
     </incident>
 
     <incident
@@ -4559,17 +4559,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="8111"
-                endOffset="8154"/>
+                startOffset="8183"
+                endOffset="8226"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="174"
+            line="177"
             column="108"
-            startOffset="8111"
-            endLine="174"
+            startOffset="8183"
+            endLine="177"
             endColumn="151"
-            endOffset="8154"/>
+            endOffset="8226"/>
     </incident>
 
     <incident
@@ -4588,17 +4588,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="8429"
-                endOffset="8472"/>
+                startOffset="8501"
+                endOffset="8544"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="179"
+            line="182"
             column="116"
-            startOffset="8429"
-            endLine="179"
+            startOffset="8501"
+            endLine="182"
             endColumn="159"
-            endOffset="8472"/>
+            endOffset="8544"/>
     </incident>
 
     <incident
@@ -4617,17 +4617,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="8429"
-                endOffset="8472"/>
+                startOffset="8501"
+                endOffset="8544"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="179"
+            line="182"
             column="116"
-            startOffset="8429"
-            endLine="179"
+            startOffset="8501"
+            endLine="182"
             endColumn="159"
-            endOffset="8472"/>
+            endOffset="8544"/>
     </incident>
 
     <incident

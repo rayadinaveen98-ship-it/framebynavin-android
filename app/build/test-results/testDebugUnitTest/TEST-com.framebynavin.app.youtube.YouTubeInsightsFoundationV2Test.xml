@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.youtube.YouTubeInsightsFoundationV2Test" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:08" hostname="runnervmlun5p" time="0.008">
+<testsuite name="com.framebynavin.app.youtube.YouTubeInsightsFoundationV2Test" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:35" hostname="runnervmlun5p" time="0.005">
   <properties/>
-  <testcase name="metricContractFlagsWindowCrossingAugust2026ViewBoundary" classname="com.framebynavin.app.youtube.YouTubeInsightsFoundationV2Test" time="0.003"/>
+  <testcase name="metricContractFlagsWindowCrossingAugust2026ViewBoundary" classname="com.framebynavin.app.youtube.YouTubeInsightsFoundationV2Test" time="0.001"/>
   <testcase name="readyDatasetCountDoesNotTreatEmptyOrPendingAsReady" classname="com.framebynavin.app.youtube.YouTubeInsightsFoundationV2Test" time="0.004"/>
   <testcase name="breakdownShareIsDeterministicAndClamped" classname="com.framebynavin.app.youtube.YouTubeInsightsFoundationV2Test" time="0.0"/>
   <system-out><![CDATA[]]></system-out>

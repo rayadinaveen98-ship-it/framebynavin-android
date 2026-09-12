@@ -229,7 +229,7 @@ internal fun V131PlanScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("Delete ${selected.size} project${if (selected.size == 1) "" else "s"}?") },
-            text = { Text("This removes the selected project data from your creator workspace. Weekly generated occurrences are suppressed so they do not immediately come back.") },
+            text = { Text("This permanently deletes the selected projects. Recurring schedule entries stay safe.") },
             confirmButton = {
                 TextButton(onClick = {
                     onDeleteSelected(selected)
@@ -599,7 +599,7 @@ internal fun V131StudioScreen(
         AlertDialog(
             onDismissRequest = { confirmDeleteSelected = false },
             title = { Text("Delete ${selected.size} selected project${if (selected.size == 1) "" else "s"}?") },
-            text = { Text("This permanently deletes the selected projects. Weekly-plan occurrences are protected from being recreated immediately.") },
+            text = { Text("This permanently deletes the selected projects. Recurring schedule entries stay safe.") },
             confirmButton = {
                 TextButton(onClick = {
                     onDeleteSelected(selected)
@@ -615,7 +615,7 @@ internal fun V131StudioScreen(
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("Delete ${task.title}?") },
-            text = { Text("This permanently deletes the project. If it came from your Weekly Plan, this one will not be added again.") },
+            text = { Text("This permanently deletes this project. It won't immediately come back from a recurring schedule.") },
             confirmButton = { TextButton(onClick = { onDelete(task.id); deleteTarget = null }) { Text("DELETE", color = RecRed) } },
             dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("CANCEL") } },
         )

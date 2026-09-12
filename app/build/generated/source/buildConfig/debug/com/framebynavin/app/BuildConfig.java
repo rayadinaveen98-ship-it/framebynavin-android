@@ -7,6 +7,6 @@ public final class BuildConfig {
   public static final boolean DEBUG = Boolean.parseBoolean("true");
   public static final String APPLICATION_ID = "com.framebynavin.app";
   public static final String BUILD_TYPE = "debug";
-  public static final int VERSION_CODE = 116;
-  public static final String VERSION_NAME = "2.0.0-beta1-ux-stabilization";
+  public static final int VERSION_CODE = 118;
+  public static final String VERSION_NAME = "2.0.0-beta2-ux-reliability-audit";
 }

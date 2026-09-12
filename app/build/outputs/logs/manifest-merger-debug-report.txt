@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:2:1-125:12
-INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:2:1-125:12
-INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:2:1-125:12
-INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:2:1-125:12
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:2:1-132:12
+INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:2:1-132:12
+INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:2:1-132:12
+INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:2:1-132:12
 MERGED from [androidx.compose.material3:material3-android:1.3.2] /home/runner/.gradle/caches/8.11.1/transforms/862e9f2694151f0ae3061110d0055136/transformed/material3-release/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.compose.material:material-ripple-android:1.8.0] /home/runner/.gradle/caches/8.11.1/transforms/c2ad809ec682ad5c0b52e160b68b4160/transformed/material-ripple/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.compose.foundation:foundation-android:1.8.0] /home/runner/.gradle/caches/8.11.1/transforms/e6f21b11a9936f5a4c0a1a840191916b/transformed/foundation-release/AndroidManifest.xml:2:1-7:12
@@ -118,43 +118,55 @@ uses-permission#android.permission.POST_NOTIFICATIONS
 ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:4:5-77
 	android:name
 		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:4:22-74
+uses-permission#android.permission.RECORD_AUDIO
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:5:5-71
+	android:name
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:5:22-68
 uses-permission#android.permission.SCHEDULE_EXACT_ALARM
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:5:5-79
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:6:5-79
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:5:22-76
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:6:22-76
 uses-permission#android.permission.RECEIVE_BOOT_COMPLETED
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:6:5-81
-MERGED from [androidx.work:work-runtime:2.10.1] /home/runner/.gradle/caches/8.11.1/transforms/d36817abd729db1e2ee91fe63198ad69/transformed/work-runtime-2.10.1/AndroidManifest.xml:25:5-81
-MERGED from [androidx.work:work-runtime:2.10.1] /home/runner/.gradle/caches/8.11.1/transforms/d36817abd729db1e2ee91fe63198ad69/transformed/work-runtime-2.10.1/AndroidManifest.xml:25:5-81
-	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:6:22-78
-uses-permission#android.permission.USE_FULL_SCREEN_INTENT
 ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:7:5-81
+MERGED from [androidx.work:work-runtime:2.10.1] /home/runner/.gradle/caches/8.11.1/transforms/d36817abd729db1e2ee91fe63198ad69/transformed/work-runtime-2.10.1/AndroidManifest.xml:25:5-81
+MERGED from [androidx.work:work-runtime:2.10.1] /home/runner/.gradle/caches/8.11.1/transforms/d36817abd729db1e2ee91fe63198ad69/transformed/work-runtime-2.10.1/AndroidManifest.xml:25:5-81
 	android:name
 		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:7:22-78
+uses-permission#android.permission.USE_FULL_SCREEN_INTENT
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:8:5-81
+	android:name
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:8:22-78
 uses-permission#android.permission.VIBRATE
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:8:5-66
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:9:5-66
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:8:22-63
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:9:22-63
 uses-permission#android.permission.WAKE_LOCK
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:9:5-68
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:10:5-68
 MERGED from [androidx.work:work-runtime:2.10.1] /home/runner/.gradle/caches/8.11.1/transforms/d36817abd729db1e2ee91fe63198ad69/transformed/work-runtime-2.10.1/AndroidManifest.xml:23:5-68
 MERGED from [androidx.work:work-runtime:2.10.1] /home/runner/.gradle/caches/8.11.1/transforms/d36817abd729db1e2ee91fe63198ad69/transformed/work-runtime-2.10.1/AndroidManifest.xml:23:5-68
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:9:22-65
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:10:22-65
 uses-permission#android.permission.FOREGROUND_SERVICE
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:10:5-77
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:11:5-77
 MERGED from [androidx.work:work-runtime:2.10.1] /home/runner/.gradle/caches/8.11.1/transforms/d36817abd729db1e2ee91fe63198ad69/transformed/work-runtime-2.10.1/AndroidManifest.xml:26:5-77
 MERGED from [androidx.work:work-runtime:2.10.1] /home/runner/.gradle/caches/8.11.1/transforms/d36817abd729db1e2ee91fe63198ad69/transformed/work-runtime-2.10.1/AndroidManifest.xml:26:5-77
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:10:22-74
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:11:22-74
 uses-permission#android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:11:5-92
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:12:5-92
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:11:22-89
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:12:22-89
+queries
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:14:5-18:15
+intent#action:name:android.speech.RecognitionService
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:15:9-17:18
+action#android.speech.RecognitionService
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:16:13-72
+	android:name
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:16:21-69
 application
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:13:5-124:19
-INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:13:5-124:19
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:20:5-131:19
+INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:20:5-131:19
 MERGED from [androidx.compose.ui:ui-test-manifest:1.8.0] /home/runner/.gradle/caches/8.11.1/transforms/8d9159170940a14cd6a3bddce85a32b4/transformed/ui-test-manifest-1.8.0/AndroidManifest.xml:22:5-27:19
 MERGED from [androidx.compose.ui:ui-test-manifest:1.8.0] /home/runner/.gradle/caches/8.11.1/transforms/8d9159170940a14cd6a3bddce85a32b4/transformed/ui-test-manifest-1.8.0/AndroidManifest.xml:22:5-27:19
 MERGED from [androidx.credentials:credentials-play-services-auth:1.6.0] /home/runner/.gradle/caches/8.11.1/transforms/30e84e037989aef9ab8281971b0362b0/transformed/credentials-play-services-auth-1.6.0/AndroidManifest.xml:23:5-50:19
@@ -212,203 +224,203 @@ MERGED from [com.google.android.play:core-common:2.0.4] /home/runner/.gradle/cac
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.16.0] /home/runner/.gradle/caches/8.11.1/transforms/eee2c430b94f624e5ea2f2b8f64dd87a/transformed/core-1.16.0/AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:18:9-35
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:25:9-35
 	android:label
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:17:9-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:24:9-37
 	android:roundIcon
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:16:9-63
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:23:9-63
 	android:icon
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:15:9-58
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:22:9-58
 	android:allowBackup
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:14:9-36
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:21:9-36
 	android:theme
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:19:9-50
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:26:9-50
 service#com.framebynavin.app.reminders.AlarmRingingService
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:21:9-24:61
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:28:9-31:61
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:23:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:30:13-37
 	android:foregroundServiceType
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:24:13-58
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:31:13-58
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:22:13-58
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:29:13-58
 service#com.framebynavin.app.reminders.VoiceReminderService
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:25:9-28:61
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:32:9-35:61
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:27:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:34:13-37
 	android:foregroundServiceType
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:28:13-58
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:35:13-58
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:26:13-59
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:33:13-59
 activity#com.framebynavin.app.reminders.AlarmActivity
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:30:9-37:57
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:37:9-44:57
 	android:turnScreenOn
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:36:13-40
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:43:13-40
 	android:excludeFromRecents
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:32:13-46
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:39:13-46
 	android:showWhenLocked
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:35:13-42
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:42:13-42
 	android:launchMode
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:34:13-42
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:41:13-42
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:33:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:40:13-37
 	android:theme
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:37:13-54
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:44:13-54
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:31:13-52
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:38:13-52
 activity#com.framebynavin.app.reminders.VoiceReminderActivity
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:39:9-46:57
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:46:9-53:57
 	android:turnScreenOn
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:45:13-40
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:52:13-40
 	android:excludeFromRecents
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:41:13-46
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:48:13-46
 	android:showWhenLocked
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:44:13-42
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:51:13-42
 	android:launchMode
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:43:13-42
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:50:13-42
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:42:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:49:13-37
 	android:theme
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:46:13-54
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:53:13-54
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:40:13-60
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:47:13-60
 activity#com.framebynavin.app.ui.BackupActivity
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:48:9-51:57
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:55:9-58:57
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:50:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:57:13-37
 	android:theme
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:51:13-54
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:58:13-54
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:49:13-46
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:56:13-46
 activity#com.framebynavin.app.ui.RecoveryCopiesActivity
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:53:9-56:57
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:60:9-63:57
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:55:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:62:13-37
 	android:theme
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:56:13-54
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:63:13-54
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:54:13-54
-activity#com.framebynavin.app.ui.ContentWorkspaceActivity
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:58:9-61:57
-	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:60:13-37
-	android:theme
 		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:61:13-54
+activity#com.framebynavin.app.ui.ContentWorkspaceActivity
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:65:9-68:57
+	android:exported
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:67:13-37
+	android:theme
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:68:13-54
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:59:13-56
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:66:13-56
 activity#com.framebynavin.app.cloud.CloudSyncActivity
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:63:9-66:57
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:70:9-73:57
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:65:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:72:13-37
 	android:theme
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:66:13-54
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:73:13-54
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:64:13-52
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:71:13-52
 activity#com.framebynavin.app.widget.QuickIdeaActivity
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:68:9-72:57
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:75:9-79:57
 	android:excludeFromRecents
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:71:13-46
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:78:13-46
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:70:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:77:13-37
 	android:theme
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:72:13-54
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:79:13-54
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:69:13-53
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:76:13-53
 receiver#com.framebynavin.app.reminders.ReminderReceiver
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:74:9-89
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:81:9-89
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:74:62-86
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:81:62-86
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:74:19-61
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:81:19-61
 receiver#com.framebynavin.app.reminders.EscalationReceiver
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:75:9-91
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:82:9-91
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:75:64-88
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:82:64-88
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:75:19-63
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:82:19-63
 receiver#com.framebynavin.app.reminders.ReminderActionReceiver
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:76:9-95
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:83:9-95
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:76:68-92
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:83:68-92
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:76:19-67
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:83:19-67
 receiver#com.framebynavin.app.reminders.ReminderRecoveryReceiver
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:77:9-88:20
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:84:9-95:20
 	android:enabled
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:79:13-35
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:86:13-35
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:80:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:87:13-37
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:78:13-63
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:85:13-63
 intent-filter#action:name:android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED+action:name:android.intent.action.BOOT_COMPLETED+action:name:android.intent.action.MY_PACKAGE_REPLACED+action:name:android.intent.action.TIMEZONE_CHANGED+action:name:android.intent.action.TIME_SET
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:81:13-87:29
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:88:13-94:29
 action#android.intent.action.BOOT_COMPLETED
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:82:17-79
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:89:17-79
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:82:25-76
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:89:25-76
 action#android.intent.action.MY_PACKAGE_REPLACED
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:83:17-84
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:90:17-84
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:83:25-81
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:90:25-81
 action#android.intent.action.TIME_SET
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:84:17-73
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:91:17-73
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:84:25-70
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:91:25-70
 action#android.intent.action.TIMEZONE_CHANGED
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:85:17-81
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:92:17-81
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:85:25-78
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:92:25-78
 action#android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:86:17-107
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:93:17-107
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:86:25-104
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:93:25-104
 receiver#com.framebynavin.app.widget.CreatorCompactWidgetProvider
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:90:9-100:20
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:97:9-107:20
 	android:label
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:93:13-49
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:100:13-49
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:92:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:99:13-37
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:91:13-64
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:98:13-64
 intent-filter#action:name:android.appwidget.action.APPWIDGET_UPDATE
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:94:13-96:29
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:101:13-103:29
 action#android.appwidget.action.APPWIDGET_UPDATE
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:95:17-84
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:102:17-84
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:95:25-81
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:102:25-81
 meta-data#android.appwidget.provider
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:97:13-99:71
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:104:13-106:71
 	android:resource
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:99:17-68
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:106:17-68
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:98:17-58
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:105:17-58
 receiver#com.framebynavin.app.widget.CreatorLargeWidgetProvider
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:102:9-112:20
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:109:9-119:20
 	android:label
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:105:13-54
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:112:13-54
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:104:13-37
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:111:13-37
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:103:13-62
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:110:13-62
 activity#com.framebynavin.app.MainActivity
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:114:9-123:20
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:121:9-130:20
 	android:launchMode
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:117:13-43
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:124:13-43
 	android:exported
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:116:13-36
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:123:13-36
 	android:theme
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:118:13-63
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:125:13-63
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:115:13-41
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:122:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:119:13-122:29
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:126:13-129:29
 action#android.intent.action.MAIN
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:120:17-69
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:127:17-69
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:120:25-66
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:127:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:121:17-77
+ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:128:17-77
 	android:name
-		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:121:27-74
+		ADDED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:128:27-74
 uses-sdk
 INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml

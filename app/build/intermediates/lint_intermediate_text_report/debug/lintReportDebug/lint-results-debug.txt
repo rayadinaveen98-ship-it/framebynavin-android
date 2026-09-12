@@ -105,16 +105,16 @@
 
    https://developer.android.com/distribute/best-practices/develop/target-sdk.html
 
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:35: Warning: Attribute showWhenLocked is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:42: Warning: Attribute showWhenLocked is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
             android:showWhenLocked="true"
             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:36: Warning: Attribute turnScreenOn is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:43: Warning: Attribute turnScreenOn is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
             android:turnScreenOn="true"
             ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:44: Warning: Attribute showWhenLocked is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:51: Warning: Attribute showWhenLocked is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
             android:showWhenLocked="true"
             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:45: Warning: Attribute turnScreenOn is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:52: Warning: Attribute turnScreenOn is only used in API level 27 and higher (current min is 26) [UnusedAttribute]
             android:turnScreenOn="true"
             ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/res/xml/widget_creator_compact_info.xml:6: Warning: Attribute previewLayout is only used in API level 31 and higher (current min is 26) [UnusedAttribute]
@@ -212,7 +212,7 @@
    However, you may simply not be aware that a more recent version is
    available, and that is what this lint check helps find.
 
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:969: Warning: Modifier parameter should be the first optional parameter [ModifierParameter from androidx.compose.ui]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:1005: Warning: Modifier parameter should be the first optional parameter [ModifierParameter from androidx.compose.ui]
     modifier: Modifier = Modifier,
     ~~~~~~~~
 
@@ -228,7 +228,7 @@
    Identifier: androidx.compose.ui
    Feedback: https://issuetracker.google.com/issues/new?component=612128
 
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:14: Warning: The attribute android:allowBackup is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute android:dataExtractionRules specifying an @xml resource which configures cloud backups and device transfers on Android 12 and higher. [DataExtractionRules]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml:21: Warning: The attribute android:allowBackup is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute android:dataExtractionRules specifying an @xml resource which configures cloud backups and device transfers on Android 12 and higher. [DataExtractionRules]
         android:allowBackup="false"
                              ~~~~~
 
@@ -516,22 +516,22 @@
 /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/cloud/DriveVaultLocalStore.kt:16: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
     fun clearRecoveryReview() = prefs.edit().remove(KEY_REVIEWED_EMAIL).apply()
                                 ~~~~~~~~~~~~
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:169: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:172: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
             context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = Uri.parse("package:${context.packageName}") })
                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:169: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:172: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
             context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = Uri.parse("package:${context.packageName}") })
                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:174: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:177: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
             context.startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply { data = Uri.parse("package:${context.packageName}") })
                                                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:174: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:177: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
             context.startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply { data = Uri.parse("package:${context.packageName}") })
                                                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:179: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:182: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
             .onFailure { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") }) }
                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:179: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt:182: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
             .onFailure { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") }) }
                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/data/ProjectPulseHistoryStore.kt:39: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]

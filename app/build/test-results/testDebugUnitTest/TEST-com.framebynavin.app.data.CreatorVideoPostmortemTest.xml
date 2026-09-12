@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorVideoPostmortemTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.016">
+<testsuite name="com.framebynavin.app.data.CreatorVideoPostmortemTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:35" hostname="runnervmlun5p" time="0.012">
   <properties/>
-  <testcase name="matching publication history is preferred for packaging evidence" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.003"/>
-  <testcase name="creation record keeps dna hook script references and creator learning" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.001"/>
+  <testcase name="matching publication history is preferred for packaging evidence" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.004"/>
+  <testcase name="creation record keeps dna hook script references and creator learning" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.0"/>
   <testcase name="missing platform datasets remain absent rather than fabricated" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.0"/>
-  <testcase name="reach retention and release curve join the linked video" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.003"/>
-  <testcase name="project created entry gives exact project to publish timing" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.003"/>
+  <testcase name="reach retention and release curve join the linked video" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.002"/>
+  <testcase name="project created entry gives exact project to publish timing" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.0"/>
   <testcase name="legacy observed entry is labeled lower bound rather than exact" classname="com.framebynavin.app.data.CreatorVideoPostmortemTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>

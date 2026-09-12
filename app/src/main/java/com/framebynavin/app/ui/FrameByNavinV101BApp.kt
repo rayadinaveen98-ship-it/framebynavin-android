@@ -117,7 +117,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             showReminders -> showReminders = false
             showControl -> { showControl = false; controlExpanded = false }
             overlay != POverlay.NONE -> overlay = POverlay.NONE
-            else -> tab = PTab.TODAY
+            else -> {
+                externalStudioId = null
+                tab = PTab.TODAY
+            }
         }
     }
 
@@ -197,6 +200,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             V18JourneyDestination.INSIGHTS -> tab = PTab.INSIGHTS
             null -> Unit
         }
+        if (destination != V18JourneyDestination.CREATE) externalStudioId = null
         if (destination != null) overlay = POverlay.NONE
     }
     fun advanceWorkflowWithJourney(id: String) {
@@ -313,7 +317,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
 
             PBottomNav(
                 selected = tab,
-                onSelect = { tab = it },
+                onSelect = { destination ->
+                    externalStudioId = null
+                    tab = destination
+                },
                 onCapture = { openComposer() },
                 modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
             )
@@ -607,16 +614,16 @@ private fun PControlCenter(
             PBigAction("RELEASE DAY", "Move fast", Icons.Outlined.Bolt, RecRed, onRelease, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
-        PControlRow("Quick Capture", "Save an idea to Idea Vault in seconds", Icons.Outlined.Bolt, onQuickCapture)
-        PControlRow("Daily Brief", "Focus, risk and the next 7 days", Icons.Outlined.Today, onDailyBrief)
-        PControlRow("Content Calendar", "Projects + weekly plan for 14 days", Icons.Outlined.CalendarMonth, onCalendar)
+        PControlRow("Quick Capture", "Type or speak an idea", Icons.Outlined.Bolt, onQuickCapture)
+        PControlRow("Daily Brief", "What needs your attention today", Icons.Outlined.Today, onDailyBrief)
+        PControlRow("Content Calendar", "Upcoming projects and publishing", Icons.Outlined.CalendarMonth, onCalendar)
         PControlRow("Idea Vault", if (readyIdeas > 0) "$readyIdeas ideas ready to make" else "Capture what you might make later", Icons.Outlined.Lightbulb, onIdeas)
         PControlRow("Weekly Plan", if (weeklyAutoPlanEnabled) "Auto Plan on" else "Auto Plan off", Icons.Outlined.CalendarMonth, onWeek)
         PControlRow("Reminders", "See and edit active reminders", Icons.Outlined.Alarm, onReminders)
-        PControlRow("Automation", "Auto planning and regular reminders", Icons.Outlined.AutoAwesome, onAutomation)
+        PControlRow("Automation", "Recurring planning and reminders", Icons.Outlined.AutoAwesome, onAutomation)
         PControlRow(
             "Creator Progress",
-            "Level ${creatorProgress.level} · ${creatorProgress.totalXp} XP · ${creatorProgress.weeklyMomentum} momentum",
+            "Your consistency and milestones",
             Icons.Outlined.EmojiEvents,
             onCreatorProgress,
         )
@@ -741,12 +748,14 @@ private fun PSettingsScreen(
     onYouTube: () -> Unit,
 ) {
     val context = LocalContext.current
+    val reminderSetupReady = permissions.notifications && permissions.preciseTiming && permissions.fullScreen && permissions.batteryAccess
+    var showReminderSetup by rememberSaveable { mutableStateOf(false) }
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 44.dp)) {
             PBackHeader("SETTINGS", "Keep the app working your way", onClose)
 
             Spacer(Modifier.height(20.dp))
-            PSettingsHeading("PROFILE & ACCOUNT", "Identity, creator setup, connected services and account data.")
+            PSettingsHeading("PROFILE & ACCOUNT", "Your creator profile and account.")
             Spacer(Modifier.height(8.dp))
             Surface(onClick = onProfile, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -769,12 +778,39 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("REMINDER SETUP", "Set this once. Project creation stays clean.")
+            PSettingsHeading("REMINDER SETUP", "Permissions used by project reminders.")
             Spacer(Modifier.height(9.dp))
-            PPermissionRow("Notifications", permissions.notifications, onNotifications)
-            PPermissionRow("Exact reminder timing", permissions.preciseTiming, onPreciseTiming)
-            PPermissionRow("Full-screen alerts", permissions.fullScreen, onFullScreen)
-            PPermissionRow("Allow background reminders", permissions.batteryAccess, onBattery)
+            Surface(
+                onClick = { showReminderSetup = !showReminderSetup },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = CinemaSurface,
+                border = BorderStroke(1.dp, if (reminderSetupReady) CinemaLine else MutedGold.copy(alpha = .35f)),
+            ) {
+                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        if (reminderSetupReady) Icons.Outlined.CheckCircle else Icons.Outlined.NotificationsActive,
+                        null,
+                        tint = if (reminderSetupReady) SuccessGreen else MutedGold,
+                        modifier = Modifier.size(19.dp),
+                    )
+                    Spacer(Modifier.width(9.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Project reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text(if (reminderSetupReady) "Ready" else "Needs setup", color = if (reminderSetupReady) SuccessGreen else MutedGold, fontSize = 8.8.sp)
+                    }
+                    Icon(if (showReminderSetup) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
+                }
+            }
+            AnimatedVisibility(visible = showReminderSetup) {
+                Column {
+                    Spacer(Modifier.height(8.dp))
+                    PPermissionRow("Notifications", permissions.notifications, onNotifications)
+                    PPermissionRow("Exact reminder timing", permissions.preciseTiming, onPreciseTiming)
+                    PPermissionRow("Full-screen alerts", permissions.fullScreen, onFullScreen)
+                    PPermissionRow("Allow background reminders", permissions.batteryAccess, onBattery)
+                }
+            }
 
             Spacer(Modifier.height(22.dp))
             PSettingsHeading("REMINDER DEFAULTS", "These choices are reused automatically.")
@@ -816,7 +852,7 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("VOICE", "Preview the voices your phone can actually provide.")
+            PSettingsHeading("VOICE", "Choose how reminder voices sound.")
             Spacer(Modifier.height(8.dp))
             VoicePersona.entries.forEach { voice ->
                 val selected = settings.defaultVoicePersona == voice
@@ -845,7 +881,7 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("BACKUP & SYNC", "Keep a cloud copy while your phone remains the main copy.")
+            PSettingsHeading("BACKUP & SYNC", "Keep a safe cloud copy of your work.")
             Spacer(Modifier.height(8.dp))
             Surface(
                 onClick = onCloudSync,
@@ -993,7 +1029,7 @@ internal fun PBottomNav(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Outlined.Add,
-                            contentDescription = "Capture idea",
+                            contentDescription = "Create project",
                             tint = ProjectorIvory,
                             modifier = Modifier.size(26.dp),
                         )

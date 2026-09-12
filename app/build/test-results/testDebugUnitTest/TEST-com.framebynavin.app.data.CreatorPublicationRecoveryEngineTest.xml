@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.006">
+<testsuite name="com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:35" hostname="runnervmlun5p" time="0.007">
   <properties/>
-  <testcase name="repeatedRecoveryPreservesExistingCheckpointCreditsAndUnknownHistory" classname="com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest" time="0.001"/>
+  <testcase name="repeatedRecoveryPreservesExistingCheckpointCreditsAndUnknownHistory" classname="com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest" time="0.006"/>
   <testcase name="pendingDatesRebaseButCompletedHistoryAndUnrelatedProjectsSurvive" classname="com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest" time="0.001"/>
-  <testcase name="stageEvidenceRequiresExplicitEventAndNeverReconstructsHistoricalStages" classname="com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest" time="0.003"/>
-  <testcase name="publicationIsExplicitAndCorrectionsNeverDuplicateKeys" classname="com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest" time="0.001"/>
+  <testcase name="stageEvidenceRequiresExplicitEventAndNeverReconstructsHistoricalStages" classname="com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest" time="0.0"/>
+  <testcase name="publicationIsExplicitAndCorrectionsNeverDuplicateKeys" classname="com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

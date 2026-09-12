@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.reminders.MissedReminderRecoveryTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:08" hostname="runnervmlun5p" time="0.003">
+<testsuite name="com.framebynavin.app.reminders.MissedReminderRecoveryTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:35" hostname="runnervmlun5p" time="0.001">
   <properties/>
-  <testcase name="recentlyMissedDeadline_isCatchUp" classname="com.framebynavin.app.reminders.MissedReminderRecoveryTest" time="0.003"/>
+  <testcase name="recentlyMissedDeadline_isCatchUp" classname="com.framebynavin.app.reminders.MissedReminderRecoveryTest" time="0.001"/>
   <testcase name="oldReminder_isStillCatchUpWhenDeadlineIsAhead" classname="com.framebynavin.app.reminders.MissedReminderRecoveryTest" time="0.0"/>
   <testcase name="reminderWithoutDeadline_usesSixHourRelevanceWindow" classname="com.framebynavin.app.reminders.MissedReminderRecoveryTest" time="0.0"/>
   <testcase name="futureReminder_isNotCatchUp" classname="com.framebynavin.app.reminders.MissedReminderRecoveryTest" time="0.0"/>

@@ -90,42 +90,42 @@
                     <map id="android.settings.APPLICATION_DETAILS_SETTINGS (used to start an activity)">
                         <location id="0"
                             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                            line="179"
+                            line="182"
                             column="48"
-                            startOffset="8361"
-                            endLine="179"
+                            startOffset="8433"
+                            endLine="182"
                             endColumn="100"
-                            endOffset="8413"/>
+                            endOffset="8485"/>
                     </map>
                     <map id="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS (used to start an activity)">
                         <location id="0"
                             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                            line="178"
+                            line="181"
                             column="45"
-                            startOffset="8250"
-                            endLine="178"
+                            startOffset="8322"
+                            endLine="181"
                             endColumn="105"
-                            endOffset="8310"/>
+                            endOffset="8382"/>
                     </map>
                     <map id="android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT (used to start an activity)">
                         <location id="0"
                             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                            line="174"
+                            line="177"
                             column="35"
-                            startOffset="8038"
-                            endLine="174"
+                            startOffset="8110"
+                            endLine="177"
                             endColumn="92"
-                            endOffset="8095"/>
+                            endOffset="8167"/>
                     </map>
                     <map id="android.settings.REQUEST_SCHEDULE_EXACT_ALARM (used to start an activity)">
                         <location id="0"
                             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                            line="169"
+                            line="172"
                             column="35"
-                            startOffset="7800"
-                            endLine="169"
+                            startOffset="7872"
+                            endLine="172"
                             endColumn="87"
-                            endOffset="7852"/>
+                            endOffset="7924"/>
                     </map>
             </map>
     </map>

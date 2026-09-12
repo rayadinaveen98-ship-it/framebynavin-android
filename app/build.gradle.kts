@@ -22,8 +22,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 117
-        versionName = "2.0.0-beta1.1-voice-quick-idea"
+        versionCode = 118
+        versionName = "2.0.0-beta2-ux-reliability-audit"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -14,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.RocketLaunch
 import androidx.compose.material.icons.outlined.Search
@@ -301,6 +304,7 @@ private fun V09IdeaEditor(
         CreatorPlatformRegistry.orderedSelected(creatorProfile, include = if (idea.id.isBlank()) null else idea.platformHint)
     }
     var notes by remember(idea.id) { mutableStateOf(idea.notes) }
+    var showOrganize by rememberSaveable(idea.id) { mutableStateOf(false) }
     val formats = v09Formats(platform)
     LaunchedEffect(platform) { if (format !in formats) format = formats.first() }
 
@@ -312,33 +316,55 @@ private fun V09IdeaEditor(
             Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
                 OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Idea title") })
                 Spacer(Modifier.height(9.dp))
-                OutlinedTextField(topic, { topic = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Topic · optional") })
-                Spacer(Modifier.height(12.dp)); V09VaultLabel("TOPIC")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    visibleCategories.forEach { value ->
-                        FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = 10.sp) })
+                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes · optional") })
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    onClick = { showOrganize = !showOrganize },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = CinemaSurface,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("ORGANIZE IDEA · OPTIONAL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                            Text("Topic, status and publishing hints", color = MutedText, fontSize = 8.5.sp)
+                        }
+                        Icon(if (showOrganize) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedGold)
                     }
                 }
-                Spacer(Modifier.height(12.dp)); V09VaultLabel("STATUS")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    listOf(IdeaStatus.INBOX, IdeaStatus.WORTH_EXPLORING, IdeaStatus.RESEARCHING, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.ARCHIVED).forEach { value ->
-                        FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = 10.sp) })
+                AnimatedVisibility(visible = showOrganize) {
+                    Column {
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(topic, { topic = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Topic · optional") })
+                        Spacer(Modifier.height(12.dp)); V09VaultLabel("CATEGORY")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            visibleCategories.forEach { value ->
+                                FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = 10.sp) })
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp)); V09VaultLabel("STATUS")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            listOf(IdeaStatus.INBOX, IdeaStatus.WORTH_EXPLORING, IdeaStatus.RESEARCHING, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.ARCHIVED).forEach { value ->
+                                FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = 10.sp) })
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp)); V09VaultLabel("POTENTIAL")
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            IdeaPotential.entries.forEach { value ->
+                                FilterChip(potential == value, { potential = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 10.sp) })
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp)); V09VaultLabel("LIKELY PLATFORM")
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 10.sp) }) }
+                        }
+                        Spacer(Modifier.height(10.dp)); V09VaultLabel("LIKELY FORMAT")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 10.sp) }) }
+                        }
                     }
                 }
-                Spacer(Modifier.height(12.dp)); V09VaultLabel("POTENTIAL")
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    IdeaPotential.entries.forEach { value -> FilterChip(potential == value, { potential = value }, { Text(value.name, fontSize = 10.sp) }) }
-                }
-                Spacer(Modifier.height(12.dp)); V09VaultLabel("LIKELY PLATFORM")
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 10.sp) }) }
-                }
-                Spacer(Modifier.height(10.dp)); V09VaultLabel("LIKELY FORMAT")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 10.sp) }) }
-                }
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes") })
                 if (onDelete != null) {
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("DELETE IDEA", color = RecRed) }

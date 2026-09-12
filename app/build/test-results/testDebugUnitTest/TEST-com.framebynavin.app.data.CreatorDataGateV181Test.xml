@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorDataGateV181Test" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.141">
+<testsuite name="com.framebynavin.app.data.CreatorDataGateV181Test" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.129">
   <properties/>
   <testcase name="nestedTransactionAndRollbackDoNotDeadlock" classname="com.framebynavin.app.data.CreatorDataGateV181Test" time="0.009"/>
-  <testcase name="independentWritersAreSerialized" classname="com.framebynavin.app.data.CreatorDataGateV181Test" time="0.121"/>
-  <testcase name="childCannotBypassParentsLock" classname="com.framebynavin.app.data.CreatorDataGateV181Test" time="0.01"/>
+  <testcase name="independentWritersAreSerialized" classname="com.framebynavin.app.data.CreatorDataGateV181Test" time="0.116"/>
+  <testcase name="childCannotBypassParentsLock" classname="com.framebynavin.app.data.CreatorDataGateV181Test" time="0.004"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

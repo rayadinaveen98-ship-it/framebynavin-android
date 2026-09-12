@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorBrainRecommendationsTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.015">
+<testsuite name="com.framebynavin.app.data.CreatorBrainRecommendationsTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.008">
   <properties/>
-  <testcase name="weakening trajectory becomes watch instead of blindly leaning in" classname="com.framebynavin.app.data.CreatorBrainRecommendationsTest" time="0.002"/>
-  <testcase name="caution pattern becomes avoid for now guidance" classname="com.framebynavin.app.data.CreatorBrainRecommendationsTest" time="0.004"/>
+  <testcase name="weakening trajectory becomes watch instead of blindly leaning in" classname="com.framebynavin.app.data.CreatorBrainRecommendationsTest" time="0.001"/>
+  <testcase name="caution pattern becomes avoid for now guidance" classname="com.framebynavin.app.data.CreatorBrainRecommendationsTest" time="0.003"/>
   <testcase name="learning memory produces no creator advice" classname="com.framebynavin.app.data.CreatorBrainRecommendationsTest" time="0.0"/>
   <testcase name="stale proven memory asks for refresh and never pretends it is current" classname="com.framebynavin.app.data.CreatorBrainRecommendationsTest" time="0.0"/>
   <testcase name="proven fresh pattern becomes lean in guidance" classname="com.framebynavin.app.data.CreatorBrainRecommendationsTest" time="0.0"/>
-  <testcase name="active project matching proven creator pattern gets project specific guidance" classname="com.framebynavin.app.data.CreatorBrainRecommendationsTest" time="0.005"/>
+  <testcase name="active project matching proven creator pattern gets project specific guidance" classname="com.framebynavin.app.data.CreatorBrainRecommendationsTest" time="0.003"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.016">
+<testsuite name="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.017">
   <properties/>
-  <testcase name="question hooks can lead ctr only after repeated samples" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.008"/>
-  <testcase name="one upload never becomes a creative pattern" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.001"/>
+  <testcase name="question hooks can lead ctr only after repeated samples" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.011"/>
+  <testcase name="one upload never becomes a creative pattern" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.0"/>
   <testcase name="hook and title classification stays transparent and structural" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.0"/>
   <testcase name="subscriber conversion uses period views and repeated project evidence" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.001"/>
-  <testcase name="missing ctr is excluded rather than treated as zero" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.001"/>
-  <testcase name="four samples on each side upgrades evidence strength" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.002"/>
+  <testcase name="missing ctr is excluded rather than treated as zero" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.0"/>
+  <testcase name="four samples on each side upgrades evidence strength" classname="com.framebynavin.app.data.CreatorCreativeIntelligenceTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

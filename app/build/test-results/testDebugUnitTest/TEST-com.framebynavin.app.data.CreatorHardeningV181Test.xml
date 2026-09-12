@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorHardeningV181Test" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.022">
+<testsuite name="com.framebynavin.app.data.CreatorHardeningV181Test" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.024">
   <properties/>
-  <testcase name="unrelatedConcurrentEditsArePreserved" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.005"/>
-  <testcase name="publishingPrecedesPromotionAndPreservesActualTime" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.006"/>
-  <testcase name="unrelatedDeletionDoesNotEraseNewRecords" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.002"/>
-  <testcase name="invalidPublicationInputIsRejected" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.001"/>
-  <testcase name="completionDoesNotInventHistoricalPublication" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.002"/>
+  <testcase name="unrelatedConcurrentEditsArePreserved" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.004"/>
+  <testcase name="publishingPrecedesPromotionAndPreservesActualTime" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.004"/>
+  <testcase name="unrelatedDeletionDoesNotEraseNewRecords" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.001"/>
+  <testcase name="invalidPublicationInputIsRejected" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.0"/>
+  <testcase name="completionDoesNotInventHistoricalPublication" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.0"/>
   <testcase name="publicationCorrectionAndRemovalAreExplicit" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.0"/>
   <testcase name="newsletterSendIsNotFinalReview" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.0"/>
-  <testcase name="staleEditAndStaleDeleteAreRejected" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.003"/>
+  <testcase name="staleEditAndStaleDeleteAreRejected" classname="com.framebynavin.app.data.CreatorHardeningV181Test" time="0.009"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

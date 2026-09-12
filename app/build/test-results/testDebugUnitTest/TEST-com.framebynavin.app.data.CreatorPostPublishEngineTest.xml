@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorPostPublishEngineTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.001">
+<testsuite name="com.framebynavin.app.data.CreatorPostPublishEngineTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.004">
   <properties/>
   <testcase name="youtubeCreatesProjectOwnedPostPublishCheckpoints" classname="com.framebynavin.app.data.CreatorPostPublishEngineTest" time="0.0"/>
   <testcase name="legacySourceParsingUsesFinalSeparatorSoProjectIdsRemainSafe" classname="com.framebynavin.app.data.CreatorPostPublishEngineTest" time="0.0"/>
-  <testcase name="legacyFakeTaskMigratesIntoCheckpointWithoutWorkflowMeaning" classname="com.framebynavin.app.data.CreatorPostPublishEngineTest" time="0.001"/>
+  <testcase name="legacyFakeTaskMigratesIntoCheckpointWithoutWorkflowMeaning" classname="com.framebynavin.app.data.CreatorPostPublishEngineTest" time="0.0"/>
   <testcase name="legacyCrossPromoteProjectIsDroppedBecausePromotionAlreadyLivesInWorkflow" classname="com.framebynavin.app.data.CreatorPostPublishEngineTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>

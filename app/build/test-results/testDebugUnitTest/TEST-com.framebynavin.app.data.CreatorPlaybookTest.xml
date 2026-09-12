@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorPlaybookTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.007">
+<testsuite name="com.framebynavin.app.data.CreatorPlaybookTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.013">
   <properties/>
-  <testcase name="one successful outcome stays learning and cannot move ranking" classname="com.framebynavin.app.data.CreatorPlaybookTest" time="0.005"/>
+  <testcase name="one successful outcome stays learning and cannot move ranking" classname="com.framebynavin.app.data.CreatorPlaybookTest" time="0.008"/>
   <testcase name="repeated positive outcomes create a conservative proven pattern" classname="com.framebynavin.app.data.CreatorPlaybookTest" time="0.001"/>
   <testcase name="proven playbook adds transparent evidence without changing horizon" classname="com.framebynavin.app.data.CreatorPlaybookTest" time="0.001"/>
   <testcase name="negative history needs three evaluated outcomes before caution" classname="com.framebynavin.app.data.CreatorPlaybookTest" time="0.0"/>

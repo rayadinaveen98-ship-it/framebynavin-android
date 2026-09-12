@@ -68,6 +68,7 @@ class IdeaVoiceTranscriber(
         keepListening = false
         restartScheduled = false
         mainHandler.removeCallbacksAndMessages(null)
+        listener.onListeningChanged(false)
         runCatching { recognizer?.stopListening() }
     }
 

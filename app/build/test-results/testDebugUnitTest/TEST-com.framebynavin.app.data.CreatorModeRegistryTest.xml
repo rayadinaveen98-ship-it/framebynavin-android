@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorModeRegistryTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.003">
+<testsuite name="com.framebynavin.app.data.CreatorModeRegistryTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.001">
   <properties/>
-  <testcase name="gamingAndFilmReceiveDifferentNativeSuggestions" classname="com.framebynavin.app.data.CreatorModeRegistryTest" time="0.002"/>
-  <testcase name="legacyAliasesCanonicalizeWithoutLosingCreatorIntent" classname="com.framebynavin.app.data.CreatorModeRegistryTest" time="0.001"/>
+  <testcase name="gamingAndFilmReceiveDifferentNativeSuggestions" classname="com.framebynavin.app.data.CreatorModeRegistryTest" time="0.001"/>
+  <testcase name="legacyAliasesCanonicalizeWithoutLosingCreatorIntent" classname="com.framebynavin.app.data.CreatorModeRegistryTest" time="0.0"/>
   <testcase name="creatorModesRecommendProductionStylesButDoNotActAsPermissions" classname="com.framebynavin.app.data.CreatorModeRegistryTest" time="0.0"/>
   <testcase name="unknownModeFallsBackToFlexibleHybridDefinition" classname="com.framebynavin.app.data.CreatorModeRegistryTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>

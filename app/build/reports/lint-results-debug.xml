@@ -297,7 +297,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml"
-            line="35"
+            line="42"
             column="13"/>
     </issue>
 
@@ -313,7 +313,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml"
-            line="36"
+            line="43"
             column="13"/>
     </issue>
 
@@ -329,7 +329,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml"
-            line="44"
+            line="51"
             column="13"/>
     </issue>
 
@@ -345,7 +345,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml"
-            line="45"
+            line="52"
             column="13"/>
     </issue>
 
@@ -669,7 +669,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="969"
+            line="1005"
             column="5"/>
     </issue>
 
@@ -687,7 +687,7 @@
         errorLine2="                             ~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/AndroidManifest.xml"
-            line="14"
+            line="21"
             column="30"/>
     </issue>
 
@@ -1839,7 +1839,7 @@
         errorLine2="                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="169"
+            line="172"
             column="103"/>
     </issue>
 
@@ -1855,7 +1855,7 @@
         errorLine2="                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="169"
+            line="172"
             column="103"/>
     </issue>
 
@@ -1871,7 +1871,7 @@
         errorLine2="                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="174"
+            line="177"
             column="108"/>
     </issue>
 
@@ -1887,7 +1887,7 @@
         errorLine2="                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="174"
+            line="177"
             column="108"/>
     </issue>
 
@@ -1903,7 +1903,7 @@
         errorLine2="                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="179"
+            line="182"
             column="116"/>
     </issue>
 
@@ -1919,7 +1919,7 @@
         errorLine2="                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="/home/runner/work/framebynavin-android/framebynavin-android/app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="179"
+            line="182"
             column="116"/>
     </issue>
 

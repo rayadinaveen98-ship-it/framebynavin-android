@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.voice.VoiceIdeaTextTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:35" hostname="runnervmlun5p" time="0.004">
+  <properties/>
+  <testcase name="recognizedWhitespaceIsCleanedButWordsAreNotRewritten" classname="com.framebynavin.app.voice.VoiceIdeaTextTest" time="0.004"/>
+  <testcase name="voiceAppendsWithoutOverwritingTypedIdea" classname="com.framebynavin.app.voice.VoiceIdeaTextTest" time="0.0"/>
+  <testcase name="emptyRecognitionDoesNotChangeDraft" classname="com.framebynavin.app.voice.VoiceIdeaTextTest" time="0.0"/>
+  <testcase name="blankDraftUsesRecognizedSpeechDirectly" classname="com.framebynavin.app.voice.VoiceIdeaTextTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

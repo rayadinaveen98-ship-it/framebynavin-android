@@ -11,8 +11,8 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 116,
-      "versionName": "2.0.0-beta1-ux-stabilization",
+      "versionCode": 118,
+      "versionName": "2.0.0-beta2-ux-reliability-audit",
       "outputFile": "app-debug.apk"
     }
   ],

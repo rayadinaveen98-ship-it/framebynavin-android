@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.youtube.YouTubeAnalyticsModelsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:08" hostname="runnervmlun5p" time="0.001">
+<testsuite name="com.framebynavin.app.youtube.YouTubeAnalyticsModelsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:35" hostname="runnervmlun5p" time="0.005">
   <properties/>
   <testcase name="video net subscribers subtracts losses" classname="com.framebynavin.app.youtube.YouTubeAnalyticsModelsTest" time="0.0"/>
-  <testcase name="snapshot net subscribers subtracts losses" classname="com.framebynavin.app.youtube.YouTubeAnalyticsModelsTest" time="0.001"/>
+  <testcase name="snapshot net subscribers subtracts losses" classname="com.framebynavin.app.youtube.YouTubeAnalyticsModelsTest" time="0.005"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

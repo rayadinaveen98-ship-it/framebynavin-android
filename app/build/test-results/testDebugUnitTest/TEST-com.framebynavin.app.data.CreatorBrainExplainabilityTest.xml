@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorBrainExplainabilityTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:06" hostname="runnervmlun5p" time="0.44">
+<testsuite name="com.framebynavin.app.data.CreatorBrainExplainabilityTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.258">
   <properties/>
-  <testcase name="paused pattern is removed from active Brain but preserved in explanation" classname="com.framebynavin.app.data.CreatorBrainExplainabilityTest" time="0.26"/>
-  <testcase name="retired conclusion stays historical but cannot produce Brain guidance" classname="com.framebynavin.app.data.CreatorBrainExplainabilityTest" time="0.071"/>
-  <testcase name="explanation cites exact teaching outcomes and sample size" classname="com.framebynavin.app.data.CreatorBrainExplainabilityTest" time="0.1"/>
-  <testcase name="active control returns original Brain unchanged" classname="com.framebynavin.app.data.CreatorBrainExplainabilityTest" time="0.005"/>
+  <testcase name="paused pattern is removed from active Brain but preserved in explanation" classname="com.framebynavin.app.data.CreatorBrainExplainabilityTest" time="0.163"/>
+  <testcase name="retired conclusion stays historical but cannot produce Brain guidance" classname="com.framebynavin.app.data.CreatorBrainExplainabilityTest" time="0.062"/>
+  <testcase name="explanation cites exact teaching outcomes and sample size" classname="com.framebynavin.app.data.CreatorBrainExplainabilityTest" time="0.031"/>
+  <testcase name="active control returns original Brain unchanged" classname="com.framebynavin.app.data.CreatorBrainExplainabilityTest" time="0.002"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorRecommendationOutcomeLearningTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-11T17:46:07" hostname="runnervmlun5p" time="0.01">
+<testsuite name="com.framebynavin.app.data.CreatorRecommendationOutcomeLearningTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:35" hostname="runnervmlun5p" time="0.01">
   <properties/>
-  <testcase name="published recommendation waits for analytics before evaluation" classname="com.framebynavin.app.data.CreatorRecommendationOutcomeLearningTest" time="0.005"/>
+  <testcase name="published recommendation waits for analytics before evaluation" classname="com.framebynavin.app.data.CreatorRecommendationOutcomeLearningTest" time="0.004"/>
   <testcase name="learning summary separates acted published and evaluated recommendations" classname="com.framebynavin.app.data.CreatorRecommendationOutcomeLearningTest" time="0.001"/>
   <testcase name="idea recommendation follows converted project through publish and performance" classname="com.framebynavin.app.data.CreatorRecommendationOutcomeLearningTest" time="0.0"/>
-  <testcase name="youtube url extraction supports watch shorts and share links" classname="com.framebynavin.app.data.CreatorRecommendationOutcomeLearningTest" time="0.001"/>
+  <testcase name="youtube url extraction supports watch shorts and share links" classname="com.framebynavin.app.data.CreatorRecommendationOutcomeLearningTest" time="0.003"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

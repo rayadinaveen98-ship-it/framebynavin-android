@@ -179,7 +179,7 @@ document.getElementById(id).style.display = 'none';
     <div class="mdl-layout__header-row">
       <span class="mdl-layout-title">Lint Report: 170 warnings</span>
       <div class="mdl-layout-spacer"></div>
-      <nav class="mdl-navigation mdl-layout--large-screen-only">Check performed at Fri Sep 11 17:48:19 UTC 2026 by AGP (8.9.2)</nav>
+      <nav class="mdl-navigation mdl-layout--large-screen-only">Check performed at Sat Sep 12 03:27:33 UTC 2026 by AGP (8.9.2)</nav>
     </div>
   </header>
   <div class="mdl-layout__drawer">
@@ -573,8 +573,8 @@ Dismiss</button>            </div>
 <span class="lineno"> 22 </span>        applicationId = "com.framebynavin.app"
 <span class="lineno"> 23 </span>        minSdk = 26
 <span class="caretline"><span class="lineno"> 24 </span>        <span class="warning">targetSdk = 35</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno"> 25 </span>        versionCode = 116
-<span class="lineno"> 26 </span>        versionName = "2.0.0-beta1-ux-stabilization"
+<span class="lineno"> 25 </span>        versionCode = 118
+<span class="lineno"> 26 </span>        versionName = "2.0.0-beta2-ux-reliability-audit"
 <span class="lineno"> 27 </span>        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 </pre>
 
@@ -619,41 +619,41 @@ Dismiss</button>            </div>
               <div class="mdl-card__supporting-text">
 <div class="issue">
 <div class="warningslist">
-<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:35</span>: <span class="message">Attribute <code>showWhenLocked</code> is only used in API level 27 and higher (current min is 26)</span><br /><pre class="errorlines">
-<span class="lineno">  32 </span>            <span class="prefix">android:</span><span class="attribute">excludeFromRecents</span>=<span class="value">"true"</span>
-<span class="lineno">  33 </span>            <span class="prefix">android:</span><span class="attribute">exported</span>=<span class="value">"false"</span>
-<span class="lineno">  34 </span>            <span class="prefix">android:</span><span class="attribute">launchMode</span>=<span class="value">"standard"</span>
-<span class="caretline"><span class="lineno">  35 </span>            <span class="warning"><span class="prefix">android:</span><span class="attribute">showWhenLocked</span>=<span class="value">"true"</span></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno">  36 </span>            <span class="prefix">android:</span><span class="attribute">turnScreenOn</span>=<span class="value">"true"</span>
-<span class="lineno">  37 </span>            <span class="prefix">android:</span><span class="attribute">theme</span>=<span class="value">"@style/Theme.FrameByNavin"</span> />
+<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:42</span>: <span class="message">Attribute <code>showWhenLocked</code> is only used in API level 27 and higher (current min is 26)</span><br /><pre class="errorlines">
+<span class="lineno">  39 </span>            <span class="prefix">android:</span><span class="attribute">excludeFromRecents</span>=<span class="value">"true"</span>
+<span class="lineno">  40 </span>            <span class="prefix">android:</span><span class="attribute">exported</span>=<span class="value">"false"</span>
+<span class="lineno">  41 </span>            <span class="prefix">android:</span><span class="attribute">launchMode</span>=<span class="value">"standard"</span>
+<span class="caretline"><span class="lineno">  42 </span>            <span class="warning"><span class="prefix">android:</span><span class="attribute">showWhenLocked</span>=<span class="value">"true"</span></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno">  43 </span>            <span class="prefix">android:</span><span class="attribute">turnScreenOn</span>=<span class="value">"true"</span>
+<span class="lineno">  44 </span>            <span class="prefix">android:</span><span class="attribute">theme</span>=<span class="value">"@style/Theme.FrameByNavin"</span> />
 </pre>
 
-<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:36</span>: <span class="message">Attribute <code>turnScreenOn</code> is only used in API level 27 and higher (current min is 26)</span><br /><pre class="errorlines">
-<span class="lineno">  33 </span>            <span class="prefix">android:</span><span class="attribute">exported</span>=<span class="value">"false"</span>
-<span class="lineno">  34 </span>            <span class="prefix">android:</span><span class="attribute">launchMode</span>=<span class="value">"standard"</span>
-<span class="lineno">  35 </span>            <span class="prefix">android:</span><span class="attribute">showWhenLocked</span>=<span class="value">"true"</span>
-<span class="caretline"><span class="lineno">  36 </span>            <span class="warning"><span class="prefix">android:</span><span class="attribute">turnScreenOn</span>=<span class="value">"true"</span></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno">  37 </span>            <span class="prefix">android:</span><span class="attribute">theme</span>=<span class="value">"@style/Theme.FrameByNavin"</span> />
-<span class="lineno">  38 </span>
-<span class="lineno">  39 </span>        <span class="tag">&lt;activity</span></pre>
+<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:43</span>: <span class="message">Attribute <code>turnScreenOn</code> is only used in API level 27 and higher (current min is 26)</span><br /><pre class="errorlines">
+<span class="lineno">  40 </span>            <span class="prefix">android:</span><span class="attribute">exported</span>=<span class="value">"false"</span>
+<span class="lineno">  41 </span>            <span class="prefix">android:</span><span class="attribute">launchMode</span>=<span class="value">"standard"</span>
+<span class="lineno">  42 </span>            <span class="prefix">android:</span><span class="attribute">showWhenLocked</span>=<span class="value">"true"</span>
+<span class="caretline"><span class="lineno">  43 </span>            <span class="warning"><span class="prefix">android:</span><span class="attribute">turnScreenOn</span>=<span class="value">"true"</span></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno">  44 </span>            <span class="prefix">android:</span><span class="attribute">theme</span>=<span class="value">"@style/Theme.FrameByNavin"</span> />
+<span class="lineno">  45 </span>
+<span class="lineno">  46 </span>        <span class="tag">&lt;activity</span></pre>
 
-<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:44</span>: <span class="message">Attribute <code>showWhenLocked</code> is only used in API level 27 and higher (current min is 26)</span><br /><pre class="errorlines">
-<span class="lineno">  41 </span>            <span class="prefix">android:</span><span class="attribute">excludeFromRecents</span>=<span class="value">"true"</span>
-<span class="lineno">  42 </span>            <span class="prefix">android:</span><span class="attribute">exported</span>=<span class="value">"false"</span>
-<span class="lineno">  43 </span>            <span class="prefix">android:</span><span class="attribute">launchMode</span>=<span class="value">"standard"</span>
-<span class="caretline"><span class="lineno">  44 </span>            <span class="warning"><span class="prefix">android:</span><span class="attribute">showWhenLocked</span>=<span class="value">"true"</span></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno">  45 </span>            <span class="prefix">android:</span><span class="attribute">turnScreenOn</span>=<span class="value">"true"</span>
-<span class="lineno">  46 </span>            <span class="prefix">android:</span><span class="attribute">theme</span>=<span class="value">"@style/Theme.FrameByNavin"</span> />
+<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:51</span>: <span class="message">Attribute <code>showWhenLocked</code> is only used in API level 27 and higher (current min is 26)</span><br /><pre class="errorlines">
+<span class="lineno">  48 </span>            <span class="prefix">android:</span><span class="attribute">excludeFromRecents</span>=<span class="value">"true"</span>
+<span class="lineno">  49 </span>            <span class="prefix">android:</span><span class="attribute">exported</span>=<span class="value">"false"</span>
+<span class="lineno">  50 </span>            <span class="prefix">android:</span><span class="attribute">launchMode</span>=<span class="value">"standard"</span>
+<span class="caretline"><span class="lineno">  51 </span>            <span class="warning"><span class="prefix">android:</span><span class="attribute">showWhenLocked</span>=<span class="value">"true"</span></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno">  52 </span>            <span class="prefix">android:</span><span class="attribute">turnScreenOn</span>=<span class="value">"true"</span>
+<span class="lineno">  53 </span>            <span class="prefix">android:</span><span class="attribute">theme</span>=<span class="value">"@style/Theme.FrameByNavin"</span> />
 </pre>
 
-<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:45</span>: <span class="message">Attribute <code>turnScreenOn</code> is only used in API level 27 and higher (current min is 26)</span><br /><pre class="errorlines">
-<span class="lineno">  42 </span>            <span class="prefix">android:</span><span class="attribute">exported</span>=<span class="value">"false"</span>
-<span class="lineno">  43 </span>            <span class="prefix">android:</span><span class="attribute">launchMode</span>=<span class="value">"standard"</span>
-<span class="lineno">  44 </span>            <span class="prefix">android:</span><span class="attribute">showWhenLocked</span>=<span class="value">"true"</span>
-<span class="caretline"><span class="lineno">  45 </span>            <span class="warning"><span class="prefix">android:</span><span class="attribute">turnScreenOn</span>=<span class="value">"true"</span></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno">  46 </span>            <span class="prefix">android:</span><span class="attribute">theme</span>=<span class="value">"@style/Theme.FrameByNavin"</span> />
-<span class="lineno">  47 </span>
-<span class="lineno">  48 </span>        <span class="tag">&lt;activity</span></pre>
+<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:52</span>: <span class="message">Attribute <code>turnScreenOn</code> is only used in API level 27 and higher (current min is 26)</span><br /><pre class="errorlines">
+<span class="lineno">  49 </span>            <span class="prefix">android:</span><span class="attribute">exported</span>=<span class="value">"false"</span>
+<span class="lineno">  50 </span>            <span class="prefix">android:</span><span class="attribute">launchMode</span>=<span class="value">"standard"</span>
+<span class="lineno">  51 </span>            <span class="prefix">android:</span><span class="attribute">showWhenLocked</span>=<span class="value">"true"</span>
+<span class="caretline"><span class="lineno">  52 </span>            <span class="warning"><span class="prefix">android:</span><span class="attribute">turnScreenOn</span>=<span class="value">"true"</span></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno">  53 </span>            <span class="prefix">android:</span><span class="attribute">theme</span>=<span class="value">"@style/Theme.FrameByNavin"</span> />
+<span class="lineno">  54 </span>
+<span class="lineno">  55 </span>        <span class="tag">&lt;activity</span></pre>
 
 <span class="location"><a href="../../src/main/res/xml/widget_creator_compact_info.xml">../../src/main/res/xml/widget_creator_compact_info.xml</a>:6</span>: <span class="message">Attribute <code>previewLayout</code> is only used in API level 31 and higher (current min is 26)</span><br /><pre class="errorlines">
 <span class="lineno">  3 </span>    <span class="prefix">android:</span><span class="attribute">minWidth</span>=<span class="value">"220dp"</span>
@@ -962,14 +962,14 @@ Dismiss</button>            </div>
               <div class="mdl-card__supporting-text">
 <div class="issue">
 <div class="warningslist">
-<span class="location"><a href="../../src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt">../../src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt</a>:969</span>: <span class="message">Modifier parameter should be the first optional parameter</span><br /><pre class="errorlines">
-<span class="lineno">  966 </span>    selected: PTab,
-<span class="lineno">  967 </span>    onSelect: (PTab) -> Unit,
-<span class="lineno">  968 </span>    onCapture: () -> Unit = {},
-<span class="caretline"><span class="lineno">  969 </span>    <span class="warning">modifier</span>: Modifier = Modifier,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno">  970 </span>) {
-<span class="lineno">  971 </span>    Surface(
-<span class="lineno">  972 </span>        modifier,
+<span class="location"><a href="../../src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt">../../src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt</a>:1005</span>: <span class="message">Modifier parameter should be the first optional parameter</span><br /><pre class="errorlines">
+<span class="lineno"> 1002 </span>    selected: PTab,
+<span class="lineno"> 1003 </span>    onSelect: (PTab) -> Unit,
+<span class="lineno"> 1004 </span>    onCapture: () -> Unit = {},
+<span class="caretline"><span class="lineno"> 1005 </span>    <span class="warning">modifier</span>: Modifier = Modifier,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno"> 1006 </span>) {
+<span class="lineno"> 1007 </span>    Surface(
+<span class="lineno"> 1008 </span>        modifier,
 </pre>
 
 </div>
@@ -1018,14 +1018,14 @@ Dismiss</button>            </div>
               <div class="mdl-card__supporting-text">
 <div class="issue">
 <div class="warningslist">
-<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:14</span>: <span class="message">The attribute <code>android:allowBackup</code> is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute <code>android:dataExtractionRules</code> specifying an <code>@xml</code> resource which configures cloud backups and device transfers on Android 12 and higher.</span><br /><pre class="errorlines">
-<span class="lineno">  11 </span>    <span class="tag">&lt;uses-permission</span><span class="attribute"> </span><span class="prefix">android:</span><span class="attribute">name</span>=<span class="value">"android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"</span> />
-<span class="lineno">  12 </span>
-<span class="lineno">  13 </span>    <span class="tag">&lt;application</span><span class="attribute">
-</span><span class="caretline"><span class="lineno">  14 </span><span class="attribute">        </span><span class="prefix">android:</span><span class="attribute">allowBackup</span>=<span class="value">"</span><span class="warning"><span class="value">false</span></span><span class="value">"</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-<span class="lineno">  15 </span>        <span class="prefix">android:</span><span class="attribute">icon</span>=<span class="value">"@drawable/ic_framebynavin_launcher"</span>
-<span class="lineno">  16 </span>        <span class="prefix">android:</span><span class="attribute">roundIcon</span>=<span class="value">"@drawable/ic_framebynavin_launcher"</span>
-<span class="lineno">  17 </span>        <span class="prefix">android:</span><span class="attribute">label</span>=<span class="value">"FrameByNavin"</span></pre>
+<span class="location"><a href="../../src/main/AndroidManifest.xml">../../src/main/AndroidManifest.xml</a>:21</span>: <span class="message">The attribute <code>android:allowBackup</code> is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute <code>android:dataExtractionRules</code> specifying an <code>@xml</code> resource which configures cloud backups and device transfers on Android 12 and higher.</span><br /><pre class="errorlines">
+<span class="lineno">  18 </span>    <span class="tag">&lt;/queries></span>
+<span class="lineno">  19 </span>
+<span class="lineno">  20 </span>    <span class="tag">&lt;application</span><span class="attribute">
+</span><span class="caretline"><span class="lineno">  21 </span><span class="attribute">        </span><span class="prefix">android:</span><span class="attribute">allowBackup</span>=<span class="value">"</span><span class="warning"><span class="value">false</span></span><span class="value">"</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+<span class="lineno">  22 </span>        <span class="prefix">android:</span><span class="attribute">icon</span>=<span class="value">"@drawable/ic_framebynavin_launcher"</span>
+<span class="lineno">  23 </span>        <span class="prefix">android:</span><span class="attribute">roundIcon</span>=<span class="value">"@drawable/ic_framebynavin_launcher"</span>
+<span class="lineno">  24 </span>        <span class="prefix">android:</span><span class="attribute">label</span>=<span class="value">"FrameByNavin"</span></pre>
 
 </div>
 <div class="metadata"><div class="explanation" id="explanationDataExtractionRules" style="display: none;">
@@ -1959,14 +1959,14 @@ Dismiss</button>            </div>
 <span class="lineno"> 18 </span>    companion <span class="keyword">object</span> {
 <span class="lineno"> 19 </span>        private const <span class="keyword">val</span> PREFS = <span class="string">"creator_drive_vault_v1"</span></pre>
 
-<span class="location"><a href="../../src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt">../../src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt</a>:169</span>: <span class="message">Use the KTX extension function <code>String.toUri</code> instead?</span><br /><pre class="errorlines">
-<span class="lineno">  166 </span>  }
-<span class="lineno">  167 </span>  <span class="keyword">fun</span> requestPreciseTiming() {
-<span class="lineno">  168 </span>      <span class="keyword">if</span> (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-<span class="caretline"><span class="lineno">  169 </span>          context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = <span class="warning">Uri.parse(<span class="string">"package:${</span>context.packageName<span class="string">}"</span>)</span> })</span>
-<span class="lineno">  170 </span>      }
-<span class="lineno">  171 </span>  }
-<span class="lineno">  172 </span>  <span class="keyword">fun</span> requestFullScreen() {
+<span class="location"><a href="../../src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt">../../src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt</a>:172</span>: <span class="message">Use the KTX extension function <code>String.toUri</code> instead?</span><br /><pre class="errorlines">
+<span class="lineno">  169 </span>  }
+<span class="lineno">  170 </span>  <span class="keyword">fun</span> requestPreciseTiming() {
+<span class="lineno">  171 </span>      <span class="keyword">if</span> (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+<span class="caretline"><span class="lineno">  172 </span>          context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = <span class="warning">Uri.parse(<span class="string">"package:${</span>context.packageName<span class="string">}"</span>)</span> })</span>
+<span class="lineno">  173 </span>      }
+<span class="lineno">  174 </span>  }
+<span class="lineno">  175 </span>  <span class="keyword">fun</span> requestFullScreen() {
 </pre>
 
 <br/><b>NOTE: 49 results omitted.</b><br/><br/></div>
