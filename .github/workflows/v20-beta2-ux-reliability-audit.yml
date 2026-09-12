@@ -1,0 +1,137 @@
+name: v2.0 Beta 2 UX Reliability Audit
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-beta2-ux-reliability-audit"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-beta2-ux-reliability-audit
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Materialize v118 Beta 2 audit
+        run: python tools/v118_beta2_ux_reliability.py
+
+      - name: Verify v118 UX and reliability invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 118' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-beta2-ux-reliability-audit"' app/build.gradle.kts
+
+          grep -q 'ORGANIZE IDEA · OPTIONAL' app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt
+          grep -q 'showOrganize' app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt
+
+          grep -q 'externalStudioId = null' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'contentDescription = "Create project"' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          ! grep -q 'contentDescription = "Capture idea"' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'Project reminders' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'showReminderSetup' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'Type or speak an idea' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'What needs your attention today' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+
+          ! grep -q 'generated occurrences are suppressed' app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
+          ! grep -q 'recreated immediately' app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
+
+          grep -A6 'fun stop()' app/src/main/java/com/framebynavin/app/voice/IdeaVoiceTranscriber.kt | grep -q 'listener.onListeningChanged(false)'
+          grep -q 'createOnDeviceSpeechRecognizer' app/src/main/java/com/framebynavin/app/voice/IdeaVoiceTranscriber.kt
+          grep -q 'EXTRA_ENABLE_LANGUAGE_SWITCH' app/src/main/java/com/framebynavin/app/voice/IdeaVoiceTranscriber.kt
+          grep -q 'V117VoiceIdeaInput' app/src/main/java/com/framebynavin/app/ui/V14QuickCaptureUi.kt
+          grep -q 'V117VoiceIdeaInput' app/src/main/java/com/framebynavin/app/widget/QuickIdeaActivity.kt
+
+          grep -q 'V18JourneyDestination.CREATE else null' app/src/main/java/com/framebynavin/app/ui/V18CreatorJourney.kt
+          ! grep -q 'V20OpportunityEngineCard(' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -q 'V20OpportunityEngineInsightsCard(snapshot)' app/src/main/java/com/framebynavin/app/ui/V20InsightsFoundationUi.kt
+          grep -q 'compactCard = selectionMode || (done && !expanded)' app/src/main/java/com/framebynavin/app/ui/V18CoreScreens.kt
+          grep -q 'ANALYZE VIDEO WITH GEMINI' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'ProjectPulseEngine::repairFalseSurfaceCompletion' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+
+          if grep -R --line-number 'AIzaSy' app/src/main app/src/debug app/src/release; then
+            echo 'Firebase API keys must not be copied into Kotlin/Java source.' >&2
+            exit 1
+          fi
+          git diff --check
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Full Android validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assembleDebug --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification
+          cp app/build/outputs/apk/debug/app-debug.apk verification/FrameByNavin-v2.0.0-beta2-ux-reliability-audit.apk
+          sha256sum verification/FrameByNavin-v2.0.0-beta2-ux-reliability-audit.apk | tee verification/apk.sha256
+          {
+            echo "versionName=2.0.0-beta2-ux-reliability-audit"
+            echo "versionCode=118"
+            echo "sourceCommit=$(git rev-parse HEAD)"
+            echo "ideaEditorProgressiveDisclosure=true"
+            echo "manualNavigationClearsStaleProjectExpansion=true"
+            echo "bottomPlusAccessibilityMatchesProjectCreation=true"
+            echo "reminderSettingsCompact=true"
+            echo "technicalManagementCopyReduced=true"
+            echo "voiceStopUiImmediate=true"
+            echo "voiceQuickIdeaPreserved=true"
+            echo "finishProjectSafetyPreserved=true"
+            echo "opportunityEngineInsightsOnly=true"
+            echo "completedProjectCompact=true"
+            echo "selectionModeCompact=true"
+            echo "liveGeminiVideoAutopsyPreserved=true"
+            echo "distributionSigning=development-sideload-only"
+          } > verification/manifest.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-beta2-ux-reliability-audit-apk
+          path: verification/FrameByNavin-v2.0.0-beta2-ux-reliability-audit.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-beta2-ux-reliability-audit-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(v118): materialize beta2 UX reliability audit [skip ci]"
+          fi
+          git push origin HEAD:develop/v2.0-beta2-ux-reliability-audit
+          git push --force-with-lease origin HEAD:staging/v2.0-beta2-ux-reliability-audit-validated
