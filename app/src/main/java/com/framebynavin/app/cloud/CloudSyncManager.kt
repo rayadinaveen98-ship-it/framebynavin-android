@@ -25,6 +25,9 @@ class CloudSyncManager(context: Context) {
 
     suspend fun completeGoogleSignIn(idToken: String): CloudOperationResult = resultTransition {
         val session = api.signInWithGoogle(idToken)
+        // A Drive token belongs to the previously authorized Google account and is intentionally
+        // process-only. Never let a new account transition inherit it, even if an email is reused.
+        DriveVaultTokenMemory.clear()
         local.saveSession(session)
         local.clearCreatorProfile()
         val profile = api.fetchCreatorProfile(session)
@@ -61,6 +64,7 @@ class CloudSyncManager(context: Context) {
         transition { _ ->
             val current = local.loadSession()
             if (current != null) runCatching { api.logout(current.accessToken) }
+            DriveVaultTokenMemory.clear()
             local.clearCreatorProfile()
             local.clearSession()
             CloudOperationResult.Success("Signed out. Local creator work stays on this phone.")
