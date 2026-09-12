@@ -5,9 +5,32 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+val releaseStoreFilePath = providers.gradleProperty("FRAMEBYNAVIN_RELEASE_STORE_FILE")
+    .orElse(providers.environmentVariable("FRAMEBYNAVIN_RELEASE_STORE_FILE"))
+    .orNull
+    ?.takeIf { it.isNotBlank() }
+val releaseStorePassword = providers.gradleProperty("FRAMEBYNAVIN_RELEASE_STORE_PASSWORD")
+    .orElse(providers.environmentVariable("FRAMEBYNAVIN_RELEASE_STORE_PASSWORD"))
+    .orNull
+    ?.takeIf { it.isNotBlank() }
+val releaseKeyAlias = providers.gradleProperty("FRAMEBYNAVIN_RELEASE_KEY_ALIAS")
+    .orElse(providers.environmentVariable("FRAMEBYNAVIN_RELEASE_KEY_ALIAS"))
+    .orNull
+    ?.takeIf { it.isNotBlank() }
+val releaseKeyPassword = providers.gradleProperty("FRAMEBYNAVIN_RELEASE_KEY_PASSWORD")
+    .orElse(providers.environmentVariable("FRAMEBYNAVIN_RELEASE_KEY_PASSWORD"))
+    .orNull
+    ?.takeIf { it.isNotBlank() }
+val productionSigningConfigured = listOf(
+    releaseStoreFilePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.framebynavin.app"
-    compileSdk = 35
+    compileSdk = 36
 
     signingConfigs {
         create("prototypeStable") {
@@ -16,14 +39,22 @@ android {
             keyAlias = "framebynavin-dev"
             keyPassword = "framebynavin-dev"
         }
+        if (productionSigningConfigured) {
+            create("productionRelease") {
+                storeFile = rootProject.file(requireNotNull(releaseStoreFilePath))
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
     }
 
     defaultConfig {
         applicationId = "com.framebynavin.app"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 120
-        versionName = "2.0.0-beta2.2-production-security-data-audit"
+        targetSdk = 36
+        versionCode = 121
+        versionName = "2.0.0-rc1-preflight"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -32,17 +63,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    val productionReleaseSigning = signingConfigs.findByName("productionRelease")
     buildTypes {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("prototypeStable")
         }
         getByName("release") {
-            // Production signing is intentionally not stored in the repository.
-            // CI compiles this variant unsigned so release-only source sets (including
-            // Play Integrity App Check) cannot silently rot while sideload builds remain debug-signed.
             isDebuggable = false
             isMinifyEnabled = false
             isShrinkResources = false
+            productionReleaseSigning?.let { signingConfig = it }
         }
     }
 
