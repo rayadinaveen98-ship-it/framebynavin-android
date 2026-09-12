@@ -104,6 +104,43 @@ jobs:
       - name: Full Android 16 debug and release validation
         run: gradle :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebugAndroidTest :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
 
+      - name: Verify 64-bit and 16 KB native compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apk='app/build/outputs/apk/release/app-release-unsigned.apk'
+          test -f "$apk"
+
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          unzip -q "$apk" 'lib/*/*.so' -d "$tmp" || true
+          libs=("$tmp"/lib/*/*.so)
+
+          if (( ${#libs[@]} > 0 )); then
+            for so32 in "$tmp"/lib/armeabi-v7a/*.so; do
+              base="$(basename "$so32")"
+              test -f "$tmp/lib/arm64-v8a/$base" || { echo "Missing arm64-v8a counterpart for $base" >&2; exit 1; }
+            done
+            for so32 in "$tmp"/lib/x86/*.so; do
+              base="$(basename "$so32")"
+              test -f "$tmp/lib/x86_64/$base" || { echo "Missing x86_64 counterpart for $base" >&2; exit 1; }
+            done
+
+            for so in "$tmp"/lib/arm64-v8a/*.so "$tmp"/lib/x86_64/*.so; do
+              while read -r align; do
+                if (( align < 0x4000 )); then
+                  echo "$so has LOAD alignment $align; 16 KB compatibility requires at least 0x4000." >&2
+                  exit 1
+                fi
+              done < <(readelf -lW "$so" | awk '/ LOAD / {print $NF}')
+            done
+          fi
+
+          zipalign_bin="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)"
+          test -x "$zipalign_bin"
+          "$zipalign_bin" -c -P 16 4 "$apk"
+
       - name: Build verification package
         shell: bash
         run: |
@@ -132,6 +169,9 @@ jobs:
             echo "playTargetApiGate=passed"
             echo "android16EdgeToEdgeStaticGate=passed"
             echo "android16PredictiveBackStaticGate=passed"
+            echo "native64BitCounterparts=passed"
+            echo "native16KbElfAlignment=passed"
+            echo "native16KbZipAlignment=passed"
             echo "releaseSigningExternalized=true"
             echo "releaseSigningMaterialCommitted=false"
             echo "releaseVariantCompiled=true"
