@@ -1,0 +1,184 @@
+name: v2.0 RC1 Preflight
+
+on:
+  push:
+    branches:
+      - "develop/v2.0-rc1-preflight"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v20-rc1-preflight
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify v121 RC1 preflight invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -q 'compileSdk = 36' app/build.gradle.kts
+          grep -q 'targetSdk = 36' app/build.gradle.kts
+          grep -q 'versionCode = 121' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-rc1-preflight"' app/build.gradle.kts
+          grep -A8 'getByName("release")' app/build.gradle.kts | grep -q 'isDebuggable = false'
+          ! grep -A8 'getByName("release")' app/build.gradle.kts | grep -q 'prototypeStable'
+
+          grep -q 'FRAMEBYNAVIN_RELEASE_STORE_FILE' app/build.gradle.kts
+          grep -q 'FRAMEBYNAVIN_RELEASE_STORE_PASSWORD' app/build.gradle.kts
+          grep -q 'FRAMEBYNAVIN_RELEASE_KEY_ALIAS' app/build.gradle.kts
+          grep -q 'FRAMEBYNAVIN_RELEASE_KEY_PASSWORD' app/build.gradle.kts
+          grep -q 'productionRelease' app/build.gradle.kts
+          test -f scripts/release-signing-preflight.ps1
+
+          grep -q 'enableEdgeToEdge()' app/src/main/java/com/framebynavin/app/MainActivity.kt
+          ! grep -R --line-number 'windowOptOutEdgeToEdgeEnforcement' app/src/main
+          ! grep -R --line-number 'enableOnBackInvokedCallback="false"' app/src/main
+          if grep -R --line-number -E 'override[[:space:]]+fun[[:space:]]+onBackPressed|KEYCODE_BACK' app/src/main/java; then
+            echo 'Legacy back interception must be migrated before targeting Android 16.' >&2
+            exit 1
+          fi
+
+          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+          grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          test "$(grep -c 'android:exported="true"' app/src/main/AndroidManifest.xml)" -eq 1
+          grep -A6 'android:name=".MainActivity"' app/src/main/AndroidManifest.xml | grep -q 'android:exported="true"'
+
+          grep -q 'PlayIntegrityAppCheckProviderFactory' app/src/release/java/com/framebynavin/app/CreatorAppCheck.kt
+          ! grep -q 'DebugAppCheckProviderFactory' app/src/release/java/com/framebynavin/app/CreatorAppCheck.kt
+          grep -q 'DebugAppCheckProviderFactory' app/src/debug/java/com/framebynavin/app/CreatorAppCheck.kt
+          grep -q 'CreatorAppCheck.install' app/src/main/java/com/framebynavin/app/MainActivity.kt
+
+          grep -q 'AES/GCM/NoPadding' app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt
+          grep -q 'AndroidKeyStore' app/src/main/java/com/framebynavin/app/cloud/CloudLocalStore.kt
+          grep -q 'Drive access tokens are never written to disk' app/src/main/java/com/framebynavin/app/cloud/DriveVaultTokenMemory.kt
+          test "$(grep -c 'DriveVaultTokenMemory.clear()' app/src/main/java/com/framebynavin/app/cloud/CloudSyncManager.kt)" -ge 2
+
+          grep -q 'CreatorDataGate.transaction' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -q 'recoverPendingRestore' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -q 'payloadSha256' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -q 'spaces=appDataFolder' app/src/main/java/com/framebynavin/app/cloud/DriveVaultApi.kt
+          grep -q 'Drive snapshot integrity check failed' app/src/main/java/com/framebynavin/app/cloud/DriveVaultManager.kt
+
+          migration='supabase/migrations/20260912034000_harden_creator_profiles_privileges.sql'
+          test -f "$migration"
+          grep -q 'revoke all privileges on table public.creator_profiles from anon' "$migration"
+
+          test -f docs/release/v121-rc1-preflight.md
+          grep -q 'Play submission blocker fixed' docs/release/v121-rc1-preflight.md
+          grep -q 'Play target API gate.*PASSED in v121' docs/release/2.0-rc-gates.md
+
+          grep -q 'ProjectPulseEngine::repairFalseSurfaceCompletion' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+          grep -q 'ANALYZE VIDEO WITH GEMINI' app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt
+          grep -q 'V117VoiceIdeaInput' app/src/main/java/com/framebynavin/app/ui/V14QuickCaptureUi.kt
+          grep -q 'V20OpportunityEngineInsightsCard(snapshot)' app/src/main/java/com/framebynavin/app/ui/V20InsightsFoundationUi.kt
+
+          if grep -R --line-number -E 'AIzaSy|sb_secret_|service[_-]?role' app/src/main app/src/debug app/src/release; then
+            echo 'A copied/private application credential was found in app source.' >&2
+            exit 1
+          fi
+
+          git diff --check
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Full Android 16 debug and release validation
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebugAndroidTest :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+
+      - name: Build verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification/release
+
+          qa_apk='verification/FrameByNavin-v2.0.0-rc1-preflight.apk'
+          cp app/build/outputs/apk/debug/app-debug.apk "$qa_apk"
+          sha256sum "$qa_apk" | tee verification/apk.sha256
+
+          release_apk='app/build/outputs/apk/release/app-release-unsigned.apk'
+          release_aab='app/build/outputs/bundle/release/app-release.aab'
+          test -f "$release_apk"
+          test -f "$release_aab"
+          cp "$release_apk" verification/release/FrameByNavin-v2.0.0-rc1-preflight-release-unsigned.apk
+          cp "$release_aab" verification/release/FrameByNavin-v2.0.0-rc1-preflight-release-unsigned.aab
+          sha256sum verification/release/FrameByNavin-v2.0.0-rc1-preflight-release-unsigned.apk | tee verification/release-apk.sha256
+          sha256sum verification/release/FrameByNavin-v2.0.0-rc1-preflight-release-unsigned.aab | tee verification/release-aab.sha256
+
+          {
+            echo "versionName=2.0.0-rc1-preflight"
+            echo "versionCode=121"
+            echo "sourceCommit=$(git rev-parse HEAD)"
+            echo "compileSdk=36"
+            echo "targetSdk=36"
+            echo "playTargetApiGate=passed"
+            echo "android16EdgeToEdgeStaticGate=passed"
+            echo "android16PredictiveBackStaticGate=passed"
+            echo "releaseSigningExternalized=true"
+            echo "releaseSigningMaterialCommitted=false"
+            echo "releaseVariantCompiled=true"
+            echo "releaseBundleCompiled=true"
+            echo "releaseVariantSigned=false"
+            echo "releaseDebuggable=false"
+            echo "releaseAppCheck=play-integrity"
+            echo "supabaseProductionAuthorizationReview=passed-v120"
+            echo "driveAccountBoundaryHardening=passed-v120"
+            echo "backupJournalRecoveryPreserved=true"
+            echo "reminderCompletionSafetyPreserved=true"
+            echo "finishProjectSafetyPreserved=true"
+            echo "liveGeminiVideoAutopsyPreserved=true"
+            echo "voiceQuickIdeaPreserved=true"
+            echo "distributionSigning=development-sideload-only-until-production-key-validation"
+          } > verification/manifest.txt
+
+      - name: Upload installable QA APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-rc1-preflight-apk
+          path: verification/FrameByNavin-v2.0.0-rc1-preflight.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload unsigned release APK and AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-rc1-preflight-release-unsigned
+          path: verification/release/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0.0-rc1-preflight-verification
+          path: |
+            verification/manifest.txt
+            verification/apk.sha256
+            verification/release-apk.sha256
+            verification/release-aab.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Push validated source to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push --force-with-lease origin HEAD:staging/v2.0-rc1-preflight-validated
