@@ -91,17 +91,6 @@ class CreatorCloudSyncManager(context: Context) {
         failure(e)
     }
 
-    suspend fun deleteCloudBackup(): CreatorCloudSyncResult = try {
-        account.withFreshSession { session ->
-            api.deleteCreatorSyncData(session)
-            state.clearAccount(session.userId)
-            CreatorCloudSyncResult.Synced(0L, "Automatic cloud backup deleted. Local creator work stays on this phone.")
-        }
-    } catch (e: Throwable) {
-        if (e is CancellationException) throw e
-        failure(e)
-    }
-
     private suspend fun syncAuthenticated(session: CloudSession): CreatorCloudSyncResult {
         val prepared = prepare()
         val cloud = api.fetchCreatorSyncHead(session)
@@ -119,28 +108,24 @@ class CreatorCloudSyncManager(context: Context) {
             return conflict(session.userId, prepared, cloud)
         }
 
-        if (cloud == null) {
-            return pushPrepared(session, prepared, expectedContentSha256 = null, bindWorkspace = true)
-        }
-
-        if (prepared.contentSha256 == cloud.contentSha256) {
-            state.bindWorkspace(session.userId)
-            state.recordSuccess(session.userId, cloud.contentSha256, cloud.revision)
-            return CreatorCloudSyncResult.Synced(cloud.revision, "Creator backup is up to date.")
-        }
-
-        if (saved.lastContentSha256.isBlank()) {
-            // First cloud reconciliation: only a clearly empty local workspace may be replaced
-            // automatically. Meaningful local work always requires an explicit choice.
-            if (isFreshLocal(prepared.preview)) return restoreSnapshot(session, cloud)
-            return conflict(session.userId, prepared, cloud)
-        }
-
-        return when {
-            saved.lastContentSha256 == cloud.contentSha256 ->
-                pushPrepared(session, prepared, expectedContentSha256 = cloud.contentSha256, bindWorkspace = true)
-            saved.lastContentSha256 == prepared.contentSha256 -> restoreSnapshot(session, cloud)
-            else -> conflict(session.userId, prepared, cloud)
+        return when (CreatorCloudReconciliationPolicy.decide(
+            localContentSha256 = prepared.contentSha256,
+            cloudContentSha256 = cloud?.contentSha256,
+            lastSyncedContentSha256 = saved.lastContentSha256,
+            localIsFresh = isFreshLocal(prepared.preview),
+        )) {
+            CreatorCloudReconciliationAction.UPLOAD_LOCAL ->
+                pushPrepared(session, prepared, expectedContentSha256 = cloud?.contentSha256, bindWorkspace = true)
+            CreatorCloudReconciliationAction.RESTORE_CLOUD ->
+                restoreSnapshot(session, requireNotNull(cloud))
+            CreatorCloudReconciliationAction.NO_CHANGE -> {
+                val current = requireNotNull(cloud)
+                state.bindWorkspace(session.userId)
+                state.recordSuccess(session.userId, current.contentSha256, current.revision)
+                CreatorCloudSyncResult.Synced(current.revision, "Creator backup is up to date.")
+            }
+            CreatorCloudReconciliationAction.REQUIRE_CHOICE ->
+                conflict(session.userId, prepared, cloud)
         }
     }
 
@@ -297,16 +282,6 @@ private class CreatorCloudSyncStateStore(context: Context) {
 
     fun recordError(userId: String, message: String) {
         prefs.edit().putString(key(userId, "error"), message).apply()
-    }
-
-    fun clearAccount(userId: String) {
-        prefs.edit()
-            .remove(key(userId, "sha"))
-            .remove(key(userId, "revision"))
-            .remove(key(userId, "success"))
-            .remove(key(userId, "conflict"))
-            .remove(key(userId, "error"))
-            .apply()
     }
 
     fun workspaceOwnerUserId(): String? = prefs.getString(KEY_WORKSPACE_OWNER, null)
