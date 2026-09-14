@@ -2,7 +2,6 @@ package com.framebynavin.app.cloud
 
 import android.accounts.Account
 import android.app.Activity
-import android.content.Intent
 import android.content.MutableContextWrapper
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -50,36 +49,76 @@ class CloudSyncActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { FrameByNavinTheme { DriveVaultScreen(onClose = ::finish) } }
+        setContent { FrameByNavinTheme { CreatorCloudScreen(onClose = ::finish) } }
     }
 }
 
 @Composable
-private fun DriveVaultScreen(onClose: () -> Unit) {
+private fun CreatorCloudScreen(onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val accountManager = remember { CloudSyncManager(context.applicationContext) }
-    val vault = remember { DriveVaultManager(context.applicationContext) }
+    val cloud = remember { CreatorCloudSyncManager(context.applicationContext) }
+    val drive = remember { DriveVaultManager(context.applicationContext) }
     val credentialManager = remember(context) { CredentialManager.create(context) }
     val credentialContext = remember(context) { MutableContextWrapper(context) }
     val authorizationClient = remember(context) { Identity.getAuthorizationClient(context) }
 
     var session by remember { mutableStateOf(accountManager.localState().session) }
-    var token by remember(session?.email) { mutableStateOf(session?.email?.let(DriveVaultTokenMemory::get)) }
-    var points by remember { mutableStateOf<List<DriveVaultRestorePoint>>(emptyList()) }
-    var loading by remember { mutableStateOf(false) }
+    var syncResult by remember { mutableStateOf<CreatorCloudSyncResult?>(null) }
+    var syncStatus by remember { mutableStateOf(cloud.status()) }
+    var driveToken by remember(session?.email) { mutableStateOf(session?.email?.let(DriveVaultTokenMemory::get)) }
+    var drivePoints by remember { mutableStateOf<List<DriveVaultRestorePoint>>(emptyList()) }
+    var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var restoreTarget by remember { mutableStateOf<DriveVaultRestorePoint?>(null) }
 
-    fun reloadIdentity() { session = accountManager.localState().session }
+    fun reloadIdentity() {
+        session = accountManager.localState().session
+        syncStatus = cloud.status()
+    }
 
-    fun loadPoints(accessToken: String) {
-        loading = true
+    fun describe(result: CreatorCloudSyncResult): String = when (result) {
+        is CreatorCloudSyncResult.Synced -> result.message
+        is CreatorCloudSyncResult.Restored -> "Cloud workspace restored: ${result.projectCount} projects and ${result.ideaCount} ideas."
+        is CreatorCloudSyncResult.Conflict -> "This phone and cloud both changed. Choose which workspace to keep; nothing was overwritten."
+        is CreatorCloudSyncResult.Skipped -> result.message
+        is CreatorCloudSyncResult.Failure -> result.message
+    }
+
+    fun runCloudSync() {
+        if (session == null || busy) return
+        busy = true
+        message = null
         scope.launch {
-            runCatching { vault.list(accessToken) }
-                .onSuccess { points = it; message = null }
-                .onFailure { message = it.message ?: "Could not read this Google account's Drive vault." }
-            loading = false
+            val result = cloud.syncNow()
+            syncResult = result
+            syncStatus = cloud.status()
+            message = describe(result)
+            busy = false
+        }
+    }
+
+    fun resolveCloud(restore: Boolean) {
+        if (busy) return
+        busy = true
+        message = null
+        scope.launch {
+            val result = if (restore) cloud.restoreCloud() else cloud.keepThisPhone()
+            syncResult = result
+            syncStatus = cloud.status()
+            message = describe(result)
+            busy = false
+        }
+    }
+
+    fun loadDrivePoints(accessToken: String) {
+        busy = true
+        scope.launch {
+            runCatching { drive.list(accessToken) }
+                .onSuccess { drivePoints = it; message = null }
+                .onFailure { message = it.message ?: "Could not read the optional Google Drive copies." }
+            busy = false
         }
     }
 
@@ -90,9 +129,9 @@ private fun DriveVaultScreen(onClose: () -> Unit) {
                     val value = auth.accessToken
                     if (value.isNullOrBlank()) message = "Google Drive did not return an access token."
                     else {
-                        token = value
+                        driveToken = value
                         session?.email?.let { DriveVaultTokenMemory.put(it, value) }
-                        loadPoints(value)
+                        loadDrivePoints(value)
                     }
                 }
                 .onFailure { message = it.message ?: "Google Drive authorization failed." }
@@ -101,7 +140,7 @@ private fun DriveVaultScreen(onClose: () -> Unit) {
 
     fun authorizeDrive() {
         val account = session ?: return
-        loading = true
+        busy = true
         message = null
         val request = AuthorizationRequest.builder()
             .setAccount(Account(account.email, "com.google"))
@@ -109,7 +148,7 @@ private fun DriveVaultScreen(onClose: () -> Unit) {
             .build()
         authorizationClient.authorize(request)
             .addOnSuccessListener { auth ->
-                loading = false
+                busy = false
                 if (auth.hasResolution()) {
                     val pending = auth.pendingIntent
                     if (pending == null) message = "Google Drive authorization needs attention."
@@ -118,27 +157,27 @@ private fun DriveVaultScreen(onClose: () -> Unit) {
                     val value = auth.accessToken
                     if (value.isNullOrBlank()) message = "Google Drive permission was not granted."
                     else {
-                        token = value
+                        driveToken = value
                         DriveVaultTokenMemory.put(account.email, value)
-                        loadPoints(value)
+                        loadDrivePoints(value)
                     }
                 }
             }
-            .addOnFailureListener { loading = false; message = it.message ?: "Google Drive authorization failed." }
+            .addOnFailureListener { busy = false; message = it.message ?: "Google Drive authorization failed." }
     }
 
     fun startGoogleSignIn() {
-        if (loading || CloudConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) return
-        loading = true
+        if (busy || CloudConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) return
+        busy = true
         message = null
         scope.launch {
             try {
                 val option = GetSignInWithGoogleOption.Builder(CloudConfig.GOOGLE_WEB_CLIENT_ID).build()
                 val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
                 val result = credentialManager.getCredential(context = credentialContext, request = request)
-                val c = result.credential
-                val idToken = if (c is CustomCredential && c.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                    GoogleIdTokenCredential.createFrom(c.data).idToken
+                val credential = result.credential
+                val idToken = if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                    GoogleIdTokenCredential.createFrom(credential.data).idToken
                 } else null
                 if (idToken.isNullOrBlank()) message = "Google couldn't complete sign-in."
                 else {
@@ -149,17 +188,32 @@ private fun DriveVaultScreen(onClose: () -> Unit) {
                         is CloudOperationResult.Failure -> operation.message
                     }
                     reloadIdentity()
+                    if (operation is CloudOperationResult.Success) {
+                        val cloudResult = cloud.syncNow()
+                        syncResult = cloudResult
+                        syncStatus = cloud.status()
+                        message = describe(cloudResult)
+                    }
                 }
             } catch (_: GetCredentialCancellationException) { message = "Google sign-in cancelled" }
             catch (_: NoCredentialException) { message = "No Google account is available on this device." }
             catch (_: GoogleIdTokenParsingException) { message = "Google couldn't verify the sign-in response." }
             catch (_: GetCredentialException) { message = "Google sign-in failed." }
             catch (e: Throwable) { message = e.message ?: "Google sign-in failed." }
-            finally { loading = false }
+            finally { busy = false }
         }
     }
 
-    LaunchedEffect(session?.email, token) { token?.let(::loadPoints) }
+    LaunchedEffect(session?.userId) {
+        if (session != null) {
+            val result = cloud.syncNow()
+            syncResult = result
+            syncStatus = cloud.status()
+        }
+    }
+    LaunchedEffect(session?.email, driveToken) { driveToken?.let(::loadDrivePoints) }
+
+    val conflict = syncResult as? CreatorCloudSyncResult.Conflict
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -169,88 +223,121 @@ private fun DriveVaultScreen(onClose: () -> Unit) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column {
-                    Text("GOOGLE ACCOUNT VAULT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                    Text("Backup & Restore", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    Text("CREATOR CLOUD", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    Text("Backup & Recovery", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
                 }
             }
             Spacer(Modifier.height(18.dp))
 
-            VaultCard {
-                Icon(Icons.Outlined.AdminPanelSettings, null, tint = MutedGold, modifier = Modifier.size(24.dp))
+            CloudCard {
+                Icon(Icons.Outlined.CloudDone, null, tint = MutedGold, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.height(9.dp))
-                Text("Your creator work belongs to your Google account.", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text("Automatic creator backup", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
-                Text("Projects, ideas and creator setup are saved as private FrameByNavin snapshots in Google Drive's hidden app-data area. Supabase is no longer the backup store.", color = MutedText, fontSize = 13.sp, lineHeight = 19.sp)
+                Text(
+                    "Your phone remains the working copy. When you connect Google, FrameByNavin privately syncs portable creator snapshots to your Supabase account and restores cloud changes only when it is safe.",
+                    color = MutedText,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                )
             }
             Spacer(Modifier.height(12.dp))
 
             if (session == null) {
-                VaultCard {
-                    Text("Sign in first", color = ProjectorIvory, fontWeight = FontWeight.Bold)
-                    Text("The Google account you choose owns its own independent FrameByNavin vault.", color = MutedText, fontSize = 12.sp)
+                CloudCard {
+                    Text("Connect your creator account", color = ProjectorIvory, fontWeight = FontWeight.Bold)
+                    Text("Google is your identity. Supabase keeps the private automatic backup for that identity.", color = MutedText, fontSize = 12.sp)
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = ::startGoogleSignIn, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("CONTINUE WITH GOOGLE") }
+                    Button(onClick = ::startGoogleSignIn, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("CONTINUE WITH GOOGLE") }
                 }
             } else {
-                VaultCard {
+                CloudCard {
                     Text("ACCOUNT", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
                     Text(session?.email.orEmpty(), color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    val last = syncStatus.lastSuccessMillis
+                    Text(
+                        when {
+                            conflict != null || syncStatus.needsResolution -> "Sync needs your choice"
+                            last > 0L -> "Last automatic sync · ${cloudTime(last)} · revision ${syncStatus.revision}"
+                            else -> "Automatic sync will start when the account is ready"
+                        },
+                        color = if (conflict != null || syncStatus.needsResolution) MutedGold else Color(0xFF86C995),
+                        fontSize = 12.sp,
+                    )
                     Spacer(Modifier.height(12.dp))
-                    if (token == null) {
-                        Button(onClick = ::authorizeDrive, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
-                            Icon(Icons.Outlined.Cloud, null); Spacer(Modifier.width(7.dp)); Text("CONNECT PRIVATE DRIVE VAULT")
+                    Button(onClick = ::runCloudSync, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Outlined.Sync, null); Spacer(Modifier.width(7.dp)); Text(if (busy) "SYNCING…" else "SYNC NOW")
+                    }
+                }
+
+                if (conflict != null) {
+                    Spacer(Modifier.height(12.dp))
+                    CloudCard {
+                        Text("SYNC CONFLICT", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text("Nothing was overwritten", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                        Text("Phone: ${conflict.localProjectCount} projects · ${conflict.localIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
+                        Text("Cloud: ${conflict.cloudProjectCount} projects · ${conflict.cloudIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = { resolveCloud(true) }, enabled = !busy && conflict.cloudRevision > 0L, modifier = Modifier.fillMaxWidth()) {
+                            Text("RESTORE CLOUD WORKSPACE")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(onClick = { resolveCloud(false) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                            Text("KEEP THIS PHONE'S WORK", color = ProjectorIvory)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Text("OPTIONAL MANUAL COPY", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text("Google Drive is no longer the automatic backup system. Use it only when you want an extra manual export/import restore point.", color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                Spacer(Modifier.height(8.dp))
+                CloudCard {
+                    if (driveToken == null) {
+                        OutlinedButton(onClick = ::authorizeDrive, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Outlined.AddToDrive, null); Spacer(Modifier.width(7.dp)); Text("CONNECT DRIVE FOR IMPORT / EXPORT")
                         }
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.CloudDone, null, tint = Color(0xFF86C995))
                             Spacer(Modifier.width(7.dp))
-                            Text("Private Drive vault connected for this session", color = Color(0xFF86C995), fontSize = 12.sp)
+                            Text("Optional Drive access connected for this session", color = Color(0xFF86C995), fontSize = 12.sp)
                         }
-                    }
-                }
-
-                if (token != null) {
-                    Spacer(Modifier.height(12.dp))
-                    VaultCard {
-                        Text("SAFE SNAPSHOT", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                        Text("Create a new restore point", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                        Text("Snapshots are append-only in this milestone. An empty phone cannot silently replace meaningful Drive history.", color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
                         Spacer(Modifier.height(12.dp))
                         Button(
                             onClick = {
-                                val access = token ?: return@Button
-                                loading = true
+                                val access = driveToken ?: return@Button
+                                busy = true
                                 scope.launch {
-                                    runCatching { vault.backupNow(access) }
-                                        .onSuccess { message = "Backup saved to this Google account."; points = vault.list(access) }
-                                        .onFailure { message = it.message ?: "Drive backup failed." }
-                                    loading = false
+                                    runCatching { drive.backupNow(access) }
+                                        .onSuccess { message = "Manual Drive copy exported."; drivePoints = drive.list(access) }
+                                        .onFailure { message = it.message ?: "Drive export failed." }
+                                    busy = false
                                 }
                             },
-                            enabled = !loading,
+                            enabled = !busy,
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text(if (loading) "WORKING…" else "BACK UP NOW") }
+                        ) { Text("EXPORT MANUAL DRIVE COPY") }
                     }
+                }
 
-                    Spacer(Modifier.height(20.dp))
-                    Text("RESTORE POINTS", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                    Text(if (loading && points.isEmpty()) "Reading this account's private vault…" else "${points.size} snapshot${if (points.size == 1) "" else "s"}", color = MutedText, fontSize = 11.sp)
-                    Spacer(Modifier.height(8.dp))
-                    if (!loading && points.isEmpty()) {
-                        VaultCard { Text("No FrameByNavin snapshots in this Google account yet.", color = MutedText, fontSize = 13.sp) }
+                if (driveToken != null) {
+                    Spacer(Modifier.height(12.dp))
+                    Text("DRIVE IMPORT POINTS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    if (!busy && drivePoints.isEmpty()) {
+                        Text("No manual Drive copies found.", color = MutedText, fontSize = 12.sp)
                     } else {
-                        val recommended = DriveVaultPolicy.recommended(points)
-                        points.forEach { point ->
+                        drivePoints.forEach { point ->
                             Surface(
                                 onClick = { restoreTarget = point },
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                 color = CinemaSurface,
                                 shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.dp, if (point.fileId == recommended?.fileId) MutedGold.copy(alpha = .5f) else CinemaLine),
+                                border = BorderStroke(1.dp, CinemaLine),
                             ) {
                                 Column(Modifier.padding(14.dp)) {
-                                    if (point.fileId == recommended?.fileId) Text("RECOMMENDED", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                                    Text(vaultTime(point.capturedAtMillis), color = ProjectorIvory, fontWeight = FontWeight.Bold)
+                                    Text(cloudTime(point.capturedAtMillis), color = ProjectorIvory, fontWeight = FontWeight.Bold)
                                     Text("${point.projectCount} projects · ${point.ideaCount} ideas · ${point.appVersion}", color = MutedText, fontSize = 11.sp)
                                 }
                             }
@@ -270,22 +357,27 @@ private fun DriveVaultScreen(onClose: () -> Unit) {
 
     restoreTarget?.let { point ->
         AlertDialog(
-            onDismissRequest = { if (!loading) restoreTarget = null },
+            onDismissRequest = { if (!busy) restoreTarget = null },
             containerColor = CinemaSurfaceRaised,
-            title = { Text("Restore this Drive snapshot?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("This replaces covered creator data on this phone. FrameByNavin first keeps a local recovery copy, validates the snapshot hash, then restores it. Other Drive snapshots stay untouched.", color = MutedText) },
+            title = { Text("Import this Drive copy?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            text = { Text("This is a manual import. FrameByNavin validates the copy and keeps a local recovery journal before replacing covered creator data. Automatic creator cloud will reconcile afterward.", color = MutedText) },
             confirmButton = {
                 TextButton(onClick = {
-                    val access = token ?: return@TextButton
+                    val access = driveToken ?: return@TextButton
                     restoreTarget = null
-                    loading = true
+                    busy = true
                     scope.launch {
-                        runCatching { vault.restore(access, point) }
-                            .onSuccess { message = "Workspace restored: ${it.projectCount} projects and ${it.ideaCount} ideas." }
-                            .onFailure { message = it.message ?: "Restore failed. Local recovery data was retained." }
-                        loading = false
+                        runCatching { drive.restore(access, point) }
+                            .onSuccess {
+                                message = "Manual Drive copy imported: ${it.projectCount} projects and ${it.ideaCount} ideas."
+                                val cloudResult = cloud.syncNow()
+                                syncResult = cloudResult
+                                syncStatus = cloud.status()
+                            }
+                            .onFailure { message = it.message ?: "Drive import failed. Local recovery data was retained." }
+                        busy = false
                     }
-                }) { Text("RESTORE", color = RecRed) }
+                }) { Text("IMPORT", color = RecRed) }
             },
             dismissButton = { TextButton(onClick = { restoreTarget = null }) { Text("CANCEL", color = MutedText) } },
         )
@@ -293,11 +385,11 @@ private fun DriveVaultScreen(onClose: () -> Unit) {
 }
 
 @Composable
-private fun VaultCard(content: @Composable ColumnScope.() -> Unit) {
+private fun CloudCard(content: @Composable ColumnScope.() -> Unit) {
     Surface(Modifier.fillMaxWidth(), color = CinemaSurface, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp), content = content)
     }
 }
 
-private fun vaultTime(value: Long): String = if (value <= 0L) "Unknown time" else
+private fun cloudTime(value: Long): String = if (value <= 0L) "Unknown time" else
     SimpleDateFormat("dd MMM yyyy · h:mm a", Locale.getDefault()).format(Date(value))
