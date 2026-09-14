@@ -112,17 +112,19 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
 
     BackHandler(enabled = guidedTourStepName != null || focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
         when {
-            guidedTourStepName != null -> {
-                settingsStore.markGuidedTourComplete()
-                settings = settingsStore.snapshot()
-                guidedTourStepName = null
-            }
+            // Real surfaces always get first chance to close. A Back press inside Quick Capture or
+            // New Project must not silently count as skipping the entire guided journey.
             focusTaskId != null -> focusTaskId = null
             showComposer -> showComposer = false
             showQuickCapture -> showQuickCapture = false
             showReminders -> showReminders = false
             showControl -> { showControl = false; controlExpanded = false }
             overlay != POverlay.NONE -> overlay = POverlay.NONE
+            guidedTourStepName != null -> {
+                settingsStore.markGuidedTourComplete()
+                settings = settingsStore.snapshot()
+                guidedTourStepName = null
+            }
             else -> {
                 externalStudioId = null
                 tab = PTab.TODAY
@@ -532,6 +534,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 showQuickCapture = false
                 routeJourney(V18CreatorJourney.afterCapture())
                 if (guidedTourStepName == CreatorGuidedTourStep.IDEAS.name) {
+                    externalStudioId = null
+                    tab = PTab.CREATE
                     guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
                 }
             },
@@ -688,6 +692,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             },
             onSecondary = {
                 if (guidedTourStep == CreatorGuidedTourStep.IDEAS) {
+                    externalStudioId = null
+                    tab = PTab.CREATE
                     guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
                 }
             },
