@@ -11,10 +11,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: rc2-project-wizard-validate
-  cancel-in-progress: true
-
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -24,94 +20,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Materialize wizard and connect composer
-        shell: bash
+      - name: Apply project wizard
         run: |
-          set -euo pipefail
           cp .github/rc2/V20NewProjectWizard.kt.txt app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt')
-          text = path.read_text()
-          anchor = '''    val requiresAdvancedPermissions = effectiveReminderMode in setOf(ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART)
-
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {'''
-          replacement = '''    val requiresAdvancedPermissions = effectiveReminderMode in setOf(ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART)
-
-    if (task == null) {
-        V20NewProjectWizard(
-            profile = defaults.creatorProfile,
-            title = title,
-            onTitleChange = { title = it },
-            creatorModeId = creatorModeId,
-            onCreatorModeChange = { selectedMode ->
-                creatorModeId = selectedMode
-                archetypeId = ContentArchetypeRegistry.suggestedForMode(selectedMode).firstOrNull()?.id ?: archetypeId
-                if (productionStyles.isEmpty()) {
-                    productionStyles = defaults.creatorProfile.productionStyles.ifEmpty {
-                        ProductionStyleRegistry.orderedForMode(selectedMode).take(1).toSet()
-                    }
-                }
-            },
-            archetypeId = archetypeId,
-            onArchetypeChange = { archetypeId = it },
-            productionStyles = productionStyles,
-            onProductionStylesChange = { productionStyles = it },
-            platform = platform,
-            onPlatformChange = { selectedPlatform ->
-                platform = selectedPlatform
-                contentType = CreatorPlatformRegistry.defaultFormat(selectedPlatform)
-            },
-            contentType = contentType,
-            onContentTypeChange = { contentType = it },
-            dueAt = dueAt,
-            onPickDue = {
-                pickDateTime(dueAt) { picked ->
-                    dueAt = picked
-                    if (customReminderAt >= dueAt) customReminderAt = (dueAt - 30 * 60_000L).coerceAtLeast(now + 60_000L)
-                }
-            },
-            attentionPlan = attentionPlan,
-            onAttentionPlanChange = { attentionPlan = it },
-            onDismiss = onDismiss,
-            onCreate = {
-                onSave(
-                    PProjectDraft(
-                        title = title.trim(),
-                        platform = platform,
-                        contentType = contentType,
-                        contentDna = CreatorContentDna(
-                            creatorModeId = creatorModeId,
-                            archetypeId = archetypeId,
-                            productionStyles = productionStyles,
-                            platform = platform,
-                            deliveryFormat = contentType,
-                            inferredFromLegacy = false,
-                        ).normalized(),
-                        dueAtMillis = dueAt,
-                        attentionPlan = attentionPlan,
-                        mode = ReminderMode.NONE,
-                        reminderAtMillis = 0L,
-                        deliveryPreference = ReminderDeliveryPreference.AUTO,
-                        priority = priority,
-                        notes = notes.trim(),
-                        alarmSoundUri = soundUri,
-                        voicePersona = voice,
-                        voiceRepeatCount = repeatCount,
-                        voiceRepeatIntervalSeconds = repeatGap,
-                        alarmTimeoutSeconds = alarmTimeout,
-                    )
-                )
-            },
-        )
-        return
-    }
-
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {'''
-          if anchor not in text:
-              raise SystemExit('composer insertion anchor not found')
-          path.write_text(text.replace(anchor, replacement, 1))
-          PY
+          python3 .github/rc2/apply_project_wizard.py
 
       - name: Set up JDK
         uses: actions/setup-java@v5
@@ -140,15 +52,10 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Commit validated app source
-        shell: bash
         run: |
-          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
-          if git diff --cached --quiet; then
-            echo 'No wizard source changes to commit.'
-            exit 0
-          fi
+          if git diff --cached --quiet; then exit 0; fi
           git commit -m 'feat(rc2): add personalized sequential project wizard'
           git push origin HEAD:feature/v2.0-rc2-insights-v2
