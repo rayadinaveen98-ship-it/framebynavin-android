@@ -1,0 +1,537 @@
+name: RC2 Insights V2 Bootstrap
+
+on:
+  push:
+    branches:
+      - "feature/v2.0-rc2-insights-v2"
+    paths:
+      - ".github/workflows/rc2-insights-v2-bootstrap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rc2-insights-v2-bootstrap
+  cancel-in-progress: true
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout RC2 feedback branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply Insights V2 interaction and freshness pass
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > app/src/main/java/com/framebynavin/app/ui/V20InsightsDrilldownUi.kt <<'KOTLIN'
+          package com.framebynavin.app.ui
+
+          import androidx.compose.foundation.Canvas
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.gestures.detectTapGestures
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.outlined.Close
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.Path
+          import androidx.compose.ui.graphics.drawscope.Stroke
+          import androidx.compose.ui.input.pointer.pointerInput
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.style.TextOverflow
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.compose.ui.window.Dialog
+          import com.framebynavin.app.ui.theme.*
+          import com.framebynavin.app.youtube.*
+          import java.util.Locale
+          import kotlin.math.abs
+
+          internal enum class V20InsightsDetailKind { VIEWS, WATCH, SUBS, AVG_VIEW, DAILY_VIEWS, SIGNAL }
+
+          internal data class V20InsightsDrilldownRequest(
+              val kind: V20InsightsDetailKind,
+              val signal: YouTubeInsightSignal? = null,
+          ) {
+              companion object {
+                  fun fromMetric(label: String): V20InsightsDrilldownRequest = V20InsightsDrilldownRequest(
+                      when (label) {
+                          "VIEWS" -> V20InsightsDetailKind.VIEWS
+                          "WATCH" -> V20InsightsDetailKind.WATCH
+                          "SUBS" -> V20InsightsDetailKind.SUBS
+                          else -> V20InsightsDetailKind.AVG_VIEW
+                      }
+                  )
+
+                  fun signal(signal: YouTubeInsightSignal) = V20InsightsDrilldownRequest(V20InsightsDetailKind.SIGNAL, signal)
+              }
+          }
+
+          @Composable
+          internal fun V20InsightsDrilldownDialog(
+              snapshot: YouTubeAnalyticsSnapshot,
+              request: V20InsightsDrilldownRequest,
+              onDismiss: () -> Unit,
+          ) {
+              Dialog(onDismissRequest = onDismiss) {
+                  Surface(
+                      modifier = Modifier.fillMaxWidth().fillMaxHeight(.86f),
+                      shape = RoundedCornerShape(26.dp),
+                      color = CinemaBlack,
+                      border = BorderStroke(1.dp, CinemaLine),
+                  ) {
+                      Column(
+                          Modifier.fillMaxSize()
+                              .verticalScroll(rememberScrollState())
+                              .padding(18.dp)
+                      ) {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Column(Modifier.weight(1f)) {
+                                  Text("INSIGHTS · ${snapshot.windowDays} DAYS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                                  Text(v20DetailTitle(request), color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                              }
+                              IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = MutedText) }
+                          }
+                          Text("${snapshot.startDate} → ${snapshot.endDate}", color = MutedText, fontSize = 8.5.sp)
+                          Spacer(Modifier.height(16.dp))
+
+                          if (request.kind == V20InsightsDetailKind.SIGNAL) {
+                              V20SignalDetail(snapshot, request.signal)
+                          } else {
+                              V20MetricDetail(snapshot, request.kind)
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20InsightsDetailKind) {
+              val current = v20Current(snapshot, kind)
+              val previous = v20Previous(snapshot, kind)
+              val change = if (previous != null && previous != 0L) (((current - previous) * 100.0) / abs(previous.toDouble())).toInt() else null
+
+              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                  V20DetailMetric("THIS PERIOD", v20MetricValue(kind, current), Modifier.weight(1f))
+                  V20DetailMetric("PREVIOUS", previous?.let { v20MetricValue(kind, it) } ?: "—", Modifier.weight(1f))
+              }
+              Spacer(Modifier.height(8.dp))
+              Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                  Text(
+                      change?.let { "${if (it > 0) "+" else ""}$it% compared with the previous ${snapshot.windowDays}-day period" }
+                          ?: "A reliable previous-period comparison is not available yet.",
+                      modifier = Modifier.fillMaxWidth().padding(12.dp),
+                      color = when { change == null -> MutedText; change > 0 -> SuccessGreen; change < 0 -> RecRed; else -> MutedText },
+                      fontSize = 9.sp,
+                      lineHeight = 13.sp,
+                      fontWeight = FontWeight.Bold,
+                  )
+              }
+
+              Spacer(Modifier.height(18.dp))
+              if (kind == V20InsightsDetailKind.AVG_VIEW) {
+                  Text("PERIOD COMPARISON", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                  Text("YouTube's current FrameByNavin snapshot does not include daily average-view-duration points, so this view keeps the comparison honest instead of drawing an invented daily line.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+              } else {
+                  Text(if (kind == V20InsightsDetailKind.DAILY_VIEWS) "DAILY VIEWS" else "DAILY TREND", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                  Text("Tap anywhere on the chart to inspect an exact day.", color = MutedText, fontSize = 8.5.sp)
+                  Spacer(Modifier.height(10.dp))
+                  V20InteractiveTrendChart(snapshot, kind)
+              }
+
+              Spacer(Modifier.height(20.dp))
+              Text("VIDEOS DRIVING THIS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+              Text("Ranked using the same ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
+              Spacer(Modifier.height(8.dp))
+              v20RankedVideos(snapshot, kind).take(5).forEachIndexed { index, video ->
+                  Surface(
+                      modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp),
+                      shape = RoundedCornerShape(15.dp),
+                      color = CinemaSurface,
+                      border = BorderStroke(1.dp, CinemaLine),
+                  ) {
+                      Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                          Text("#${index + 1}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                          Spacer(Modifier.width(9.dp))
+                          Column(Modifier.weight(1f)) {
+                              Text(video.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                              Text(v20VideoMetric(video, kind), color = MutedText, fontSize = 8.sp)
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeInsightSignal?) {
+              if (signal == null) return
+              val accent = when (signal.tone) {
+                  YouTubeInsightTone.POSITIVE -> SuccessGreen
+                  YouTubeInsightTone.WATCH -> RecRed
+                  YouTubeInsightTone.OPPORTUNITY -> MutedGold
+                  YouTubeInsightTone.NEUTRAL -> ProjectorIvory
+              }
+              Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .35f))) {
+                  Column(Modifier.padding(15.dp)) {
+                      Text(signal.kicker, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                      Spacer(Modifier.height(4.dp))
+                      Text(signal.title, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                      Spacer(Modifier.height(6.dp))
+                      Text(signal.body, color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+                  }
+              }
+              Spacer(Modifier.height(16.dp))
+              Text("CURRENT CONTEXT", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+              Text("This signal is being read against the active ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
+              Spacer(Modifier.height(8.dp))
+              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                  V20DetailMetric("VIEWS", v20Compact(snapshot.views), Modifier.weight(1f))
+                  V20DetailMetric("WATCH", v20Watch(snapshot.watchMinutes), Modifier.weight(1f))
+              }
+              Spacer(Modifier.height(7.dp))
+              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                  V20DetailMetric("SUBS", v20Signed(snapshot.netSubscribers), Modifier.weight(1f))
+                  V20DetailMetric("AVG VIEW", v20Duration(snapshot.averageViewDurationSeconds), Modifier.weight(1f))
+              }
+              Spacer(Modifier.height(16.dp))
+              Text("TOP SUPPORTING VIDEOS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+              YouTubeInsightEngine.videoPerformance(snapshot).take(3).forEachIndexed { index, performance ->
+                  Text("${index + 1}. ${performance.video.title} · ${v20Compact(performance.video.periodViews)} views", color = MutedText, fontSize = 8.6.sp, lineHeight = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                  Spacer(Modifier.height(4.dp))
+              }
+          }
+
+          @Composable
+          private fun V20DetailMetric(label: String, value: String, modifier: Modifier) {
+              Surface(modifier, RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                  Column(Modifier.padding(12.dp)) {
+                      Text(label, color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                      Spacer(Modifier.height(3.dp))
+                      Text(value, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                  }
+              }
+          }
+
+          @Composable
+          private fun V20InteractiveTrendChart(snapshot: YouTubeAnalyticsSnapshot, kind: V20InsightsDetailKind) {
+              val points = snapshot.trend.takeLast(snapshot.windowDays.coerceAtMost(90))
+              if (points.isEmpty()) {
+                  Text("No daily data is available for this period yet.", color = MutedText, fontSize = 9.sp)
+                  return
+              }
+              val values = remember(points, kind) { points.map { v20PointValue(it, kind) } }
+              var selectedIndex by remember(points, kind) { mutableIntStateOf(points.lastIndex) }
+              val selected = points[selectedIndex]
+              val selectedValue = values[selectedIndex]
+              val accent = when (kind) {
+                  V20InsightsDetailKind.SUBS -> SuccessGreen
+                  V20InsightsDetailKind.WATCH -> MutedGold
+                  else -> RecRed
+              }
+
+              Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), Color(0xFF131517), border = BorderStroke(1.dp, CinemaLine)) {
+                  Column(Modifier.padding(14.dp)) {
+                      Row(verticalAlignment = Alignment.CenterVertically) {
+                          Column(Modifier.weight(1f)) {
+                              Text(selected.date, color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                              Text(v20MetricValue(kind, selectedValue), color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                          }
+                          Text("${selectedIndex + 1}/${points.size}", color = MutedText, fontSize = 8.sp)
+                      }
+                      Spacer(Modifier.height(10.dp))
+                      Canvas(
+                          Modifier.fillMaxWidth().height(150.dp).pointerInput(points, kind) {
+                              detectTapGestures { offset ->
+                                  if (size.width <= 0) return@detectTapGestures
+                                  selectedIndex = ((offset.x / size.width.toFloat()) * (points.size - 1).coerceAtLeast(1))
+                                      .toInt().coerceIn(0, points.lastIndex)
+                              }
+                          }
+                      ) {
+                          val max = values.maxOrNull()?.toFloat() ?: 0f
+                          val min = values.minOrNull()?.toFloat() ?: 0f
+                          val range = (max - min).takeIf { it > 0f } ?: 1f
+                          val step = if (values.size <= 1) 0f else size.width / (values.size - 1)
+                          val path = Path()
+                          values.forEachIndexed { index, raw ->
+                              val x = step * index
+                              val y = ((max - raw.toFloat()) / range) * (size.height - 18f) + 9f
+                              if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                          }
+                          drawPath(path, accent, style = Stroke(width = 5f))
+                          val sx = step * selectedIndex
+                          val sy = ((max - values[selectedIndex].toFloat()) / range) * (size.height - 18f) + 9f
+                          drawLine(MutedText.copy(alpha = .35f), Offset(sx, 0f), Offset(sx, size.height), strokeWidth = 2f)
+                          drawCircle(accent, radius = 8f, center = Offset(sx, sy))
+                          drawCircle(CinemaBlack, radius = 3f, center = Offset(sx, sy))
+                      }
+                  }
+              }
+          }
+
+          private fun v20PointValue(point: YouTubeTrendPoint, kind: V20InsightsDetailKind): Long = when (kind) {
+              V20InsightsDetailKind.WATCH -> point.watchMinutes
+              V20InsightsDetailKind.SUBS -> point.netSubscribers
+              else -> point.views
+          }
+
+          private fun v20Current(snapshot: YouTubeAnalyticsSnapshot, kind: V20InsightsDetailKind): Long = when (kind) {
+              V20InsightsDetailKind.WATCH -> snapshot.watchMinutes
+              V20InsightsDetailKind.SUBS -> snapshot.netSubscribers
+              V20InsightsDetailKind.AVG_VIEW -> snapshot.averageViewDurationSeconds
+              else -> snapshot.views
+          }
+
+          private fun v20Previous(snapshot: YouTubeAnalyticsSnapshot, kind: V20InsightsDetailKind): Long? = snapshot.previousPeriod?.let { previous ->
+              when (kind) {
+                  V20InsightsDetailKind.WATCH -> previous.watchMinutes
+                  V20InsightsDetailKind.SUBS -> previous.netSubscribers
+                  V20InsightsDetailKind.AVG_VIEW -> previous.averageViewDurationSeconds
+                  else -> previous.views
+              }
+          }
+
+          private fun v20DetailTitle(request: V20InsightsDrilldownRequest): String = when (request.kind) {
+              V20InsightsDetailKind.VIEWS -> "Views"
+              V20InsightsDetailKind.WATCH -> "Watch time"
+              V20InsightsDetailKind.SUBS -> "Subscribers"
+              V20InsightsDetailKind.AVG_VIEW -> "Average view"
+              V20InsightsDetailKind.DAILY_VIEWS -> "Daily views"
+              V20InsightsDetailKind.SIGNAL -> request.signal?.kicker?.lowercase(Locale.getDefault())?.replaceFirstChar { it.uppercase() } ?: "Channel signal"
+          }
+
+          private fun v20MetricValue(kind: V20InsightsDetailKind, value: Long): String = when (kind) {
+              V20InsightsDetailKind.WATCH -> v20Watch(value)
+              V20InsightsDetailKind.SUBS -> v20Signed(value)
+              V20InsightsDetailKind.AVG_VIEW -> v20Duration(value)
+              else -> v20Compact(value)
+          }
+
+          private fun v20RankedVideos(snapshot: YouTubeAnalyticsSnapshot, kind: V20InsightsDetailKind): List<YouTubeVideoSnapshot> {
+              val videos = (snapshot.topVideos + snapshot.recentVideos).distinctBy { it.videoId }
+              return when (kind) {
+                  V20InsightsDetailKind.WATCH -> videos.sortedByDescending { it.watchMinutes }
+                  V20InsightsDetailKind.SUBS -> videos.sortedByDescending { it.netSubscribers }
+                  V20InsightsDetailKind.AVG_VIEW -> videos.sortedByDescending { it.averageViewDurationSeconds }
+                  else -> videos.sortedByDescending { it.periodViews }
+              }
+          }
+
+          private fun v20VideoMetric(video: YouTubeVideoSnapshot, kind: V20InsightsDetailKind): String = when (kind) {
+              V20InsightsDetailKind.WATCH -> "${v20Watch(video.watchMinutes)} watch time · ${v20Compact(video.periodViews)} views"
+              V20InsightsDetailKind.SUBS -> "${v20Signed(video.netSubscribers)} subscribers · ${v20Compact(video.periodViews)} views"
+              V20InsightsDetailKind.AVG_VIEW -> "${v20Duration(video.averageViewDurationSeconds)} average view"
+              else -> "${v20Compact(video.periodViews)} views · ${v20Watch(video.watchMinutes)} watch time"
+          }
+
+          private fun v20Compact(value: Long): String = when {
+              abs(value) >= 1_000_000L -> String.format(Locale.US, "%.1fM", value / 1_000_000.0)
+              abs(value) >= 1_000L -> String.format(Locale.US, "%.1fK", value / 1_000.0)
+              else -> value.toString()
+          }
+
+          private fun v20Watch(minutes: Long): String = if (abs(minutes) >= 60) String.format(Locale.US, "%.1fh", minutes / 60.0) else "${minutes}m"
+          private fun v20Signed(value: Long): String = if (value > 0) "+$value" else value.toString()
+          private fun v20Duration(seconds: Long): String = "%d:%02d".format(seconds / 60, seconds % 60)
+          KOTLIN
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f"missing patch anchor: {label}")
+              return text.replace(old, new, 1)
+
+          path = Path("app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt")
+          text = path.read_text()
+
+          text = replace_once(text,
+              '    var detailVideoId by rememberSaveable { mutableStateOf<String?>(null) }\n',
+              '    var detailVideoId by rememberSaveable { mutableStateOf<String?>(null) }\n    var insightDetail by remember { mutableStateOf<V20InsightsDrilldownRequest?>(null) }\n',
+              'insights detail state')
+
+          text = replace_once(text,
+              '        V172InsightsTab.OVERVIEW -> V172Overview(snapshot, tasks, ideas, links) { detailVideoId = it.videoId }',
+              '        V172InsightsTab.OVERVIEW -> V172Overview(\n            snapshot = snapshot,\n            tasks = tasks,\n            ideas = ideas,\n            links = links,\n            onVideo = { detailVideoId = it.videoId },\n            onDetail = { insightDetail = it },\n        )',
+              'overview invocation')
+
+          marker = '\n}\n\n@Composable\nprivate fun V172TabRow'
+          insertion = '''\n    insightDetail?.let { request ->\n        V20InsightsDrilldownDialog(\n            snapshot = snapshot,\n            request = request,\n            onDismiss = { insightDetail = null },\n        )\n    }\n}\n\n@Composable\nprivate fun V172TabRow'''
+          text = replace_once(text, marker, insertion, 'detail dialog placement')
+
+          text = replace_once(text,
+              '    onVideo: (YouTubeVideoSnapshot) -> Unit,\n) {\n    V172PulseCard(snapshot)',
+              '    onVideo: (YouTubeVideoSnapshot) -> Unit,\n    onDetail: (V20InsightsDrilldownRequest) -> Unit,\n) {\n    V172PulseCard(snapshot, onDetail)',
+              'overview callback signature')
+
+          text = replace_once(text,
+              '        V172SignalCard(signal)\n',
+              '        V172SignalCard(signal) { onDetail(V20InsightsDrilldownRequest.signal(signal)) }\n',
+              'signal drilldown')
+
+          text = replace_once(text,
+              '    V172TrendCard(snapshot)\n',
+              '    V172TrendCard(snapshot) { onDetail(V20InsightsDrilldownRequest(V20InsightsDetailKind.DAILY_VIEWS)) }\n',
+              'daily trend drilldown')
+
+          text = replace_once(text,
+              'private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot) {',
+              'private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot, onDetail: (V20InsightsDrilldownRequest) -> Unit) {',
+              'pulse callback signature')
+
+          text = replace_once(text,
+              '                deltas.take(2).forEach { V172DeltaMetric(it, Modifier.weight(1f), snapshot) }',
+              '                deltas.take(2).forEach { metric -> V172DeltaMetric(metric, Modifier.weight(1f), snapshot) { onDetail(V20InsightsDrilldownRequest.fromMetric(metric.label)) } }',
+              'first pulse row')
+
+          text = replace_once(text,
+              '                deltas.drop(2).take(2).forEach { V172DeltaMetric(it, Modifier.weight(1f), snapshot) }',
+              '                deltas.drop(2).take(2).forEach { metric -> V172DeltaMetric(metric, Modifier.weight(1f), snapshot) { onDetail(V20InsightsDrilldownRequest.fromMetric(metric.label)) } }',
+              'second pulse row')
+
+          text = replace_once(text,
+              'private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snapshot: YouTubeAnalyticsSnapshot) {',
+              'private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Unit) {',
+              'metric callback signature')
+
+          text = replace_once(text,
+              '    Surface(modifier, RoundedCornerShape(15.dp), Color(0xFF202020)) {\n        Column(Modifier.padding(11.dp)) {\n            Text(metric.label, color = MutedText, fontSize = 7.3.sp, fontWeight = FontWeight.Bold, letterSpacing = .6.sp)',
+              '    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), Color(0xFF202020)) {\n        Column(Modifier.padding(11.dp)) {\n            Row(verticalAlignment = Alignment.CenterVertically) {\n                Text(metric.label, color = MutedText, fontSize = 7.3.sp, fontWeight = FontWeight.Bold, letterSpacing = .6.sp, modifier = Modifier.weight(1f))\n                Icon(Icons.Outlined.ChevronRight, "View ${metric.label} details", tint = MutedText, modifier = Modifier.size(13.dp))\n            }',
+              'metric clickable surface')
+
+          text = replace_once(text,
+              'private fun V172SignalCard(signal: YouTubeInsightSignal) {',
+              'private fun V172SignalCard(signal: YouTubeInsightSignal, onClick: () -> Unit) {',
+              'signal callback signature')
+
+          text = replace_once(text,
+              '    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .25f))) {',
+              '    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .25f))) {',
+              'signal clickable surface')
+
+          text = replace_once(text,
+              'private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot) {',
+              'private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Unit) {',
+              'trend callback signature')
+
+          text = replace_once(text,
+              '    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {\n        Column(Modifier.padding(16.dp)) {\n            Text("DAILY VIEWS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)',
+              '    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {\n        Column(Modifier.padding(16.dp)) {\n            Row(verticalAlignment = Alignment.CenterVertically) {\n                Text("DAILY VIEWS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))\n                Icon(Icons.Outlined.ChevronRight, "Open daily views", tint = MutedText, modifier = Modifier.size(18.dp))\n            }',
+              'trend clickable surface')
+
+          path.write_text(text)
+
+          host = Path("app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt")
+          text = host.read_text()
+          text = replace_once(text,
+              '    var pendingResolutionDays by remember { mutableIntStateOf(28) }\n',
+              '    var pendingResolutionDays by remember { mutableIntStateOf(28) }\n    var autoRefreshKey by rememberSaveable { mutableStateOf("") }\n',
+              'auto refresh state')
+
+          text = replace_once(text,
+              '    fun authorize(selectAccount: Boolean = false, days: Int = windowDays) {',
+              '    fun authorize(selectAccount: Boolean = false, days: Int = windowDays, allowResolution: Boolean = true) {',
+              'authorize silent mode')
+
+          text = replace_once(text,
+              '                if (result.hasResolution()) {\n                    val pending = result.pendingIntent',
+              '                if (result.hasResolution()) {\n                    if (!allowResolution) {\n                        finishRequest(request)\n                        return@addOnSuccessListener\n                    }\n                    val pending = result.pendingIntent',
+              'silent resolution guard')
+
+          auto = '''\n    LaunchedEffect(snapshot?.fetchedAtMillis, windowDays, syncing, revoking) {\n        val cached = snapshot ?: return@LaunchedEffect\n        if (cached.windowDays != windowDays || syncing || revoking) return@LaunchedEffect\n        val ageMillis = System.currentTimeMillis() - cached.fetchedAtMillis\n        val refreshKey = "${cached.channel.channelId}:$windowDays:${cached.fetchedAtMillis}"\n        if (ageMillis >= 15L * 60L * 1000L && autoRefreshKey != refreshKey) {\n            autoRefreshKey = refreshKey\n            authorize(selectAccount = false, days = windowDays, allowResolution = false)\n        }\n    }\n\n'''
+          text = replace_once(text, '    fun disconnect() {\n', auto + '    fun disconnect() {\n', 'stale cache auto refresh')
+          host.write_text(text)
+
+          gradle = Path("app/build.gradle.kts")
+          text = gradle.read_text()
+          text = replace_once(text, '        versionCode = 121\n', '        versionCode = 122\n', 'version code')
+          text = replace_once(text, '        versionName = "2.0.0-rc1-preflight"\n', '        versionName = "2.0.0-rc2-insights-v2"\n', 'version name')
+          gradle.write_text(text)
+          PY
+
+          cat > docs/release/v122-rc2-insights-v2.md <<'MD'
+          # FrameByNavin v122 — RC2 Insights V2 feedback pass
+
+          This branch preserves the validated v121 RC1 checkpoint and begins the real-user-feedback pass from actual daily use.
+
+          ## Slice 1 implemented
+
+          - Channel Pulse metrics are interactive: Views, Watch, Subs and Avg View open focused detail views.
+          - Drill-downs inherit the active 7/28/90-day range and show current vs previous period.
+          - Views, Watch and Subscriber drill-downs use real daily trend points from the YouTube snapshot.
+          - Daily Views opens a larger interactive chart; tapping a position reveals the exact date/value.
+          - Channel Signals are interactive and open focused context instead of forcing all detail into the overview.
+          - Cards now expose chevrons where appropriate so tap behavior is discoverable.
+          - Insights remains cache-first. Cached data renders immediately.
+          - A connected Insights screen silently refreshes data when its current cache is at least 15 minutes old.
+          - Silent freshness checks never force a Google consent/resolution UI; manual Refresh remains the explicit recovery path.
+          - Existing video detail, YouTube linking, Opportunity Engine and 7/28/90-day behavior are preserved.
+
+          ## Data honesty
+
+          Daily analytics currently includes views, watch minutes and subscriber movement. Average view duration is period-level in the current model, so RC2 does not fabricate a daily average-view-duration chart.
+
+          ## Next slices
+
+          1. Finish 24H Pulse dedicated drill-down and deeper Channel Signals evidence.
+          2. Creator tab card drill-downs and creator-friendly slowdown language.
+          3. Sequential, preference-aware New Project wizard that opens Workspace immediately.
+          4. Google identity + Supabase automatic creator backup/sync, with Drive demoted to optional import/export.
+          5. Guided first-run tour after the final screen architecture is stable.
+          MD
+
+          git diff --check
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Compile, test and build RC2 debug APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+
+      - name: Upload RC2 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: framebynavin-v122-rc2-insights-v2-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Commit validated RC2 slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/build.gradle.kts \
+            app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt \
+            app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt \
+            app/src/main/java/com/framebynavin/app/ui/V20InsightsDrilldownUi.kt \
+            docs/release/v122-rc2-insights-v2.md
+          if git diff --cached --quiet; then
+            echo "No RC2 source changes to commit."
+          else
+            git commit -m "feat(rc2): make Insights metrics interactive and refresh stale data"
+            git push origin HEAD:feature/v2.0-rc2-insights-v2
+          fi
