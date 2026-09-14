@@ -108,9 +108,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
+    var guidedTourStepName by rememberSaveable { mutableStateOf<String?>(null) }
 
-    BackHandler(enabled = focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
+    BackHandler(enabled = guidedTourStepName != null || focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
         when {
+            guidedTourStepName != null -> {
+                settingsStore.markGuidedTourComplete()
+                settings = settingsStore.snapshot()
+                guidedTourStepName = null
+            }
             focusTaskId != null -> focusTaskId = null
             showComposer -> showComposer = false
             showQuickCapture -> showQuickCapture = false
@@ -220,6 +226,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
 
     LaunchedEffect(externalLaunch?.nonce) {
         val launch = externalLaunch ?: return@LaunchedEffect
+        // Deep links and widgets must stay instant. A normal launch can resume the tour later.
+        guidedTourStepName = null
         showControl = false
         showReminders = false
         when (launch.action) {
@@ -240,6 +248,35 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
+    LaunchedEffect(
+        settings.accountOnboardingComplete,
+        settings.onboardingComplete,
+        settings.creatorProfile.isComplete,
+        settings.guidedTourVersion,
+        externalLaunch?.nonce,
+    ) {
+        if (
+            guidedTourStepName == null &&
+            CreatorGuidedTourPolicy.shouldStart(
+                accountOnboardingComplete = settings.accountOnboardingComplete,
+                creatorSetupComplete = settings.onboardingComplete,
+                profileComplete = settings.creatorProfile.isComplete,
+                completedVersion = settings.guidedTourVersion,
+                externalLaunch = externalLaunch != null,
+            )
+        ) {
+            overlay = POverlay.NONE
+            showControl = false
+            showReminders = false
+            externalStudioId = null
+            tab = PTab.TODAY
+            guidedTourStepName = CreatorGuidedTourStep.TODAY.name
+        }
+    }
+
+    val guidedTourStep = guidedTourStepName?.let { saved ->
+        CreatorGuidedTourStep.entries.firstOrNull { it.name == saved }
+    }
     val focusTaskState = remember { derivedStateOf { vm.tasks.firstOrNull { it.id == focusTaskId } } }
     val focusTask = focusTaskState.value
     Box(Modifier.fillMaxSize().background(CinemaBlack)) {
@@ -415,6 +452,19 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onPreciseTiming = ::requestPreciseTiming,
                 onFullScreen = ::requestFullScreen,
                 onBattery = ::openBatterySettings,
+                onReplayTour = {
+                    settingsStore.resetGuidedTour()
+                    settings = settingsStore.snapshot()
+                    overlay = POverlay.NONE
+                    showControl = false
+                    showQuickCapture = false
+                    showReminders = false
+                    showComposer = false
+                    focusTaskId = null
+                    externalStudioId = null
+                    tab = PTab.TODAY
+                    guidedTourStepName = CreatorGuidedTourStep.TODAY.name
+                },
                 onCloudSync = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
                 onYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
             )
@@ -481,6 +531,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 vm.saveIdea(idea)
                 showQuickCapture = false
                 routeJourney(V18CreatorJourney.afterCapture())
+                if (guidedTourStepName == CreatorGuidedTourStep.IDEAS.name) {
+                    guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                }
             },
         )
     }
@@ -514,6 +567,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     deliveryPreference = draft.deliveryPreference,
                 )
                 showComposer = false
+                if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
+                    guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
+                }
                 if (task == null && V18CreatorJourney.afterProjectCreated(savedTaskId) == V18JourneyDestination.CREATE) {
                     externalStudioId = savedTaskId
                     externalStudioNonce += 1L
@@ -575,6 +631,70 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 settingsStore.setCreatorProfile(profile)
                 settingsStore.setOnboardingComplete(true)
                 settings = settingsStore.snapshot()
+            },
+        )
+    }
+
+    if (
+        guidedTourStep != null &&
+        settings.accountOnboardingComplete &&
+        settings.onboardingComplete &&
+        settings.creatorProfile.isComplete &&
+        !showComposer &&
+        !showQuickCapture &&
+        !showControl &&
+        focusTaskId == null &&
+        overlay == POverlay.NONE
+    ) {
+        V20GuidedFirstRunCoach(
+            step = guidedTourStep,
+            hasProjects = vm.tasks.any { it.archivedAtMillis == 0L },
+            onPrimary = {
+                when (guidedTourStep) {
+                    CreatorGuidedTourStep.TODAY -> {
+                        externalStudioId = null
+                        tab = PTab.IDEAS
+                        guidedTourStepName = CreatorGuidedTourStep.IDEAS.name
+                    }
+                    CreatorGuidedTourStep.IDEAS -> {
+                        showQuickCapture = true
+                    }
+                    CreatorGuidedTourStep.PROJECT -> {
+                        val project = vm.tasks.firstOrNull { it.archivedAtMillis == 0L && it.status != TaskStatus.SKIPPED }
+                            ?: vm.tasks.firstOrNull { it.archivedAtMillis == 0L }
+                            ?: vm.tasks.firstOrNull()
+                        if (project == null) {
+                            openComposer()
+                        } else {
+                            openProject(project.id)
+                            guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
+                        }
+                    }
+                    CreatorGuidedTourStep.WORKSPACE -> {
+                        externalStudioId = null
+                        tab = PTab.INSIGHTS
+                        guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
+                    }
+                    CreatorGuidedTourStep.INSIGHTS -> {
+                        guidedTourStepName = CreatorGuidedTourStep.CONTROL.name
+                    }
+                    CreatorGuidedTourStep.CONTROL -> {
+                        settingsStore.markGuidedTourComplete()
+                        settings = settingsStore.snapshot()
+                        guidedTourStepName = null
+                        showControl = true
+                    }
+                }
+            },
+            onSecondary = {
+                if (guidedTourStep == CreatorGuidedTourStep.IDEAS) {
+                    guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                }
+            },
+            onSkip = {
+                settingsStore.markGuidedTourComplete()
+                settings = settingsStore.snapshot()
+                guidedTourStepName = null
             },
         )
     }
@@ -744,6 +864,7 @@ private fun PSettingsScreen(
     onPreciseTiming: () -> Unit,
     onFullScreen: () -> Unit,
     onBattery: () -> Unit,
+    onReplayTour: () -> Unit,
     onCloudSync: () -> Unit,
     onYouTube: () -> Unit,
 ) {
@@ -877,6 +998,29 @@ private fun PSettingsScreen(
                         Text(if (weeklyAutoPlanEnabled) "Recurring projects may be added automatically." else "Nothing is added automatically.", color = MutedText, fontSize = 8.8.sp)
                     }
                     Switch(weeklyAutoPlanEnabled, onWeeklyAutoPlan, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
+            PSettingsHeading("GUIDED TOUR", "Replay the creator journey whenever you want.")
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                onClick = onReplayTour,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = CinemaSurface,
+                border = BorderStroke(1.dp, CinemaLine),
+            ) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(34.dp).background(MutedGold.copy(alpha = .10f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.School, null, tint = MutedGold, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Replay guided first run", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("Today → Ideas → Project → Workspace → Insights → Control", color = MutedText, fontSize = 8.7.sp)
+                    }
+                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
                 }
             }
 

@@ -53,8 +53,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 123
-        versionName = "2.0.0-rc2-account-cloud-sync"
+        versionCode = 124
+        versionName = "2.0.0-rc2-guided-first-run"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
