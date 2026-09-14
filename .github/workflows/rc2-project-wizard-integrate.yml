@@ -1,0 +1,37 @@
+name: RC2 Project Wizard Integrate
+
+on:
+  push:
+    branches:
+      - "feature/v2.0-rc2-insights-v2"
+    paths:
+      - ".github/workflows/rc2-project-wizard-integrate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rc2-project-wizard-integrate
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate current project composer
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== PProjectComposer location ==="
+          grep -R -n "fun PProjectComposer" app/src/main/java || true
+          echo "=== related draft definitions ==="
+          grep -R -n -E "PProjectComposer|PProject.*Draft|ProjectComposer" app/src/main/java/com/framebynavin/app/ui || true
+          file="$(grep -R -l "fun PProjectComposer" app/src/main/java | head -n1)"
+          test -n "$file"
+          line="$(grep -n "fun PProjectComposer" "$file" | head -n1 | cut -d: -f1)"
+          start=$(( line > 30 ? line - 30 : 1 ))
+          end=$(( line + 430 ))
+          echo "=== $file lines $start-$end ==="
+          sed -n "${start},${end}p" "$file"
