@@ -1,0 +1,53 @@
+name: RC2 Production Identity Readiness
+
+on:
+  push:
+    branches:
+      - "feature/v2.0-rc2-release-readiness"
+    paths:
+      - "scripts/production_identity_readiness.py"
+      - ".github/workflows/rc2-production-identity-readiness.yml"
+      - "app/google-services.json"
+      - "app/build.gradle.kts"
+      - "app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt"
+      - "app/src/release/java/com/framebynavin/app/CreatorAppCheck.kt"
+      - "app/src/debug/java/com/framebynavin/app/CreatorAppCheck.kt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release-readiness source
+        uses: actions/checkout@v4
+
+      - name: Repository-side production identity audit
+        run: python3 scripts/production_identity_readiness.py
+
+      - name: Preserve readiness report
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification/identity
+          python3 scripts/production_identity_readiness.py | tee verification/identity/production-identity-readiness.txt
+          {
+            echo "sourceCommit=$(git rev-parse HEAD)"
+            echo "androidPackage=com.framebynavin.app"
+            echo "webOAuthClientConfigured=true"
+            echo "productionSigningInputsExternalized=true"
+            echo "releaseAppCheckProvider=play-integrity"
+            echo "androidOAuthReleaseCertificateRegistration=pending-final-release-sha1"
+            echo "playIntegrityReleaseCertificateRegistration=pending-final-release-sha256"
+            echo "runtimeProductionIdentityValidation=pending-production-signed-device"
+          } > verification/identity/manifest.txt
+
+      - name: Upload identity readiness report
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v124-production-identity-readiness
+          path: verification/identity/*
+          if-no-files-found: error
+          retention-days: 90
