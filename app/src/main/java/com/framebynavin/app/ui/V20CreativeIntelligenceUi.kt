@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -24,6 +25,7 @@ internal fun V20CreativeIntelligenceCard(
     snapshot: YouTubeAnalyticsSnapshot,
     tasks: List<CreatorTask>,
     links: Map<String, String>,
+    onClick: () -> Unit = {},
 ) {
     val context = LocalContext.current.applicationContext
     val intelligence = remember(snapshot, tasks, links) {
@@ -47,7 +49,7 @@ internal fun V20CreativeIntelligenceCard(
     }
 
     Surface(
-        Modifier.fillMaxWidth(),
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
         RoundedCornerShape(20.dp),
         Color(0xFF171617),
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f)),
@@ -56,6 +58,8 @@ internal fun V20CreativeIntelligenceCard(
             Text("CREATIVE INTELLIGENCE", color = MutedGold, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(4.dp))
             Text("What your own creative choices are teaching you", color = ProjectorIvory, fontSize = 13.5.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(3.dp))
+            Text("Tap for deeper creator patterns", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(3.dp))
             Text(
                 "${intelligence.connectedProjects} connected project${if (intelligence.connectedProjects == 1) "" else "s"} in this analytics window · patterns require repeated samples",

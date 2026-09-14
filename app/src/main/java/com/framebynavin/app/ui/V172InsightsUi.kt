@@ -45,6 +45,7 @@ internal fun V172InsightsBody(
     val tab = V172InsightsTab.valueOf(tabName)
     var detailVideoId by rememberSaveable { mutableStateOf<String?>(null) }
     var insightDetail by remember { mutableStateOf<V20InsightsDrilldownRequest?>(null) }
+    var creatorDetail by remember { mutableStateOf<V20CreatorDetailKind?>(null) }
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
     val detail = videos.firstOrNull { it.video.videoId == detailVideoId }
 
@@ -61,7 +62,7 @@ internal fun V172InsightsBody(
             onDetail = { insightDetail = it },
         )
         V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }
-        V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links)
+        V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }
     }
 
     detail?.let { performance ->
@@ -82,6 +83,16 @@ internal fun V172InsightsBody(
             snapshot = snapshot,
             request = request,
             onDismiss = { insightDetail = null },
+        )
+    }
+    creatorDetail?.let { kind ->
+        V20CreatorDrilldownDialog(
+            snapshot = snapshot,
+            tasks = tasks,
+            ideas = ideas,
+            links = links,
+            kind = kind,
+            onDismiss = { creatorDetail = null },
         )
     }
 }
@@ -360,27 +371,31 @@ private fun V172Creator(
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     links: Map<String, String>,
+    onDetail: (V20CreatorDetailKind) -> Unit,
 ) {
     val summary = remember(tasks, ideas, links) { YouTubeInsightEngine.creatorSummary(tasks, ideas, links) }
     Text("YOUR CREATOR PROGRESS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
     Text("See how your work and channel results connect.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(10.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V172CreatorMetric("PUBLISHED THIS MONTH", summary.completed30Days.toString(), MutedGold, Modifier.weight(1f))
-        V172CreatorMetric("ACTIVE", summary.active.toString(), RecRed, Modifier.weight(1f))
+        V172CreatorMetric("COMPLETED 30D", summary.completed30Days.toString(), MutedGold, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.PUBLISHED) }
+        V172CreatorMetric("ACTIVE", summary.active.toString(), RecRed, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.ACTIVE) }
     }
     Spacer(Modifier.height(7.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V172CreatorMetric("FINISHED", "${summary.completionRateOfStarted}%", SuccessGreen, Modifier.weight(1f))
-        V172CreatorMetric("VIDEOS CONNECTED", summary.linkedVideos.toString(), ProjectorIvory, Modifier.weight(1f))
+        V172CreatorMetric("FINISHED", "${summary.completionRateOfStarted}%", SuccessGreen, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.FINISHED) }
+        V172CreatorMetric("VIDEOS CONNECTED", summary.linkedVideos.toString(), ProjectorIvory, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.CONNECTED) }
     }
     Spacer(Modifier.height(7.dp))
-    V172CreatorMetric("IDEAS READY", summary.readyIdeas.toString(), MutedGold, Modifier.fillMaxWidth())
+    V172CreatorMetric("IDEAS READY", summary.readyIdeas.toString(), MutedGold, Modifier.fillMaxWidth()) { onDetail(V20CreatorDetailKind.IDEAS) }
 
     Spacer(Modifier.height(18.dp))
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth().clickable { onDetail(V20CreatorDetailKind.WORKFLOW) }, RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
-            Text("WORKFLOW", color = RecRed, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("WORKFLOW", color = RecRed, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.ChevronRight, "Open workflow details", tint = MutedText, modifier = Modifier.size(18.dp))
+            }
             Spacer(Modifier.height(5.dp))
             Text(
                 if (summary.bottleneckCount >= 2) "${summary.bottleneckCount} active projects are bunching up around ${summary.bottleneckLabel ?: "production"}."
@@ -401,10 +416,10 @@ private fun V172Creator(
     }
 
     Spacer(Modifier.height(10.dp))
-    V20WorkflowIntelligenceCard(tasks)
+    V20WorkflowIntelligenceCard(tasks, onClick = { onDetail(V20CreatorDetailKind.WORKFLOW_INTELLIGENCE) })
 
     Spacer(Modifier.height(10.dp))
-    V20CreativeIntelligenceCard(snapshot, tasks, links)
+    V20CreativeIntelligenceCard(snapshot, tasks, links, onClick = { onDetail(V20CreatorDetailKind.CREATIVE_INTELLIGENCE) })
 
     Spacer(Modifier.height(18.dp))
     val formats = YouTubeInsightEngine.formatPerformance(snapshot, tasks, links)
@@ -493,10 +508,13 @@ private fun V172Mini(label: String, value: String, modifier: Modifier) {
 }
 
 @Composable
-private fun V172CreatorMetric(label: String, value: String, accent: Color, modifier: Modifier) {
-    Surface(modifier, RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+private fun V172CreatorMetric(label: String, value: String, accent: Color, modifier: Modifier, onClick: () -> Unit) {
+    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(13.dp)) {
-            Text(label, color = MutedText, fontSize = 7.2.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, color = MutedText, fontSize = 7.2.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp, modifier = Modifier.weight(1f), maxLines = 1)
+                Icon(Icons.Outlined.ChevronRight, "Open $label details", tint = MutedText, modifier = Modifier.size(13.dp))
+            }
             Spacer(Modifier.height(4.dp))
             Text(value, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Black)
         }

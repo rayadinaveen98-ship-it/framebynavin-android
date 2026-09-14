@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -22,7 +23,7 @@ import com.framebynavin.app.ui.theme.*
 import java.util.Locale
 
 @Composable
-internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
+internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val snapshot = remember(tasks) {
         CreatorWorkflowIntelligenceEngine.snapshot(
@@ -33,7 +34,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
     }
 
     Surface(
-        Modifier.fillMaxWidth(),
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
         RoundedCornerShape(20.dp),
         Color(0xFF151618),
         border = BorderStroke(1.dp, CinemaLine),
@@ -41,7 +42,9 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
         Column(Modifier.padding(16.dp)) {
             Text("WORKFLOW INTELLIGENCE", color = MutedGold, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(5.dp))
-            Text("Your process is becoming measurable", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            Text("See where your projects tend to slow down", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(3.dp))
+            Text("Tap for stage-by-stage details", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
             Text(
                 "Last 7 days · ${snapshot.responseCount7Days} check-in responses · ${snapshot.stageDone7Days} stage completions",
@@ -60,7 +63,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
             val bottleneck = snapshot.historicalBottleneck
             when {
                 bottleneck?.timingBasis == CreatorWorkflowTimingBasis.TIMELINE_EXACT -> {
-                    Text("CONSISTENT BOTTLENECK", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text("WHERE YOU USUALLY SLOW DOWN", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Text(
                         "${bottleneck.stageLabel} currently has your longest measured time in stage · median ${workflowDuration(bottleneck.medianTimeInStageMillis)} across ${bottleneck.exactTimelineSamples} transition-measured exits.",
                         color = ProjectorIvory,
@@ -69,7 +72,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
                     )
                 }
                 bottleneck != null -> {
-                    Text("OBSERVED BOTTLENECK", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text("EARLY SLOWDOWN PATTERN", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Text(
                         "${bottleneck.stageLabel} has the longest observed check-in span · median ${workflowDuration(bottleneck.medianObservedSpanMillis)} across ${bottleneck.completionSamples} measured completions.",
                         color = ProjectorIvory,
@@ -78,16 +81,16 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {
                     )
                 }
                 snapshot.activeBottleneckCount >= 2 -> {
-                    Text("CURRENT PRESSURE", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text("WHERE WORK IS PILING UP", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Text(
-                        "${snapshot.activeBottleneckCount} active projects are currently at ${snapshot.activeBottleneckLabel}. Historical timing needs more completed samples before calling this a consistent bottleneck.",
+                        "${snapshot.activeBottleneckCount} active projects are currently at ${snapshot.activeBottleneckLabel}. Historical timing needs more completed samples before calling this a repeated slowdown.",
                         color = ProjectorIvory,
                         fontSize = 9.sp,
                         lineHeight = 13.sp,
                     )
                 }
                 snapshot.measuredTimelineExits > 0 -> Text(
-                    "${snapshot.measuredTimelineExits} stage exits are measured so far. FrameByNavin waits for repeated evidence before naming a consistent bottleneck.",
+                    "${snapshot.measuredTimelineExits} stage exits are measured so far. FrameByNavin waits for repeated evidence before naming a repeated slowdown.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     lineHeight = 12.sp,
