@@ -22,10 +22,19 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.max
 
+/**
+ * New Project V2.1
+ *
+ * This intentionally stays on ONE scrollable surface. We progressively reveal the next decision
+ * only after the creator finishes the current one. Completed decisions collapse to compact,
+ * editable summaries instead of becoming seven separate pages.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun V20NewProjectWizard(
@@ -49,13 +58,14 @@ internal fun V20NewProjectWizard(
     onDismiss: () -> Unit,
     onCreate: () -> Unit,
 ) {
-    var step by rememberSaveable { mutableIntStateOf(0) }
+    var revealedStage by rememberSaveable { mutableIntStateOf(0) }
+    var activeStage by rememberSaveable { mutableIntStateOf(0) }
     var showAllModes by rememberSaveable { mutableStateOf(false) }
     var showAllTypes by rememberSaveable { mutableStateOf(false) }
     var showAllPlatforms by rememberSaveable { mutableStateOf(false) }
     var customizeStyles by rememberSaveable { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
     val now = System.currentTimeMillis()
-    val stepCount = 7
 
     val selectedModeIds = remember(profile, creatorModeId) {
         buildList {
@@ -74,34 +84,27 @@ internal fun V20NewProjectWizard(
     val chosenTypeLabel = runCatching { ContentArchetypeRegistry.labelForMode(archetypeId, creatorModeId) }
         .getOrElse { ContentArchetypeRegistry.definition(archetypeId)?.label ?: "Content" }
 
-    val canContinue = when (step) {
-        0 -> title.isNotBlank()
-        1 -> archetypeId.isNotBlank()
-        2 -> platform.isNotBlank()
-        3 -> contentType.isNotBlank()
-        4 -> dueAt > now
-        5 -> attentionPlan in setOf(ProjectAttentionPlan.OFF, ProjectAttentionPlan.LIGHT, ProjectAttentionPlan.GUIDED)
-        else -> title.isNotBlank() && dueAt > now
+    fun revealNext(from: Int) {
+        val next = (from + 1).coerceAtMost(6)
+        revealedStage = max(revealedStage, next)
+        activeStage = next
     }
 
-    val heading = when (step) {
-        0 -> "What are you making?"
-        1 -> "What kind of project is it?"
-        2 -> "Where will you publish it?"
-        3 -> "Choose the format"
-        4 -> "When do you want it ready?"
-        5 -> "How much help should FrameByNavin give?"
-        else -> "Everything look right?"
+    LaunchedEffect(activeStage, revealedStage) {
+        if (activeStage > 0) {
+            delay(120L)
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
     }
-    val eyebrow = when (step) {
-        0 -> "PROJECT NAME"
-        1 -> "CONTENT TYPE"
-        2 -> "PLATFORM"
-        3 -> "FORMAT"
-        4 -> "DEADLINE"
-        5 -> "PROJECT SUPPORT"
-        else -> "REVIEW"
-    }
+
+    val basicAttentionPlan = attentionPlan in setOf(
+        ProjectAttentionPlan.OFF,
+        ProjectAttentionPlan.LIGHT,
+        ProjectAttentionPlan.GUIDED,
+    )
+    val allReady = title.isNotBlank() && archetypeId.isNotBlank() && platform.isNotBlank() &&
+        contentType.isNotBlank() && dueAt > now && basicAttentionPlan
+    val progress = ((revealedStage + 1).coerceIn(1, 7)) / 7f
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -110,226 +113,368 @@ internal fun V20NewProjectWizard(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = { if (step == 0) onDismiss() else step-- }) {
-                        Icon(Icons.Outlined.ArrowBack, if (step == 0) "Close" else "Previous step", tint = ProjectorIvory)
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Outlined.ArrowBack, "Close new project", tint = ProjectorIvory)
                     }
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("NEW PROJECT · ${step + 1}/$stepCount", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                        Text(heading, color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black, maxLines = 2)
+                        Text("NEW PROJECT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text("Build it one decision at a time", color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                        Text("Everything stays on this page.", color = MutedText, fontSize = 8.7.sp)
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(100.dp),
+                        color = MutedGold.copy(alpha = .10f),
+                        border = BorderStroke(1.dp, MutedGold.copy(alpha = .20f)),
+                    ) {
+                        Text(
+                            "${(revealedStage + 1).coerceAtMost(7)}/7",
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            color = MutedGold,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Black,
+                        )
                     }
                 }
-
                 LinearProgressIndicator(
-                    progress = { (step + 1) / stepCount.toFloat() },
-                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth().height(2.dp),
                     color = RecRed,
                     trackColor = CinemaLine,
                 )
 
                 Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 20.dp),
+                    Modifier.weight(1f).verticalScroll(scrollState)
+                        .padding(horizontal = 20.dp, vertical = 18.dp)
+                        .padding(bottom = 30.dp),
                 ) {
-                    Text(eyebrow, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                    Spacer(Modifier.height(10.dp))
+                    // 1 · Project name
+                    V20ProgressiveSection(
+                        index = 0,
+                        label = "PROJECT NAME",
+                        title = "What are you making?",
+                        summary = title.ifBlank { "Add a project name" },
+                        active = activeStage == 0,
+                        revealed = true,
+                        onEdit = { activeStage = 0 },
+                    ) {
+                        Text("Start with the name. We’ll reveal the next choice when you’re ready.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = onTitleChange,
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("e.g. OG universe analysis") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        V20InlineContinue("CHOOSE PROJECT TYPE", title.isNotBlank()) { revealNext(0) }
+                    }
 
-                    when (step) {
-                        0 -> {
-                            Text("Start with only the name. We'll shape everything else one decision at a time.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                            Spacer(Modifier.height(18.dp))
-                            OutlinedTextField(
-                                value = title,
-                                onValueChange = onTitleChange,
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("e.g. OG universe analysis") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(16.dp),
-                            )
+                    // 2 · Type + creator mode/style
+                    V20ProgressiveSection(
+                        index = 1,
+                        label = "CONTENT TYPE",
+                        title = "What kind of project is it?",
+                        summary = chosenTypeLabel,
+                        active = activeStage == 1,
+                        revealed = revealedStage >= 1,
+                        onEdit = { activeStage = 1 },
+                    ) {
+                        Text("Recommended from your creator setup. You can still choose something different.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+                        Spacer(Modifier.height(12.dp))
+                        V20WizardSummaryChip("CREATOR MODE", CreatorModeRegistry.definition(creatorModeId).label)
+                        Spacer(Modifier.height(10.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            typeOptions.forEach { archetype ->
+                                val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
+                                FilterChip(
+                                    selected = archetypeId == archetype.id,
+                                    onClick = { onArchetypeChange(archetype.id) },
+                                    label = { Text(label, fontSize = 9.sp) },
+                                )
+                            }
                         }
-
-                        1 -> {
-                            Text("Recommended from your creator setup. You can still choose something different.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                            Spacer(Modifier.height(14.dp))
-                            V20WizardSummaryChip("CREATOR MODE", CreatorModeRegistry.definition(creatorModeId).label)
-                            Spacer(Modifier.height(10.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                typeOptions.forEach { archetype ->
-                                    val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            TextButton(onClick = { showAllTypes = !showAllTypes }) {
+                                Text(if (showAllTypes) "RECOMMENDED ONLY" else "SEE ALL TYPES", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                            }
+                            TextButton(onClick = { showAllModes = !showAllModes }) {
+                                Text(if (showAllModes) "HIDE MODES" else "CHANGE MODE", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
+                        AnimatedVisibility(showAllModes) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                modeOptions.forEach { modeId ->
+                                    val mode = CreatorModeRegistry.definition(modeId)
                                     FilterChip(
-                                        selected = archetypeId == archetype.id,
-                                        onClick = { onArchetypeChange(archetype.id) },
-                                        label = { Text(label, fontSize = 9.sp) },
+                                        selected = CreatorModeRegistry.definition(creatorModeId).id == mode.id,
+                                        onClick = { onCreatorModeChange(mode.id); showAllTypes = false },
+                                        label = { Text(mode.label, fontSize = 8.3.sp) },
                                     )
                                 }
                             }
-                            Spacer(Modifier.height(8.dp))
-                            TextButton(onClick = { showAllTypes = !showAllTypes }) {
-                                Text(if (showAllTypes) "SHOW RECOMMENDED TYPES" else "SEE ALL CONTENT TYPES", fontSize = 8.5.sp, fontWeight = FontWeight.Black)
-                            }
-                            TextButton(onClick = { showAllModes = !showAllModes }) {
-                                Text(if (showAllModes) "HIDE OTHER CREATOR MODES" else "CHANGE CREATOR MODE", fontSize = 8.5.sp, fontWeight = FontWeight.Black)
-                            }
-                            if (showAllModes) {
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                    modeOptions.forEach { modeId ->
-                                        val mode = CreatorModeRegistry.definition(modeId)
-                                        FilterChip(
-                                            selected = CreatorModeRegistry.definition(creatorModeId).id == mode.id,
-                                            onClick = { onCreatorModeChange(mode.id); showAllTypes = false },
-                                            label = { Text(mode.label, fontSize = 8.5.sp) },
-                                        )
-                                    }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            onClick = { customizeStyles = !customizeStyles },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, CinemaLine),
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("CREATIVE STYLE", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        productionStyles.takeIf { it.isNotEmpty() }?.joinToString() ?: "Using your setup default",
+                                        color = MutedText,
+                                        fontSize = 8.sp,
+                                        maxLines = 2,
+                                    )
                                 }
+                                Icon(if (customizeStyles) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = MutedText)
                             }
-                            Spacer(Modifier.height(10.dp))
-                            Surface(
-                                onClick = { customizeStyles = !customizeStyles },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(14.dp),
-                                color = CinemaSurface,
-                                border = BorderStroke(1.dp, CinemaLine),
+                        }
+                        AnimatedVisibility(customizeStyles) {
+                            FlowRow(
+                                modifier = Modifier.padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                verticalArrangement = Arrangement.spacedBy(7.dp),
                             ) {
-                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text("CREATIVE STYLE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-                                        Text(
-                                            productionStyles.takeIf { it.isNotEmpty() }?.joinToString() ?: "Using your setup default",
-                                            color = MutedText,
-                                            fontSize = 8.sp,
-                                            maxLines = 2,
-                                        )
-                                    }
-                                    Icon(if (customizeStyles) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = MutedText)
-                                }
-                            }
-                            AnimatedVisibility(customizeStyles) {
-                                Column {
-                                    Spacer(Modifier.height(8.dp))
-                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                        styleOptions.forEach { style ->
-                                            val selected = style in productionStyles
-                                            FilterChip(
-                                                selected = selected,
-                                                onClick = {
-                                                    val next = if (selected) productionStyles - style
-                                                    else if (productionStyles.size < CreatorProfile.MAX_PRODUCTION_STYLES) productionStyles + style
-                                                    else productionStyles
-                                                    onProductionStylesChange(next)
-                                                },
-                                                label = { Text(style, fontSize = 8.4.sp) },
-                                            )
-                                        }
-                                    }
+                                styleOptions.forEach { style ->
+                                    val selected = style in productionStyles
+                                    FilterChip(
+                                        selected = selected,
+                                        onClick = {
+                                            val next = if (selected) productionStyles - style
+                                            else if (productionStyles.size < CreatorProfile.MAX_PRODUCTION_STYLES) productionStyles + style
+                                            else productionStyles
+                                            onProductionStylesChange(next)
+                                        },
+                                        label = { Text(style, fontSize = 8.2.sp) },
+                                    )
                                 }
                             }
                         }
-
-                        2 -> {
-                            Text("Your setup platforms appear first. Open the full list only when this project is different.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                            Spacer(Modifier.height(14.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                platformOptions.forEach { value ->
-                                    FilterChip(selected = platform == value, onClick = { onPlatformChange(value) }, label = { Text(value, fontSize = 9.5.sp) })
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            TextButton(onClick = { showAllPlatforms = !showAllPlatforms }) {
-                                Text(if (showAllPlatforms) "SHOW MY PLATFORMS" else "OTHER PLATFORMS", fontSize = 8.5.sp, fontWeight = FontWeight.Black)
-                            }
-                        }
-
-                        3 -> {
-                            Text("Only formats supported by $platform are shown here.", color = MutedText, fontSize = 10.sp)
-                            Spacer(Modifier.height(14.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                formatOptions.forEach { value ->
-                                    FilterChip(selected = contentType == value, onClick = { onContentTypeChange(value) }, label = { Text(value, fontSize = 9.5.sp) })
-                                }
-                            }
-                        }
-
-                        4 -> {
-                            Text("Set the publish/deadline target. You can always adjust it later.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                            Spacer(Modifier.height(16.dp))
-                            Surface(
-                                onClick = onPickDue,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                color = CinemaSurface,
-                                border = BorderStroke(1.dp, CinemaLine),
-                            ) {
-                                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold, modifier = Modifier.size(20.dp))
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(v20WizardDateTime(dueAt), color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-
-                        5 -> {
-                            Text("Keep creation simple now. Advanced voice, alarm and custom reminder controls stay available in Edit Project later.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                            Spacer(Modifier.height(14.dp))
-                            listOf(ProjectAttentionPlan.OFF, ProjectAttentionPlan.LIGHT, ProjectAttentionPlan.GUIDED).forEach { plan ->
-                                V20WizardAttentionCard(plan, selected = attentionPlan == plan) { onAttentionPlanChange(plan) }
-                                Spacer(Modifier.height(8.dp))
-                            }
-                            if (attentionPlan == ProjectAttentionPlan.GUIDED) {
-                                Text("Recommended · FrameByNavin adapts check-ins as the project moves through stages.", color = MutedGold, fontSize = 8.5.sp, lineHeight = 12.sp)
-                            }
-                        }
-
-                        else -> {
-                            Text("These are the choices that will create your project. Tap any row to change it.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                            Spacer(Modifier.height(14.dp))
-                            V20WizardReviewRow("PROJECT", title) { step = 0 }
-                            V20WizardReviewRow("TYPE", chosenTypeLabel) { step = 1 }
-                            V20WizardReviewRow("PLATFORM", platform) { step = 2 }
-                            V20WizardReviewRow("FORMAT", contentType) { step = 3 }
-                            V20WizardReviewRow("PUBLISH BY", v20WizardDateTime(dueAt)) { step = 4 }
-                            V20WizardReviewRow("SUPPORT", ProjectPulseEngine.planLabel(attentionPlan)) { step = 5 }
-                            if (productionStyles.isNotEmpty()) {
-                                Spacer(Modifier.height(7.dp))
-                                Text("Using your creative setup · ${productionStyles.joinToString()}", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
-                            }
-                            Spacer(Modifier.height(14.dp))
-                            Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), Color(0xFF15130F), border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f))) {
-                                Column(Modifier.padding(13.dp)) {
-                                    Text("NEXT", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                                    Spacer(Modifier.height(3.dp))
-                                    Text("Create it and FrameByNavin will open this project's workspace immediately.", color = ProjectorIvory, fontSize = 9.5.sp, lineHeight = 14.sp)
-                                }
-                            }
-                        }
+                        Spacer(Modifier.height(12.dp))
+                        V20InlineContinue("CHOOSE PLATFORM", archetypeId.isNotBlank()) { revealNext(1) }
                     }
-                }
 
-                Surface(color = Color(0xF20B0B0C), tonalElevation = 8.dp) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (step > 0) {
-                            OutlinedButton(
-                                onClick = { step-- },
-                                modifier = Modifier.weight(.7f).height(52.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.dp, CinemaLine),
-                            ) { Text("BACK", fontSize = 9.sp, fontWeight = FontWeight.Black) }
+                    // 3 · Platform
+                    V20ProgressiveSection(
+                        index = 2,
+                        label = "PLATFORM",
+                        title = "Where will you publish it?",
+                        summary = platform.ifBlank { "Choose a platform" },
+                        active = activeStage == 2,
+                        revealed = revealedStage >= 2,
+                        onEdit = { activeStage = 2 },
+                    ) {
+                        Text("Your usual platforms appear first.", color = MutedText, fontSize = 10.sp)
+                        Spacer(Modifier.height(10.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            platformOptions.forEach { value ->
+                                FilterChip(selected = platform == value, onClick = { onPlatformChange(value) }, label = { Text(value, fontSize = 9.3.sp) })
+                            }
                         }
-                        Button(
-                            onClick = { if (step < stepCount - 1) step++ else onCreate() },
-                            enabled = canContinue,
-                            modifier = Modifier.weight(1f).height(52.dp),
+                        TextButton(onClick = { showAllPlatforms = !showAllPlatforms }) {
+                            Text(if (showAllPlatforms) "SHOW MY PLATFORMS" else "OTHER PLATFORMS", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                        }
+                        V20InlineContinue("CHOOSE FORMAT", platform.isNotBlank()) { revealNext(2) }
+                    }
+
+                    // 4 · Format
+                    V20ProgressiveSection(
+                        index = 3,
+                        label = "FORMAT",
+                        title = "How are you publishing it?",
+                        summary = contentType.ifBlank { "Choose a format" },
+                        active = activeStage == 3,
+                        revealed = revealedStage >= 3,
+                        onEdit = { activeStage = 3 },
+                    ) {
+                        Text("Only formats supported by $platform are shown.", color = MutedText, fontSize = 10.sp)
+                        Spacer(Modifier.height(10.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            formatOptions.forEach { value ->
+                                FilterChip(selected = contentType == value, onClick = { onContentTypeChange(value) }, label = { Text(value, fontSize = 9.3.sp) })
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        V20InlineContinue("SET DEADLINE", contentType.isNotBlank()) { revealNext(3) }
+                    }
+
+                    // 5 · Deadline
+                    V20ProgressiveSection(
+                        index = 4,
+                        label = "DEADLINE",
+                        title = "When do you want it ready?",
+                        summary = v20WizardDateTime(dueAt),
+                        active = activeStage == 4,
+                        revealed = revealedStage >= 4,
+                        onEdit = { activeStage = 4 },
+                    ) {
+                        Text("Set the publish/deadline target. You can adjust it later.", color = MutedText, fontSize = 10.sp)
+                        Spacer(Modifier.height(11.dp))
+                        Surface(
+                            onClick = onPickDue,
+                            modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, CinemaLine),
+                        ) {
+                            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text(v20WizardDateTime(dueAt), color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        V20InlineContinue("CHOOSE SUPPORT", dueAt > now) { revealNext(4) }
+                    }
+
+                    // 6 · Support
+                    V20ProgressiveSection(
+                        index = 5,
+                        label = "PROJECT SUPPORT",
+                        title = "How much help should FrameByNavin give?",
+                        summary = ProjectPulseEngine.planLabel(attentionPlan),
+                        active = activeStage == 5,
+                        revealed = revealedStage >= 5,
+                        onEdit = { activeStage = 5 },
+                    ) {
+                        Text("Advanced reminder controls stay available in Edit Project later.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+                        Spacer(Modifier.height(10.dp))
+                        listOf(ProjectAttentionPlan.OFF, ProjectAttentionPlan.LIGHT, ProjectAttentionPlan.GUIDED).forEach { plan ->
+                            V20WizardAttentionCard(plan, selected = attentionPlan == plan) { onAttentionPlanChange(plan) }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        if (attentionPlan == ProjectAttentionPlan.GUIDED) {
+                            Text("Recommended · adapts check-ins as the project moves through stages.", color = MutedGold, fontSize = 8.3.sp, lineHeight = 12.sp)
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        V20InlineContinue("REVIEW PROJECT", basicAttentionPlan) { revealNext(5) }
+                    }
+
+                    // 7 · Review + create
+                    V20ProgressiveSection(
+                        index = 6,
+                        label = "REVIEW",
+                        title = "Ready to create?",
+                        summary = "Review & create",
+                        active = activeStage == 6,
+                        revealed = revealedStage >= 6,
+                        onEdit = { activeStage = 6 },
+                    ) {
+                        Text("Everything stays editable. Create opens the real project workspace immediately.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+                        Spacer(Modifier.height(12.dp))
+                        V20WizardReviewRow("PROJECT", title) { activeStage = 0 }
+                        V20WizardReviewRow("TYPE", chosenTypeLabel) { activeStage = 1 }
+                        V20WizardReviewRow("PLATFORM", platform) { activeStage = 2 }
+                        V20WizardReviewRow("FORMAT", contentType) { activeStage = 3 }
+                        V20WizardReviewRow("PUBLISH BY", v20WizardDateTime(dueAt)) { activeStage = 4 }
+                        V20WizardReviewRow("SUPPORT", ProjectPulseEngine.planLabel(attentionPlan)) { activeStage = 5 }
+                        if (productionStyles.isNotEmpty()) {
+                            Spacer(Modifier.height(4.dp))
+                            Text("Creative setup · ${productionStyles.joinToString()}", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Button(
+                            onClick = onCreate,
+                            enabled = allReady,
+                            modifier = Modifier.fillMaxWidth().height(54.dp),
+                            shape = RoundedCornerShape(17.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         ) {
-                            Text(if (step < stepCount - 1) "CONTINUE" else "CREATE & OPEN", fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                            Spacer(Modifier.width(5.dp))
-                            Icon(if (step < stepCount - 1) Icons.Outlined.ArrowForward else Icons.Outlined.PlayArrow, null, modifier = Modifier.size(16.dp))
+                            Text("CREATE & OPEN WORKSPACE", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Spacer(Modifier.width(6.dp))
+                            Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(17.dp))
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun V20ProgressiveSection(
+    index: Int,
+    label: String,
+    title: String,
+    summary: String,
+    active: Boolean,
+    revealed: Boolean,
+    onEdit: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    AnimatedVisibility(visible = revealed) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+            if (active) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFF111113),
+                    border = BorderStroke(1.dp, RecRed.copy(alpha = .38f)),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = RoundedCornerShape(100.dp), color = RecRed.copy(alpha = .12f)) {
+                                Text(
+                                    "${index + 1}",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    color = RecRed,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(label, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, lineHeight = 22.sp)
+                        Spacer(Modifier.height(12.dp))
+                        content()
+                    }
+                }
+            } else {
+                Surface(
+                    onClick = onEdit,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = CinemaSurface.copy(alpha = .82f),
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(9.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(label, color = MutedText, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Text(summary, color = ProjectorIvory, fontSize = 10.3.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Text("CHANGE", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun V20InlineContinue(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().height(47.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Text(label, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.width(5.dp))
+        Icon(Icons.Outlined.ArrowDownward, null, modifier = Modifier.size(15.dp))
     }
 }
 
