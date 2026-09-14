@@ -1,5 +1,0 @@
-# Stage H release-readiness handoff
-
-This marker anchors the continuation from the completed v124 RC2 holistic-validation checkpoint into release-readiness hardening. It intentionally contains no signing material or credentials.
-
-Source before Stage H implementation: `docs/release/v124-rc2-holistic-validation.md`.
