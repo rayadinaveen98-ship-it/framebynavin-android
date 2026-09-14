@@ -8,7 +8,8 @@ on:
       - ".github/workflows/rc2-holistic-validation.yml"
   workflow_dispatch:
 
-# Full automated RC2 gate. Physical-device acceptance remains a separate manual gate.
+# Full automated RC2 gate. Production-signed identity/App Check verification and
+# physical-device acceptance remain separate gates because CI has no production key/device.
 concurrency:
   group: rc2-holistic-validation-${{ github.ref }}
   cancel-in-progress: true
@@ -22,6 +23,7 @@ jobs:
 
       - name: Source integrity
         run: |
+          set -euo pipefail
           git diff --check
           python3 scripts/rc2_holistic_source_audit.py
 
@@ -36,42 +38,140 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Unit tests
-        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Full debug and release regression gate
+        run: >-
+          gradle
+          :app:testDebugUnitTest
+          :app:lintDebug
+          :app:lintRelease
+          :app:assembleDebugAndroidTest
+          :app:assembleDebug
+          :app:assembleRelease
+          :app:bundleRelease
+          --stacktrace
 
-      - name: Compile debug Kotlin
-        run: gradle :app:compileDebugKotlin --stacktrace
-
-      - name: Compile instrumentation tests
-        run: gradle :app:compileDebugAndroidTestKotlin --stacktrace
-
-      - name: Android lint
-        run: gradle :app:lintDebug --stacktrace
-
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
-
-      - name: Build release variant
-        run: gradle :app:assembleRelease --stacktrace
-
-      - name: Verify debug APK exists
+      - name: Verify 64-bit and 16 KB native compatibility
+        shell: bash
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
-          sha256sum app/build/outputs/apk/debug/app-debug.apk
+          set -euo pipefail
+          shopt -s nullglob
+          apk='app/build/outputs/apk/release/app-release-unsigned.apk'
+          test -f "$apk"
 
-      - name: Upload holistic RC2 APK
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          unzip -q "$apk" 'lib/*/*.so' -d "$tmp" || true
+          libs=("$tmp"/lib/*/*.so)
+
+          if (( ${#libs[@]} > 0 )); then
+            for so32 in "$tmp"/lib/armeabi-v7a/*.so; do
+              base="$(basename "$so32")"
+              test -f "$tmp/lib/arm64-v8a/$base" || { echo "Missing arm64-v8a counterpart for $base" >&2; exit 1; }
+            done
+            for so32 in "$tmp"/lib/x86/*.so; do
+              base="$(basename "$so32")"
+              test -f "$tmp/lib/x86_64/$base" || { echo "Missing x86_64 counterpart for $base" >&2; exit 1; }
+            done
+
+            for so in "$tmp"/lib/arm64-v8a/*.so "$tmp"/lib/x86_64/*.so; do
+              while read -r align; do
+                if (( align < 0x4000 )); then
+                  echo "$so has LOAD alignment $align; 16 KB compatibility requires at least 0x4000." >&2
+                  exit 1
+                fi
+              done < <(readelf -lW "$so" | awk '/ LOAD / {print $NF}')
+            done
+          fi
+
+          zipalign_bin="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)"
+          test -x "$zipalign_bin"
+          "$zipalign_bin" -c -P 16 4 "$apk"
+
+      - name: Build RC2 verification package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification/release
+
+          qa_apk='verification/FrameByNavin-v124-rc2-holistic.apk'
+          release_apk='app/build/outputs/apk/release/app-release-unsigned.apk'
+          release_aab='app/build/outputs/bundle/release/app-release.aab'
+
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -f "$release_apk"
+          test -f "$release_aab"
+
+          cp app/build/outputs/apk/debug/app-debug.apk "$qa_apk"
+          cp "$release_apk" verification/release/FrameByNavin-v124-rc2-release-unsigned.apk
+          cp "$release_aab" verification/release/FrameByNavin-v124-rc2-release-unsigned.aab
+
+          sha256sum "$qa_apk" | tee verification/debug-apk.sha256
+          sha256sum verification/release/FrameByNavin-v124-rc2-release-unsigned.apk | tee verification/release-apk.sha256
+          sha256sum verification/release/FrameByNavin-v124-rc2-release-unsigned.aab | tee verification/release-aab.sha256
+
+          {
+            echo "versionName=2.0.0-rc2-guided-first-run"
+            echo "versionCode=124"
+            echo "sourceCommit=$(git rev-parse HEAD)"
+            echo "compileSdk=36"
+            echo "targetSdk=36"
+            echo "unitTests=passed"
+            echo "lintDebug=passed"
+            echo "lintRelease=passed"
+            echo "instrumentationApkCompiled=true"
+            echo "debugApkCompiled=true"
+            echo "releaseApkCompiled=true"
+            echo "releaseBundleCompiled=true"
+            echo "native64BitCounterparts=passed"
+            echo "native16KbElfAlignment=passed"
+            echo "native16KbZipAlignment=passed"
+            echo "releaseSigningExternalized=true"
+            echo "releaseSigningMaterialCommitted=false"
+            echo "releaseVariantSigned=false"
+            echo "releaseDebuggable=false"
+            echo "releaseAppCheck=play-integrity"
+            echo "supabaseCreatorSyncRls=verified-live"
+            echo "productionSigningOAuthAppCheckRuntime=pending-production-signed-device"
+            echo "physicalDeviceAcceptance=pending"
+          } > verification/manifest.txt
+
+      - name: Upload holistic RC2 QA APK
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v124-rc2-holistic-validation
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: FrameByNavin-v124-rc2-holistic-apk
+          path: verification/FrameByNavin-v124-rc2-holistic.apk
           if-no-files-found: error
+          retention-days: 90
 
-      - name: Upload lint report
+      - name: Upload unsigned release APK and AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v124-rc2-release-unsigned
+          path: verification/release/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload holistic verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v124-rc2-verification
+          path: |
+            verification/manifest.txt
+            verification/debug-apk.sha256
+            verification/release-apk.sha256
+            verification/release-aab.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload lint reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: FrameByNavin-v124-lint-report
+          name: FrameByNavin-v124-lint-reports
           path: |
             app/build/reports/lint-results-debug.html
             app/build/reports/lint-results-debug.txt
+            app/build/reports/lint-results-release.html
+            app/build/reports/lint-results-release.txt
           if-no-files-found: ignore
+          retention-days: 90
