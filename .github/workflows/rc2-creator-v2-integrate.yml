@@ -1,0 +1,401 @@
+name: RC2 Creator V2 Integrate
+
+on:
+  push:
+    branches:
+      - "feature/v2.0-rc2-insights-v2"
+    paths:
+      - ".github/workflows/rc2-creator-v2-integrate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rc2-creator-v2-integrate
+  cancel-in-progress: true
+
+jobs:
+  integrate-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout RC2 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply Creator V2 interaction pass
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > app/src/main/java/com/framebynavin/app/ui/V20CreatorDrilldownUi.kt <<'KOTLIN'
+          package com.framebynavin.app.ui
+
+          import androidx.compose.foundation.BorderStroke
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.rememberScrollState
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.foundation.verticalScroll
+          import androidx.compose.material.icons.Icons
+          import androidx.compose.material.icons.outlined.Close
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.Composable
+          import androidx.compose.runtime.remember
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.platform.LocalContext
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.style.TextOverflow
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.compose.ui.window.Dialog
+          import com.framebynavin.app.data.*
+          import com.framebynavin.app.ui.theme.*
+          import com.framebynavin.app.youtube.*
+          import java.util.Locale
+          import kotlin.math.abs
+
+          internal enum class V20CreatorDetailKind {
+              PUBLISHED,
+              ACTIVE,
+              FINISHED,
+              CONNECTED,
+              IDEAS,
+              WORKFLOW,
+              WORKFLOW_INTELLIGENCE,
+              CREATIVE_INTELLIGENCE,
+          }
+
+          @Composable
+          internal fun V20CreatorDrilldownDialog(
+              snapshot: YouTubeAnalyticsSnapshot,
+              tasks: List<CreatorTask>,
+              ideas: List<CreatorIdea>,
+              links: Map<String, String>,
+              kind: V20CreatorDetailKind,
+              onDismiss: () -> Unit,
+          ) {
+              val context = LocalContext.current.applicationContext
+              val active = remember(tasks) {
+                  tasks.filter { it.archivedAtMillis == 0L && (it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING) }
+              }
+              val finished = remember(tasks) { tasks.filter { it.status == TaskStatus.DONE }.sortedByDescending { it.completedAtMillis } }
+              val monthAgo = System.currentTimeMillis() - 30L * 24L * 60L * 60L * 1000L
+              val recentFinished = remember(finished) { finished.filter { (it.completedAtMillis.takeIf { value -> value > 0L } ?: it.publishedAtMillis) >= monthAgo } }
+              val linkedTasks = remember(tasks, links) {
+                  val byId = tasks.associateBy { it.id }
+                  links.values.distinct().mapNotNull { byId[it] }
+              }
+              val workflow = remember(tasks) {
+                  CreatorWorkflowIntelligenceEngine.snapshot(
+                      tasks = tasks,
+                      events = ProjectPulseHistoryStore(context).loadAll(),
+                      timeline = CreatorWorkflowTimelineStore(context).loadAll(),
+                  )
+              }
+              val formats = remember(snapshot, tasks, links) { YouTubeInsightEngine.formatPerformance(snapshot, tasks, links) }
+
+              Dialog(onDismissRequest = onDismiss) {
+                  Surface(
+                      modifier = Modifier.fillMaxWidth().heightIn(max = 680.dp),
+                      shape = RoundedCornerShape(26.dp),
+                      color = CinemaSurfaceRaised,
+                      border = BorderStroke(1.dp, CinemaLine),
+                  ) {
+                      Column(Modifier.padding(18.dp)) {
+                          Row(verticalAlignment = Alignment.CenterVertically) {
+                              Column(Modifier.weight(1f)) {
+                                  Text("CREATOR DETAIL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                                  Spacer(Modifier.height(3.dp))
+                                  Text(creatorDetailTitle(kind), color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                              }
+                              IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = MutedText) }
+                          }
+                          Spacer(Modifier.height(10.dp))
+                          Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                              when (kind) {
+                                  V20CreatorDetailKind.PUBLISHED -> {
+                                      CreatorDetailHero("${recentFinished.size}", "projects completed in the last 30 days", MutedGold)
+                                      CreatorTaskList(recentFinished, "No projects completed in the last 30 days yet.")
+                                  }
+                                  V20CreatorDetailKind.ACTIVE -> {
+                                      CreatorDetailHero(active.size.toString(), "projects currently moving through your workflow", RecRed)
+                                      CreatorTaskList(active, "No active projects right now.")
+                                  }
+                                  V20CreatorDetailKind.FINISHED -> {
+                                      val started = tasks.count { it.status != TaskStatus.SKIPPED }
+                                      val rate = if (started == 0) 0 else ((finished.size * 100.0) / started).toInt().coerceIn(0, 100)
+                                      CreatorDetailHero("$rate%", "of tracked, non-skipped projects are finished", SuccessGreen)
+                                      CreatorTaskList(finished.take(12), "Finish a project and its history will appear here.")
+                                  }
+                                  V20CreatorDetailKind.CONNECTED -> {
+                                      CreatorDetailHero(linkedTasks.size.toString(), "projects connected to published YouTube videos", ProjectorIvory)
+                                      CreatorTaskList(linkedTasks, "Connect a published video to a project to build creator intelligence.")
+                                  }
+                                  V20CreatorDetailKind.IDEAS -> {
+                                      val ready = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
+                                      CreatorDetailHero(ready.toString(), "ideas marked ready to produce", MutedGold)
+                                      CreatorExplain("FrameByNavin uses this count to show whether your idea pipeline is ready for the next project. Ideas stay separate from active projects until you choose to produce them.")
+                                  }
+                                  V20CreatorDetailKind.WORKFLOW -> {
+                                      CreatorDetailHero(active.size.toString(), "active projects across your current production stages", RecRed)
+                                      val groups = active.groupBy { CreatorWorkflowEngine.currentStage(it).label }.entries.sortedByDescending { it.value.size }
+                                      if (groups.isEmpty()) CreatorExplain("Your workflow is clear right now. Start a project and FrameByNavin will track where it is.")
+                                      else groups.forEach { (stage, stageTasks) ->
+                                          CreatorDetailRow(stage, "${stageTasks.size} project${if (stageTasks.size == 1) "" else "s"}", stageTasks.joinToString(" · ") { it.title })
+                                      }
+                                  }
+                                  V20CreatorDetailKind.WORKFLOW_INTELLIGENCE -> {
+                                      val slowdown = workflow.historicalBottleneck
+                                      if (slowdown != null) {
+                                          CreatorDetailHero(slowdown.stageLabel, "is where your completed workflow samples have spent the most elapsed time", RecRed)
+                                          CreatorExplain("This does not mean you were actively working that entire time. It measures how long projects stayed in that stage before moving on.")
+                                      } else if (workflow.activeBottleneckCount >= 2) {
+                                          CreatorDetailHero(workflow.activeBottleneckLabel ?: "Current stage", "has ${workflow.activeBottleneckCount} active projects piling up right now", RecRed)
+                                          CreatorExplain("This is current pressure, not yet a repeated pattern. FrameByNavin waits for more completed transitions before calling it a recurring slowdown.")
+                                      } else {
+                                          CreatorDetailHero(workflow.measuredTimelineExits.toString(), "measured stage exits so far", MutedGold)
+                                          CreatorExplain("There is not enough repeated evidence yet to identify where you usually slow down.")
+                                      }
+                                      workflow.stageEvidence.filter { it.preferredSampleCount > 0 }.take(6).forEach { evidence ->
+                                          CreatorDetailRow(
+                                              evidence.stageLabel,
+                                              "${evidence.preferredSampleCount} measured exit${if (evidence.preferredSampleCount == 1) "" else "s"}",
+                                              "Typical elapsed time: ${creatorDuration(evidence.preferredTimingMillis)}",
+                                          )
+                                      }
+                                  }
+                                  V20CreatorDetailKind.CREATIVE_INTELLIGENCE -> {
+                                      CreatorDetailHero(formats.size.toString(), "content types currently comparable from connected uploads", MutedGold)
+                                      if (formats.isEmpty()) {
+                                          CreatorExplain("Connect more published videos to projects. FrameByNavin needs comparable uploads before it can show which creative choices repeatedly pay off.")
+                                      } else {
+                                          formats.take(5).forEach { format ->
+                                              CreatorDetailRow(
+                                                  format.label,
+                                                  "${format.uploadCount} connected upload${if (format.uploadCount == 1) "" else "s"}",
+                                                  "${creatorCompact(format.viewsPerUpload)} avg views · ${creatorWatch(format.watchMinutesPerUpload)} avg watch time · ${String.format(Locale.US, "%.1f", format.subscribersPerThousandViews)} subs / 1K views",
+                                              )
+                                          }
+                                          CreatorExplain("These are observed correlations from your own connected uploads, not proof that a format or creative choice caused the result.")
+                                      }
+                                  }
+                              }
+                              Spacer(Modifier.height(8.dp))
+                          }
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          private fun CreatorDetailHero(value: String, body: String, accent: Color) {
+              Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), Color(0xFF1E1E20), border = BorderStroke(1.dp, accent.copy(alpha = .22f))) {
+                  Column(Modifier.padding(15.dp)) {
+                      Text(value, color = accent, fontSize = 23.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                      Spacer(Modifier.height(3.dp))
+                      Text(body, color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+                  }
+              }
+              Spacer(Modifier.height(10.dp))
+          }
+
+          @Composable
+          private fun CreatorTaskList(tasks: List<CreatorTask>, empty: String) {
+              if (tasks.isEmpty()) {
+                  CreatorExplain(empty)
+                  return
+              }
+              tasks.take(12).forEach { task ->
+                  CreatorDetailRow(
+                      task.title,
+                      "${task.platform} · ${task.contentType}",
+                      "${task.status.name.lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase() }} · ${CreatorWorkflowEngine.currentStage(task).label}",
+                  )
+              }
+          }
+
+          @Composable
+          private fun CreatorDetailRow(title: String, meta: String, body: String) {
+              Surface(Modifier.fillMaxWidth().padding(bottom = 7.dp), RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                  Column(Modifier.padding(12.dp)) {
+                      Text(title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                      Spacer(Modifier.height(2.dp))
+                      Text(meta, color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+                      Spacer(Modifier.height(3.dp))
+                      Text(body, color = MutedText, fontSize = 8.5.sp, lineHeight = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                  }
+              }
+          }
+
+          @Composable
+          private fun CreatorExplain(text: String) {
+              Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), Color(0xFF1D1D1F)) {
+                  Text(text, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp, modifier = Modifier.padding(13.dp))
+              }
+              Spacer(Modifier.height(8.dp))
+          }
+
+          private fun creatorDetailTitle(kind: V20CreatorDetailKind): String = when (kind) {
+              V20CreatorDetailKind.PUBLISHED -> "Recent output"
+              V20CreatorDetailKind.ACTIVE -> "Active projects"
+              V20CreatorDetailKind.FINISHED -> "Completion progress"
+              V20CreatorDetailKind.CONNECTED -> "Connected videos"
+              V20CreatorDetailKind.IDEAS -> "Ideas ready"
+              V20CreatorDetailKind.WORKFLOW -> "Your workflow"
+              V20CreatorDetailKind.WORKFLOW_INTELLIGENCE -> "Where your projects slow down"
+              V20CreatorDetailKind.CREATIVE_INTELLIGENCE -> "What your creative choices teach you"
+          }
+
+          private fun creatorCompact(value: Long): String = when {
+              abs(value) >= 1_000_000_000L -> String.format(Locale.US, "%.1fB", value / 1_000_000_000.0)
+              abs(value) >= 1_000_000L -> String.format(Locale.US, "%.1fM", value / 1_000_000.0)
+              abs(value) >= 1_000L -> String.format(Locale.US, "%.1fK", value / 1_000.0)
+              else -> value.toString()
+          }
+
+          private fun creatorWatch(minutes: Long): String {
+              val hours = minutes / 60.0
+              return if (abs(hours) >= 1000) String.format(Locale.US, "%.1fK h", hours / 1000.0) else String.format(Locale.US, "%.1f h", hours)
+          }
+
+          private fun creatorDuration(millis: Long): String {
+              if (millis <= 0L) return "learning"
+              val minutes = millis / 60_000L
+              val days = minutes / 1440L
+              val hours = (minutes % 1440L) / 60L
+              val mins = minutes % 60L
+              return when {
+                  days > 0L -> if (hours > 0L) "${days}d ${hours}h" else "${days}d"
+                  hours > 0L -> if (mins > 0L) "${hours}h ${mins}m" else "${hours}h"
+                  else -> "${mins}m"
+              }
+          }
+          KOTLIN
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f"anchor not found in {path}: {old[:100]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          v172 = "app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt"
+          replace_once(v172,
+              "    var insightDetail by remember { mutableStateOf<V20InsightsDrilldownRequest?>(null) }\n",
+              "    var insightDetail by remember { mutableStateOf<V20InsightsDrilldownRequest?>(null) }\n    var creatorDetail by remember { mutableStateOf<V20CreatorDetailKind?>(null) }\n")
+          replace_once(v172,
+              "        V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links)\n",
+              "        V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }\n")
+          replace_once(v172,
+              "    insightDetail?.let { request ->\n        V20InsightsDrilldownDialog(\n            snapshot = snapshot,\n            request = request,\n            onDismiss = { insightDetail = null },\n        )\n    }\n",
+              "    insightDetail?.let { request ->\n        V20InsightsDrilldownDialog(\n            snapshot = snapshot,\n            request = request,\n            onDismiss = { insightDetail = null },\n        )\n    }\n    creatorDetail?.let { kind ->\n        V20CreatorDrilldownDialog(\n            snapshot = snapshot,\n            tasks = tasks,\n            ideas = ideas,\n            links = links,\n            kind = kind,\n            onDismiss = { creatorDetail = null },\n        )\n    }\n")
+          replace_once(v172,
+              "private fun V172Creator(\n    snapshot: YouTubeAnalyticsSnapshot,\n    tasks: List<CreatorTask>,\n    ideas: List<CreatorIdea>,\n    links: Map<String, String>,\n) {",
+              "private fun V172Creator(\n    snapshot: YouTubeAnalyticsSnapshot,\n    tasks: List<CreatorTask>,\n    ideas: List<CreatorIdea>,\n    links: Map<String, String>,\n    onDetail: (V20CreatorDetailKind) -> Unit,\n) {")
+          replace_once(v172,
+              "        V172CreatorMetric(\"PUBLISHED THIS MONTH\", summary.completed30Days.toString(), MutedGold, Modifier.weight(1f))\n        V172CreatorMetric(\"ACTIVE\", summary.active.toString(), RecRed, Modifier.weight(1f))",
+              "        V172CreatorMetric(\"COMPLETED 30D\", summary.completed30Days.toString(), MutedGold, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.PUBLISHED) }\n        V172CreatorMetric(\"ACTIVE\", summary.active.toString(), RecRed, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.ACTIVE) }")
+          replace_once(v172,
+              "        V172CreatorMetric(\"FINISHED\", \"${summary.completionRateOfStarted}%\", SuccessGreen, Modifier.weight(1f))\n        V172CreatorMetric(\"VIDEOS CONNECTED\", summary.linkedVideos.toString(), ProjectorIvory, Modifier.weight(1f))",
+              "        V172CreatorMetric(\"FINISHED\", \"${summary.completionRateOfStarted}%\", SuccessGreen, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.FINISHED) }\n        V172CreatorMetric(\"VIDEOS CONNECTED\", summary.linkedVideos.toString(), ProjectorIvory, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.CONNECTED) }")
+          replace_once(v172,
+              "    V172CreatorMetric(\"IDEAS READY\", summary.readyIdeas.toString(), MutedGold, Modifier.fillMaxWidth())",
+              "    V172CreatorMetric(\"IDEAS READY\", summary.readyIdeas.toString(), MutedGold, Modifier.fillMaxWidth()) { onDetail(V20CreatorDetailKind.IDEAS) }")
+          replace_once(v172,
+              "    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {\n        Column(Modifier.padding(16.dp)) {\n            Text(\"WORKFLOW\", color = RecRed, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)",
+              "    Surface(Modifier.fillMaxWidth().clickable { onDetail(V20CreatorDetailKind.WORKFLOW) }, RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {\n        Column(Modifier.padding(16.dp)) {\n            Row(verticalAlignment = Alignment.CenterVertically) {\n                Text(\"WORKFLOW\", color = RecRed, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp, modifier = Modifier.weight(1f))\n                Icon(Icons.Outlined.ChevronRight, \"Open workflow details\", tint = MutedText, modifier = Modifier.size(18.dp))\n            }")
+          replace_once(v172,
+              "    V20WorkflowIntelligenceCard(tasks)\n",
+              "    V20WorkflowIntelligenceCard(tasks, onClick = { onDetail(V20CreatorDetailKind.WORKFLOW_INTELLIGENCE) })\n")
+          replace_once(v172,
+              "    V20CreativeIntelligenceCard(snapshot, tasks, links)\n",
+              "    V20CreativeIntelligenceCard(snapshot, tasks, links, onClick = { onDetail(V20CreatorDetailKind.CREATIVE_INTELLIGENCE) })\n")
+          replace_once(v172,
+              "private fun V172CreatorMetric(label: String, value: String, accent: Color, modifier: Modifier) {\n    Surface(modifier, RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {\n        Column(Modifier.padding(13.dp)) {\n            Text(label, color = MutedText, fontSize = 7.2.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)\n            Spacer(Modifier.height(4.dp))\n            Text(value, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Black)\n        }\n    }\n}",
+              "private fun V172CreatorMetric(label: String, value: String, accent: Color, modifier: Modifier, onClick: () -> Unit) {\n    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {\n        Column(Modifier.padding(13.dp)) {\n            Row(verticalAlignment = Alignment.CenterVertically) {\n                Text(label, color = MutedText, fontSize = 7.2.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp, modifier = Modifier.weight(1f), maxLines = 1)\n                Icon(Icons.Outlined.ChevronRight, \"Open $label details\", tint = MutedText, modifier = Modifier.size(13.dp))\n            }\n            Spacer(Modifier.height(4.dp))\n            Text(value, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Black)\n        }\n    }\n}")
+
+          workflow_ui = "app/src/main/java/com/framebynavin/app/ui/V20WorkflowIntelligenceUi.kt"
+          replace_once(workflow_ui,
+              "import androidx.compose.foundation.BorderStroke\n",
+              "import androidx.compose.foundation.BorderStroke\nimport androidx.compose.foundation.clickable\n")
+          replace_once(workflow_ui,
+              "internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>) {",
+              "internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -> Unit = {}) {")
+          replace_once(workflow_ui,
+              "        Modifier.fillMaxWidth(),",
+              "        Modifier.fillMaxWidth().clickable(onClick = onClick),")
+          p = Path(workflow_ui)
+          text = p.read_text()
+          text = text.replace('Text("CONSISTENT BOTTLENECK"', 'Text("WHERE YOU USUALLY SLOW DOWN"')
+          text = text.replace('Text("OBSERVED BOTTLENECK"', 'Text("EARLY SLOWDOWN PATTERN"')
+          text = text.replace('Text("CURRENT PRESSURE"', 'Text("WHERE WORK IS PILING UP"')
+          text = text.replace('before calling this a consistent bottleneck.', 'before calling this a repeated slowdown.')
+          text = text.replace('before naming a consistent bottleneck.', 'before naming a repeated slowdown.')
+          text = text.replace('Text("Your process is becoming measurable"', 'Text("See where your projects tend to slow down"')
+          text = text.replace('            Spacer(Modifier.height(4.dp))\n            Text(\n                "Last 7 days', '            Spacer(Modifier.height(3.dp))\n            Text("Tap for stage-by-stage details", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)\n            Spacer(Modifier.height(4.dp))\n            Text(\n                "Last 7 days')
+          p.write_text(text)
+
+          creative_ui = "app/src/main/java/com/framebynavin/app/ui/V20CreativeIntelligenceUi.kt"
+          replace_once(creative_ui,
+              "import androidx.compose.foundation.BorderStroke\n",
+              "import androidx.compose.foundation.BorderStroke\nimport androidx.compose.foundation.clickable\n")
+          replace_once(creative_ui,
+              "    links: Map<String, String>,\n) {",
+              "    links: Map<String, String>,\n    onClick: () -> Unit = {},\n) {")
+          replace_once(creative_ui,
+              "        Modifier.fillMaxWidth(),",
+              "        Modifier.fillMaxWidth().clickable(onClick = onClick),")
+          replace_once(creative_ui,
+              "            Spacer(Modifier.height(3.dp))\n            Text(\n                \"${intelligence.connectedProjects} connected project",
+              "            Spacer(Modifier.height(3.dp))\n            Text(\"Tap for deeper creator patterns\", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)\n            Spacer(Modifier.height(3.dp))\n            Text(\n                \"${intelligence.connectedProjects} connected project")
+          PY
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Compile Kotlin
+        run: gradle :app:compileDebugKotlin --stacktrace
+
+      - name: Build RC2 Creator V2 APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload RC2 Creator V2 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0-rc2-creator-v2
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Commit validated Creator V2 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt \
+            app/src/main/java/com/framebynavin/app/ui/V20CreatorDrilldownUi.kt \
+            app/src/main/java/com/framebynavin/app/ui/V20WorkflowIntelligenceUi.kt \
+            app/src/main/java/com/framebynavin/app/ui/V20CreativeIntelligenceUi.kt
+          if git diff --cached --quiet; then
+            echo "No Creator V2 source changes to commit."
+            exit 0
+          fi
+          git commit -m "feat(rc2): make Creator insights explorable"
+          git push origin HEAD:feature/v2.0-rc2-insights-v2
