@@ -691,10 +691,20 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 }
             },
             onSecondary = {
-                if (guidedTourStep == CreatorGuidedTourStep.IDEAS) {
-                    externalStudioId = null
-                    tab = PTab.CREATE
-                    guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                when (guidedTourStep) {
+                    CreatorGuidedTourStep.IDEAS -> {
+                        externalStudioId = null
+                        tab = PTab.CREATE
+                        guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                    }
+                    CreatorGuidedTourStep.PROJECT -> {
+                        // A tour must never force the creator to create real data. If they do not
+                        // want a project yet, skip the Workspace-only lesson and continue to Insights.
+                        externalStudioId = null
+                        tab = PTab.INSIGHTS
+                        guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
+                    }
+                    else -> Unit
                 }
             },
             onSkip = {
