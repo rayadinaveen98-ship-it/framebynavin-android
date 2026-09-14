@@ -63,7 +63,7 @@ require('app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt', 'ex
 
 # Insights V2 evidence/interaction must remain present through later slices.
 require('app/src/main/java/com/framebynavin/app/ui/V20InsightsDrilldownUi.kt', '24H', '24H Insights evidence surface remains present')
-require('app/src/main/java/com/framebynavin/app/ui/V20InsightsDrilldownUi.kt', 'Daily Views', 'Daily Views drill-down remains present')
+require('app/src/main/java/com/framebynavin/app/ui/V20InsightsDrilldownUi.kt', 'DAILY VIEWS', 'Daily Views drill-down remains present')
 
 # Secrets: public client IDs/publishable keys are allowed; privileged server keys are not.
 forbid_tree('app/src', r'\bservice[_-]?role\b|sb_secret_|SUPABASE_SERVICE', 'no privileged Supabase credential in Android source')
