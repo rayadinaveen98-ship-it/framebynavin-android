@@ -6,6 +6,13 @@ on:
       - "feature/v2.0-rc2-release-readiness"
     paths:
       - ".github/workflows/rc2-release-readiness-emulator-matrix.yml"
+      - "app/src/main/**"
+      - "app/src/androidTest/**"
+      - "app/build.gradle.kts"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradle/**"
   workflow_dispatch:
 
 permissions:
@@ -70,7 +77,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
           script: >-
             gradle :app:connectedDebugAndroidTest --stacktrace
             -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ContentDnaPersistenceV96Test,com.framebynavin.app.cloud.CloudLocalStoreV183Test,com.framebynavin.app.data.CreatorBackupV183Test,com.framebynavin.app.data.CreatorContentProjectRc2InstrumentedTest,com.framebynavin.app.data.ProjectPulseRc3PersistenceInstrumentedTest,com.framebynavin.app.data.V18ReliabilityAlpha18InstrumentationTest,com.framebynavin.app.ui.V18PrimaryNavigationAlpha10UiTest,com.framebynavin.app.ui.V18CoreInteractionUiTest
