@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.youtube.*
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 
@@ -161,9 +163,165 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
             Text(signal.body, color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
         }
     }
+
     Spacer(Modifier.height(16.dp))
+    when (signal.kicker) {
+        "24H PULSE", "MOMENTUM", "VIDEO PICKING UP", "NEW SUBSCRIBERS", "MATCHED IDEA" -> {
+            V20Pulse24HourEvidence(YouTubeAnalyticsStore.latest24HourReport)
+            if (signal.kicker == "MATCHED IDEA") {
+                Spacer(Modifier.height(12.dp))
+                V20EvidenceNote(
+                    title = "WHY THE IDEA MATCHED",
+                    body = "The suggestion comes from shared meaningful words between the moving video's title and your local Idea Vault. It is a useful connection to inspect, not proof that the idea will perform.",
+                )
+            }
+        }
+        "WORKING WELL", "TOP VIDEO" -> V20VideoSignalEvidence(snapshot, signal)
+        "WATCH", "VIEWERS STAYED LONGER" -> V20AverageViewEvidence(snapshot)
+        "WHAT'S WORKING" -> V20EvidenceNote(
+            title = "MEASURED BASIS",
+            body = "This signal uses the per-video averages written in the signal from projects you connected to published videos. It is a comparison of observed outcomes, not a quality score or a promise that the next upload will perform the same way.",
+        )
+        "WORKFLOW" -> V20EvidenceNote(
+            title = "LOCAL WORKFLOW EVIDENCE",
+            body = "This signal comes from your current FrameByNavin project state, not YouTube performance. It describes where active projects are currently grouped and does not claim that the lane caused channel results.",
+        )
+        else -> V20ChannelContextEvidence(snapshot)
+    }
+}
+
+@Composable
+private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
+    Text("24H EVIDENCE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text(
+        "This is a sample-to-sample counter comparison from FrameByNavin's stored YouTube refreshes. It is not a fabricated hourly analytics curve.",
+        color = MutedText,
+        fontSize = 8.5.sp,
+        lineHeight = 12.5.sp,
+    )
+    Spacer(Modifier.height(9.dp))
+
+    if (report == null) {
+        V20EvidenceNote(
+            title = "LEARNING YOUR BASELINE",
+            body = "There are not yet two suitable stored samples roughly 24 hours apart. Refresh YouTube over time; FrameByNavin will only show this comparison once the evidence window is available.",
+        )
+        return
+    }
+
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        V20DetailMetric("~${report.sampleHours}H VIEWS", "+${v20Compact(report.viewsGained)}", Modifier.weight(1f))
+        V20DetailMetric("SUBSCRIBERS", v20Signed(report.subscribersDelta), Modifier.weight(1f))
+    }
+    Spacer(Modifier.height(7.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        V20DetailMetric("PRIOR WINDOW", report.previousViewsGained?.let { "+${v20Compact(it)}" } ?: "—", Modifier.weight(1f))
+        V20DetailMetric("MOMENTUM", report.momentum.name.lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase() }, Modifier.weight(1f))
+    }
+
+    Spacer(Modifier.height(9.dp))
+    Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+        Text(
+            report.viewsChangePercent?.let { "${if (it > 0) "+" else ""}$it% views versus the preceding comparable sample window." }
+                ?: "A preceding comparable sample window is not available yet, so no percentage comparison is shown.",
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            color = when {
+                report.viewsChangePercent == null -> MutedText
+                report.viewsChangePercent > 0 -> SuccessGreen
+                report.viewsChangePercent < 0 -> RecRed
+                else -> MutedText
+            },
+            fontSize = 9.sp,
+            lineHeight = 13.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+
+    Spacer(Modifier.height(14.dp))
+    Text("SAMPLE COVERAGE", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    Text(
+        "${v20PulseTime(report.baselineCapturedAtMillis)} → ${v20PulseTime(report.currentCapturedAtMillis)} · about ${report.sampleHours} hours",
+        color = MutedText,
+        fontSize = 8.5.sp,
+        lineHeight = 12.sp,
+    )
+
+    Spacer(Modifier.height(14.dp))
+    Text("TOP MOVERS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    if (report.topMovers.isEmpty()) {
+        Text("No individual video gained enough sampled views to list in this window.", color = MutedText, fontSize = 8.5.sp)
+    } else {
+        report.topMovers.forEachIndexed { index, mover ->
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(top = 7.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = CinemaSurface,
+                border = BorderStroke(1.dp, CinemaLine),
+            ) {
+                Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("#${index + 1}", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(mover.title, color = ProjectorIvory, fontSize = 9.8.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("+${v20Compact(mover.viewsGained)} sampled views · about ${mover.channelGainSharePercent}% of channel gain", color = MutedText, fontSize = 7.8.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeInsightSignal) {
+    val performance = remember(snapshot, signal.title) {
+        YouTubeInsightEngine.videoPerformance(snapshot).firstOrNull { it.video.title == signal.title }
+    }
+    Text("WHY THIS SIGNAL", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("Measured in the active ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
+    Spacer(Modifier.height(8.dp))
+    if (performance == null) {
+        V20EvidenceNote("EVIDENCE MOVED", "The video that originally triggered this signal is no longer present in the active cached ranking. Refresh Insights to rebuild the signal from the newest snapshot.")
+        return
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        V20DetailMetric("PERIOD VIEWS", v20Compact(performance.video.periodViews), Modifier.weight(1f))
+        V20DetailMetric("VIEW SHARE", "${performance.viewSharePercent}%", Modifier.weight(1f))
+    }
+    Spacer(Modifier.height(7.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        V20DetailMetric("VS RECENT AVG", if (performance.baselineMultiple > 0) String.format(Locale.US, "%.1fx", performance.baselineMultiple) else "—", Modifier.weight(1f))
+        V20DetailMetric("WATCH", v20Watch(performance.video.watchMinutes), Modifier.weight(1f))
+    }
+    Spacer(Modifier.height(9.dp))
+    Text("The recent-video average is a descriptive baseline across visible videos in this snapshot. It is not a quality rating and does not establish why the video performed this way.", color = MutedText, fontSize = 8.3.sp, lineHeight = 12.3.sp)
+}
+
+@Composable
+private fun V20AverageViewEvidence(snapshot: YouTubeAnalyticsSnapshot) {
+    val previous = snapshot.previousPeriod
+    Text("WHY THIS SIGNAL", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("Average view duration is compared period-to-period; FrameByNavin does not invent daily AVD points.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.5.sp)
+    Spacer(Modifier.height(8.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        V20DetailMetric("THIS PERIOD", v20Duration(snapshot.averageViewDurationSeconds), Modifier.weight(1f))
+        V20DetailMetric("PREVIOUS", previous?.let { v20Duration(it.averageViewDurationSeconds) } ?: "—", Modifier.weight(1f))
+    }
+    Spacer(Modifier.height(8.dp))
+    val previousSeconds = previous?.averageViewDurationSeconds
+    val change = if (previousSeconds != null && previousSeconds != 0L) {
+        (((snapshot.averageViewDurationSeconds - previousSeconds) * 100.0) / abs(previousSeconds.toDouble())).toInt()
+    } else null
+    V20EvidenceNote(
+        "PERIOD CHANGE",
+        change?.let { "${if (it > 0) "+" else ""}$it% versus the previous ${snapshot.windowDays}-day period." }
+            ?: "A reliable previous-period percentage is not available yet.",
+    )
+}
+
+@Composable
+private fun V20ChannelContextEvidence(snapshot: YouTubeAnalyticsSnapshot) {
     Text("CURRENT CONTEXT", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("This signal is being read against the active ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
+    Text("This signal is being read against the active ${snapshot.windowDays}-day analytics window.", color = MutedText, fontSize = 8.5.sp)
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         V20DetailMetric("VIEWS", v20Compact(snapshot.views), Modifier.weight(1f))
@@ -179,6 +337,17 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
     YouTubeInsightEngine.videoPerformance(snapshot).take(3).forEachIndexed { index, performance ->
         Text("${index + 1}. ${performance.video.title} · ${v20Compact(performance.video.periodViews)} views", color = MutedText, fontSize = 8.6.sp, lineHeight = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
+    }
+}
+
+@Composable
+private fun V20EvidenceNote(title: String, body: String) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+        Column(Modifier.padding(12.dp)) {
+            Text(title, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(body, color = MutedText, fontSize = 8.7.sp, lineHeight = 13.sp)
+        }
     }
 }
 
@@ -314,3 +483,4 @@ private fun v20Compact(value: Long): String = when {
 private fun v20Watch(minutes: Long): String = if (abs(minutes) >= 60) String.format(Locale.US, "%.1fh", minutes / 60.0) else "${minutes}m"
 private fun v20Signed(value: Long): String = if (value > 0) "+$value" else value.toString()
 private fun v20Duration(seconds: Long): String = "%d:%02d".format(seconds / 60, seconds % 60)
+private fun v20PulseTime(millis: Long): String = SimpleDateFormat("dd MMM, h:mm a", Locale.getDefault()).format(Date(millis))
