@@ -4,7 +4,8 @@ import android.content.Context
 import kotlinx.coroutines.CancellationException
 
 /**
- * Account manager only. Project/idea/setup persistence belongs to local stores + DriveVaultManager.
+ * Google/Supabase account manager. Private creator backup is coordinated separately by
+ * CreatorCloudSyncManager but uses this manager's generation-fenced authenticated session.
  */
 class CloudSyncManager(context: Context) {
     private val local = CloudLocalStore(context.applicationContext)
@@ -58,6 +59,18 @@ class CloudSyncManager(context: Context) {
         require(profile.userId == session.userId) { "Creator identity mismatch" }
         local.saveCreatorProfile(profile)
         CloudOperationResult.Success("Creator ID saved")
+    }
+
+    /**
+     * Runs a private creator-cloud operation only while the same signed-in account generation
+     * remains current. A sign-out/account switch invalidates the operation before or after I/O.
+     */
+    internal suspend fun <T> withFreshSession(block: suspend (CloudSession) -> T): T = current { epoch ->
+        val session = freshSession(local.loadSession() ?: error("Sign in with Google first"), epoch)
+        accountGate.requireCurrent(epoch, local.generation())
+        val result = block(session)
+        accountGate.requireCurrent(epoch, local.generation())
+        result
     }
 
     suspend fun signOut(): CloudOperationResult = try {
