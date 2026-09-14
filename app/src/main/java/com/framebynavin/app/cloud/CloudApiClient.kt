@@ -13,7 +13,7 @@ import java.time.OffsetDateTime
 
 class CloudHttpException(val statusCode: Int, override val message: String) : Exception(message)
 
-/** Supabase is identity/Creator-ID infrastructure only. Private creator work never passes through this client. */
+/** Supabase owns creator identity plus private, account-scoped creator snapshot sync. */
 class CloudApiClient {
     suspend fun signInWithGoogle(idToken: String): CloudSession {
         val body = JSONObject().put("id_token", idToken).put("provider", "google")
@@ -43,6 +43,79 @@ class CloudApiClient {
             .put("p_display_name", displayName.ifBlank { JSONObject.NULL })
         val raw = request("POST", "/rest/v1/rpc/claim_creator_username", token = session.accessToken, body = body.toString())
         return parseCreatorProfile(JSONObject(raw))
+    }
+
+    suspend fun fetchCreatorSyncHead(session: CloudSession): CloudCreatorSnapshot? {
+        val raw = request(
+            "POST",
+            "/rest/v1/rpc/get_creator_sync_head",
+            token = session.accessToken,
+            body = "{}",
+        ).trim()
+        if (raw.isBlank() || raw == "null") return null
+        val o = JSONObject(raw)
+        return CloudCreatorSnapshot(
+            revision = o.optLong("revision"),
+            contentSha256 = o.optString("content_sha256"),
+            payloadSha256 = o.optString("payload_sha256"),
+            schemaVersion = o.optInt("schema_version"),
+            payload = o.optString("payload"),
+            capturedAtMillis = parseTime(o.optString("captured_at")),
+            appVersion = o.optString("app_version"),
+            projectCount = o.optInt("project_count"),
+            ideaCount = o.optInt("idea_count"),
+            deviceId = o.optString("device_id"),
+            updatedAtMillis = parseTime(o.optString("updated_at")),
+        ).also {
+            require(it.revision > 0L) { "Cloud snapshot revision is invalid" }
+            require(it.contentSha256.matches(SHA256)) { "Cloud snapshot content hash is invalid" }
+            require(it.payloadSha256.matches(SHA256)) { "Cloud snapshot payload hash is invalid" }
+            require(it.payload.isNotBlank()) { "Cloud snapshot payload is empty" }
+        }
+    }
+
+    suspend fun pushCreatorSyncSnapshot(
+        session: CloudSession,
+        expectedContentSha256: String?,
+        contentSha256: String,
+        payloadSha256: String,
+        schemaVersion: Int,
+        payload: String,
+        capturedAtMillis: Long,
+        appVersion: String,
+        projectCount: Int,
+        ideaCount: Int,
+        deviceId: String,
+    ): CloudCreatorPushResult {
+        require(contentSha256.matches(SHA256))
+        require(payloadSha256.matches(SHA256))
+        require(expectedContentSha256 == null || expectedContentSha256.matches(SHA256))
+        val body = JSONObject()
+            .put("p_expected_content_sha256", expectedContentSha256 ?: JSONObject.NULL)
+            .put("p_content_sha256", contentSha256)
+            .put("p_payload_sha256", payloadSha256)
+            .put("p_schema_version", schemaVersion)
+            .put("p_payload", payload)
+            .put("p_captured_at", Instant.ofEpochMilli(capturedAtMillis).toString())
+            .put("p_app_version", appVersion)
+            .put("p_project_count", projectCount)
+            .put("p_idea_count", ideaCount)
+            .put("p_device_id", deviceId)
+        val o = JSONObject(request(
+            "POST",
+            "/rest/v1/rpc/push_creator_sync_snapshot",
+            token = session.accessToken,
+            body = body.toString(),
+        ))
+        return CloudCreatorPushResult(
+            status = o.optString("status"),
+            revision = o.optLong("revision"),
+            contentSha256 = o.optString("content_sha256"),
+        )
+    }
+
+    suspend fun deleteCreatorSyncData(session: CloudSession) {
+        request("POST", "/rest/v1/rpc/delete_creator_sync_data", token = session.accessToken, body = "{}")
     }
 
     private fun parseCreatorProfile(o: JSONObject): CloudCreatorProfile = CloudCreatorProfile(
@@ -120,4 +193,8 @@ class CloudApiClient {
     private fun parseTime(value: String): Long = runCatching { Instant.parse(value).toEpochMilli() }
         .recoverCatching { OffsetDateTime.parse(value).toInstant().toEpochMilli() }
         .getOrDefault(0L)
+
+    companion object {
+        private val SHA256 = Regex("[0-9a-f]{64}")
+    }
 }
