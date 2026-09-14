@@ -1,0 +1,88 @@
+name: RC2 Release Readiness Emulator Matrix
+
+on:
+  push:
+    branches:
+      - "feature/v2.0-rc2-release-readiness"
+    paths:
+      - ".github/workflows/rc2-release-readiness-emulator-matrix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rc2-release-readiness-emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  emulator:
+    name: Android API ${{ matrix.api }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [33, 34, 35, 36]
+
+    steps:
+      - name: Checkout RC2 release-readiness source
+        uses: actions/checkout@v4
+
+      - name: Verify release-readiness baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 124' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-rc2-guided-first-run"' app/build.gradle.kts
+          test -s app/src/androidTest/java/com/framebynavin/app/ContentDnaPersistenceV96Test.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/cloud/CloudLocalStoreV183Test.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/data/CreatorBackupV183Test.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/data/CreatorContentProjectRc2InstrumentedTest.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/data/ProjectPulseRc3PersistenceInstrumentedTest.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/data/V18ReliabilityAlpha18InstrumentationTest.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/ui/V18PrimaryNavigationAlpha10UiTest.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/ui/V18CoreInteractionUiTest.kt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run RC2 creator regression suite on API ${{ matrix.api }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: >-
+            gradle :app:connectedDebugAndroidTest --stacktrace
+            -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ContentDnaPersistenceV96Test,com.framebynavin.app.cloud.CloudLocalStoreV183Test,com.framebynavin.app.data.CreatorBackupV183Test,com.framebynavin.app.data.CreatorContentProjectRc2InstrumentedTest,com.framebynavin.app.data.ProjectPulseRc3PersistenceInstrumentedTest,com.framebynavin.app.data.V18ReliabilityAlpha18InstrumentationTest,com.framebynavin.app.ui.V18PrimaryNavigationAlpha10UiTest,com.framebynavin.app.ui.V18CoreInteractionUiTest
+            -Pandroid.testInstrumentationRunnerArguments.hardeningTestEnvironment=ci-emulator
+
+      - name: Upload API ${{ matrix.api }} instrumentation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v124-api-${{ matrix.api }}-instrumentation
+          path: |
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
+          if-no-files-found: warn
+          retention-days: 90
