@@ -8,6 +8,7 @@ data class CreatorOsSettings(
     val accountOnboardingComplete: Boolean = false,
     val onboardingComplete: Boolean = false,
     val creatorProfile: CreatorProfile = CreatorProfile(),
+    val guidedTourVersion: Int = 0,
     val defaultVoicePersona: VoicePersona = VoicePersona.WARM,
     val defaultAlarmTimeoutSeconds: Int = 120,
     val snoozeMinutes: Int = 10,
@@ -17,6 +18,17 @@ data class CreatorOsSettings(
 
 class CreatorOsSettingsStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    init {
+        if (!prefs.contains(KEY_GUIDED_TOUR_VERSION)) {
+            // Never force the new tour on creators who already completed setup before v124.
+            val legacyCreatorSetupComplete = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
+            val initial = CreatorGuidedTourPolicy.initialCompletedVersion(legacyCreatorSetupComplete)
+            check(prefs.edit().putInt(KEY_GUIDED_TOUR_VERSION, initial).commit()) {
+                "Could not initialize guided tour state"
+            }
+        }
+    }
 
     fun snapshot(): CreatorOsSettings {
         val creatorSetupComplete = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
@@ -43,6 +55,7 @@ class CreatorOsSettingsStore(context: Context) {
                 weeklyPublishingTarget = prefs.getInt(KEY_WEEKLY_PUBLISHING_TARGET, 2).coerceIn(1, 14),
                 setupSchemaVersion = prefs.getInt(KEY_SETUP_SCHEMA_VERSION, 1),
             ).normalized(),
+            guidedTourVersion = prefs.getInt(KEY_GUIDED_TOUR_VERSION, 0).coerceAtLeast(0),
             defaultVoicePersona = runCatching {
                 VoicePersona.valueOf(prefs.getString(KEY_DEFAULT_VOICE, VoicePersona.WARM.name) ?: VoicePersona.WARM.name)
             }.getOrDefault(VoicePersona.WARM),
@@ -59,6 +72,7 @@ class CreatorOsSettingsStore(context: Context) {
         return JSONObject()
             .put("accountOnboardingComplete", value.accountOnboardingComplete)
             .put("onboardingComplete", value.onboardingComplete)
+            .put("guidedTourVersion", value.guidedTourVersion)
             .put(
                 "creatorProfile",
                 JSONObject()
@@ -98,10 +112,19 @@ class CreatorOsSettingsStore(context: Context) {
             weeklyPublishingTarget = profileObj?.optInt("weeklyPublishingTarget", 2) ?: 2,
             setupSchemaVersion = profileObj?.optInt("setupSchemaVersion", 1) ?: 1,
         ).normalized()
+        val creatorSetupComplete = obj.optBoolean("onboardingComplete", true)
+        val accountComplete = obj.optBoolean("accountOnboardingComplete", creatorSetupComplete)
+        val guidedTourVersion = if (obj.has("guidedTourVersion")) {
+            obj.optInt("guidedTourVersion", 0).coerceAtLeast(0)
+        } else {
+            // Old backups belong to creators who predate this tour; restoring them must not force it.
+            CreatorGuidedTourPolicy.initialCompletedVersion(creatorSetupComplete)
+        }
         val value = CreatorOsSettings(
-            accountOnboardingComplete = obj.optBoolean("accountOnboardingComplete", obj.optBoolean("onboardingComplete", true)),
-            onboardingComplete = obj.optBoolean("onboardingComplete", true),
+            accountOnboardingComplete = accountComplete,
+            onboardingComplete = creatorSetupComplete,
             creatorProfile = profile,
+            guidedTourVersion = guidedTourVersion,
             defaultVoicePersona = runCatching {
                 VoicePersona.valueOf(obj.optString("defaultVoicePersona", VoicePersona.WARM.name))
             }.getOrDefault(VoicePersona.WARM),
@@ -113,6 +136,7 @@ class CreatorOsSettingsStore(context: Context) {
         prefs.edit()
             .putBoolean(KEY_ACCOUNT_ONBOARDING_COMPLETE, value.accountOnboardingComplete)
             .putBoolean(KEY_ONBOARDING_COMPLETE, value.onboardingComplete)
+            .putInt(KEY_GUIDED_TOUR_VERSION, value.guidedTourVersion)
             .putProfile(profile)
             .putString(KEY_DEFAULT_VOICE, value.defaultVoicePersona.name)
             .putInt(KEY_ALARM_TIMEOUT, value.defaultAlarmTimeoutSeconds)
@@ -129,6 +153,9 @@ class CreatorOsSettingsStore(context: Context) {
             runCatching { VoicePersona.valueOf(obj.getString("defaultVoicePersona")) }.getOrElse {
                 throw IllegalArgumentException("Unsupported voice setting")
             }
+        }
+        if (obj.has("guidedTourVersion")) {
+            require(obj.getInt("guidedTourVersion") in 0..1000) { "Unsupported guided tour state" }
         }
         obj.optJSONObject("creatorProfile")?.let { profile ->
             val target = profile.optInt("weeklyPublishingTarget", 2)
@@ -151,6 +178,14 @@ class CreatorOsSettingsStore(context: Context) {
 
     fun setOnboardingComplete(value: Boolean) {
         prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).apply()
+    }
+
+    fun markGuidedTourComplete() {
+        prefs.edit().putInt(KEY_GUIDED_TOUR_VERSION, CreatorGuidedTourPolicy.CURRENT_VERSION).apply()
+    }
+
+    fun resetGuidedTour() {
+        prefs.edit().putInt(KEY_GUIDED_TOUR_VERSION, 0).apply()
     }
 
     fun setCreatorProfile(value: CreatorProfile) {
@@ -204,6 +239,7 @@ class CreatorOsSettingsStore(context: Context) {
         private const val PREFS_NAME = "creator_os_settings_v1"
         private const val KEY_ACCOUNT_ONBOARDING_COMPLETE = "account_onboarding_complete_v23"
         private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
+        private const val KEY_GUIDED_TOUR_VERSION = "guided_first_run_version_v124"
         private const val KEY_CREATOR_NAME = "creator_display_name"
         private const val KEY_CREATOR_CATEGORY = "creator_category"
         private const val KEY_PRIMARY_CREATOR_MODE = "creator_primary_mode_v2"
