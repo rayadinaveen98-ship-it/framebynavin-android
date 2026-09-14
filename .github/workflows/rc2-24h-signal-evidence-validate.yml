@@ -1,0 +1,50 @@
+name: RC2 24H Pulse Signal Evidence Validate
+
+on:
+  push:
+    branches:
+      - "feature/v2.0-rc2-insights-v2"
+    paths:
+      - "app/src/main/java/com/framebynavin/app/ui/V20InsightsDrilldownUi.kt"
+      - "app/src/main/java/com/framebynavin/app/youtube/YouTube24HourPulse.kt"
+      - "app/src/main/java/com/framebynavin/app/youtube/YouTubeInsightEngine.kt"
+      - ".github/workflows/rc2-24h-signal-evidence-validate.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: rc2-24h-signal-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Compile debug Kotlin
+        run: gradle :app:compileDebugKotlin --stacktrace
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload validated APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v2.0-rc2-24h-signal-evidence
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
