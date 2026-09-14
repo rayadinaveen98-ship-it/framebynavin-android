@@ -98,9 +98,11 @@ class V18CoreInteractionUiTest {
             )
         }
 
-        composeRule.onNodeWithText("CREATOR FOCUS").assertIsDisplayed()
-        composeRule.onNodeWithText("Grow an audience").assertIsDisplayed()
-        composeRule.onNodeWithText("1 / 3 published this week").assertIsDisplayed()
+        // Today is intentionally scrollable. Assert the current compact Weekly Focus card,
+        // scrolling it into the Pixel viewport instead of assuming a fixed screen height.
+        composeRule.onNodeWithText("WEEKLY FOCUS").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Grow an audience").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("1/3").performScrollTo().assertIsDisplayed()
     }
 
     @Test
