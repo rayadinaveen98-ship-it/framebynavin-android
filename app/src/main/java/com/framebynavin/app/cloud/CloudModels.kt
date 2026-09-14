@@ -19,6 +19,26 @@ data class CloudCreatorProfile(
     val updatedAtMillis: Long,
 )
 
+data class CloudCreatorSnapshot(
+    val revision: Long,
+    val contentSha256: String,
+    val payloadSha256: String,
+    val schemaVersion: Int,
+    val payload: String,
+    val capturedAtMillis: Long,
+    val appVersion: String,
+    val projectCount: Int,
+    val ideaCount: Int,
+    val deviceId: String,
+    val updatedAtMillis: Long,
+)
+
+data class CloudCreatorPushResult(
+    val status: String,
+    val revision: Long,
+    val contentSha256: String,
+)
+
 data class CloudUiState(val session: CloudSession?)
 
 sealed interface CloudOperationResult {
