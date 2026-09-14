@@ -44,6 +44,7 @@ internal fun V172InsightsBody(
     var tabName by rememberSaveable { mutableStateOf(V172InsightsTab.OVERVIEW.name) }
     val tab = V172InsightsTab.valueOf(tabName)
     var detailVideoId by rememberSaveable { mutableStateOf<String?>(null) }
+    var insightDetail by remember { mutableStateOf<V20InsightsDrilldownRequest?>(null) }
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
     val detail = videos.firstOrNull { it.video.videoId == detailVideoId }
 
@@ -51,7 +52,14 @@ internal fun V172InsightsBody(
     Spacer(Modifier.height(16.dp))
 
     when (tab) {
-        V172InsightsTab.OVERVIEW -> V172Overview(snapshot, tasks, ideas, links) { detailVideoId = it.videoId }
+        V172InsightsTab.OVERVIEW -> V172Overview(
+            snapshot = snapshot,
+            tasks = tasks,
+            ideas = ideas,
+            links = links,
+            onVideo = { detailVideoId = it.videoId },
+            onDetail = { insightDetail = it },
+        )
         V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }
         V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links)
     }
@@ -67,6 +75,13 @@ internal fun V172InsightsBody(
                 detailVideoId = null
                 onLinkVideo(performance.video)
             },
+        )
+    }
+    insightDetail?.let { request ->
+        V20InsightsDrilldownDialog(
+            snapshot = snapshot,
+            request = request,
+            onDismiss = { insightDetail = null },
         )
     }
 }
@@ -109,8 +124,9 @@ private fun V172Overview(
     ideas: List<CreatorIdea>,
     links: Map<String, String>,
     onVideo: (YouTubeVideoSnapshot) -> Unit,
+    onDetail: (V20InsightsDrilldownRequest) -> Unit,
 ) {
-    V172PulseCard(snapshot)
+    V172PulseCard(snapshot, onDetail)
     Spacer(Modifier.height(10.dp))
     V20InsightsFoundationCard(snapshot)
     Spacer(Modifier.height(18.dp))
@@ -118,12 +134,12 @@ private fun V172Overview(
     Text("THIS IS WHAT MATTERS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
     Spacer(Modifier.height(8.dp))
     YouTubeInsightEngine.topSignals(snapshot, tasks, ideas, links).forEach { signal ->
-        V172SignalCard(signal)
+        V172SignalCard(signal) { onDetail(V20InsightsDrilldownRequest.signal(signal)) }
         Spacer(Modifier.height(8.dp))
     }
 
     Spacer(Modifier.height(10.dp))
-    V172TrendCard(snapshot)
+    V172TrendCard(snapshot) { onDetail(V20InsightsDrilldownRequest(V20InsightsDetailKind.DAILY_VIEWS)) }
     Spacer(Modifier.height(18.dp))
 
     val top = YouTubeInsightEngine.videoPerformance(snapshot).take(3)
@@ -135,7 +151,7 @@ private fun V172Overview(
 }
 
 @Composable
-private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot) {
+private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot, onDetail: (V20InsightsDrilldownRequest) -> Unit) {
     val deltas = remember(snapshot) { YouTubeInsightEngine.metricDeltas(snapshot) }
     Surface(
         Modifier.fillMaxWidth(),
@@ -151,11 +167,11 @@ private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot) {
             Text(YouTubeInsightEngine.pulseBody(snapshot), color = MutedText, fontSize = 9.7.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(15.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                deltas.take(2).forEach { V172DeltaMetric(it, Modifier.weight(1f), snapshot) }
+                deltas.take(2).forEach { metric -> V172DeltaMetric(metric, Modifier.weight(1f), snapshot) { onDetail(V20InsightsDrilldownRequest.fromMetric(metric.label)) } }
             }
             Spacer(Modifier.height(7.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                deltas.drop(2).take(2).forEach { V172DeltaMetric(it, Modifier.weight(1f), snapshot) }
+                deltas.drop(2).take(2).forEach { metric -> V172DeltaMetric(metric, Modifier.weight(1f), snapshot) { onDetail(V20InsightsDrilldownRequest.fromMetric(metric.label)) } }
             }
             snapshot.previousPeriod?.let {
                 Spacer(Modifier.height(10.dp))
@@ -168,12 +184,15 @@ private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot) {
 private val BrushCard = Color(0xFF171413)
 
 @Composable
-private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snapshot: YouTubeAnalyticsSnapshot) {
+private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Unit) {
     val positive = (metric.percentChange ?: 0) > 0
     val negative = (metric.percentChange ?: 0) < 0
-    Surface(modifier, RoundedCornerShape(15.dp), Color(0xFF202020)) {
+    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), Color(0xFF202020)) {
         Column(Modifier.padding(11.dp)) {
-            Text(metric.label, color = MutedText, fontSize = 7.3.sp, fontWeight = FontWeight.Bold, letterSpacing = .6.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(metric.label, color = MutedText, fontSize = 7.3.sp, fontWeight = FontWeight.Bold, letterSpacing = .6.sp, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.ChevronRight, "View ${metric.label} details", tint = MutedText, modifier = Modifier.size(13.dp))
+            }
             Spacer(Modifier.height(3.dp))
             Text(
                 when (metric.label) {
@@ -208,14 +227,14 @@ private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snap
 }
 
 @Composable
-private fun V172SignalCard(signal: YouTubeInsightSignal) {
+private fun V172SignalCard(signal: YouTubeInsightSignal, onClick: () -> Unit) {
     val accent = when (signal.tone) {
         YouTubeInsightTone.POSITIVE -> SuccessGreen
         YouTubeInsightTone.WATCH -> RecRed
         YouTubeInsightTone.OPPORTUNITY -> MutedGold
         YouTubeInsightTone.NEUTRAL -> ProjectorIvory
     }
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .25f))) {
+    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .25f))) {
         Column(Modifier.padding(14.dp)) {
             Text(signal.kicker, color = accent, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(3.dp))
@@ -227,12 +246,15 @@ private fun V172SignalCard(signal: YouTubeInsightSignal) {
 }
 
 @Composable
-private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot) {
+private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Unit) {
     val points = snapshot.trend.takeLast(14)
     val max = points.maxOfOrNull { it.views }?.coerceAtLeast(1L) ?: 1L
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
-            Text("DAILY VIEWS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("DAILY VIEWS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.ChevronRight, "Open daily views", tint = MutedText, modifier = Modifier.size(18.dp))
+            }
             Text("Last ${points.size} days", color = MutedText, fontSize = 8.5.sp)
             Spacer(Modifier.height(13.dp))
             if (points.isEmpty()) Text("No daily trend data yet.", color = MutedText, fontSize = 9.sp)

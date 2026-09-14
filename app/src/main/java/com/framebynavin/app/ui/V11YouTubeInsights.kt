@@ -72,6 +72,7 @@ internal fun V11InsightsScreen(
     var activeRequest by remember { mutableStateOf<YouTubeCacheRequest?>(null) }
     var pendingResolution by remember { mutableStateOf<YouTubeCacheRequest?>(null) }
     var pendingResolutionDays by remember { mutableIntStateOf(28) }
+    var autoRefreshKey by rememberSaveable { mutableStateOf("") }
     val personalization by remember(creatorProfile) {
         derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
     }
@@ -181,7 +182,7 @@ internal fun V11InsightsScreen(
         }
     }
 
-    fun authorize(selectAccount: Boolean = false, days: Int = windowDays) {
+    fun authorize(selectAccount: Boolean = false, days: Int = windowDays, allowResolution: Boolean = true) {
         if (revoking) return
         val client = authClient ?: run {
             authError = "Google authorization is unavailable on this device."
@@ -196,6 +197,10 @@ internal fun V11InsightsScreen(
             .addOnSuccessListener { result ->
                 if (!isActive(request)) return@addOnSuccessListener
                 if (result.hasResolution()) {
+                    if (!allowResolution) {
+                        finishRequest(request)
+                        return@addOnSuccessListener
+                    }
                     val pending = result.pendingIntent
                     if (pending == null) {
                         finishRequest(request, "Google authorization needs attention, but no consent screen was available.")
@@ -216,6 +221,18 @@ internal fun V11InsightsScreen(
             .addOnFailureListener { error ->
                 if (isActive(request)) finishRequest(request, ytFriendlyError(error))
             }
+    }
+
+
+    LaunchedEffect(snapshot?.fetchedAtMillis, windowDays, syncing, revoking) {
+        val cached = snapshot ?: return@LaunchedEffect
+        if (cached.windowDays != windowDays || syncing || revoking) return@LaunchedEffect
+        val ageMillis = System.currentTimeMillis() - cached.fetchedAtMillis
+        val refreshKey = "${cached.channel.channelId}:$windowDays:${cached.fetchedAtMillis}"
+        if (ageMillis >= 15L * 60L * 1000L && autoRefreshKey != refreshKey) {
+            autoRefreshKey = refreshKey
+            authorize(selectAccount = false, days = windowDays, allowResolution = false)
+        }
     }
 
     fun disconnect() {
