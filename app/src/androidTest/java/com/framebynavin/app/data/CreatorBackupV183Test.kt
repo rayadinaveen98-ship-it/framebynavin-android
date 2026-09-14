@@ -27,8 +27,22 @@ class CreatorBackupV183Test {
     private fun sha(raw: ByteArray): String = MessageDigest.getInstance("SHA-256")
         .digest(raw).joinToString("") { "%02x".format(it) }
 
+    /** Mirrors CreatorBackupManager.fingerprint() so current-schema mutation tests remain valid. */
     private fun checksum(root: JSONObject, schema: Int): String = sha(buildString {
-        val keys = if (schema >= 4) legacyKeys + listOf("youtubeProjectLinks", "youtubeMilestones") else legacyKeys
+        val keys = when {
+            schema >= 8 -> legacyKeys + listOf(
+                "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
+                "projectPulseHistory", "workflowStageTimeline",
+            )
+            schema >= 7 -> legacyKeys + listOf(
+                "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory",
+            )
+            schema >= 6 -> legacyKeys + listOf(
+                "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
+            )
+            schema >= 4 -> legacyKeys + listOf("youtubeProjectLinks", "youtubeMilestones")
+            else -> legacyKeys
+        }
         (if (schema >= 5) keys + "manifest" else keys).forEach { key ->
             val value = root.optString(key, "")
             append(key.length).append(':').append(key).append(value.length).append(':').append(value)
@@ -47,7 +61,7 @@ class CreatorBackupV183Test {
         val manager = CreatorBackupManager(context)
         val raw = manager.createBackup()
         val root = JSONObject(raw)
-        assertEquals(5, manager.validate(raw).schemaVersion)
+        assertEquals(CreatorBackupManager.SCHEMA_VERSION, manager.validate(raw).schemaVersion)
         val manifest = root.getJSONObject("manifest")
         assertFalse(manifest.getBoolean("authenticated"))
         assertTrue(manifest.getJSONArray("excluded").toString().contains("oauthTokens"))
@@ -101,8 +115,12 @@ class CreatorBackupV183Test {
             TaskStore(context).mutate { it + task }
             val current = manager.createBackup()
             val root = JSONObject(current).put("schemaVersion", 3).removeSection("manifest")
-            listOf("personalFrames", "youtubeProjectLinks", "youtubeMilestones", "postPublish",
-                "rewards", "smartEscalationConfig").forEach(root::remove)
+            // Build a faithful v3 fixture from the current snapshot. Sections introduced after v3
+            // must not leak into the legacy test payload even though v3 validation ignores unknown keys.
+            listOf(
+                "personalFrames", "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
+                "projectPulseHistory", "workflowStageTimeline", "postPublish", "rewards", "smartEscalationConfig",
+            ).forEach(root::remove)
             val legacy = resign(root)
             assertEquals(3, manager.validate(legacy).schemaVersion)
             val attached = manager.attachLegacyYoutubeData(legacy, "{\"remote\":\"link\"}", "{}")
