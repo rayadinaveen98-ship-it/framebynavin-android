@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -9,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,8 +28,8 @@ private data class GuidedCoachCopy(
 )
 
 /**
- * Contextual coach mark shown on top of the real product. It never replaces Today, Ideas,
- * Workspace or Insights with tutorial mockups, so the creator learns the actual interaction model.
+ * Lightweight contextual coach mark. The real product remains visible beneath a very light scrim,
+ * and the coach itself is translucent so the tour feels like guidance, not another screen.
  */
 @Composable
 internal fun V20GuidedFirstRunCoach(
@@ -38,64 +40,103 @@ internal fun V20GuidedFirstRunCoach(
     onSkip: () -> Unit,
 ) {
     val copy = guidedCopy(step, hasProjects)
-    val top = step == CreatorGuidedTourStep.WORKSPACE || step == CreatorGuidedTourStep.CONTROL
+    val placeAtTop = step == CreatorGuidedTourStep.CONTROL
 
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        Modifier.fillMaxSize()
+            .background(Color.Black.copy(alpha = .13f)),
+    ) {
         Surface(
             modifier = Modifier
-                .align(if (top) Alignment.TopCenter else Alignment.BottomCenter)
-                .then(if (top) Modifier.statusBarsPadding().padding(top = 14.dp) else Modifier.navigationBarsPadding().padding(bottom = 92.dp))
-                .padding(horizontal = 16.dp)
-                .widthIn(max = 520.dp),
-            shape = RoundedCornerShape(22.dp),
-            color = CinemaSurfaceRaised,
-            border = BorderStroke(1.dp, MutedGold.copy(alpha = .42f)),
-            shadowElevation = 18.dp,
+                .align(if (placeAtTop) Alignment.TopCenter else Alignment.BottomCenter)
+                .then(
+                    if (placeAtTop) Modifier.statusBarsPadding().padding(top = 12.dp)
+                    else Modifier.navigationBarsPadding().padding(bottom = 92.dp)
+                )
+                .padding(horizontal = 14.dp)
+                .widthIn(max = 500.dp),
+            shape = RoundedCornerShape(18.dp),
+            color = Color(0xD018181B),
+            border = BorderStroke(1.dp, ProjectorIvory.copy(alpha = .14f)),
+            shadowElevation = 8.dp,
         ) {
-            Column(Modifier.padding(17.dp)) {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                // Small progress rail instead of a large tutorial header.
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    repeat(6) { index ->
+                        Box(
+                            Modifier.weight(1f).height(if (index == step.ordinal) 3.dp else 2.dp)
+                                .background(
+                                    if (index <= step.ordinal) RecRed else ProjectorIvory.copy(alpha = .12f),
+                                    RoundedCornerShape(100.dp),
+                                )
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
-                        modifier = Modifier.size(38.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = RecRed.copy(alpha = .12f),
+                        modifier = Modifier.size(34.dp),
+                        shape = RoundedCornerShape(11.dp),
+                        color = RecRed.copy(alpha = .13f),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(copy.icon, null, tint = RecRed, modifier = Modifier.size(20.dp))
+                            Icon(copy.icon, null, tint = RecRed, modifier = Modifier.size(18.dp))
                         }
                     }
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(9.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
-                            "${copy.eyebrow} · ${step.ordinal + 1}/6",
+                            "${copy.eyebrow}  ·  ${step.ordinal + 1}/6",
                             color = MutedGold,
-                            fontSize = 9.sp,
+                            fontSize = 7.8.sp,
                             fontWeight = FontWeight.Black,
-                            letterSpacing = .8.sp,
+                            letterSpacing = .7.sp,
                         )
-                        Text(copy.title, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                        Text(copy.title, color = ProjectorIvory, fontSize = 14.5.sp, fontWeight = FontWeight.Black)
                     }
-                    TextButton(onClick = onSkip) {
-                        Text("SKIP TOUR", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    TextButton(
+                        onClick = onSkip,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 3.dp),
+                    ) {
+                        Text("SKIP", color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
+                Spacer(Modifier.height(8.dp))
+                Text(copy.body, color = ProjectorIvory.copy(alpha = .72f), fontSize = 10.5.sp, lineHeight = 15.sp)
                 Spacer(Modifier.height(10.dp))
-                Text(copy.body, color = MutedText, fontSize = 12.5.sp, lineHeight = 18.sp)
-                Spacer(Modifier.height(14.dp))
 
-                Button(
-                    onClick = onPrimary,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                    shape = RoundedCornerShape(14.dp),
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(copy.primary, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                }
-
-                copy.secondary?.let { label ->
-                    Spacer(Modifier.height(6.dp))
-                    TextButton(onClick = onSecondary, modifier = Modifier.fillMaxWidth()) {
-                        Text(label, color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    copy.secondary?.let { label ->
+                        OutlinedButton(
+                            onClick = onSecondary,
+                            modifier = Modifier.weight(.82f).height(42.dp),
+                            shape = RoundedCornerShape(13.dp),
+                            border = BorderStroke(1.dp, ProjectorIvory.copy(alpha = .16f)),
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                        ) {
+                            Text(label, color = ProjectorIvory.copy(alpha = .72f), fontSize = 8.2.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                    Button(
+                        onClick = onPrimary,
+                        modifier = Modifier.weight(1f).height(42.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(13.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp),
+                    ) {
+                        Text(copy.primary, fontSize = 8.8.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(14.dp))
                     }
                 }
             }
@@ -106,47 +147,48 @@ internal fun V20GuidedFirstRunCoach(
 private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): GuidedCoachCopy = when (step) {
     CreatorGuidedTourStep.TODAY -> GuidedCoachCopy(
         eyebrow = "TODAY",
-        title = "Start with what matters now",
-        body = "Today is your creator command center. It keeps active work, deadlines and the next useful action in one place instead of making you hunt through the app.",
-        primary = "SHOW ME IDEAS",
+        title = "Your command center",
+        body = "Active work, deadlines and the next useful action stay here. The real screen remains usable underneath this guide.",
+        primary = "IDEAS",
         icon = Icons.Outlined.Home,
     )
     CreatorGuidedTourStep.IDEAS -> GuidedCoachCopy(
         eyebrow = "IDEA VAULT",
-        title = "Keep ideas light until they are ready",
-        body = "Ideas can stay rough here. Capture a thought without turning it into a full project, then promote it only when you actually want to make it.",
-        primary = "CAPTURE AN IDEA",
-        secondary = "CONTINUE WITHOUT CAPTURING",
+        title = "Capture first. Decide later.",
+        body = "Keep rough thoughts here without turning every idea into a project.",
+        primary = "CAPTURE IDEA",
+        secondary = "SKIP · NEXT",
         icon = Icons.Outlined.Lightbulb,
     )
     CreatorGuidedTourStep.PROJECT -> GuidedCoachCopy(
         eyebrow = "PROJECT",
         title = if (hasProjects) "Open a real project" else "Build your first project",
         body = if (hasProjects)
-            "Projects turn creator intent into an actual workflow. We'll open one of your projects so the next step teaches the real workspace."
+            "Open one of your real projects and we’ll continue inside its workspace."
         else
-            "The New Project wizard asks one decision at a time and uses your creator setup to recommend sensible defaults. Complete it normally — this is your real project, not demo data.",
-        primary = if (hasProjects) "OPEN A PROJECT" else "CREATE FIRST PROJECT",
+            "Create one now to learn Workspace. After Create & Open, the tour resumes there automatically — or continue without making anything.",
+        primary = if (hasProjects) "OPEN PROJECT" else "CREATE PROJECT",
+        secondary = if (hasProjects) null else "NOT NOW · NEXT",
         icon = Icons.Outlined.AddCircleOutline,
     )
     CreatorGuidedTourStep.WORKSPACE -> GuidedCoachCopy(
         eyebrow = "WORKSPACE",
-        title = "This is where the project moves",
-        body = "Your project opens directly into its workspace. Use its stages and project tools to move from idea to finished work without losing context.",
-        primary = "SHOW ME INSIGHTS",
+        title = "Move the project here",
+        body = "Stages and project tools live together, so you can move from idea to finished work without losing context.",
+        primary = "INSIGHTS",
         icon = Icons.Outlined.MovieEdit,
     )
     CreatorGuidedTourStep.INSIGHTS -> GuidedCoachCopy(
         eyebrow = "INSIGHTS",
-        title = "This is the brain of FrameByNavin",
-        body = "Insights tells you what is happening, why a signal matters and what deserves investigation next. Summary cards stay clean; tap into them when you want the evidence.",
-        primary = "NEXT: CONTROL",
+        title = "Your creator brain",
+        body = "See what changed, why it matters and tap deeper only when you want the evidence.",
+        primary = "CONTROL",
         icon = Icons.Outlined.Insights,
     )
     CreatorGuidedTourStep.CONTROL -> GuidedCoachCopy(
         eyebrow = "CONTROL",
-        title = "Fast actions live one tap away",
-        body = "Control is your toolbox for quick capture, new projects, planning, reminders and settings. Open it now. You can replay this tour anytime from Settings.",
+        title = "Fast actions, one tap away",
+        body = "Capture, create, plan, reminders and settings live here. You can replay this guide anytime from Settings.",
         primary = "OPEN CONTROL",
         icon = Icons.Outlined.GridView,
     )
