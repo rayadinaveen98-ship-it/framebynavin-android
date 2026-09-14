@@ -8,6 +8,7 @@ on:
       - ".github/workflows/rc2-holistic-validation.yml"
   workflow_dispatch:
 
+# Full automated RC2 gate. Physical-device acceptance remains a separate manual gate.
 concurrency:
   group: rc2-holistic-validation-${{ github.ref }}
   cancel-in-progress: true
