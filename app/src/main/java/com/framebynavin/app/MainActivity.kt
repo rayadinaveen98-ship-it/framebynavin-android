@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.cloud.CreatorCloudSyncWorker
 import com.framebynavin.app.data.CreatorBackupManager
 import com.framebynavin.app.data.CreatorDataGate
 import kotlinx.coroutines.withContext
@@ -82,12 +83,15 @@ class MainActivity : ComponentActivity() {
                 CreatorContextNudgeWorker.ensurePeriodic(applicationContext)
                 CreatorAutoPlanWorker.ensurePeriodic(applicationContext)
                 CreatorRoutineWorker.ensurePeriodic(applicationContext)
+                CreatorCloudSyncWorker.ensurePeriodic(applicationContext)
                 ReminderRecoveryEngine.reconcile(applicationContext)
             }
             withContext(Dispatchers.Main) {
                 startupRunning = false
-                result.onSuccess { startupReady = true }
-                    .onFailure { startupError = it.message ?: "Could not safely recover the previous data. Your recovery files have been retained." }
+                result.onSuccess {
+                    startupReady = true
+                    CreatorCloudSyncWorker.enqueueSoon(applicationContext)
+                }.onFailure { startupError = it.message ?: "Could not safely recover the previous data. Your recovery files have been retained." }
             }
         }
     }
@@ -96,7 +100,13 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (startupReady) lifecycleScope.launch(Dispatchers.IO) {
             ReminderRecoveryEngine.reconcile(applicationContext)
+            CreatorCloudSyncWorker.enqueueSoon(applicationContext)
         }
+    }
+
+    override fun onPause() {
+        if (startupReady) CreatorCloudSyncWorker.enqueueSoon(applicationContext)
+        super.onPause()
     }
 
     override fun onNewIntent(intent: Intent) {
