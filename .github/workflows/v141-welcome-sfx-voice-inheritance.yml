@@ -1,0 +1,94 @@
+name: V141 Backlot Welcome SFX Voice Inheritance
+
+on:
+  push:
+    branches: ["feature/v141-welcome-sfx-voice-inheritance"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout v141 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v141-welcome-sfx-voice-inheritance
+          fetch-depth: 0
+
+      - name: Materialize v141 integration
+        run: python3 scripts/apply_v141_welcome_sfx_voice_inheritance.py
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Verify v141 experience contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 141' app/build.gradle.kts
+          grep -q '2.0.0-rc14-welcome-sfx-voice-inheritance' app/build.gradle.kts
+
+          # Preserve the v140 visual ident; v141 changes only its synchronized sound layer.
+          grep -q 'V140CinematicWelcome(onFinished' app/src/main/java/com/framebynavin/app/ui/V131LaunchGate.kt
+          grep -q 'V140_IDENT_DURATION_MS = 5_000' app/src/main/java/com/framebynavin/app/ui/V140CinematicWelcome.kt
+          grep -q 'V141_IDENT_DURATION_SECONDS = 5.0' app/src/main/java/com/framebynavin/app/ui/WelcomeSonicIdent.kt
+          grep -q 'V141_FORMATION_START_SECONDS = 1.50' app/src/main/java/com/framebynavin/app/ui/WelcomeSonicIdent.kt
+          grep -q 'V141_UNDERLINE_START_SECONDS = 3.95' app/src/main/java/com/framebynavin/app/ui/WelcomeSonicIdent.kt
+          grep -q 'V141_SETTLE_START_SECONDS = 4.20' app/src/main/java/com/framebynavin/app/ui/WelcomeSonicIdent.kt
+
+          # Settings is the single source of truth for the default voice used by new projects.
+          grep -q 'task?.voicePersona ?: defaults.defaultVoicePersona' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+          grep -q 'V141InheritedVoiceCard' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          ! grep -q 'onVoicePersonaChange' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'selected = settings.defaultVoicePersona' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'V140VoiceStudioPicker' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'VoicePersonaEngine.previewText(persona)' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+
+          # Local TTS diversity must remain inside the strongest available quality tier.
+          grep -q 'Voice.QUALITY_NORMAL' app/src/main/java/com/framebynavin/app/reminders/VoicePersonaEngine.kt
+          grep -q 'qualityPool' app/src/main/java/com/framebynavin/app/reminders/VoicePersonaEngine.kt
+
+      - name: User-facing brand audit
+        run: python3 scripts/audit_v137_visible_brand.py
+
+      - name: Unit tests, Kotlin compile and APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+
+      - name: Materialize validated v141 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Backlot CI"
+          git config user.email "backlot-ci@users.noreply.github.com"
+          git add \
+            app/build.gradle.kts \
+            app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt \
+            app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt \
+            app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(v141): materialize validated voice inheritance [skip ci]"
+            git push origin HEAD:feature/v141-welcome-sfx-voice-inheritance
+          fi
+
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Backlot-v141-WelcomeSfxVoiceInheritance.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v141-welcome-sfx-voice-inheritance
+          path: Backlot-v141-WelcomeSfxVoiceInheritance.apk
+          if-no-files-found: error
+          retention-days: 90
