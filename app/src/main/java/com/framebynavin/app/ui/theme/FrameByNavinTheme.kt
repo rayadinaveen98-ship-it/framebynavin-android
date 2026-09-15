@@ -94,7 +94,8 @@ object VisualExperiencePrefs {
         private set
 
     fun initialize(context: Context) {
-        if (appContext == null) appContext = context.applicationContext
+        if (appContext != null) return
+        appContext = context.applicationContext
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         currentTheme = runCatching {
             FrameTheme.valueOf(prefs.getString(KEY_THEME, FrameTheme.DIRECTORS_CUT.name).orEmpty())
@@ -107,7 +108,7 @@ object VisualExperiencePrefs {
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(KEY_THEME, theme.name)?.apply()
     }
 
-    fun setLaunchSoundEnabled(enabled: Boolean) {
+    fun updateLaunchSound(enabled: Boolean) {
         launchSoundEnabled = enabled
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putBoolean(KEY_LAUNCH_SOUND, enabled)?.apply()
     }
