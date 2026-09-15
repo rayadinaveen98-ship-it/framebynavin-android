@@ -41,7 +41,7 @@ internal fun V127AppearanceSettings() {
         Text("APPEARANCE", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
         Text("Choose your visual atmosphere.", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("Six distinct Backlot moods — minimal, calm, artistic and focused.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("Eight distinct Backlot worlds — minimal, calm, artistic, warm and focused.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(11.dp))
 
         FlowRow(
