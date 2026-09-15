@@ -27,3 +27,10 @@ abstract class BaseCreatorWidgetProvider : AppWidgetProvider() {
 
 class CreatorCompactWidgetProvider : BaseCreatorWidgetProvider()
 class CreatorLargeWidgetProvider : BaseCreatorWidgetProvider()
+class QuickIdeaWidgetProvider : BaseCreatorWidgetProvider()
+class NewProjectWidgetProvider : BaseCreatorWidgetProvider()
+class CurrentProjectWidgetProvider : BaseCreatorWidgetProvider()
+class NextReminderWidgetProvider : BaseCreatorWidgetProvider()
+class ContentCalendarWidgetProvider : BaseCreatorWidgetProvider()
+class DailyBriefWidgetProvider : BaseCreatorWidgetProvider()
+class CreatorInsightsWidgetProvider : BaseCreatorWidgetProvider()
