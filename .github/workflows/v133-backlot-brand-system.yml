@@ -1,0 +1,122 @@
+name: V133 Backlot Brand System
+
+on:
+  push:
+    branches:
+      - "feature/v133-backlot-brand-system"
+    paths:
+      - ".github/workflows/v133-backlot-brand-system.yml"
+      - "scripts/apply_v133_backlot_brand_system.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v133-backlot-brand-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Backlot branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v133-backlot-brand-system
+          fetch-depth: 0
+
+      - name: Apply Backlot brand migration
+        run: python3 scripts/apply_v133_backlot_brand_system.py
+
+      - name: Show rename audit
+        run: cat build/backlot-brand-audit.txt
+
+      - name: Verify Backlot product contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 133' app/build.gradle.kts
+          grep -q '2.0.0-rc8-backlot-brand-system' app/build.gradle.kts
+
+          # Update continuity: package/application id must remain stable.
+          grep -q 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -q '^package com.framebynavin.app' app/src/main/java/com/framebynavin/app/MainActivity.kt
+
+          # User-visible identity and widget labels are Backlot.
+          grep -q 'android:label="Backlot"' app/src/main/AndroidManifest.xml
+          grep -q 'android:label="Backlot Compact"' app/src/main/AndroidManifest.xml
+          grep -q 'android:label="Backlot Creator Insights"' app/src/main/AndroidManifest.xml
+          ! grep -q 'android:label="FrameByNavin' app/src/main/AndroidManifest.xml
+
+          # Four real launcher choices; only cinematic starts enabled.
+          grep -q 'BacklotCinematicAlias' app/src/main/AndroidManifest.xml
+          grep -q 'BacklotMinimalAlias' app/src/main/AndroidManifest.xml
+          grep -q 'BacklotLightAlias' app/src/main/AndroidManifest.xml
+          grep -q 'BacklotHorizontalAlias' app/src/main/AndroidManifest.xml
+          grep -q 'backlot_icon_cinematic' app/src/main/AndroidManifest.xml
+          grep -q 'PackageManager.COMPONENT_ENABLED_STATE_ENABLED' app/src/main/java/com/framebynavin/app/ui/V133BacklotAppIcon.kt
+          grep -q 'PackageManager.COMPONENT_ENABLED_STATE_DISABLED' app/src/main/java/com/framebynavin/app/ui/V133BacklotAppIcon.kt
+          grep -q 'V133AppIconPicker()' app/src/main/java/com/framebynavin/app/ui/V127AppearanceSettings.kt
+          test -f app/src/main/res/drawable/backlot_icon_cinematic.xml
+          test -f app/src/main/res/drawable/backlot_icon_minimal.xml
+          test -f app/src/main/res/drawable/backlot_icon_light.xml
+          test -f app/src/main/res/drawable/backlot_icon_horizontal.xml
+
+          # Approved welcome identity.
+          grep -q 'text = "BACKLOT"' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          grep -q 'CREATE WHAT' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          grep -q 'BacklotIdentMark(' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          ! grep -q 'FrameByNavinIdentMark(' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+
+          # Rename audit itself must have zero user-facing violations.
+          grep -q 'User-facing violations: 0' build/backlot-brand-audit.txt
+
+          # Protect already-approved v131 functionality.
+          grep -q 'Urgent' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'Custom' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'Reminder Style' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'Notes' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'CreatorCalendarSync' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'Idle · tap the orb to listen' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          grep -q 'FrameGuidePose.PRESENT' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+          grep -q 'FrameGuidePose.WAVE' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+          grep -q 'FrameGuidePose.THINK' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Unit tests, Kotlin compile and APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+
+      - name: Commit validated Backlot implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Backlot CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/build.gradle.kts app/src/main
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(v133): rebrand app to Backlot with switchable launcher icons"
+            git push origin HEAD:feature/v133-backlot-brand-system
+          fi
+
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Backlot-v133-BrandSystem.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v133-brand-system
+          path: Backlot-v133-BrandSystem.apk
+          if-no-files-found: error
+          retention-days: 90
