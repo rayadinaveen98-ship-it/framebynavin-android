@@ -3,6 +3,7 @@ import re
 
 ROOT = Path('app/src/main')
 APP = ROOT / 'java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt'
+THEME = ROOT / 'java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt'
 
 text = APP.read_text(encoding='utf-8')
 
@@ -49,6 +50,17 @@ if 'layer = v137GuideLayer' not in text:
 
 APP.write_text(text, encoding='utf-8')
 
+# Material 3 system bars must receive Android ARGB ints, not Color hash codes.
+theme_text = THEME.read_text(encoding='utf-8')
+if 'import androidx.compose.ui.graphics.toArgb' not in theme_text:
+    theme_text = theme_text.replace(
+        'import androidx.compose.ui.graphics.Color\n',
+        'import androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.toArgb\n',
+        1,
+    )
+theme_text = theme_text.replace('palette.background.hashCode()', 'palette.background.toArgb()')
+THEME.write_text(theme_text, encoding='utf-8')
+
 # User-visible legacy brand cleanup. Technical compatibility values are intentionally preserved.
 protected = (
     'FrameByNavinCloudBackup',
@@ -80,4 +92,4 @@ for path in ROOT.rglob('*'):
     if updated != source:
         path.write_text(updated, encoding='utf-8')
 
-print('Applied v137 guide integration and visible Backlot brand cleanup.')
+print('Applied v137 guide integration, system-bar colors and visible Backlot brand cleanup.')
