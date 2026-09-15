@@ -10,6 +10,7 @@ object CreatorWidgetContract {
     const val ACTION_IDEA_VAULT = "com.framebynavin.app.widget.IDEA_VAULT"
     const val ACTION_OPEN_INSIGHTS = "com.framebynavin.app.widget.OPEN_INSIGHTS"
     const val ACTION_AUTOMATION_CENTER = "com.framebynavin.app.widget.AUTOMATION_CENTER"
+    const val ACTION_OPEN_REMINDERS = "com.framebynavin.app.widget.OPEN_REMINDERS"
     const val EXTRA_TASK_ID = "widget_task_id"
 }
 
