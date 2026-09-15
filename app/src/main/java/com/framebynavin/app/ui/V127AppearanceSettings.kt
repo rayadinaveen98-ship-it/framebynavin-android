@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -98,7 +97,7 @@ internal fun V127AppearanceSettings() {
                 }
                 Switch(
                     checked = VisualExperiencePrefs.launchSoundEnabled,
-                    onCheckedChange = VisualExperiencePrefs::setLaunchSoundEnabled,
+                    onCheckedChange = VisualExperiencePrefs::updateLaunchSound,
                     colors = SwitchDefaults.colors(checkedThumbColor = ProjectorIvory, checkedTrackColor = RecRed),
                 )
             }
