@@ -10,6 +10,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
+enum class FrameSurfacePersonality { SOLID, EDITORIAL, GLASS }
+
 data class FramePalette(
     val background: Color,
     val surface: Color,
@@ -21,6 +23,8 @@ data class FramePalette(
     val primaryDeep: Color,
     val secondary: Color,
     val success: Color,
+    val tertiary: Color = secondary,
+    val surfacePersonality: FrameSurfacePersonality = FrameSurfacePersonality.SOLID,
     val isLight: Boolean = false,
 )
 
@@ -62,7 +66,7 @@ enum class FrameTheme(val displayName: String, val tagline: String, val palette:
             background = Color(0xFF07050C), surface = Color(0xFF110D19), surfaceRaised = Color(0xFF181122),
             line = Color(0xFF312343), foreground = Color(0xFFF7EFFF), muted = Color(0xFF9B8DAA),
             primary = Color(0xFFB86BFF), primaryDeep = Color(0xFF2D123E), secondary = Color(0xFFFF66C4),
-            success = Color(0xFF70D6B1),
+            success = Color(0xFF70D6B1), tertiary = Color(0xFF67E8F9),
         ),
     ),
     IVORY_STUDIO(
@@ -72,16 +76,24 @@ enum class FrameTheme(val displayName: String, val tagline: String, val palette:
             background = Color(0xFFF6F1E8), surface = Color(0xFFFFFCF7), surfaceRaised = Color(0xFFF0E9DE),
             line = Color(0xFFD8CFC0), foreground = Color(0xFF1D1A17), muted = Color(0xFF6F675E),
             primary = Color(0xFFB9232F), primaryDeep = Color(0xFFF2D8DA), secondary = Color(0xFF9A6A25),
-            success = Color(0xFF3A7D55), isLight = true,
+            success = Color(0xFF3A7D55), tertiary = Color(0xFF645A4D),
+            surfacePersonality = FrameSurfacePersonality.EDITORIAL, isLight = true,
+        ),
+    ),
+    AURORA_GLASS(
+        "Aurora Glass",
+        "Violet · aqua · coral light through glass",
+        FramePalette(
+            background = Color(0xFF080817), surface = Color(0xB3161830), surfaceRaised = Color(0xC7202340),
+            line = Color(0x665E72B8), foreground = Color(0xFFF7F8FF), muted = Color(0xFFAAB3D3),
+            primary = Color(0xFF9D6CFF), primaryDeep = Color(0xFF23193E), secondary = Color(0xFF4FE1D7),
+            success = Color(0xFF70E2A2), tertiary = Color(0xFFFF6EA8),
+            surfacePersonality = FrameSurfacePersonality.GLASS,
         ),
     ),
 }
 
-/**
- * Tiny visual-preference runtime deliberately separate from creator/business settings.
- * Existing semantic color aliases below resolve through this state, so legacy Compose surfaces
- * switch themes immediately instead of becoming a half-themed Material3 shell.
- */
+/** Visual preferences stay separate from creator/business settings. */
 object VisualExperiencePrefs {
     private const val PREFS = "framebynavin_visual_experience"
     private const val KEY_THEME = "theme"
@@ -114,9 +126,10 @@ object VisualExperiencePrefs {
     }
 
     val palette: FramePalette get() = currentTheme.palette
+    val isGlass: Boolean get() = palette.surfacePersonality == FrameSurfacePersonality.GLASS
+    val isEditorial: Boolean get() = palette.surfacePersonality == FrameSurfacePersonality.EDITORIAL
 }
 
-// Stable semantic aliases used by the existing app. They now resolve through the active palette.
 val CinemaBlack: Color get() = VisualExperiencePrefs.palette.background
 val CinemaSurface: Color get() = VisualExperiencePrefs.palette.surface
 val CinemaSurfaceRaised: Color get() = VisualExperiencePrefs.palette.surfaceRaised
@@ -127,6 +140,7 @@ val RecRed: Color get() = VisualExperiencePrefs.palette.primary
 val RecRedDeep: Color get() = VisualExperiencePrefs.palette.primaryDeep
 val MutedGold: Color get() = VisualExperiencePrefs.palette.secondary
 val SuccessGreen: Color get() = VisualExperiencePrefs.palette.success
+val FrameTertiary: Color get() = VisualExperiencePrefs.palette.tertiary
 
 @Composable
 fun FrameByNavinTheme(content: @Composable () -> Unit) {
@@ -136,6 +150,7 @@ fun FrameByNavinTheme(content: @Composable () -> Unit) {
             primary = palette.primary,
             onPrimary = Color.White,
             secondary = palette.secondary,
+            tertiary = palette.tertiary,
             background = palette.background,
             onBackground = palette.foreground,
             surface = palette.surface,
@@ -149,6 +164,7 @@ fun FrameByNavinTheme(content: @Composable () -> Unit) {
             primary = palette.primary,
             onPrimary = palette.foreground,
             secondary = palette.secondary,
+            tertiary = palette.tertiary,
             background = palette.background,
             onBackground = palette.foreground,
             surface = palette.surface,
