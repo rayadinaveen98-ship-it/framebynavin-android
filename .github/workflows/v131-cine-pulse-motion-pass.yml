@@ -7,7 +7,6 @@ on:
     paths:
       - ".github/workflows/v131-cine-pulse-motion-pass.yml"
       - "scripts/apply_v131_motion_pass.py"
-      - "app/**"
   workflow_dispatch:
 
 permissions:
