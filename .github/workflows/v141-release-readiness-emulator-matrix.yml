@@ -16,7 +16,7 @@ jobs:
   emulator:
     name: Android API ${{ matrix.api }}
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix:
@@ -48,6 +48,8 @@ jobs:
           test -s app/src/androidTest/java/com/framebynavin/app/data/V18ReliabilityAlpha18InstrumentationTest.kt
           test -s app/src/androidTest/java/com/framebynavin/app/ui/V18PrimaryNavigationAlpha10UiTest.kt
           test -s app/src/androidTest/java/com/framebynavin/app/ui/V18CoreInteractionUiTest.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/ui/V141VoiceInheritanceInstrumentedTest.kt
+          test -s app/src/androidTest/java/com/framebynavin/app/V141StartupSmokeInstrumentedTest.kt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -68,7 +70,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run Backlot regression suite on API ${{ matrix.api }}
+      - name: Run Backlot regression + v141 contract tests on API ${{ matrix.api }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
@@ -78,14 +80,14 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
           script: >-
             gradle :app:connectedDebugAndroidTest --stacktrace
-            -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ContentDnaPersistenceV96Test,com.framebynavin.app.cloud.CloudLocalStoreV183Test,com.framebynavin.app.data.CreatorBackupV183Test,com.framebynavin.app.data.CreatorContentProjectRc2InstrumentedTest,com.framebynavin.app.data.ProjectPulseRc3PersistenceInstrumentedTest,com.framebynavin.app.data.V18ReliabilityAlpha18InstrumentationTest,com.framebynavin.app.ui.V18PrimaryNavigationAlpha10UiTest,com.framebynavin.app.ui.V18CoreInteractionUiTest
+            -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ContentDnaPersistenceV96Test,com.framebynavin.app.cloud.CloudLocalStoreV183Test,com.framebynavin.app.data.CreatorBackupV183Test,com.framebynavin.app.data.CreatorContentProjectRc2InstrumentedTest,com.framebynavin.app.data.ProjectPulseRc3PersistenceInstrumentedTest,com.framebynavin.app.data.V18ReliabilityAlpha18InstrumentationTest,com.framebynavin.app.ui.V18PrimaryNavigationAlpha10UiTest,com.framebynavin.app.ui.V18CoreInteractionUiTest,com.framebynavin.app.ui.V141VoiceInheritanceInstrumentedTest,com.framebynavin.app.V141StartupSmokeInstrumentedTest
             -Pandroid.testInstrumentationRunnerArguments.hardeningTestEnvironment=ci-emulator
 
       - name: Upload API ${{ matrix.api }} instrumentation report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v141-api-${{ matrix.api }}-instrumentation
+          name: Backlot-v141-api-${{ matrix.api }}-instrumentation-contract
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
