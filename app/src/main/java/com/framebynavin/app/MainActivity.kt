@@ -26,7 +26,6 @@ import com.framebynavin.app.reminders.ReminderHealthScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.ui.BacklotCharacterPrefs
 import com.framebynavin.app.ui.V131LaunchGate
-import com.framebynavin.app.ui.V137CharacterChoiceGate
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 import com.framebynavin.app.widget.CreatorWidgetContract
@@ -45,7 +44,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         VisualExperiencePrefs.initialize(applicationContext)
         BacklotCharacterPrefs.initialize(applicationContext)
-        // Install the variant-specific Firebase App Check provider before any optional AI request.
         CreatorAppCheck.install(applicationContext)
         splash.setKeepOnScreenCondition { !startupReady && startupError == null }
         externalLaunch = widgetLaunch(intent)
@@ -53,9 +51,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             FrameByNavinTheme {
                 when {
-                    startupReady -> V137CharacterChoiceGate {
-                        V131LaunchGate(externalLaunch = externalLaunch)
-                    }
+                    startupReady -> V131LaunchGate(externalLaunch = externalLaunch)
                     startupError != null -> Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
                         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
                             Text("Recovery needs attention", color = MaterialTheme.colorScheme.onSurface, fontSize = 24.sp)
