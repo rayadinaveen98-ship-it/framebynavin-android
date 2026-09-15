@@ -1,0 +1,98 @@
+name: V129 Cine Pulse Live Guide
+
+on:
+  push:
+    branches:
+      - "feature/v129-cine-pulse-live-guide"
+    paths:
+      - ".github/workflows/v129-cine-pulse-live-guide.yml"
+      - "scripts/apply_v129_cine_pulse.py"
+      - "docs/visual-experience/V129_CINE_PULSE_LIVE_GUIDE_SPEC.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v129-cine-pulse-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout v129 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v129-cine-pulse-live-guide
+          fetch-depth: 0
+
+      - name: Apply v129 Cine Pulse integration
+        run: python3 scripts/apply_v129_cine_pulse.py
+
+      - name: Verify v129 product contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 129' app/build.gradle.kts
+          grep -q '2.0.0-rc5-cine-pulse-live-guide' app/build.gradle.kts
+          grep -q 'enum class CinePulseState { IDLE, WALK, POINT, THINK, LISTEN, SUCCESS, CELEBRATE, REST }' app/src/main/java/com/framebynavin/app/ui/V129CinePulseGuide.kt
+          grep -q 'CINE PULSE' app/src/main/java/com/framebynavin/app/ui/V127GuideCompanion.kt
+          grep -q 'spotlightBreath' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+          grep -q 'BlendMode.Clear' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+          grep -q 'V129_THREAD_GAP_SCALE = 1.25f' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          grep -q 'delay(5_000L)' app/src/main/java/com/framebynavin/app/ui/V131LaunchGate.kt
+          grep -q 'LUMEN_FLOW' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'FrameSurfacePersonality.LUMEN' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          ! grep -q 'IVORY_STUDIO(' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'FrameTheme.LUMEN_FLOW -> R.drawable.widget_bg_lumen' app/src/main/java/com/framebynavin/app/widget/CreatorWidgetUpdater.kt
+          grep -q 'orbOpen = true' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          grep -q 'startVoiceFromOrb' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          grep -q 'Nothing is listening yet' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          grep -q 'android.permission.READ_CALENDAR' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.WRITE_CALENDAR' app/src/main/AndroidManifest.xml
+          grep -q 'Project deadlines in Google Calendar' app/src/main/java/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt
+          grep -q 'V129GoogleCalendarSettings(tasks)' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'CreatorCalendarSync.syncIfEnabled' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -q 'ProjectAttentionPlan.URGENT' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'ProjectAttentionPlan.CUSTOM' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'NOTES · OPTIONAL' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Unit tests, Kotlin compile and APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+
+      - name: Commit validated v129 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "FrameByNavin CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/build.gradle.kts app/src
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(v129): ship Cine Pulse live guide and Calendar sync"
+            git push origin HEAD:feature/v129-cine-pulse-live-guide
+          fi
+
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk FrameByNavin-v129-CinePulse-LiveGuide.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v129-cine-pulse-live-guide
+          path: FrameByNavin-v129-CinePulse-LiveGuide.apk
+          if-no-files-found: error
+          retention-days: 90
