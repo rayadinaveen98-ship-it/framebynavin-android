@@ -23,6 +23,7 @@ interface IdeaVoiceTranscriberListener {
     fun onFinalTranscript(text: String, confidence: Float?)
     fun onDetectedLanguage(languageTag: String?)
     fun onVoiceError(message: String)
+    fun onRmsChanged(rmsDb: Float) = Unit
 }
 
 /**
@@ -57,6 +58,7 @@ class IdeaVoiceTranscriber(
         keepListening = true
         listener.onDetectedLanguage(null)
         listener.onPartialTranscript("")
+        listener.onRmsChanged(0f)
 
         val preferOnDevice = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             SpeechRecognizer.isOnDeviceRecognitionAvailable(appContext)
@@ -68,6 +70,7 @@ class IdeaVoiceTranscriber(
         keepListening = false
         restartScheduled = false
         mainHandler.removeCallbacksAndMessages(null)
+        listener.onRmsChanged(0f)
         listener.onListeningChanged(false)
         runCatching { recognizer?.stopListening() }
     }
@@ -78,6 +81,7 @@ class IdeaVoiceTranscriber(
         mainHandler.removeCallbacksAndMessages(null)
         runCatching { recognizer?.cancel() }
         listener.onPartialTranscript("")
+        listener.onRmsChanged(0f)
         listener.onListeningChanged(false)
     }
 
@@ -179,12 +183,13 @@ class IdeaVoiceTranscriber(
 
     override fun onReadyForSpeech(params: Bundle?) = Unit
     override fun onBeginningOfSpeech() = Unit
-    override fun onRmsChanged(rmsdB: Float) = Unit
+    override fun onRmsChanged(rmsdB: Float) = listener.onRmsChanged(rmsdB)
     override fun onBufferReceived(buffer: ByteArray?) = Unit
     override fun onEndOfSpeech() = Unit
 
     override fun onError(error: Int) {
         listener.onPartialTranscript("")
+        listener.onRmsChanged(0f)
 
         if (!keepListening) {
             listener.onListeningChanged(false)
@@ -216,12 +221,9 @@ class IdeaVoiceTranscriber(
         val text = bestText(results)
         if (text.isNotBlank()) listener.onFinalTranscript(text, bestConfidence(results))
         listener.onPartialTranscript("")
+        listener.onRmsChanged(0f)
 
-        if (keepListening) {
-            scheduleRestart(180L)
-        } else {
-            listener.onListeningChanged(false)
-        }
+        if (keepListening) scheduleRestart(180L) else listener.onListeningChanged(false)
     }
 
     override fun onPartialResults(partialResults: Bundle?) {
