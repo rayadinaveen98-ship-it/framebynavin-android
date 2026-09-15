@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -17,6 +17,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: feature/v137-visual-personalization
+          fetch-depth: 0
+      - name: Apply v137 integration
+        run: python3 scripts/apply_v137_visual_personalization.py
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -35,6 +38,9 @@ jobs:
           test -f app/src/main/java/com/framebynavin/app/ui/V137CharacterSystem.kt
           test -f app/src/main/java/com/framebynavin/app/ui/V137ThemeSystem.kt
           test -f app/src/main/java/com/framebynavin/app/ui/V137GuideSpotlight.kt
+          grep -q 'BacklotCharacter.FRAME' app/src/main/java/com/framebynavin/app/ui/V137CharacterSystem.kt
+          grep -q 'BacklotCharacter.NAVI' app/src/main/java/com/framebynavin/app/ui/V137CharacterSystem.kt
+          grep -q 'backlot_splash_mark' app/src/main/res/values/themes.xml
       - name: User-facing brand audit
         shell: bash
         run: |
@@ -42,6 +48,17 @@ jobs:
           python3 scripts/audit_v137_visible_brand.py
       - name: Unit tests, Kotlin compile and APK
         run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+      - name: Materialize validated v137 integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Backlot CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(v137): materialize guide focus and Backlot brand cleanup"
+            git push origin HEAD:feature/v137-visual-personalization
+          fi
       - name: Name APK
         run: cp app/build/outputs/apk/debug/app-debug.apk Backlot-v137-VisualPersonalization.apk
       - name: Upload installable APK
