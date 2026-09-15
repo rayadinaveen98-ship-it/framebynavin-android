@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/v129-cine-pulse-live-guide.yml"
       - "scripts/apply_v129_cine_pulse.py"
+      - "scripts/apply_v129_compile_fix.py"
       - "docs/visual-experience/V129_CINE_PULSE_LIVE_GUIDE_SPEC.md"
   workflow_dispatch:
 
@@ -29,7 +30,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply v129 Cine Pulse integration
-        run: python3 scripts/apply_v129_cine_pulse.py
+        run: |
+          python3 scripts/apply_v129_cine_pulse.py
+          python3 scripts/apply_v129_compile_fix.py
 
       - name: Verify v129 product contract
         shell: bash
