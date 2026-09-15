@@ -1015,20 +1015,20 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("VOICE", "Choose how reminder voices sound.")
+            PSettingsHeading("VOICE", "Your default voice for every new project.")
             Spacer(Modifier.height(8.dp))
-            VoicePersona.entries.forEach { voice ->
-                val selected = settings.defaultVoicePersona == voice
-                Surface(Modifier.fillMaxWidth().padding(bottom = 7.dp).clickable { onVoice(voice) }, RoundedCornerShape(16.dp), if (selected) Color(0xFF17130F) else CinemaSurface, border = BorderStroke(1.dp, if (selected) MutedGold.copy(alpha = .5f) else CinemaLine)) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected, { onVoice(voice) }, colors = RadioButtonDefaults.colors(selectedColor = MutedGold))
-                        Text(VoicePersonaEngine.label(voice), color = ProjectorIvory, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { pPreviewVoice(context, voice) }) {
-                            Icon(Icons.Outlined.PlayArrow, null, tint = RecRed, modifier = Modifier.size(15.dp)); Spacer(Modifier.width(3.dp)); Text("PREVIEW", color = RecRed, fontSize = 10.sp)
-                        }
-                    }
-                }
-            }
+            V140VoiceStudioPicker(
+                selected = settings.defaultVoicePersona,
+                onSelected = onVoice,
+                onPreview = { pPreviewVoice(context, it) },
+            )
+            Text(
+                "New projects inherit this voice automatically. Existing projects keep their saved voice unless you edit them.",
+                color = MutedText,
+                fontSize = 8.2.sp,
+                lineHeight = 11.5.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
 
             Spacer(Modifier.height(20.dp))
             PSettingsHeading("PLANNING", "Automatic planning is always optional.")
@@ -1444,7 +1444,7 @@ private fun pPreviewVoice(context: Context, persona: VoicePersona) {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.getDefault()
             tts?.let { VoicePersonaEngine.apply(it, persona) }
-            tts?.speak("Backlot. This is ${VoicePersonaEngine.label(persona)}.", TextToSpeech.QUEUE_FLUSH, null, "polish-${persona.name}")
+            tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "polish-${persona.name}")
             Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
         } else tts?.shutdown()
     }

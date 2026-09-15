@@ -73,7 +73,6 @@ internal fun V20NewProjectWizard(
     priority: TaskPriority,
     onPriorityChange: (TaskPriority) -> Unit,
     voicePersona: VoicePersona,
-    onVoicePersonaChange: (VoicePersona) -> Unit,
     onPreviewVoice: (VoicePersona) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
@@ -435,10 +434,10 @@ internal fun V20NewProjectWizard(
 
                         if (attentionPlan != ProjectAttentionPlan.OFF) {
                             Spacer(Modifier.height(14.dp))
-                            V140VoiceStudioPicker(
-                                selected = voicePersona,
-                                onSelected = onVoicePersonaChange,
+                            V141InheritedVoiceCard(
+                                voice = voicePersona,
                                 onPreview = onPreviewVoice,
+                                onOpenSettings = onOpenSettings,
                             )
                         }
 
