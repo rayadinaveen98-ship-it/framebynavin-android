@@ -90,13 +90,13 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
                     )
                 }
                 snapshot.measuredTimelineExits > 0 -> Text(
-                    "${snapshot.measuredTimelineExits} stage exits are measured so far. FrameByNavin waits for repeated evidence before naming a repeated slowdown.",
+                    "${snapshot.measuredTimelineExits} stage exits are measured so far. Backlot waits for repeated evidence before naming a repeated slowdown.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     lineHeight = 12.sp,
                 )
                 else -> Text(
-                    "FrameByNavin is learning stage timing. Existing stages start as observed lower-bound measurements; future stage transitions are timed from entry to exit.",
+                    "Backlot is learning stage timing. Existing stages start as observed lower-bound measurements; future stage transitions are timed from entry to exit.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     lineHeight = 12.sp,
@@ -105,7 +105,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
 
             Spacer(Modifier.height(8.dp))
             Text(
-                "Time in stage is elapsed workflow residence, not active hands-on work. FrameByNavin will not turn elapsed time into fake work hours.",
+                "Time in stage is elapsed workflow residence, not active hands-on work. Backlot will not turn elapsed time into fake work hours.",
                 color = MutedText.copy(alpha = .78f),
                 fontSize = 7.6.sp,
                 lineHeight = 11.sp,

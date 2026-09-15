@@ -193,7 +193,7 @@ private fun V133BrandHeader(attentionCount: Int) {
         V133LayerMark(modifier = Modifier.size(48.dp))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("FRAME BY NAVIN", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.9.sp)
+            Text("BACKLOT", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.9.sp)
             Text("CREATOR CONTROL ROOM", color = MutedGold, fontSize = 7.6.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
         }
         Column(horizontalAlignment = Alignment.End) {

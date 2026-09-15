@@ -192,7 +192,7 @@ internal fun V08WeeklyScheduleScreen(
             onDismissRequest = { confirmReset = false },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Reset weekly schedule?", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
-            text = { Text("This restores the locked FrameByNavin weekly slots. Existing generated projects are not deleted.", color = MutedText) },
+            text = { Text("This restores the locked Backlot weekly slots. Existing generated projects are not deleted.", color = MutedText) },
             confirmButton = {
                 Button(onClick = { confirmReset = false; onReset() }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("RESET") }
             },

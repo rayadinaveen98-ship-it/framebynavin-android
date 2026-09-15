@@ -67,7 +67,7 @@ class CreatorBackupManager(private val context: Context) {
 
     fun validate(raw: String): BackupPreview {
         val root = JSONObject(raw)
-        require(root.optString("format") == FORMAT) { "This is not a FrameByNavin backup." }
+        require(root.optString("format") == FORMAT) { "This is not a Backlot backup." }
         val schema = root.optInt("schemaVersion", -1)
         require(schema in 1..SCHEMA_VERSION) { "Unsupported backup version." }
 

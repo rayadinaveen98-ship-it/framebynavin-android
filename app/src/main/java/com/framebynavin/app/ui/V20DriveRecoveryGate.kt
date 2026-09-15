@@ -128,7 +128,7 @@ internal fun V20DriveRecoveryGate(
             Text(session.email, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Text(
                 if (conflict == null)
-                    "FrameByNavin checks your private creator cloud automatically. Your phone stays the working copy; cloud recovery only replaces it when that is provably safe."
+                    "Backlot checks your private creator cloud automatically. Your phone stays the working copy; cloud recovery only replaces it when that is provably safe."
                 else
                     "This phone and your creator cloud both contain different work. Nothing will be overwritten automatically.",
                 color = MutedText,

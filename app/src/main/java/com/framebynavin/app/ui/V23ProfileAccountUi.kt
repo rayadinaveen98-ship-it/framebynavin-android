@@ -153,7 +153,7 @@ internal fun V23ProfileAccountScreen(
             )
 
             Spacer(Modifier.height(24.dp))
-            V23SectionTitle("ACCOUNT & DATA", "FrameByNavin stays offline-first even when an account is connected.")
+            V23SectionTitle("ACCOUNT & DATA", "Backlot stays offline-first even when an account is connected.")
             Spacer(Modifier.height(9.dp))
             V23ActionRow("Google Drive Vault", "Private account-owned snapshots and safe recovery", Icons.Outlined.CloudSync) {
                 context.startActivity(Intent(context, CloudSyncActivity::class.java))

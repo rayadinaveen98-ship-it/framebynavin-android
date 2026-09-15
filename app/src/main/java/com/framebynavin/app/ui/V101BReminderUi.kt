@@ -420,7 +420,7 @@ internal fun PProjectComposer(
                     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                                     Column(Modifier.padding(14.dp)) {
                                         Text("CREATIVE OPTIONS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                                        Text("Optional details that help FrameByNavin learn what works for you.", color = MutedText, fontSize = 8.5.sp)
+                                        Text("Optional details that help Backlot learn what works for you.", color = MutedText, fontSize = 8.5.sp)
                                         Spacer(Modifier.height(14.dp))
                                         PComposerLabel("CREATOR MODE")
                                         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -770,7 +770,7 @@ private fun pComposerPreviewVoice(context: Context, persona: VoicePersona) {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.getDefault()
             tts?.let { VoicePersonaEngine.apply(it, persona) }
-            tts?.speak("FrameByNavin. This is ${VoicePersonaEngine.label(persona)}.", TextToSpeech.QUEUE_FLUSH, null, "composer-${persona.name}")
+            tts?.speak("Backlot. This is ${VoicePersonaEngine.label(persona)}.", TextToSpeech.QUEUE_FLUSH, null, "composer-${persona.name}")
             Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
         } else tts?.shutdown()
     }

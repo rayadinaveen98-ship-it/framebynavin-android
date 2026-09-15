@@ -235,7 +235,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                 Text("Automatic creator backup", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    "Your phone remains the working copy. When you connect Google, FrameByNavin privately syncs portable creator snapshots to your Supabase account and restores cloud changes only when it is safe.",
+                    "Your phone remains the working copy. When you connect Google, Backlot privately syncs portable creator snapshots to your Supabase account and restores cloud changes only when it is safe.",
                     color = MutedText,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
@@ -360,7 +360,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
             onDismissRequest = { if (!busy) restoreTarget = null },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Import this Drive copy?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("This is a manual import. FrameByNavin validates the copy and keeps a local recovery journal before replacing covered creator data. Automatic creator cloud will reconcile afterward.", color = MutedText) },
+            text = { Text("This is a manual import. Backlot validates the copy and keeps a local recovery journal before replacing covered creator data. Automatic creator cloud will reconcile afterward.", color = MutedText) },
             confirmButton = {
                 TextButton(onClick = {
                     val access = driveToken ?: return@TextButton

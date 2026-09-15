@@ -428,7 +428,7 @@ private fun YTConnectCard(
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Text("Bring views, watch time, subscribers and video performance into FrameByNavin. It cannot upload or delete your videos.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Bring views, watch time, subscribers and video performance into Backlot. It cannot upload or delete your videos.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(14.dp))
             Button(onClick = onConnect, enabled = !syncing, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(15.dp)) {
                 if (syncing) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)

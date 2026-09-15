@@ -53,8 +53,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 131
-        versionName = "2.0.0-rc7-cine-pulse-motion-pass"
+        versionCode = 133
+        versionName = "2.0.0-rc8-backlot-brand-system"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

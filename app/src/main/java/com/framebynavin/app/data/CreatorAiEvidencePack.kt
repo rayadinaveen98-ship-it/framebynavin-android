@@ -132,7 +132,7 @@ object CreatorAiEvidencePackBuilder {
     }
 
     fun videoAutopsyPrompt(pack: CreatorAiEvidencePack): String = buildString {
-        appendLine("You are analyzing one creator's published video using a FrameByNavin evidence pack.")
+        appendLine("You are analyzing one creator's published video using a Backlot evidence pack.")
         appendLine("Use only the supplied evidence and the public YouTube video when a URL is present.")
         appendLine("Separate direct observation from inference. Never invent missing metrics, timestamps, creator intent, or causation.")
         appendLine("When making a claim, cite the relevant evidence id in square brackets, for example [retention.50].")

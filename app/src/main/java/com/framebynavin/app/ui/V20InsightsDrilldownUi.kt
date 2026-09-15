@@ -114,7 +114,7 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
     Spacer(Modifier.height(18.dp))
     if (kind == V20InsightsDetailKind.AVG_VIEW) {
         Text("PERIOD COMPARISON", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("YouTube's current FrameByNavin snapshot does not include daily average-view-duration points, so this view keeps the comparison honest instead of drawing an invented daily line.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("YouTube's current Backlot snapshot does not include daily average-view-duration points, so this view keeps the comparison honest instead of drawing an invented daily line.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
     } else {
         Text(if (kind == V20InsightsDetailKind.DAILY_VIEWS) "DAILY VIEWS" else "DAILY TREND", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
         Text("Tap anywhere on the chart to inspect an exact day.", color = MutedText, fontSize = 8.5.sp)
@@ -184,7 +184,7 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
         )
         "WORKFLOW" -> V20EvidenceNote(
             title = "LOCAL WORKFLOW EVIDENCE",
-            body = "This signal comes from your current FrameByNavin project state, not YouTube performance. It describes where active projects are currently grouped and does not claim that the lane caused channel results.",
+            body = "This signal comes from your current Backlot project state, not YouTube performance. It describes where active projects are currently grouped and does not claim that the lane caused channel results.",
         )
         else -> V20ChannelContextEvidence(snapshot)
     }
@@ -194,7 +194,7 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
 private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Text("24H EVIDENCE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
     Text(
-        "This is a sample-to-sample counter comparison from FrameByNavin's stored YouTube refreshes. It is not a fabricated hourly analytics curve.",
+        "This is a sample-to-sample counter comparison from Backlot's stored YouTube refreshes. It is not a fabricated hourly analytics curve.",
         color = MutedText,
         fontSize = 8.5.sp,
         lineHeight = 12.5.sp,
@@ -204,7 +204,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     if (report == null) {
         V20EvidenceNote(
             title = "LEARNING YOUR BASELINE",
-            body = "There are not yet two suitable stored samples roughly 24 hours apart. Refresh YouTube over time; FrameByNavin will only show this comparison once the evidence window is available.",
+            body = "There are not yet two suitable stored samples roughly 24 hours apart. Refresh YouTube over time; Backlot will only show this comparison once the evidence window is available.",
         )
         return
     }
@@ -300,7 +300,7 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
 private fun V20AverageViewEvidence(snapshot: YouTubeAnalyticsSnapshot) {
     val previous = snapshot.previousPeriod
     Text("WHY THIS SIGNAL", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("Average view duration is compared period-to-period; FrameByNavin does not invent daily AVD points.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.5.sp)
+    Text("Average view duration is compared period-to-period; Backlot does not invent daily AVD points.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.5.sp)
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         V20DetailMetric("THIS PERIOD", v20Duration(snapshot.averageViewDurationSeconds), Modifier.weight(1f))

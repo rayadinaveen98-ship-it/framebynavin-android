@@ -20,9 +20,9 @@
     <application
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
-        android:icon="@drawable/ic_framebynavin_launcher"
-        android:roundIcon="@drawable/ic_framebynavin_launcher"
-        android:label="FrameByNavin"
+        android:icon="@drawable/backlot_icon_cinematic"
+        android:roundIcon="@drawable/backlot_icon_cinematic"
+        android:label="Backlot"
         android:supportsRtl="true"
         android:theme="@style/Theme.FrameByNavin">
 
@@ -50,48 +50,93 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".widget.CreatorCompactWidgetProvider" android:exported="false" android:label="FrameByNavin Compact">
+        <receiver android:name=".widget.CreatorCompactWidgetProvider" android:exported="false" android:label="Backlot Compact">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_creator_compact_info" />
         </receiver>
-        <receiver android:name=".widget.CreatorLargeWidgetProvider" android:exported="false" android:label="FrameByNavin Creator Desk">
+        <receiver android:name=".widget.CreatorLargeWidgetProvider" android:exported="false" android:label="Backlot Creator Desk">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_creator_large_info" />
         </receiver>
-        <receiver android:name=".widget.QuickIdeaWidgetProvider" android:exported="false" android:label="FrameByNavin Quick Idea">
+        <receiver android:name=".widget.QuickIdeaWidgetProvider" android:exported="false" android:label="Backlot Quick Idea">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_quick_idea_info" />
         </receiver>
-        <receiver android:name=".widget.NewProjectWidgetProvider" android:exported="false" android:label="FrameByNavin New Project">
+        <receiver android:name=".widget.NewProjectWidgetProvider" android:exported="false" android:label="Backlot New Project">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_new_project_info" />
         </receiver>
-        <receiver android:name=".widget.CurrentProjectWidgetProvider" android:exported="false" android:label="FrameByNavin Current Project">
+        <receiver android:name=".widget.CurrentProjectWidgetProvider" android:exported="false" android:label="Backlot Current Project">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_current_project_info" />
         </receiver>
-        <receiver android:name=".widget.NextReminderWidgetProvider" android:exported="false" android:label="FrameByNavin Next Reminder">
+        <receiver android:name=".widget.NextReminderWidgetProvider" android:exported="false" android:label="Backlot Next Reminder">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_next_reminder_info" />
         </receiver>
-        <receiver android:name=".widget.ContentCalendarWidgetProvider" android:exported="false" android:label="FrameByNavin Content Calendar">
+        <receiver android:name=".widget.ContentCalendarWidgetProvider" android:exported="false" android:label="Backlot Content Calendar">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_calendar_info" />
         </receiver>
-        <receiver android:name=".widget.DailyBriefWidgetProvider" android:exported="false" android:label="FrameByNavin Daily Brief">
+        <receiver android:name=".widget.DailyBriefWidgetProvider" android:exported="false" android:label="Backlot Daily Brief">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_daily_brief_info" />
         </receiver>
-        <receiver android:name=".widget.CreatorInsightsWidgetProvider" android:exported="false" android:label="FrameByNavin Creator Insights">
+        <receiver android:name=".widget.CreatorInsightsWidgetProvider" android:exported="false" android:label="Backlot Creator Insights">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_insights_info" />
         </receiver>
 
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/Theme.FrameByNavin.Starting">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/Theme.FrameByNavin.Starting" />
+
+        <!-- Backlot launcher identity. Exactly one alias is enabled at first install. -->
+        <activity-alias
+            android:name=".launcher.BacklotCinematicAlias"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@drawable/backlot_icon_cinematic"
+            android:label="Backlot"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <activity-alias
+            android:name=".launcher.BacklotMinimalAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/backlot_icon_minimal"
+            android:label="Backlot"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".launcher.BacklotLightAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/backlot_icon_light"
+            android:label="Backlot"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".launcher.BacklotHorizontalAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/backlot_icon_horizontal"
+            android:label="Backlot"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
     </application>
 </manifest>

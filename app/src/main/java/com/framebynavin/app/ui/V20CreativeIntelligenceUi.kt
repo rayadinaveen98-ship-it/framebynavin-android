@@ -73,7 +73,7 @@ internal fun V20CreativeIntelligenceCard(
                 Text(
                     when {
                         intelligence.connectedProjects < 2 -> "Connect more published projects. One upload is evidence, not a pattern."
-                        else -> "FrameByNavin has multiple projects, but not enough repeated CTR, retention or subscriber-conversion evidence across comparable creative choices yet."
+                        else -> "Backlot has multiple projects, but not enough repeated CTR, retention or subscriber-conversion evidence across comparable creative choices yet."
                     },
                     color = MutedText,
                     fontSize = 8.7.sp,

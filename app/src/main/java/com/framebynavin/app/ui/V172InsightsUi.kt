@@ -407,7 +407,7 @@ private fun V172Creator(
             Spacer(Modifier.height(4.dp))
             Text(
                 if (summary.bottleneckCount >= 2) "Finish these projects before starting too many new ones."
-                else "Keep connecting published videos so FrameByNavin can learn what works.",
+                else "Keep connecting published videos so Backlot can learn what works.",
                 color = MutedText,
                 fontSize = 9.sp,
                 lineHeight = 13.sp,

@@ -117,7 +117,7 @@ internal fun V23AccountOnboarding(onComplete: (String) -> Unit, onContinueLocall
                     Surface(Modifier.size(58.dp), RoundedCornerShape(18.dp), RecRed.copy(alpha=.13f)) { Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.PersonOutline, null, tint=RecRed) } }
                     Spacer(Modifier.height(18.dp))
                     Text("Your creator identity starts here.", color=ProjectorIvory, fontSize=31.sp, lineHeight=35.sp, fontWeight=FontWeight.Black)
-                    Text("Sign in with Google to connect your private FrameByNavin creator cloud. Your phone stays the working copy, and you can keep using the app locally when you are offline.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Sign in with Google to connect your private Backlot creator cloud. Your phone stays the working copy, and you can keep using the app locally when you are offline.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
                     Spacer(Modifier.height(24.dp))
                     Button(onClick=::startGoogleSignIn, enabled=!busy, modifier=Modifier.fillMaxWidth().height(54.dp), colors=ButtonDefaults.buttonColors(containerColor=ProjectorIvory, contentColor=CinemaBlack)) {
                         Text(if (busy) "CONNECTING…" else "CONTINUE WITH GOOGLE", fontWeight=FontWeight.Black)
@@ -128,12 +128,12 @@ internal fun V23AccountOnboarding(onComplete: (String) -> Unit, onContinueLocall
                 CloudCreatorAccountRoute.RETURNING_CREATOR -> {
                     Surface(Modifier.size(58.dp), CircleShape, MutedGold.copy(alpha=.13f)) { Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.CloudDone, null, tint=MutedGold) } }
                     Spacer(Modifier.height(18.dp)); Text("Welcome back.", color=ProjectorIvory, fontSize=31.sp, fontWeight=FontWeight.Black)
-                    Text("Creator ID found. Next FrameByNavin will safely reconcile this phone with your private creator cloud. If both contain different work, you choose what to keep.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Creator ID found. Next Backlot will safely reconcile this phone with your private creator cloud. If both contain different work, you choose what to keep.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
                     Spacer(Modifier.height(18.dp)); CircularProgressIndicator(Modifier.size(20.dp), color=MutedGold, strokeWidth=2.dp)
                 }
                 CloudCreatorAccountRoute.CREATOR_ID_REQUIRED -> {
                     Text("Create your Creator ID.", color=ProjectorIvory, fontSize=31.sp, fontWeight=FontWeight.Black)
-                    Text("Your Google sign-in identifies your private FrameByNavin cloud. Your Creator ID belongs to that account, while portable creator work is backed up automatically after setup. Google Drive remains an optional manual import/export tool.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Your Google sign-in identifies your private Backlot cloud. Your Creator ID belongs to that account, while portable creator work is backed up automatically after setup. Google Drive remains an optional manual import/export tool.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
                     Spacer(Modifier.height(20.dp))
                     OutlinedTextField(value=displayName, onValueChange={ displayName=it.take(40) }, modifier=Modifier.fillMaxWidth(), label={Text("Display name")}, singleLine=true)
                     Spacer(Modifier.height(10.dp))

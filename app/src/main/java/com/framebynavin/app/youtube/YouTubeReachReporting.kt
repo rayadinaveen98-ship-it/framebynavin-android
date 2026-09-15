@@ -413,7 +413,7 @@ class YouTubeReachReportingClient(private val store: YouTubeReachStore) {
     companion object {
         const val REPORT_TYPE = "channel_reach_basic_a1"
         private const val BASE = "https://youtubereporting.googleapis.com/v1"
-        private const val JOB_NAME = "FrameByNavin Reach Intelligence"
+        private const val JOB_NAME = "Backlot Reach Intelligence"
         private const val MAX_REPORTS_PER_SYNC = 60
 
         internal fun parseCsvLine(line: String): List<String> {

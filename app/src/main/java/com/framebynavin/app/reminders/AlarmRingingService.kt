@@ -140,7 +140,7 @@ class AlarmRingingService : Service() {
         return NotificationCompat.Builder(this, ReminderConstants.ALARM_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(task.title)
-            .setContentText("FrameByNavin alarm · ${task.dueLabel}")
+            .setContentText("Backlot alarm · ${task.dueLabel}")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -159,7 +159,7 @@ class AlarmRingingService : Service() {
                 "Creator alarms",
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "Full-screen FrameByNavin creator alarms"
+                description = "Full-screen Backlot creator alarms"
                 setSound(null, null)
                 enableVibration(false)
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
@@ -223,7 +223,7 @@ class AlarmRingingService : Service() {
                     TaskPriority.CRITICAL -> "critical deadline"
                 }
                 tts?.speak(
-                    "FrameByNavin. ${task.title}. This is your $urgency.",
+                    "Backlot. ${task.title}. This is your $urgency.",
                     TextToSpeech.QUEUE_FLUSH,
                     null,
                     "framebynavin-${task.id}",
@@ -235,7 +235,7 @@ class AlarmRingingService : Service() {
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return
         val power = getSystemService(PowerManager::class.java)
-        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FrameByNavin:NativeAlarm").apply {
+        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Backlot:NativeAlarm").apply {
             acquire(6 * 60 * 1000L)
         }
     }
@@ -340,7 +340,7 @@ internal fun Intent.toTask(): CreatorTask? {
 
     return CreatorTask(
         id = taskId,
-        title = getStringExtra(ReminderConstants.EXTRA_TITLE).orEmpty().ifBlank { "FrameByNavin reminder" },
+        title = getStringExtra(ReminderConstants.EXTRA_TITLE).orEmpty().ifBlank { "Backlot reminder" },
         platform = getStringExtra(ReminderConstants.EXTRA_PLATFORM).orEmpty(),
         contentType = getStringExtra(ReminderConstants.EXTRA_CONTENT_TYPE).orEmpty(),
         dueLabel = getStringExtra(ReminderConstants.EXTRA_DUE_LABEL).orEmpty(),

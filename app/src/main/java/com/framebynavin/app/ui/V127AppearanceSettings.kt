@@ -82,7 +82,10 @@ internal fun V127AppearanceSettings() {
             }
         }
 
-        Spacer(Modifier.height(11.dp))
+        Spacer(Modifier.height(16.dp))
+        V133AppIconPicker()
+
+        Spacer(Modifier.height(16.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),

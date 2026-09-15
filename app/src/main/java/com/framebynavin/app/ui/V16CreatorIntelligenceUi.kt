@@ -94,8 +94,8 @@ internal fun V16CreatorIntelligenceCard(
             Text(performanceText, color = ProjectorIvory, fontSize = 10.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(6.dp))
             Text(
-                if (links.isEmpty()) "Connect published videos to projects so FrameByNavin can learn from them."
-                else "${links.size} YouTube video${if (links.size == 1) "" else "s"} connected to FrameByNavin projects.",
+                if (links.isEmpty()) "Connect published videos to projects so Backlot can learn from them."
+                else "${links.size} YouTube video${if (links.size == 1) "" else "s"} connected to Backlot projects.",
                 color = MutedText,
                 fontSize = 9.sp,
             )

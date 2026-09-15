@@ -405,7 +405,7 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 5,
                         label = "PROJECT SUPPORT",
-                        title = "How much help should FrameByNavin give?",
+                        title = "How much help should Backlot give?",
                         summary = supportSummary,
                         active = activeStage == 5,
                         revealed = revealedStage >= 5,

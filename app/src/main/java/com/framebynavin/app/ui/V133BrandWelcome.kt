@@ -200,7 +200,7 @@ internal fun V133CinematicWelcome() {
             )
             Spacer(Modifier.height(14.dp))
             Text(
-                "FRAME BY NAVIN",
+                "BACKLOT",
                 color = ProjectorIvory,
                 fontSize = 23.sp,
                 fontWeight = FontWeight.Bold,
@@ -211,7 +211,7 @@ internal fun V133CinematicWelcome() {
             )
             Spacer(Modifier.height(7.dp))
             Text(
-                "CREATOR CONTROL ROOM",
+                "CREATE WHAT'S NEXT",
                 color = Color(0xFFFFC35E),
                 fontSize = 8.9.sp,
                 fontWeight = FontWeight.Black,

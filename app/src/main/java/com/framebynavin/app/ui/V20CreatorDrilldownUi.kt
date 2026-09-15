@@ -105,12 +105,12 @@ internal fun V20CreatorDrilldownDialog(
                         V20CreatorDetailKind.IDEAS -> {
                             val ready = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
                             CreatorDetailHero(ready.toString(), "ideas marked ready to produce", MutedGold)
-                            CreatorExplain("FrameByNavin uses this count to show whether your idea pipeline is ready for the next project. Ideas stay separate from active projects until you choose to produce them.")
+                            CreatorExplain("Backlot uses this count to show whether your idea pipeline is ready for the next project. Ideas stay separate from active projects until you choose to produce them.")
                         }
                         V20CreatorDetailKind.WORKFLOW -> {
                             CreatorDetailHero(active.size.toString(), "active projects across your current production stages", RecRed)
                             val groups = active.groupBy { CreatorWorkflowEngine.currentStage(it).label }.entries.sortedByDescending { it.value.size }
-                            if (groups.isEmpty()) CreatorExplain("Your workflow is clear right now. Start a project and FrameByNavin will track where it is.")
+                            if (groups.isEmpty()) CreatorExplain("Your workflow is clear right now. Start a project and Backlot will track where it is.")
                             else groups.forEach { (stage, stageTasks) ->
                                 CreatorDetailRow(stage, "${stageTasks.size} project${if (stageTasks.size == 1) "" else "s"}", stageTasks.joinToString(" · ") { it.title })
                             }
@@ -122,7 +122,7 @@ internal fun V20CreatorDrilldownDialog(
                                 CreatorExplain("This does not mean you were actively working that entire time. It measures how long projects stayed in that stage before moving on.")
                             } else if (workflow.activeBottleneckCount >= 2) {
                                 CreatorDetailHero(workflow.activeBottleneckLabel ?: "Current stage", "has ${workflow.activeBottleneckCount} active projects piling up right now", RecRed)
-                                CreatorExplain("This is current pressure, not yet a repeated pattern. FrameByNavin waits for more completed transitions before calling it a recurring slowdown.")
+                                CreatorExplain("This is current pressure, not yet a repeated pattern. Backlot waits for more completed transitions before calling it a recurring slowdown.")
                             } else {
                                 CreatorDetailHero(workflow.measuredTimelineExits.toString(), "measured stage exits so far", MutedGold)
                                 CreatorExplain("There is not enough repeated evidence yet to identify where you usually slow down.")
@@ -138,7 +138,7 @@ internal fun V20CreatorDrilldownDialog(
                         V20CreatorDetailKind.CREATIVE_INTELLIGENCE -> {
                             CreatorDetailHero(formats.size.toString(), "content types currently comparable from connected uploads", MutedGold)
                             if (formats.isEmpty()) {
-                                CreatorExplain("Connect more published videos to projects. FrameByNavin needs comparable uploads before it can show which creative choices repeatedly pay off.")
+                                CreatorExplain("Connect more published videos to projects. Backlot needs comparable uploads before it can show which creative choices repeatedly pay off.")
                             } else {
                                 formats.take(5).forEach { format ->
                                     CreatorDetailRow(

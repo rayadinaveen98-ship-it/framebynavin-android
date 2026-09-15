@@ -78,8 +78,8 @@ internal fun V17AutomationCenterScreen(
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("Let FrameByNavin handle repeat work.", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-            Text("FrameByNavin can plan and remind. You still control publishing and deletion.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
+            Text("Let Backlot handle repeat work.", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
+            Text("Backlot can plan and remind. You still control publishing and deletion.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
 
             Spacer(Modifier.height(20.dp))
             Text("AUTO PLAN", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -155,7 +155,7 @@ internal fun V17AutomationCenterScreen(
 
             Spacer(Modifier.height(20.dp))
             Text("REGULAR CHECK-INS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text("Choose the regular reminders you want from FrameByNavin.", color = MutedText, fontSize = 9.sp)
+            Text("Choose the regular reminders you want from Backlot.", color = MutedText, fontSize = 9.sp)
             Spacer(Modifier.height(9.dp))
             V17RoutineRow(
                 title = "Daily Brief",
@@ -197,7 +197,7 @@ internal fun V17AutomationCenterScreen(
                     Spacer(Modifier.width(10.dp))
                     Column {
                         Text("You stay in control", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        Text("FrameByNavin can plan and remind. It will never publish or delete anything without you.", color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
+                        Text("Backlot can plan and remind. It will never publish or delete anything without you.", color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
                     }
                 }
             }

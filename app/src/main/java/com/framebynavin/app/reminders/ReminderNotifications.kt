@@ -28,7 +28,7 @@ object ReminderNotifications {
                 "Creator reminders",
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "FrameByNavin task and stage check-in reminders"
+                description = "Backlot task and stage check-in reminders"
                 enableVibration(true)
             }
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)

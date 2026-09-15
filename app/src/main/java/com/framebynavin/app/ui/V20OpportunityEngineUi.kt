@@ -308,7 +308,7 @@ private fun V20OpportunitySurface(
                 Spacer(Modifier.height(3.dp))
                 Text(
                     if (learningSummary.evaluated > 0) {
-                        "${learningSummary.positiveRatePercent}% of evaluated recommendations are positive so far. FrameByNavin keeps the evidence rather than assuming every recommendation worked."
+                        "${learningSummary.positiveRatePercent}% of evaluated recommendations are positive so far. Backlot keeps the evidence rather than assuming every recommendation worked."
                     } else {
                         "The app is following acted recommendations through project creation, publication and YouTube performance before judging the result."
                     },

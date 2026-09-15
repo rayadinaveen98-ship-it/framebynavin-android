@@ -20,12 +20,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,11 +38,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * FrameByNavin founder ident.
+ * Backlot founder ident.
  *
  * Original brand-language direction: black -> light -> mark -> name -> app.
  * It intentionally borrows only the pacing discipline of premium studio idents;
- * the geometry, palette and motion language are FrameByNavin's own.
+ * the geometry, palette and motion language are Backlot's own.
  */
 private const val V20_WELCOME_STRIPE_COUNT = 30
 private const val V129_THREAD_GAP_SCALE = 1.25f
@@ -157,7 +159,7 @@ internal fun V174CinematicWelcome() {
             )
         }
 
-        FrameByNavinIdentMark(
+        BacklotIdentMark(
             modifier = Modifier
                 .align(Alignment.Center)
                 .offset(y = (-36).dp)
@@ -171,10 +173,10 @@ internal fun V174CinematicWelcome() {
         )
 
         Text(
-            text = "FRAME BY NAVIN",
+            text = "BACKLOT",
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset(y = 84.dp)
+                .offset(y = 83.dp)
                 .alpha(title.value)
                 .graphicsLayer {
                     scaleX = 0.965f + (0.035f * title.value)
@@ -182,10 +184,23 @@ internal fun V174CinematicWelcome() {
                     translationY = 7f * (1f - title.value)
                 },
             color = ProjectorIvory,
-            fontSize = 27.6.sp,
+            fontSize = 29.2.sp,
             lineHeight = 33.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 3.2.sp,
+            letterSpacing = 5.6.sp,
+            textAlign = TextAlign.Center,
+        )
+
+        Text(
+            text = "CREATE WHAT'S NEXT",
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = 116.dp)
+                .alpha(title.value),
+            color = MutedGold.copy(alpha = .92f),
+            fontSize = 8.6.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 2.5.sp,
             textAlign = TextAlign.Center,
         )
 
@@ -194,7 +209,7 @@ internal fun V174CinematicWelcome() {
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .offset(y = 111.dp)
+                    .offset(y = 133.dp)
                     .fillMaxWidth(0.72f)
                     .height(2.dp)
                     .alpha((1f - settle.value) * 0.80f)
@@ -215,7 +230,7 @@ internal fun V174CinematicWelcome() {
 }
 
 @Composable
-private fun FrameByNavinIdentMark(
+private fun BacklotIdentMark(
     modifier: Modifier = Modifier,
     reveal: Float,
 ) {
@@ -224,64 +239,100 @@ private fun FrameByNavinIdentMark(
         fun x(v: Float) = (v / 108f) * s
         fun y(v: Float) = (v / 108f) * s
 
+        // Atmospheric blue/gold edge light from the approved Backlot concept.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFFD72B29).copy(alpha = 0.25f * reveal),
-                    Color(0xFF521015).copy(alpha = 0.12f * reveal),
+                    Color(0xFFFFAD3D).copy(alpha = .25f * reveal),
+                    Color(0xFF234D77).copy(alpha = .10f * reveal),
                     Color.Transparent,
                 ),
-                center = Offset(s * 0.52f, s * 0.54f),
-                radius = s * 0.58f,
+                center = Offset(x(55f), y(58f)),
+                radius = x(55f),
             ),
-            radius = s * 0.58f,
-            center = Offset(s * 0.52f, s * 0.54f),
+            radius = x(55f),
+            center = Offset(x(55f), y(58f)),
         )
 
-        val rear = Path().apply {
-            moveTo(x(58f), y(15f)); lineTo(x(89f), y(31f)); lineTo(x(89f), y(76f)); lineTo(x(58f), y(62f)); close()
-        }
-        drawPath(rear, Color(0xFF393544))
-        val rearEdge = Path().apply {
-            moveTo(x(58f), y(15f)); lineTo(x(89f), y(31f)); lineTo(x(89f), y(36f)); lineTo(x(63f), y(23f)); lineTo(x(63f), y(64f)); lineTo(x(58f), y(62f)); close()
-        }
-        drawPath(rearEdge, Color(0xFF6A607B))
-
-        val red = Path().apply {
-            moveTo(x(39f), y(23f)); lineTo(x(72f), y(36f)); lineTo(x(72f), y(84f)); lineTo(x(39f), y(73f)); close()
-        }
-        drawPath(red, Color(0xFFD72B29))
-        val redEdge = Path().apply {
-            moveTo(x(39f), y(23f)); lineTo(x(72f), y(36f)); lineTo(x(72f), y(41f)); lineTo(x(45f), y(31f)); lineTo(x(45f), y(75f)); lineTo(x(39f), y(73f)); close()
-        }
-        drawPath(redEdge, Color(0xFFFF5A46))
-        val redShade = Path().apply {
-            moveTo(x(66f), y(39f)); lineTo(x(72f), y(41f)); lineTo(x(72f), y(84f)); lineTo(x(66f), y(82f)); close()
-        }
-        drawPath(redShade, Color(0xFF771219))
-
-        val gold = Path().apply {
-            moveTo(x(18f), y(34f)); lineTo(x(50f), y(19f)); lineTo(x(50f), y(77f)); lineTo(x(18f), y(91f)); close()
-        }
-        drawPath(gold, Color(0xFFF1C06B))
-        val goldEdge = Path().apply {
-            moveTo(x(18f), y(34f)); lineTo(x(50f), y(19f)); lineTo(x(50f), y(25f)); lineTo(x(24f), y(38f)); lineTo(x(24f), y(88f)); lineTo(x(18f), y(91f)); close()
-        }
-        drawPath(goldEdge, Color(0xFFFFF0C9))
-        val goldShade = Path().apply {
-            moveTo(x(44f), y(22f)); lineTo(x(50f), y(19f)); lineTo(x(50f), y(77f)); lineTo(x(44f), y(80f)); close()
-        }
-        drawPath(goldShade, Color(0xFFA35C25))
-
-        drawCircle(
-            color = Color(0xFFFF493D),
-            radius = x(4.2f),
-            center = Offset(x(78f), y(84.2f)),
+        drawRoundRect(
+            brush = Brush.linearGradient(
+                listOf(Color(0xFF08111B), Color(0xFF020304), Color(0xFF061426)),
+                start = Offset(x(8f), y(7f)),
+                end = Offset(x(101f), y(103f)),
+            ),
+            topLeft = Offset(x(7f), y(7f)),
+            size = Size(x(94f), y(94f)),
+            cornerRadius = CornerRadius(x(19f), y(19f)),
         )
-        drawCircle(
-            color = Color(0xFFFFC15C).copy(alpha = 0.82f),
-            radius = x(1.3f),
-            center = Offset(x(79.4f), y(83.5f)),
+        drawRoundRect(
+            color = Color(0xFF3FAEFF).copy(alpha = .40f * reveal),
+            topLeft = Offset(x(7.5f), y(7.5f)),
+            size = Size(x(93f), y(93f)),
+            cornerRadius = CornerRadius(x(18.5f), y(18.5f)),
+            style = Stroke(width = x(.75f)),
         )
+
+        val beam = Path().apply {
+            moveTo(x(62f), y(78f)); lineTo(x(16f), y(100f)); lineTo(x(96f), y(100f)); close()
+        }
+        drawPath(
+            beam,
+            Brush.linearGradient(
+                listOf(Color(0x00FF9A24), Color(0xAAFFAA32), Color(0xFFFFE0A0), Color(0x2254B8FF)),
+                start = Offset(x(18f), y(101f)),
+                end = Offset(x(77f), y(79f)),
+            ),
+        )
+
+        drawRect(
+            brush = Brush.linearGradient(
+                listOf(Color(0xFFFFF3D0), Color(0xFFF2BE60), Color(0xFFB76625)),
+                start = Offset(x(31f), y(19f)),
+                end = Offset(x(43f), y(88f)),
+            ),
+            topLeft = Offset(x(31f), y(19f)),
+            size = Size(x(12f), y(69f)),
+        )
+        repeat(6) { i ->
+            drawRoundRect(
+                color = Color(0xFF11100E),
+                topLeft = Offset(x(34f), y(25f + i * 11f)),
+                size = Size(x(6f), y(6f)),
+                cornerRadius = CornerRadius(x(1.1f), x(1.1f)),
+            )
+        }
+
+        val b = Path().apply {
+            moveTo(x(45f), y(19f))
+            lineTo(x(61f), y(23f))
+            cubicTo(x(77f), y(26f), x(84f), y(34f), x(84f), y(45f))
+            cubicTo(x(84f), y(54f), x(79f), y(59f), x(72f), y(62f))
+            cubicTo(x(82f), y(65f), x(88f), y(73f), x(88f), y(82f))
+            cubicTo(x(88f), y(94f), x(79f), y(99f), x(61f), y(99f))
+            lineTo(x(45f), y(99f)); lineTo(x(45f), y(86f)); lineTo(x(59f), y(86f))
+            cubicTo(x(69f), y(86f), x(74f), y(83f), x(74f), y(77f))
+            cubicTo(x(74f), y(70f), x(69f), y(67f), x(59f), y(67f))
+            lineTo(x(45f), y(67f)); lineTo(x(45f), y(55f)); lineTo(x(58f), y(55f))
+            cubicTo(x(67f), y(55f), x(72f), y(52f), x(72f), y(46f))
+            cubicTo(x(72f), y(40f), x(68f), y(37f), x(59f), y(35f))
+            lineTo(x(45f), y(32f)); close()
+        }
+        drawPath(
+            b,
+            Brush.linearGradient(
+                listOf(Color(0xFFFFF5DB), Color(0xFFFFD27A), Color(0xFFE3A04A), Color(0xFF7896B4)),
+                start = Offset(x(45f), y(19f)),
+                end = Offset(x(88f), y(99f)),
+            ),
+        )
+
+        val doorway = Path().apply {
+            moveTo(x(45f), y(32f)); lineTo(x(61f), y(42f)); lineTo(x(61f), y(78f)); lineTo(x(45f), y(86f)); close()
+        }
+        drawPath(doorway, Color(0xFF040506))
+        val doorLight = Path().apply {
+            moveTo(x(61f), y(42f)); lineTo(x(66f), y(46f)); lineTo(x(66f), y(75f)); lineTo(x(61f), y(78f)); close()
+        }
+        drawPath(doorLight, Color(0xFFFFC45D).copy(alpha = .58f * reveal))
     }
 }

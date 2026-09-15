@@ -139,7 +139,7 @@ class CreatorRoutineWorker(
                     routine = CreatorRoutine.DAILY_BRIEF,
                     now = now,
                     state = state,
-                    title = "FrameByNavin · Daily Brief",
+                    title = "Backlot · Daily Brief",
                     body = CreatorDailyBriefEngine.build(tasks, slots).let { brief ->
                         brief.focusTask?.let { "Focus: ${it.title} · ${brief.focusAction}" }
                             ?: "Your creator queue is clear. Capture the next thing when it hits."
@@ -157,7 +157,7 @@ class CreatorRoutineWorker(
                     routine = CreatorRoutine.WEEKLY_REVIEW,
                     now = now,
                     state = state,
-                    title = "FrameByNavin · Weekly Review",
+                    title = "Backlot · Weekly Review",
                     body = "$completed completed this week · $active active now. Open Insights for the full creator review.",
                     action = CreatorWidgetContract.ACTION_OPEN_INSIGHTS,
                     notificationId = 8712,
@@ -170,7 +170,7 @@ class CreatorRoutineWorker(
                     routine = CreatorRoutine.IDEA_REVIEW,
                     now = now,
                     state = state,
-                    title = "FrameByNavin · Idea Review",
+                    title = "Backlot · Idea Review",
                     body = if (unfinished == 0) "Idea Vault is clear." else "$unfinished ideas are still waiting in your vault. Pick one worth moving forward.",
                     action = CreatorWidgetContract.ACTION_IDEA_VAULT,
                     notificationId = 8713,
@@ -239,7 +239,7 @@ class CreatorRoutineWorker(
                 "Creator routines",
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
-                description = "Optional FrameByNavin daily brief, weekly review and idea review routine notifications."
+                description = "Optional Backlot daily brief, weekly review and idea review routine notifications."
             }
             manager.createNotificationChannel(channel)
         }

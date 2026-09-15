@@ -99,7 +99,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
 
             Spacer(Modifier.height(12.dp))
             Text(
-                "FrameByNavin creates one retained local copy before replacing creator data. These copies are not uploaded. Export one before restoring if you want an external copy.",
+                "Backlot creates one retained local copy before replacing creator data. These copies are not uploaded. Export one before restoring if you want an external copy.",
                 color = MutedText,
                 fontSize = 11.sp,
                 lineHeight = 15.sp,
@@ -143,7 +143,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
             onDismissRequest = { if (!busy) restoreFile = null },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Restore this recovery copy?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("Current creator data will be replaced. FrameByNavin will first create another retained recovery copy of the current state.", color = MutedText) },
+            text = { Text("Current creator data will be replaced. Backlot will first create another retained recovery copy of the current state.", color = MutedText) },
             confirmButton = {
                 Button(
                     enabled = !busy,
@@ -161,7 +161,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
                             restoreFile = null
                             if (result.isSuccess) {
                                 isError = false
-                                message = "Recovery restored. Restarting FrameByNavin…"
+                                message = "Recovery restored. Restarting Backlot…"
                                 refresh()
                                 withContext(Dispatchers.Main) {
                                     activity?.finishAffinity()

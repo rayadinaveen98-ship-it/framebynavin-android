@@ -107,7 +107,7 @@ class VoiceReminderService : Service() {
         }
         val stage = CreatorWorkflowEngine.currentStage(task).label
         val text = buildString {
-            append("FrameByNavin. ${task.title}. This is your $urgency.")
+            append("Backlot. ${task.title}. This is your $urgency.")
             append(" Current stage: $stage.")
             if (task.notes.isNotBlank() && index == 0) append(" ${task.notes}")
         }
@@ -150,7 +150,7 @@ class VoiceReminderService : Service() {
                 "Voice reminders",
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "Spoken FrameByNavin reminders with a dedicated voice screen"
+                description = "Spoken Backlot reminders with a dedicated voice screen"
                 setSound(null, null)
                 enableVibration(false)
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
@@ -164,7 +164,7 @@ class VoiceReminderService : Service() {
         val power = getSystemService(PowerManager::class.java)
         val maxWindow = ((task.voiceRepeatCount.coerceIn(1, 3) - 1) * task.voiceRepeatIntervalSeconds.coerceIn(5, 60) * 1000L + 30_000L)
             .coerceAtMost(180_000L)
-        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FrameByNavin:VoiceReminder").apply { acquire(maxWindow) }
+        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Backlot:VoiceReminder").apply { acquire(maxWindow) }
     }
 
     private fun isCurrent(taskId: String, token: String): Boolean =

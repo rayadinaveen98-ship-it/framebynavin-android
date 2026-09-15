@@ -53,7 +53,7 @@ class CreatorContextNudgeWorker(
         val body = "${nudge.message} ${nudge.action}"
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_framebynavin_launcher)
-            .setContentTitle("FrameByNavin · ${nudge.title}")
+            .setContentTitle("Backlot · ${nudge.title}")
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(openApp)
@@ -91,7 +91,7 @@ class CreatorContextNudgeWorker(
                 "Creator context nudges",
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
-                description = "Optional FrameByNavin nudges when active creator work is at risk or needs attention."
+                description = "Optional Backlot nudges when active creator work is at risk or needs attention."
             }
             manager.createNotificationChannel(channel)
         }

@@ -24,7 +24,7 @@ object ProjectPulseNextStagePrompt {
         val builder = NotificationCompat.Builder(app, ReminderConstants.PULSE_PROMPT_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("${stage.label} is next")
-            .setContentText("When should FrameByNavin check this stage?")
+            .setContentText("When should Backlot check this stage?")
             .setStyle(NotificationCompat.BigTextStyle().bigText(
                 "${stage.label} is now active. Choose a quick check-in below, or tap to open the project and choose an exact time."
             ))

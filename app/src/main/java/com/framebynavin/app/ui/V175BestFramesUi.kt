@@ -311,7 +311,7 @@ internal fun V18CinematicHomeHero(creatorName: String) {
 
     if (frames.isEmpty()) {
         Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            Text("FRAME BY NAVIN", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(11.dp))
             Surface(
@@ -368,7 +368,7 @@ internal fun V18CinematicHomeHero(creatorName: String) {
                 Column(
                     Modifier.align(Alignment.BottomStart).padding(start = 18.dp, end = 66.dp, bottom = 18.dp)
                 ) {
-                    Text("FRAME BY NAVIN", color = RecRed, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.25.sp)
+                    Text("BACKLOT", color = RecRed, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.25.sp)
                     Spacer(Modifier.height(2.dp))
                     Text(greeting, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
                 }

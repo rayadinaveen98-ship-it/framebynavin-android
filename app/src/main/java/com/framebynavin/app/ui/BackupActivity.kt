@@ -99,7 +99,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                     message = null
                 }.onFailure {
                     isError = true
-                    message = "That file could not be opened as a FrameByNavin backup."
+                    message = "That file could not be opened as a Backlot backup."
                 }
             }
         }
@@ -119,7 +119,7 @@ private fun BackupScreen(onClose: () -> Unit) {
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("Everything stays local unless you explicitly export a backup or use FrameByNavin cloud backup.", color = MutedText, fontSize = 12.sp, lineHeight = 15.sp)
+            Text("Everything stays local unless you explicitly export a backup or use Backlot cloud backup.", color = MutedText, fontSize = 12.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(20.dp))
 
             BackupActionCard(
@@ -136,7 +136,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                     result.onSuccess { raw ->
                         pendingExport = raw
                         val name = SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.getDefault()).format(Date())
-                        createDocument.launch("FrameByNavin-Backup-$name.fbnbackup")
+                        createDocument.launch("Backlot-Backup-$name.fbnbackup")
                     }.onFailure {
                         isError = true
                         message = "Could not create the backup. Try again."
@@ -196,7 +196,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 Column(Modifier.padding(15.dp)) {
                     Text("RESTORE SAFETY", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                     Spacer(Modifier.height(6.dp))
-                    Text("Before restoring, FrameByNavin keeps a retained recovery copy on this device. A restore journal can recover after a crash. Existing cloud backups are not overwritten. You can manage retained copies from Recovery copies above.", color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
+                    Text("Before restoring, Backlot keeps a retained recovery copy on this device. A restore journal can recover after a crash. Existing cloud backups are not overwritten. You can manage retained copies from Recovery copies above.", color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
                 }
             }
         }
@@ -230,7 +230,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                             pendingRestoreRaw = null
                             if (result.isSuccess) {
                                 isError = false
-                                message = "Backup restored. Restarting FrameByNavin…"
+                                message = "Backup restored. Restarting Backlot…"
                                 withContext(Dispatchers.Main) {
                                     activity?.finishAffinity()
                                     context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))

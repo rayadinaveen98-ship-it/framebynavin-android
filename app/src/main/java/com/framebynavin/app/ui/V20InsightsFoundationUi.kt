@@ -90,7 +90,7 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
 
             if (foundation.metricContract.crossesPublicViewBoundary) {
                 Spacer(Modifier.height(8.dp))
-                Text("YouTube changed how some views are counted. FrameByNavin handles older comparisons carefully.", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
+                Text("YouTube changed how some views are counted. Backlot handles older comparisons carefully.", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
             }
 
             Spacer(Modifier.height(8.dp))
