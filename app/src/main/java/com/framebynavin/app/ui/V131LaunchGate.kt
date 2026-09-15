@@ -11,6 +11,7 @@ import com.framebynavin.app.widget.CreatorWidgetLaunch
 
 /**
  * Five-second cinematic studio-ident on normal cold launches.
+ * The creator chooses Frame or Navi only after that welcome has completed.
  * Widget/deep-link launches stay instant so creator shortcuts never inherit a splash delay.
  */
 @Composable
@@ -31,6 +32,12 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         },
         label = "launchGate",
     ) { ready ->
-        if (ready) FrameByNavinV101BApp(externalLaunch = externalLaunch) else V174CinematicWelcome()
+        if (ready) {
+            V137CharacterChoiceGate {
+                FrameByNavinV101BApp(externalLaunch = externalLaunch)
+            }
+        } else {
+            V174CinematicWelcome()
+        }
     }
 }
