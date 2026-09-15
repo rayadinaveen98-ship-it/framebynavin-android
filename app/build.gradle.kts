@@ -53,8 +53,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 136
-        versionName = "2.0.0-rc9-frame-guide"
+        versionCode = 137
+        versionName = "2.0.0-rc10-visual-personalization"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
