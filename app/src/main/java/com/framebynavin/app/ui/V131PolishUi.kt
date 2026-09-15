@@ -284,7 +284,7 @@ private fun V131PlanSection(
                 }
                 if (!selectionMode) {
                     Spacer(Modifier.height(10.dp))
-                    LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().height(3.dp), color = accent, trackColor = Color(0xFF292929))
+                    LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().height(3.dp), color = accent, trackColor = CinemaLine)
                     if (task.status != TaskStatus.DONE) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text("$progress%", color = MutedText, fontSize = 8.5.sp)

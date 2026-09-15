@@ -109,6 +109,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
     var guidedTourStepName by rememberSaveable { mutableStateOf<String?>(null) }
+    var stageCompletionEvent by rememberSaveable { mutableLongStateOf(0L) }
 
     BackHandler(enabled = guidedTourStepName != null || focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
         when {
@@ -215,6 +216,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         val taskBeforeAdvance = vm.tasks.firstOrNull { it.id == id }
         val destination = taskBeforeAdvance?.let(V18CreatorJourney::afterWorkflowAdvance)
         vm.advanceWorkflow(id)
+        stageCompletionEvent = System.nanoTime()
         routeJourney(destination)
     }
 
@@ -247,6 +249,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             CreatorWidgetContract.ACTION_IDEA_VAULT -> { overlay = POverlay.NONE; tab = PTab.IDEAS }
             CreatorWidgetContract.ACTION_OPEN_INSIGHTS -> { overlay = POverlay.NONE; tab = PTab.INSIGHTS }
             CreatorWidgetContract.ACTION_AUTOMATION_CENTER -> overlay = POverlay.AUTOMATION
+            CreatorWidgetContract.ACTION_OPEN_REMINDERS -> { overlay = POverlay.NONE; showReminders = true }
         }
     }
 
@@ -472,11 +475,17 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             )
         }
 
+        V127StageCompletionPulse(stageCompletionEvent, modifier = Modifier.align(Alignment.Center))
+
         vm.rewardFeedback?.let { reward ->
             LaunchedEffect(reward.eventKey) {
                 delay(2200L)
                 vm.consumeRewardFeedback(reward.eventKey)
             }
+            V127RewardAura(
+                eventKey = reward.eventKey,
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 0.dp).size(190.dp),
+            )
             V22RewardToast(
                 entry = reward,
                 modifier = Modifier
@@ -856,7 +865,7 @@ private fun PWeekScreen(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Button(onClick = { editSchedule = true }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF292929)), shape = RoundedCornerShape(15.dp)) {
+            Button(onClick = { editSchedule = true }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = CinemaLine), shape = RoundedCornerShape(15.dp)) {
                 Icon(Icons.Outlined.EditCalendar, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(7.dp)); Text("EDIT SCHEDULE", fontWeight = FontWeight.Bold, fontSize = 10.sp)
             }
         }
@@ -1018,6 +1027,8 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
+            V127AppearanceSettings()
+            Spacer(Modifier.height(22.dp))
             PSettingsHeading("GUIDED TOUR", "Replay the creator journey whenever you want.")
             Spacer(Modifier.height(8.dp))
             Surface(
@@ -1148,7 +1159,7 @@ private fun PFocusScreen(task: CreatorTask, onClose: () -> Unit, onStageDone: ()
             Spacer(Modifier.height(30.dp))
             Text(String.format(Locale.getDefault(), "%02d:%02d", min, sec), color = ProjectorIvory, fontSize = 58.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(10.dp))
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(5.dp), color = RecRed, trackColor = Color(0xFF292929))
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(5.dp), color = RecRed, trackColor = CinemaLine)
             Spacer(Modifier.height(20.dp))
             OutlinedButton(onClick = { running = !running }, border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(14.dp)) { Icon(if (running) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null, tint = ProjectorIvory); Spacer(Modifier.width(6.dp)); Text(if (running) "PAUSE" else "RESUME", color = ProjectorIvory) }
             Spacer(Modifier.weight(1f))

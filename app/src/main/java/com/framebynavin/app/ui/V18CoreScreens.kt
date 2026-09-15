@@ -136,7 +136,7 @@ private fun PPlanSection(label: String, tasks: List<CreatorTask>, accent: Color,
                     Text(CreatorWorkflowEngine.currentStage(task).label, color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().height(3.dp), color = if (label == "OVERDUE") RecRed else MutedGold, trackColor = Color(0xFF292929))
+                LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().height(3.dp), color = if (label == "OVERDUE") RecRed else MutedGold, trackColor = CinemaLine)
                 Spacer(Modifier.height(7.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("$progress%", color = MutedText, fontSize = 8.5.sp)
@@ -441,7 +441,7 @@ internal fun PInsightsScreen(tasks: List<CreatorTask>, ideas: List<CreatorIdea>,
                 } else stageCounts.take(6).forEach { entry ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(entry.key, color = ProjectorIvory, fontSize = 10.sp, modifier = Modifier.width(82.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        LinearProgressIndicator(progress = { entry.value.toFloat() / maxStage.toFloat() }, modifier = Modifier.weight(1f).height(5.dp), color = MutedGold, trackColor = Color(0xFF292929))
+                        LinearProgressIndicator(progress = { entry.value.toFloat() / maxStage.toFloat() }, modifier = Modifier.weight(1f).height(5.dp), color = MutedGold, trackColor = CinemaLine)
                         Spacer(Modifier.width(8.dp)); Text(entry.value.toString(), color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(10.dp))

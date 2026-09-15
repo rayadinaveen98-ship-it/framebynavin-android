@@ -510,7 +510,7 @@ internal fun PProjectComposer(
 
                     pulsePreview?.let { pulse ->
                         Spacer(Modifier.height(8.dp))
-                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), Color(0xFF151515), border = BorderStroke(1.dp, CinemaLine)) {
+                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
                             Column(Modifier.padding(13.dp)) {
                                 Text("NEXT CHECK-IN", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                                 Spacer(Modifier.height(4.dp))

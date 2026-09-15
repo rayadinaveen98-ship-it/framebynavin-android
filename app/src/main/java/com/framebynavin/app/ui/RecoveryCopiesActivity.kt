@@ -107,7 +107,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
 
             if (busy) {
                 Spacer(Modifier.height(14.dp))
-                LinearProgressIndicator(Modifier.fillMaxWidth(), color = RecRed, trackColor = Color(0xFF292929))
+                LinearProgressIndicator(Modifier.fillMaxWidth(), color = RecRed, trackColor = CinemaLine)
             }
 
             message?.let {
@@ -222,7 +222,7 @@ private fun RecoveryCopyCard(
                 OutlinedButton(enabled = enabled, onClick = onExport, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Outlined.Download, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("EXPORT", fontSize = 8.sp)
                 }
-                Button(enabled = enabled, onClick = onRestore, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF292929))) {
+                Button(enabled = enabled, onClick = onRestore, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = CinemaLine)) {
                     Icon(Icons.Outlined.Restore, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("RESTORE", fontSize = 8.sp)
                 }
                 IconButton(enabled = enabled, onClick = onDelete) { Icon(Icons.Outlined.DeleteOutline, "Delete recovery copy", tint = RecRed) }

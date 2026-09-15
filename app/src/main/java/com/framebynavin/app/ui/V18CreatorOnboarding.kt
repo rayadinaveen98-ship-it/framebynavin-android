@@ -103,7 +103,9 @@ internal fun V18CreatorOnboarding(
                 color = RecRed,
                 trackColor = CinemaLine,
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
+            V127SetupGuideStrip(page)
+            Spacer(Modifier.height(14.dp))
 
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 when (page) {

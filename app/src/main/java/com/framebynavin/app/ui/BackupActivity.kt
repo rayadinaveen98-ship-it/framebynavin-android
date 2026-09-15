@@ -172,7 +172,7 @@ private fun BackupScreen(onClose: () -> Unit) {
 
             if (busy) {
                 Spacer(Modifier.height(18.dp))
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = RecRed, trackColor = Color(0xFF292929))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = RecRed, trackColor = CinemaLine)
             }
 
             message?.let { text ->
@@ -272,7 +272,7 @@ private fun BackupActionCard(
             Spacer(Modifier.height(4.dp))
             Text(body, color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(14.dp))
-            Button(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF292929)), shape = RoundedCornerShape(14.dp)) {
+            Button(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = CinemaLine), shape = RoundedCornerShape(14.dp)) {
                 Text(button, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }

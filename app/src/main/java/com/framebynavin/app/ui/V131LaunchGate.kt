@@ -20,7 +20,7 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         if (externalLaunch != null) {
             welcomeDone = true
         } else if (!welcomeDone) {
-            delay(2_850L)
+            delay(3_150L)
             welcomeDone = true
         }
     }

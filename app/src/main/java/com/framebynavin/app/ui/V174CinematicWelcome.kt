@@ -26,10 +26,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -40,10 +42,11 @@ import kotlinx.coroutines.launch
  * It intentionally borrows only the pacing discipline of premium studio idents;
  * the geometry, palette and motion language are FrameByNavin's own.
  */
-private const val V20_WELCOME_STRIPE_COUNT = 12
+private const val V20_WELCOME_STRIPE_COUNT = 26
 
 @Composable
 internal fun V174CinematicWelcome() {
+    val context = LocalContext.current
     val ignition = remember { Animatable(0f) }
     val strips = remember { Animatable(0f) }
     val impact = remember { Animatable(0f) }
@@ -53,11 +56,12 @@ internal fun V174CinematicWelcome() {
     val settle = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
+        WelcomeSonicIdent.play(context.applicationContext)
         delay(60)
         ignition.animateTo(1f, tween(220, easing = LinearOutSlowInEasing))
         // Alpha20: the stripe event owns the whole screen first. The brand reveal starts only
         // after the last stripe has crossed its travel window.
-        strips.animateTo(1f, tween(980, easing = FastOutSlowInEasing))
+        strips.animateTo(1f, tween(1350, easing = FastOutSlowInEasing))
         impact.animateTo(1f, tween(170, easing = LinearOutSlowInEasing))
         launch { mark.animateTo(1f, tween(470, easing = FastOutSlowInEasing)) }
         delay(270)
@@ -73,7 +77,7 @@ internal fun V174CinematicWelcome() {
             .background(Color(0xFF020203)),
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            val revealGlow = 0.05f + 0.16f * mark.value + 0.08f * impact.value - 0.035f * settle.value
+            val revealGlow = 0.08f + 0.24f * mark.value + 0.12f * impact.value - 0.035f * settle.value
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
@@ -119,12 +123,13 @@ internal fun V174CinematicWelcome() {
             val centerY = screenH * 0.50f
             val fadeOut = (1f - impact.value * 0.92f).coerceIn(0f, 1f)
             val palette = listOf(
-                Color(0xFFF4C06B), Color(0xFFD72B29), Color(0xFF6A607B),
-                Color(0xFFE55A3C), Color(0xFFFFD39A), Color(0xFF8B3040),
+                MutedGold, RecRed, ProjectorIvory.copy(alpha = .72f),
+                RecRed.copy(alpha = .78f), MutedGold.copy(alpha = .86f), RecRedDeep,
+                ProjectorIvory.copy(alpha = .48f), MutedGold.copy(alpha = .62f),
             )
 
             repeat(V20_WELCOME_STRIPE_COUNT) { index ->
-                val stagger = index * 0.035f
+                val stagger = index * 0.014f
                 val local = ((progress - stagger) / (1f - stagger)).coerceIn(0f, 1f)
                 if (local <= 0f) return@repeat
                 val side = if (index % 2 == 0) -1f else 1f
@@ -135,7 +140,7 @@ internal fun V174CinematicWelcome() {
                 val base = size.width * (if (index % 3 == 0) 0.030f else if (index % 3 == 1) 0.018f else 0.010f)
                 val width = base * (0.72f + 0.28f * local)
                 val color = palette[index % palette.size]
-                val alpha = (0.54f + (index % 4) * 0.10f) * fadeOut
+                val alpha = (0.66f + (index % 4) * 0.075f) * fadeOut
 
                 drawRect(
                     brush = Brush.verticalGradient(
