@@ -1,0 +1,1 @@
+Implementation will proceed in this order: theme runtime -> settings picker -> guide -> voice orb -> widgets -> motion/rewards -> welcome refinement -> CI/APK. Existing product behavior is preserved.
