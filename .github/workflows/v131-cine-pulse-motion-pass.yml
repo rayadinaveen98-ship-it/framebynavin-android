@@ -53,10 +53,11 @@ jobs:
           setup_poses = re.findall(r'FrameGuidePose\.([A-Z_]+)', m.group(1))
           assert len(setup_poses) == 5, setup_poses
           assert len(set(setup_poses)) == 5, setup_poses
+          assert setup_poses == ['PRESENT', 'LOOK', 'POINT', 'THINK', 'SUCCESS'], setup_poses
 
           tour = Path('app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt').read_text()
           section = tour.split('private fun guidedCopy', 1)[1]
-          tour_poses = re.findall(r'pose\s*=\s*FrameGuidePose\.([A-Z_]+)', section)[:6]
+          tour_poses = re.findall(r'FrameGuidePose\.([A-Z_]+)', section)[:6]
           assert len(tour_poses) == 6, tour_poses
           assert len(set(tour_poses)) == 6, tour_poses
           assert tour_poses == ['PRESENT', 'POINT', 'WALK', 'WAVE', 'THINK', 'CELEBRATE'], tour_poses
