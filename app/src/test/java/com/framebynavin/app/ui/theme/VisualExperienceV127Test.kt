@@ -8,11 +8,11 @@ import org.junit.Test
 
 class VisualExperienceV127Test {
     @Test
-    fun `v129 ships six distinct selectable themes without ivory`() {
+    fun `v137 ships six distinct selectable visual worlds`() {
         assertEquals(6, FrameTheme.entries.size)
         assertEquals(6, FrameTheme.entries.map { it.displayName }.distinct().size)
         assertEquals(6, FrameTheme.entries.map { it.palette.primary }.distinct().size)
-        assertTrue(FrameTheme.entries.none { it.name == "IVORY_STUDIO" })
+        assertEquals(6, FrameTheme.entries.map { it.palette.background }.distinct().size)
     }
 
     @Test
@@ -25,9 +25,14 @@ class VisualExperienceV127Test {
     }
 
     @Test
-    fun `v129 theme system is dark first and lumen is structurally distinct`() {
-        FrameTheme.entries.forEach { assertFalse(it.palette.isLight) }
-        assertEquals(FrameSurfacePersonality.LUMEN, FrameTheme.LUMEN_FLOW.palette.surfacePersonality)
-        assertEquals(FrameSurfacePersonality.GLASS, FrameTheme.AURORA_GLASS.palette.surfacePersonality)
+    fun `v137 keeps a dark cinematic default and adds intentional light editorial themes`() {
+        assertFalse(FrameTheme.DIRECTORS_CUT.palette.isLight)
+        assertFalse(FrameTheme.MIDNIGHT.palette.isLight)
+        assertFalse(FrameTheme.VIOLET_NEON.palette.isLight)
+        assertFalse(FrameTheme.LUMEN_FLOW.palette.isLight)
+        assertTrue(FrameTheme.EMBER.palette.isLight)
+        assertTrue(FrameTheme.AURORA_GLASS.palette.isLight)
+        assertEquals(FrameSurfacePersonality.EDITORIAL, FrameTheme.EMBER.palette.surfacePersonality)
+        assertEquals(FrameSurfacePersonality.EDITORIAL, FrameTheme.AURORA_GLASS.palette.surfacePersonality)
     }
 }
