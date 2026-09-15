@@ -7,17 +7,6 @@ on:
     paths:
       - ".github/workflows/v127-visual-experience-v2.yml"
       - "scripts/v127_visual_experience_patch.py"
-      - "app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-      - "app/src/main/java/com/framebynavin/app/ui/V127**"
-      - "app/src/main/java/com/framebynavin/app/ui/WelcomeSonicIdent.kt"
-      - "app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt"
-      - "app/src/main/java/com/framebynavin/app/voice/IdeaVoiceTranscriber.kt"
-      - "app/src/main/java/com/framebynavin/app/widget/**"
-      - "app/src/main/res/layout/widget_creator_action.xml"
-      - "app/src/main/res/drawable/widget_bg_*.xml"
-      - "app/src/main/res/xml/widget_*_info.xml"
-      - "app/src/main/AndroidManifest.xml"
-      - "app/src/test/java/com/framebynavin/app/ui/theme/**"
   workflow_dispatch:
 
 permissions:
