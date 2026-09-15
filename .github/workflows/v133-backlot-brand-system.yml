@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/v133-backlot-brand-system.yml"
       - "scripts/apply_v133_backlot_brand_system.py"
+      - "scripts/apply_v133_backlot_brand_system_v2.py"
   workflow_dispatch:
 
 permissions:
@@ -28,7 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply Backlot brand migration
-        run: python3 scripts/apply_v133_backlot_brand_system.py
+        run: python3 scripts/apply_v133_backlot_brand_system_v2.py
 
       - name: Show rename audit
         run: cat build/backlot-brand-audit.txt
@@ -37,52 +38,62 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 133' app/build.gradle.kts
-          grep -q '2.0.0-rc8-backlot-brand-system' app/build.gradle.kts
+          check() { echo "CHECK: $1"; shift; "$@"; }
+
+          check version-code grep -q 'versionCode = 133' app/build.gradle.kts
+          check version-name grep -q '2.0.0-rc8-backlot-brand-system' app/build.gradle.kts
 
           # Update continuity: package/application id must remain stable.
-          grep -q 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
-          grep -q '^package com.framebynavin.app' app/src/main/java/com/framebynavin/app/MainActivity.kt
+          check application-id grep -q 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          check package-name grep -q '^package com.framebynavin.app' app/src/main/java/com/framebynavin/app/MainActivity.kt
 
           # User-visible identity and widget labels are Backlot.
-          grep -q 'android:label="Backlot"' app/src/main/AndroidManifest.xml
-          grep -q 'android:label="Backlot Compact"' app/src/main/AndroidManifest.xml
-          grep -q 'android:label="Backlot Creator Insights"' app/src/main/AndroidManifest.xml
-          ! grep -q 'android:label="FrameByNavin' app/src/main/AndroidManifest.xml
+          check app-label grep -q 'android:label="Backlot"' app/src/main/AndroidManifest.xml
+          check compact-widget-label grep -q 'android:label="Backlot Compact"' app/src/main/AndroidManifest.xml
+          check insights-widget-label grep -q 'android:label="Backlot Creator Insights"' app/src/main/AndroidManifest.xml
+          if grep -q 'android:label="FrameByNavin' app/src/main/AndroidManifest.xml; then
+            echo 'Old launcher/widget label remains'; exit 1
+          fi
 
-          # Four real launcher choices; only cinematic starts enabled.
-          grep -q 'BacklotCinematicAlias' app/src/main/AndroidManifest.xml
-          grep -q 'BacklotMinimalAlias' app/src/main/AndroidManifest.xml
-          grep -q 'BacklotLightAlias' app/src/main/AndroidManifest.xml
-          grep -q 'BacklotHorizontalAlias' app/src/main/AndroidManifest.xml
-          grep -q 'backlot_icon_cinematic' app/src/main/AndroidManifest.xml
-          grep -q 'PackageManager.COMPONENT_ENABLED_STATE_ENABLED' app/src/main/java/com/framebynavin/app/ui/V133BacklotAppIcon.kt
-          grep -q 'PackageManager.COMPONENT_ENABLED_STATE_DISABLED' app/src/main/java/com/framebynavin/app/ui/V133BacklotAppIcon.kt
-          grep -q 'V133AppIconPicker()' app/src/main/java/com/framebynavin/app/ui/V127AppearanceSettings.kt
+          # Four real launcher choices.
+          check cinematic-alias grep -q 'BacklotCinematicAlias' app/src/main/AndroidManifest.xml
+          check minimal-alias grep -q 'BacklotMinimalAlias' app/src/main/AndroidManifest.xml
+          check light-alias grep -q 'BacklotLightAlias' app/src/main/AndroidManifest.xml
+          check horizontal-alias grep -q 'BacklotHorizontalAlias' app/src/main/AndroidManifest.xml
+          check launcher-primary grep -q 'backlot_icon_cinematic' app/src/main/AndroidManifest.xml
+          check alias-enable grep -q 'PackageManager.COMPONENT_ENABLED_STATE_ENABLED' app/src/main/java/com/framebynavin/app/ui/V133BacklotAppIcon.kt
+          check alias-disable grep -q 'PackageManager.COMPONENT_ENABLED_STATE_DISABLED' app/src/main/java/com/framebynavin/app/ui/V133BacklotAppIcon.kt
+          check settings-picker grep -q 'V133AppIconPicker()' app/src/main/java/com/framebynavin/app/ui/V127AppearanceSettings.kt
           test -f app/src/main/res/drawable/backlot_icon_cinematic.xml
           test -f app/src/main/res/drawable/backlot_icon_minimal.xml
           test -f app/src/main/res/drawable/backlot_icon_light.xml
           test -f app/src/main/res/drawable/backlot_icon_horizontal.xml
 
           # Approved welcome identity.
-          grep -q 'text = "BACKLOT"' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
-          grep -q 'CREATE WHAT' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
-          grep -q 'BacklotIdentMark(' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
-          ! grep -q 'FrameByNavinIdentMark(' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          check welcome-name grep -q 'text = "BACKLOT"' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          check welcome-tagline grep -q 'CREATE WHAT' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          check welcome-logo grep -q 'BacklotIdentMark(' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          if grep -q 'FrameByNavinIdentMark(' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt; then
+            echo 'Old welcome logo remains active'; exit 1
+          fi
 
-          # Rename audit itself must have zero user-facing violations.
-          grep -q 'User-facing violations: 0' build/backlot-brand-audit.txt
+          # Rename audit and frozen compatibility formats.
+          check rename-audit grep -q 'User-facing violations: 0' build/backlot-brand-audit.txt
+          check final-audit grep -q 'Final user-facing violations: 0' build/backlot-brand-audit.txt
+          check cloud-format grep -q 'CLOUD_FORMAT = "FrameByNavinCloudBackup"' app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt
+          check backup-format grep -q 'FORMAT = "FrameByNavinBackup"' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          check backup-visible-copy grep -q 'This is not a Backlot backup' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
 
-          # Protect already-approved v131 functionality.
-          grep -q 'Urgent' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
-          grep -q 'Custom' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
-          grep -q 'Reminder Style' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
-          grep -q 'Notes' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
-          grep -q 'CreatorCalendarSync' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
-          grep -q 'Idle · tap the orb to listen' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
-          grep -q 'FrameGuidePose.PRESENT' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
-          grep -q 'FrameGuidePose.WAVE' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
-          grep -q 'FrameGuidePose.THINK' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+          # Protect already-approved v131 functionality with structural checks, not fragile copy casing.
+          check support-plans grep -q 'V20NewProjectSupportPlans' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          check custom-support grep -q 'ProjectAttentionPlan.CUSTOM' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          check reminder-style grep -q 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          check notes-field grep -q 'NOTES · OPTIONAL' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          check calendar-sync grep -q 'CreatorCalendarSync' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          check voice-idle grep -q 'tap the orb to listen' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          check guide-present grep -q 'FrameGuidePose.PRESENT' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+          check guide-wave grep -q 'FrameGuidePose.WAVE' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+          check guide-think grep -q 'FrameGuidePose.THINK' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
