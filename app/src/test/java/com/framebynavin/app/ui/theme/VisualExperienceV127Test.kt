@@ -8,11 +8,15 @@ import org.junit.Test
 
 class VisualExperienceV127Test {
     @Test
-    fun `v137 ships six distinct selectable visual worlds`() {
-        assertEquals(6, FrameTheme.entries.size)
-        assertEquals(6, FrameTheme.entries.map { it.displayName }.distinct().size)
-        assertEquals(6, FrameTheme.entries.map { it.palette.primary }.distinct().size)
-        assertEquals(6, FrameTheme.entries.map { it.palette.background }.distinct().size)
+    fun `v138 ships eight distinct selectable visual worlds`() {
+        assertEquals(8, FrameTheme.entries.size)
+        assertEquals(8, FrameTheme.entries.map { it.displayName }.distinct().size)
+        assertEquals(8, FrameTheme.entries.map { it.palette.primary }.distinct().size)
+        assertEquals(8, FrameTheme.entries.map { it.palette.background }.distinct().size)
+        assertTrue(FrameTheme.entries.any { it.displayName == "Paper Quiet" })
+        assertTrue(FrameTheme.entries.any { it.displayName == "Moss Studio" })
+        assertTrue(FrameTheme.entries.any { it.displayName == "Terracotta Calm" })
+        assertTrue(FrameTheme.entries.any { it.displayName == "Night Bloom" })
     }
 
     @Test
@@ -25,14 +29,15 @@ class VisualExperienceV127Test {
     }
 
     @Test
-    fun `v137 keeps a dark cinematic default and adds intentional light editorial themes`() {
+    fun `v138 spans cinematic glass lumen editorial and natural moods`() {
         assertFalse(FrameTheme.DIRECTORS_CUT.palette.isLight)
-        assertFalse(FrameTheme.MIDNIGHT.palette.isLight)
-        assertFalse(FrameTheme.VIOLET_NEON.palette.isLight)
-        assertFalse(FrameTheme.LUMEN_FLOW.palette.isLight)
-        assertTrue(FrameTheme.EMBER.palette.isLight)
-        assertTrue(FrameTheme.AURORA_GLASS.palette.isLight)
+        assertTrue(FrameTheme.LUMEN_FLOW.palette.isLight)
+        assertTrue(FrameTheme.PAPER_QUIET.palette.isLight)
+        assertEquals(FrameSurfacePersonality.GLASS, FrameTheme.AURORA_GLASS.palette.surfacePersonality)
+        assertEquals(FrameSurfacePersonality.LUMEN, FrameTheme.LUMEN_FLOW.palette.surfacePersonality)
+        assertEquals(FrameSurfacePersonality.EDITORIAL, FrameTheme.PAPER_QUIET.palette.surfacePersonality)
         assertEquals(FrameSurfacePersonality.EDITORIAL, FrameTheme.EMBER.palette.surfacePersonality)
-        assertEquals(FrameSurfacePersonality.EDITORIAL, FrameTheme.AURORA_GLASS.palette.surfacePersonality)
+        assertFalse(FrameTheme.MOSS_STUDIO.palette.isLight)
+        assertFalse(FrameTheme.VIOLET_NEON.palette.isLight)
     }
 }
