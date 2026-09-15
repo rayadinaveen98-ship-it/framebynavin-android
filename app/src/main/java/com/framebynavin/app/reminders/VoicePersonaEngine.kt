@@ -16,14 +16,14 @@ object VoicePersonaEngine {
     fun apply(tts: TextToSpeech, persona: VoicePersona) {
         selectDeviceVoice(tts, persona)
         val (pitch, rate) = when (persona) {
-            VoicePersona.WARM -> 0.98f to 0.88f
-            VoicePersona.WOMAN -> 1.02f to 0.94f
-            VoicePersona.MAN -> 0.90f to 0.86f
-            VoicePersona.YOUNG -> 1.08f to 1.00f
-            VoicePersona.FUNNY -> 1.16f to 1.06f
-            VoicePersona.CARTOON -> 1.28f to 1.10f
-            VoicePersona.ALIEN -> 0.72f to 0.82f
-            VoicePersona.ROBOT -> 0.82f to 0.76f
+            VoicePersona.WARM -> 0.99f to 0.90f
+            VoicePersona.WOMAN -> 1.04f to 0.95f
+            VoicePersona.MAN -> 0.92f to 0.88f
+            VoicePersona.YOUNG -> 1.07f to 0.98f
+            VoicePersona.FUNNY -> 1.13f to 1.03f
+            VoicePersona.CARTOON -> 1.22f to 1.06f
+            VoicePersona.ALIEN -> 0.76f to 0.84f
+            VoicePersona.ROBOT -> 0.86f to 0.80f
         }
         tts.setPitch(pitch)
         tts.setSpeechRate(rate)
@@ -93,8 +93,8 @@ object VoicePersonaEngine {
     fun availabilityHint(tts: TextToSpeech): String {
         val count = candidateVoices(tts).size
         return when {
-            count > 1 -> "$count local device voices · 8 Backlot delivery styles"
-            count == 1 -> "1 local device voice · 8 Backlot delivery styles"
+            count > 1 -> "$count strong local device voices · 8 Backlot delivery styles"
+            count == 1 -> "1 strong local device voice · 8 Backlot delivery styles"
             else -> "Device TTS voice availability is limited · 8 Backlot delivery styles"
         }
     }
@@ -102,7 +102,7 @@ object VoicePersonaEngine {
     private fun selectDeviceVoice(tts: TextToSpeech, persona: VoicePersona) {
         val voices = candidateVoices(tts)
         if (voices.isEmpty()) return
-        val index = when (persona) {
+        val requestedIndex = when (persona) {
             VoicePersona.WARM -> 0
             VoicePersona.WOMAN -> 1
             VoicePersona.MAN -> 2
@@ -112,19 +112,38 @@ object VoicePersonaEngine {
             VoicePersona.ALIEN -> 2
             VoicePersona.ROBOT -> 2
         }
-        runCatching { tts.voice = voices[index % voices.size] }
+        val voice = voices[requestedIndex.coerceAtMost(voices.lastIndex)]
+        runCatching { tts.voice = voice }
     }
 
+    /**
+     * Keep persona variety inside the best local quality tier instead of walking into a visibly
+     * lower-quality or wrong-language voice just because a persona requested a later list index.
+     */
     private fun candidateVoices(tts: TextToSpeech): List<Voice> {
         val current = Locale.getDefault()
-        return runCatching { tts.voices.orEmpty() }
+        val local = runCatching { tts.voices.orEmpty() }
             .getOrDefault(emptySet())
             .filter { !it.isNetworkConnectionRequired }
-            .sortedWith(
-                compareByDescending<Voice> { it.locale.language == current.language }
-                    .thenByDescending { it.locale.country == current.country && current.country.isNotBlank() }
-                    .thenByDescending { it.quality }
-                    .thenBy { it.name }
-            )
+        if (local.isEmpty()) return emptyList()
+
+        val exactLocale = local.filter { it.locale == current }
+        val sameLanguage = local.filter { it.locale.language == current.language }
+        val localePool = when {
+            exactLocale.isNotEmpty() -> exactLocale
+            sameLanguage.isNotEmpty() -> sameLanguage
+            else -> local
+        }
+
+        val bestQuality = localePool.maxOfOrNull { it.quality } ?: Voice.QUALITY_NORMAL
+        val qualityFloor = maxOf(Voice.QUALITY_NORMAL, bestQuality - 100)
+        val qualityPool = localePool.filter { it.quality >= qualityFloor }.ifEmpty { localePool }
+
+        return qualityPool.sortedWith(
+            compareByDescending<Voice> { it.quality }
+                .thenBy { it.latency }
+                .thenByDescending { it.locale.country == current.country && current.country.isNotBlank() }
+                .thenBy { it.name }
+        )
     }
 }
