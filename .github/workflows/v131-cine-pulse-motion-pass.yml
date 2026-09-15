@@ -1,0 +1,100 @@
+name: V131 Cine Pulse Motion Pass
+
+on:
+  push:
+    branches:
+      - "feature/v131-cine-pulse-motion-pass"
+    paths:
+      - ".github/workflows/v131-cine-pulse-motion-pass.yml"
+      - "scripts/apply_v131_motion_pass.py"
+      - "app/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v131-cine-pulse-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout v131 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v131-cine-pulse-motion-pass
+          fetch-depth: 0
+
+      - name: Apply v131 motion migration
+        run: python3 scripts/apply_v131_motion_pass.py
+
+      - name: Verify Cine Pulse motion contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 131' app/build.gradle.kts
+          grep -q '2.0.0-rc7-cine-pulse-motion-pass' app/build.gradle.kts
+          grep -q 'PRESENT' app/src/main/java/com/framebynavin/app/ui/V129CinePulseGuide.kt
+          grep -q 'LOOK' app/src/main/java/com/framebynavin/app/ui/V129CinePulseGuide.kt
+          grep -q 'NOD' app/src/main/java/com/framebynavin/app/ui/V129CinePulseGuide.kt
+          grep -q 'WAVE' app/src/main/java/com/framebynavin/app/ui/V129CinePulseGuide.kt
+          grep -q 'CinePulseGuide(state = state' app/src/main/java/com/framebynavin/app/ui/V127GuideCompanion.kt
+          test ! -f app/src/main/java/com/framebynavin/app/ui/V130CinePulseMascot.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          setup = Path('app/src/main/java/com/framebynavin/app/ui/V127GuideCompanion.kt').read_text()
+          m = re.search(r'val poses\s*=\s*listOf\((.*?)\)', setup, re.S)
+          assert m, 'setup pose list missing'
+          setup_poses = re.findall(r'FrameGuidePose\.([A-Z_]+)', m.group(1))
+          assert len(setup_poses) == 5, setup_poses
+          assert len(set(setup_poses)) == 5, setup_poses
+
+          tour = Path('app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt').read_text()
+          section = tour.split('private fun guidedCopy', 1)[1]
+          tour_poses = re.findall(r'pose\s*=\s*FrameGuidePose\.([A-Z_]+)', section)[:6]
+          assert len(tour_poses) == 6, tour_poses
+          assert len(set(tour_poses)) == 6, tour_poses
+          assert tour_poses == ['PRESENT', 'POINT', 'WALK', 'WAVE', 'THINK', 'CELEBRATE'], tour_poses
+          PY
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Unit tests, Kotlin compile and APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+
+      - name: Commit validated v131 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "FrameByNavin CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A app
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(v131): ship Cine Pulse motion and unique tour poses"
+            git push origin HEAD:feature/v131-cine-pulse-motion-pass
+          fi
+
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk FrameByNavin-v131-CinePulse-MotionPass.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v131-cine-pulse-motion-pass
+          path: FrameByNavin-v131-CinePulse-MotionPass.apk
+          if-no-files-found: error
+          retention-days: 90
