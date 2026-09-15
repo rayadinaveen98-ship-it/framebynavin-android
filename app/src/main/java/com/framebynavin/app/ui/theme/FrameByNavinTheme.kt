@@ -1,6 +1,8 @@
 package com.framebynavin.app.ui.theme
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -8,7 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 enum class FrameSurfacePersonality { SOLID, EDITORIAL, GLASS }
 
@@ -142,9 +147,23 @@ val MutedGold: Color get() = VisualExperiencePrefs.palette.secondary
 val SuccessGreen: Color get() = VisualExperiencePrefs.palette.success
 val FrameTertiary: Color get() = VisualExperiencePrefs.palette.tertiary
 
+private tailrec fun Context.frameActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.frameActivity()
+    else -> null
+}
+
 @Composable
 fun FrameByNavinTheme(content: @Composable () -> Unit) {
     val palette = VisualExperiencePrefs.palette
+    val view = LocalView.current
+    SideEffect {
+        val window = view.context.frameActivity()?.window ?: return@SideEffect
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = palette.isLight
+            isAppearanceLightNavigationBars = palette.isLight
+        }
+    }
     val colors = if (palette.isLight) {
         lightColorScheme(
             primary = palette.primary,

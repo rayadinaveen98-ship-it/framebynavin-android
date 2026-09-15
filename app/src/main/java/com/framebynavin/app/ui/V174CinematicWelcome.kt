@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
  * It intentionally borrows only the pacing discipline of premium studio idents;
  * the geometry, palette and motion language are FrameByNavin's own.
  */
-private const val V20_WELCOME_STRIPE_COUNT = 26
+private const val V20_WELCOME_STRIPE_COUNT = 30
 
 @Composable
 internal fun V174CinematicWelcome() {
@@ -61,7 +61,7 @@ internal fun V174CinematicWelcome() {
         ignition.animateTo(1f, tween(220, easing = LinearOutSlowInEasing))
         // Alpha20: the stripe event owns the whole screen first. The brand reveal starts only
         // after the last stripe has crossed its travel window.
-        strips.animateTo(1f, tween(1350, easing = FastOutSlowInEasing))
+        strips.animateTo(1f, tween(2350, easing = FastOutSlowInEasing))
         impact.animateTo(1f, tween(170, easing = LinearOutSlowInEasing))
         launch { mark.animateTo(1f, tween(470, easing = FastOutSlowInEasing)) }
         delay(270)
@@ -93,27 +93,6 @@ internal fun V174CinematicWelcome() {
             )
         }
 
-        Canvas(Modifier.fillMaxSize()) {
-            val centerX = size.width / 2f
-            val centerY = size.height * 0.47f
-            val lineHeight = size.height * (0.10f + 0.36f * ignition.value)
-            val lineWidth = 1.4f + 3.0f * ignition.value
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        Color(0xFFFF3B33).copy(alpha = 0.86f * ignition.value),
-                        Color(0xFFFFC27A).copy(alpha = ignition.value),
-                        Color(0xFFFF3B33).copy(alpha = 0.86f * ignition.value),
-                        Color.Transparent,
-                    ),
-                    startY = centerY - lineHeight / 2f,
-                    endY = centerY + lineHeight / 2f,
-                ),
-                topLeft = Offset(centerX - lineWidth / 2f, centerY - lineHeight / 2f),
-                size = Size(lineWidth, lineHeight),
-            )
-        }
 
         Canvas(Modifier.fillMaxSize()) {
             if (strips.value <= 0f) return@Canvas
@@ -136,7 +115,9 @@ internal fun V174CinematicWelcome() {
                 val lane = (index / 2 + 1).toFloat() / (V20_WELCOME_STRIPE_COUNT / 2f + 1f)
                 val startX = size.width * 0.50f + side * size.width * 0.025f
                 val endX = size.width * 0.50f + side * size.width * (0.50f + lane * 0.10f)
-                val x = startX + (endX - startX) * local
+                val eased = local * local * (3f - 2f * local)
+                val drift = kotlin.math.sin((eased * 3.1415926f) + index * .47f) * size.width * .012f
+                val x = startX + (endX - startX) * eased + drift
                 val base = size.width * (if (index % 3 == 0) 0.030f else if (index % 3 == 1) 0.018f else 0.010f)
                 val width = base * (0.72f + 0.28f * local)
                 val color = palette[index % palette.size]
@@ -192,16 +173,16 @@ internal fun V174CinematicWelcome() {
             text = "FRAME BY NAVIN",
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset(y = 82.dp)
+                .offset(y = 84.dp)
                 .alpha(title.value)
                 .graphicsLayer {
                     scaleX = 0.965f + (0.035f * title.value)
                     scaleY = 0.965f + (0.035f * title.value)
                     translationY = 7f * (1f - title.value)
                 },
-            color = Color(0xFFF7F1E8),
-            fontSize = 24.sp,
-            lineHeight = 29.sp,
+            color = ProjectorIvory,
+            fontSize = 27.6.sp,
+            lineHeight = 33.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 3.2.sp,
             textAlign = TextAlign.Center,

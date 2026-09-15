@@ -182,7 +182,7 @@ internal fun V20TodayCommandCenter(
                 onClick = onCapture,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF171310),
+                color = CinemaSurfaceRaised,
                 border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f)),
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

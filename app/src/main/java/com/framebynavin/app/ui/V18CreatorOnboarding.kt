@@ -113,12 +113,6 @@ internal fun V18CreatorOnboarding(
                         Icon(Icons.Outlined.AutoAwesome, "Creator mode", tint = RecRed, modifier = Modifier.size(36.dp))
                         Spacer(Modifier.height(14.dp))
                         Text("What do you create most?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(7.dp))
-                        Text("Your primary mode sets smart defaults. Secondary modes keep FrameByNavin flexible when your work crosses niches.", color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
-                        if (primaryMode.isNotBlank()) {
-                            Spacer(Modifier.height(7.dp))
-                            Text(selectedModeDefinition.description, color = MutedGold.copy(alpha = .82f), fontSize = 10.5.sp, lineHeight = 15.sp)
-                        }
                         Spacer(Modifier.height(20.dp))
                         V18OnboardingLabel("PRIMARY CREATOR MODE")
                         Spacer(Modifier.height(9.dp))
@@ -136,7 +130,7 @@ internal fun V18CreatorOnboarding(
                             Spacer(Modifier.height(22.dp))
                             V18OnboardingLabel("SECONDARY MODES · OPTIONAL")
                             Spacer(Modifier.height(5.dp))
-                            Text("Choose up to ${CreatorProfile.MAX_SECONDARY_MODES}. These influence suggestions but never restrict what you can make.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
+                            Text("Add up to ${CreatorProfile.MAX_SECONDARY_MODES}.", color = MutedText, fontSize = 10.sp)
                             Spacer(Modifier.height(9.dp))
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 CreatorModeRegistry.labels.filter { it != primaryMode }.forEach { item ->
@@ -161,8 +155,6 @@ internal fun V18CreatorOnboarding(
                         Icon(Icons.Outlined.Hub, "Creator platforms", tint = MutedGold, modifier = Modifier.size(36.dp))
                         Spacer(Modifier.height(14.dp))
                         Text("Where do you publish?", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(7.dp))
-                        Text("Choose every platform you actively create for. Platforms define delivery formats; your creator mode will define what kind of content is suggested.", color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
                         Spacer(Modifier.height(20.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             CreatorPlatformRegistry.supportedPlatforms.forEach { item ->
@@ -181,8 +173,8 @@ internal fun V18CreatorOnboarding(
                         Icon(Icons.Outlined.MovieCreation, "Production style", tint = MutedGold, modifier = Modifier.size(36.dp))
                         Spacer(Modifier.height(14.dp))
                         Text("How do you usually create?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(7.dp))
-                        Text("This describes production, not your niche. Suggestions for ${selectedModeDefinition.label} appear first, but every production style stays available.", color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
+                        Spacer(Modifier.height(5.dp))
+                        Text("Recommended styles for ${selectedModeDefinition.label} appear first.", color = MutedText, fontSize = 10.sp)
                         Spacer(Modifier.height(20.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             orderedProductionStyles.forEach { item ->
@@ -207,8 +199,8 @@ internal fun V18CreatorOnboarding(
                         Icon(Icons.Outlined.TrackChanges, "Creator goals", tint = RecRed, modifier = Modifier.size(36.dp))
                         Spacer(Modifier.height(14.dp))
                         Text("What matters most right now?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(7.dp))
-                        Text("Choose up to 3 goals. One primary goal breaks soft trade-offs; secondary goals still influence planning and review.", color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
+                        Spacer(Modifier.height(5.dp))
+                        Text("Choose up to 3.", color = MutedText, fontSize = 10.sp)
                         Spacer(Modifier.height(18.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             creatorGoals.forEach { item ->
@@ -251,9 +243,9 @@ internal fun V18CreatorOnboarding(
                             }
                         }
                         Spacer(Modifier.height(22.dp))
-                        V18OnboardingLabel("REALISTIC PUBLISHING TARGET")
+                        V18OnboardingLabel("WEEKLY TARGET")
                         Spacer(Modifier.height(6.dp))
-                        Text("How many pieces would you like to publish in a normal week?", color = MutedText, fontSize = 11.sp)
+                        Text("Pieces per week", color = MutedText, fontSize = 10.sp)
                         Spacer(Modifier.height(10.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(1, 2, 3, 5, 7).forEach { value ->
@@ -270,8 +262,6 @@ internal fun V18CreatorOnboarding(
                         Icon(Icons.Outlined.SettingsSuggest, "System setup", tint = MutedGold, modifier = Modifier.size(36.dp))
                         Spacer(Modifier.height(14.dp))
                         Text("System setup", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(7.dp))
-                        Text("These Android permissions are optional system capabilities. They are kept separate from your creator identity and goals.", color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
                         Spacer(Modifier.height(18.dp))
                         V18OnboardingPermissionRow("Notifications", notificationsReady, onNotifications)
                         V18OnboardingPermissionRow("Exact reminder timing", preciseTimingReady, onPreciseTiming)
@@ -300,7 +290,7 @@ internal fun V18CreatorOnboarding(
                         }
                     }
                 }
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(32.dp))
             }
 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

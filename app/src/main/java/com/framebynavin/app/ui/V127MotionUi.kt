@@ -42,9 +42,9 @@ internal fun V127StageCompletionPulse(eventKey: Long, modifier: Modifier = Modif
         progress.snapTo(0f)
         opacity.snapTo(1f)
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        launch { progress.animateTo(1f, tween(620, easing = FastOutSlowInEasing)) }
-        delay(620L)
-        opacity.animateTo(0f, tween(260))
+        launch { progress.animateTo(1f, tween(760, easing = FastOutSlowInEasing)) }
+        delay(590L)
+        opacity.animateTo(0f, tween(280, easing = FastOutSlowInEasing))
     }
 
     if (eventKey > 0L && opacity.value > 0f) {
@@ -88,7 +88,7 @@ internal fun V127RewardAura(eventKey: String, modifier: Modifier = Modifier) {
     val pulse = remember(eventKey) { Animatable(0f) }
     LaunchedEffect(eventKey) {
         pulse.snapTo(0f)
-        pulse.animateTo(1f, tween(820, easing = FastOutSlowInEasing))
+        pulse.animateTo(1f, tween(1040, easing = FastOutSlowInEasing))
     }
     Canvas(modifier) {
         val p = pulse.value

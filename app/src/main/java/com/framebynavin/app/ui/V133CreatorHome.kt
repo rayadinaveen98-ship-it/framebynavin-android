@@ -59,6 +59,8 @@ import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
 import com.framebynavin.app.ui.theme.RecRed
 import com.framebynavin.app.ui.theme.SuccessGreen
+import com.framebynavin.app.ui.theme.FrameTertiary
+import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -104,10 +106,11 @@ internal fun V133CreatorHome(
 
     Box(
         Modifier.fillMaxSize().background(
-            Brush.radialGradient(
-                colors = listOf(Color(0xFF231410), Color(0xFF101012), CinemaBlack),
-                radius = 1100f,
-            )
+            when {
+                VisualExperiencePrefs.isGlass -> Brush.linearGradient(listOf(CinemaBlack, FrameTertiary.copy(alpha = .20f), CinemaSurface))
+                VisualExperiencePrefs.isEditorial -> Brush.verticalGradient(listOf(CinemaBlack, CinemaSurfaceRaised))
+                else -> Brush.radialGradient(listOf(RecRed.copy(alpha = .10f), CinemaSurface, CinemaBlack), radius = 1100f)
+            }
         )
     ) {
         Column(
@@ -222,7 +225,7 @@ private fun V133TodayFrame(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, Color(0xFF3B3029)),
+        border = BorderStroke(1.dp, CinemaLine),
         shadowElevation = 8.dp,
     ) {
         if (task == null) {
@@ -252,7 +255,7 @@ private fun V133TodayFrame(
                     Spacer(Modifier.weight(1f))
                     Surface(
                         shape = RoundedCornerShape(100.dp),
-                        color = if (overdue) RecRed.copy(alpha = .13f) else Color(0xFF1B1713),
+                        color = if (overdue) RecRed.copy(alpha = .13f) else CinemaSurfaceRaised,
                     ) {
                         Text(
                             if (overdue) "OVERDUE" else task.dueLabel.uppercase(Locale.getDefault()),
@@ -281,7 +284,7 @@ private fun V133TodayFrame(
                 Text("CURRENT STEP", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 Text(stage.label, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
-                Box(Modifier.fillMaxWidth().height(5.dp).background(Color(0xFF242429), RoundedCornerShape(10.dp))) {
+                Box(Modifier.fillMaxWidth().height(5.dp).background(CinemaLine, RoundedCornerShape(10.dp))) {
                     Box(
                         Modifier.fillMaxWidth((progress.coerceIn(0, 100) / 100f).coerceAtLeast(.03f))
                             .height(5.dp)

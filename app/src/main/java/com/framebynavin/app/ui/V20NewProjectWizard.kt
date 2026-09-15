@@ -98,7 +98,7 @@ internal fun V20NewProjectWizard(
     }
     val modeOptions = if (showAllModes) CreatorModeRegistry.definitions.map { it.id } else selectedModeIds
     val recommendedTypes = remember(creatorModeId) { ContentArchetypeRegistry.suggestedForMode(creatorModeId) }
-    val typeOptions = if (showAllTypes) ContentArchetypeRegistry.definitions else recommendedTypes
+    val typeOptions = recommendedTypes.take(4)
     val selectedPlatforms = remember(profile, platform) { CreatorPlatformRegistry.orderedSelected(profile, include = platform) }
     val platformOptions = if (showAllPlatforms) CreatorPlatformRegistry.supportedPlatforms else selectedPlatforms
     val formatOptions = remember(platform) { CreatorPlatformRegistry.formats(platform) }
@@ -129,6 +129,62 @@ internal fun V20NewProjectWizard(
         if (attentionPlan != ProjectAttentionPlan.OFF) {
             append(" · ")
             append(pDeliveryPreferenceLabel(deliveryPreference))
+        }
+    }
+
+
+    if (showAllTypes) {
+        Dialog(
+            onDismissRequest = { showAllTypes = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+                Column(
+                    Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 16.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("CONTENT TYPES", color = RecRed, fontSize = 8.4.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                            Text("Choose the right format", color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                            Text(CreatorModeRegistry.definition(creatorModeId).label, color = MutedGold, fontSize = 9.sp)
+                        }
+                        IconButton(onClick = { showAllTypes = false }) {
+                            Icon(Icons.Outlined.Close, "Close content types", tint = ProjectorIvory)
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                        V20FieldLabel("RECOMMENDED")
+                        Spacer(Modifier.height(8.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            recommendedTypes.forEach { archetype ->
+                                val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
+                                FilterChip(
+                                    selected = archetypeId == archetype.id,
+                                    onClick = { onArchetypeChange(archetype.id); showAllTypes = false },
+                                    leadingIcon = if (archetypeId == archetype.id) { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(15.dp)) } } else null,
+                                    label = { Text(label, fontSize = 9.sp) },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(22.dp))
+                        V20FieldLabel("ALL TYPES")
+                        Spacer(Modifier.height(8.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ContentArchetypeRegistry.definitions.filter { option -> recommendedTypes.none { it.id == option.id } }.forEach { archetype ->
+                                val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
+                                FilterChip(
+                                    selected = archetypeId == archetype.id,
+                                    onClick = { onArchetypeChange(archetype.id); showAllTypes = false },
+                                    leadingIcon = if (archetypeId == archetype.id) { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(15.dp)) } } else null,
+                                    label = { Text(label, fontSize = 9.sp) },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(30.dp))
+                    }
+                }
+            }
         }
     }
 
@@ -216,8 +272,8 @@ internal fun V20NewProjectWizard(
                             }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                            TextButton(onClick = { showAllTypes = !showAllTypes }) {
-                                Text(if (showAllTypes) "RECOMMENDED ONLY" else "SEE ALL TYPES", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                            TextButton(onClick = { showAllTypes = true }) {
+                                Text("BROWSE ALL TYPES", fontSize = 8.sp, fontWeight = FontWeight.Black)
                             }
                             TextButton(onClick = { showAllModes = !showAllModes }) {
                                 Text(if (showAllModes) "HIDE MODES" else "CHANGE MODE", fontSize = 8.sp, fontWeight = FontWeight.Black)

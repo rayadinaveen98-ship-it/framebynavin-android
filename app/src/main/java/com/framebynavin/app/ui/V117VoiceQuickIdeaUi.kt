@@ -222,21 +222,24 @@ internal fun V117VoiceIdeaInput(
 @Composable
 private fun FramePulseOrb(rmsDb: Float, onStop: () -> Unit, modifier: Modifier = Modifier) {
     val raw = ((rmsDb + 2f) / 12f).coerceIn(0f, 1f)
-    val amplitude by animateFloatAsState(raw, spring(dampingRatio = .58f, stiffness = 260f), label = "voiceAmplitude")
-    val infinite = rememberInfiniteTransition(label = "voiceOrb")
-    val spin by infinite.animateFloat(0f, 360f, infiniteRepeatable(tween(4200, easing = LinearEasing)), label = "orbSpin")
-    val breathe by infinite.animateFloat(.92f, 1.06f, infiniteRepeatable(tween(1150, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orbBreathe")
+    val amplitude by animateFloatAsState(raw, spring(dampingRatio = .72f, stiffness = 155f), label = "voiceAmplitudeV2")
+    val infinite = rememberInfiniteTransition(label = "voiceOrbV2")
+    val spin by infinite.animateFloat(0f, 360f, infiniteRepeatable(tween(6200, easing = LinearEasing)), label = "orbSpinV2")
+    val counterSpin by infinite.animateFloat(360f, 0f, infiniteRepeatable(tween(8800, easing = LinearEasing)), label = "orbCounterSpin")
+    val breathe by infinite.animateFloat(.96f, 1.045f, infiniteRepeatable(tween(1450, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orbBreatheV2")
 
     Canvas(modifier.clickable(onClick = onStop)) {
         val c = center
-        val base = size.minDimension * (.205f + amplitude * .035f)
-        val halo = base * (2.05f + amplitude * .55f)
+        val base = size.minDimension * (.20f + amplitude * .040f)
+        val halo = base * (2.35f + amplitude * .60f)
 
+        // Atmospheric bloom.
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(
-                    RecRed.copy(alpha = .30f + amplitude * .22f),
-                    MutedGold.copy(alpha = .13f + amplitude * .10f),
+                listOf(
+                    RecRed.copy(alpha = .34f + amplitude * .18f),
+                    FrameTertiary.copy(alpha = .18f + amplitude * .12f),
+                    MutedGold.copy(alpha = .10f),
                     Color.Transparent,
                 ),
                 center = c,
@@ -246,32 +249,57 @@ private fun FramePulseOrb(rmsDb: Float, onStop: () -> Unit, modifier: Modifier =
             center = c,
         )
 
-        drawCircle(RecRed.copy(alpha = .14f + amplitude * .16f), radius = base * 1.55f * breathe, center = c)
-        drawCircle(MutedGold.copy(alpha = .09f + amplitude * .10f), radius = base * 1.23f, center = c)
-        drawCircle(CinemaBlack.copy(alpha = .92f), radius = base, center = c)
+        // Fluid translucent shells.
+        drawCircle(FrameTertiary.copy(alpha = .075f + amplitude * .07f), radius = base * 1.78f * breathe, center = c)
+        drawCircle(RecRed.copy(alpha = .10f + amplitude * .10f), radius = base * 1.53f, center = c)
+        drawCircle(MutedGold.copy(alpha = .07f + amplitude * .06f), radius = base * 1.30f * (2f - breathe), center = c)
+
+        // Dark optical cavity + luminous inner field.
+        drawCircle(CinemaBlack.copy(alpha = .90f), radius = base * 1.03f, center = c)
         drawCircle(
             brush = Brush.radialGradient(
-                listOf(ProjectorIvory.copy(alpha = .40f + amplitude * .25f), RecRed.copy(alpha = .75f), RecRedDeep.copy(alpha = .96f)),
-                center = Offset(c.x - base * .24f, c.y - base * .30f),
-                radius = base * 1.4f,
+                listOf(
+                    ProjectorIvory.copy(alpha = .55f + amplitude * .18f),
+                    FrameTertiary.copy(alpha = .58f),
+                    RecRed.copy(alpha = .82f),
+                    RecRedDeep.copy(alpha = .98f),
+                ),
+                center = Offset(c.x - base * .27f, c.y - base * .31f),
+                radius = base * 1.55f,
             ),
-            radius = base * .82f,
+            radius = base * .86f,
             center = c,
         )
 
-        val ringRadius = base * 1.38f
-        repeat(3) { index ->
+        // Thin premium light filaments.
+        val ringRadius = base * 1.36f
+        repeat(5) { index ->
+            val r = ringRadius + index * 5.5f
+            val direction = if (index % 2 == 0) spin else counterSpin
+            val tint = when (index % 3) {
+                0 -> MutedGold
+                1 -> FrameTertiary
+                else -> RecRed
+            }
             drawArc(
-                color = if (index % 2 == 0) MutedGold.copy(alpha = .72f) else RecRed.copy(alpha = .86f),
-                startAngle = spin * (if (index % 2 == 0) 1f else -1f) + index * 112f,
-                sweepAngle = 48f + amplitude * 46f,
+                color = tint.copy(alpha = .45f + amplitude * .28f),
+                startAngle = direction + index * 71f,
+                sweepAngle = 24f + index * 7f + amplitude * 28f,
                 useCenter = false,
-                topLeft = Offset(c.x - ringRadius - index * 5f, c.y - ringRadius - index * 5f),
-                size = androidx.compose.ui.geometry.Size((ringRadius + index * 5f) * 2f, (ringRadius + index * 5f) * 2f),
-                style = Stroke(width = 2.2f + amplitude * 2.5f),
+                topLeft = Offset(c.x - r, c.y - r),
+                size = androidx.compose.ui.geometry.Size(r * 2f, r * 2f),
+                style = Stroke(width = 1.1f + amplitude * 1.4f),
             )
         }
-        drawCircle(ProjectorIvory.copy(alpha = .82f), radius = 2.2f + amplitude * 2.3f, center = c)
+
+        // Small floating glints give depth without particle noise.
+        repeat(4) { i ->
+            val angle = (spin + i * 90f) * 0.017453292f
+            val r = base * (1.12f + i * .10f)
+            val point = Offset(c.x + kotlin.math.cos(angle) * r, c.y + kotlin.math.sin(angle) * r)
+            drawCircle(ProjectorIvory.copy(alpha = .38f + amplitude * .30f), radius = 1.2f + amplitude * 1.4f, center = point)
+        }
+        drawCircle(ProjectorIvory.copy(alpha = .90f), radius = 1.8f + amplitude * 1.8f, center = c)
     }
 }
 
