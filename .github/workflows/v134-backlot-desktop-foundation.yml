@@ -1,0 +1,66 @@
+name: V134 Backlot Desktop Foundation
+
+on:
+  push:
+    branches:
+      - "feature/v134-backlot-desktop-foundation"
+    paths:
+      - "desktop/**"
+      - "docs/V134_BACKLOT_DESKTOP_FOUNDATION.md"
+      - ".github/workflows/v134-backlot-desktop-foundation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v134-backlot-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout V134 desktop branch
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 9.7.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.7.1"
+
+      - name: Test, compile and package Windows desktop app
+        working-directory: desktop
+        run: gradle clean test compileKotlin packageMsi packageExe --stacktrace
+
+      - name: List Windows packages
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path desktop/build/compose/binaries/main -Recurse -File | Select-Object FullName, Length
+
+      - name: Upload Backlot Windows installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v134-Windows-Desktop
+          path: |
+            desktop/build/compose/binaries/main/msi/*.msi
+            desktop/build/compose/binaries/main/exe/*.exe
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload desktop test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v134-Desktop-Test-Report
+          path: desktop/build/reports/tests/test/**
+          if-no-files-found: ignore
+          retention-days: 30
