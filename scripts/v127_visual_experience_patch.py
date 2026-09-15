@@ -131,4 +131,5 @@ for file in ui_root.rglob("*.kt"):
     if updated != text:
         file.write_text(updated)
 
+# Revision note: compile retry after explicit launch-sound preference updater fix.
 print('v127 visual experience integration patch applied')
