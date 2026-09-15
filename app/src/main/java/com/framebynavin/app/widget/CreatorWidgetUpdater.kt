@@ -46,7 +46,7 @@ object CreatorWidgetUpdater {
         val nextReminder = nextReminder(tasks)
         applyTheme(views, R.id.widget_root, listOf(R.id.widget_title), listOf(R.id.widget_project), listOf(R.id.widget_stage), listOf(R.id.widget_due, R.id.widget_reminder))
 
-        views.setTextViewText(R.id.widget_title, "FRAMEBYNAVIN")
+        views.setTextViewText(R.id.widget_title, "BACKLOT")
         if (current == null) {
             views.setTextViewText(R.id.widget_project, "Nothing urgent right now")
             views.setTextViewText(R.id.widget_stage, "Capture an idea or plan the next piece.")
@@ -82,7 +82,7 @@ object CreatorWidgetUpdater {
             listOf(R.id.widget_large_stage, R.id.widget_large_reminder),
         )
 
-        views.setTextViewText(R.id.widget_large_title, "FRAMEBYNAVIN")
+        views.setTextViewText(R.id.widget_large_title, "BACKLOT")
         views.setTextViewText(R.id.widget_large_today_count, "$todayCount TODAY")
         if (current == null) {
             views.setTextViewText(R.id.widget_large_project, "Creator desk is clear")

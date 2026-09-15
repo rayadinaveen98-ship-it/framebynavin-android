@@ -400,7 +400,7 @@ internal fun V18CinematicHomeHero(creatorName: String) {
         AlertDialog(
             onDismissRequest = { confirmRemove = false },
             title = { Text("Remove slideshow images?") },
-            text = { Text("The homepage will return to the normal Frame By Navin greeting.") },
+            text = { Text("The homepage will return to the normal Backlot greeting.") },
             confirmButton = {
                 TextButton(
                     onClick = {

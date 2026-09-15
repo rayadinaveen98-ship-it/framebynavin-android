@@ -110,7 +110,7 @@ internal fun V23AccountOnboarding(onComplete: (String) -> Unit, onContinueLocall
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(22.dp)) {
-            Text("FRAMEBYNAVIN", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
+            Text("BACKLOT", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
             Spacer(Modifier.height(34.dp))
             when (route) {
                 CloudCreatorAccountRoute.SIGN_IN_REQUIRED -> {

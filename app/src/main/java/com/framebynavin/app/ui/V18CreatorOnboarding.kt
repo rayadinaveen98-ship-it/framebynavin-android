@@ -90,7 +90,7 @@ internal fun V18CreatorOnboarding(
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("FRAMEBYNAVIN", color = RecRed, fontSize = 9.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Black)
+                    Text("BACKLOT", color = RecRed, fontSize = 9.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Black)
                     Text("Creator setup", color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
                 Text("${page + 1}/5", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)

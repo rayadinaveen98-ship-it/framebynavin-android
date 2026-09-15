@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -209,8 +210,8 @@ fun FrameByNavinTheme(content: @Composable () -> Unit) {
     val view = LocalView.current
     SideEffect {
         val window = view.context.frameActivity()?.window ?: return@SideEffect
-        window.statusBarColor = palette.background.hashCode()
-        window.navigationBarColor = palette.background.hashCode()
+        window.statusBarColor = palette.background.toArgb()
+        window.navigationBarColor = palette.background.toArgb()
         WindowCompat.getInsetsController(window, view).apply {
             isAppearanceLightStatusBars = palette.isLight
             isAppearanceLightNavigationBars = palette.isLight

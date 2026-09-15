@@ -290,9 +290,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val guidedTourStep = guidedTourStepName?.let { saved ->
         CreatorGuidedTourStep.entries.firstOrNull { it.name == saved }
     }
+    val v137GuideLayer = rememberV137GuideLayer()
     val focusTaskState = remember { derivedStateOf { vm.tasks.firstOrNull { it.id == focusTaskId } } }
     val focusTask = focusTaskState.value
-    Box(Modifier.fillMaxSize().background(CinemaBlack)) {
+    Box(Modifier.fillMaxSize().background(CinemaBlack).v137GuideCaptureAndBlur(v137GuideLayer, guidedTourStep != null)) {
         V129ThemeBackdrop(Modifier.matchParentSize())
         if (focusTask != null) {
             PFocusScreen(
@@ -669,6 +670,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         focusTaskId == null &&
         overlay == POverlay.NONE
     ) {
+        V137GuideSharpWindow(
+            layer = v137GuideLayer,
+            step = guidedTourStep,
+            modifier = Modifier.fillMaxSize(),
+        )
         V20GuidedFirstRunCoach(
             step = guidedTourStep,
             hasProjects = vm.tasks.any { it.archivedAtMillis == 0L },
@@ -759,7 +765,7 @@ private fun PControlCenter(
     val overdue = pActiveQueue(tasks).filter { it.dueAtMillis in 1 until System.currentTimeMillis() }
     val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
     Column(Modifier.fillMaxWidth().heightIn(max = 730.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
-        Text("FRAMEBYNAVIN", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+        Text("BACKLOT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
         Text("Control", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
         Text("Start, capture or adjust your creator day.", color = MutedText, fontSize = 10.sp)
         Spacer(Modifier.height(17.dp))
@@ -1277,7 +1283,7 @@ internal fun PHomeGreetingHeader(creatorName: String, onAdd: () -> Unit) {
     }
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("FRAMEBYNAVIN", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
         }
         Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(48.dp)) {
@@ -1290,7 +1296,7 @@ internal fun PHomeGreetingHeader(creatorName: String, onAdd: () -> Unit) {
 internal fun PTopBar(label: String, onAdd: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("FRAMEBYNAVIN", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(label, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
         }
         Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(48.dp)) {
