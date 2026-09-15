@@ -72,6 +72,9 @@ internal fun V20NewProjectWizard(
     onPickCustomReminder: () -> Unit,
     priority: TaskPriority,
     onPriorityChange: (TaskPriority) -> Unit,
+    voicePersona: VoicePersona,
+    onVoicePersonaChange: (VoicePersona) -> Unit,
+    onPreviewVoice: (VoicePersona) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
     reminderSetupReady: Boolean,
@@ -428,6 +431,15 @@ internal fun V20NewProjectWizard(
                                     )
                                 }
                             }
+                        }
+
+                        if (attentionPlan != ProjectAttentionPlan.OFF) {
+                            Spacer(Modifier.height(14.dp))
+                            V140VoiceStudioPicker(
+                                selected = voicePersona,
+                                onSelected = onVoicePersonaChange,
+                                onPreview = onPreviewVoice,
+                            )
                         }
 
                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {

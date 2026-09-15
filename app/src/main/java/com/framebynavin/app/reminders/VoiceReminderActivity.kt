@@ -206,16 +206,7 @@ private fun VoiceReminderScreen(
             .statusBarsPadding().navigationBarsPadding().padding(24.dp)
     ) {
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                Modifier.size(104.dp).scale(pulse.value).background(MutedGold.copy(alpha = 0.10f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                    listOf(20.dp, 37.dp, 27.dp, 46.dp, 24.dp).forEach { height ->
-                        Box(Modifier.width(4.dp).height(height).background(MutedGold, RoundedCornerShape(10.dp)))
-                    }
-                }
-            }
+            V140VoicePulse()
 
             Spacer(Modifier.height(24.dp))
             Text(if (stageCheckIn) "STAGE CHECK-IN" else "VOICE REMINDER", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)

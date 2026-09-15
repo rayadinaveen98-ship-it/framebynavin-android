@@ -53,8 +53,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 139
-        versionName = "2.0.0-rc12-theme-system-finalization"
+        versionCode = 140
+        versionName = "2.0.0-rc13-motion-reminder-voice"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

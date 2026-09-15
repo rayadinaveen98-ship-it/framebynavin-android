@@ -106,11 +106,14 @@ class VoiceReminderService : Service() {
             TaskPriority.CRITICAL -> "critical creator deadline"
         }
         val stage = CreatorWorkflowEngine.currentStage(task).label
-        val text = buildString {
-            append("Backlot. ${task.title}. This is your $urgency.")
-            append(" Current stage: $stage.")
-            if (task.notes.isNotBlank() && index == 0) append(" ${task.notes}")
-        }
+        val text = VoicePersonaEngine.reminderText(
+            persona = task.voicePersona,
+            title = task.title,
+            urgency = urgency,
+            stage = stage,
+            notes = task.notes,
+            includeNotes = index == 0,
+        )
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "framebynavin-voice-${task.id}-$index")
     }
 

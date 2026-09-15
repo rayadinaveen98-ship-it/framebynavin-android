@@ -339,6 +339,9 @@ internal fun PProjectComposer(
             },
             priority = priority,
             onPriorityChange = { priority = it },
+            voicePersona = voice,
+            onVoicePersonaChange = { voice = it },
+            onPreviewVoice = { pComposerPreviewVoice(context, it) },
             notes = notes,
             onNotesChange = { notes = it },
             reminderSetupReady = reminderSetupReady,
@@ -505,6 +508,15 @@ internal fun PProjectComposer(
                             color = MutedText,
                             fontSize = 8.5.sp,
                             lineHeight = 12.sp,
+                        )
+                    }
+
+                    if (attentionPlan != ProjectAttentionPlan.OFF) {
+                        Spacer(Modifier.height(16.dp))
+                        V140VoiceStudioPicker(
+                            selected = voice,
+                            onSelected = { voice = it },
+                            onPreview = { pComposerPreviewVoice(context, it) },
                         )
                     }
 
@@ -770,7 +782,7 @@ private fun pComposerPreviewVoice(context: Context, persona: VoicePersona) {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.getDefault()
             tts?.let { VoicePersonaEngine.apply(it, persona) }
-            tts?.speak("Backlot. This is ${VoicePersonaEngine.label(persona)}.", TextToSpeech.QUEUE_FLUSH, null, "composer-${persona.name}")
+            tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "composer-${persona.name}")
             Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
         } else tts?.shutdown()
     }

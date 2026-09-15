@@ -203,11 +203,7 @@ private fun NativeAlarmScreen(
         Text(SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date()), color = MutedText, fontSize = 11.sp, modifier = Modifier.align(Alignment.TopCenter))
 
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(92.dp).background(RecRed.copy(alpha = 0.13f), CircleShape), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(62.dp).background(RecRed.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.Alarm, null, tint = RecRed, modifier = Modifier.size(34.dp))
-                }
-            }
+            V140AlarmPulse()
             Spacer(Modifier.height(25.dp))
             Text(if (stageCheckIn) "STAGE CHECK-IN" else "REMINDER", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
             Spacer(Modifier.height(4.dp))
