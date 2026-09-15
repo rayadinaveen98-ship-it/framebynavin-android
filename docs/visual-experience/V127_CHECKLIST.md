@@ -1,0 +1,9 @@
+- [ ] Theme runtime and five palettes
+- [ ] Settings appearance picker + launch sound toggle
+- [ ] Premium 2D guided first run
+- [ ] RMS-responsive voice orb
+- [ ] Dedicated widget suite
+- [ ] Stage completion and reward motion
+- [ ] Cinematic welcome stripe/glow/sound refinement
+- [ ] Unit/contract tests
+- [ ] Debug APK
