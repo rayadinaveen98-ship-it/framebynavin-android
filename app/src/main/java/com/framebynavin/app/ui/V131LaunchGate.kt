@@ -10,7 +10,7 @@ import kotlinx.coroutines.delay
 import com.framebynavin.app.widget.CreatorWidgetLaunch
 
 /**
- * Short cinematic studio-ident on normal cold launches.
+ * Five-second cinematic studio-ident on normal cold launches.
  * Widget/deep-link launches stay instant so creator shortcuts never inherit a splash delay.
  */
 @Composable
@@ -20,14 +20,14 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         if (externalLaunch != null) {
             welcomeDone = true
         } else if (!welcomeDone) {
-            delay(3_150L)
+            delay(5_000L)
             welcomeDone = true
         }
     }
     AnimatedContent(
         targetState = welcomeDone,
         transitionSpec = {
-            fadeIn(tween(170)) togetherWith fadeOut(tween(130))
+            fadeIn(tween(220)) togetherWith fadeOut(tween(180))
         },
         label = "launchGate",
     ) { ready ->
