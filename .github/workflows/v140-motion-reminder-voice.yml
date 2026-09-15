@@ -1,0 +1,88 @@
+name: V140 Backlot Motion Reminder Voice
+
+on:
+  push:
+    branches: ["feature/v140-motion-reminder-voice"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout v140 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v140-motion-reminder-voice
+          fetch-depth: 0
+
+      - name: Materialize v140 integration
+        run: python3 scripts/apply_v140_motion_reminder_voice.py
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Verify v140 experience contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 140' app/build.gradle.kts
+          grep -q '2.0.0-rc13-motion-reminder-voice' app/build.gradle.kts
+          grep -q 'V140CinematicWelcome(onFinished' app/src/main/java/com/framebynavin/app/ui/V131LaunchGate.kt
+          ! grep -q 'delay(5_000L)' app/src/main/java/com/framebynavin/app/ui/V131LaunchGate.kt
+          grep -q 'V140_IDENT_DURATION_MS = 5_000' app/src/main/java/com/framebynavin/app/ui/V140CinematicWelcome.kt
+          grep -q 'v140LetterB' app/src/main/java/com/framebynavin/app/ui/V140CinematicWelcome.kt
+          grep -q 'v140LetterT' app/src/main/java/com/framebynavin/app/ui/V140CinematicWelcome.kt
+          grep -q 'V140AlarmPulse' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt
+          grep -q 'V140VoicePulse' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'VoicePersona.CARTOON' app/src/main/java/com/framebynavin/app/reminders/VoicePersonaEngine.kt
+          grep -q 'VoicePersona.ALIEN' app/src/main/java/com/framebynavin/app/reminders/VoicePersonaEngine.kt
+          grep -q 'VoicePersona.ROBOT' app/src/main/java/com/framebynavin/app/reminders/VoicePersonaEngine.kt
+          grep -q 'V140VoiceStudioPicker' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'V140VoiceStudioPicker' app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt
+
+      - name: User-facing brand audit
+        run: python3 scripts/audit_v137_visible_brand.py
+
+      - name: Unit tests, Kotlin compile and APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+
+      - name: Materialize validated v140 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Backlot CI"
+          git config user.email "backlot-ci@users.noreply.github.com"
+          git add \
+            app/build.gradle.kts \
+            app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt \
+            app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt \
+            app/src/main/java/com/framebynavin/app/reminders/VoiceReminderService.kt \
+            app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt \
+            app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(v140): materialize validated integration [skip ci]"
+            git push origin HEAD:feature/v140-motion-reminder-voice
+          fi
+
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Backlot-v140-MotionReminderVoice.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v140-motion-reminder-voice
+          path: Backlot-v140-MotionReminderVoice.apk
+          if-no-files-found: error
+          retention-days: 90
