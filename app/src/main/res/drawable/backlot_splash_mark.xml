@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Strong, flat Backlot mark for the OS splash. Transparent outside the mark. -->
+    <path
+        android:pathData="M20,16 H88 V92 H20 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#D8B56B"
+        android:strokeWidth="5"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M34,26 H46 V82 H34 Z"
+        android:fillColor="#F2EDE4" />
+    <path
+        android:pathData="M40,26 H60 C73,26 81,32 81,42 C81,49 77,54 70,57 C79,60 84,66 84,74 C84,85 76,90 60,90 H40 V78 H59 C67,78 71,76 71,71 C71,66 67,64 59,64 H40 V52 H58 C65,52 69,50 69,45 C69,40 65,38 58,38 H40 Z"
+        android:fillColor="#D8B56B" />
+    <path
+        android:pathData="M40,38 L54,46 L54,70 L40,78 Z"
+        android:fillColor="#090909" />
+    <path
+        android:pathData="M78,24 A6,6 0,1 0,90 24 A6,6 0,1 0,78 24"
+        android:fillColor="#E94A45" />
+</vector>
