@@ -199,10 +199,10 @@ internal fun V20GuidedFirstRunCoach(
 }
 
 private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): GuidedCoachCopy = when (step) {
-    CreatorGuidedTourStep.TODAY -> GuidedCoachCopy("TODAY", "Your command center", "Today shows the next thing worth your attention.", "SHOW IDEAS", icon = Icons.Outlined.Home, pose = FrameGuidePose.POINT)
+    CreatorGuidedTourStep.TODAY -> GuidedCoachCopy("TODAY", "Your command center", "Today shows the next thing worth your attention.", "SHOW IDEAS", icon = Icons.Outlined.Home, pose = FrameGuidePose.PRESENT)
     CreatorGuidedTourStep.IDEAS -> GuidedCoachCopy("IDEA VAULT", "Capture before it disappears", "Use + for a quick thought. Organize it later.", "CAPTURE IDEA", "NEXT", Icons.Outlined.Lightbulb, FrameGuidePose.POINT)
     CreatorGuidedTourStep.PROJECT -> GuidedCoachCopy("PROJECT", if (hasProjects) "Open a project" else "Build your first project", if (hasProjects) "Open one and I’ll follow you into the workspace." else "Create one now, or continue without one.", if (hasProjects) "OPEN PROJECT" else "CREATE PROJECT", if (hasProjects) null else "NOT NOW", Icons.Outlined.AddCircleOutline, FrameGuidePose.WALK)
-    CreatorGuidedTourStep.WORKSPACE -> GuidedCoachCopy("WORKSPACE", "Move work stage by stage", "Your project tools and progress stay together here.", "SHOW INSIGHTS", icon = Icons.Outlined.MovieEdit, pose = FrameGuidePose.POINT)
-    CreatorGuidedTourStep.INSIGHTS -> GuidedCoachCopy("INSIGHTS", "Your creator brain", "Patterns and evidence help you decide what to improve next.", "SHOW CONTROL", icon = Icons.Outlined.Insights, pose = FrameGuidePose.IDLE)
+    CreatorGuidedTourStep.WORKSPACE -> GuidedCoachCopy("WORKSPACE", "Move work stage by stage", "Your project tools and progress stay together here.", "SHOW INSIGHTS", icon = Icons.Outlined.MovieEdit, pose = FrameGuidePose.WAVE)
+    CreatorGuidedTourStep.INSIGHTS -> GuidedCoachCopy("INSIGHTS", "Your creator brain", "Patterns and evidence help you decide what to improve next.", "SHOW CONTROL", icon = Icons.Outlined.Insights, pose = FrameGuidePose.THINK)
     CreatorGuidedTourStep.CONTROL -> GuidedCoachCopy("CONTROL", "Fast actions live here", "Create, capture and manage the system from one place.", "FINISH TOUR", icon = Icons.Outlined.GridView, pose = FrameGuidePose.CELEBRATE)
 }

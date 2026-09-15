@@ -21,7 +21,7 @@ import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.ProjectorIvory
 import com.framebynavin.app.ui.theme.RecRed
 
-enum class FrameGuidePose { IDLE, WALK, POINT, CELEBRATE }
+enum class FrameGuidePose { IDLE, WALK, POINT, PRESENT, LOOK, NOD, WAVE, THINK, LISTEN, SUCCESS, CELEBRATE, REST }
 
 /** Compatibility surface: journey calls render the locked v130 Cine Pulse mascot. */
 @Composable
@@ -34,9 +34,17 @@ internal fun FrameGuideCompanion(
         FrameGuidePose.IDLE -> CinePulseState.IDLE
         FrameGuidePose.WALK -> CinePulseState.WALK
         FrameGuidePose.POINT -> CinePulseState.POINT
+        FrameGuidePose.PRESENT -> CinePulseState.PRESENT
+        FrameGuidePose.LOOK -> CinePulseState.LOOK
+        FrameGuidePose.NOD -> CinePulseState.NOD
+        FrameGuidePose.WAVE -> CinePulseState.WAVE
+        FrameGuidePose.THINK -> CinePulseState.THINK
+        FrameGuidePose.LISTEN -> CinePulseState.LISTEN
+        FrameGuidePose.SUCCESS -> CinePulseState.SUCCESS
         FrameGuidePose.CELEBRATE -> CinePulseState.CELEBRATE
+        FrameGuidePose.REST -> CinePulseState.REST
     }
-    CinePulseMascotV130(state = state, modifier = modifier, pointRight = pointRight)
+    CinePulseGuide(state = state, modifier = modifier, pointRight = pointRight)
 }
 
 @Composable
@@ -48,7 +56,7 @@ internal fun V127SetupGuideStrip(page: Int) {
         "Pick your priorities.",
         "Optional reminder permissions.",
     )
-    val poses = listOf(FrameGuidePose.POINT, FrameGuidePose.WALK, FrameGuidePose.POINT, FrameGuidePose.IDLE, FrameGuidePose.CELEBRATE)
+    val poses = listOf(FrameGuidePose.PRESENT, FrameGuidePose.LOOK, FrameGuidePose.POINT, FrameGuidePose.THINK, FrameGuidePose.SUCCESS)
 
     AnimatedContent(
         targetState = page.coerceIn(0, tips.lastIndex),

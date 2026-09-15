@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:34" hostname="runnervmlun5p" time="0.005">
+<testsuite name="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-15T08:21:28" hostname="runnervmlun5p" time="0.003">
   <properties/>
   <testcase name="authenticatedUserWithoutCreatorProfile_needsCreatorId" classname="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" time="0.001"/>
   <testcase name="signedOut_requiresGoogleSignIn" classname="com.framebynavin.app.cloud.CloudCreatorAccountPolicyTest" time="0.0"/>

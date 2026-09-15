@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.ui.theme.VisualExperienceV127Test" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-15T08:21:29" hostname="runnervmlun5p" time="0.02">
+  <properties/>
+  <testcase name="v129 theme system is dark first and lumen is structurally distinct" classname="com.framebynavin.app.ui.theme.VisualExperienceV127Test" time="0.019"/>
+  <testcase name="every palette preserves readable semantic separation" classname="com.framebynavin.app.ui.theme.VisualExperienceV127Test" time="0.0"/>
+  <testcase name="v129 ships six distinct selectable themes without ivory" classname="com.framebynavin.app.ui.theme.VisualExperienceV127Test" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

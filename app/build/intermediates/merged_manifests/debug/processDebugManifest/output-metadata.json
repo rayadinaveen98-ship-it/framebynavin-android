@@ -11,8 +11,8 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 118,
-      "versionName": "2.0.0-beta2-ux-reliability-audit",
+      "versionCode": 131,
+      "versionName": "2.0.0-rc7-cine-pulse-motion-pass",
       "outputFile": "AndroidManifest.xml"
     }
   ],

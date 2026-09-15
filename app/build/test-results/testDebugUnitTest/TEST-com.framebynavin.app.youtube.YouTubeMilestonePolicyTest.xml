@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.youtube.YouTubeMilestonePolicyTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:35" hostname="runnervmlun5p" time="0.001">
+<testsuite name="com.framebynavin.app.youtube.YouTubeMilestonePolicyTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-15T08:21:29" hostname="runnervmlun5p" time="0.0">
   <properties/>
-  <testcase name="late sync captures every missing milestone reached" classname="com.framebynavin.app.youtube.YouTubeMilestonePolicyTest" time="0.001"/>
+  <testcase name="late sync captures every missing milestone reached" classname="com.framebynavin.app.youtube.YouTubeMilestonePolicyTest" time="0.0"/>
   <testcase name="nothing is due before 24 hours" classname="com.framebynavin.app.youtube.YouTubeMilestonePolicyTest" time="0.0"/>
   <testcase name="24 hour milestone becomes due at boundary" classname="com.framebynavin.app.youtube.YouTubeMilestonePolicyTest" time="0.0"/>
   <testcase name="already captured checkpoints are never duplicated" classname="com.framebynavin.app.youtube.YouTubeMilestonePolicyTest" time="0.0"/>

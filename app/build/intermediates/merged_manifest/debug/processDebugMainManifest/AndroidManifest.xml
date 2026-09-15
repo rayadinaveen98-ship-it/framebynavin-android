@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.framebynavin.app"
-    android:versionCode="118"
-    android:versionName="2.0.0-beta2-ux-reliability-audit" >
+    android:versionCode="131"
+    android:versionName="2.0.0-rc7-cine-pulse-motion-pass" >
 
     <uses-sdk
         android:minSdkVersion="26"
-        android:targetSdkVersion="35" />
+        android:targetSdkVersion="36" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
@@ -45,7 +47,8 @@
         android:label="FrameByNavin"
         android:roundIcon="@drawable/ic_framebynavin_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.FrameByNavin" >
+        android:theme="@style/Theme.FrameByNavin"
+        android:usesCleartextTraffic="false" >
         <service
             android:name="com.framebynavin.app.reminders.AlarmRingingService"
             android:exported="false"
@@ -137,6 +140,90 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_creator_large_info" />
+        </receiver>
+        <receiver
+            android:name="com.framebynavin.app.widget.QuickIdeaWidgetProvider"
+            android:exported="false"
+            android:label="FrameByNavin Quick Idea" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_idea_info" />
+        </receiver>
+        <receiver
+            android:name="com.framebynavin.app.widget.NewProjectWidgetProvider"
+            android:exported="false"
+            android:label="FrameByNavin New Project" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_new_project_info" />
+        </receiver>
+        <receiver
+            android:name="com.framebynavin.app.widget.CurrentProjectWidgetProvider"
+            android:exported="false"
+            android:label="FrameByNavin Current Project" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_current_project_info" />
+        </receiver>
+        <receiver
+            android:name="com.framebynavin.app.widget.NextReminderWidgetProvider"
+            android:exported="false"
+            android:label="FrameByNavin Next Reminder" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_next_reminder_info" />
+        </receiver>
+        <receiver
+            android:name="com.framebynavin.app.widget.ContentCalendarWidgetProvider"
+            android:exported="false"
+            android:label="FrameByNavin Content Calendar" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_calendar_info" />
+        </receiver>
+        <receiver
+            android:name="com.framebynavin.app.widget.DailyBriefWidgetProvider"
+            android:exported="false"
+            android:label="FrameByNavin Daily Brief" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_daily_brief_info" />
+        </receiver>
+        <receiver
+            android:name="com.framebynavin.app.widget.CreatorInsightsWidgetProvider"
+            android:exported="false"
+            android:label="FrameByNavin Creator Insights" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_insights_info" />
         </receiver>
 
         <activity

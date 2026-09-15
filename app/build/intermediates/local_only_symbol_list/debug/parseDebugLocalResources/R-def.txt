@@ -2,9 +2,20 @@ R_DEF: Internal format may change without notice
 local
 drawable ic_framebynavin_launcher
 drawable ic_framebynavin_splash
+drawable widget_bg_aurora
+drawable widget_bg_directors
+drawable widget_bg_ember
+drawable widget_bg_ivory
+drawable widget_bg_lumen
+drawable widget_bg_midnight
+drawable widget_bg_violet
 drawable widget_creator_bg
 drawable widget_creator_button
 drawable widget_creator_button_red
+id widget_action_kicker
+id widget_action_root
+id widget_action_subtitle
+id widget_action_title
 id widget_due
 id widget_idea
 id widget_large_brief
@@ -16,6 +27,7 @@ id widget_large_project_area
 id widget_large_project_button
 id widget_large_release
 id widget_large_reminder
+id widget_large_root
 id widget_large_stage
 id widget_large_title
 id widget_large_today_count
@@ -24,6 +36,7 @@ id widget_reminder
 id widget_root
 id widget_stage
 id widget_title
+layout widget_creator_action
 layout widget_creator_compact
 layout widget_creator_large
 string default_web_client_id
@@ -37,5 +50,12 @@ style Theme.FrameByNavin
 style Theme.FrameByNavin.Starting
 xml creator_backup_rules
 xml creator_data_extraction_rules
+xml widget_calendar_info
 xml widget_creator_compact_info
 xml widget_creator_large_info
+xml widget_current_project_info
+xml widget_daily_brief_info
+xml widget_insights_info
+xml widget_new_project_info
+xml widget_next_reminder_info
+xml widget_quick_idea_info

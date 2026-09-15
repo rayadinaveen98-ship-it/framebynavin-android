@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.reminders.ReminderActionSafetyRc3Test" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-12T03:25:35" hostname="runnervmlun5p" time="0.008">
+<testsuite name="com.framebynavin.app.reminders.ReminderActionSafetyRc3Test" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-15T08:21:29" hostname="runnervmlun5p" time="0.004">
   <properties/>
-  <testcase name="publicationStageCannotBeBypassedByStageDone" classname="com.framebynavin.app.reminders.ReminderActionSafetyRc3Test" time="0.007"/>
+  <testcase name="publicationStageCannotBeBypassedByStageDone" classname="com.framebynavin.app.reminders.ReminderActionSafetyRc3Test" time="0.002"/>
   <testcase name="workingDoesNotInventProgress" classname="com.framebynavin.app.reminders.ReminderActionSafetyRc3Test" time="0.0"/>
   <testcase name="stageAwareDismissStaysOnCurrentStage" classname="com.framebynavin.app.reminders.ReminderActionSafetyRc3Test" time="0.0"/>
   <testcase name="legacyAcknowledgeNeverAdvancesWorkflowOrCompletesProject" classname="com.framebynavin.app.reminders.ReminderActionSafetyRc3Test" time="0.0"/>
