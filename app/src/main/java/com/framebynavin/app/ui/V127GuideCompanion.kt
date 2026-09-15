@@ -23,7 +23,7 @@ import com.framebynavin.app.ui.theme.RecRed
 
 enum class FrameGuidePose { IDLE, WALK, POINT, PRESENT, LOOK, NOD, WAVE, THINK, LISTEN, SUCCESS, CELEBRATE, REST }
 
-/** Compatibility surface: journey calls render the locked v130 Cine Pulse mascot. */
+/** Compatibility surface used by setup, guided tour and helper moments. */
 @Composable
 internal fun FrameGuideCompanion(
     pose: FrameGuidePose,
@@ -61,7 +61,7 @@ internal fun V127SetupGuideStrip(page: Int) {
     AnimatedContent(
         targetState = page.coerceIn(0, tips.lastIndex),
         transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(180)) },
-        label = "setupCinePulse",
+        label = "setupBacklotGuide",
     ) { index ->
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -73,7 +73,7 @@ internal fun V127SetupGuideStrip(page: Int) {
                 FrameGuideCompanion(poses[index], Modifier.size(width = 68.dp, height = 80.dp), pointRight = true)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("CINE PULSE", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Text(BacklotCharacterPrefs.currentCharacter.displayName.uppercase(), color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(2.dp))
                     Text(tips[index], color = ProjectorIvory, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium)
                 }
