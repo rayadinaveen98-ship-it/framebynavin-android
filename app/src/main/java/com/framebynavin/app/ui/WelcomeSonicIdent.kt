@@ -13,8 +13,20 @@ import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.random.Random
 
-/** Original, synthesized FrameByNavin launch sound. No bundled copyrighted audio asset. */
+/**
+ * Original, synthesized Backlot launch sound. No bundled copyrighted audio asset.
+ *
+ * v141 deliberately follows the existing five-second visual ident instead of firing a short
+ * one-second logo sting at launch. The sound landmarks mirror the visual timeline:
+ * ignition -> thread formation -> underline sweep -> final lock.
+ */
 internal object WelcomeSonicIdent {
+    private const val V141_IDENT_DURATION_SECONDS = 5.0
+    private const val V141_IGNITION_END_SECONDS = 0.80
+    private const val V141_FORMATION_START_SECONDS = 1.50
+    private const val V141_UNDERLINE_START_SECONDS = 3.95
+    private const val V141_SETTLE_START_SECONDS = 4.20
+
     fun play(context: Context) {
         if (!VisualExperiencePrefs.launchSoundEnabled) return
         val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
@@ -23,27 +35,63 @@ internal object WelcomeSonicIdent {
         Thread({
             runCatching {
                 val sampleRate = 44_100
-                val duration = 1.05
-                val samples = ShortArray((sampleRate * duration).toInt())
-                val random = Random(127)
+                val samples = ShortArray((sampleRate * V141_IDENT_DURATION_SECONDS).toInt())
+                val random = Random(141)
+
                 for (i in samples.indices) {
                     val t = i.toDouble() / sampleRate
-                    val whooshWindow = when {
-                        t < .04 || t > .48 -> 0.0
-                        t < .24 -> (t - .04) / .20
-                        else -> (.48 - t) / .24
-                    }.coerceIn(0.0, 1.0)
-                    val whoosh = (random.nextDouble() * 2.0 - 1.0) * whooshWindow * .09
 
-                    val impactT = (t - .31).coerceAtLeast(0.0)
-                    val impact = if (t >= .31) sin(2.0 * PI * 84.0 * impactT) * exp(-impactT * 8.5) * .19 else 0.0
+                    // 0.00-0.80s: threads wake up with a restrained air/shimmer layer.
+                    val ignition = triangularWindow(t, 0.02, 0.42, V141_IGNITION_END_SECONDS)
+                    val air = (random.nextDouble() * 2.0 - 1.0) * ignition * 0.018
+                    val ignitionTone = sin(2.0 * PI * (176.0 + 26.0 * t) * t) * ignition * 0.018
 
-                    val chimeT = (t - .57).coerceAtLeast(0.0)
-                    val chime = if (t >= .57) {
-                        (sin(2.0 * PI * 720.0 * chimeT) + .52 * sin(2.0 * PI * 1080.0 * chimeT)) * exp(-chimeT * 5.4) * .10
+                    // 1.50s: the first visible thread segments commit to the wordmark.
+                    val formationHitT = (t - V141_FORMATION_START_SECONDS).coerceAtLeast(0.0)
+                    val formationHit = if (t >= V141_FORMATION_START_SECONDS) {
+                        (
+                            sin(2.0 * PI * 92.0 * formationHitT) +
+                                0.34 * sin(2.0 * PI * 184.0 * formationHitT)
+                            ) * exp(-formationHitT * 8.2) * 0.11
                     } else 0.0
 
-                    val sample = ((whoosh + impact + chime).coerceIn(-.82, .82) * Short.MAX_VALUE).toInt()
+                    // 1.50-4.20s: a quiet evolving harmonic bed travels with the forming letters.
+                    val formation = broadWindow(t, V141_FORMATION_START_SECONDS, V141_SETTLE_START_SECONDS)
+                    val movingFrequency = 228.0 + (t - V141_FORMATION_START_SECONDS).coerceAtLeast(0.0) * 42.0
+                    val threadTone = (
+                        sin(2.0 * PI * movingFrequency * t) +
+                            0.42 * sin(2.0 * PI * movingFrequency * 1.5 * t)
+                        ) * formation * 0.024
+                    val threadDust = (random.nextDouble() * 2.0 - 1.0) * formation * 0.006
+
+                    // ~3.95s: underline sweep gets one clean high-frequency pass.
+                    val sweep = triangularWindow(t, V141_UNDERLINE_START_SECONDS, 4.08, 4.24)
+                    val sweepTone = (
+                        sin(2.0 * PI * 760.0 * t) +
+                            0.45 * sin(2.0 * PI * 1140.0 * t)
+                        ) * sweep * 0.040
+                    val sweepAir = (random.nextDouble() * 2.0 - 1.0) * sweep * 0.015
+
+                    // 4.20s: the completed BACKLOT mark locks into place with a low tactile hit.
+                    val settleT = (t - V141_SETTLE_START_SECONDS).coerceAtLeast(0.0)
+                    val settleHit = if (t >= V141_SETTLE_START_SECONDS) {
+                        (
+                            sin(2.0 * PI * 74.0 * settleT) +
+                                0.30 * sin(2.0 * PI * 222.0 * settleT)
+                            ) * exp(-settleT * 7.0) * 0.14
+                    } else 0.0
+
+                    // Final resolving chord fades before the five-second visual hand-off.
+                    val resolve = triangularWindow(t, 4.22, 4.42, 4.92)
+                    val resolveChord = (
+                        sin(2.0 * PI * 220.0 * t) +
+                            0.58 * sin(2.0 * PI * 330.0 * t) +
+                            0.34 * sin(2.0 * PI * 440.0 * t)
+                        ) * resolve * 0.030
+
+                    val mix = air + ignitionTone + formationHit + threadTone + threadDust +
+                        sweepTone + sweepAir + settleHit + resolveChord
+                    val sample = (mix.coerceIn(-0.82, 0.82) * Short.MAX_VALUE).toInt()
                     samples[i] = sample.toShort()
                 }
 
@@ -64,10 +112,39 @@ internal object WelcomeSonicIdent {
                     .setBufferSizeInBytes(samples.size * 2)
                     .setTransferMode(AudioTrack.MODE_STATIC)
                     .build()
+
                 track.write(samples, 0, samples.size)
                 track.play()
-                Handler(Looper.getMainLooper()).postDelayed({ runCatching { track.stop() }; track.release() }, 1_250L)
+                Handler(Looper.getMainLooper()).postDelayed(
+                    {
+                        runCatching { track.stop() }
+                        track.release()
+                    },
+                    5_250L,
+                )
             }
-        }, "frame-sonic-ident").start()
+        }, "backlot-sonic-ident").start()
+    }
+
+    private fun triangularWindow(t: Double, start: Double, peak: Double, end: Double): Double = when {
+        t <= start || t >= end -> 0.0
+        t <= peak -> smooth01((t - start) / (peak - start))
+        else -> smooth01((end - t) / (end - peak))
+    }
+
+    private fun broadWindow(t: Double, start: Double, end: Double): Double {
+        if (t <= start || t >= end) return 0.0
+        val attackEnd = start + 0.34
+        val releaseStart = end - 0.42
+        return when {
+            t < attackEnd -> smooth01((t - start) / (attackEnd - start))
+            t > releaseStart -> smooth01((end - t) / (end - releaseStart))
+            else -> 1.0
+        }
+    }
+
+    private fun smooth01(value: Double): Double {
+        val x = value.coerceIn(0.0, 1.0)
+        return x * x * (3.0 - 2.0 * x)
     }
 }
