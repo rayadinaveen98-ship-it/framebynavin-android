@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.cloud.CreatorCloudSyncWorker
 import com.framebynavin.app.data.CreatorBackupManager
-import com.framebynavin.app.data.CreatorDataGate
 import kotlinx.coroutines.withContext
 import androidx.lifecycle.lifecycleScope
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -28,6 +27,7 @@ import com.framebynavin.app.reminders.ReminderHealthScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.ui.V131LaunchGate
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
+import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 import com.framebynavin.app.widget.CreatorWidgetContract
 import com.framebynavin.app.widget.CreatorWidgetLaunch
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
+        VisualExperiencePrefs.initialize(applicationContext)
         // Install the variant-specific Firebase App Check provider before any optional AI request.
         // Debug builds use Firebase's debug provider; release builds use Play Integrity.
         CreatorAppCheck.install(applicationContext)
@@ -52,11 +53,11 @@ class MainActivity : ComponentActivity() {
             FrameByNavinTheme {
                 when {
                     startupReady -> V131LaunchGate(externalLaunch = externalLaunch)
-                    startupError != null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                    startupError != null -> Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
                         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-                            Text("Recovery needs attention", color = Color.White, fontSize = 24.sp)
+                            Text("Recovery needs attention", color = MaterialTheme.colorScheme.onSurface, fontSize = 24.sp)
                             Spacer(Modifier.height(12.dp))
-                            Text(startupError.orEmpty(), color = Color.LightGray, fontSize = 14.sp)
+                            Text(startupError.orEmpty(), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .65f), fontSize = 14.sp)
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = { beginStartup() }) { Text("RETRY RECOVERY") }
                             TextButton(onClick = { startActivity(Intent(this@MainActivity, com.framebynavin.app.ui.BackupActivity::class.java)) }) {
@@ -64,7 +65,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    else -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) { }
+                    else -> Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { }
                 }
             }
         }
@@ -127,6 +128,7 @@ class MainActivity : ComponentActivity() {
             CreatorWidgetContract.ACTION_IDEA_VAULT,
             CreatorWidgetContract.ACTION_OPEN_INSIGHTS,
             CreatorWidgetContract.ACTION_AUTOMATION_CENTER,
+            CreatorWidgetContract.ACTION_OPEN_REMINDERS,
         )
         if (action !in supported) return null
         return CreatorWidgetLaunch(
