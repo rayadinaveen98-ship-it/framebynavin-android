@@ -5,16 +5,13 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.drawLayer
-import androidx.compose.ui.graphics.drawscope.drawWithContent
 import androidx.compose.ui.graphics.layer.GraphicsLayer
-import androidx.compose.ui.graphics.layer.rememberGraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.unit.dp
 import com.framebynavin.app.data.CreatorGuidedTourStep
 
@@ -38,7 +35,7 @@ private fun v137Spot(step: CreatorGuidedTourStep): V137Spot = when (step) {
 @Composable
 internal fun rememberV137GuideLayer(): GraphicsLayer = rememberGraphicsLayer()
 
-/** Capture the sharp screen once, then blur only the normal background rendering while the tour runs. */
+/** Capture the sharp screen, then blur only the normal background while the tour is active. */
 internal fun Modifier.v137GuideCaptureAndBlur(layer: GraphicsLayer, active: Boolean): Modifier {
     val capture = drawWithContent {
         layer.record {
