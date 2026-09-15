@@ -1,0 +1,60 @@
+name: V139 Backlot Theme System
+
+on:
+  push:
+    branches: ["feature/v139-theme-system-finalization"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout v139 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v139-theme-system-finalization
+          fetch-depth: 0
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Verify v139 theme contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 139' app/build.gradle.kts
+          grep -q '2.0.0-rc12-theme-system-finalization' app/build.gradle.kts
+          grep -q 'primary = Color(0xFFE94A45)' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'STUDIO_GOLD' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'STORYBOARD' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'FrameVisualLanguage.GALLERY' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'FrameVisualLanguage.POSTER' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'FrameVisualLanguage.HORIZON' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'widget_bg_studio_gold' app/src/main/java/com/framebynavin/app/widget/CreatorWidgetUpdater.kt
+          grep -q 'widget_bg_storyboard' app/src/main/java/com/framebynavin/app/widget/CreatorWidgetUpdater.kt
+          ! grep -q '\.blur(' app/src/main/java/com/framebynavin/app/ui/V137GuideSpotlight.kt
+      - name: User-facing brand audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/audit_v137_visible_brand.py
+      - name: Unit tests, Kotlin compile and APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Backlot-v139-ThemeSystem.apk
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v139-theme-system
+          path: Backlot-v139-ThemeSystem.apk
+          if-no-files-found: error
+          retention-days: 90
