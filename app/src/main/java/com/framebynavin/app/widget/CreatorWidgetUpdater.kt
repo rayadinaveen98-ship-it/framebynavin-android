@@ -13,6 +13,7 @@ import com.framebynavin.app.R
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskStatus
+import com.framebynavin.app.ui.QuickIdeaActivity
 import com.framebynavin.app.ui.theme.FrameTheme
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 import java.text.SimpleDateFormat
@@ -197,13 +198,15 @@ object CreatorWidgetUpdater {
 
     private fun themeBackground(): Int = when (VisualExperiencePrefs.currentTheme) {
         FrameTheme.DIRECTORS_CUT -> R.drawable.widget_bg_directors
+        FrameTheme.STUDIO_GOLD -> R.drawable.widget_bg_studio_gold
         FrameTheme.MIDNIGHT -> R.drawable.widget_bg_midnight
-        FrameTheme.EMBER -> R.drawable.widget_bg_ember
-        FrameTheme.VIOLET_NEON -> R.drawable.widget_bg_violet
         FrameTheme.LUMEN_FLOW -> R.drawable.widget_bg_lumen
-        FrameTheme.AURORA_GLASS -> R.drawable.widget_bg_aurora
         FrameTheme.PAPER_QUIET -> R.drawable.widget_bg_paper
         FrameTheme.MOSS_STUDIO -> R.drawable.widget_bg_moss
+        FrameTheme.EMBER -> R.drawable.widget_bg_ember
+        FrameTheme.VIOLET_NEON -> R.drawable.widget_bg_violet
+        FrameTheme.AURORA_GLASS -> R.drawable.widget_bg_aurora
+        FrameTheme.STORYBOARD -> R.drawable.widget_bg_storyboard
     }
 
     private fun activeTasks(tasks: List<CreatorTask>): List<CreatorTask> = tasks
