@@ -1,9 +1,11 @@
-- [ ] Theme runtime and five palettes
-- [ ] Settings appearance picker + launch sound toggle
-- [ ] Premium 2D guided first run
-- [ ] RMS-responsive voice orb
-- [ ] Dedicated widget suite
-- [ ] Stage completion and reward motion
-- [ ] Cinematic welcome stripe/glow/sound refinement
-- [ ] Unit/contract tests
-- [ ] Debug APK
+- [x] Theme runtime and five palettes
+- [x] Settings appearance picker + launch sound toggle
+- [x] Premium 2D guided first run
+- [x] RMS-responsive voice orb
+- [x] Dedicated widget suite
+- [x] Stage completion and reward motion
+- [x] Cinematic welcome stripe/glow/sound refinement
+- [x] Unit/contract tests
+- [x] Debug APK
+
+Validated by GitHub Actions run `34927435015` on 2026-09-15. Unit tests, Kotlin compile, contract checks and installable debug APK build all passed.
