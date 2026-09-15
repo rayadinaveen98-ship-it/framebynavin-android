@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +35,7 @@ class QuickIdeaActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        VisualExperiencePrefs.initialize(applicationContext)
         setContent {
             FrameByNavinTheme {
                 QuickIdeaScreen(onClose = ::finish)
@@ -59,21 +59,21 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .imePadding()
-                .padding(22.dp),
+                .padding(BacklotPagePadding),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("BACKLOT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                    Text("Quick Idea", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                    Text("Quick Idea", color = ProjectorIvory, style = MaterialTheme.typography.headlineLarge)
                 }
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory) }
             }
 
-            Spacer(Modifier.height(22.dp))
-            Text("Catch it before it disappears.", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(BacklotSectionGap))
+            Text("Catch it before it disappears.", color = ProjectorIvory, style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(6.dp))
-            Text("Type it or say it. It lands in Idea Vault and you can shape it later.", color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
-            Spacer(Modifier.height(16.dp))
+            Text("Type it or say it. It lands in Idea Vault and you can shape it later.", color = MutedText, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(BacklotSectionGap))
 
             OutlinedTextField(
                 value = title,
@@ -89,7 +89,7 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
                     unfocusedBorderColor = CinemaLine,
                     cursorColor = RecRed,
                 ),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(BacklotCardRadius),
             )
 
             Spacer(Modifier.height(10.dp))
@@ -99,7 +99,7 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
 
             saveError?.let { error ->
                 Spacer(Modifier.height(8.dp))
-                Text(error, color = RecRed, fontSize = 11.sp)
+                Text(error, color = RecRed, style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.weight(1f))
             Button(
@@ -126,10 +126,15 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
                 },
                 enabled = title.isNotBlank() && !saving,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RecRed, disabledContainerColor = Color(0xFF402424)),
-                shape = RoundedCornerShape(17.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RecRed,
+                    disabledContainerColor = RecRedDeep,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = .55f),
+                ),
+                shape = RoundedCornerShape(BacklotButtonRadius),
             ) {
-                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
+                if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 else Text("SAVE IDEA", fontSize = 10.sp, fontWeight = FontWeight.Black)
             }
         }
