@@ -28,12 +28,23 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.max
 
+internal val V20NewProjectSupportPlans: List<ProjectAttentionPlan> = ProjectAttentionPlan.entries
+internal val V20NewProjectReminderStyles: List<ReminderDeliveryPreference> = ReminderDeliveryPreference.entries
+
+internal fun v20NewProjectSupportReady(
+    plan: ProjectAttentionPlan,
+    reminderAtMillis: Long,
+    dueAtMillis: Long,
+    nowMillis: Long,
+): Boolean = plan != ProjectAttentionPlan.CUSTOM ||
+    (reminderAtMillis > nowMillis && reminderAtMillis <= dueAtMillis)
+
 /**
- * New Project V2.1
+ * New Project V2.2
  *
- * This intentionally stays on ONE scrollable surface. We progressively reveal the next decision
- * only after the creator finishes the current one. Completed decisions collapse to compact,
- * editable summaries instead of becoming seven separate pages.
+ * The complete project setup remains available during creation. The interaction is progressive:
+ * one decision is active at a time, completed decisions collapse to editable summaries, and the
+ * next card is revealed only after the current required choice is valid.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -55,6 +66,17 @@ internal fun V20NewProjectWizard(
     onPickDue: () -> Unit,
     attentionPlan: ProjectAttentionPlan,
     onAttentionPlanChange: (ProjectAttentionPlan) -> Unit,
+    deliveryPreference: ReminderDeliveryPreference,
+    onDeliveryPreferenceChange: (ReminderDeliveryPreference) -> Unit,
+    customReminderAt: Long,
+    onPickCustomReminder: () -> Unit,
+    priority: TaskPriority,
+    onPriorityChange: (TaskPriority) -> Unit,
+    notes: String,
+    onNotesChange: (String) -> Unit,
+    reminderSetupReady: Boolean,
+    requiresAdvancedPermissions: Boolean,
+    onOpenSettings: () -> Unit,
     onDismiss: () -> Unit,
     onCreate: () -> Unit,
 ) {
@@ -97,14 +119,18 @@ internal fun V20NewProjectWizard(
         }
     }
 
-    val basicAttentionPlan = attentionPlan in setOf(
-        ProjectAttentionPlan.OFF,
-        ProjectAttentionPlan.LIGHT,
-        ProjectAttentionPlan.GUIDED,
-    )
+    val customReady = v20NewProjectSupportReady(attentionPlan, customReminderAt, dueAt, now)
+    val supportReady = customReady
     val allReady = title.isNotBlank() && archetypeId.isNotBlank() && platform.isNotBlank() &&
-        contentType.isNotBlank() && dueAt > now && basicAttentionPlan
+        contentType.isNotBlank() && dueAt > now && supportReady
     val progress = ((revealedStage + 1).coerceIn(1, 7)) / 7f
+    val supportSummary = buildString {
+        append(ProjectPulseEngine.planLabel(attentionPlan))
+        if (attentionPlan != ProjectAttentionPlan.OFF) {
+            append(" · ")
+            append(pDeliveryPreferenceLabel(deliveryPreference))
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -119,8 +145,7 @@ internal fun V20NewProjectWizard(
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
                         Text("NEW PROJECT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                        Text("Build it one decision at a time", color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
-                        Text("Everything stays on this page.", color = MutedText, fontSize = 8.7.sp)
+                        Text("Create project", color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
                     }
                     Surface(
                         shape = RoundedCornerShape(100.dp),
@@ -148,7 +173,6 @@ internal fun V20NewProjectWizard(
                         .padding(horizontal = 20.dp, vertical = 18.dp)
                         .padding(bottom = 30.dp),
                 ) {
-                    // 1 · Project name
                     V20ProgressiveSection(
                         index = 0,
                         label = "PROJECT NAME",
@@ -158,13 +182,11 @@ internal fun V20NewProjectWizard(
                         revealed = true,
                         onEdit = { activeStage = 0 },
                     ) {
-                        Text("Start with the name. We’ll reveal the next choice when you’re ready.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                        Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value = title,
                             onValueChange = onTitleChange,
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("e.g. OG universe analysis") },
+                            placeholder = { Text("Project title") },
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                         )
@@ -172,7 +194,6 @@ internal fun V20NewProjectWizard(
                         V20InlineContinue("CHOOSE PROJECT TYPE", title.isNotBlank()) { revealNext(0) }
                     }
 
-                    // 2 · Type + creator mode/style
                     V20ProgressiveSection(
                         index = 1,
                         label = "CONTENT TYPE",
@@ -182,8 +203,6 @@ internal fun V20NewProjectWizard(
                         revealed = revealedStage >= 1,
                         onEdit = { activeStage = 1 },
                     ) {
-                        Text("Recommended from your creator setup. You can still choose something different.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                        Spacer(Modifier.height(12.dp))
                         V20WizardSummaryChip("CREATOR MODE", CreatorModeRegistry.definition(creatorModeId).label)
                         Spacer(Modifier.height(10.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -228,7 +247,7 @@ internal fun V20NewProjectWizard(
                                 Column(Modifier.weight(1f)) {
                                     Text("CREATIVE STYLE", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                     Text(
-                                        productionStyles.takeIf { it.isNotEmpty() }?.joinToString() ?: "Using your setup default",
+                                        productionStyles.takeIf { it.isNotEmpty() }?.joinToString() ?: "Using setup default",
                                         color = MutedText,
                                         fontSize = 8.sp,
                                         maxLines = 2,
@@ -262,7 +281,6 @@ internal fun V20NewProjectWizard(
                         V20InlineContinue("CHOOSE PLATFORM", archetypeId.isNotBlank()) { revealNext(1) }
                     }
 
-                    // 3 · Platform
                     V20ProgressiveSection(
                         index = 2,
                         label = "PLATFORM",
@@ -272,8 +290,6 @@ internal fun V20NewProjectWizard(
                         revealed = revealedStage >= 2,
                         onEdit = { activeStage = 2 },
                     ) {
-                        Text("Your usual platforms appear first.", color = MutedText, fontSize = 10.sp)
-                        Spacer(Modifier.height(10.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             platformOptions.forEach { value ->
                                 FilterChip(selected = platform == value, onClick = { onPlatformChange(value) }, label = { Text(value, fontSize = 9.3.sp) })
@@ -285,7 +301,6 @@ internal fun V20NewProjectWizard(
                         V20InlineContinue("CHOOSE FORMAT", platform.isNotBlank()) { revealNext(2) }
                     }
 
-                    // 4 · Format
                     V20ProgressiveSection(
                         index = 3,
                         label = "FORMAT",
@@ -295,8 +310,6 @@ internal fun V20NewProjectWizard(
                         revealed = revealedStage >= 3,
                         onEdit = { activeStage = 3 },
                     ) {
-                        Text("Only formats supported by $platform are shown.", color = MutedText, fontSize = 10.sp)
-                        Spacer(Modifier.height(10.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             formatOptions.forEach { value ->
                                 FilterChip(selected = contentType == value, onClick = { onContentTypeChange(value) }, label = { Text(value, fontSize = 9.3.sp) })
@@ -306,7 +319,6 @@ internal fun V20NewProjectWizard(
                         V20InlineContinue("SET DEADLINE", contentType.isNotBlank()) { revealNext(3) }
                     }
 
-                    // 5 · Deadline
                     V20ProgressiveSection(
                         index = 4,
                         label = "DEADLINE",
@@ -316,8 +328,6 @@ internal fun V20NewProjectWizard(
                         revealed = revealedStage >= 4,
                         onEdit = { activeStage = 4 },
                     ) {
-                        Text("Set the publish/deadline target. You can adjust it later.", color = MutedText, fontSize = 10.sp)
-                        Spacer(Modifier.height(11.dp))
                         Surface(
                             onClick = onPickDue,
                             modifier = Modifier.fillMaxWidth(),
@@ -336,30 +346,87 @@ internal fun V20NewProjectWizard(
                         V20InlineContinue("CHOOSE SUPPORT", dueAt > now) { revealNext(4) }
                     }
 
-                    // 6 · Support
                     V20ProgressiveSection(
                         index = 5,
                         label = "PROJECT SUPPORT",
                         title = "How much help should FrameByNavin give?",
-                        summary = ProjectPulseEngine.planLabel(attentionPlan),
+                        summary = supportSummary,
                         active = activeStage == 5,
                         revealed = revealedStage >= 5,
                         onEdit = { activeStage = 5 },
                     ) {
-                        Text("Advanced reminder controls stay available in Edit Project later.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                        Spacer(Modifier.height(10.dp))
-                        listOf(ProjectAttentionPlan.OFF, ProjectAttentionPlan.LIGHT, ProjectAttentionPlan.GUIDED).forEach { plan ->
+                        V20NewProjectSupportPlans.forEach { plan ->
                             V20WizardAttentionCard(plan, selected = attentionPlan == plan) { onAttentionPlanChange(plan) }
                             Spacer(Modifier.height(8.dp))
                         }
-                        if (attentionPlan == ProjectAttentionPlan.GUIDED) {
-                            Text("Recommended · adapts check-ins as the project moves through stages.", color = MutedGold, fontSize = 8.3.sp, lineHeight = 12.sp)
-                            Spacer(Modifier.height(8.dp))
+
+                        if (attentionPlan != ProjectAttentionPlan.OFF) {
+                            Spacer(Modifier.height(4.dp))
+                            V20FieldLabel("REMINDER STYLE")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                V20NewProjectReminderStyles.forEach { value ->
+                                    FilterChip(
+                                        selected = deliveryPreference == value,
+                                        onClick = { onDeliveryPreferenceChange(value) },
+                                        label = { Text(pDeliveryPreferenceLabel(value), fontSize = 9.sp) },
+                                    )
+                                }
+                            }
                         }
-                        V20InlineContinue("REVIEW PROJECT", basicAttentionPlan) { revealNext(5) }
+
+                        if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                            Spacer(Modifier.height(14.dp))
+                            V20FieldLabel("REMINDER TIME")
+                            V20DateTimeButton(v20WizardDateTime(customReminderAt), onPickCustomReminder)
+                            Spacer(Modifier.height(12.dp))
+                            V20FieldLabel("IMPORTANCE")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                TaskPriority.entries.forEach { value ->
+                                    FilterChip(
+                                        selected = priority == value,
+                                        onClick = { onPriorityChange(value) },
+                                        label = { Text(pPriorityLabel(value), fontSize = 9.sp) },
+                                    )
+                                }
+                            }
+                            if (!customReady) {
+                                Spacer(Modifier.height(6.dp))
+                                Text("Choose a reminder between now and the deadline.", color = RecRed, fontSize = 8.5.sp)
+                            }
+                        }
+
+                        if (requiresAdvancedPermissions && !reminderSetupReady) {
+                            Spacer(Modifier.height(12.dp))
+                            Surface(
+                                onClick = onOpenSettings,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color(0xFF17130F),
+                                border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f)),
+                            ) {
+                                Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Outlined.Settings, null, tint = MutedGold, modifier = Modifier.size(17.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Finish reminder setup", color = ProjectorIvory, fontSize = 9.5.sp, modifier = Modifier.weight(1f))
+                                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+                        V20FieldLabel("NOTES · OPTIONAL")
+                        OutlinedTextField(
+                            value = notes,
+                            onValueChange = onNotesChange,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 82.dp),
+                            placeholder = { Text("Angle, reference, anything worth remembering…") },
+                            shape = RoundedCornerShape(16.dp),
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+                        V20InlineContinue("REVIEW PROJECT", supportReady) { revealNext(5) }
                     }
 
-                    // 7 · Review + create
                     V20ProgressiveSection(
                         index = 6,
                         label = "REVIEW",
@@ -369,17 +436,22 @@ internal fun V20NewProjectWizard(
                         revealed = revealedStage >= 6,
                         onEdit = { activeStage = 6 },
                     ) {
-                        Text("Everything stays editable. Create opens the real project workspace immediately.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
-                        Spacer(Modifier.height(12.dp))
                         V20WizardReviewRow("PROJECT", title) { activeStage = 0 }
                         V20WizardReviewRow("TYPE", chosenTypeLabel) { activeStage = 1 }
                         V20WizardReviewRow("PLATFORM", platform) { activeStage = 2 }
                         V20WizardReviewRow("FORMAT", contentType) { activeStage = 3 }
                         V20WizardReviewRow("PUBLISH BY", v20WizardDateTime(dueAt)) { activeStage = 4 }
-                        V20WizardReviewRow("SUPPORT", ProjectPulseEngine.planLabel(attentionPlan)) { activeStage = 5 }
+                        V20WizardReviewRow("SUPPORT", supportSummary) { activeStage = 5 }
+                        if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                            V20WizardReviewRow("REMINDER", v20WizardDateTime(customReminderAt)) { activeStage = 5 }
+                            V20WizardReviewRow("IMPORTANCE", pPriorityLabel(priority)) { activeStage = 5 }
+                        }
+                        if (notes.isNotBlank()) {
+                            V20WizardReviewRow("NOTES", notes) { activeStage = 5 }
+                        }
                         if (productionStyles.isNotEmpty()) {
                             Spacer(Modifier.height(4.dp))
-                            Text("Creative setup · ${productionStyles.joinToString()}", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
+                            Text("Creative style · ${productionStyles.joinToString()}", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
                         }
                         Spacer(Modifier.height(14.dp))
                         Button(
@@ -479,6 +551,26 @@ private fun V20InlineContinue(label: String, enabled: Boolean, onClick: () -> Un
 }
 
 @Composable
+private fun V20FieldLabel(text: String) {
+    Text(text, color = MutedGold, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp, modifier = Modifier.padding(bottom = 7.dp))
+}
+
+@Composable
+private fun V20DateTimeButton(label: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(50.dp),
+        border = BorderStroke(1.dp, CinemaLine),
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Icon(Icons.Outlined.Schedule, null, tint = MutedGold, modifier = Modifier.size(17.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, color = ProjectorIvory, modifier = Modifier.weight(1f))
+        Text("CHANGE", color = RecRed, fontSize = 8.sp)
+    }
+}
+
+@Composable
 private fun V20WizardSummaryChip(label: String, value: String) {
     Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .10f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .22f))) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -504,7 +596,13 @@ private fun V20WizardReviewRow(label: String, value: String, onClick: () -> Unit
 
 @Composable
 private fun V20WizardAttentionCard(plan: ProjectAttentionPlan, selected: Boolean, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = if (selected) RecRed.copy(alpha = .10f) else CinemaSurface, border = BorderStroke(1.dp, if (selected) RecRed.copy(alpha = .75f) else CinemaLine)) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) RecRed.copy(alpha = .10f) else CinemaSurface,
+        border = BorderStroke(1.dp, if (selected) RecRed.copy(alpha = .75f) else CinemaLine),
+    ) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 when (plan) {

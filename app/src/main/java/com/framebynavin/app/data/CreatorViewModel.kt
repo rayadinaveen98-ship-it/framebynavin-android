@@ -326,6 +326,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 voiceEnabled = internalVoice,
                 smartEscalationEnabled = internalSmart,
                 reminderMode = reminderMode,
+                deliveryPreference = deliveryPreference,
                 voicePersona = voicePersona,
                 voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
                 voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),

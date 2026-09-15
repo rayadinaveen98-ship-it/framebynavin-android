@@ -331,6 +331,19 @@ internal fun PProjectComposer(
             },
             attentionPlan = attentionPlan,
             onAttentionPlanChange = { attentionPlan = it },
+            deliveryPreference = deliveryPreference,
+            onDeliveryPreferenceChange = { deliveryPreference = it },
+            customReminderAt = customReminderAt,
+            onPickCustomReminder = {
+                pickDateTime(customReminderAt) { picked -> customReminderAt = picked }
+            },
+            priority = priority,
+            onPriorityChange = { priority = it },
+            notes = notes,
+            onNotesChange = { notes = it },
+            reminderSetupReady = reminderSetupReady,
+            requiresAdvancedPermissions = requiresAdvancedPermissions,
+            onOpenSettings = onOpenSettings,
             onDismiss = onDismiss,
             onCreate = {
                 onSave(
@@ -348,9 +361,9 @@ internal fun PProjectComposer(
                         ).normalized(),
                         dueAtMillis = dueAt,
                         attentionPlan = attentionPlan,
-                        mode = ReminderMode.NONE,
-                        reminderAtMillis = 0L,
-                        deliveryPreference = ReminderDeliveryPreference.AUTO,
+                        mode = if (attentionPlan == ProjectAttentionPlan.CUSTOM) pDeliveryMode(deliveryPreference) else ReminderMode.NONE,
+                        reminderAtMillis = if (attentionPlan == ProjectAttentionPlan.CUSTOM) customReminderAt else 0L,
+                        deliveryPreference = deliveryPreference,
                         priority = priority,
                         notes = notes.trim(),
                         alarmSoundUri = soundUri,
