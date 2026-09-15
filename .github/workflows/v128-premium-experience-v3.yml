@@ -1,0 +1,91 @@
+name: V128 Premium Experience V3
+
+on:
+  push:
+    branches:
+      - "feature/v128-premium-experience-v3"
+    paths:
+      - ".github/workflows/v128-premium-experience-v3.yml"
+      - "scripts/apply_v128_premium_experience.py"
+      - "docs/visual-experience/V128_PREMIUM_EXPERIENCE_V3_SPEC.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v128-premium-experience-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout v128 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v128-premium-experience-v3
+          fetch-depth: 0
+
+      - name: Apply v128 premium integration patch
+        run: python3 scripts/apply_v128_premium_experience.py
+
+      - name: Verify v128 product contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 128' app/build.gradle.kts
+          grep -q '2.0.0-rc4-premium-experience-v3' app/build.gradle.kts
+          grep -q 'delay(5_000L)' app/src/main/java/com/framebynavin/app/ui/V131LaunchGate.kt
+          grep -q 'V20_WELCOME_STRIPE_COUNT = 30' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          grep -q 'fontSize = 27.6.sp' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          ! grep -q 'val centerX = size.width / 2f' app/src/main/java/com/framebynavin/app/ui/V174CinematicWelcome.kt
+          grep -q 'WEEKLY TARGET' app/src/main/java/com/framebynavin/app/ui/V18CreatorOnboarding.kt
+          ! grep -q 'Your primary mode sets smart defaults' app/src/main/java/com/framebynavin/app/ui/V18CreatorOnboarding.kt
+          ! grep -q 'Platforms define delivery formats' app/src/main/java/com/framebynavin/app/ui/V18CreatorOnboarding.kt
+          grep -q 'SpotlightSpec' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+          grep -q 'BlendMode.Clear' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
+          grep -q 'AURORA_GLASS' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'FrameSurfacePersonality.GLASS' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'voiceAmplitudeV2' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          grep -q 'recommendedTypes.take(4)' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'BROWSE ALL TYPES' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'ProjectAttentionPlan.URGENT' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'ProjectAttentionPlan.CUSTOM' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'NOTES · OPTIONAL' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Unit tests, Kotlin compile and APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+
+      - name: Commit validated v128 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "FrameByNavin CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/build.gradle.kts app/src/main/java/com/framebynavin/app/ui
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(v128): integrate Premium Experience V3"
+            git push origin HEAD:feature/v128-premium-experience-v3
+          fi
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v128-premium-experience-v3
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 90
