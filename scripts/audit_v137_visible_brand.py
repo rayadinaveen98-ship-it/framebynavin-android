@@ -4,7 +4,7 @@ import re
 ROOT = Path('app/src/main')
 # Technical identifiers are intentionally allowed when they are not user-facing strings.
 STRING_PATTERNS = [
-    re.compile(r'"[^"\n]*(?:FrameByNavin|Frame by Navin|FRAME BY NAVIN)[^"\n]*"'),
+    re.compile(r'"[^"\n]*(?:FrameByNavin|Frame by Navin|Frame By Navin|FRAMEBYNAVIN|FRAME BY NAVIN)[^"\n]*"'),
 ]
 ALLOW = {
     'FrameByNavinCloudBackup',
@@ -22,7 +22,7 @@ for path in ROOT.rglob('*'):
             for match in pattern.findall(line):
                 if any(token in match for token in ALLOW):
                     continue
-                # Ignore source/class/resource identifiers that only appear in code references.
+                # Internal Android style names are update-compatibility identifiers, not visible copy.
                 if 'Theme.FrameByNavin' in match:
                     continue
                 violations.append(f'{path}:{lineno}: {match}')
