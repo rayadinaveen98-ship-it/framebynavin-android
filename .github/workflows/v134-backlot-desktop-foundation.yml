@@ -43,9 +43,27 @@ jobs:
         with:
           gradle-version: "9.7.1"
 
-      - name: Test, compile and package Windows desktop app
+      - name: Test, compile and build Windows packages
         working-directory: desktop
-        run: gradle clean test compileKotlin packageMsi packageExe --stacktrace
+        run: gradle clean test compileKotlin createDistributable packageMsi packageExe --stacktrace
+
+      - name: Validate native app image
+        shell: pwsh
+        run: |
+          $exe = "desktop/build/compose/binaries/main/app/Backlot/Backlot.exe"
+          if (!(Test-Path $exe)) { throw "Portable Backlot executable was not created: $exe" }
+          $size = (Get-Item $exe).Length
+          if ($size -lt 1024) { throw "Portable Backlot executable looks invalid ($size bytes)" }
+          Write-Host "Portable Backlot launcher: $exe ($size bytes)"
+
+      - name: Build portable ZIP
+        shell: pwsh
+        run: |
+          $appDir = "desktop/build/compose/binaries/main/app/Backlot"
+          $zip = "desktop/build/compose/binaries/main/Backlot-0.1.1-Portable-Windows.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path $appDir -DestinationPath $zip -CompressionLevel Optimal
+          Write-Host "Portable package: $zip"
 
       - name: List Windows packages
         shell: pwsh
@@ -55,10 +73,18 @@ jobs:
       - name: Upload Backlot Windows installers
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v134-Windows-Desktop
+          name: Backlot-v134.1-Windows-Installers
           path: |
             desktop/build/compose/binaries/main/msi/*.msi
             desktop/build/compose/binaries/main/exe/*.exe
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload Backlot portable Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v134.1-Windows-Portable
+          path: desktop/build/compose/binaries/main/Backlot-0.1.1-Portable-Windows.zip
           if-no-files-found: error
           retention-days: 90
 
@@ -66,7 +92,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v134-Desktop-Test-Report
+          name: Backlot-v134.1-Desktop-Test-Report
           path: desktop/build/reports/tests/test/**
           if-no-files-found: ignore
           retention-days: 30
