@@ -1,5 +1,7 @@
 package com.backlot.desktop
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,9 +24,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -39,8 +40,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,26 +60,30 @@ import com.backlot.desktop.model.Idea
 import com.backlot.desktop.model.ProjectStage
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-private val BacklotNight = Color(0xFF070A0F)
-private val BacklotPanel = Color(0xFF10151D)
-private val BacklotPanelRaised = Color(0xFF151C26)
-private val BacklotBorder = Color(0xFF253040)
-private val BacklotGold = Color(0xFFF0B35D)
-private val BacklotBlue = Color(0xFF72AFFF)
-private val BacklotIvory = Color(0xFFF5F1E8)
-private val BacklotMuted = Color(0xFF8E9AAA)
-private val BacklotGreen = Color(0xFF73D2A6)
+private val CinemaBlack = Color(0xFF070707)
+private val CinemaSurface = Color(0xFF101010)
+private val CinemaSurfaceRaised = Color(0xFF151515)
+private val CinemaLine = Color(0xFF292929)
+private val ProjectorIvory = Color(0xFFF3EFE7)
+private val MutedText = Color(0xFF918C85)
+private val RecRed = Color(0xFFFF3D3D)
+private val RecRedDeep = Color(0xFF311010)
+private val MutedGold = Color(0xFFD8B56B)
+private val SuccessGreen = Color(0xFF6BAF83)
+private val CoolBlue = Color(0xFF4B86C6)
 
 private val backlotColors = darkColorScheme(
-    primary = BacklotGold,
-    secondary = BacklotBlue,
-    background = BacklotNight,
-    surface = BacklotPanel,
-    surfaceVariant = BacklotPanelRaised,
-    onPrimary = Color(0xFF1A1208),
-    onBackground = BacklotIvory,
-    onSurface = BacklotIvory,
+    primary = RecRed,
+    secondary = MutedGold,
+    background = CinemaBlack,
+    surface = CinemaSurface,
+    surfaceVariant = CinemaSurfaceRaised,
+    outline = CinemaLine,
+    onPrimary = ProjectorIvory,
+    onBackground = ProjectorIvory,
+    onSurface = ProjectorIvory,
 )
 
 @Composable
@@ -85,58 +96,46 @@ fun BacklotDesktopApp() {
     var destination by remember { mutableStateOf(DesktopDestination.TODAY) }
     var showIdeaCapture by remember { mutableStateOf(false) }
     var showProjectCapture by remember { mutableStateOf(false) }
+    var showControl by remember { mutableStateOf(false) }
 
     fun persist() {
         store.save(DesktopSnapshot(ideas = ideas.toList(), projects = projects.toList()))
     }
 
+    fun advanceProject(id: String) {
+        val index = projects.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            projects[index] = projects[index].advance()
+            persist()
+        }
+    }
+
     MaterialTheme(colorScheme = backlotColors) {
-        Surface(modifier = Modifier.fillMaxSize(), color = BacklotNight) {
-            Row(Modifier.fillMaxSize()) {
-                BacklotSidebar(
-                    destination = destination,
-                    onDestination = { destination = it },
-                    onQuickIdea = { showIdeaCapture = true },
+        Box(Modifier.fillMaxSize().background(CinemaBlack)) {
+            BacklotBackdrop(Modifier.matchParentSize())
+
+            Column(Modifier.fillMaxSize()) {
+                DesktopBrandHeader(
+                    projects = projects,
+                    onCaptureIdea = { showIdeaCapture = true },
+                    onNewProject = { showProjectCapture = true },
                 )
 
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .fillMaxHeight()
-                        .background(BacklotBorder),
-                )
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFF0A0E14), BacklotNight),
-                            )
-                        ),
-                ) {
-                    BacklotTopBar(
-                        destination = destination,
-                        onNewIdea = { showIdeaCapture = true },
-                        onNewProject = { showProjectCapture = true },
-                    )
-
+                Box(Modifier.weight(1f).fillMaxWidth()) {
                     when (destination) {
-                        DesktopDestination.TODAY -> TodayPage(
+                        DesktopDestination.TODAY -> TodayControlRoom(
                             ideas = ideas,
                             projects = projects,
                             onNewIdea = { showIdeaCapture = true },
                             onNewProject = { showProjectCapture = true },
-                            onAdvanceProject = { id ->
-                                val index = projects.indexOfFirst { it.id == id }
-                                if (index >= 0) {
-                                    projects[index] = projects[index].advance()
-                                    persist()
-                                }
-                            },
+                            onAdvanceProject = ::advanceProject,
+                            onOpenIdeas = { destination = DesktopDestination.IDEAS },
+                            onOpenCreate = { destination = DesktopDestination.PROJECTS },
+                            onOpenCalendar = { destination = DesktopDestination.CALENDAR },
+                            onOpenInsights = { destination = DesktopDestination.INSIGHTS },
                         )
 
-                        DesktopDestination.IDEAS -> IdeasPage(
+                        DesktopDestination.IDEAS -> IdeaVaultRoom(
                             ideas = ideas,
                             onNewIdea = { showIdeaCapture = true },
                             onPromote = { idea ->
@@ -147,24 +146,39 @@ fun BacklotDesktopApp() {
                                 )
                                 ideas.removeAll { it.id == idea.id }
                                 persist()
+                                destination = DesktopDestination.PROJECTS
                             },
                         )
 
-                        DesktopDestination.PROJECTS -> ProjectsPage(
+                        DesktopDestination.PROJECTS -> StudioRoom(
                             projects = projects,
                             onNewProject = { showProjectCapture = true },
-                            onAdvanceProject = { id ->
-                                val index = projects.indexOfFirst { it.id == id }
-                                if (index >= 0) {
-                                    projects[index] = projects[index].advance()
-                                    persist()
-                                }
-                            },
+                            onAdvanceProject = ::advanceProject,
                         )
 
-                        DesktopDestination.CALENDAR -> CalendarPage(projects)
-                        DesktopDestination.INSIGHTS -> InsightsPage(ideas, projects)
+                        DesktopDestination.CALENDAR -> CalendarRoom(projects)
+                        DesktopDestination.INSIGHTS -> InsightsRoom(ideas, projects)
                     }
+                }
+
+                CreatorDock(
+                    selected = destination,
+                    onSelect = { destination = it },
+                    onCapture = { showProjectCapture = true },
+                )
+            }
+
+            Surface(
+                onClick = { showControl = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 28.dp),
+                shape = RoundedCornerShape(18.dp),
+                color = RecRed,
+                shadowElevation = 12.dp,
+            ) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("◫", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.width(7.dp))
+                    Text("CONTROL", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
                 }
             }
         }
@@ -194,695 +208,1120 @@ fun BacklotDesktopApp() {
                 },
             )
         }
-    }
-}
 
-@Composable
-private fun BacklotSidebar(
-    destination: DesktopDestination,
-    onDestination: (DesktopDestination) -> Unit,
-    onQuickIdea: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .width(248.dp)
-            .fillMaxHeight()
-            .background(Color(0xFF090D13))
-            .padding(horizontal = 18.dp, vertical = 22.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .width(38.dp)
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(
-                        Brush.linearGradient(listOf(BacklotGold, Color(0xFFD47729)))
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("B", color = Color(0xFF171008), fontWeight = FontWeight.Black, fontSize = 21.sp)
-            }
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text("BACKLOT", color = BacklotIvory, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                Text("CREATE WHAT'S NEXT", color = BacklotGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        Spacer(Modifier.height(30.dp))
-        Text("WORKSPACE", color = BacklotMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-
-        DesktopDestination.entries.forEach { item ->
-            SidebarItem(
-                label = item.label,
-                selected = destination == item,
-                onClick = { onDestination(item) },
+        if (showControl) {
+            ControlRoomDialog(
+                onDismiss = { showControl = false },
+                onIdea = { showControl = false; showIdeaCapture = true },
+                onProject = { showControl = false; showProjectCapture = true },
+                onCalendar = { showControl = false; destination = DesktopDestination.CALENDAR },
+                onInsights = { showControl = false; destination = DesktopDestination.INSIGHTS },
             )
         }
-
-        Spacer(Modifier.height(18.dp))
-        Button(
-            onClick = onQuickIdea,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = BacklotGold, contentColor = Color(0xFF171008)),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Text("+  QUICK IDEA", fontWeight = FontWeight.Black, fontSize = 12.sp)
-        }
-
-        Spacer(Modifier.weight(1f))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(BacklotPanel)
-                .padding(14.dp),
-        ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier
-                            .width(8.dp)
-                            .height(8.dp)
-                            .clip(CircleShape)
-                            .background(BacklotGreen)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("LOCAL-FIRST", color = BacklotIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Your desktop workspace is saved privately on this computer.",
-                    color = BacklotMuted,
-                    fontSize = 10.sp,
-                    lineHeight = 15.sp,
-                )
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        Text("Desktop v0.1 · Backlot v134", color = Color(0xFF596475), fontSize = 9.sp)
     }
 }
 
 @Composable
-private fun SidebarItem(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(11.dp))
-            .background(if (selected) Color(0xFF18202B) else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier
-                .width(6.dp)
-                .height(6.dp)
-                .clip(CircleShape)
-                .background(if (selected) BacklotGold else Color(0xFF465264))
+private fun BacklotBackdrop(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        drawRect(
+            Brush.verticalGradient(
+                listOf(Color(0xFF080808), CinemaBlack, Color(0xFF050505)),
+            )
         )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            label,
-            color = if (selected) BacklotIvory else BacklotMuted,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            fontSize = 13.sp,
+        drawCircle(
+            Brush.radialGradient(
+                listOf(RecRed.copy(alpha = .12f), RecRedDeep.copy(alpha = .07f), Color.Transparent),
+                center = Offset(size.width * .15f, size.height * .08f),
+                radius = size.width * .58f,
+            ),
+            radius = size.width * .58f,
+            center = Offset(size.width * .15f, size.height * .08f),
+        )
+        drawCircle(
+            Brush.radialGradient(
+                listOf(MutedGold.copy(alpha = .045f), Color.Transparent),
+                center = Offset(size.width * .84f, size.height * .86f),
+                radius = size.width * .44f,
+            ),
+            radius = size.width * .44f,
+            center = Offset(size.width * .84f, size.height * .86f),
         )
     }
 }
 
 @Composable
-private fun BacklotTopBar(
-    destination: DesktopDestination,
-    onNewIdea: () -> Unit,
+private fun DesktopBrandHeader(
+    projects: List<CreatorProject>,
+    onCaptureIdea: () -> Unit,
     onNewProject: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(82.dp)
-            .padding(horizontal = 34.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column {
-            Text(destination.label.uppercase(), color = BacklotIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text(
-                LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
-                color = BacklotMuted,
-                fontSize = 11.sp,
-            )
-        }
-        Spacer(Modifier.weight(1f))
-        OutlinedButton(
-            onClick = onNewIdea,
-            shape = RoundedCornerShape(10.dp),
+    val attention = projects.count { project ->
+        project.stage != ProjectStage.PUBLISHED &&
+            project.dueDateOrNull()?.let { !it.isAfter(LocalDate.now()) } == true
+    }
+
+    Surface(color = CinemaBlack.copy(alpha = .94f), border = BorderStroke(0.dp, Color.Transparent)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(94.dp).padding(horizontal = 34.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("CAPTURE IDEA", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-        }
-        Spacer(Modifier.width(10.dp))
-        Button(
-            onClick = onNewProject,
-            colors = ButtonDefaults.buttonColors(containerColor = BacklotBlue, contentColor = Color(0xFF07101D)),
-            shape = RoundedCornerShape(10.dp),
-        ) {
-            Text("NEW PROJECT", fontWeight = FontWeight.Black, fontSize = 11.sp)
+            BacklotLayerMark(Modifier.size(52.dp))
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text("BACKLOT", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, letterSpacing = 2.2.sp)
+                Text("CREATOR CONTROL ROOM", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    LocalDate.now().format(DateTimeFormatter.ofPattern("EEE · MMM d", Locale.ENGLISH)).uppercase(Locale.ENGLISH),
+                    color = MutedText,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    if (attention == 0) "CLEAR TODAY" else "$attention NEED ATTENTION",
+                    color = if (attention == 0) SuccessGreen else RecRed,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+
+            Spacer(Modifier.width(22.dp))
+            OutlinedButton(
+                onClick = onCaptureIdea,
+                border = BorderStroke(1.dp, CinemaLine),
+                shape = RoundedCornerShape(13.dp),
+            ) {
+                Text("CAPTURE IDEA", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(9.dp))
+            Button(
+                onClick = onNewProject,
+                colors = ButtonDefaults.buttonColors(containerColor = RecRed, contentColor = ProjectorIvory),
+                shape = RoundedCornerShape(13.dp),
+            ) {
+                Text("CREATE PROJECT", fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
         }
     }
-    Box(Modifier.fillMaxWidth().height(1.dp).background(BacklotBorder))
+    Box(Modifier.fillMaxWidth().height(1.dp).background(CinemaLine.copy(alpha = .8f)))
 }
 
 @Composable
-private fun TodayPage(
+private fun TodayControlRoom(
     ideas: List<Idea>,
     projects: List<CreatorProject>,
     onNewIdea: () -> Unit,
     onNewProject: () -> Unit,
     onAdvanceProject: (String) -> Unit,
+    onOpenIdeas: () -> Unit,
+    onOpenCreate: () -> Unit,
+    onOpenCalendar: () -> Unit,
+    onOpenInsights: () -> Unit,
 ) {
     val active = projects.filter { it.stage != ProjectStage.PUBLISHED }
-    val ready = projects.count { it.stage == ProjectStage.READY }
+        .sortedWith(compareBy<CreatorProject> { it.dueDateOrNull() ?: LocalDate.MAX }.thenByDescending { it.updatedAt })
+    val primary = active.firstOrNull()
+    val nextUp = active.drop(1).take(3)
+    val dueToday = active.count { it.dueDateOrNull() == LocalDate.now() }
     val published = projects.count { it.stage == ProjectStage.PUBLISHED }
 
     PageScroll {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(22.dp))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFF171611), Color(0xFF111923), Color(0xFF0D1219))
-                    )
+        Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1.45f)) {
+                TodaysFrame(
+                    project = primary,
+                    onNewProject = onNewProject,
+                    onAdvance = onAdvanceProject,
                 )
-                .padding(28.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("YOUR CREATIVE SPACE", color = BacklotGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Make the next thing move.", color = BacklotIvory, fontSize = 30.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        if (active.isEmpty()) "Start with an idea or create your next project."
-                        else "${active.size} active project${if (active.size == 1) "" else "s"}. Keep one moving forward today.",
-                        color = BacklotMuted,
-                        fontSize = 13.sp,
-                    )
+
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusMetric("ACTIVE", active.size.toString(), Modifier.weight(1f))
+                    StatusMetric("DUE TODAY", dueToday.toString(), Modifier.weight(1f))
+                    StatusMetric("PUBLISHED", published.toString(), Modifier.weight(1f))
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Button(
-                        onClick = onNewProject,
-                        colors = ButtonDefaults.buttonColors(containerColor = BacklotGold, contentColor = Color(0xFF171008)),
-                        shape = RoundedCornerShape(11.dp),
-                    ) {
-                        Text("START A PROJECT", fontWeight = FontWeight.Black)
+
+                if (nextUp.isNotEmpty()) {
+                    Spacer(Modifier.height(24.dp))
+                    SectionLabel("NEXT UP", "Keep the next moves visible, not noisy.")
+                    Spacer(Modifier.height(10.dp))
+                    nextUp.forEach { project ->
+                        CompactNextCard(project, onAdvanceProject)
+                        Spacer(Modifier.height(8.dp))
                     }
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = onNewIdea) { Text("Capture a quick idea") }
                 }
             }
-        }
 
-        Spacer(Modifier.height(20.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard("IDEAS", ideas.size.toString(), "waiting in your vault", Modifier.weight(1f))
-            MetricCard("ACTIVE", active.size.toString(), "projects in motion", Modifier.weight(1f))
-            MetricCard("READY", ready.toString(), "ready to publish", Modifier.weight(1f))
-            MetricCard("PUBLISHED", published.toString(), "finished projects", Modifier.weight(1f))
-        }
+            Column(Modifier.weight(.72f)) {
+                CompanionPanel(
+                    activeCount = active.size,
+                    ideaCount = ideas.size,
+                    onNewIdea = onNewIdea,
+                    onNewProject = onNewProject,
+                )
 
-        Spacer(Modifier.height(26.dp))
-        SectionHeader("IN MOTION", "Your current creator pipeline")
-        Spacer(Modifier.height(12.dp))
-
-        if (active.isEmpty()) {
-            EmptyPanel(
-                title = "Nothing is in motion yet",
-                body = "Create a project and Backlot will keep its stage, deadline and progress visible here.",
-                action = "CREATE PROJECT",
-                onAction = onNewProject,
-            )
-        } else {
-            active.take(6).forEach { project ->
-                ProjectCard(project = project, onAdvance = { onAdvanceProject(project.id) })
+                Spacer(Modifier.height(16.dp))
+                SectionLabel("QUICK CAPTURE", "Move it into the system before it disappears.")
                 Spacer(Modifier.height(10.dp))
+                QuickActionGrid(
+                    onProject = onNewProject,
+                    onIdea = onOpenIdeas,
+                    onCalendar = onOpenCalendar,
+                    onInsights = onOpenInsights,
+                )
+
+                Spacer(Modifier.height(16.dp))
+                MomentumCard(published)
             }
         }
     }
 }
 
 @Composable
-private fun IdeasPage(
+private fun TodaysFrame(
+    project: CreatorProject?,
+    onNewProject: () -> Unit,
+    onAdvance: (String) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        color = CinemaSurface.copy(alpha = .96f),
+        border = BorderStroke(1.dp, CinemaLine),
+        shadowElevation = 8.dp,
+    ) {
+        if (project == null) {
+            Row(Modifier.padding(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("TODAY'S FRAME", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Text("The room is clear.", color = ProjectorIvory, fontSize = 32.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Capture the next story when you're ready.", color = MutedText, fontSize = 12.sp)
+                    Spacer(Modifier.height(18.dp))
+                    Button(
+                        onClick = onNewProject,
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Text("＋  CREATE PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                CinePulseCompanion(Modifier.size(210.dp))
+            }
+        } else {
+            val overdue = project.dueDateOrNull()?.isBefore(LocalDate.now()) == true
+            Column(Modifier.padding(26.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("TODAY'S FRAME", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
+                    Spacer(Modifier.weight(1f))
+                    Surface(
+                        shape = RoundedCornerShape(100.dp),
+                        color = if (overdue) RecRed.copy(alpha = .13f) else CinemaSurfaceRaised,
+                    ) {
+                        Text(
+                            when {
+                                overdue -> "OVERDUE"
+                                project.dueDate.isBlank() -> "NO DEADLINE"
+                                else -> "DUE ${project.dueDate}"
+                            },
+                            color = if (overdue) RecRed else MutedGold,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(13.dp))
+                Text(
+                    project.title,
+                    color = ProjectorIvory,
+                    fontSize = 31.sp,
+                    lineHeight = 36.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (project.note.isNotBlank()) {
+                    Spacer(Modifier.height(5.dp))
+                    Text(project.note, color = MutedText, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Text("CURRENT STEP", color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text(project.stage.label, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(9.dp))
+                ProgressRail(project.stage.progress())
+                Spacer(Modifier.height(8.dp))
+                Text("${(project.stage.progress() * 100).toInt()}% complete", color = MutedText, fontSize = 9.sp)
+
+                Spacer(Modifier.height(17.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = CinemaSurfaceRaised,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("NEXT MOVE", color = RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Text(stageAction(project.stage), color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Button(
+                            onClick = { onAdvance(project.id) },
+                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                            shape = RoundedCornerShape(13.dp),
+                        ) {
+                            Text(if (project.stage == ProjectStage.READY) "PUBLISH" else "MARK STAGE DONE  →", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompanionPanel(
+    activeCount: Int,
+    ideaCount: Int,
+    onNewIdea: () -> Unit,
+    onNewProject: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = CinemaSurface.copy(alpha = .90f),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            CinePulseCompanion(Modifier.size(175.dp))
+            Spacer(Modifier.height(4.dp))
+            Text("CINE PULSE", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
+            Spacer(Modifier.height(5.dp))
+            Text(
+                when {
+                    activeCount > 0 -> "$activeCount project${if (activeCount == 1) "" else "s"} in motion. Keep one moving."
+                    ideaCount > 0 -> "$ideaCount idea${if (ideaCount == 1) " is" else "s are"} waiting for a decision."
+                    else -> "The room is quiet. Capture the next spark."
+                },
+                color = ProjectorIvory,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+            )
+            Spacer(Modifier.height(13.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onNewIdea, modifier = Modifier.weight(1f), border = BorderStroke(1.dp, CinemaLine)) {
+                    Text("IDEA", color = ProjectorIvory, fontSize = 9.sp)
+                }
+                Button(onClick = onNewProject, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = RecRed)) {
+                    Text("PROJECT", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IdeaVaultRoom(
     ideas: List<Idea>,
     onNewIdea: () -> Unit,
     onPromote: (Idea) -> Unit,
 ) {
     PageScroll {
-        SectionHeader("IDEA VAULT", "Capture first. Decide what deserves production later.")
-        Spacer(Modifier.height(16.dp))
+        SectionHero(
+            kicker = "IDEA VAULT",
+            title = "Keep the spark. Decide later.",
+            body = "Hooks, concepts, observations and fragments stay out of the production queue until you choose them.",
+            action = "CAPTURE IDEA",
+            onAction = onNewIdea,
+        )
+        Spacer(Modifier.height(18.dp))
 
         if (ideas.isEmpty()) {
-            EmptyPanel(
-                title = "Your vault is clear",
-                body = "Drop in hooks, video concepts, story fragments or anything worth remembering.",
-                action = "CAPTURE IDEA",
+            EmptyCinematicState(
+                title = "Your vault is clear.",
+                body = "A good idea should never disappear because you were busy.",
+                action = "CAPTURE THE NEXT IDEA",
                 onAction = onNewIdea,
             )
         } else {
-            ideas.forEach { idea ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = BacklotPanel),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(idea.title, color = BacklotIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            if (idea.note.isNotBlank()) {
-                                Spacer(Modifier.height(5.dp))
-                                Text(
-                                    idea.note,
-                                    color = BacklotMuted,
-                                    fontSize = 12.sp,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(16.dp))
-                        OutlinedButton(onClick = { onPromote(idea) }, shape = RoundedCornerShape(10.dp)) {
-                            Text("TURN INTO PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    ideas.forEachIndexed { index, idea ->
+                        IdeaCard(idea, onPromote)
+                        if (index != ideas.lastIndex) Spacer(Modifier.height(10.dp))
                     }
                 }
-                Spacer(Modifier.height(10.dp))
+                Surface(
+                    modifier = Modifier.width(330.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    color = CinemaSurface.copy(alpha = .90f),
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        CinePulseCompanion(Modifier.size(150.dp))
+                        Text("DECIDE WHEN IT'S READY", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Spacer(Modifier.height(7.dp))
+                        Text("Promoting an idea moves it into Research. Nothing gets forced into production.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ProjectsPage(
+private fun StudioRoom(
     projects: List<CreatorProject>,
     onNewProject: () -> Unit,
     onAdvanceProject: (String) -> Unit,
 ) {
-    PageScroll {
-        SectionHeader("PROJECTS", "Every piece of content from first move to published.")
-        Spacer(Modifier.height(16.dp))
+    val active = projects.filter { it.stage != ProjectStage.PUBLISHED }
+    val published = projects.filter { it.stage == ProjectStage.PUBLISHED }
 
-        if (projects.isEmpty()) {
-            EmptyPanel(
-                title = "No projects yet",
-                body = "Start one directly or promote an idea from your Idea Vault.",
-                action = "NEW PROJECT",
+    PageScroll {
+        SectionHero(
+            kicker = "STUDIO",
+            title = "Where the work actually moves.",
+            body = "Every project keeps one visible current step and one clear next move.",
+            action = "NEW PROJECT",
+            onAction = onNewProject,
+        )
+        Spacer(Modifier.height(18.dp))
+
+        if (active.isEmpty()) {
+            EmptyCinematicState(
+                title = "No active project.",
+                body = "Start from an idea or create something directly.",
+                action = "CREATE PROJECT",
                 onAction = onNewProject,
             )
         } else {
-            projects
-                .sortedWith(compareBy<CreatorProject> { it.stage == ProjectStage.PUBLISHED }.thenByDescending { it.updatedAt })
-                .forEach { project ->
-                    ProjectCard(
-                        project = project,
-                        onAdvance = if (project.stage == ProjectStage.PUBLISHED) null else { { onAdvanceProject(project.id) } },
-                    )
-                    Spacer(Modifier.height(10.dp))
-                }
-        }
-    }
-}
-
-@Composable
-private fun CalendarPage(projects: List<CreatorProject>) {
-    val datedProjects = projects.mapNotNull { project ->
-        project.dueDateOrNull()?.let { date -> date to project }
-    }.sortedBy { it.first }
-
-    PageScroll {
-        SectionHeader("CONTENT CALENDAR", "Deadlines across your active creator work.")
-        Spacer(Modifier.height(16.dp))
-
-        if (datedProjects.isEmpty()) {
-            EmptyPanel(
-                title = "No deadlines on the board",
-                body = "Add a YYYY-MM-DD deadline when creating a project and it will appear here.",
-                action = null,
-                onAction = {},
-            )
-        } else {
-            datedProjects.forEach { (date, project) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(15.dp))
-                        .background(BacklotPanel)
-                        .padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.width(94.dp)) {
-                        Text(date.dayOfMonth.toString(), color = BacklotGold, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                        Text(date.month.name.take(3), color = BacklotMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Box(Modifier.width(1.dp).height(42.dp).background(BacklotBorder))
-                    Spacer(Modifier.width(18.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(project.title, color = BacklotIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(4.dp))
-                        Text(project.stage.label, color = BacklotMuted, fontSize = 11.sp)
-                    }
-                    StagePill(project.stage)
-                }
+            SectionLabel("IN PRODUCTION", "${active.size} active project${if (active.size == 1) "" else "s"}")
+            Spacer(Modifier.height(10.dp))
+            active.forEach { project ->
+                StudioProjectCard(project, onAdvanceProject)
                 Spacer(Modifier.height(10.dp))
             }
         }
+
+        if (published.isNotEmpty()) {
+            Spacer(Modifier.height(24.dp))
+            SectionLabel("PUBLISHED", "Finished work stays part of your creative history.")
+            Spacer(Modifier.height(10.dp))
+            published.forEach { project ->
+                PublishedCard(project)
+                Spacer(Modifier.height(8.dp))
+            }
+        }
     }
 }
 
 @Composable
-private fun InsightsPage(ideas: List<Idea>, projects: List<CreatorProject>) {
-    val published = projects.count { it.stage == ProjectStage.PUBLISHED }
-    val completionRate = if (projects.isEmpty()) 0 else ((published.toFloat() / projects.size) * 100).toInt()
-    val stageCounts = ProjectStage.entries.associateWith { stage -> projects.count { it.stage == stage } }
-    val activeStageCounts = stageCounts.filterKeys { it != ProjectStage.PUBLISHED }
-    val maxStageCount = maxOf(1, activeStageCounts.values.maxOrNull() ?: 1)
-    val bottleneck = activeStageCounts.maxByOrNull { it.value }?.takeIf { it.value > 0 }?.key
+private fun CalendarRoom(projects: List<CreatorProject>) {
+    val scheduled = projects.mapNotNull { project -> project.dueDateOrNull()?.let { it to project } }.sortedBy { it.first }
 
     PageScroll {
-        SectionHeader("CREATOR INSIGHTS", "Useful signals from your own workflow — not vanity analytics.")
+        SectionHero(
+            kicker = "CONTENT CALENDAR",
+            title = "See pressure before it becomes pressure.",
+            body = "Deadlines from your creator pipeline stay visible here without becoming a generic calendar app.",
+        )
         Spacer(Modifier.height(18.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard("IDEA BANK", ideas.size.toString(), "unpromoted ideas", Modifier.weight(1f))
-            MetricCard("PROJECTS", projects.size.toString(), "tracked end-to-end", Modifier.weight(1f))
-            MetricCard("COMPLETION", "$completionRate%", "projects published", Modifier.weight(1f))
-        }
-
-        Spacer(Modifier.height(22.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = BacklotPanel),
-            shape = RoundedCornerShape(18.dp),
-        ) {
-            Column(Modifier.padding(22.dp)) {
-                Text("WORKFLOW SHAPE", color = BacklotIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    bottleneck?.let { "Most active work is currently sitting in ${it.label}." }
-                        ?: "Create a few projects and Backlot will begin showing where work piles up.",
-                    color = BacklotMuted,
-                    fontSize = 12.sp,
-                )
-                Spacer(Modifier.height(18.dp))
-
-                ProjectStage.entries.filter { it != ProjectStage.PUBLISHED }.forEach { stage ->
-                    val count = stageCounts[stage] ?: 0
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stage.label, color = BacklotMuted, fontSize = 11.sp, modifier = Modifier.width(82.dp))
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(8.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF202A37))
-                        ) {
-                            if (count > 0) {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth(count.toFloat() / maxStageCount.toFloat())
-                                        .fillMaxHeight()
-                                        .background(if (stage == bottleneck) BacklotGold else BacklotBlue)
-                                )
-                            }
+        if (scheduled.isEmpty()) {
+            EmptyCinematicState(
+                title = "No deadlines on the board.",
+                body = "Add a YYYY-MM-DD deadline when creating a project and it will appear here.",
+            )
+        } else {
+            scheduled.forEach { (date, project) ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = CinemaSurface.copy(alpha = .92f),
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.width(118.dp)) {
+                            Text(date.format(DateTimeFormatter.ofPattern("MMM", Locale.ENGLISH)).uppercase(Locale.ENGLISH), color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                            Text(date.dayOfMonth.toString(), color = ProjectorIvory, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                            Text(date.dayOfWeek.name.take(3), color = MutedText, fontSize = 8.sp)
                         }
-                        Spacer(Modifier.width(12.dp))
-                        Text(count.toString(), color = BacklotIvory, fontSize = 11.sp, modifier = Modifier.width(24.dp))
-                    }
-                    Spacer(Modifier.height(11.dp))
-                }
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF121923)),
-            shape = RoundedCornerShape(18.dp),
-        ) {
-            Column(Modifier.padding(22.dp)) {
-                Text("WHAT BACKLOT IS LEARNING", color = BacklotGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(9.dp))
-                Text(
-                    "This desktop foundation starts with private workflow signals: idea conversion, project stages, deadlines and completion. Cross-device history, YouTube performance and creator postmortems stay reserved for the shared intelligence layer rather than being faked locally.",
-                    color = BacklotIvory,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProjectCard(project: CreatorProject, onAdvance: (() -> Unit)?) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = BacklotPanel),
-        shape = RoundedCornerShape(16.dp),
-    ) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(project.title, color = BacklotIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(5.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        StagePill(project.stage)
-                        if (project.dueDate.isNotBlank()) {
-                            Spacer(Modifier.width(8.dp))
-                            Text("Due ${project.dueDate}", color = BacklotMuted, fontSize = 10.sp)
+                        Box(Modifier.width(1.dp).height(56.dp).background(CinemaLine))
+                        Spacer(Modifier.width(18.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(project.title, color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(4.dp))
+                            Text(project.stage.label.uppercase(Locale.ENGLISH), color = RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black)
                         }
-                    }
-                }
-                if (onAdvance != null) {
-                    Button(
-                        onClick = onAdvance,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF202B39), contentColor = BacklotIvory),
-                        shape = RoundedCornerShape(10.dp),
-                    ) {
                         Text(
-                            if (project.stage == ProjectStage.READY) "PUBLISH" else "MOVE TO ${project.stage.next().label.uppercase()}",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
+                            when {
+                                date.isBefore(LocalDate.now()) -> "OVERDUE"
+                                date == LocalDate.now() -> "TODAY"
+                                else -> "UPCOMING"
+                            },
+                            color = when {
+                                date.isBefore(LocalDate.now()) -> RecRed
+                                date == LocalDate.now() -> MutedGold
+                                else -> MutedText
+                            },
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black,
                         )
                     }
                 }
-            }
-            Spacer(Modifier.height(14.dp))
-            LinearProgressIndicator(
-                progress = { project.stage.progress() },
-                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                color = if (project.stage == ProjectStage.PUBLISHED) BacklotGreen else BacklotGold,
-                trackColor = Color(0xFF202A35),
-            )
-            if (project.note.isNotBlank()) {
-                Spacer(Modifier.height(10.dp))
-                Text(project.note, color = BacklotMuted, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(9.dp))
             }
         }
     }
 }
 
 @Composable
-private fun StagePill(stage: ProjectStage) {
-    Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(
-                when (stage) {
-                    ProjectStage.PUBLISHED -> Color(0xFF153527)
-                    ProjectStage.READY -> Color(0xFF332713)
-                    else -> Color(0xFF162338)
+private fun InsightsRoom(ideas: List<Idea>, projects: List<CreatorProject>) {
+    val active = projects.count { it.stage != ProjectStage.PUBLISHED }
+    val published = projects.count { it.stage == ProjectStage.PUBLISHED }
+    val completion = if (projects.isEmpty()) 0 else (published * 100 / projects.size)
+    val stageCounts = ProjectStage.entries.associateWith { stage -> projects.count { it.stage == stage } }
+
+    PageScroll {
+        SectionHero(
+            kicker = "CREATOR INTELLIGENCE",
+            title = "Learn how you make things.",
+            body = "Backlot should explain your workflow, not bury you in vanity charts.",
+        )
+        Spacer(Modifier.height(18.dp))
+
+        Text("3 THINGS YOU SHOULD KNOW", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            InsightSignal("PIPELINE", if (active == 0) "Clear" else "$active active", if (active == 0) "You have room to start something." else "Your current production load.", Modifier.weight(1f))
+            InsightSignal("IDEA BANK", ideas.size.toString(), if (ideas.isEmpty()) "No ideas waiting." else "Ideas still waiting for a decision.", Modifier.weight(1f))
+            InsightSignal("FINISH RATE", "$completion%", "$published of ${projects.size} projects published.", Modifier.weight(1f))
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            color = CinemaSurface.copy(alpha = .92f),
+            border = BorderStroke(1.dp, CinemaLine),
+        ) {
+            Column(Modifier.padding(22.dp)) {
+                SectionLabel("WORKFLOW SHAPE", "Where your current work is sitting right now.")
+                Spacer(Modifier.height(16.dp))
+                ProjectStage.entries.filter { it != ProjectStage.PUBLISHED }.forEach { stage ->
+                    WorkflowRow(stage.label, stageCounts[stage] ?: 0, projects.size.coerceAtLeast(1))
+                    Spacer(Modifier.height(10.dp))
                 }
-            )
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            color = RecRedDeep.copy(alpha = .48f),
+            border = BorderStroke(1.dp, RecRed.copy(alpha = .22f)),
+        ) {
+            Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                CinePulseCompanion(Modifier.size(120.dp))
+                Spacer(Modifier.width(18.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("WHAT BACKLOT IS LEARNING", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        "This desktop build learns only from local workflow signals for now. Cross-device history, YouTube performance and creator postmortems belong to the shared intelligence layer and are not faked here.",
+                        color = ProjectorIvory,
+                        fontSize = 11.sp,
+                        lineHeight = 17.sp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CreatorDock(
+    selected: DesktopDestination,
+    onSelect: (DesktopDestination) -> Unit,
+    onCapture: () -> Unit,
+) {
+    Box(
+        Modifier.fillMaxWidth().height(86.dp).background(
+            Brush.verticalGradient(listOf(Color.Transparent, CinemaBlack.copy(alpha = .98f)))
+        ),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            stage.label.uppercase(),
-            color = when (stage) {
-                ProjectStage.PUBLISHED -> BacklotGreen
-                ProjectStage.READY -> BacklotGold
-                else -> BacklotBlue
-            },
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Black,
+        Surface(
+            shape = RoundedCornerShape(25.dp),
+            color = CinemaSurface.copy(alpha = .98f),
+            border = BorderStroke(1.dp, CinemaLine),
+            shadowElevation = 10.dp,
+        ) {
+            Row(Modifier.padding(horizontal = 9.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                DockItem("TODAY", selected == DesktopDestination.TODAY) { onSelect(DesktopDestination.TODAY) }
+                DockItem("IDEAS", selected == DesktopDestination.IDEAS) { onSelect(DesktopDestination.IDEAS) }
+                Surface(
+                    onClick = onCapture,
+                    modifier = Modifier.padding(horizontal = 6.dp).size(48.dp),
+                    shape = CircleShape,
+                    color = RecRed,
+                    shadowElevation = 8.dp,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("＋", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Light)
+                    }
+                }
+                DockItem("CREATE", selected == DesktopDestination.PROJECTS) { onSelect(DesktopDestination.PROJECTS) }
+                DockItem("CALENDAR", selected == DesktopDestination.CALENDAR) { onSelect(DesktopDestination.CALENDAR) }
+                DockItem("INSIGHTS", selected == DesktopDestination.INSIGHTS) { onSelect(DesktopDestination.INSIGHTS) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DockItem(label: String, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 17.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(Modifier.size(5.dp).clip(CircleShape).background(if (selected) RecRed else Color.Transparent))
+        Spacer(Modifier.height(5.dp))
+        Text(label, color = if (selected) ProjectorIvory else MutedText, fontSize = 8.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium, letterSpacing = .7.sp)
+    }
+}
+
+@Composable
+private fun QuickActionGrid(
+    onProject: () -> Unit,
+    onIdea: () -> Unit,
+    onCalendar: () -> Unit,
+    onInsights: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        QuickAction("PROJECT", "＋", onProject, Modifier.weight(1f))
+        QuickAction("IDEA", "◇", onIdea, Modifier.weight(1f))
+    }
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        QuickAction("CALENDAR", "▦", onCalendar, Modifier.weight(1f))
+        QuickAction("INSIGHTS", "↗", onInsights, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun QuickAction(label: String, symbol: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(17.dp),
+        color = CinemaSurface.copy(alpha = .94f),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(symbol, color = MutedGold, fontSize = 16.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.width(9.dp))
+            Text(label, color = ProjectorIvory, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+        }
+    }
+}
+
+@Composable
+private fun MomentumCard(published: Int) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(19.dp),
+        color = CinemaSurface.copy(alpha = .90f),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).background(SuccessGreen.copy(alpha = .11f), CircleShape), contentAlignment = Alignment.Center) {
+                Text("✓", color = SuccessGreen, fontSize = 17.sp, fontWeight = FontWeight.Black)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("CREATOR MOMENTUM", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                Text(
+                    if (published == 0) "Finish one project and the room starts keeping score." else "$published project${if (published == 1) "" else "s"} completed so far.",
+                    color = MutedText,
+                    fontSize = 9.sp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactNextCard(project: CreatorProject, onAdvance: (String) -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = CinemaSurface.copy(alpha = .92f),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(38.dp).background(RecRedDeep.copy(alpha = .75f), CircleShape), contentAlignment = Alignment.Center) {
+                Text(project.stage.label.take(1), color = RecRed, fontWeight = FontWeight.Black)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(project.title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(project.stage.label + if (project.dueDate.isBlank()) "" else " · Due ${project.dueDate}", color = MutedText, fontSize = 9.sp)
+            }
+            TextButton(onClick = { onAdvance(project.id) }) {
+                Text("NEXT STEP  →", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StudioProjectCard(project: CreatorProject, onAdvance: (String) -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = CinemaSurface.copy(alpha = .95f),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(project.stage.label.uppercase(Locale.ENGLISH), color = RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text(project.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    if (project.note.isNotBlank()) {
+                        Spacer(Modifier.height(5.dp))
+                        Text(project.note, color = MutedText, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (project.dueDate.isNotBlank()) {
+                    Text("DUE ${project.dueDate}", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            ProgressRail(project.stage.progress())
+            Spacer(Modifier.height(13.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("NEXT MOVE", color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                    Text(stageAction(project.stage), color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Button(
+                    onClick = { onAdvance(project.id) },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(if (project.stage == ProjectStage.READY) "PUBLISH" else "STAGE DONE  →", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PublishedCard(project: CreatorProject) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(17.dp),
+        color = CinemaSurface.copy(alpha = .78f),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("✓", color = SuccessGreen, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.width(11.dp))
+            Text(project.title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("PUBLISHED", color = SuccessGreen, fontSize = 7.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+@Composable
+private fun IdeaCard(idea: Idea, onPromote: (Idea) -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = CinemaSurface.copy(alpha = .94f),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Row(Modifier.padding(19.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(42.dp).background(MutedGold.copy(alpha = .10f), CircleShape), contentAlignment = Alignment.Center) {
+                Text("◇", color = MutedGold, fontSize = 18.sp)
+            }
+            Spacer(Modifier.width(13.dp))
+            Column(Modifier.weight(1f)) {
+                Text(idea.title, color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                if (idea.note.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(idea.note, color = MutedText, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Button(
+                onClick = { onPromote(idea) },
+                colors = ButtonDefaults.buttonColors(containerColor = CinemaSurfaceRaised, contentColor = MutedGold),
+                border = BorderStroke(1.dp, CinemaLine),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text("MOVE TO RESEARCH  →", fontSize = 8.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHero(
+    kicker: String,
+    title: String,
+    body: String,
+    action: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(25.dp),
+        color = CinemaSurface.copy(alpha = .92f),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Row(Modifier.padding(25.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(kicker, color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(title, color = ProjectorIvory, fontSize = 27.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(5.dp))
+                Text(body, color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+            }
+            if (action != null && onAction != null) {
+                Spacer(Modifier.width(18.dp))
+                Button(onClick = onAction, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(13.dp)) {
+                    Text(action, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyCinematicState(
+    title: String,
+    body: String,
+    action: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = CinemaSurface.copy(alpha = .88f),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Row(Modifier.padding(28.dp), verticalAlignment = Alignment.CenterVertically) {
+            CinePulseCompanion(Modifier.size(150.dp))
+            Spacer(Modifier.width(24.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(5.dp))
+                Text(body, color = MutedText, fontSize = 11.sp)
+                if (action != null && onAction != null) {
+                    Spacer(Modifier.height(14.dp))
+                    Button(onClick = onAction, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(12.dp)) {
+                        Text(action, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsightSignal(label: String, value: String, body: String, modifier: Modifier = Modifier) {
+    Surface(modifier, RoundedCornerShape(20.dp), CinemaSurface.copy(alpha = .94f), border = BorderStroke(1.dp, CinemaLine)) {
+        Column(Modifier.padding(18.dp)) {
+            Text(label, color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(value, color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(5.dp))
+            Text(body, color = MutedText, fontSize = 9.sp, lineHeight = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun WorkflowRow(label: String, count: Int, total: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = MutedText, fontSize = 10.sp, modifier = Modifier.width(92.dp))
+        Box(Modifier.weight(1f).height(7.dp).background(CinemaLine, RoundedCornerShape(10.dp))) {
+            if (count > 0) {
+                Box(
+                    Modifier.fillMaxWidth((count.toFloat() / total.toFloat()).coerceIn(.04f, 1f))
+                        .height(7.dp)
+                        .background(Brush.horizontalGradient(listOf(MutedGold, RecRed)), RoundedCornerShape(10.dp))
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(count.toString(), color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(22.dp))
+    }
+}
+
+@Composable
+private fun StatusMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier, RoundedCornerShape(17.dp), CinemaSurface.copy(alpha = .92f), border = BorderStroke(1.dp, CinemaLine)) {
+        Column(Modifier.padding(vertical = 13.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Text(label, color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+        }
+    }
+}
+
+@Composable
+private fun ProgressRail(progress: Float) {
+    Box(Modifier.fillMaxWidth().height(6.dp).background(CinemaLine, RoundedCornerShape(10.dp))) {
+        Box(
+            Modifier.fillMaxWidth(progress.coerceIn(.03f, 1f))
+                .height(6.dp)
+                .background(Brush.horizontalGradient(listOf(MutedGold, RecRed)), RoundedCornerShape(10.dp))
         )
     }
 }
 
 @Composable
-private fun MetricCard(label: String, value: String, caption: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = BacklotPanel),
-        shape = RoundedCornerShape(15.dp),
-    ) {
-        Column(Modifier.padding(17.dp)) {
-            Text(label, color = BacklotMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(7.dp))
-            Text(value, color = BacklotIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(3.dp))
-            Text(caption, color = Color(0xFF667284), fontSize = 10.sp)
-        }
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String, subtitle: String) {
+private fun SectionLabel(title: String, subtitle: String) {
     Column {
-        Text(title, color = BacklotIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.height(4.dp))
-        Text(subtitle, color = BacklotMuted, fontSize = 11.sp)
-    }
-}
-
-@Composable
-private fun EmptyPanel(
-    title: String,
-    body: String,
-    action: String?,
-    onAction: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(BacklotPanel)
-            .padding(28.dp),
-    ) {
-        Column(horizontalAlignment = Alignment.Start) {
-            Text(title, color = BacklotIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(7.dp))
-            Text(body, color = BacklotMuted, fontSize = 12.sp)
-            if (action != null) {
-                Spacer(Modifier.height(16.dp))
-                OutlinedButton(onClick = onAction, shape = RoundedCornerShape(10.dp)) {
-                    Text(action, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
+        Text(title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(subtitle, color = MutedText, fontSize = 9.sp)
     }
 }
 
 @Composable
 private fun PageScroll(content: @Composable Column.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 34.dp, vertical = 28.dp),
-        content = content,
-    )
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 34.dp, vertical = 24.dp).padding(bottom = 24.dp),
+            content = content,
+        )
+    }
 }
 
 @Composable
-private fun IdeaCaptureDialog(
-    onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
-) {
+private fun BacklotLayerMark(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val s = size.minDimension
+        drawRoundRect(
+            brush = Brush.linearGradient(listOf(Color(0xFF08111B), Color(0xFF020304), Color(0xFF061426))),
+            cornerRadius = CornerRadius(s * .21f, s * .21f),
+        )
+        drawRoundRect(
+            color = CoolBlue.copy(alpha = .55f),
+            style = Stroke(width = s * .015f),
+            cornerRadius = CornerRadius(s * .21f, s * .21f),
+        )
+        val beam = Path().apply {
+            moveTo(s * .58f, s * .72f)
+            lineTo(s * .12f, s * .96f)
+            lineTo(s * .91f, s * .96f)
+            close()
+        }
+        drawPath(beam, Brush.linearGradient(listOf(Color.Transparent, MutedGold.copy(alpha = .95f), ProjectorIvory.copy(alpha = .65f))))
+        drawRect(
+            Brush.linearGradient(listOf(ProjectorIvory, MutedGold, Color(0xFFB76625))),
+            topLeft = Offset(s * .27f, s * .16f),
+            size = Size(s * .12f, s * .67f),
+        )
+        repeat(5) { i ->
+            drawRoundRect(
+                Color(0xFF11100E),
+                topLeft = Offset(s * .295f, s * (.23f + i * .11f)),
+                size = Size(s * .07f, s * .06f),
+                cornerRadius = CornerRadius(s * .012f),
+            )
+        }
+        val b = Path().apply {
+            moveTo(s * .42f, s * .18f)
+            lineTo(s * .61f, s * .22f)
+            cubicTo(s * .78f, s * .25f, s * .83f, s * .34f, s * .83f, s * .44f)
+            cubicTo(s * .83f, s * .52f, s * .78f, s * .57f, s * .70f, s * .60f)
+            cubicTo(s * .82f, s * .64f, s * .87f, s * .72f, s * .87f, s * .80f)
+            cubicTo(s * .87f, s * .92f, s * .78f, s * .97f, s * .60f, s * .97f)
+            lineTo(s * .42f, s * .97f)
+            close()
+        }
+        drawPath(b, Brush.linearGradient(listOf(ProjectorIvory, Color(0xFFFFD27A), Color(0xFFE3A04A), Color(0xFF7896B4))))
+        val doorway = Path().apply {
+            moveTo(s * .42f, s * .32f)
+            lineTo(s * .59f, s * .42f)
+            lineTo(s * .59f, s * .77f)
+            lineTo(s * .42f, s * .86f)
+            close()
+        }
+        drawPath(doorway, Color(0xFF040506))
+    }
+}
+
+@Composable
+private fun CinePulseCompanion(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val u = size.minDimension / 100f
+        val cx = size.width * .50f
+        val faceY = size.height * .30f
+        val faceW = 58f * u
+        val faceH = 37f * u
+        val hotPink = Color(0xFFFF4B9A)
+        val orange = Color(0xFFFF8A4C)
+        val aqua = Color(0xFF52DED2)
+
+        drawCircle(
+            Brush.radialGradient(listOf(hotPink.copy(alpha = .14f), aqua.copy(alpha = .10f), Color.Transparent)),
+            radius = size.width * .56f,
+            center = Offset(cx, size.height * .42f),
+        )
+
+        val haloSize = Size(faceW * 1.48f, faceH * 1.58f)
+        val topLeft = Offset(cx - haloSize.width / 2f, faceY - haloSize.height / 2f)
+        drawArc(hotPink.copy(alpha = .82f), 194f, 154f, false, topLeft, haloSize, style = Stroke(8.1f * u, cap = StrokeCap.Round))
+        drawArc(RecRed.copy(alpha = .74f), 230f, 105f, false, topLeft + Offset(1f * u, 1f * u), haloSize, style = Stroke(5.7f * u, cap = StrokeCap.Round))
+        drawArc(aqua.copy(alpha = .80f), 8f, 150f, false, topLeft + Offset(0f, 1.5f * u), haloSize, style = Stroke(6f * u, cap = StrokeCap.Round))
+        drawArc(orange.copy(alpha = .60f), 326f, 76f, false, topLeft + Offset(0f, 2f * u), haloSize, style = Stroke(3.2f * u, cap = StrokeCap.Round))
+
+        drawOval(Color(0xFF030409), Offset(cx - faceW / 2f, faceY - faceH / 2f), Size(faceW, faceH))
+        drawOval(
+            Brush.linearGradient(listOf(hotPink, orange, aqua)),
+            Offset(cx - faceW / 2f, faceY - faceH / 2f),
+            Size(faceW, faceH),
+            style = Stroke(1.7f * u),
+        )
+
+        val eyeY = faceY + .5f * u
+        drawRoundRect(ProjectorIvory, Offset(cx - 14f * u, eyeY - 6f * u), Size(5f * u, 12f * u), CornerRadius(2.5f * u))
+        drawRoundRect(ProjectorIvory, Offset(cx + 9f * u, eyeY - 6f * u), Size(5f * u, 12f * u), CornerRadius(2.5f * u))
+
+        val bodyTop = size.height * .49f
+        val body = Path().apply {
+            moveTo(cx - 17f * u, bodyTop)
+            cubicTo(cx - 23f * u, bodyTop + 12f * u, cx - 18f * u, bodyTop + 33f * u, cx, bodyTop + 38f * u)
+            cubicTo(cx + 18f * u, bodyTop + 33f * u, cx + 23f * u, bodyTop + 12f * u, cx + 17f * u, bodyTop)
+            close()
+        }
+        drawPath(body, Brush.verticalGradient(listOf(Color(0xFF12141A), Color(0xFF050609))))
+        drawPath(body, Brush.linearGradient(listOf(hotPink.copy(alpha = .65f), aqua.copy(alpha = .5f))), style = Stroke(1.2f * u))
+
+        drawLine(MutedGold.copy(alpha = .75f), Offset(cx - 8f * u, bodyTop + 15f * u), Offset(cx - 24f * u, bodyTop + 29f * u), 2.2f * u, StrokeCap.Round)
+        drawLine(aqua.copy(alpha = .75f), Offset(cx + 8f * u, bodyTop + 15f * u), Offset(cx + 24f * u, bodyTop + 25f * u), 2.2f * u, StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun IdeaCaptureDialog(onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
     var title by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = BacklotPanelRaised,
-        title = { Text("Capture an idea", color = BacklotIvory, fontWeight = FontWeight.Black) },
+        containerColor = CinemaSurfaceRaised,
+        title = { Text("Capture an idea", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 23.sp) },
         text = {
             Column {
-                Text("Get it out of your head. Shape it later.", color = BacklotMuted, fontSize = 11.sp)
+                Text("Get it out of your head. Shape it later.", color = MutedText, fontSize = 10.sp)
                 Spacer(Modifier.height(14.dp))
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Idea") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
+                OutlinedTextField(value = title, onValueChange = { title = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Idea") }, singleLine = true)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    label = { Text("Notes · optional") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                )
+                OutlinedTextField(value = note, onValueChange = { note = it }, modifier = Modifier.fillMaxWidth().height(110.dp), label = { Text("Notes · optional") })
             }
         },
         confirmButton = {
-            Button(
-                onClick = { onSave(title, note) },
-                enabled = title.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = BacklotGold, contentColor = Color(0xFF171008)),
-            ) {
+            Button(onClick = { onSave(title, note) }, enabled = title.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(12.dp)) {
                 Text("SAVE IDEA", fontWeight = FontWeight.Black)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = MutedGold) } },
     )
 }
 
 @Composable
-private fun ProjectCaptureDialog(
-    onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit,
-) {
+private fun ProjectCaptureDialog(onDismiss: () -> Unit, onSave: (String, String, String) -> Unit) {
     var title by remember { mutableStateOf("") }
-    var dueDate by remember { mutableStateOf("") }
+    var due by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = BacklotPanelRaised,
-        title = { Text("Start a project", color = BacklotIvory, fontWeight = FontWeight.Black) },
+        containerColor = CinemaSurfaceRaised,
+        title = { Text("Create a project", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 23.sp) },
         text = {
             Column {
-                Text("Give the work a name. Backlot will keep it moving through the pipeline.", color = BacklotMuted, fontSize = 11.sp)
+                Text("Name the work. Backlot will keep the next move visible.", color = MutedText, fontSize = 10.sp)
                 Spacer(Modifier.height(14.dp))
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Project title") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
+                OutlinedTextField(value = title, onValueChange = { title = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Project title") }, singleLine = true)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = dueDate,
-                    onValueChange = { dueDate = it },
-                    label = { Text("Deadline · YYYY-MM-DD · optional") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
+                OutlinedTextField(value = due, onValueChange = { due = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Deadline · YYYY-MM-DD · optional") }, singleLine = true)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    label = { Text("Notes · optional") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                )
+                OutlinedTextField(value = note, onValueChange = { note = it }, modifier = Modifier.fillMaxWidth().height(110.dp), label = { Text("Notes · optional") })
             }
         },
         confirmButton = {
-            Button(
-                onClick = { onSave(title, dueDate, note) },
-                enabled = title.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = BacklotBlue, contentColor = Color(0xFF07101D)),
-            ) {
+            Button(onClick = { onSave(title, due, note) }, enabled = title.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(12.dp)) {
                 Text("CREATE PROJECT", fontWeight = FontWeight.Black)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = MutedGold) } },
     )
+}
+
+@Composable
+private fun ControlRoomDialog(
+    onDismiss: () -> Unit,
+    onIdea: () -> Unit,
+    onProject: () -> Unit,
+    onCalendar: () -> Unit,
+    onInsights: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CinemaSurfaceRaised,
+        title = { Text("Backlot Control", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 22.sp) },
+        text = {
+            Column {
+                Text("Fast routes into the creator system.", color = MutedText, fontSize = 10.sp)
+                Spacer(Modifier.height(14.dp))
+                ControlAction("CAPTURE IDEA", "Save a spark before it disappears.", onIdea)
+                Spacer(Modifier.height(8.dp))
+                ControlAction("CREATE PROJECT", "Start work directly in the pipeline.", onProject)
+                Spacer(Modifier.height(8.dp))
+                ControlAction("CONTENT CALENDAR", "See deadlines across active work.", onCalendar)
+                Spacer(Modifier.height(8.dp))
+                ControlAction("CREATOR INTELLIGENCE", "See what Backlot is learning locally.", onInsights)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("CLOSE", color = MutedGold, fontWeight = FontWeight.Black) } },
+    )
+}
+
+@Composable
+private fun ControlAction(title: String, body: String, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                Text(body, color = MutedText, fontSize = 9.sp)
+            }
+            Text("→", color = RecRed, fontSize = 17.sp)
+        }
+    }
+}
+
+private fun stageAction(stage: ProjectStage): String = when (stage) {
+    ProjectStage.IDEA -> "Define what this project is really about."
+    ProjectStage.RESEARCH -> "Gather the material you need before writing."
+    ProjectStage.SCRIPT -> "Turn the research into a clear structure and script."
+    ProjectStage.RECORD -> "Record the voice, camera or source material."
+    ProjectStage.EDIT -> "Shape the final piece and remove what does not serve it."
+    ProjectStage.READY -> "Package it, check it and publish."
+    ProjectStage.PUBLISHED -> "Capture what worked and what you would change next time."
 }
