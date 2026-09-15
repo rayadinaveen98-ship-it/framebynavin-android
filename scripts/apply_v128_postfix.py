@@ -13,7 +13,7 @@ def replace_once(rel, old, new, required=True):
         return
     path.write_text(text.replace(old, new, 1))
 
-# Widget compile support for the new sixth theme. Keep the known-green v127 updater shape;
+# Widget compile support for the sixth selectable theme. Keep the known-green v127 updater shape;
 # only extend its exhaustive theme mapping and clean obsolete experimental imports if present.
 widget = p("app/src/main/java/com/framebynavin/app/widget/CreatorWidgetUpdater.kt")
 text = widget.read_text()
