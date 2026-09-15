@@ -1,0 +1,59 @@
+name: V138 Backlot Visual Identity
+
+on:
+  push:
+    branches: ["feature/v138-visual-identity-theme-expansion"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout v138 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v138-visual-identity-theme-expansion
+          fetch-depth: 0
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Verify v138 visual contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 138' app/build.gradle.kts
+          grep -q '2.0.0-rc11-visual-identity' app/build.gradle.kts
+          grep -q 'PAPER_QUIET' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'MOSS_STUDIO' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'FrameGold = Color(0xFFFFC857)' app/src/main/java/com/framebynavin/app/ui/V137CharacterSystem.kt
+          grep -q 'NaviHairLine' app/src/main/java/com/framebynavin/app/ui/V137CharacterSystem.kt
+          grep -q 'V137CharacterChoiceGate' app/src/main/java/com/framebynavin/app/ui/V131LaunchGate.kt
+          grep -q 'V131LaunchGate(externalLaunch = externalLaunch)' app/src/main/java/com/framebynavin/app/MainActivity.kt
+          ! grep -q '\.blur(' app/src/main/java/com/framebynavin/app/ui/V137GuideSpotlight.kt
+          grep -q 'backlot_splash_mark' app/src/main/res/values/themes.xml
+      - name: User-facing brand audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/audit_v137_visible_brand.py
+      - name: Unit tests, Kotlin compile and APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk Backlot-v138-VisualIdentity.apk
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v138-visual-identity
+          path: Backlot-v138-VisualIdentity.apk
+          if-no-files-found: error
+          retention-days: 90
