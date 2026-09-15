@@ -5,32 +5,97 @@ import android.speech.tts.Voice
 import com.framebynavin.app.data.VoicePersona
 import java.util.Locale
 
+/**
+ * Local-first Backlot voice styling.
+ *
+ * Human personas select the strongest local device voices available. Character personas remain
+ * useful even on phones exposing only one local voice by combining stronger pitch/rate profiles
+ * with persona-specific reminder phrasing. This deliberately does not pretend to be neural TTS.
+ */
 object VoicePersonaEngine {
     fun apply(tts: TextToSpeech, persona: VoicePersona) {
         selectDeviceVoice(tts, persona)
         val (pitch, rate) = when (persona) {
             VoicePersona.WARM -> 0.98f to 0.88f
-            VoicePersona.YOUNG -> 1.04f to 0.98f
-            VoicePersona.MAN -> 0.94f to 0.90f
             VoicePersona.WOMAN -> 1.02f to 0.94f
+            VoicePersona.MAN -> 0.90f to 0.86f
+            VoicePersona.YOUNG -> 1.08f to 1.00f
+            VoicePersona.FUNNY -> 1.16f to 1.06f
+            VoicePersona.CARTOON -> 1.28f to 1.10f
+            VoicePersona.ALIEN -> 0.72f to 0.82f
+            VoicePersona.ROBOT -> 0.82f to 0.76f
         }
         tts.setPitch(pitch)
         tts.setSpeechRate(rate)
     }
 
     fun label(persona: VoicePersona): String = when (persona) {
-        VoicePersona.WARM -> "Nila"
-        VoicePersona.YOUNG -> "Tara"
-        VoicePersona.MAN -> "Arin"
-        VoicePersona.WOMAN -> "Maya"
+        VoicePersona.WARM -> "Warm Human"
+        VoicePersona.WOMAN -> "Clear Human"
+        VoicePersona.MAN -> "Deep Human"
+        VoicePersona.YOUNG -> "Bright Human"
+        VoicePersona.FUNNY -> "Funny"
+        VoicePersona.CARTOON -> "Cartoon"
+        VoicePersona.ALIEN -> "Alien"
+        VoicePersona.ROBOT -> "Robot"
+    }
+
+    fun category(persona: VoicePersona): String = when (persona) {
+        VoicePersona.WARM, VoicePersona.WOMAN, VoicePersona.MAN, VoicePersona.YOUNG -> "HUMAN"
+        VoicePersona.FUNNY -> "FUN"
+        VoicePersona.CARTOON -> "CHARACTER"
+        VoicePersona.ALIEN, VoicePersona.ROBOT -> "SCI-FI"
+    }
+
+    fun description(persona: VoicePersona): String = when (persona) {
+        VoicePersona.WARM -> "Calm, soft and steady"
+        VoicePersona.WOMAN -> "Clean and conversational"
+        VoicePersona.MAN -> "Lower, slower and grounded"
+        VoicePersona.YOUNG -> "Light, quick and energetic"
+        VoicePersona.FUNNY -> "Playful pace with extra lift"
+        VoicePersona.CARTOON -> "Bright, punchy character delivery"
+        VoicePersona.ALIEN -> "Low, strange transmission tone"
+        VoicePersona.ROBOT -> "Measured synthetic-style delivery"
+    }
+
+    fun previewText(persona: VoicePersona): String = when (persona) {
+        VoicePersona.WARM -> "Backlot voice check. Calm, clear, and ready when you are."
+        VoicePersona.WOMAN -> "Backlot voice check. Your next creative step is ready."
+        VoicePersona.MAN -> "Backlot voice check. Focus on the next stage."
+        VoicePersona.YOUNG -> "Backlot voice check. Ready to make something great?"
+        VoicePersona.FUNNY -> "Hey creator. Backlot checking in. Your idea is not escaping today."
+        VoicePersona.CARTOON -> "Backlot calling! Your next creative mission is ready."
+        VoicePersona.ALIEN -> "Backlot transmission received. Creative signal detected."
+        VoicePersona.ROBOT -> "Backlot system check. Creator task detected. Ready."
+    }
+
+    fun reminderText(
+        persona: VoicePersona,
+        title: String,
+        urgency: String,
+        stage: String,
+        notes: String,
+        includeNotes: Boolean,
+    ): String {
+        val core = when (persona) {
+            VoicePersona.WARM -> "Backlot. $title. This is your $urgency. Current stage: $stage."
+            VoicePersona.WOMAN -> "Backlot check-in. $title. Your $urgency is ready. You are at $stage."
+            VoicePersona.MAN -> "Backlot. Focus check. $title. $urgency. Current stage: $stage."
+            VoicePersona.YOUNG -> "Backlot reminder. $title. Time for your $urgency. You are on $stage."
+            VoicePersona.FUNNY -> "Hey creator, Backlot here. $title. Your $urgency is waiting. Stage: $stage."
+            VoicePersona.CARTOON -> "Backlot calling! $title. Time for your $urgency. Creative stage: $stage."
+            VoicePersona.ALIEN -> "Backlot transmission. Subject: $title. Signal priority: $urgency. Current stage: $stage."
+            VoicePersona.ROBOT -> "Backlot reminder. Task: $title. Priority: $urgency. Stage: $stage."
+        }
+        return if (includeNotes && notes.isNotBlank()) "$core $notes" else core
     }
 
     fun availabilityHint(tts: TextToSpeech): String {
         val count = candidateVoices(tts).size
         return when {
-            count >= 4 -> "4 distinct device voices available"
-            count > 1 -> "$count distinct device voices available"
-            else -> "Your phone currently exposes one local voice"
+            count > 1 -> "$count local device voices · 8 Backlot delivery styles"
+            count == 1 -> "1 local device voice · 8 Backlot delivery styles"
+            else -> "Device TTS voice availability is limited · 8 Backlot delivery styles"
         }
     }
 
@@ -39,9 +104,13 @@ object VoicePersonaEngine {
         if (voices.isEmpty()) return
         val index = when (persona) {
             VoicePersona.WARM -> 0
-            VoicePersona.YOUNG -> 1
+            VoicePersona.WOMAN -> 1
             VoicePersona.MAN -> 2
-            VoicePersona.WOMAN -> 3
+            VoicePersona.YOUNG -> 3
+            VoicePersona.FUNNY -> 3
+            VoicePersona.CARTOON -> 3
+            VoicePersona.ALIEN -> 2
+            VoicePersona.ROBOT -> 2
         }
         runCatching { tts.voice = voices[index % voices.size] }
     }
