@@ -25,6 +25,12 @@ jobs:
     steps:
       - name: Checkout V134 desktop branch
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            desktop
+            docs/V134_BACKLOT_DESKTOP_FOUNDATION.md
+            .github/workflows/v134-backlot-desktop-foundation.yml
+          sparse-checkout-cone-mode: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
