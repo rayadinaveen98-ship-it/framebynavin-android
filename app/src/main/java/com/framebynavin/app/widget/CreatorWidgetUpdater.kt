@@ -13,7 +13,6 @@ import com.framebynavin.app.R
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskStatus
-import com.framebynavin.app.ui.QuickIdeaActivity
 import com.framebynavin.app.ui.theme.FrameTheme
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 import java.text.SimpleDateFormat
