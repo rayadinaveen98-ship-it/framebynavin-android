@@ -53,8 +53,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 128
-        versionName = "2.0.0-rc4-premium-experience-v3"
+        versionCode = 129
+        versionName = "2.0.0-rc5-cine-pulse-live-guide"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

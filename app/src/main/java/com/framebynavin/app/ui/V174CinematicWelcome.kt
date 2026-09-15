@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
  * the geometry, palette and motion language are FrameByNavin's own.
  */
 private const val V20_WELCOME_STRIPE_COUNT = 30
+private const val V129_THREAD_GAP_SCALE = 1.25f
 
 @Composable
 internal fun V174CinematicWelcome() {
@@ -113,8 +114,8 @@ internal fun V174CinematicWelcome() {
                 if (local <= 0f) return@repeat
                 val side = if (index % 2 == 0) -1f else 1f
                 val lane = (index / 2 + 1).toFloat() / (V20_WELCOME_STRIPE_COUNT / 2f + 1f)
-                val startX = size.width * 0.50f + side * size.width * 0.025f
-                val endX = size.width * 0.50f + side * size.width * (0.50f + lane * 0.10f)
+                val startX = size.width * 0.50f + side * size.width * 0.025f * V129_THREAD_GAP_SCALE
+                val endX = size.width * 0.50f + side * size.width * (0.50f + lane * 0.10f * V129_THREAD_GAP_SCALE)
                 val eased = local * local * (3f - 2f * local)
                 val drift = kotlin.math.sin((eased * 3.1415926f) + index * .47f) * size.width * .012f
                 val x = startX + (endX - startX) * eased + drift

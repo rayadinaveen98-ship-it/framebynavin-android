@@ -69,7 +69,9 @@ import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.widget.CreatorWidgetContract
 import com.framebynavin.app.widget.CreatorWidgetLaunch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -228,6 +230,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
+    LaunchedEffect(vm.tasks) {
+        if (CreatorCalendarSync.isEnabled(context)) {
+            withContext(Dispatchers.IO) { CreatorCalendarSync.syncIfEnabled(context.applicationContext, vm.tasks) }
+        }
+    }
+
     LaunchedEffect(externalLaunch?.nonce) {
         val launch = externalLaunch ?: return@LaunchedEffect
         // Deep links and widgets must stay instant. A normal launch can resume the tour later.
@@ -285,6 +293,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val focusTaskState = remember { derivedStateOf { vm.tasks.firstOrNull { it.id == focusTaskId } } }
     val focusTask = focusTaskState.value
     Box(Modifier.fillMaxSize().background(CinemaBlack)) {
+        V129ThemeBackdrop(Modifier.matchParentSize())
         if (focusTask != null) {
             PFocusScreen(
                 task = focusTask,
@@ -441,6 +450,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             )
             POverlay.SETTINGS -> PSettingsScreen(
                 settings = settings,
+                tasks = vm.tasks,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 permissions = permissions,
                 onClose = { overlay = POverlay.NONE },
@@ -876,6 +886,7 @@ private fun PWeekScreen(
 @Composable
 private fun PSettingsScreen(
     settings: CreatorOsSettings,
+    tasks: List<CreatorTask>,
     weeklyAutoPlanEnabled: Boolean,
     permissions: PPermissions,
     onClose: () -> Unit,
@@ -1025,6 +1036,9 @@ private fun PSettingsScreen(
                     Switch(weeklyAutoPlanEnabled, onWeeklyAutoPlan, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
                 }
             }
+
+            Spacer(Modifier.height(22.dp))
+            V129GoogleCalendarSettings(tasks)
 
             Spacer(Modifier.height(22.dp))
             V127AppearanceSettings()
@@ -1178,7 +1192,7 @@ internal fun PBottomNav(
     Surface(
         modifier,
         RoundedCornerShape(24.dp),
-        Color(0xF2161618),
+        if (VisualExperiencePrefs.isLumen) CinemaSurface.copy(alpha = .88f) else Color(0xF2161618),
         border = BorderStroke(1.dp, CinemaLine),
         shadowElevation = 12.dp,
     ) {
@@ -1225,7 +1239,7 @@ private fun PBottomNavItem(
     Surface(
         onClick = { onSelect(tab) },
         shape = RoundedCornerShape(16.dp),
-        color = if (active) Color(0xFF282326) else Color.Transparent,
+        color = if (active) { if (VisualExperiencePrefs.isLumen) FrameTertiary.copy(alpha=.16f) else CinemaSurfaceRaised } else Color.Transparent,
         modifier = modifier.heightIn(min = 52.dp),
     ) {
         Column(

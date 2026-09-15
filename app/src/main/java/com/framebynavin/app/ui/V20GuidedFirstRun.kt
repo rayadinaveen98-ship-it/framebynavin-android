@@ -1,8 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -17,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -71,6 +71,17 @@ internal fun V20GuidedFirstRunCoach(
     val placeAtTop = step == CreatorGuidedTourStep.CONTROL
     val pointRight = step.ordinal % 2 == 0
     val spot = spotlightFor(step)
+    val spotlightMotion = rememberInfiniteTransition(label = "spotlightBreath")
+    val spotlightBreath by spotlightMotion.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1350, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "spotlightBreathValue",
+    )
+    val spotX by animateFloatAsState(spot.x, tween(360, easing = FastOutSlowInEasing), label = "spotX")
+    val spotY by animateFloatAsState(spot.y, tween(360, easing = FastOutSlowInEasing), label = "spotY")
+    val spotW by animateFloatAsState(spot.width, tween(360, easing = FastOutSlowInEasing), label = "spotW")
+    val spotH by animateFloatAsState(spot.height, tween(360, easing = FastOutSlowInEasing), label = "spotH")
 
     Box(Modifier.fillMaxSize()) {
         Canvas(
@@ -79,19 +90,24 @@ internal fun V20GuidedFirstRunCoach(
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
         ) {
             drawRect(CinemaBlack.copy(alpha = .76f))
+            val breathing = 2.5f + spotlightBreath * 3.5f
+            val left = size.width * spotX - breathing
+            val top = size.height * spotY - breathing
+            val width = size.width * spotW + breathing * 2f
+            val height = size.height * spotH + breathing * 2f
             drawRoundRect(
                 color = Color.Transparent,
-                topLeft = Offset(size.width * spot.x, size.height * spot.y),
-                size = Size(size.width * spot.width, size.height * spot.height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(spot.corner, spot.corner),
+                topLeft = Offset(left, top),
+                size = Size(width, height),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(spot.corner + breathing, spot.corner + breathing),
                 blendMode = BlendMode.Clear,
             )
             drawRoundRect(
-                color = RecRed.copy(alpha = .55f),
-                topLeft = Offset(size.width * spot.x, size.height * spot.y),
-                size = Size(size.width * spot.width, size.height * spot.height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(spot.corner, spot.corner),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f),
+                color = RecRed.copy(alpha = .34f + spotlightBreath * .28f),
+                topLeft = Offset(left, top),
+                size = Size(width, height),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(spot.corner + breathing, spot.corner + breathing),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.6f + spotlightBreath * 1.2f),
             )
         }
 

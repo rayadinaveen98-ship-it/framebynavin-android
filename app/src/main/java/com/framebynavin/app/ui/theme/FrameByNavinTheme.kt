@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-enum class FrameSurfacePersonality { SOLID, EDITORIAL, GLASS }
+enum class FrameSurfacePersonality { SOLID, EDITORIAL, GLASS, LUMEN }
 
 data class FramePalette(
     val background: Color,
@@ -74,15 +74,15 @@ enum class FrameTheme(val displayName: String, val tagline: String, val palette:
             success = Color(0xFF70D6B1), tertiary = Color(0xFF67E8F9),
         ),
     ),
-    IVORY_STUDIO(
-        "Ivory Studio",
-        "Warm paper · ink · editorial red",
+    LUMEN_FLOW(
+        "Lumen Flow",
+        "Living ribbons · coral light · aqua calm",
         FramePalette(
-            background = Color(0xFFF6F1E8), surface = Color(0xFFFFFCF7), surfaceRaised = Color(0xFFF0E9DE),
-            line = Color(0xFFD8CFC0), foreground = Color(0xFF1D1A17), muted = Color(0xFF6F675E),
-            primary = Color(0xFFB9232F), primaryDeep = Color(0xFFF2D8DA), secondary = Color(0xFF9A6A25),
-            success = Color(0xFF3A7D55), tertiary = Color(0xFF645A4D),
-            surfacePersonality = FrameSurfacePersonality.EDITORIAL, isLight = true,
+            background = Color(0xFF070811), surface = Color(0xD1121725), surfaceRaised = Color(0xE21A2133),
+            line = Color(0x665A6A8A), foreground = Color(0xFFF9F7FF), muted = Color(0xFFA8ADC1),
+            primary = Color(0xFFFF5D7A), primaryDeep = Color(0xFF351225), secondary = Color(0xFFFFC76B),
+            success = Color(0xFF70E2A2), tertiary = Color(0xFF52DED2),
+            surfacePersonality = FrameSurfacePersonality.LUMEN,
         ),
     ),
     AURORA_GLASS(
@@ -133,6 +133,7 @@ object VisualExperiencePrefs {
     val palette: FramePalette get() = currentTheme.palette
     val isGlass: Boolean get() = palette.surfacePersonality == FrameSurfacePersonality.GLASS
     val isEditorial: Boolean get() = palette.surfacePersonality == FrameSurfacePersonality.EDITORIAL
+    val isLumen: Boolean get() = palette.surfacePersonality == FrameSurfacePersonality.LUMEN
 }
 
 val CinemaBlack: Color get() = VisualExperiencePrefs.palette.background

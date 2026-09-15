@@ -13,9 +13,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,7 +38,7 @@ import com.framebynavin.app.voice.IdeaVoiceTranscriber
 import com.framebynavin.app.voice.IdeaVoiceTranscriberListener
 import kotlinx.coroutines.delay
 
-/** Compact voice capture used by both in-app Quick Capture and the Quick Idea widget activity. */
+/** Two-step voice capture: open Frame Pulse first, tap the orb only when ready to listen. */
 @Composable
 internal fun V117VoiceIdeaInput(
     onTranscript: (String) -> Unit,
@@ -47,6 +47,7 @@ internal fun V117VoiceIdeaInput(
     val context = LocalContext.current
     val latestOnTranscript by rememberUpdatedState(onTranscript)
 
+    var orbOpen by remember { mutableStateOf(false) }
     var language by remember { mutableStateOf(IdeaVoiceLanguage.AUTO) }
     var listening by remember { mutableStateOf(false) }
     var partial by remember { mutableStateOf("") }
@@ -62,12 +63,12 @@ internal fun V117VoiceIdeaInput(
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         microphoneGranted = granted
-        if (granted && pendingPermissionStart) {
+        if (granted && pendingPermissionStart && orbOpen) {
             error = null
             partial = ""
             transcriber?.start(language)
         } else if (!granted) {
-            error = "Allow microphone access to capture an idea by voice."
+            error = "Microphone access is needed only when you tap the orb to listen."
         }
         pendingPermissionStart = false
     }
@@ -78,14 +79,12 @@ internal fun V117VoiceIdeaInput(
             listener = object : IdeaVoiceTranscriberListener {
                 override fun onListeningChanged(value: Boolean) {
                     listening = value
-                    if (!value) {
-                        partial = ""
-                        rmsDb = 0f
-                    }
+                    if (!value) rmsDb = 0f
                 }
                 override fun onPartialTranscript(text: String) { partial = text }
                 override fun onFinalTranscript(text: String, confidence: Float?) {
                     if (text.isNotBlank()) latestOnTranscript(text)
+                    partial = ""
                 }
                 override fun onDetectedLanguage(languageTag: String?) { detectedLanguage = languageTag }
                 override fun onVoiceError(message: String) { error = message }
@@ -104,7 +103,7 @@ internal fun V117VoiceIdeaInput(
         }
     }
 
-    fun startVoice() {
+    fun startVoiceFromOrb() {
         error = null
         partial = ""
         detectedLanguage = null
@@ -116,56 +115,85 @@ internal fun V117VoiceIdeaInput(
         }
     }
 
+    fun closeOrb() {
+        if (listening) transcriber?.stop()
+        pendingPermissionStart = false
+        orbOpen = false
+        partial = ""
+        rmsDb = 0f
+    }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, if (listening) RecRed.copy(alpha = .48f) else CinemaLine),
+        border = BorderStroke(1.dp, if (listening) RecRed.copy(alpha = .52f) else CinemaLine),
     ) {
         AnimatedContent(
-            targetState = listening,
-            transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(170)) },
-            label = "voiceOrbState",
-        ) { isListening ->
-            if (isListening) {
+            targetState = orbOpen,
+            transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(170)) },
+            label = "voiceOrbOpenState",
+        ) { opened ->
+            if (!opened) {
+                Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FilledIconButton(
+                            onClick = { orbOpen = true; error = null },
+                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = RecRed.copy(alpha = .16f), contentColor = RecRed),
+                            modifier = Modifier.size(46.dp),
+                        ) { Icon(Icons.Outlined.Mic, "Open voice capture", modifier = Modifier.size(23.dp)) }
+                        Spacer(Modifier.width(11.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Voice capture", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            Text("Open Frame Pulse, then tap when you are ready.", color = MutedText, fontSize = 8.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Text("Audio is never saved.", color = MutedText, fontSize = 7.7.sp)
+                }
+            } else {
                 Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 15.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("FRAME PULSE", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
-                            Text(listeningSubtitle(language, detectedLanguage), color = MutedText, fontSize = 8.5.sp)
+                            Text(if (listening) listeningSubtitle(language, detectedLanguage) else "Idle · tap the orb to listen", color = MutedText, fontSize = 8.5.sp)
                         }
-                        Text(formatVoiceTime(elapsedSeconds), color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(if (listening) formatVoiceTime(elapsedSeconds) else "READY", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(4.dp))
+                        IconButton(onClick = ::closeOrb, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Outlined.Close, "Close Frame Pulse", tint = MutedText, modifier = Modifier.size(17.dp))
+                        }
                     }
-                    Spacer(Modifier.height(5.dp))
+
+                    if (!listening) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            IdeaVoiceLanguage.entries.forEach { option ->
+                                FilterChip(
+                                    selected = language == option,
+                                    onClick = { language = option; error = null },
+                                    label = { Text(option.displayLabel, fontSize = 7.7.sp, fontWeight = FontWeight.Bold) },
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(4.dp))
                     FramePulseOrb(
+                        active = listening,
                         rmsDb = rmsDb,
-                        onStop = { transcriber?.stop() },
-                        modifier = Modifier.size(154.dp),
+                        onTap = { if (listening) transcriber?.stop() else startVoiceFromOrb() },
+                        modifier = Modifier.size(166.dp),
                     )
-                    Text("Listening", color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Black)
-                    Text("Tap the orb to stop", color = MutedText, fontSize = 8.3.sp)
+                    Text(if (listening) "Listening" else "Tap to listen", color = ProjectorIvory, fontSize = 12.8.sp, fontWeight = FontWeight.Black)
+                    Text(if (listening) "Tap again to stop" else "Nothing is listening yet", color = MutedText, fontSize = 8.4.sp)
 
                     if (partial.isNotBlank()) {
-                        Spacer(Modifier.height(10.dp))
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(13.dp),
-                            color = CinemaSurfaceRaised,
-                            border = BorderStroke(1.dp, CinemaLine),
-                        ) {
-                            Text(
-                                partial,
-                                modifier = Modifier.padding(11.dp),
-                                color = ProjectorIvory.copy(alpha = .90f),
-                                fontSize = 10.2.sp,
-                                lineHeight = 14.sp,
-                                maxLines = 4,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center,
-                            )
+                        Spacer(Modifier.height(9.dp))
+                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(13.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
+                            Text(partial, Modifier.padding(11.dp), color = ProjectorIvory.copy(alpha=.90f), fontSize = 10.2.sp, lineHeight = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                         }
                     }
                     error?.let { message ->
@@ -173,46 +201,7 @@ internal fun V117VoiceIdeaInput(
                         Text(message, color = RecRed, fontSize = 8.5.sp, lineHeight = 12.sp, textAlign = TextAlign.Center)
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text("Speech becomes text only. FrameByNavin does not save the audio.", color = MutedText, fontSize = 7.6.sp)
-                }
-            } else {
-                Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        FilledIconButton(
-                            onClick = ::startVoice,
-                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = RecRed.copy(alpha = .16f), contentColor = RecRed),
-                            modifier = Modifier.size(46.dp),
-                        ) {
-                            Icon(Icons.Outlined.Mic, "Start voice capture", modifier = Modifier.size(23.dp))
-                        }
-                        Spacer(Modifier.width(11.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Speak your idea", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                            Text(
-                                if (language == IdeaVoiceLanguage.AUTO) "Telugu + English · tap and talk naturally" else "${language.displayLabel} voice typing",
-                                color = MutedText,
-                                fontSize = 8.7.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(9.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        IdeaVoiceLanguage.entries.forEach { option ->
-                            FilterChip(
-                                selected = language == option,
-                                onClick = { language = option; error = null },
-                                label = { Text(option.displayLabel, fontSize = 7.8.sp, fontWeight = FontWeight.Bold) },
-                            )
-                        }
-                    }
-                    error?.let { message ->
-                        Spacer(Modifier.height(7.dp))
-                        Text(message, color = RecRed, fontSize = 8.5.sp, lineHeight = 12.sp)
-                    }
-                    Spacer(Modifier.height(5.dp))
-                    Text("Audio is not saved.", color = MutedText, fontSize = 7.7.sp)
+                    Text("Speech becomes text only. The app does not save the audio.", color = MutedText, fontSize = 7.6.sp)
                 }
             }
         }
@@ -220,93 +209,77 @@ internal fun V117VoiceIdeaInput(
 }
 
 @Composable
-private fun FramePulseOrb(rmsDb: Float, onStop: () -> Unit, modifier: Modifier = Modifier) {
-    val raw = ((rmsDb + 2f) / 12f).coerceIn(0f, 1f)
-    val amplitude by animateFloatAsState(raw, spring(dampingRatio = .72f, stiffness = 155f), label = "voiceAmplitudeV2")
-    val infinite = rememberInfiniteTransition(label = "voiceOrbV2")
-    val spin by infinite.animateFloat(0f, 360f, infiniteRepeatable(tween(6200, easing = LinearEasing)), label = "orbSpinV2")
-    val counterSpin by infinite.animateFloat(360f, 0f, infiniteRepeatable(tween(8800, easing = LinearEasing)), label = "orbCounterSpin")
-    val breathe by infinite.animateFloat(.96f, 1.045f, infiniteRepeatable(tween(1450, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orbBreatheV2")
+private fun FramePulseOrb(active: Boolean, rmsDb: Float, onTap: () -> Unit, modifier: Modifier = Modifier) {
+    val raw = if (active) ((rmsDb + 2f) / 12f).coerceIn(0f, 1f) else 0f
+    val amplitude by animateFloatAsState(raw, spring(dampingRatio = .74f, stiffness = 135f), label = "voiceAmplitudeV3")
+    val infinite = rememberInfiniteTransition(label = "voiceOrbV3")
+    val spin by infinite.animateFloat(0f, 360f, infiniteRepeatable(tween(if (active) 5200 else 9800, easing = LinearEasing)), label = "orbSpinV3")
+    val counterSpin by infinite.animateFloat(360f, 0f, infiniteRepeatable(tween(if (active) 7600 else 12600, easing = LinearEasing)), label = "orbCounterSpinV3")
+    val breathe by infinite.animateFloat(if (active) .96f else .985f, if (active) 1.055f else 1.018f, infiniteRepeatable(tween(if (active) 1250 else 2100, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orbBreatheV3")
 
-    Canvas(modifier.clickable(onClick = onStop)) {
+    Canvas(modifier.clickable(onClick = onTap)) {
         val c = center
-        val base = size.minDimension * (.20f + amplitude * .040f)
-        val halo = base * (2.35f + amplitude * .60f)
+        val base = size.minDimension * (.20f + amplitude * .045f)
+        val halo = base * (if (active) 2.65f + amplitude * .68f else 2.25f)
+        val energy = if (active) 1f else .48f
 
-        // Atmospheric bloom.
         drawCircle(
             brush = Brush.radialGradient(
                 listOf(
-                    RecRed.copy(alpha = .34f + amplitude * .18f),
-                    FrameTertiary.copy(alpha = .18f + amplitude * .12f),
-                    MutedGold.copy(alpha = .10f),
+                    RecRed.copy(alpha = (.30f + amplitude*.20f) * energy),
+                    FrameTertiary.copy(alpha = (.22f + amplitude*.12f) * energy),
+                    MutedGold.copy(alpha = .12f * energy),
                     Color.Transparent,
-                ),
-                center = c,
-                radius = halo,
-            ),
-            radius = halo,
-            center = c,
+                ), c, halo,
+            ), halo, c,
         )
-
-        // Fluid translucent shells.
-        drawCircle(FrameTertiary.copy(alpha = .075f + amplitude * .07f), radius = base * 1.78f * breathe, center = c)
-        drawCircle(RecRed.copy(alpha = .10f + amplitude * .10f), radius = base * 1.53f, center = c)
-        drawCircle(MutedGold.copy(alpha = .07f + amplitude * .06f), radius = base * 1.30f * (2f - breathe), center = c)
-
-        // Dark optical cavity + luminous inner field.
-        drawCircle(CinemaBlack.copy(alpha = .90f), radius = base * 1.03f, center = c)
+        drawCircle(FrameTertiary.copy(alpha = .085f * energy), base*1.88f*breathe, c)
+        drawCircle(RecRed.copy(alpha = .12f * energy), base*1.58f, c)
+        drawCircle(MutedGold.copy(alpha = .085f * energy), base*1.34f*(2f-breathe), c)
+        drawCircle(CinemaBlack.copy(alpha=.92f), base*1.05f, c)
         drawCircle(
             brush = Brush.radialGradient(
                 listOf(
-                    ProjectorIvory.copy(alpha = .55f + amplitude * .18f),
-                    FrameTertiary.copy(alpha = .58f),
-                    RecRed.copy(alpha = .82f),
+                    ProjectorIvory.copy(alpha = if (active) .66f + amplitude*.16f else .36f),
+                    FrameTertiary.copy(alpha = if (active) .68f else .38f),
+                    RecRed.copy(alpha = if (active) .88f else .48f),
                     RecRedDeep.copy(alpha = .98f),
                 ),
-                center = Offset(c.x - base * .27f, c.y - base * .31f),
-                radius = base * 1.55f,
+                Offset(c.x-base*.30f, c.y-base*.34f), base*1.62f,
             ),
-            radius = base * .86f,
+            radius = base*.88f*breathe,
             center = c,
         )
 
-        // Thin premium light filaments.
-        val ringRadius = base * 1.36f
-        repeat(5) { index ->
-            val r = ringRadius + index * 5.5f
-            val direction = if (index % 2 == 0) spin else counterSpin
-            val tint = when (index % 3) {
-                0 -> MutedGold
-                1 -> FrameTertiary
-                else -> RecRed
-            }
+        val ringRadius = base*1.40f
+        repeat(6) { index ->
+            val r = ringRadius + index*5.2f
+            val direction = if (index%2==0) spin else counterSpin
+            val tint = when(index%3) { 0 -> MutedGold; 1 -> FrameTertiary; else -> RecRed }
             drawArc(
-                color = tint.copy(alpha = .45f + amplitude * .28f),
-                startAngle = direction + index * 71f,
-                sweepAngle = 24f + index * 7f + amplitude * 28f,
+                tint.copy(alpha = (.36f + amplitude*.34f)*energy),
+                startAngle = direction + index*59f,
+                sweepAngle = 22f + index*6f + amplitude*32f,
                 useCenter = false,
-                topLeft = Offset(c.x - r, c.y - r),
-                size = androidx.compose.ui.geometry.Size(r * 2f, r * 2f),
-                style = Stroke(width = 1.1f + amplitude * 1.4f),
+                topLeft = Offset(c.x-r, c.y-r),
+                size = androidx.compose.ui.geometry.Size(r*2f, r*2f),
+                style = Stroke(width = 1f + amplitude*1.7f),
             )
         }
-
-        // Small floating glints give depth without particle noise.
-        repeat(4) { i ->
-            val angle = (spin + i * 90f) * 0.017453292f
-            val r = base * (1.12f + i * .10f)
-            val point = Offset(c.x + kotlin.math.cos(angle) * r, c.y + kotlin.math.sin(angle) * r)
-            drawCircle(ProjectorIvory.copy(alpha = .38f + amplitude * .30f), radius = 1.2f + amplitude * 1.4f, center = point)
+        repeat(5) { i ->
+            val angle = (spin + i*72f) * 0.017453292f
+            val r = base*(1.10f+i*.11f)
+            val point = Offset(c.x+kotlin.math.cos(angle)*r, c.y+kotlin.math.sin(angle)*r)
+            drawCircle(ProjectorIvory.copy(alpha=(.26f+amplitude*.36f)*energy), 1.1f+amplitude*1.5f, point)
         }
-        drawCircle(ProjectorIvory.copy(alpha = .90f), radius = 1.8f + amplitude * 1.8f, center = c)
+        drawCircle(ProjectorIvory.copy(alpha = if (active) .94f else .54f), 1.7f+amplitude*1.9f, c)
     }
 }
 
 private fun listeningSubtitle(language: IdeaVoiceLanguage, detectedLanguage: String?): String {
     val detected = when {
-        detectedLanguage?.startsWith("te", ignoreCase = true) == true -> "Telugu"
-        detectedLanguage?.startsWith("en", ignoreCase = true) == true -> "English"
+        detectedLanguage?.startsWith("te", true) == true -> "Telugu"
+        detectedLanguage?.startsWith("en", true) == true -> "English"
         else -> null
     }
     return when {

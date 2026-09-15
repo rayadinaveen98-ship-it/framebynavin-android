@@ -200,7 +200,7 @@ object CreatorWidgetUpdater {
         FrameTheme.MIDNIGHT -> R.drawable.widget_bg_midnight
         FrameTheme.EMBER -> R.drawable.widget_bg_ember
         FrameTheme.VIOLET_NEON -> R.drawable.widget_bg_violet
-        FrameTheme.IVORY_STUDIO -> R.drawable.widget_bg_ivory
+        FrameTheme.LUMEN_FLOW -> R.drawable.widget_bg_lumen
         FrameTheme.AURORA_GLASS -> R.drawable.widget_bg_aurora
     }
 

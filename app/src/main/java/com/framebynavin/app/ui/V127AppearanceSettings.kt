@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -37,7 +38,7 @@ internal fun V127AppearanceSettings() {
     Column(Modifier.fillMaxWidth()) {
         Text("APPEARANCE", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Choose your FrameByNavin atmosphere.", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("Choose your visual atmosphere.", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
         Text("The whole app, guide, voice orb, motion and widgets follow this theme.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(11.dp))
 
@@ -70,6 +71,10 @@ internal fun V127AppearanceSettings() {
                             if (active) Box(Modifier.size(8.dp).background(palette.primary, CircleShape))
                         }
                         Spacer(Modifier.weight(1f))
+                        if (theme == FrameTheme.LUMEN_FLOW) {
+                            Box(Modifier.fillMaxWidth().height(14.dp).background(Brush.horizontalGradient(listOf(palette.primary, palette.tertiary, palette.secondary)), RoundedCornerShape(100.dp)))
+                            Spacer(Modifier.height(6.dp))
+                        }
                         Text(theme.displayName, color = palette.foreground, fontSize = 11.sp, fontWeight = FontWeight.Black)
                         Text(theme.tagline, color = palette.muted, fontSize = 7.6.sp, lineHeight = 10.sp, maxLines = 2)
                     }

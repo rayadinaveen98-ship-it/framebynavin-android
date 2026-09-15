@@ -8,10 +8,11 @@ import org.junit.Test
 
 class VisualExperienceV127Test {
     @Test
-    fun `visual experience ships six distinct selectable themes`() {
+    fun `v129 ships six distinct selectable themes without ivory`() {
         assertEquals(6, FrameTheme.entries.size)
         assertEquals(6, FrameTheme.entries.map { it.displayName }.distinct().size)
         assertEquals(6, FrameTheme.entries.map { it.palette.primary }.distinct().size)
+        assertTrue(FrameTheme.entries.none { it.name == "IVORY_STUDIO" })
     }
 
     @Test
@@ -24,18 +25,9 @@ class VisualExperienceV127Test {
     }
 
     @Test
-    fun `ivory studio is the light editorial theme`() {
-        assertTrue(FrameTheme.IVORY_STUDIO.palette.isLight)
-        assertEquals(FrameSurfacePersonality.EDITORIAL, FrameTheme.IVORY_STUDIO.palette.surfacePersonality)
-        FrameTheme.entries.filter { it != FrameTheme.IVORY_STUDIO }.forEach {
-            assertFalse(it.palette.isLight)
-        }
-    }
-
-    @Test
-    fun `aurora glass uses a distinct glass personality`() {
+    fun `v129 theme system is dark first and lumen is structurally distinct`() {
+        FrameTheme.entries.forEach { assertFalse(it.palette.isLight) }
+        assertEquals(FrameSurfacePersonality.LUMEN, FrameTheme.LUMEN_FLOW.palette.surfacePersonality)
         assertEquals(FrameSurfacePersonality.GLASS, FrameTheme.AURORA_GLASS.palette.surfacePersonality)
-        assertFalse(FrameTheme.AURORA_GLASS.palette.isLight)
-        assertNotEquals(FrameTheme.AURORA_GLASS.palette.primary, FrameTheme.AURORA_GLASS.palette.tertiary)
     }
 }
