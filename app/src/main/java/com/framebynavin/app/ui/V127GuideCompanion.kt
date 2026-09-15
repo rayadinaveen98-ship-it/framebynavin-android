@@ -23,7 +23,7 @@ import com.framebynavin.app.ui.theme.RecRed
 
 enum class FrameGuidePose { IDLE, WALK, POINT, CELEBRATE }
 
-/** Compatibility surface: old journey calls now render the production Cine Pulse state machine. */
+/** Compatibility surface: journey calls render the locked v130 Cine Pulse mascot. */
 @Composable
 internal fun FrameGuideCompanion(
     pose: FrameGuidePose,
@@ -36,7 +36,7 @@ internal fun FrameGuideCompanion(
         FrameGuidePose.POINT -> CinePulseState.POINT
         FrameGuidePose.CELEBRATE -> CinePulseState.CELEBRATE
     }
-    CinePulseGuide(state = state, modifier = modifier, pointRight = pointRight)
+    CinePulseMascotV130(state = state, modifier = modifier, pointRight = pointRight)
 }
 
 @Composable
@@ -52,7 +52,7 @@ internal fun V127SetupGuideStrip(page: Int) {
 
     AnimatedContent(
         targetState = page.coerceIn(0, tips.lastIndex),
-        transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(170)) },
+        transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(180)) },
         label = "setupCinePulse",
     ) { index ->
         Surface(
@@ -61,9 +61,9 @@ internal fun V127SetupGuideStrip(page: Int) {
             color = CinemaSurface,
             border = BorderStroke(1.dp, RecRed.copy(alpha = .22f)),
         ) {
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                FrameGuideCompanion(poses[index], Modifier.size(width = 58.dp, height = 68.dp), pointRight = true)
-                Spacer(Modifier.width(9.dp))
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                FrameGuideCompanion(poses[index], Modifier.size(width = 68.dp, height = 80.dp), pointRight = true)
+                Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text("CINE PULSE", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(2.dp))
