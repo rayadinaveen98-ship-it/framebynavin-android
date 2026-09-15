@@ -43,9 +43,9 @@ patch(
     '"This is not a Backlot backup."',
 )
 
-# Final allowlist audit. No old brand is allowed in quoted strings except the three frozen
-# protocol identifiers above. Class names, package names and Theme.FrameByNavin remain source
-# identifiers and do not appear to users.
+# Final allowlist audit. Old brand is allowed only in frozen protocol/resource identifiers.
+# Class names, package names and Theme.FrameByNavin remain source identifiers and never render
+# as the product name to a user.
 allowed = {
     ("app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt", '"FrameByNavinCloudBackup"'),
     ("app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt", '"FrameByNavinBackup"'),
@@ -60,7 +60,6 @@ for path in sorted((ROOT / "app/src/main").rglob("*")):
     for line_no, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
         if not any(old in line for old in ("FrameByNavin", "Frame by Navin", "FRAME BY NAVIN")):
             continue
-        # Technical source identifiers are intentionally allowed when not inside a literal.
         literals = []
         in_string = False
         escaped = False
@@ -83,14 +82,15 @@ for path in sorted((ROOT / "app/src/main").rglob("*")):
             if not any(old in literal for old in ("FrameByNavin", "Frame by Navin", "FRAME BY NAVIN")):
                 continue
             remaining_quoted.append(f"{rel}:{line_no}: {literal}")
-            if (rel, literal) not in allowed:
+            is_theme_resource = "Theme.FrameByNavin" in literal
+            if (rel, literal) not in allowed and not is_theme_resource:
                 violations.append(f"{rel}:{line_no}: {literal}")
 
 report = ROOT / "build/backlot-brand-audit.txt"
 with report.open("a", encoding="utf-8") as fh:
     fh.write("\nFINAL COMPATIBILITY AUDIT\n")
     fh.write("=========================\n")
-    fh.write(f"Allowed frozen protocol literals: {len(remaining_quoted)}\n")
+    fh.write(f"Allowed technical literals: {len(remaining_quoted)}\n")
     fh.write(f"Final user-facing violations: {len(violations)}\n")
     for item in remaining_quoted:
         fh.write(f"ALLOWED/REVIEWED: {item}\n")
@@ -101,4 +101,4 @@ if violations:
     raise RuntimeError("Old brand remains in non-allowlisted string literals:\n" + "\n".join(violations))
 
 print("v133 compatibility pass complete")
-print(f"frozen protocol literals preserved: {len(remaining_quoted)}")
+print(f"technical literals preserved/reviewed: {len(remaining_quoted)}")
