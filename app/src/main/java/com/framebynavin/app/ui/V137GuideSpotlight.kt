@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import com.framebynavin.app.data.CreatorGuidedTourStep
 import com.framebynavin.app.ui.theme.RecRed
+import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 
 private data class V137Spot(
     val x: Float,
@@ -30,18 +31,15 @@ private fun v137Spot(step: CreatorGuidedTourStep): V137Spot = when (step) {
     CreatorGuidedTourStep.CONTROL -> V137Spot(.78f, .74f, .17f, .14f, 54f)
 }
 
-/**
- * Kept as a compatibility token because v137 call sites already carry a guide layer.
- * v138 intentionally performs no GPU blur: content remains sharp and readable.
- */
+/** Compatibility token retained for existing guide call sites. v139 intentionally uses no GPU blur. */
 @Composable
 internal fun rememberV137GuideLayer(): GraphicsLayer = rememberGraphicsLayer()
 
 internal fun Modifier.v137GuideCaptureAndBlur(layer: GraphicsLayer, active: Boolean): Modifier = this
 
 /**
- * v138 guide focus: the target stays completely untouched while only the area outside it is dimmed.
- * Four scrim rectangles avoid blur and avoid drawing over the highlighted UI itself.
+ * Sharp-window guide focus. The highlighted UI is never blurred or covered. The surrounding scrim,
+ * outline strength and corner treatment inherit the active visual language.
  */
 @Composable
 internal fun V137GuideSharpWindow(
@@ -50,21 +48,25 @@ internal fun V137GuideSharpWindow(
     modifier: Modifier = Modifier,
 ) {
     val spot = v137Spot(step)
+    val profile = VisualExperiencePrefs.profile
     Canvas(modifier) {
         val left = size.width * spot.x
         val top = size.height * spot.y
         val right = left + size.width * spot.width
         val bottom = top + size.height * spot.height
-        val scrim = Color.Black.copy(alpha = .58f)
+        val scrim = Color.Black.copy(alpha = profile.guideScrimAlpha)
+        val themeCorner = profile.cardRadius.value * 2.2f
+        val corner = when {
+            profile.cardRadius.value <= 4f -> 5f
+            else -> minOf(spot.corner, themeCorner)
+        }
 
-        // Above and below the focus window.
         drawRect(scrim, topLeft = Offset.Zero, size = Size(size.width, top.coerceAtLeast(0f)))
         drawRect(
             scrim,
             topLeft = Offset(0f, bottom.coerceAtMost(size.height)),
             size = Size(size.width, (size.height - bottom).coerceAtLeast(0f)),
         )
-        // Left and right beside the focus window. The center target remains fully sharp.
         drawRect(
             scrim,
             topLeft = Offset(0f, top),
@@ -77,11 +79,11 @@ internal fun V137GuideSharpWindow(
         )
 
         drawRoundRect(
-            color = RecRed.copy(alpha = .70f),
+            color = RecRed.copy(alpha = .82f),
             topLeft = Offset(left, top),
             size = Size((right - left).coerceAtLeast(0f), (bottom - top).coerceAtLeast(0f)),
-            cornerRadius = CornerRadius(spot.corner, spot.corner),
-            style = Stroke(width = 1.5f),
+            cornerRadius = CornerRadius(corner, corner),
+            style = Stroke(width = if (profile.borderWidth.value >= 2f) 2.2f else 1.5f),
         )
     }
 }
