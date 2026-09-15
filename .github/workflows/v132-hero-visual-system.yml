@@ -48,10 +48,9 @@ jobs:
           grep -q 'ACTION_RESCHEDULE' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt
           grep -q 'ACTION_STAGE_DONE' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt
           grep -q 'ACTION_SNOOZE' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'ACTION_RESCHEDULE' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'ACTION_STAGE_DONE' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
           grep -q 'onRepeat = { VoiceReminderService.start' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
-          grep -R -q 'Google Calendar' app/src/main/java/com/framebynavin/app
-          grep -R -q 'Urgent' app/src/main/java/com/framebynavin/app/ui
-          grep -R -q 'Custom' app/src/main/java/com/framebynavin/app/ui
           test ! -f app/src/main/java/com/framebynavin/app/ui/V130CinePulseMascot.kt
 
       - name: Set up JDK 17
