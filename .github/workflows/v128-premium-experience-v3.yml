@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/v128-premium-experience-v3.yml"
       - "scripts/apply_v128_premium_experience.py"
+      - "scripts/apply_v128_postfix.py"
       - "docs/visual-experience/V128_PREMIUM_EXPERIENCE_V3_SPEC.md"
   workflow_dispatch:
 
@@ -29,7 +30,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply v128 premium integration patch
-        run: python3 scripts/apply_v128_premium_experience.py
+        run: |
+          python3 scripts/apply_v128_premium_experience.py
+          python3 scripts/apply_v128_postfix.py
 
       - name: Verify v128 product contract
         shell: bash
@@ -48,9 +51,11 @@ jobs:
           grep -q 'BlendMode.Clear' app/src/main/java/com/framebynavin/app/ui/V20GuidedFirstRun.kt
           grep -q 'AURORA_GLASS' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
           grep -q 'FrameSurfacePersonality.GLASS' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
+          grep -q 'WindowCompat.getInsetsController' app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt
           grep -q 'voiceAmplitudeV2' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
           grep -q 'recommendedTypes.take(4)' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
           grep -q 'BROWSE ALL TYPES' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
+          grep -q 'FrameTheme.AURORA_GLASS' app/src/main/java/com/framebynavin/app/widget/CreatorWidgetUpdater.kt
           grep -q 'ProjectAttentionPlan.URGENT' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
           grep -q 'ProjectAttentionPlan.CUSTOM' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
           grep -q 'REMINDER STYLE' app/src/main/java/com/framebynavin/app/ui/V20NewProjectWizard.kt
@@ -76,7 +81,7 @@ jobs:
           set -euo pipefail
           git config user.name "FrameByNavin CI"
           git config user.email "actions@users.noreply.github.com"
-          git add app/build.gradle.kts app/src/main/java/com/framebynavin/app/ui
+          git add app/build.gradle.kts app/src
           if ! git diff --cached --quiet; then
             git commit -m "feat(v128): integrate Premium Experience V3"
             git push origin HEAD:feature/v128-premium-experience-v3
