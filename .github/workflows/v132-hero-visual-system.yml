@@ -1,0 +1,92 @@
+name: V132 Hero Visual System
+
+on:
+  push:
+    branches:
+      - "feature/v132-hero-visual-system"
+    paths:
+      - ".github/workflows/v132-hero-visual-system.yml"
+      - "scripts/apply_v132_hero_visual_system.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v132-hero-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout v132 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v132-hero-visual-system
+          fetch-depth: 0
+
+      - name: Apply v132 hero visual migration
+        run: python3 scripts/apply_v132_hero_visual_system.py
+
+      - name: Verify hero visual contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 132' app/build.gradle.kts
+          grep -q '2.0.0-rc8-hero-visual-system' app/build.gradle.kts
+          grep -q 'RuntimeShader' app/src/main/java/com/framebynavin/app/ui/V132HeroOrb.kt
+          grep -q 'Build.VERSION_CODES.TIRAMISU' app/src/main/java/com/framebynavin/app/ui/V132HeroOrb.kt
+          grep -q 'HeroOrbCanvasFallback' app/src/main/java/com/framebynavin/app/ui/V132HeroOrb.kt
+          grep -q 'V132HeroOrbState.LISTENING' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          grep -q 'Idle · tap the orb to listen' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          grep -q 'if (listening) transcriber?.stop() else startVoiceFromOrb()' app/src/main/java/com/framebynavin/app/ui/V117VoiceQuickIdeaUi.kt
+          grep -q 'V132AlarmHeroScreen(' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt
+          grep -q 'V132VoiceHeroScreen(' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'ACTION_SNOOZE' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt
+          grep -q 'ACTION_RESCHEDULE' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt
+          grep -q 'ACTION_STAGE_DONE' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt
+          grep -q 'ACTION_SNOOZE' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -q 'onRepeat = { VoiceReminderService.start' app/src/main/java/com/framebynavin/app/reminders/VoiceReminderActivity.kt
+          grep -R -q 'Google Calendar' app/src/main/java/com/framebynavin/app
+          grep -R -q 'Urgent' app/src/main/java/com/framebynavin/app/ui
+          grep -R -q 'Custom' app/src/main/java/com/framebynavin/app/ui
+          test ! -f app/src/main/java/com/framebynavin/app/ui/V130CinePulseMascot.kt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Unit tests, Kotlin compile and APK
+        run: gradle :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug --stacktrace
+
+      - name: Commit validated v132 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "FrameByNavin CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A app
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(v132): ship volumetric orb and hero reminder screens"
+            git push origin HEAD:feature/v132-hero-visual-system
+          fi
+
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk FrameByNavin-v132-HeroVisualSystem.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameByNavin-v132-hero-visual-system
+          path: FrameByNavin-v132-HeroVisualSystem.apk
+          if-no-files-found: error
+          retention-days: 90
