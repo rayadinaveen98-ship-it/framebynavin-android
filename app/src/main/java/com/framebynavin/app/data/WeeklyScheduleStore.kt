@@ -41,10 +41,11 @@ class WeeklyScheduleStore(private val context: Context) {
             runCatching { decode(backup) }.getOrElse { throw IllegalStateException("Both weekly plan copies are unreadable.", it) }
         }
         val cleaned = decoded.filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
-        if (cleaned.size != decoded.size) {
-            mutationMutex.withLock { saveUnlocked(cleaned) }
+        val resolved = if (cleaned.isEmpty()) WeeklyScheduleEngine.defaultSlots() else cleaned
+        if (resolved != decoded) {
+            mutationMutex.withLock { saveUnlocked(resolved) }
         }
-        cleaned
+        resolved
     }
 
     suspend fun save(slots: List<WeeklyScheduleSlot>)= CreatorDataGate.transaction {
