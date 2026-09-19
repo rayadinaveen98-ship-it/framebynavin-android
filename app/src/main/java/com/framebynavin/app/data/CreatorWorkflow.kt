@@ -206,6 +206,10 @@ object CreatorWorkflowEngine {
         val stages = templateFor(task).stages
         if (stages.isEmpty()) return 0
         if (task.status == TaskStatus.DONE) return stages.lastIndex
+        // A recurring deadline is planning information, never evidence that creative work happened.
+        // v142 inferred stages from proximity to publish time. Treat untouched auto-generated weekly
+        // projects as brand-new so syncScheduledTask rewrites the stored stage/progress/reminder to 0.
+        if (task.origin == CreatorTaskOrigin.WEEKLY && task.status == TaskStatus.PLANNED && task.autoStageReminder) return 0
         if (task.workflowStageIndex >= 0) return task.workflowStageIndex.coerceIn(0, stages.lastIndex)
         return stageIndexFromProgress(task.progress, stages.size)
     }
