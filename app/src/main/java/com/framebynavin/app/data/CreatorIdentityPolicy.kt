@@ -8,7 +8,7 @@ object CreatorIdentityPolicy {
         googleAccountName: String,
     ): String {
         val local = localCreatorName.trim()
-        if (local.isNotBlank() && !local.equals("Creator", ignoreCase = true)) return local.take(40)
+        if (local.isNotBlank()) return local.take(40)
         return cachedAccountName.trim().ifBlank { googleAccountName.trim() }.take(40)
     }
 }
