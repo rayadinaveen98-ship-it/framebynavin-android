@@ -43,6 +43,8 @@ data class StageCheckpoint(
 object WeeklyScheduleEngine {
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
+    private const val FRAMEBYNAVIN_V4_PREFIX = "fbn_v4_"
+
     private val legacySeedSlotIds = setOf(
         "mon_x_thought",
         "mon_frame_today",
@@ -59,7 +61,157 @@ object WeeklyScheduleEngine {
 
     fun isLegacySeedSlot(slotId: String): Boolean = slotId in legacySeedSlotIds
 
-    fun defaultSlots(): List<WeeklyScheduleSlot> = emptyList()
+    /**
+     * Locked FrameByNavin V4 creator rhythm.
+     *
+     * Cross-platform content is represented as one master Backlot project rather than duplicate
+     * Instagram / YouTube / X projects. The title records every delivery surface while the
+     * platform + format choose the strongest production workflow for that master asset.
+     */
+    fun frameByNavinV4Slots(): List<WeeklyScheduleSlot> = buildList {
+        DayOfWeek.values().forEach { day ->
+            val dayKey = day.name.lowercase(Locale.ROOT).take(3)
+            add(
+                slot(
+                    id = "${FRAMEBYNAVIN_V4_PREFIX}${dayKey}_frame",
+                    title = "Frame of the Day · IG + YT Community + X",
+                    day = day,
+                    hour = 9,
+                    minute = 0,
+                    platform = "Instagram",
+                    contentType = "Post",
+                    reminderMode = ReminderMode.SIMPLE,
+                    priority = TaskPriority.NORMAL,
+                )
+            )
+            add(
+                slot(
+                    id = "${FRAMEBYNAVIN_V4_PREFIX}${dayKey}_recommendation",
+                    title = "Movie Recommendation · IG Reel + YT Short + X",
+                    day = day,
+                    hour = 13,
+                    minute = 0,
+                    platform = "YouTube",
+                    contentType = "Short",
+                    reminderMode = ReminderMode.SIMPLE,
+                    priority = TaskPriority.IMPORTANT,
+                )
+            )
+            add(
+                slot(
+                    id = "${FRAMEBYNAVIN_V4_PREFIX}${dayKey}_10pm_cinema",
+                    title = "10 PM Cinema · Instagram",
+                    day = day,
+                    hour = 22,
+                    minute = 0,
+                    platform = "Instagram",
+                    contentType = "Reel",
+                    reminderMode = ReminderMode.SIMPLE,
+                    priority = TaskPriority.NORMAL,
+                )
+            )
+        }
+
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_V4_PREFIX}tue_scene_works",
+                title = "Why This Scene Works · IG Reel + YT Short + X",
+                day = DayOfWeek.TUESDAY,
+                hour = 20,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Short",
+                reminderMode = ReminderMode.SMART,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_V4_PREFIX}wed_cinematic_moment",
+                title = "Every Cinematic Moment",
+                day = DayOfWeek.WEDNESDAY,
+                hour = 19,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Cinematic Moment",
+                reminderMode = ReminderMode.SMART,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_V4_PREFIX}wed_ecm_promo",
+                title = "Every Cinematic Moment Promo · IG Reel + YT Short + X",
+                day = DayOfWeek.WEDNESDAY,
+                hour = 20,
+                minute = 30,
+                platform = "YouTube",
+                contentType = "Short",
+                reminderMode = ReminderMode.SIMPLE,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_V4_PREFIX}fri_review",
+                title = "Friday Movie Review",
+                day = DayOfWeek.FRIDAY,
+                hour = 19,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Long-form",
+                reminderMode = ReminderMode.SMART,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_V4_PREFIX}fri_review_promo",
+                title = "Review Promo · IG Reel + YT Short + X",
+                day = DayOfWeek.FRIDAY,
+                hour = 20,
+                minute = 30,
+                platform = "YouTube",
+                contentType = "Short",
+                reminderMode = ReminderMode.SIMPLE,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_V4_PREFIX}sun_flagship",
+                title = "Flagship Cinematic Analysis",
+                day = DayOfWeek.SUNDAY,
+                hour = 10,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Long-form",
+                reminderMode = ReminderMode.SMART,
+                priority = TaskPriority.CRITICAL,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_V4_PREFIX}sun_flagship_promo",
+                title = "Flagship Promo · IG Reel + YT Short + X",
+                day = DayOfWeek.SUNDAY,
+                hour = 18,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Short",
+                reminderMode = ReminderMode.SIMPLE,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+    }
+
+    fun defaultSlots(): List<WeeklyScheduleSlot> = frameByNavinV4Slots()
+
+    fun isFrameByNavinV4Preset(slots: List<WeeklyScheduleSlot>): Boolean {
+        val expectedIds = frameByNavinV4Slots().mapTo(linkedSetOf()) { it.id }
+        val actualIds = slots.mapTo(linkedSetOf()) { it.id }
+        return expectedIds == actualIds
+    }
 
     fun upcomingOccurrences(
         slots: List<WeeklyScheduleSlot>,
