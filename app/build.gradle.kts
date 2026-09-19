@@ -53,8 +53,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 141
-        versionName = "2.0.0-rc14-welcome-sfx-voice-inheritance"
+        versionCode = 142
+        versionName = "2.0.0-rc15-framebynavin-v4-weekly-plan"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
