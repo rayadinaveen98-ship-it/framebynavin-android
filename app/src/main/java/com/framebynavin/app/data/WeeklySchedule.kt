@@ -255,11 +255,12 @@ object WeeklyScheduleEngine {
 
     fun checkpoints(task: CreatorTask): List<StageCheckpoint> = checkpoints(task.platform, task.contentType, task.dueAtMillis)
 
+    /** A deadline can suggest urgency, but it can never prove that creative work is already done. */
     fun suggestedStageIndex(platform: String, contentType: String, publishAtMillis: Long, nowMillis: Long = System.currentTimeMillis()): Int {
-        val checkpoints = checkpoints(platform, contentType, publishAtMillis)
-        if (checkpoints.isEmpty()) return 0
-        val completedByClock = checkpoints.count { it.dueAtMillis <= nowMillis }
-        return completedByClock.coerceIn(0, checkpoints.lastIndex)
+        // Keep the arguments for source/binary compatibility with older callers. New recurring
+        // projects always begin at their first workflow step; only creator actions advance them.
+        if (platform.isEmpty() && contentType.isEmpty() && publishAtMillis == nowMillis) return 0
+        return 0
     }
 
     fun reminderTargetForStage(task: CreatorTask, stageIndex: Int, nowMillis: Long = System.currentTimeMillis()): Long {
