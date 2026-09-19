@@ -1,6 +1,7 @@
 package com.framebynavin.app.data
 
 import android.content.Context
+import com.framebynavin.app.cloud.CloudLocalStore
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -17,7 +18,9 @@ data class CreatorOsSettings(
 )
 
 class CreatorOsSettingsStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val cloudLocal = CloudLocalStore(appContext)
 
     init {
         if (!prefs.contains(KEY_GUIDED_TOUR_VERSION)) {
@@ -40,11 +43,26 @@ class CreatorOsSettingsStore(context: Context) {
         }
         val legacyCategory = prefs.getString(KEY_CREATOR_CATEGORY, "") ?: ""
         val primaryMode = prefs.getString(KEY_PRIMARY_CREATOR_MODE, legacyCategory) ?: legacyCategory
+        val storedDisplayName = prefs.getString(KEY_CREATOR_NAME, "").orEmpty()
+        val connectedSession = if (storedDisplayName.isBlank()) runCatching { cloudLocal.loadSession() }.getOrNull() else null
+        val connectedProfile = connectedSession?.let { session ->
+            runCatching { cloudLocal.loadCreatorProfile() }.getOrNull()?.takeIf { it.userId == session.userId }
+        }
+        val resolvedDisplayName = CreatorIdentityPolicy.resolvedDisplayName(
+            localCreatorName = storedDisplayName,
+            cachedAccountName = connectedProfile?.displayName.orEmpty(),
+            googleAccountName = connectedSession?.displayName.orEmpty(),
+        )
+        if (storedDisplayName.isBlank() && resolvedDisplayName.isNotBlank()) {
+            // v143 migration: older upgrades could mark account onboarding complete without copying
+            // the connected Google identity into the local creator setup. Preserve explicit names.
+            prefs.edit().putString(KEY_CREATOR_NAME, resolvedDisplayName).apply()
+        }
         return CreatorOsSettings(
             accountOnboardingComplete = accountComplete,
             onboardingComplete = creatorSetupComplete,
             creatorProfile = CreatorProfile(
-                displayName = prefs.getString(KEY_CREATOR_NAME, "") ?: "",
+                displayName = resolvedDisplayName,
                 category = legacyCategory,
                 primaryCreatorMode = primaryMode,
                 secondaryCreatorModes = stringSet(KEY_SECONDARY_CREATOR_MODES),
