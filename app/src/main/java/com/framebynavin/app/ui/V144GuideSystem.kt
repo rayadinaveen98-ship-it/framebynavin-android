@@ -248,8 +248,8 @@ internal fun V144GuideCharacter(
     when (guide) {
         V144GuideIdentity.FRAME -> BacklotGuideCharacter(BacklotCharacter.FRAME, state, modifier, pointRight)
         V144GuideIdentity.NAVI -> BacklotGuideCharacter(BacklotCharacter.NAVI, state, modifier, pointRight)
-        V144GuideIdentity.FUNNY -> V144RasterGuideCharacter(BacklotCharacter.FUNNY, state, modifier, pointRight)
-        V144GuideIdentity.CUTE -> V144RasterGuideCharacter(BacklotCharacter.CUTE, state, modifier, pointRight)
+        V144GuideIdentity.FUNNY -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
+        V144GuideIdentity.CUTE -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
     }
 }
 
