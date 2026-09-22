@@ -322,7 +322,7 @@ private fun V09IdeaEditor(
                     onTranscript = { transcript ->
                         val clean = transcript.trim()
                         if (clean.isNotBlank()) {
-                            notes = if (notes.isBlank()) clean else "${notes.trimEnd()}\n$clean"
+                            notes = if (notes.isBlank()) clean else notes.trimEnd() + System.lineSeparator() + clean
                         }
                     },
                 )
