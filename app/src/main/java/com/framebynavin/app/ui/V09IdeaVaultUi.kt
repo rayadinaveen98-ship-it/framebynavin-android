@@ -35,6 +35,7 @@ import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.youtube.YouTubeAnalyticsStore
 import com.framebynavin.app.youtube.YouTubeOpportunityEngine
+import com.framebynavin.app.widget.CreatorWidgetContract
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -48,6 +49,9 @@ internal fun V09IdeaVaultScreen(
     onDelete: (String) -> Unit,
     onArchive: (String) -> Unit,
     onConvert: (String, String, String, Long) -> String?,
+    externalIdeaId: String = "",
+    externalIdeaMode: String = "",
+    externalLaunchNonce: Long = 0L,
 ) {
     val context = LocalContext.current
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
@@ -58,6 +62,19 @@ internal fun V09IdeaVaultScreen(
     var editing by remember { mutableStateOf<CreatorIdea?>(null) }
     var creating by remember { mutableStateOf(false) }
     var converting by remember { mutableStateOf<CreatorIdea?>(null) }
+    var handledExternalNonce by rememberSaveable { mutableLongStateOf(0L) }
+
+    LaunchedEffect(externalLaunchNonce, externalIdeaId, ideas.size) {
+        if (externalLaunchNonce == 0L || externalLaunchNonce == handledExternalNonce || externalIdeaId.isBlank()) {
+            return@LaunchedEffect
+        }
+        val target = ideas.firstOrNull { it.id == externalIdeaId } ?: return@LaunchedEffect
+        handledExternalNonce = externalLaunchNonce
+        when (externalIdeaMode) {
+            CreatorWidgetContract.IDEA_MODE_CONVERT -> converting = target
+            else -> editing = target
+        }
+    }
 
     val opportunityReport = YouTubeAnalyticsStore.latest24HourReport
     val opportunityAlerts by remember(opportunityReport) {
@@ -304,6 +321,8 @@ private fun V09IdeaEditor(
         CreatorPlatformRegistry.orderedSelected(creatorProfile, include = if (idea.id.isBlank()) null else idea.platformHint)
     }
     var notes by remember(idea.id) { mutableStateOf(idea.notes) }
+    var reminderAtMillis by remember(idea.id) { mutableLongStateOf(idea.reminderAtMillis) }
+    var reminderCadence by remember(idea.id) { mutableStateOf(idea.reminderCadence) }
     var showOrganize by rememberSaveable(idea.id) { mutableStateOf(false) }
     val formats = v09Formats(platform)
     LaunchedEffect(platform) { if (format !in formats) format = formats.first() }
@@ -324,6 +343,16 @@ private fun V09IdeaEditor(
                         if (clean.isNotBlank()) {
                             notes = if (notes.isBlank()) clean else notes.trimEnd() + System.lineSeparator() + clean
                         }
+                    },
+                )
+                Spacer(Modifier.height(10.dp))
+                V144IdeaReminderPicker(
+                    reminderAtMillis = reminderAtMillis,
+                    cadence = reminderCadence,
+                    enabled = status != IdeaStatus.CONVERTED && status != IdeaStatus.ARCHIVED,
+                    onChange = { atMillis, cadence ->
+                        reminderAtMillis = atMillis
+                        reminderCadence = cadence
                     },
                 )
                 Spacer(Modifier.height(12.dp))
@@ -395,6 +424,8 @@ private fun V09IdeaEditor(
                             platformHint = platform,
                             formatHint = format,
                             notes = notes.trim(),
+                            reminderAtMillis = reminderAtMillis,
+                            reminderCadence = reminderCadence,
                             createdAtMillis = idea.createdAtMillis.takeIf { it > 0L } ?: now,
                             updatedAtMillis = now,
                         )

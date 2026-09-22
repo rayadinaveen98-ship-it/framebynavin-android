@@ -334,6 +334,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         routeJourney(V18CreatorJourney.afterProjectCreated(projectId))
                         projectId
                     },
+                    externalIdeaId = externalLaunch?.ideaId.orEmpty(),
+                    externalIdeaMode = externalLaunch?.ideaMode.orEmpty(),
+                    externalLaunchNonce = externalLaunch?.nonce ?: 0L,
                 )
                 PTab.CREATE -> V131StudioScreen(
                     tasks = vm.tasks,
