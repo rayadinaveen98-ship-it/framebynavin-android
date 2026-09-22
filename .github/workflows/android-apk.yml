@@ -81,7 +81,6 @@ jobs:
 
   ui-smoke-v144:
     if: github.ref == 'refs/heads/feature/v144-guide-schedule-refresh'
-    needs: build
     runs-on: macos-15-intel
     timeout-minutes: 20
     steps:
