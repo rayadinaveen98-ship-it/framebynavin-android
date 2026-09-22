@@ -1,0 +1,56 @@
+name: V144 Idea Voice Fix Once
+
+on:
+  push:
+    branches:
+      - feature/v144-guide-schedule-refresh
+    paths:
+      - .github/workflows/v144-idea-voice-fix-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v144-guide-schedule-refresh
+          fetch-depth: 0
+
+      - name: Repair voice transcript append block
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt')
+          text = p.read_text()
+          start_token = '                V117VoiceIdeaInput(\n'
+          end_token = '                Spacer(Modifier.height(12.dp))'
+          if text.count(start_token) != 1:
+              raise SystemExit(f'Expected one voice input block, found {text.count(start_token)}')
+          start = text.index(start_token)
+          end = text.index(end_token, start)
+          indent = ' ' * 16
+          child = indent + '    '
+          block = (
+              indent + 'V117VoiceIdeaInput(\n' +
+              child + 'onTranscript = { transcript ->\n' +
+              child + '    val clean = transcript.trim()\n' +
+              child + '    if (clean.isNotBlank()) {\n' +
+              child + '        notes = if (notes.isBlank()) clean else notes.trimEnd() + System.lineSeparator() + clean\n' +
+              child + '    }\n' +
+              child + '},\n' +
+              indent + ')\n'
+          )
+          p.write_text(text[:start] + block + text[end:])
+          PY
+
+      - name: Commit and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/v144-idea-voice-fix-once.yml
+          git add app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt
+          git commit -m "fix(v144): repair idea voice transcript append"
+          git push origin HEAD:feature/v144-guide-schedule-refresh
