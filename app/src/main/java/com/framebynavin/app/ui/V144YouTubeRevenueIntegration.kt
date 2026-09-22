@@ -23,6 +23,7 @@ import com.framebynavin.app.youtube.YouTubeRevenueClient
 import com.framebynavin.app.youtube.YouTubeRevenueException
 import com.framebynavin.app.youtube.YouTubeRevenuePeriod
 import com.framebynavin.app.youtube.YouTubeRevenueStore
+import com.framebynavin.app.youtube.shouldAutoFetchRevenue
 import com.google.android.gms.auth.api.identity.Identity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -30,8 +31,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Revenue deliberately has its own incremental consent flow. Normal Insights must continue to
- * work even when a creator declines, revokes, or is not eligible for monetary analytics.
+ * Revenue has one incremental channel-level consent. Period tabs are data filters, not separate
+ * permissions, so switching 7D/28D/90D/This Month silently loads the requested report.
  */
 @Composable
 internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
@@ -39,15 +40,20 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
     val appContext = context.applicationContext
     val activity = context as? ComponentActivity
     val channelId = snapshot.channel.channelId
+    val ownerPrefs = remember {
+        appContext.getSharedPreferences(REVENUE_OWNER_PREFS, android.content.Context.MODE_PRIVATE)
+    }
     val revenueStore = remember(channelId) {
         val store = YouTubeRevenueStore(appContext)
-        val owner = appContext.getSharedPreferences(REVENUE_OWNER_PREFS, android.content.Context.MODE_PRIVATE)
-        val previousChannel = owner.getString(REVENUE_OWNER_CHANNEL, null)
+        val previousChannel = ownerPrefs.getString(REVENUE_OWNER_CHANNEL, null)
         if (previousChannel != null && previousChannel != channelId) {
             store.clear()
         }
         if (previousChannel != channelId) {
-            owner.edit().putString(REVENUE_OWNER_CHANNEL, channelId).apply()
+            ownerPrefs.edit()
+                .putString(REVENUE_OWNER_CHANNEL, channelId)
+                .remove(REVENUE_PERMISSION_ESTABLISHED)
+                .apply()
         }
         store
     }
@@ -67,16 +73,33 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
     }
     var revenueLoading by remember(channelId) { mutableStateOf(false) }
     var revenueError by rememberSaveable(channelId) { mutableStateOf<String?>(null) }
+    var revenueAuthorized by remember(channelId) {
+        mutableStateOf(
+            ownerPrefs.getBoolean(REVENUE_PERMISSION_ESTABLISHED, false) || revenueStore.hasAnySnapshot(),
+        )
+    }
     var pendingPeriodName by remember(channelId) { mutableStateOf<String?>(null) }
     var requestNonce by remember(channelId) { mutableLongStateOf(0L) }
 
-    // V11 clears the normal analytics store before it removes the connected Insights surface.
-    // If this composable is disposed because YouTube was explicitly disconnected, clear the
-    // separate monetary cache as well. Ordinary navigation keeps both caches intact.
+    fun markRevenueAuthorized(authorized: Boolean) {
+        revenueAuthorized = authorized
+        ownerPrefs.edit().putBoolean(REVENUE_PERMISSION_ESTABLISHED, authorized).apply()
+    }
+
+    LaunchedEffect(channelId) {
+        if (revenueAuthorized && !ownerPrefs.getBoolean(REVENUE_PERMISSION_ESTABLISHED, false)) {
+            ownerPrefs.edit().putBoolean(REVENUE_PERMISSION_ESTABLISHED, true).apply()
+        }
+    }
+
     DisposableEffect(channelId, revenueStore) {
         onDispose {
             if (YouTubeAnalyticsStore(appContext).loadAny() == null) {
                 revenueStore.clear()
+                ownerPrefs.edit()
+                    .remove(REVENUE_PERMISSION_ESTABLISHED)
+                    .remove(REVENUE_OWNER_CHANNEL)
+                    .apply()
             }
         }
     }
@@ -90,12 +113,16 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
             try {
                 val fresh = withContext(Dispatchers.IO) { revenueApi.sync(token, period) }
                 withContext(Dispatchers.IO) { revenueStore.save(fresh) }
+                markRevenueAuthorized(true)
                 if (requestNonce == nonce && selectedPeriodName == period.name) {
                     revenueSnapshot = fresh
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
+                if (error is YouTubeRevenueException && error.httpCode in setOf(401, 403)) {
+                    markRevenueAuthorized(false)
+                }
                 if (requestNonce == nonce) {
                     revenueError = v144RevenueFriendlyError(error)
                 }
@@ -113,6 +140,7 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
             ?: selectedPeriod
         pendingPeriodName = null
         if (result.resultCode != Activity.RESULT_OK || result.data == null) {
+            markRevenueAuthorized(false)
             revenueLoading = false
             revenueError = "YouTube revenue connection was cancelled. Normal Insights are unaffected."
             return@rememberLauncherForActivityResult
@@ -122,9 +150,11 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
         }.getOrNull()
         val token = authResult?.accessToken
         if (token.isNullOrBlank()) {
+            markRevenueAuthorized(false)
             revenueLoading = false
             revenueError = "Google did not return a YouTube revenue access token."
         } else {
+            markRevenueAuthorized(true)
             syncRevenueWithToken(token, period)
         }
     }
@@ -137,6 +167,7 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
             revenueError = "Google authorization is unavailable on this device."
             return
         }
+        if (revenueLoading) return
         revenueLoading = true
         if (allowResolution) revenueError = null
         pendingPeriodName = period.name
@@ -145,12 +176,15 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
                 if (result.hasResolution()) {
                     if (!allowResolution) {
                         pendingPeriodName = null
+                        markRevenueAuthorized(false)
                         revenueLoading = false
+                        revenueError = "Reconnect once to restore read-only YouTube revenue access."
                         return@addOnSuccessListener
                     }
                     val pending = result.pendingIntent
                     if (pending == null) {
                         pendingPeriodName = null
+                        markRevenueAuthorized(false)
                         revenueLoading = false
                         revenueError = "Google needs revenue consent, but no consent screen was available."
                     } else {
@@ -164,9 +198,11 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
                     if (token.isNullOrBlank()) {
                         revenueLoading = false
                         if (allowResolution) {
+                            markRevenueAuthorized(false)
                             revenueError = "Google did not return a YouTube revenue access token."
                         }
                     } else {
+                        markRevenueAuthorized(true)
                         syncRevenueWithToken(token, period)
                     }
                 }
@@ -178,13 +214,19 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
             }
     }
 
-    LaunchedEffect(channelId, selectedPeriodName, snapshot.fetchedAtMillis) {
+    LaunchedEffect(channelId, selectedPeriodName, snapshot.fetchedAtMillis, revenueAuthorized) {
         val cached = revenueStore.load(selectedPeriod)
         revenueSnapshot = cached
         revenueError = null
-        val ageMillis = cached?.let { System.currentTimeMillis() - it.fetchedAtMillis }
-        if (cached != null && ageMillis != null && ageMillis >= REVENUE_REFRESH_AGE_MS && !revenueLoading) {
-            // Refresh stale cached revenue quietly. Never pop an incremental-consent screen by itself.
+        if (
+            shouldAutoFetchRevenue(
+                permissionEstablished = revenueAuthorized,
+                cached = cached,
+                nowMillis = System.currentTimeMillis(),
+                staleAfterMillis = REVENUE_REFRESH_AGE_MS,
+            ) && !revenueLoading
+        ) {
+            // Missing/stale period data is fetched silently. Consent is never popped by tab changes.
             authorizeRevenue(period = selectedPeriod, allowResolution = false)
         }
     }
@@ -192,6 +234,7 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
     V144YouTubeRevenueCard(
         snapshot = revenueSnapshot,
         selectedPeriod = selectedPeriod,
+        authorized = revenueAuthorized,
         loading = revenueLoading,
         error = revenueError,
         onPeriod = { period ->
@@ -220,4 +263,5 @@ private fun v144RevenueFriendlyError(error: Throwable): String {
 
 private const val REVENUE_OWNER_PREFS = "backlot_youtube_revenue_owner"
 private const val REVENUE_OWNER_CHANNEL = "channel_id"
+private const val REVENUE_PERMISSION_ESTABLISHED = "permission_established"
 private const val REVENUE_REFRESH_AGE_MS = 15L * 60L * 1000L
