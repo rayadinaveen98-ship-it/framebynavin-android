@@ -44,7 +44,13 @@ internal fun FrameGuideCompanion(
         FrameGuidePose.CELEBRATE -> CinePulseState.CELEBRATE
         FrameGuidePose.REST -> CinePulseState.REST
     }
-    CinePulseGuide(state = state, modifier = modifier, pointRight = pointRight)
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        CinePulseGuide(
+            state = state,
+            modifier = Modifier.fillMaxSize(),
+            pointRight = pointRight,
+        )
+    }
 }
 
 @Composable
@@ -70,7 +76,7 @@ internal fun V127SetupGuideStrip(page: Int) {
             border = BorderStroke(1.dp, RecRed.copy(alpha = .22f)),
         ) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                FrameGuideCompanion(poses[index], Modifier.size(width = 68.dp, height = 80.dp), pointRight = true)
+                FrameGuideCompanion(poses[index], Modifier.size(72.dp), pointRight = true)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text(V144GuidePrefs.currentGuide.displayName.uppercase(), color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
