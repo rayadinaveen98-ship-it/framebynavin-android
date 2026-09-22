@@ -17,7 +17,6 @@ import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
-import com.framebynavin.app.ui.theme.RecRed
 import com.framebynavin.app.ui.theme.SuccessGreen
 import com.framebynavin.app.youtube.YouTubeAnalyticsSnapshot
 import com.framebynavin.app.youtube.YouTubeDatasetState
@@ -34,7 +33,14 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refre
     val context = LocalContext.current.applicationContext
     val foundation = remember(snapshot.channel.channelId, snapshot.windowDays, snapshot.fetchedAtMillis, refreshRevision) {
         YouTubeInsightsFoundationStore(context).load(snapshot.windowDays, snapshot.channel.channelId)
-    } ?: return
+    }
+
+    // Revenue is intentionally independent of the deep audience/foundation datasets. A creator
+    // should be able to enable and inspect monetary analytics even while those reports are empty.
+    if (foundation == null) {
+        V144YouTubeRevenueIntegration(snapshot)
+        return
+    }
 
     val traffic = foundation.health(YouTubeFoundationDataset.TRAFFIC)?.state
     val audience = foundation.health(YouTubeFoundationDataset.SUBSCRIBED_STATUS)?.state
@@ -128,6 +134,8 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refre
 
     Spacer(Modifier.height(10.dp))
     V20OpportunityEngineInsightsCard(snapshot)
+    Spacer(Modifier.height(10.dp))
+    V144YouTubeRevenueIntegration(snapshot)
 }
 
 private fun statusText(label: String, state: YouTubeDatasetState?): String = when (state) {
