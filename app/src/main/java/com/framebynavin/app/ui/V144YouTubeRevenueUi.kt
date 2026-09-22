@@ -32,6 +32,7 @@ import java.util.Locale
 internal fun V144YouTubeRevenueCard(
     snapshot: YouTubeRevenueSnapshot?,
     selectedPeriod: YouTubeRevenuePeriod,
+    accessEnabled: Boolean,
     loading: Boolean,
     error: String?,
     onPeriod: (YouTubeRevenuePeriod) -> Unit,
@@ -75,7 +76,7 @@ internal fun V144YouTubeRevenueCard(
 
             Spacer(Modifier.height(10.dp))
             when {
-                error != null && snapshot == null -> {
+                !accessEnabled && error != null -> {
                     Surface(
                         Modifier.fillMaxWidth(),
                         RoundedCornerShape(14.dp),
@@ -93,9 +94,9 @@ internal fun V144YouTubeRevenueCard(
                         }
                     }
                 }
-                snapshot == null -> {
+                !accessEnabled -> {
                     Text(
-                        "Connect the read-only monetary permission to bring estimated YouTube earnings into Backlot. Backlot cannot change monetization or payouts.",
+                        "Connect the read-only monetary permission once to bring estimated YouTube earnings into Backlot. The same permission unlocks every date range.",
                         color = MutedText,
                         fontSize = 9.2.sp,
                         lineHeight = 14.sp,
@@ -108,6 +109,37 @@ internal fun V144YouTubeRevenueCard(
                         shape = RoundedCornerShape(13.dp),
                     ) {
                         Text("ENABLE REVENUE", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                snapshot == null -> {
+                    Surface(
+                        Modifier.fillMaxWidth(),
+                        RoundedCornerShape(14.dp),
+                        CinemaSurface,
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (loading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MutedGold)
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                Text(
+                                    if (loading) "Loading ${selectedPeriod.label} revenue…" else "Revenue is enabled for ${selectedPeriod.label}.",
+                                    color = ProjectorIvory,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                            error?.let {
+                                Spacer(Modifier.height(5.dp))
+                                Text(it, color = RecRed, fontSize = 8.2.sp, lineHeight = 12.sp)
+                                Spacer(Modifier.height(6.dp))
+                                TextButton(onClick = onRefresh, enabled = !loading, contentPadding = PaddingValues(0.dp)) {
+                                    Text("TRY AGAIN", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+                        }
                     }
                 }
                 else -> {
