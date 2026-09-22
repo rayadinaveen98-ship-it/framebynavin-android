@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.framebynavin.app.reminders.IdeaReminderScheduler
 import com.framebynavin.app.reminders.ReminderConstants
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.reminders.ReminderRecoveryEngine
@@ -27,6 +28,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private val smartConfigStore = SmartEscalationConfigStore(application)
     private val weeklyStore = WeeklyScheduleStore(application)
     private val ideaStore = IdeaVaultStore(application)
+    private val ideaReminderScheduler = IdeaReminderScheduler(application)
     private val settingsStore = CreatorOsSettingsStore(application)
     private val postPublishStore = CreatorPostPublishStore(application)
     private val rewardStore = CreatorRewardStore(application)
@@ -673,13 +675,16 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         if (idea.title.isBlank()) return null
         val now = System.currentTimeMillis()
         val isNewIdea = idea.id.isBlank() || ideas.none { it.id == idea.id }
-        val normalized = idea.copy(
-            id = idea.id.ifBlank { UUID.randomUUID().toString() },
-            title = idea.title.trim(),
-            topic = idea.topic.trim(),
-            notes = idea.notes.trim(),
-            updatedAtMillis = now,
-            createdAtMillis = idea.createdAtMillis.takeIf { it > 0L } ?: now,
+        val normalized = IdeaReminderPolicy.normalize(
+            idea.copy(
+                id = idea.id.ifBlank { UUID.randomUUID().toString() },
+                title = idea.title.trim(),
+                topic = idea.topic.trim(),
+                notes = idea.notes.trim(),
+                updatedAtMillis = now,
+                createdAtMillis = idea.createdAtMillis.takeIf { it > 0L } ?: now,
+            ),
+            now = now,
         )
         val index = ideas.indexOfFirst { it.id == normalized.id }
         if (index >= 0) ideas[index] = normalized else ideas.add(0, normalized)
@@ -698,7 +703,12 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun archiveIdea(id: String) {
         val index = ideas.indexOfFirst { it.id == id }
         if (index == -1) return
-        ideas[index] = ideas[index].copy(status = IdeaStatus.ARCHIVED, updatedAtMillis = System.currentTimeMillis())
+        ideas[index] = ideas[index].copy(
+            status = IdeaStatus.ARCHIVED,
+            reminderAtMillis = 0L,
+            reminderCadence = IdeaReminderCadence.ONCE,
+            updatedAtMillis = System.currentTimeMillis(),
+        )
         persistIdeas()
     }
 
@@ -751,6 +761,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             projectTaskId = taskId,
             platformHint = platform,
             formatHint = contentType,
+            reminderAtMillis = 0L,
+            reminderCadence = IdeaReminderCadence.ONCE,
             updatedAtMillis = now,
         )
         persist()
@@ -1148,7 +1160,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val base = optimisticIdeas
         val desired = ideas.toList()
         optimisticIdeas = desired
-        enqueueWrite { epoch -> ideaStore.applyDelta(base, desired, epoch) }
+        enqueueWrite { epoch ->
+            ideaStore.applyDelta(base, desired, epoch)
+            ideaReminderScheduler.reconcile()
+        }
     }
 
     private fun persist() {
