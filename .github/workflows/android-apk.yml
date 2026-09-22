@@ -9,6 +9,7 @@ on:
       - "repair/v1.3.2-release-blockers"
       - "feature/v142-framebynavin-v4-schedule"
       - "fix/v143-profile-weekly-progress"
+      - "feature/v144-guide-schedule-refresh"
     paths:
       - "app/**"
       - "*.gradle.kts"
@@ -75,5 +76,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v143-Profile-Weekly-Progress-Fix
+          name: Backlot-v144-Guide-Schedule-Refresh
           path: app/build/outputs/apk/debug/app-debug.apk
