@@ -9,12 +9,20 @@ import org.junit.Test
 class V144GuideSystemTest {
 
     @Test
-    fun `v144 exposes exactly the four locked guide identities`() {
+    fun `current selectable roster contains only funny and cute`() {
         assertEquals(
-            listOf("Frame", "Navi", "Funny", "Cute"),
-            V144GuideIdentity.entries.map { it.displayName },
+            listOf(V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE),
+            V144SelectableGuides,
         )
-        assertTrue(V144GuideIdentity.entries.all { it.description.isNotBlank() })
+        assertTrue(V144SelectableGuides.all { it.description.isNotBlank() })
+    }
+
+    @Test
+    fun `legacy frame and navi selections migrate to funny`() {
+        assertEquals(V144GuideIdentity.FUNNY, v144SelectableGuideOrDefault(V144GuideIdentity.FRAME))
+        assertEquals(V144GuideIdentity.FUNNY, v144SelectableGuideOrDefault(V144GuideIdentity.NAVI))
+        assertEquals(V144GuideIdentity.FUNNY, v144SelectableGuideOrDefault(null))
+        assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(V144GuideIdentity.CUTE))
     }
 
     @Test
@@ -30,10 +38,13 @@ class V144GuideSystemTest {
     }
 
     @Test
-    fun `cute resolves every semantic state to a real raster asset`() {
+    fun `cute setup starts from stable welcome raster and covers all states`() {
         CinePulseState.entries.forEach { state ->
             assertNotEquals(0, v144GuideDrawable(V144GuideIdentity.CUTE, state))
         }
+        assertEquals(R.drawable.guide_cute_welcome, v144GuideDrawable(V144GuideIdentity.CUTE, CinePulseState.IDLE))
+        assertEquals(R.drawable.guide_cute_welcome, v144GuideDrawable(V144GuideIdentity.CUTE, CinePulseState.PRESENT))
+        assertEquals(R.drawable.guide_cute_welcome, v144GuideDrawable(V144GuideIdentity.CUTE, CinePulseState.POINT))
         assertEquals(R.drawable.guide_cute_welcome, v144GuideDrawable(V144GuideIdentity.CUTE, CinePulseState.WAVE))
         assertEquals(R.drawable.guide_cute_listening, v144GuideDrawable(V144GuideIdentity.CUTE, CinePulseState.LOOK))
         assertEquals(R.drawable.guide_cute_thinking, v144GuideDrawable(V144GuideIdentity.CUTE, CinePulseState.THINK))
@@ -42,7 +53,7 @@ class V144GuideSystemTest {
     }
 
     @Test
-    fun `creator setup and guided tour semantic poses are covered for both new guides`() {
+    fun `creator setup and guided tour semantic poses are covered for both active guides`() {
         val setupStates = listOf(
             CinePulseState.PRESENT,
             CinePulseState.LOOK,
@@ -59,7 +70,7 @@ class V144GuideSystemTest {
             CinePulseState.CELEBRATE,
         )
 
-        listOf(V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE).forEach { guide ->
+        V144SelectableGuides.forEach { guide ->
             (setupStates + tourStates).distinct().forEach { state ->
                 assertNotEquals("$guide has no asset for $state", 0, v144GuideDrawable(guide, state))
             }
