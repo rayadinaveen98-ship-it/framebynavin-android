@@ -1,0 +1,32 @@
+name: V144 Idea Reminder UI Runner
+
+on:
+  push:
+    branches:
+      - feature/v144-guide-schedule-refresh
+    paths:
+      - .github/workflows/v144-idea-reminder-ui-runner.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v144-guide-schedule-refresh
+          fetch-depth: 0
+      - name: Apply guarded patch
+        run: python3 .github/v144_patch_idea_reminder_ui.py
+      - name: Verify diff
+        run: git diff --check
+      - name: Commit application patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/v144_patch_idea_reminder_ui.py .github/workflows/v144-idea-reminder-ui-runner.yml
+          git add app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          git commit -m "feat(v144): finish idea reminder editor and deep links"
+          git push origin HEAD:feature/v144-guide-schedule-refresh
