@@ -41,7 +41,8 @@ class WeeklyScheduleStore(private val context: Context) {
             runCatching { decode(backup) }.getOrElse { throw IllegalStateException("Both weekly plan copies are unreadable.", it) }
         }
         val cleaned = decoded.filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
-        val resolved = if (cleaned.isEmpty()) WeeklyScheduleEngine.defaultSlots() else cleaned
+        val migrated = cleaned.map(WeeklyScheduleEngine::migratePresetSlot)
+        val resolved = if (migrated.isEmpty()) WeeklyScheduleEngine.defaultSlots() else migrated
         if (resolved != decoded) {
             mutationMutex.withLock { saveUnlocked(resolved) }
         }
@@ -56,7 +57,9 @@ class WeeklyScheduleStore(private val context: Context) {
 
     private suspend fun loadRaw(): List<WeeklyScheduleSlot> {
         val raw = context.weeklyScheduleDataStore.data.first()[slotsKey] ?: return emptyList()
-        return decode(raw).filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
+        return decode(raw)
+            .filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
+            .map(WeeklyScheduleEngine::migratePresetSlot)
     }
 
     suspend fun applyDelta(base: List<WeeklyScheduleSlot>, desired: List<WeeklyScheduleSlot>, expectedGeneration: Long): List<WeeklyScheduleSlot> = CreatorDataGate.transaction {
