@@ -43,7 +43,8 @@ data class StageCheckpoint(
 object WeeklyScheduleEngine {
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
-    private const val FRAMEBYNAVIN_V4_PREFIX = "fbn_v4_"
+    /** Stable IDs are intentionally retained from V4 so existing weekly projects do not duplicate. */
+    private const val FRAMEBYNAVIN_STABLE_PREFIX = "fbn_v4_"
 
     private val legacySeedSlotIds = setOf(
         "mon_x_thought",
@@ -59,35 +60,47 @@ object WeeklyScheduleEngine {
         "sun_companion_reel",
     )
 
+    private val v4DefaultTitlesBySuffix = mapOf(
+        "_frame" to "Frame of the Day · IG + YT Community + X",
+        "_recommendation" to "Movie Recommendation · IG Reel + YT Short + X",
+        "_10pm_cinema" to "10 PM Cinema · Instagram",
+        "tue_scene_works" to "Why This Scene Works · IG Reel + YT Short + X",
+        "wed_cinematic_moment" to "Every Cinematic Moment",
+        "wed_ecm_promo" to "Every Cinematic Moment Promo · IG Reel + YT Short + X",
+        "fri_review" to "Friday Movie Review",
+        "fri_review_promo" to "Review Promo · IG Reel + YT Short + X",
+        "sun_flagship" to "Flagship Cinematic Analysis",
+        "sun_flagship_promo" to "Flagship Promo · IG Reel + YT Short + X",
+    )
+
     fun isLegacySeedSlot(slotId: String): Boolean = slotId in legacySeedSlotIds
 
     /**
-     * Locked FrameByNavin V4 creator rhythm.
+     * FrameByNavin V5 creator rhythm.
      *
-     * Cross-platform content is represented as one master Backlot project rather than duplicate
-     * Instagram / YouTube / X projects. The title records every delivery surface while the
-     * platform + format choose the strongest production workflow for that master asset.
+     * V5 changes the actual recurring content identities while keeping the existing publish times.
+     * Cross-platform content remains one master Backlot project rather than duplicate projects.
      */
-    fun frameByNavinV4Slots(): List<WeeklyScheduleSlot> = buildList {
+    fun frameByNavinV5Slots(): List<WeeklyScheduleSlot> = buildList {
         DayOfWeek.values().forEach { day ->
             val dayKey = day.name.lowercase(Locale.ROOT).take(3)
             add(
                 slot(
-                    id = "${FRAMEBYNAVIN_V4_PREFIX}${dayKey}_frame",
-                    title = "Frame of the Day · IG + YT Community + X",
+                    id = "${FRAMEBYNAVIN_STABLE_PREFIX}${dayKey}_frame",
+                    title = "Frames of the Day · IG Reel + YT Short + X",
                     day = day,
                     hour = 9,
                     minute = 0,
                     platform = "Instagram",
-                    contentType = "Post",
+                    contentType = "Reel",
                     reminderMode = ReminderMode.SIMPLE,
                     priority = TaskPriority.NORMAL,
                 )
             )
             add(
                 slot(
-                    id = "${FRAMEBYNAVIN_V4_PREFIX}${dayKey}_recommendation",
-                    title = "Movie Recommendation · IG Reel + YT Short + X",
+                    id = "${FRAMEBYNAVIN_STABLE_PREFIX}${dayKey}_recommendation",
+                    title = "Daily Movie Recommendation · IG Reel + YT Short + X",
                     day = day,
                     hour = 13,
                     minute = 0,
@@ -99,8 +112,8 @@ object WeeklyScheduleEngine {
             )
             add(
                 slot(
-                    id = "${FRAMEBYNAVIN_V4_PREFIX}${dayKey}_10pm_cinema",
-                    title = "10 PM Cinema · Instagram",
+                    id = "${FRAMEBYNAVIN_STABLE_PREFIX}${dayKey}_10pm_cinema",
+                    title = "10 PM Music · Instagram",
                     day = day,
                     hour = 22,
                     minute = 0,
@@ -114,7 +127,7 @@ object WeeklyScheduleEngine {
 
         add(
             slot(
-                id = "${FRAMEBYNAVIN_V4_PREFIX}tue_scene_works",
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}tue_scene_works",
                 title = "Why This Scene Works · IG Reel + YT Short + X",
                 day = DayOfWeek.TUESDAY,
                 hour = 20,
@@ -127,7 +140,7 @@ object WeeklyScheduleEngine {
         )
         add(
             slot(
-                id = "${FRAMEBYNAVIN_V4_PREFIX}wed_cinematic_moment",
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}wed_cinematic_moment",
                 title = "Every Cinematic Moment",
                 day = DayOfWeek.WEDNESDAY,
                 hour = 19,
@@ -140,7 +153,7 @@ object WeeklyScheduleEngine {
         )
         add(
             slot(
-                id = "${FRAMEBYNAVIN_V4_PREFIX}wed_ecm_promo",
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}wed_ecm_promo",
                 title = "Every Cinematic Moment Promo · IG Reel + YT Short + X",
                 day = DayOfWeek.WEDNESDAY,
                 hour = 20,
@@ -153,7 +166,7 @@ object WeeklyScheduleEngine {
         )
         add(
             slot(
-                id = "${FRAMEBYNAVIN_V4_PREFIX}fri_review",
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}fri_review",
                 title = "Friday Movie Review",
                 day = DayOfWeek.FRIDAY,
                 hour = 19,
@@ -166,7 +179,7 @@ object WeeklyScheduleEngine {
         )
         add(
             slot(
-                id = "${FRAMEBYNAVIN_V4_PREFIX}fri_review_promo",
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}fri_review_promo",
                 title = "Review Promo · IG Reel + YT Short + X",
                 day = DayOfWeek.FRIDAY,
                 hour = 20,
@@ -179,8 +192,8 @@ object WeeklyScheduleEngine {
         )
         add(
             slot(
-                id = "${FRAMEBYNAVIN_V4_PREFIX}sun_flagship",
-                title = "Flagship Cinematic Analysis",
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}sun_flagship",
+                title = "Cinematic Analysis",
                 day = DayOfWeek.SUNDAY,
                 hour = 10,
                 minute = 0,
@@ -192,8 +205,8 @@ object WeeklyScheduleEngine {
         )
         add(
             slot(
-                id = "${FRAMEBYNAVIN_V4_PREFIX}sun_flagship_promo",
-                title = "Flagship Promo · IG Reel + YT Short + X",
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}sun_flagship_promo",
+                title = "Cinematic Analysis Promo · IG Reel + YT Short + X",
                 day = DayOfWeek.SUNDAY,
                 hour = 18,
                 minute = 0,
@@ -205,12 +218,47 @@ object WeeklyScheduleEngine {
         )
     }
 
-    fun defaultSlots(): List<WeeklyScheduleSlot> = frameByNavinV4Slots()
+    /** Source compatibility for older callers; IDs remain intentionally stable. */
+    fun frameByNavinV4Slots(): List<WeeklyScheduleSlot> = frameByNavinV5Slots()
 
-    fun isFrameByNavinV4Preset(slots: List<WeeklyScheduleSlot>): Boolean {
-        val expectedIds = frameByNavinV4Slots().mapTo(linkedSetOf()) { it.id }
+    fun defaultSlots(): List<WeeklyScheduleSlot> = frameByNavinV5Slots()
+
+    fun isFrameByNavinV5Preset(slots: List<WeeklyScheduleSlot>): Boolean {
+        val expectedIds = frameByNavinV5Slots().mapTo(linkedSetOf()) { it.id }
         val actualIds = slots.mapTo(linkedSetOf()) { it.id }
         return expectedIds == actualIds
+    }
+
+    fun isFrameByNavinV4Preset(slots: List<WeeklyScheduleSlot>): Boolean = isFrameByNavinV5Preset(slots)
+
+    /**
+     * Upgrades untouched V4 preset entries to V5 without overwriting creator customization.
+     * Times, enabled state, cadence and reminder choices are preserved.
+     */
+    fun migratePresetSlot(slot: WeeklyScheduleSlot): WeeklyScheduleSlot {
+        val oldTitle = v4DefaultTitleFor(slot.id) ?: return slot
+        if (slot.title != oldTitle) return slot
+        val replacement = frameByNavinV5Slots().firstOrNull { it.id == slot.id } ?: return slot
+        return replacement.copy(
+            dayOfWeek = slot.dayOfWeek,
+            hour = slot.hour,
+            minute = slot.minute,
+            enabled = slot.enabled,
+            cadence = slot.cadence,
+            reminderMode = slot.reminderMode,
+            priority = slot.priority,
+        )
+    }
+
+    private fun v4DefaultTitleFor(slotId: String): String? {
+        if (!slotId.startsWith(FRAMEBYNAVIN_STABLE_PREFIX)) return null
+        val suffix = slotId.removePrefix(FRAMEBYNAVIN_STABLE_PREFIX)
+        return when {
+            suffix.endsWith("_frame") -> v4DefaultTitlesBySuffix["_frame"]
+            suffix.endsWith("_recommendation") -> v4DefaultTitlesBySuffix["_recommendation"]
+            suffix.endsWith("_10pm_cinema") -> v4DefaultTitlesBySuffix["_10pm_cinema"]
+            else -> v4DefaultTitlesBySuffix[suffix]
+        }
     }
 
     fun upcomingOccurrences(
@@ -236,7 +284,7 @@ object WeeklyScheduleEngine {
         }.sortedBy { it.publishAtMillis }
     }
 
-    fun occurrenceKey(slotId: String, date: LocalDate): String = "$slotId@${date}"
+    fun occurrenceKey(slotId: String, date: LocalDate): String = "$slotId@$date"
 
     fun dateFromOccurrenceKey(key: String): LocalDate? =
         key.substringAfter('@', "").takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
