@@ -12,10 +12,16 @@ object CreatorWidgetContract {
     const val ACTION_AUTOMATION_CENTER = "com.framebynavin.app.widget.AUTOMATION_CENTER"
     const val ACTION_OPEN_REMINDERS = "com.framebynavin.app.widget.OPEN_REMINDERS"
     const val EXTRA_TASK_ID = "widget_task_id"
+    const val EXTRA_IDEA_ID = "widget_idea_id"
+    const val EXTRA_IDEA_MODE = "widget_idea_mode"
+    const val IDEA_MODE_OPEN = "open"
+    const val IDEA_MODE_CONVERT = "convert"
 }
 
 data class CreatorWidgetLaunch(
     val action: String,
     val taskId: String = "",
+    val ideaId: String = "",
+    val ideaMode: String = "",
     val nonce: Long = System.nanoTime(),
 )
