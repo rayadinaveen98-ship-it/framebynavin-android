@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 
 enum class CinePulseState {
     IDLE,
@@ -20,7 +21,7 @@ enum class CinePulseState {
 
 /**
  * Compatibility entry point retained for existing Backlot guide call sites.
- * The selected v137 character is now the single renderer used everywhere.
+ * V144 routes the same semantic states to Frame, Navi, Funny or Cute.
  */
 @Composable
 internal fun CinePulseGuide(
@@ -28,8 +29,9 @@ internal fun CinePulseGuide(
     modifier: Modifier = Modifier,
     pointRight: Boolean = true,
 ) {
-    BacklotGuideCharacter(
-        character = BacklotCharacterPrefs.currentCharacter,
+    V144GuidePrefs.initialize(LocalContext.current)
+    V144GuideCharacter(
+        guide = V144GuidePrefs.currentGuide,
         state = state,
         modifier = modifier,
         pointRight = pointRight,
