@@ -133,7 +133,7 @@ internal fun V20GuidedFirstRunCoach(
                 ) {
                     FrameGuideCompanion(
                         pose = copy.pose,
-                        modifier = Modifier.size(width = 60.dp, height = 72.dp),
+                        modifier = Modifier.size(64.dp),
                         pointRight = pointRight,
                     )
                 }
