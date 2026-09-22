@@ -12,13 +12,25 @@ object YouTubeAuthorization {
     const val ANALYTICS_READONLY = "https://www.googleapis.com/auth/yt-analytics.readonly"
     const val ANALYTICS_MONETARY_READONLY = "https://www.googleapis.com/auth/yt-analytics-monetary.readonly"
 
-    val scopes: List<Scope> = listOf(
+    val coreScopes: List<Scope> = listOf(
         Scope(YOUTUBE_READONLY),
         Scope(ANALYTICS_READONLY),
+    )
+
+    val revenueScopes: List<Scope> = listOf(
         Scope(ANALYTICS_MONETARY_READONLY),
     )
 
-    fun request(selectAccount: Boolean = false): AuthorizationRequest {
+    /** All Backlot YouTube scopes, used when explicitly disconnecting/revoking access. */
+    val scopes: List<Scope> = coreScopes + revenueScopes
+
+    fun request(selectAccount: Boolean = false): AuthorizationRequest =
+        buildRequest(coreScopes, selectAccount)
+
+    fun revenueRequest(selectAccount: Boolean = false): AuthorizationRequest =
+        buildRequest(revenueScopes, selectAccount)
+
+    private fun buildRequest(scopes: List<Scope>, selectAccount: Boolean): AuthorizationRequest {
         val builder = AuthorizationRequest.builder()
             .setRequestedScopes(scopes)
         if (selectAccount) {
