@@ -1,12 +1,18 @@
 package com.framebynavin.app.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderMode
@@ -21,6 +27,22 @@ class V132ReleaseBlockerUiTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun cuteGuide_setupPresentPose_rendersWithoutCrash() {
+        composeRule.setContent {
+            Box(Modifier.size(72.dp).testTag("cute-guide-setup")) {
+                V144GuideCharacter(
+                    guide = V144GuideIdentity.CUTE,
+                    state = CinePulseState.PRESENT,
+                    modifier = Modifier.size(72.dp),
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("cute-guide-setup").assertIsDisplayed()
+        composeRule.waitForIdle()
+    }
 
     @Test
     fun homeHero_rendersBacklotGreetingEntry() {
@@ -82,7 +104,7 @@ class V132ReleaseBlockerUiTest {
                 onEdit = {},
                 onStart = {},
                 onDone = {},
-                onDeleteSelected = { deleted = it },
+                onDeleteSelected = {},
             )
         }
 
