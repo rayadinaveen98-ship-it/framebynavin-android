@@ -22,7 +22,7 @@ import com.framebynavin.app.R
  */
 @Composable
 internal fun V144RasterGuideCharacter(
-    character: BacklotCharacter,
+    guide: V144GuideIdentity,
     state: CinePulseState,
     modifier: Modifier = Modifier,
     pointRight: Boolean = true,
@@ -47,7 +47,7 @@ internal fun V144RasterGuideCharacter(
         label = "v144RasterGuideSway",
     )
 
-    val drawable = v144GuideDrawable(character, state)
+    val drawable = v144GuideDrawable(guide, state)
     Image(
         painter = painterResource(drawable),
         contentDescription = null,
@@ -66,8 +66,8 @@ internal fun V144RasterGuideCharacter(
 }
 
 @DrawableRes
-private fun v144GuideDrawable(character: BacklotCharacter, state: CinePulseState): Int = when (character) {
-    BacklotCharacter.FUNNY -> when (state) {
+private fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState): Int = when (guide) {
+    V144GuideIdentity.FUNNY -> when (state) {
         CinePulseState.PRESENT -> R.drawable.guide_funny_present
         CinePulseState.POINT, CinePulseState.WALK, CinePulseState.NOD -> R.drawable.guide_funny_point
         CinePulseState.THINK -> R.drawable.guide_funny_thinking
@@ -76,7 +76,7 @@ private fun v144GuideDrawable(character: BacklotCharacter, state: CinePulseState
         CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_funny_welcome
     }
 
-    BacklotCharacter.CUTE -> when (state) {
+    V144GuideIdentity.CUTE -> when (state) {
         CinePulseState.WAVE -> R.drawable.guide_cute_welcome
         CinePulseState.LOOK, CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_cute_listening
         CinePulseState.THINK -> R.drawable.guide_cute_thinking
@@ -85,6 +85,6 @@ private fun v144GuideDrawable(character: BacklotCharacter, state: CinePulseState
         CinePulseState.PRESENT, CinePulseState.NOD -> R.drawable.guide_cute_encourage
     }
 
-    // This renderer is only called for the two raster identities.
-    BacklotCharacter.FRAME, BacklotCharacter.NAVI -> R.drawable.guide_funny_welcome
+    // Defensive fallback; Frame/Navi normally stay on their vector renderer.
+    V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> R.drawable.guide_funny_welcome
 }
