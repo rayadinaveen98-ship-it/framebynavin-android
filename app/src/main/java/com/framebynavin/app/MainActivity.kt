@@ -5,26 +5,26 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.cloud.CreatorCloudSyncWorker
 import com.framebynavin.app.data.CreatorBackupManager
-import kotlinx.coroutines.withContext
-import androidx.lifecycle.lifecycleScope
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.reminders.CreatorAutoPlanWorker
 import com.framebynavin.app.reminders.CreatorContextNudgeWorker
 import com.framebynavin.app.reminders.CreatorRoutineWorker
 import com.framebynavin.app.reminders.IdeaReminderScheduler
-import com.framebynavin.app.reminders.ReminderRecoveryEngine
 import com.framebynavin.app.reminders.ReminderHealthScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
+import com.framebynavin.app.reminders.ReminderRecoveryEngine
 import com.framebynavin.app.ui.BacklotCharacterPrefs
 import com.framebynavin.app.ui.V131LaunchGate
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
@@ -32,13 +32,16 @@ import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 import com.framebynavin.app.widget.CreatorWidgetContract
 import com.framebynavin.app.widget.CreatorWidgetLaunch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private var externalLaunch by mutableStateOf<CreatorWidgetLaunch?>(null)
     private var startupReady by mutableStateOf(false)
     private var startupError by mutableStateOf<String?>(null)
     private var startupRunning = false
+    private var ideaReminderObserverStarted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
@@ -92,8 +95,19 @@ class MainActivity : ComponentActivity() {
                 startupRunning = false
                 result.onSuccess {
                     startupReady = true
+                    startIdeaReminderObserver()
                     CreatorCloudSyncWorker.enqueueSoon(applicationContext)
                 }.onFailure { startupError = it.message ?: "Could not safely recover the previous data. Your recovery files have been retained." }
+            }
+        }
+    }
+
+    private fun startIdeaReminderObserver() {
+        if (ideaReminderObserverStarted) return
+        ideaReminderObserverStarted = true
+        lifecycleScope.launch(Dispatchers.IO) {
+            IdeaVaultStore(applicationContext).ideasFlow.collectLatest {
+                IdeaReminderScheduler(applicationContext).reconcile()
             }
         }
     }
