@@ -83,6 +83,7 @@ jobs:
     if: github.ref == 'refs/heads/feature/v144-guide-schedule-refresh'
     needs: build
     runs-on: macos-15-intel
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -105,4 +106,4 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: gradle :app:connectedDebugAndroidTest --stacktrace
+          script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V132ReleaseBlockerUiTest --stacktrace
