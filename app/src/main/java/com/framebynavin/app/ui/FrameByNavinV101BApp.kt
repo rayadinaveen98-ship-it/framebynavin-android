@@ -449,11 +449,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 snapshot = CreatorRewardsV22Engine.snapshot(vm.rewardLedger),
                 onClose = { overlay = POverlay.NONE },
             )
-            POverlay.SETTINGS -> PSettingsScreen(
+            POverlay.SETTINGS -> V144SettingsHub(
                 settings = settings,
                 tasks = vm.tasks,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
-                permissions = permissions,
+                notificationsReady = permissions.notifications,
+      preciseTimingReady = permissions.preciseTiming,
+      fullScreenReady = permissions.fullScreen,
+      batteryReady = permissions.batteryAccess,
                 onClose = { overlay = POverlay.NONE },
                 onProfile = { overlay = POverlay.PROFILE },
                 onVoice = { settingsStore.setDefaultVoicePersona(it); settings = settingsStore.snapshot() },
