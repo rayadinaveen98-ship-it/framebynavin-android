@@ -317,6 +317,15 @@ private fun V09IdeaEditor(
                 OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Idea title") })
                 Spacer(Modifier.height(9.dp))
                 OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes · optional") })
+                Spacer(Modifier.height(8.dp))
+                V117VoiceIdeaInput(
+                    onTranscript = { transcript ->
+                        val clean = transcript.trim()
+                        if (clean.isNotBlank()) {
+                            notes = if (notes.isBlank()) clean else "${notes.trimEnd()}\n$clean"
+                        }
+                    },
+                )
                 Spacer(Modifier.height(12.dp))
                 Surface(
                     onClick = { showOrganize = !showOrganize },
