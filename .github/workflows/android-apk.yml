@@ -76,5 +76,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v144-Guide-Schedule-Refresh
+          name: Backlot-v144-Settings-Hub
           path: app/build/outputs/apk/debug/app-debug.apk
