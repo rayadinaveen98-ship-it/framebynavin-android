@@ -32,6 +32,7 @@ import java.util.Locale
 internal fun V144YouTubeRevenueCard(
     snapshot: YouTubeRevenueSnapshot?,
     selectedPeriod: YouTubeRevenuePeriod,
+    authorized: Boolean,
     loading: Boolean,
     error: String?,
     onPeriod: (YouTubeRevenuePeriod) -> Unit,
@@ -75,27 +76,18 @@ internal fun V144YouTubeRevenueCard(
 
             Spacer(Modifier.height(10.dp))
             when {
-                error != null && snapshot == null -> {
-                    Surface(
-                        Modifier.fillMaxWidth(),
-                        RoundedCornerShape(14.dp),
-                        CinemaSurface,
-                        border = BorderStroke(1.dp, RecRed.copy(alpha = .30f)),
-                    ) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("Revenue access needs attention", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                            Spacer(Modifier.height(3.dp))
-                            Text(error, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
-                            Spacer(Modifier.height(8.dp))
-                            TextButton(onClick = onRefresh, enabled = !loading, contentPadding = PaddingValues(0.dp)) {
-                                Text("CONNECT REVENUE ACCESS", color = MutedGold, fontSize = 8.7.sp, fontWeight = FontWeight.Black)
-                            }
-                        }
-                    }
+                !authorized && error != null -> {
+                    V144RevenueAccessMessage(
+                        title = "Revenue access needs attention",
+                        body = error,
+                        action = "CONNECT REVENUE ACCESS",
+                        loading = loading,
+                        onRefresh = onRefresh,
+                    )
                 }
-                snapshot == null -> {
+                !authorized -> {
                     Text(
-                        "Connect the read-only monetary permission to bring estimated YouTube earnings into Backlot. Backlot cannot change monetization or payouts.",
+                        "Connect the read-only monetary permission once to bring estimated YouTube earnings into Backlot. Backlot cannot change monetization or payouts.",
                         color = MutedText,
                         fontSize = 9.2.sp,
                         lineHeight = 14.sp,
@@ -108,6 +100,44 @@ internal fun V144YouTubeRevenueCard(
                         shape = RoundedCornerShape(13.dp),
                     ) {
                         Text("ENABLE REVENUE", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                snapshot == null && loading -> {
+                    Surface(
+                        Modifier.fillMaxWidth(),
+                        RoundedCornerShape(14.dp),
+                        CinemaSurface,
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(17.dp), strokeWidth = 2.dp, color = MutedGold)
+                            Spacer(Modifier.width(9.dp))
+                            Column {
+                                Text("Loading ${selectedPeriod.label} revenue", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Text("Your existing YouTube revenue permission is being reused.", color = MutedText, fontSize = 8.3.sp)
+                            }
+                        }
+                    }
+                }
+                snapshot == null && error != null -> {
+                    V144RevenueAccessMessage(
+                        title = "Revenue couldn't load",
+                        body = error,
+                        action = "RETRY REVENUE",
+                        loading = loading,
+                        onRefresh = onRefresh,
+                    )
+                }
+                snapshot == null -> {
+                    Text(
+                        "Revenue access is connected. Load ${selectedPeriod.label} earnings when you're ready.",
+                        color = MutedText,
+                        fontSize = 9.2.sp,
+                        lineHeight = 14.sp,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = onRefresh, enabled = !loading, contentPadding = PaddingValues(0.dp)) {
+                        Text("LOAD ${selectedPeriod.label.uppercase()} REVENUE", color = MutedGold, fontSize = 8.7.sp, fontWeight = FontWeight.Black)
                     }
                 }
                 else -> {
@@ -135,6 +165,32 @@ internal fun V144YouTubeRevenueCard(
                         lineHeight = 11.5.sp,
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun V144RevenueAccessMessage(
+    title: String,
+    body: String,
+    action: String,
+    loading: Boolean,
+    onRefresh: () -> Unit,
+) {
+    Surface(
+        Modifier.fillMaxWidth(),
+        RoundedCornerShape(14.dp),
+        CinemaSurface,
+        border = BorderStroke(1.dp, RecRed.copy(alpha = .30f)),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(title, color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(3.dp))
+            Text(body, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onRefresh, enabled = !loading, contentPadding = PaddingValues(0.dp)) {
+                Text(action, color = MutedGold, fontSize = 8.7.sp, fontWeight = FontWeight.Black)
             }
         }
     }
