@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -16,11 +17,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.framebynavin.app.youtube.YouTubeAnalyticsSnapshot
+import com.framebynavin.app.youtube.YouTubeAnalyticsStore
 import com.framebynavin.app.youtube.YouTubeAuthorization
 import com.framebynavin.app.youtube.YouTubeRevenueClient
 import com.framebynavin.app.youtube.YouTubeRevenueException
 import com.framebynavin.app.youtube.YouTubeRevenuePeriod
-import com.framebynavin.app.youtube.YouTubeRevenueSnapshot
 import com.framebynavin.app.youtube.YouTubeRevenueStore
 import com.google.android.gms.auth.api.identity.Identity
 import kotlinx.coroutines.CancellationException
@@ -68,6 +69,17 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
     var revenueError by rememberSaveable(channelId) { mutableStateOf<String?>(null) }
     var pendingPeriodName by remember(channelId) { mutableStateOf<String?>(null) }
     var requestNonce by remember(channelId) { mutableLongStateOf(0L) }
+
+    // V11 clears the normal analytics store before it removes the connected Insights surface.
+    // If this composable is disposed because YouTube was explicitly disconnected, clear the
+    // separate monetary cache as well. Ordinary navigation keeps both caches intact.
+    DisposableEffect(channelId, revenueStore) {
+        onDispose {
+            if (YouTubeAnalyticsStore(appContext).loadAny() == null) {
+                revenueStore.clear()
+            }
+        }
+    }
 
     fun syncRevenueWithToken(token: String, period: YouTubeRevenuePeriod) {
         val nonce = requestNonce + 1L
