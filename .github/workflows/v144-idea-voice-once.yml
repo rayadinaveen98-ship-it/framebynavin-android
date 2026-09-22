@@ -25,23 +25,27 @@ jobs:
           from pathlib import Path
           p = Path('app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt')
           text = p.read_text()
-          old = '''                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes · optional") })
-                Spacer(Modifier.height(12.dp))'''
-          new = '''                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes · optional") })
-                Spacer(Modifier.height(8.dp))
-                V117VoiceIdeaInput(
-                    onTranscript = { transcript ->
-                        val clean = transcript.trim()
-                        if (clean.isNotBlank()) {
-                            notes = if (notes.isBlank()) clean else "${notes.trimEnd()}\\n$clean"
-                        }
-                    },
-                )
-                Spacer(Modifier.height(12.dp))'''
-          count = text.count(old)
+          needle = 'OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes · optional") })'
+          count = text.count(needle)
           if count != 1:
-              raise SystemExit(f'Expected exactly one Idea notes field block, found {count}')
-          p.write_text(text.replace(old, new, 1))
+              raise SystemExit(f'Expected exactly one Idea notes field, found {count}')
+          i = text.index(needle)
+          line_start = text.rfind('\n', 0, i) + 1
+          indent = text[line_start:i]
+          child = indent + '    '
+          replacement = (
+              needle + '\n' +
+              indent + 'Spacer(Modifier.height(8.dp))\n' +
+              indent + 'V117VoiceIdeaInput(\n' +
+              child + 'onTranscript = { transcript ->\n' +
+              child + '    val clean = transcript.trim()\n' +
+              child + '    if (clean.isNotBlank()) {\n' +
+              child + '        notes = if (notes.isBlank()) clean else "${notes.trimEnd()}\\n$clean"\n' +
+              child + '    }\n' +
+              child + '},\n' +
+              indent + ')'
+          )
+          p.write_text(text.replace(needle, replacement, 1))
           PY
 
       - name: Commit and remove one-shot workflow
