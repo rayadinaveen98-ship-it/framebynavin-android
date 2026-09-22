@@ -1,6 +1,8 @@
 package com.framebynavin.app.youtube
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -22,20 +24,60 @@ class V144YouTubeRevenueTest {
     }
 
     @Test
+    fun `authorized channel silently fetches a period with no cache`() {
+        assertTrue(
+            shouldAutoFetchRevenue(
+                permissionEstablished = true,
+                cached = null,
+                nowMillis = 1_000L,
+                staleAfterMillis = 100L,
+            ),
+        )
+    }
+
+    @Test
+    fun `missing period cache never implies a new consent when permission is absent`() {
+        assertFalse(
+            shouldAutoFetchRevenue(
+                permissionEstablished = false,
+                cached = null,
+                nowMillis = 1_000L,
+                staleAfterMillis = 100L,
+            ),
+        )
+    }
+
+    @Test
+    fun `fresh cached period does not refetch`() {
+        val snapshot = revenueSnapshot(fetchedAtMillis = 950L)
+        assertFalse(
+            shouldAutoFetchRevenue(
+                permissionEstablished = true,
+                cached = snapshot,
+                nowMillis = 1_000L,
+                staleAfterMillis = 100L,
+            ),
+        )
+    }
+
+    @Test
+    fun `stale cached period refreshes silently`() {
+        val snapshot = revenueSnapshot(fetchedAtMillis = 800L)
+        assertTrue(
+            shouldAutoFetchRevenue(
+                permissionEstablished = true,
+                cached = snapshot,
+                nowMillis = 1_000L,
+                staleAfterMillis = 100L,
+            ),
+        )
+    }
+
+    @Test
     fun `rpm is calculated from estimated revenue and views`() {
-        val snapshot = YouTubeRevenueSnapshot(
-            period = YouTubeRevenuePeriod.TWENTY_EIGHT_DAYS,
-            startDate = "2026-08-25",
-            endDate = "2026-09-21",
-            currencyCode = "INR",
+        val snapshot = revenueSnapshot(
             views = 25_000,
             estimatedRevenue = 500.0,
-            estimatedAdRevenue = 450.0,
-            playbackBasedCpm = 75.0,
-            impressionCpm = 90.0,
-            monetizedPlaybacks = 8_000,
-            adImpressions = 12_000,
-            trend = emptyList(),
             fetchedAtMillis = 1L,
         )
         assertEquals(20.0, snapshot.calculatedRpm, 0.0001)
@@ -43,21 +85,33 @@ class V144YouTubeRevenueTest {
 
     @Test
     fun `zero views produce zero calculated rpm`() {
-        val snapshot = YouTubeRevenueSnapshot(
+        val snapshot = revenueSnapshot(
             period = YouTubeRevenuePeriod.SEVEN_DAYS,
-            startDate = "2026-09-15",
-            endDate = "2026-09-21",
-            currencyCode = "USD",
             views = 0,
             estimatedRevenue = 10.0,
-            estimatedAdRevenue = 9.0,
-            playbackBasedCpm = 0.0,
-            impressionCpm = 0.0,
-            monetizedPlaybacks = 0,
-            adImpressions = 0,
-            trend = emptyList(),
             fetchedAtMillis = 1L,
         )
         assertEquals(0.0, snapshot.calculatedRpm, 0.0)
     }
+
+    private fun revenueSnapshot(
+        period: YouTubeRevenuePeriod = YouTubeRevenuePeriod.TWENTY_EIGHT_DAYS,
+        views: Long = 1_000L,
+        estimatedRevenue: Double = 20.0,
+        fetchedAtMillis: Long,
+    ) = YouTubeRevenueSnapshot(
+        period = period,
+        startDate = "2026-08-25",
+        endDate = "2026-09-21",
+        currencyCode = "INR",
+        views = views,
+        estimatedRevenue = estimatedRevenue,
+        estimatedAdRevenue = estimatedRevenue * .9,
+        playbackBasedCpm = 75.0,
+        impressionCpm = 90.0,
+        monetizedPlaybacks = 800,
+        adImpressions = 1_200,
+        trend = emptyList(),
+        fetchedAtMillis = fetchedAtMillis,
+    )
 }
