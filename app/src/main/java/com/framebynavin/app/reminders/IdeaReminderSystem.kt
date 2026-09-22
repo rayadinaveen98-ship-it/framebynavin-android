@@ -1,14 +1,17 @@
 package com.framebynavin.app.reminders
 
+import android.Manifest
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorIdea
 import com.framebynavin.app.data.IdeaReminderCadence
@@ -39,7 +42,8 @@ class IdeaReminderScheduler(context: Context) {
             return
         }
         val pending = fireIntent(normalized.id, normalized.reminderAtMillis)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarm.canScheduleExactAlarms()) {
+        val exactDelivery = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarm.canScheduleExactAlarms()
+        if (exactDelivery) {
             alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, normalized.reminderAtMillis, pending)
         } else {
             alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, normalized.reminderAtMillis, pending)
@@ -164,6 +168,10 @@ object IdeaReminderNotifications {
     fun show(context: Context, idea: CreatorIdea): Boolean {
         ReminderNotifications.ensureChannel(context)
         if (!ReminderNotifications.canPost(context)) return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return false
+
         val body = "Still worth exploring? Open this idea or turn it into a project."
         val notification = NotificationCompat.Builder(context, ReminderConstants.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_edit)
@@ -179,8 +187,10 @@ object IdeaReminderNotifications {
             .addAction(0, "SNOOZE 3H", actionIntent(context, idea.id, IdeaReminderContract.ACTION_SNOOZE_3H, 4))
             .addAction(0, "STOP", actionIntent(context, idea.id, IdeaReminderContract.ACTION_STOP, 5))
             .build()
-        NotificationManagerCompat.from(context).notify(notificationId(idea.id), notification)
-        return true
+        return runCatching {
+            NotificationManagerCompat.from(context).notify(notificationId(idea.id), notification)
+            true
+        }.getOrDefault(false)
     }
 
     fun cancel(context: Context, ideaId: String) {
