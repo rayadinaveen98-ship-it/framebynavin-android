@@ -53,8 +53,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 144
-        versionName = "2.0.0-rc17-v144-workflow-insights"
+        versionCode = 145
+        versionName = "2.0.0-rc18-v145-post-qa-fix"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
