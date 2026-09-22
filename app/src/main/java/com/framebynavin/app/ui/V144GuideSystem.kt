@@ -39,15 +39,32 @@ import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
 
 enum class V144GuideIdentity(val displayName: String, val description: String) {
+    // Kept only as compatibility values for older persisted installs. They are no longer selectable.
     FRAME("Frame", "Simple. Expressive. Always with you."),
     NAVI("Navi", "Curious. Calm. Creative."),
     FUNNY("Funny", "Witty. Expressive. Never too serious."),
     CUTE("Cute", "Warm. Gentle. Always encouraging."),
 }
 
+/** Active roster until the next two approved raster guides are designed. */
+internal val V145SelectableGuides = listOf(
+    V144GuideIdentity.FUNNY,
+    V144GuideIdentity.CUTE,
+)
+
+internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? {
+    val parsed = value?.let { saved ->
+        V144GuideIdentity.entries.firstOrNull { it.name == saved }
+    } ?: return null
+    return when (parsed) {
+        V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
+        V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> parsed
+    }
+}
+
 /**
- * V144 owns the four-guide preference while reusing the historical preference key.
- * Existing Frame/Navi users migrate automatically with no reset prompt.
+ * Guide preference remains on the historical key so existing installs migrate in place.
+ * Legacy Frame/Navi selections are normalized to Funny and are not exposed in V145 UI.
  */
 object V144GuidePrefs {
     private const val PREFS = "backlot_character_identity"
@@ -58,27 +75,28 @@ object V144GuidePrefs {
         private set
 
     val hasSelection: Boolean get() = selectedGuide != null
-    val currentGuide: V144GuideIdentity get() = selectedGuide ?: V144GuideIdentity.FRAME
+    val currentGuide: V144GuideIdentity get() = selectedGuide ?: V144GuideIdentity.FUNNY
 
     fun initialize(context: Context) {
         if (appContext != null) return
         appContext = context.applicationContext
-        val saved = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            ?.getString(KEY_CHARACTER, null)
-        selectedGuide = saved?.let { value -> V144GuideIdentity.entries.firstOrNull { it.name == value } }
+        val prefs = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val saved = prefs?.getString(KEY_CHARACTER, null)
+        val normalized = v145NormalizeSavedGuide(saved)
+        selectedGuide = normalized
+        if (saved != null && normalized != null && normalized.name != saved) {
+            prefs.edit().putString(KEY_CHARACTER, normalized.name).apply()
+        }
     }
 
     fun select(guide: V144GuideIdentity) {
-        selectedGuide = guide
-        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            ?.edit()?.putString(KEY_CHARACTER, guide.name)?.apply()
-
-        // Keep old direct Frame/Navi call sites coherent while V144 transitions the app.
-        when (guide) {
-            V144GuideIdentity.FRAME -> BacklotCharacterPrefs.select(BacklotCharacter.FRAME)
-            V144GuideIdentity.NAVI -> BacklotCharacterPrefs.select(BacklotCharacter.NAVI)
-            V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> Unit
+        val normalized = when (guide) {
+            V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
+            V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> guide
         }
+        selectedGuide = normalized
+        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            ?.edit()?.putString(KEY_CHARACTER, normalized.name)?.apply()
     }
 }
 
@@ -110,7 +128,7 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
             )
             Spacer(Modifier.height(18.dp))
 
-            V144GuideIdentity.entries.chunked(2).forEachIndexed { index, guides ->
+            V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     guides.forEach { guide ->
                         V144GuideChoiceCard(
@@ -121,7 +139,7 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
                     }
                     if (guides.size == 1) Spacer(Modifier.weight(1f))
                 }
-                if (index < 1) Spacer(Modifier.height(10.dp))
+                if (index < V145SelectableGuides.chunked(2).lastIndex) Spacer(Modifier.height(10.dp))
             }
         }
     }
@@ -151,7 +169,7 @@ private fun V144GuideChoiceCard(
                     V144GuideCharacter(
                         guide = guide,
                         state = CinePulseState.WAVE,
-                        modifier = Modifier.size(width = 94.dp, height = 104.dp),
+                        modifier = Modifier.size(96.dp),
                     )
                 }
             }
@@ -170,10 +188,7 @@ private fun V144GuideChoiceCard(
             Button(
                 onClick = onSelect,
                 modifier = Modifier.fillMaxWidth().height(35.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = identity,
-                    contentColor = if (guide == V144GuideIdentity.FRAME) Color(0xFF121212) else Color.White,
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = Color.White),
                 shape = RoundedCornerShape(12.dp),
             ) {
                 Text("USE ${guide.displayName.uppercase()}", fontSize = 7.2.sp, fontWeight = FontWeight.Black)
@@ -195,7 +210,7 @@ internal fun V144GuidePicker() {
         Text("Every guide keeps its own visual identity in every Backlot theme.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(10.dp))
 
-        V144GuideIdentity.entries.chunked(2).forEachIndexed { index, guides ->
+        V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 guides.forEach { guide ->
                     val active = guide == selected
@@ -216,7 +231,7 @@ internal fun V144GuidePicker() {
                                     V144GuideCharacter(
                                         guide = guide,
                                         state = CinePulseState.IDLE,
-                                        modifier = Modifier.size(width = 78.dp, height = 86.dp),
+                                        modifier = Modifier.size(82.dp),
                                     )
                                 }
                             }
@@ -233,7 +248,7 @@ internal fun V144GuidePicker() {
                 }
                 if (guides.size == 1) Spacer(Modifier.weight(1f))
             }
-            if (index < 1) Spacer(Modifier.height(8.dp))
+            if (index < V145SelectableGuides.chunked(2).lastIndex) Spacer(Modifier.height(8.dp))
         }
     }
 }
