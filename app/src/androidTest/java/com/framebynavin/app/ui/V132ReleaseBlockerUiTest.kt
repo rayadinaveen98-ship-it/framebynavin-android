@@ -23,10 +23,10 @@ class V132ReleaseBlockerUiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun homeHero_rendersUnifiedAlpha16GreetingEntry() {
+    fun homeHero_rendersBacklotGreetingEntry() {
         composeRule.setContent { V18CinematicHomeHero("King") }
 
-        composeRule.onNodeWithText("FRAME BY NAVIN").assertIsDisplayed()
+        composeRule.onNodeWithText("BACKLOT").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Add slideshow images").assertIsDisplayed()
         composeRule.onNodeWithText("BEST FRAMES OF TODAY").assertDoesNotExist()
     }
