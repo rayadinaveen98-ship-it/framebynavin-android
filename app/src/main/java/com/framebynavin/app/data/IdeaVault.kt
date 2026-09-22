@@ -46,6 +46,8 @@ data class CreatorIdea(
     val updatedAtMillis: Long = System.currentTimeMillis(),
     val projectTaskId: String = "",
     val sourceRefId: String = "",
+    val reminderAtMillis: Long = 0L,
+    val reminderCadence: IdeaReminderCadence = IdeaReminderCadence.ONCE,
 )
 
 object IdeaVaultLabels {
@@ -65,7 +67,6 @@ object IdeaVaultLabels {
         IdeaCategory.RELEASE_REACTION -> "Reaction / Update"
         IdeaCategory.EXPERIMENT -> "Experiment"
     }
-
 
     fun categoriesFor(profile: CreatorProfile): List<IdeaCategory> {
         val filmCreator = profile.category.equals("Film & Entertainment", ignoreCase = true)
