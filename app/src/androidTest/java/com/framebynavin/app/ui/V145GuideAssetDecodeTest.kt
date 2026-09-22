@@ -1,9 +1,8 @@
 package com.framebynavin.app.ui
 
 import android.graphics.ImageDecoder
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,7 +12,7 @@ import org.junit.runner.RunWith
 class V145GuideAssetDecodeTest {
 
     @Test
-    @RequiresApi(Build.VERSION_CODES.P)
+    @SdkSuppress(minSdkVersion = 28)
     fun everyActiveGuidePose_decodesOnAndroid() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val resources = context.resources
