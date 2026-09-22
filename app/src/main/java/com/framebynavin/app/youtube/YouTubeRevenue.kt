@@ -42,6 +42,20 @@ data class YouTubeRevenueSnapshot(
         get() = if (views > 0L) estimatedRevenue * 1000.0 / views.toDouble() else 0.0
 }
 
+/**
+ * Permission is channel-level; a missing period snapshot does not mean permission is missing.
+ */
+internal fun shouldAutoFetchRevenue(
+    permissionEstablished: Boolean,
+    cached: YouTubeRevenueSnapshot?,
+    nowMillis: Long,
+    staleAfterMillis: Long,
+): Boolean {
+    if (!permissionEstablished) return false
+    if (cached == null) return true
+    return nowMillis - cached.fetchedAtMillis >= staleAfterMillis
+}
+
 class YouTubeRevenueClient {
     fun sync(
         accessToken: String,
@@ -96,7 +110,6 @@ class YouTubeRevenueClient {
             YouTubeRevenuePeriod.NINETY_DAYS -> end.minusDays(89)
             YouTubeRevenuePeriod.THIS_MONTH -> today.withDayOfMonth(1)
         }
-        // On the first day of a month there is no completed day in the current month yet.
         return if (start.isAfter(end)) start to start else start to end
     }
 
@@ -174,6 +187,8 @@ class YouTubeRevenueStore(context: Context) {
         return runCatching { decode(JSONObject(raw)) }.getOrNull()
     }
 
+    fun hasAnySnapshot(): Boolean = YouTubeRevenuePeriod.entries.any { load(it) != null }
+
     fun save(snapshot: YouTubeRevenueSnapshot) {
         prefs.edit().putString(key(snapshot.period), encode(snapshot).toString()).apply()
     }
@@ -219,7 +234,7 @@ class YouTubeRevenueStore(context: Context) {
             estimatedRevenue = root.optDouble("estimatedRevenue"),
             estimatedAdRevenue = root.optDouble("estimatedAdRevenue"),
             playbackBasedCpm = root.optDouble("playbackBasedCpm"),
-            impressionCpm = root.optDouble("impressionCpm"),
+            impressionCpm = root.optDouble("cpm"),
             monetizedPlaybacks = root.optLong("monetizedPlaybacks"),
             adImpressions = root.optLong("adImpressions"),
             trend = trend,
