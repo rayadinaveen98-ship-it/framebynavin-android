@@ -3,18 +3,29 @@ package com.framebynavin.app.ui
 import com.framebynavin.app.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class V144GuideSystemTest {
 
     @Test
-    fun `v144 exposes exactly the four locked guide identities`() {
+    fun `v145 selectable roster contains only funny and cute`() {
         assertEquals(
-            listOf("Frame", "Navi", "Funny", "Cute"),
-            V144GuideIdentity.entries.map { it.displayName },
+            listOf(V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE),
+            V145SelectableGuides,
         )
-        assertTrue(V144GuideIdentity.entries.all { it.description.isNotBlank() })
+        assertTrue(V145SelectableGuides.all { it.description.isNotBlank() })
+    }
+
+    @Test
+    fun `legacy frame and navi preferences migrate to funny`() {
+        assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("FRAME"))
+        assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("NAVI"))
+        assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("FUNNY"))
+        assertEquals(V144GuideIdentity.CUTE, v145NormalizeSavedGuide("CUTE"))
+        assertNull(v145NormalizeSavedGuide(null))
+        assertNull(v145NormalizeSavedGuide("UNKNOWN"))
     }
 
     @Test
@@ -42,7 +53,7 @@ class V144GuideSystemTest {
     }
 
     @Test
-    fun `creator setup and guided tour semantic poses are covered for both new guides`() {
+    fun `creator setup and guided tour semantic poses are covered for both active guides`() {
         val setupStates = listOf(
             CinePulseState.PRESENT,
             CinePulseState.LOOK,
@@ -59,7 +70,7 @@ class V144GuideSystemTest {
             CinePulseState.CELEBRATE,
         )
 
-        listOf(V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE).forEach { guide ->
+        V145SelectableGuides.forEach { guide ->
             (setupStates + tourStates).distinct().forEach { state ->
                 assertNotEquals("$guide has no asset for $state", 0, v144GuideDrawable(guide, state))
             }
