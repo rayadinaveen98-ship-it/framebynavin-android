@@ -18,7 +18,7 @@ import com.framebynavin.app.R
 
 /**
  * Premium V144 guides use the approved transparent WebP artwork directly.
- * Compose only adds restrained motion/mirroring; it never redraws or approximates the artwork.
+ * Compose only adds restrained uniform motion/mirroring and always preserves artwork aspect ratio.
  */
 @Composable
 internal fun V144RasterGuideCharacter(
@@ -47,9 +47,8 @@ internal fun V144RasterGuideCharacter(
         label = "v144RasterGuideSway",
     )
 
-    val drawable = v144GuideDrawable(guide, state)
     Image(
-        painter = painterResource(drawable),
+        painter = painterResource(v144GuideDrawable(guide, state)),
         contentDescription = null,
         contentScale = ContentScale.Fit,
         modifier = modifier.graphicsLayer {
@@ -77,14 +76,15 @@ internal fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState):
     }
 
     V144GuideIdentity.CUTE -> when (state) {
-        CinePulseState.WAVE -> R.drawable.guide_cute_welcome
+        // The welcome/listening assets are the stable neutral poses used during setup transitions.
+        // Keep the older encourage raster out of first-run rendering until its visual pack is rebuilt.
+        CinePulseState.IDLE, CinePulseState.WALK, CinePulseState.POINT,
+        CinePulseState.PRESENT, CinePulseState.NOD, CinePulseState.WAVE -> R.drawable.guide_cute_welcome
         CinePulseState.LOOK, CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_cute_listening
         CinePulseState.THINK -> R.drawable.guide_cute_thinking
         CinePulseState.SUCCESS, CinePulseState.CELEBRATE -> R.drawable.guide_cute_celebrate
-        CinePulseState.IDLE, CinePulseState.WALK, CinePulseState.POINT,
-        CinePulseState.PRESENT, CinePulseState.NOD -> R.drawable.guide_cute_encourage
     }
 
-    // Defensive fallback; Frame/Navi normally stay on their vector renderer.
+    // Defensive fallback; Frame/Navi are hidden from the current selectable roster.
     V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> R.drawable.guide_funny_welcome
 }
