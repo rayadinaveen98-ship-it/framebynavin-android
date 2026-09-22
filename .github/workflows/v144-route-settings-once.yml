@@ -1,0 +1,57 @@
+name: V144 Route Settings Hub Once
+
+on:
+  push:
+    branches:
+      - feature/v144-guide-schedule-refresh
+    paths:
+      - .github/workflows/v144-route-settings-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v144-guide-schedule-refresh
+          fetch-depth: 0
+
+      - name: Route V144 settings hub
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt')
+          text = p.read_text()
+          old = '''            POverlay.SETTINGS -> PSettingsScreen(
+                settings = settings,
+                tasks = vm.tasks,
+                weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
+                permissions = permissions,
+                onClose = { overlay = POverlay.NONE },'''
+          new = '''            POverlay.SETTINGS -> V144SettingsHub(
+                settings = settings,
+                tasks = vm.tasks,
+                weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
+                notificationsReady = permissions.notifications,
+                preciseTimingReady = permissions.preciseTiming,
+                fullScreenReady = permissions.fullScreen,
+                batteryReady = permissions.batteryAccess,
+                onClose = { overlay = POverlay.NONE },'''
+          if old not in text:
+              raise SystemExit('Expected Settings call-site was not found; refusing broad rewrite.')
+          if text.count(old) != 1:
+              raise SystemExit(f'Expected one Settings call-site, found {text.count(old)}; refusing rewrite.')
+          p.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Commit routing change and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/v144-route-settings-once.yml
+          git add app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          git commit -m "feat(v144): route categorized settings hub"
+          git push origin HEAD:feature/v144-guide-schedule-refresh
