@@ -2,6 +2,7 @@
 
 ## Candidate
 - Branch: `feature/v144-guide-schedule-refresh`
+- Final validated app/test commit: `0658238d5519373104371fac51de08fb75473e0f`
 - V143 baseline: `5fd5430584d3a72c23b78ed73bd07fa85a315b59`
 - Version code: `144`
 - Version name: `2.0.0-rc17-v144-workflow-insights`
@@ -68,14 +69,27 @@ Migration keeps the stable `fbn_v4_*` schedule IDs so existing generated occurre
 - Idea reminder one-shot/daily behavior, missed-reminder recovery and automatic stop after archive/conversion.
 - YouTube revenue period/calculation behavior.
 - V144 guide registry and pose mapping for every semantic pose used by Setup/Guided First Run.
+- Home hero smoke assertion aligned with current Backlot branding without modifying production UI.
 
 ## Automated QA
-- Unit tests: PASS on the current V144 code before final workflow split.
-- Android lint: PASS on the current V144 code before final workflow split.
+Final workflow run: `#312` / `35730440527`
+
+- Unit tests: PASS.
+- Android lint: PASS.
 - Instrumentation test APK compilation: PASS.
-- Debug APK assembly/upload: PASS on prior V144 candidate builds.
-- Connected emulator UI smoke: Linux runner attempt was INVALID as an app signal: emulator had no KVM/hardware acceleration, booted extremely slowly, then instrumentation process crashed before discovering any tests (`0 tests`).
-- Final connected UI smoke: PENDING on dedicated Intel macOS runner with hardware acceleration.
+- Debug APK assembly: PASS.
+- APK artifact upload: PASS.
+- Targeted connected emulator UI smoke on `macos-15-intel`, API 35: PASS.
+- Connected smoke result: `7/7` tests completed, `0 skipped`, `0 failed`.
+- Earlier Linux emulator attempt is excluded as an app signal because it lacked usable hardware acceleration and crashed before discovering tests.
+
+## Final artifact
+- Artifact name: `Backlot-v144-Workflow-Insights`
+- GitHub artifact ID: `10694844823`
+- Artifact ZIP digest: `sha256:e8acb951badd0a687a345a9417224396ccf55cd653d88b55da204f73c1d6698b`
+- Extracted APK filename: `Backlot-v144-Workflow-Insights.apk`
+- Extracted APK size: `25,168,450` bytes
+- Extracted APK SHA-256: `5821e7c79a594e8746bd4078ded6256ed339105ad096c8f8166ed17866c22122`
 
 ## Release decision
-Do not mark the final V144 candidate green until the dedicated macOS connected UI smoke job completes successfully. If it exposes an actual app/test failure, fix and rerun; infrastructure-only failures must be distinguished from Backlot failures.
+V144 is QA-complete on the validated candidate. Unit, lint, instrumentation compilation, debug build/upload and the focused connected emulator smoke suite are all green. The generated debug APK is suitable for in-place testing over the V143 debug install because the application ID/signing configuration is preserved and versionCode advances to 144.
