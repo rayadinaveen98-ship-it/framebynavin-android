@@ -46,9 +46,21 @@ enum class V144GuideIdentity(val displayName: String, val description: String) {
 }
 
 /**
- * V144 owns the four-guide preference while reusing the historical preference key.
- * Existing Frame/Navi users migrate automatically with no reset prompt.
+ * Frame/Navi remain in the enum only so old stored values can be migrated safely.
+ * They are not selectable in the current Backlot guide roster.
  */
+internal val V144SelectableGuides = listOf(
+    V144GuideIdentity.FUNNY,
+    V144GuideIdentity.CUTE,
+)
+
+internal fun v144SelectableGuideOrDefault(guide: V144GuideIdentity?): V144GuideIdentity = when (guide) {
+    V144GuideIdentity.FUNNY -> V144GuideIdentity.FUNNY
+    V144GuideIdentity.CUTE -> V144GuideIdentity.CUTE
+    V144GuideIdentity.FRAME, V144GuideIdentity.NAVI, null -> V144GuideIdentity.FUNNY
+}
+
+/** One creator-selected guide identity across setup, onboarding and helper moments. */
 object V144GuidePrefs {
     private const val PREFS = "backlot_character_identity"
     private const val KEY_CHARACTER = "selected_character"
@@ -57,28 +69,30 @@ object V144GuidePrefs {
     var selectedGuide by mutableStateOf<V144GuideIdentity?>(null)
         private set
 
-    val hasSelection: Boolean get() = selectedGuide != null
-    val currentGuide: V144GuideIdentity get() = selectedGuide ?: V144GuideIdentity.FRAME
+    val hasSelection: Boolean get() = selectedGuide in V144SelectableGuides
+    val currentGuide: V144GuideIdentity get() = v144SelectableGuideOrDefault(selectedGuide)
 
     fun initialize(context: Context) {
         if (appContext != null) return
         appContext = context.applicationContext
-        val saved = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            ?.getString(KEY_CHARACTER, null)
-        selectedGuide = saved?.let { value -> V144GuideIdentity.entries.firstOrNull { it.name == value } }
+        val prefs = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val saved = prefs?.getString(KEY_CHARACTER, null)
+        val parsed = saved?.let { value -> V144GuideIdentity.entries.firstOrNull { it.name == value } }
+        selectedGuide = when {
+            parsed == null && saved == null -> null
+            parsed in V144SelectableGuides -> parsed
+            else -> V144GuideIdentity.FUNNY
+        }
+        if (selectedGuide != null && selectedGuide?.name != saved) {
+            prefs?.edit()?.putString(KEY_CHARACTER, selectedGuide!!.name)?.apply()
+        }
     }
 
     fun select(guide: V144GuideIdentity) {
-        selectedGuide = guide
+        val normalized = v144SelectableGuideOrDefault(guide)
+        selectedGuide = normalized
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            ?.edit()?.putString(KEY_CHARACTER, guide.name)?.apply()
-
-        // Keep old direct Frame/Navi call sites coherent while V144 transitions the app.
-        when (guide) {
-            V144GuideIdentity.FRAME -> BacklotCharacterPrefs.select(BacklotCharacter.FRAME)
-            V144GuideIdentity.NAVI -> BacklotCharacterPrefs.select(BacklotCharacter.NAVI)
-            V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> Unit
-        }
+            ?.edit()?.putString(KEY_CHARACTER, normalized.name)?.apply()
     }
 }
 
@@ -110,18 +124,14 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
             )
             Spacer(Modifier.height(18.dp))
 
-            V144GuideIdentity.entries.chunked(2).forEachIndexed { index, guides ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    guides.forEach { guide ->
-                        V144GuideChoiceCard(
-                            guide = guide,
-                            onSelect = { V144GuidePrefs.select(guide) },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    if (guides.size == 1) Spacer(Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                V144SelectableGuides.forEach { guide ->
+                    V144GuideChoiceCard(
+                        guide = guide,
+                        onSelect = { V144GuidePrefs.select(guide) },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
-                if (index < 1) Spacer(Modifier.height(10.dp))
             }
         }
     }
@@ -151,7 +161,7 @@ private fun V144GuideChoiceCard(
                     V144GuideCharacter(
                         guide = guide,
                         state = CinePulseState.WAVE,
-                        modifier = Modifier.size(width = 94.dp, height = 104.dp),
+                        modifier = Modifier.size(100.dp),
                     )
                 }
             }
@@ -172,7 +182,7 @@ private fun V144GuideChoiceCard(
                 modifier = Modifier.fillMaxWidth().height(35.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = identity,
-                    contentColor = if (guide == V144GuideIdentity.FRAME) Color(0xFF121212) else Color.White,
+                    contentColor = Color.White,
                 ),
                 shape = RoundedCornerShape(12.dp),
             ) {
@@ -192,48 +202,44 @@ internal fun V144GuidePicker() {
         Text("GUIDE CHARACTER", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
         Text("Choose who stays with you.", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("Every guide keeps its own visual identity in every Backlot theme.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("Your selected guide keeps the same identity in every Backlot theme.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(10.dp))
 
-        V144GuideIdentity.entries.chunked(2).forEachIndexed { index, guides ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                guides.forEach { guide ->
-                    val active = guide == selected
-                    val identity = v144GuideIdentityColor(guide)
-                    Surface(
-                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) },
-                        shape = RoundedCornerShape(18.dp),
-                        color = if (active) CinemaSurfaceRaised else CinemaSurface,
-                        border = BorderStroke(1.2.dp, if (active) identity else CinemaLine),
-                    ) {
-                        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Surface(
-                                modifier = Modifier.height(92.dp).fillMaxWidth(),
-                                color = V144GuideStage,
-                                shape = RoundedCornerShape(14.dp),
-                            ) {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    V144GuideCharacter(
-                                        guide = guide,
-                                        state = CinePulseState.IDLE,
-                                        modifier = Modifier.size(width = 78.dp, height = 86.dp),
-                                    )
-                                }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            V144SelectableGuides.forEach { guide ->
+                val active = guide == selected
+                val identity = v144GuideIdentityColor(guide)
+                Surface(
+                    modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = if (active) CinemaSurfaceRaised else CinemaSurface,
+                    border = BorderStroke(1.2.dp, if (active) identity else CinemaLine),
+                ) {
+                    Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(
+                            modifier = Modifier.height(92.dp).fillMaxWidth(),
+                            color = V144GuideStage,
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                V144GuideCharacter(
+                                    guide = guide,
+                                    state = CinePulseState.IDLE,
+                                    modifier = Modifier.size(82.dp),
+                                )
                             }
-                            Spacer(Modifier.height(5.dp))
-                            Text(guide.displayName, color = ProjectorIvory, fontSize = 10.2.sp, fontWeight = FontWeight.Black)
-                            Text(
-                                if (active) "SELECTED" else "TAP TO USE",
-                                color = if (active) identity else MutedText,
-                                fontSize = 6.8.sp,
-                                fontWeight = FontWeight.Bold,
-                            )
                         }
+                        Spacer(Modifier.height(5.dp))
+                        Text(guide.displayName, color = ProjectorIvory, fontSize = 10.2.sp, fontWeight = FontWeight.Black)
+                        Text(
+                            if (active) "SELECTED" else "TAP TO USE",
+                            color = if (active) identity else MutedText,
+                            fontSize = 6.8.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
-                if (guides.size == 1) Spacer(Modifier.weight(1f))
             }
-            if (index < 1) Spacer(Modifier.height(8.dp))
         }
     }
 }
@@ -248,7 +254,7 @@ internal fun V144GuideCharacter(
     when (guide) {
         V144GuideIdentity.FRAME -> BacklotGuideCharacter(BacklotCharacter.FRAME, state, modifier, pointRight)
         V144GuideIdentity.NAVI -> BacklotGuideCharacter(BacklotCharacter.NAVI, state, modifier, pointRight)
-        V144GuideIdentity.FUNNY -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
+        V144GuideIdentity.FUNNY,
         V144GuideIdentity.CUTE -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
     }
 }
