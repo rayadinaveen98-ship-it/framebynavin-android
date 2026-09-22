@@ -10,10 +10,12 @@ import java.security.MessageDigest
 object YouTubeAuthorization {
     const val YOUTUBE_READONLY = "https://www.googleapis.com/auth/youtube.readonly"
     const val ANALYTICS_READONLY = "https://www.googleapis.com/auth/yt-analytics.readonly"
+    const val ANALYTICS_MONETARY_READONLY = "https://www.googleapis.com/auth/yt-analytics-monetary.readonly"
 
     val scopes: List<Scope> = listOf(
         Scope(YOUTUBE_READONLY),
         Scope(ANALYTICS_READONLY),
+        Scope(ANALYTICS_MONETARY_READONLY),
     )
 
     fun request(selectAccount: Boolean = false): AuthorizationRequest {
