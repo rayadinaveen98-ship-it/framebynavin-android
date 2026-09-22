@@ -113,6 +113,8 @@ class IdeaVaultStore(private val context: Context) {
                     .put("updatedAtMillis", idea.updatedAtMillis)
                     .put("projectTaskId", idea.projectTaskId)
                     .put("sourceRefId", idea.sourceRefId)
+                    .put("reminderAtMillis", idea.reminderAtMillis)
+                    .put("reminderCadence", idea.reminderCadence.name)
             )
         }
         return array.toString()
@@ -148,6 +150,10 @@ class IdeaVaultStore(private val context: Context) {
                         updatedAtMillis = item.optLong("updatedAtMillis", System.currentTimeMillis()),
                         projectTaskId = item.optString("projectTaskId", ""),
                         sourceRefId = item.optString("sourceRefId", ""),
+                        reminderAtMillis = item.optLong("reminderAtMillis", 0L),
+                        reminderCadence = runCatching {
+                            IdeaReminderCadence.valueOf(item.optString("reminderCadence", IdeaReminderCadence.ONCE.name))
+                        }.getOrDefault(IdeaReminderCadence.ONCE),
                     )
                 )
             }
