@@ -61,7 +61,7 @@ jobs:
         run: gradle :app:assembleDebugAndroidTest --stacktrace
 
       - name: Run release-blocker UI smoke tests
-        if: github.ref == 'refs/heads/repair/v1.3.2-release-blockers'
+        if: github.ref == 'refs/heads/repair/v1.3.2-release-blockers' || github.ref == 'refs/heads/feature/v144-guide-schedule-refresh'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
