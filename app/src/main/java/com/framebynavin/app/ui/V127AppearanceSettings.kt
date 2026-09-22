@@ -39,7 +39,7 @@ internal fun V127AppearanceSettings() {
     }
 
     Column(Modifier.fillMaxWidth()) {
-        V137CharacterPicker()
+        V144GuidePicker()
         Spacer(Modifier.height(18.dp))
 
         Text("APPEARANCE", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
