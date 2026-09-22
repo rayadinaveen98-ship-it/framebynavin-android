@@ -30,9 +30,9 @@ import com.framebynavin.app.youtube.YouTubeReachStore
  * This is intentionally not the final Creator Intelligence redesign.
  */
 @Composable
-internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
+internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refreshRevision: Int = 0) {
     val context = LocalContext.current.applicationContext
-    val foundation = remember(snapshot.channel.channelId, snapshot.windowDays, snapshot.fetchedAtMillis) {
+    val foundation = remember(snapshot.channel.channelId, snapshot.windowDays, snapshot.fetchedAtMillis, refreshRevision) {
         YouTubeInsightsFoundationStore(context).load(snapshot.windowDays, snapshot.channel.channelId)
     } ?: return
 
@@ -43,7 +43,7 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
     val retention = foundation.health(YouTubeFoundationDataset.RETENTION)?.state
     val reachHealth = foundation.health(YouTubeFoundationDataset.REACH)
     val reachState = reachHealth?.state
-    val reachSummary = remember(snapshot.channel.channelId, snapshot.startDate, snapshot.endDate, snapshot.fetchedAtMillis) {
+    val reachSummary = remember(snapshot.channel.channelId, snapshot.startDate, snapshot.endDate, snapshot.fetchedAtMillis, refreshRevision) {
         YouTubeReachStore(context).summary(snapshot.startDate, snapshot.endDate)
     }
     val reach = if (reachSummary != null) YouTubeDatasetState.READY else reachState

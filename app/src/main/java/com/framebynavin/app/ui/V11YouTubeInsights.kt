@@ -37,6 +37,7 @@ import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.RevokeAccessRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -73,6 +74,7 @@ internal fun V11InsightsScreen(
     var pendingResolution by remember { mutableStateOf<YouTubeCacheRequest?>(null) }
     var pendingResolutionDays by remember { mutableIntStateOf(28) }
     var autoRefreshKey by rememberSaveable { mutableStateOf("") }
+    var foundationRevision by remember { mutableIntStateOf(0) }
     val personalization by remember(creatorProfile) {
         derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
     }
@@ -124,30 +126,47 @@ internal fun V11InsightsScreen(
             syncing = true
             authError = null
             try {
-                val (fresh, foundation) = withContext(Dispatchers.IO) {
-                    val base = api.sync(token, days)
-                    base to foundationApi.sync(token, base)
-                }
+                // Priority refresh: publish creator-facing data as soon as the core reports finish.
+                val fresh = withContext(Dispatchers.IO) { api.sync(token, days) }
                 if (store.save(fresh, request) && isActive(request)) {
-                    val reach = withContext(Dispatchers.IO) {
-                        reachApi.sync(token, fresh.channel.channelId)
-                    }
-                    val withReach = foundation.copy(
-                        health = foundation.health
-                            .filterNot { it.dataset == YouTubeFoundationDataset.REACH } +
-                            YouTubeDatasetHealth(YouTubeFoundationDataset.REACH, reach.state, reach.note)
-                    )
-                    foundationStore.save(withReach)
-                    checkpointStore.captureFrom(fresh, store.links())
                     snapshot = fresh
                     links = store.links()
                     selectedVideo = null
+                    withContext(Dispatchers.IO) {
+                        checkpointStore.captureFrom(fresh, store.links())
+                    }
+
+                    // Deep refresh stays in the background. Audience/retention and reach are
+                    // independent and should not make cached/core Insights feel blocked.
+                    val (foundationResult, reachResult) = withContext(Dispatchers.IO) {
+                        val foundationDeferred = async { runCatching { foundationApi.sync(token, fresh) } }
+                        val reachDeferred = async { runCatching { reachApi.sync(token, fresh.channel.channelId) } }
+                        foundationDeferred.await() to reachDeferred.await()
+                    }
+                    val foundation = foundationResult.getOrNull()
+                    if (foundation != null && isActive(request)) {
+                        val reach = reachResult.getOrNull()
+                        val reachHealth = if (reach != null) {
+                            YouTubeDatasetHealth(YouTubeFoundationDataset.REACH, reach.state, reach.note)
+                        } else {
+                            YouTubeDatasetHealth(
+                                YouTubeFoundationDataset.REACH,
+                                YouTubeDatasetState.UNAVAILABLE,
+                                "Reach could not be refreshed right now. Core Insights are up to date.",
+                            )
+                        }
+                        val withReach = foundation.copy(
+                            health = foundation.health
+                                .filterNot { it.dataset == YouTubeFoundationDataset.REACH } + reachHealth,
+                        )
+                        withContext(Dispatchers.IO) { foundationStore.save(withReach) }
+                        if (isActive(request)) foundationRevision += 1
+                    }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
                 if (isActive(request)) {
-                    // A revoked/invalid credential must not leave an apparently connected cache.
                     if (error is YouTubeApiException && error.httpCode == 401) {
                         store.disconnect()
                         snapshot = null
@@ -332,6 +351,7 @@ internal fun V11InsightsScreen(
                     tasks = tasks,
                     ideas = ideas,
                     links = links,
+                    foundationRevision = foundationRevision,
                     onLinkVideo = { selectedVideo = it },
                 )
             }
@@ -475,6 +495,7 @@ private fun YTChannelHeader(
                 Column(Modifier.weight(1f)) {
                     Text(data.channel.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${ytCompact(data.channel.subscribers)} subscribers · ${data.channel.videoCount} videos", color = MutedText, fontSize = 8.8.sp)
+                    if (syncing) Text("Updating in background…", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = onSync, enabled = !syncing) {
                     if (syncing) CircularProgressIndicator(modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = RecRed)

@@ -39,6 +39,7 @@ internal fun V172InsightsBody(
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     links: Map<String, String>,
+    foundationRevision: Int = 0,
     onLinkVideo: (YouTubeVideoSnapshot) -> Unit,
 ) {
     var tabName by rememberSaveable { mutableStateOf(V172InsightsTab.OVERVIEW.name) }
@@ -58,6 +59,7 @@ internal fun V172InsightsBody(
             tasks = tasks,
             ideas = ideas,
             links = links,
+            foundationRevision = foundationRevision,
             onVideo = { detailVideoId = it.videoId },
             onDetail = { insightDetail = it },
         )
@@ -134,12 +136,13 @@ private fun V172Overview(
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     links: Map<String, String>,
+    foundationRevision: Int,
     onVideo: (YouTubeVideoSnapshot) -> Unit,
     onDetail: (V20InsightsDrilldownRequest) -> Unit,
 ) {
     V172PulseCard(snapshot, onDetail)
     Spacer(Modifier.height(10.dp))
-    V20InsightsFoundationCard(snapshot)
+    V20InsightsFoundationCard(snapshot, foundationRevision)
     Spacer(Modifier.height(18.dp))
 
     Text("THIS IS WHAT MATTERS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
