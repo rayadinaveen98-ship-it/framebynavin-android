@@ -66,7 +66,7 @@ internal fun V144RasterGuideCharacter(
 }
 
 @DrawableRes
-private fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState): Int = when (guide) {
+internal fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState): Int = when (guide) {
     V144GuideIdentity.FUNNY -> when (state) {
         CinePulseState.PRESENT -> R.drawable.guide_funny_present
         CinePulseState.POINT, CinePulseState.WALK, CinePulseState.NOD -> R.drawable.guide_funny_point
