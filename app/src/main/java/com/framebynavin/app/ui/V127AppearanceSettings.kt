@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun V127AppearanceSettings() {
+internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val selected = VisualExperiencePrefs.currentTheme
@@ -39,8 +39,10 @@ internal fun V127AppearanceSettings() {
     }
 
     Column(Modifier.fillMaxWidth()) {
-        V144GuidePicker()
-        Spacer(Modifier.height(18.dp))
+        if (showGuidePicker) {
+            V144GuidePicker()
+            Spacer(Modifier.height(18.dp))
+        }
 
         Text("APPEARANCE", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
@@ -192,7 +194,6 @@ private fun V139ThemePreview(theme: FrameTheme, modifier: Modifier = Modifier) {
                 }
             }
 
-            // Every preview also demonstrates the theme's surface and control geometry.
             Surface(
                 modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).width(70.dp).height(25.dp),
                 shape = RoundedCornerShape(profile.cardRadius),
