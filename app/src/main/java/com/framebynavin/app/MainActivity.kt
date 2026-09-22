@@ -21,6 +21,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.framebynavin.app.reminders.CreatorAutoPlanWorker
 import com.framebynavin.app.reminders.CreatorContextNudgeWorker
 import com.framebynavin.app.reminders.CreatorRoutineWorker
+import com.framebynavin.app.reminders.IdeaReminderScheduler
 import com.framebynavin.app.reminders.ReminderRecoveryEngine
 import com.framebynavin.app.reminders.ReminderHealthScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
@@ -85,6 +86,7 @@ class MainActivity : ComponentActivity() {
                 CreatorRoutineWorker.ensurePeriodic(applicationContext)
                 CreatorCloudSyncWorker.ensurePeriodic(applicationContext)
                 ReminderRecoveryEngine.reconcile(applicationContext)
+                IdeaReminderScheduler(applicationContext).reconcile()
             }
             withContext(Dispatchers.Main) {
                 startupRunning = false
@@ -100,6 +102,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (startupReady) lifecycleScope.launch(Dispatchers.IO) {
             ReminderRecoveryEngine.reconcile(applicationContext)
+            IdeaReminderScheduler(applicationContext).reconcile()
             CreatorCloudSyncWorker.enqueueSoon(applicationContext)
         }
     }
@@ -133,6 +136,8 @@ class MainActivity : ComponentActivity() {
         return CreatorWidgetLaunch(
             action = action,
             taskId = intent.getStringExtra(CreatorWidgetContract.EXTRA_TASK_ID).orEmpty(),
+            ideaId = intent.getStringExtra(CreatorWidgetContract.EXTRA_IDEA_ID).orEmpty(),
+            ideaMode = intent.getStringExtra(CreatorWidgetContract.EXTRA_IDEA_MODE).orEmpty(),
         )
     }
 }
