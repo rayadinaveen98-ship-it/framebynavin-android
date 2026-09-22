@@ -27,7 +27,7 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         label = "launchGate",
     ) { ready ->
         if (ready) {
-            V137CharacterChoiceGate {
+            V144GuideChoiceGate {
                 FrameByNavinV101BApp(externalLaunch = externalLaunch)
             }
         } else {
