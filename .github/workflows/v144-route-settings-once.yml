@@ -25,26 +25,20 @@ jobs:
           from pathlib import Path
           p = Path('app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt')
           text = p.read_text()
-          old = '''            POverlay.SETTINGS -> PSettingsScreen(
-                settings = settings,
-                tasks = vm.tasks,
-                weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
-                permissions = permissions,
-                onClose = { overlay = POverlay.NONE },'''
-          new = '''            POverlay.SETTINGS -> V144SettingsHub(
-                settings = settings,
-                tasks = vm.tasks,
-                weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
-                notificationsReady = permissions.notifications,
+          route_old = 'POverlay.SETTINGS -> PSettingsScreen('
+          route_new = 'POverlay.SETTINGS -> V144SettingsHub('
+          permissions_old = '                permissions = permissions,'
+          permissions_new = '''                notificationsReady = permissions.notifications,
                 preciseTimingReady = permissions.preciseTiming,
                 fullScreenReady = permissions.fullScreen,
-                batteryReady = permissions.batteryAccess,
-                onClose = { overlay = POverlay.NONE },'''
-          if old not in text:
-              raise SystemExit('Expected Settings call-site was not found; refusing broad rewrite.')
-          if text.count(old) != 1:
-              raise SystemExit(f'Expected one Settings call-site, found {text.count(old)}; refusing rewrite.')
-          p.write_text(text.replace(old, new, 1))
+                batteryReady = permissions.batteryAccess,'''
+          if text.count(route_old) != 1:
+              raise SystemExit(f'Expected one Settings route, found {text.count(route_old)}; refusing rewrite.')
+          if text.count(permissions_old) != 1:
+              raise SystemExit(f'Expected one Settings permissions argument, found {text.count(permissions_old)}; refusing rewrite.')
+          text = text.replace(route_old, route_new, 1)
+          text = text.replace(permissions_old, permissions_new, 1)
+          p.write_text(text)
           PY
 
       - name: Commit routing change and remove one-shot workflow
