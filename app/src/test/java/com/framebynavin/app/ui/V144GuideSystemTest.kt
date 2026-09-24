@@ -9,21 +9,28 @@ import org.junit.Test
 class V144GuideSystemTest {
 
     @Test
-    fun `current selectable roster contains only production-ready funny and cute`() {
+    fun `current selectable roster contains all four production guides`() {
         assertEquals(
-            listOf(V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE),
+            listOf(
+                V144GuideIdentity.FUNNY,
+                V144GuideIdentity.CUTE,
+                V144GuideIdentity.KITTY,
+                V144GuideIdentity.CUTE_GIRL,
+            ),
             V144SelectableGuides,
         )
         assertTrue(V144SelectableGuides.all { it.description.isNotBlank() })
     }
 
     @Test
-    fun `legacy frame and navi selections migrate to cute`() {
+    fun `legacy frame and navi selections migrate to cute while production guides remain stable`() {
         assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(V144GuideIdentity.FRAME))
         assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(V144GuideIdentity.NAVI))
         assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(null))
         assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(V144GuideIdentity.CUTE))
         assertEquals(V144GuideIdentity.FUNNY, v144SelectableGuideOrDefault(V144GuideIdentity.FUNNY))
+        assertEquals(V144GuideIdentity.KITTY, v144SelectableGuideOrDefault(V144GuideIdentity.KITTY))
+        assertEquals(V144GuideIdentity.CUTE_GIRL, v144SelectableGuideOrDefault(V144GuideIdentity.CUTE_GIRL))
     }
 
     @Test
@@ -51,6 +58,30 @@ class V144GuideSystemTest {
         assertEquals(R.drawable.guide_cute_thinking, v144GuideDrawable(V144GuideIdentity.CUTE, CinePulseState.THINK))
         assertEquals(R.drawable.guide_cute_celebrate, v144GuideDrawable(V144GuideIdentity.CUTE, CinePulseState.SUCCESS))
         assertEquals(R.drawable.guide_cute_celebrate, v144GuideDrawable(V144GuideIdentity.CUTE, CinePulseState.CELEBRATE))
+    }
+
+    @Test
+    fun `kitty maps semantic states to its dedicated raster poses`() {
+        CinePulseState.entries.forEach { state ->
+            assertNotEquals(0, v144GuideDrawable(V144GuideIdentity.KITTY, state))
+        }
+        assertEquals(R.drawable.guide_kitty_welcome, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.IDLE))
+        assertEquals(R.drawable.guide_kitty_present, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.PRESENT))
+        assertEquals(R.drawable.guide_kitty_point, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.POINT))
+        assertEquals(R.drawable.guide_kitty_thinking, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.THINK))
+        assertEquals(R.drawable.guide_kitty_celebrate, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.CELEBRATE))
+    }
+
+    @Test
+    fun `cute girl maps semantic states to its dedicated raster poses`() {
+        CinePulseState.entries.forEach { state ->
+            assertNotEquals(0, v144GuideDrawable(V144GuideIdentity.CUTE_GIRL, state))
+        }
+        assertEquals(R.drawable.guide_cute_girl_welcome, v144GuideDrawable(V144GuideIdentity.CUTE_GIRL, CinePulseState.IDLE))
+        assertEquals(R.drawable.guide_cute_girl_present, v144GuideDrawable(V144GuideIdentity.CUTE_GIRL, CinePulseState.PRESENT))
+        assertEquals(R.drawable.guide_cute_girl_point, v144GuideDrawable(V144GuideIdentity.CUTE_GIRL, CinePulseState.POINT))
+        assertEquals(R.drawable.guide_cute_girl_thinking, v144GuideDrawable(V144GuideIdentity.CUTE_GIRL, CinePulseState.THINK))
+        assertEquals(R.drawable.guide_cute_girl_celebrate, v144GuideDrawable(V144GuideIdentity.CUTE_GIRL, CinePulseState.CELEBRATE))
     }
 
     @Test
