@@ -37,12 +37,8 @@ object CreatorStoryIntelligenceEngine {
         today: LocalDate,
         nowMillis: Long,
     ): CreatorStoryIntelligenceSnapshot {
-        val ranked = signals
+        val ranked = CreatorMediaSignalMerger.merge(signals)
             .asSequence()
-            .filter { it.id.isNotBlank() && it.title.isNotBlank() }
-            .filter { it.evidence.isNotEmpty() }
-            .map(CreatorMediaVerificationPolicy::normalize)
-            .distinctBy { it.id }
             .map { recommendation(it, today, nowMillis) }
             .sortedWith(
                 compareByDescending<CreatorStoryRecommendation> { it.score }
