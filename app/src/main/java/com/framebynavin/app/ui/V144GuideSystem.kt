@@ -39,6 +39,7 @@ import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
 
 enum class V144GuideIdentity(val displayName: String, val description: String) {
+    // Compatibility-only values. V146 never exposes Frame/Navi as selectable guides.
     FRAME("Frame", "Simple. Expressive. Always with you."),
     NAVI("Navi", "Curious. Calm. Creative."),
     FUNNY("Funny", "Witty. Expressive. Never too serious."),
@@ -46,8 +47,8 @@ enum class V144GuideIdentity(val displayName: String, val description: String) {
 }
 
 /**
- * Frame/Navi remain in the enum only so old stored values can be migrated safely.
- * They are not selectable in the current Backlot guide roster.
+ * Current production raster guides. Kitty and Cute Girl are added to this roster only after their
+ * final transparent pose assets pass the same Android decode gate as Funny/Cute.
  */
 internal val V144SelectableGuides = listOf(
     V144GuideIdentity.FUNNY,
@@ -57,7 +58,7 @@ internal val V144SelectableGuides = listOf(
 internal fun v144SelectableGuideOrDefault(guide: V144GuideIdentity?): V144GuideIdentity = when (guide) {
     V144GuideIdentity.FUNNY -> V144GuideIdentity.FUNNY
     V144GuideIdentity.CUTE -> V144GuideIdentity.CUTE
-    V144GuideIdentity.FRAME, V144GuideIdentity.NAVI, null -> V144GuideIdentity.FUNNY
+    V144GuideIdentity.FRAME, V144GuideIdentity.NAVI, null -> V144GuideIdentity.CUTE
 }
 
 /** One creator-selected guide identity across setup, onboarding and helper moments. */
@@ -81,7 +82,7 @@ object V144GuidePrefs {
         selectedGuide = when {
             parsed == null && saved == null -> null
             parsed in V144SelectableGuides -> parsed
-            else -> V144GuideIdentity.FUNNY
+            else -> V144GuideIdentity.CUTE
         }
         if (selectedGuide != null && selectedGuide?.name != saved) {
             prefs?.edit()?.putString(KEY_CHARACTER, selectedGuide!!.name)?.apply()
@@ -252,18 +253,18 @@ internal fun V144GuideCharacter(
     pointRight: Boolean = true,
 ) {
     when (guide) {
-        V144GuideIdentity.FRAME -> BacklotGuideCharacter(BacklotCharacter.FRAME, state, modifier, pointRight)
-        V144GuideIdentity.NAVI -> BacklotGuideCharacter(BacklotCharacter.NAVI, state, modifier, pointRight)
+        V144GuideIdentity.FRAME -> V144RasterGuideCharacter(V144GuideIdentity.CUTE, state, modifier, pointRight)
+        V144GuideIdentity.NAVI -> V144RasterGuideCharacter(V144GuideIdentity.CUTE, state, modifier, pointRight)
         V144GuideIdentity.FUNNY,
         V144GuideIdentity.CUTE -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
     }
 }
 
 private fun v144GuideIdentityColor(guide: V144GuideIdentity): Color = when (guide) {
-    V144GuideIdentity.FRAME -> Color(0xFFFFC857)
-    V144GuideIdentity.NAVI -> Color(0xFFF04F54)
-    V144GuideIdentity.FUNNY -> Color(0xFF8176E8)
+    V144GuideIdentity.FRAME,
+    V144GuideIdentity.NAVI,
     V144GuideIdentity.CUTE -> Color(0xFFE99AAF)
+    V144GuideIdentity.FUNNY -> Color(0xFF8176E8)
 }
 
 private val V144GuideStage = Color(0xFF15191F)
