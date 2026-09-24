@@ -12,6 +12,7 @@ import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
+import com.framebynavin.app.widget.CreatorWidgetContract
 
 /** Stage transition prompts that never mutate workflow by themselves. */
 object ProjectPulseNextStagePrompt {
@@ -93,12 +94,22 @@ object ProjectPulseNextStagePrompt {
         )
     }
 
+    /**
+     * Route through the same explicit contract used by widgets/deep links. Previously this intent
+     * had no supported action and used the reminder extra key, so MainActivity intentionally
+     * ignored it and the creator landed on the default screen instead of the exact project.
+     */
+    internal fun projectLaunchIntent(context: Context, taskId: String): Intent =
+        Intent(context, MainActivity::class.java)
+            .setAction(CreatorWidgetContract.ACTION_OPEN_STUDIO)
+            .setData(Uri.parse("framebynavin://project/${Uri.encode(taskId)}"))
+            .putExtra(CreatorWidgetContract.EXTRA_TASK_ID, taskId)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
     private fun openProject(context: Context, taskId: String): PendingIntent = PendingIntent.getActivity(
         context,
         taskId.hashCode() xor 0x7399,
-        Intent(context, MainActivity::class.java)
-            .putExtra(ReminderConstants.EXTRA_TASK_ID, taskId)
-            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        projectLaunchIntent(context, taskId),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
