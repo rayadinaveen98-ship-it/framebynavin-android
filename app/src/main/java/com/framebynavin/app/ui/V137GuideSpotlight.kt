@@ -3,11 +3,18 @@ package com.framebynavin.app.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawLayer
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import com.framebynavin.app.data.CreatorGuidedTourStep
@@ -31,15 +38,22 @@ private fun v137Spot(step: CreatorGuidedTourStep): V137Spot = when (step) {
     CreatorGuidedTourStep.CONTROL -> V137Spot(.78f, .74f, .17f, .14f, 54f)
 }
 
-/** Compatibility token retained for existing guide call sites. v139 intentionally uses no GPU blur. */
+/** Capture the real app once so the guide overlay can render a blurred copy only outside its target. */
 @Composable
 internal fun rememberV137GuideLayer(): GraphicsLayer = rememberGraphicsLayer()
 
-internal fun Modifier.v137GuideCaptureAndBlur(layer: GraphicsLayer, active: Boolean): Modifier = this
+internal fun Modifier.v137GuideCaptureAndBlur(layer: GraphicsLayer, active: Boolean): Modifier =
+    if (!active) this else this.drawWithContent {
+        // Keep the live UI sharp underneath while recording an identical frame for the overlay.
+        layer.renderEffect = null
+        layer.record { this@drawWithContent.drawContent() }
+        drawLayer(layer)
+    }
 
 /**
- * Sharp-window guide focus. The highlighted UI is never blurred or covered. The surrounding scrim,
- * outline strength and corner treatment inherit the active visual language.
+ * V146 focus treatment: draw a blurred snapshot over the app, dim it, then punch a completely clear
+ * window through both layers. The selected control therefore remains sharp while everything else
+ * visibly recedes instead of merely becoming a little darker.
  */
 @Composable
 internal fun V137GuideSharpWindow(
@@ -49,41 +63,41 @@ internal fun V137GuideSharpWindow(
 ) {
     val spot = v137Spot(step)
     val profile = VisualExperiencePrefs.profile
-    Canvas(modifier) {
+    Canvas(
+        modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+    ) {
         val left = size.width * spot.x
         val top = size.height * spot.y
         val right = left + size.width * spot.width
         val bottom = top + size.height * spot.height
-        val scrim = Color.Black.copy(alpha = profile.guideScrimAlpha)
         val themeCorner = profile.cardRadius.value * 2.2f
         val corner = when {
             profile.cardRadius.value <= 4f -> 5f
             else -> minOf(spot.corner, themeCorner)
         }
 
-        drawRect(scrim, topLeft = Offset.Zero, size = Size(size.width, top.coerceAtLeast(0f)))
-        drawRect(
-            scrim,
-            topLeft = Offset(0f, bottom.coerceAtMost(size.height)),
-            size = Size(size.width, (size.height - bottom).coerceAtLeast(0f)),
-        )
-        drawRect(
-            scrim,
-            topLeft = Offset(0f, top),
-            size = Size(left.coerceAtLeast(0f), (bottom - top).coerceAtLeast(0f)),
-        )
-        drawRect(
-            scrim,
-            topLeft = Offset(right.coerceAtMost(size.width), top),
-            size = Size((size.width - right).coerceAtLeast(0f), (bottom - top).coerceAtLeast(0f)),
-        )
+        // Render the recorded UI as a real blurred copy. V20's animated coach adds the second,
+        // darker focus layer and speech, so this blur remains intentionally readable underneath.
+        layer.renderEffect = BlurEffect(18f, 18f, TileMode.Decal)
+        drawLayer(layer)
+        layer.renderEffect = null
+        drawRect(Color.Black.copy(alpha = maxOf(profile.guideScrimAlpha, .58f)))
 
+        // Clear the blur + dim over the active control.
         drawRoundRect(
-            color = RecRed.copy(alpha = .82f),
+            color = Color.Transparent,
             topLeft = Offset(left, top),
             size = Size((right - left).coerceAtLeast(0f), (bottom - top).coerceAtLeast(0f)),
             cornerRadius = CornerRadius(corner, corner),
-            style = Stroke(width = if (profile.borderWidth.value >= 2f) 2.2f else 1.5f),
+            blendMode = BlendMode.Clear,
+        )
+
+        drawRoundRect(
+            color = RecRed.copy(alpha = .90f),
+            topLeft = Offset(left, top),
+            size = Size((right - left).coerceAtLeast(0f), (bottom - top).coerceAtLeast(0f)),
+            cornerRadius = CornerRadius(corner, corner),
+            style = Stroke(width = if (profile.borderWidth.value >= 2f) 3.4f else 2.6f),
         )
     }
 }
