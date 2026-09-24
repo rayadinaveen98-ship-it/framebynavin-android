@@ -35,9 +35,11 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refre
         YouTubeInsightsFoundationStore(context).load(snapshot.windowDays, snapshot.channel.channelId)
     }
 
-    // Revenue is intentionally independent of the deep audience/foundation datasets. A creator
-    // should be able to enable and inspect monetary analytics even while those reports are empty.
+    // Media discovery is independent from YouTube audience-report availability. Keep Radar visible
+    // even while the deeper YouTube foundation datasets are still waiting for their first refresh.
     if (foundation == null) {
+        V147MediaRadarHost()
+        Spacer(Modifier.height(10.dp))
         V144YouTubeRevenueIntegration(snapshot)
         return
     }
@@ -134,6 +136,8 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refre
 
     Spacer(Modifier.height(10.dp))
     V20OpportunityEngineInsightsCard(snapshot)
+    Spacer(Modifier.height(10.dp))
+    V147MediaRadarHost()
     Spacer(Modifier.height(10.dp))
     V144YouTubeRevenueIntegration(snapshot)
 }
