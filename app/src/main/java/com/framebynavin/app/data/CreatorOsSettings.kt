@@ -71,6 +71,8 @@ class CreatorOsSettingsStore(context: Context) {
                 primaryGoal = prefs.getString(KEY_CREATOR_GOAL, "") ?: "",
                 secondaryGoals = stringSet(KEY_SECONDARY_GOALS),
                 weeklyPublishingTarget = prefs.getInt(KEY_WEEKLY_PUBLISHING_TARGET, 2).coerceIn(1, 14),
+                preferredMediaLanguages = stringSet(KEY_MEDIA_LANGUAGES),
+                selectedMediaSourceIds = stringSet(KEY_MEDIA_SOURCE_IDS),
                 setupSchemaVersion = prefs.getInt(KEY_SETUP_SCHEMA_VERSION, 1),
             ).normalized(),
             guidedTourVersion = prefs.getInt(KEY_GUIDED_TOUR_VERSION, 0).coerceAtLeast(0),
@@ -104,6 +106,8 @@ class CreatorOsSettingsStore(context: Context) {
                     .put("primaryGoal", profile.primaryGoal)
                     .put("secondaryGoals", JSONArray(profile.secondaryGoals.sorted()))
                     .put("weeklyPublishingTarget", profile.weeklyPublishingTarget)
+                    .put("preferredMediaLanguages", JSONArray(profile.preferredMediaLanguages.sorted()))
+                    .put("selectedMediaSourceIds", JSONArray(profile.selectedMediaSourceIds.sorted()))
                     .put("setupSchemaVersion", profile.setupSchemaVersion),
             )
             .put("defaultVoicePersona", value.defaultVoicePersona.name)
@@ -128,6 +132,8 @@ class CreatorOsSettingsStore(context: Context) {
             primaryGoal = profileObj?.optString("primaryGoal", "").orEmpty(),
             secondaryGoals = jsonStringSet(profileObj, "secondaryGoals"),
             weeklyPublishingTarget = profileObj?.optInt("weeklyPublishingTarget", 2) ?: 2,
+            preferredMediaLanguages = jsonStringSet(profileObj, "preferredMediaLanguages"),
+            selectedMediaSourceIds = jsonStringSet(profileObj, "selectedMediaSourceIds"),
             setupSchemaVersion = profileObj?.optInt("setupSchemaVersion", 1) ?: 1,
         ).normalized()
         val creatorSetupComplete = obj.optBoolean("onboardingComplete", true)
@@ -186,6 +192,12 @@ class CreatorOsSettingsStore(context: Context) {
             }
             require(jsonStringSet(profile, "productionStyles").size <= CreatorProfile.MAX_PRODUCTION_STYLES) {
                 "Too many production styles"
+            }
+            require(jsonStringSet(profile, "preferredMediaLanguages").size <= CreatorProfile.MAX_MEDIA_LANGUAGES) {
+                "Too many media languages"
+            }
+            require(jsonStringSet(profile, "selectedMediaSourceIds").size <= CreatorProfile.MAX_MEDIA_SOURCES) {
+                "Too many media sources"
             }
         }
     }
@@ -251,6 +263,8 @@ class CreatorOsSettingsStore(context: Context) {
             .putString(KEY_CREATOR_GOAL, profile.primaryGoal)
             .putStringSet(KEY_SECONDARY_GOALS, profile.secondaryGoals)
             .putInt(KEY_WEEKLY_PUBLISHING_TARGET, profile.weeklyPublishingTarget)
+            .putStringSet(KEY_MEDIA_LANGUAGES, profile.preferredMediaLanguages)
+            .putStringSet(KEY_MEDIA_SOURCE_IDS, profile.selectedMediaSourceIds)
             .putInt(KEY_SETUP_SCHEMA_VERSION, profile.setupSchemaVersion)
 
     companion object {
@@ -267,6 +281,8 @@ class CreatorOsSettingsStore(context: Context) {
         private const val KEY_CREATOR_GOAL = "creator_primary_goal"
         private const val KEY_SECONDARY_GOALS = "creator_secondary_goals_v2"
         private const val KEY_WEEKLY_PUBLISHING_TARGET = "creator_weekly_publishing_target"
+        private const val KEY_MEDIA_LANGUAGES = "creator_media_languages_v3"
+        private const val KEY_MEDIA_SOURCE_IDS = "creator_media_source_ids_v3"
         private const val KEY_SETUP_SCHEMA_VERSION = "creator_setup_schema_version"
         private const val KEY_DEFAULT_VOICE = "default_voice_persona"
         private const val KEY_ALARM_TIMEOUT = "default_alarm_timeout_seconds"
