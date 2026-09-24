@@ -5,10 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
@@ -81,11 +80,15 @@ class V146GuideAssetDecodeTest {
     @Test
     fun settingsPicker_showsOnlyTheLockedFourGuides() {
         composeRule.setContent { V144GuidePicker() }
-        composeRule.onNodeWithText("Funny").assertExists()
-        composeRule.onNodeWithText("Cute").assertExists()
-        composeRule.onNodeWithText("Kitty").assertExists()
-        composeRule.onNodeWithText("Cute Girl").assertExists()
-        composeRule.onNodeWithText("Frame").assertDoesNotExist()
-        composeRule.onNodeWithText("Navi").assertDoesNotExist()
+
+        // Fetching a node is itself a hard existence assertion and works with the
+        // Compose test API version pinned by this project.
+        composeRule.onNodeWithText("Funny").fetchSemanticsNode()
+        composeRule.onNodeWithText("Cute").fetchSemanticsNode()
+        composeRule.onNodeWithText("Kitty").fetchSemanticsNode()
+        composeRule.onNodeWithText("Cute Girl").fetchSemanticsNode()
+
+        assertTrue(composeRule.onAllNodesWithText("Frame").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Navi").fetchSemanticsNodes().isEmpty())
     }
 }
