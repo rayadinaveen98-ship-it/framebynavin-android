@@ -41,6 +41,7 @@ object CreatorStoryIntelligenceEngine {
             .asSequence()
             .filter { it.id.isNotBlank() && it.title.isNotBlank() }
             .filter { it.evidence.isNotEmpty() }
+            .map(CreatorMediaVerificationPolicy::normalize)
             .distinctBy { it.id }
             .map { recommendation(it, today, nowMillis) }
             .sortedWith(
