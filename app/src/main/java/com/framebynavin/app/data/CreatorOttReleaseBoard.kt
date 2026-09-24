@@ -52,6 +52,7 @@ object CreatorOttReleaseBoardEngine {
             .filter { it.kind == CreatorMediaSignalKind.OTT_RELEASE }
             .filter { it.id.isNotBlank() && it.title.isNotBlank() }
             .filter { it.evidence.isNotEmpty() }
+            .map(CreatorMediaVerificationPolicy::normalize)
             .filter { signal ->
                 val signalLanguages = signal.languages.normalizedLanguages()
                 preferred.isEmpty() || signalLanguages.isEmpty() || signalLanguages.any(preferred::contains)
