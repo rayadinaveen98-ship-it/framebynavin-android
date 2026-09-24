@@ -47,12 +47,9 @@ object CreatorOttReleaseBoardEngine {
         preferredLanguages: Set<String> = emptySet(),
     ): CreatorOttReleaseBoard {
         val preferred = preferredLanguages.normalizedLanguages()
-        val ottSignals = signals
+        val ottSignals = CreatorMediaSignalMerger.merge(signals)
             .asSequence()
             .filter { it.kind == CreatorMediaSignalKind.OTT_RELEASE }
-            .filter { it.id.isNotBlank() && it.title.isNotBlank() }
-            .filter { it.evidence.isNotEmpty() }
-            .map(CreatorMediaVerificationPolicy::normalize)
             .filter { signal ->
                 val signalLanguages = signal.languages.normalizedLanguages()
                 preferred.isEmpty() || signalLanguages.isEmpty() || signalLanguages.any(preferred::contains)
@@ -60,11 +57,7 @@ object CreatorOttReleaseBoardEngine {
             .toList()
 
         val unscheduledCount = ottSignals.count { it.releaseDate == null }
-        val scheduled = ottSignals
-            .filter { it.releaseDate != null }
-            .groupBy(::dedupeKey)
-            .mapNotNull { (_, candidates) -> candidates.maxWithOrNull(signalQualityComparator) }
-
+        val scheduled = ottSignals.filter { it.releaseDate != null }
         val entries = scheduled.associateWith(::toEntry)
         val weekendRange = weekendRange(today)
 
@@ -128,12 +121,6 @@ object CreatorOttReleaseBoardEngine {
         )
     }
 
-    private fun dedupeKey(signal: CreatorMediaSignal): String = listOf(
-        signal.title.trim().lowercase(),
-        signal.platform.trim().lowercase(),
-        signal.releaseDate?.toString().orEmpty(),
-    ).joinToString("|")
-
     private fun weekendRange(today: LocalDate): ClosedRange<LocalDate> {
         val friday = when (today.dayOfWeek) {
             DayOfWeek.FRIDAY -> today
@@ -149,16 +136,6 @@ object CreatorOttReleaseBoardEngine {
 
     private fun Set<String>.normalizedLanguages(): Set<String> =
         map(String::trim).filter(String::isNotBlank).map(String::lowercase).toSet()
-
-    private val signalQualityComparator = compareBy<CreatorMediaSignal> { it.evidenceStrength }
-        .thenBy {
-            when (it.verification) {
-                CreatorMediaVerification.VERIFIED -> 3
-                CreatorMediaVerification.DEVELOPING -> 2
-                CreatorMediaVerification.RUMOR -> 1
-            }
-        }
-        .thenBy { it.publishedAtMillis }
 
     private val entryComparator = compareBy<CreatorOttReleaseEntry> { it.releaseDate }
         .thenByDescending { it.evidenceStrength }
