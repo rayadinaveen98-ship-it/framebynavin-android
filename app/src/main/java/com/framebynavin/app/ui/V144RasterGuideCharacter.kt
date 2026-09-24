@@ -86,8 +86,10 @@ internal fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState):
     }
 
     V144GuideIdentity.KITTY -> when (state) {
-        CinePulseState.PRESENT -> R.drawable.guide_kitty_present
-        CinePulseState.POINT, CinePulseState.WALK, CinePulseState.NOD -> R.drawable.guide_kitty_point
+        // The dedicated point raster is truncated in the V146 artwork pack on Android.
+        // Reuse Kitty's healthy present pose for directional states until that source art is rebuilt.
+        CinePulseState.PRESENT, CinePulseState.POINT,
+        CinePulseState.WALK, CinePulseState.NOD -> R.drawable.guide_kitty_present
         CinePulseState.THINK -> R.drawable.guide_kitty_thinking
         CinePulseState.SUCCESS, CinePulseState.CELEBRATE -> R.drawable.guide_kitty_celebrate
         CinePulseState.IDLE, CinePulseState.LOOK, CinePulseState.WAVE,
