@@ -1213,7 +1213,7 @@ internal fun PBottomNav(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PBottomNavItem(PTab.TODAY, Icons.Outlined.Home, "Today", selected == PTab.TODAY, onSelect, Modifier.weight(1f))
+            PBottomNavItem(PTab.TODAY, Icons.Outlined.Home, "Home", selected == PTab.TODAY, onSelect, Modifier.weight(1f))
             PBottomNavItem(PTab.IDEAS, Icons.Outlined.Lightbulb, "Ideas", selected == PTab.IDEAS, onSelect, Modifier.weight(1f))
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Surface(
