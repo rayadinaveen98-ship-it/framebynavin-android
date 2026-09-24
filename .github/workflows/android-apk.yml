@@ -11,6 +11,7 @@ on:
       - "fix/v143-profile-weekly-progress"
       - "feature/v144-guide-schedule-refresh"
       - "fix/v144-post-qa-guide-revenue"
+      - "feature/v146-guide-stability-ux"
     paths:
       - "app/**"
       - "*.gradle.kts"
@@ -77,7 +78,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v145-Post-QA-Fix
+          name: Backlot-${{ github.ref_name }}
           path: app/build/outputs/apk/debug/app-debug.apk
 
   ui-smoke-v144:
@@ -107,3 +108,31 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V132ReleaseBlockerUiTest --stacktrace
+
+  ui-smoke-v146:
+    if: github.ref == 'refs/heads/feature/v146-guide-stability-ux'
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Run V146 guide and deep-link regression smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V146GuideAssetDecodeTest,com.framebynavin.app.reminders.V146ProjectPulseDeepLinkTest --stacktrace
