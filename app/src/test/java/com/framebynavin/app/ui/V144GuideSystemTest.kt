@@ -61,13 +61,14 @@ class V144GuideSystemTest {
     }
 
     @Test
-    fun `kitty maps semantic states to its dedicated raster poses`() {
+    fun `kitty maps semantic states to stable raster poses`() {
         CinePulseState.entries.forEach { state ->
             assertNotEquals(0, v144GuideDrawable(V144GuideIdentity.KITTY, state))
         }
         assertEquals(R.drawable.guide_kitty_welcome, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.IDLE))
         assertEquals(R.drawable.guide_kitty_present, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.PRESENT))
-        assertEquals(R.drawable.guide_kitty_point, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.POINT))
+        // V146 intentionally reuses the healthy present pose for POINT while the dedicated point raster is corrupt.
+        assertEquals(R.drawable.guide_kitty_present, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.POINT))
         assertEquals(R.drawable.guide_kitty_thinking, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.THINK))
         assertEquals(R.drawable.guide_kitty_celebrate, v144GuideDrawable(V144GuideIdentity.KITTY, CinePulseState.CELEBRATE))
     }
