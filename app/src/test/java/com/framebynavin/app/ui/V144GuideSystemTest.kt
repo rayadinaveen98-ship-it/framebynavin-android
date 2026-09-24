@@ -9,7 +9,7 @@ import org.junit.Test
 class V144GuideSystemTest {
 
     @Test
-    fun `current selectable roster contains only funny and cute`() {
+    fun `current selectable roster contains only production-ready funny and cute`() {
         assertEquals(
             listOf(V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE),
             V144SelectableGuides,
@@ -18,11 +18,12 @@ class V144GuideSystemTest {
     }
 
     @Test
-    fun `legacy frame and navi selections migrate to funny`() {
-        assertEquals(V144GuideIdentity.FUNNY, v144SelectableGuideOrDefault(V144GuideIdentity.FRAME))
-        assertEquals(V144GuideIdentity.FUNNY, v144SelectableGuideOrDefault(V144GuideIdentity.NAVI))
-        assertEquals(V144GuideIdentity.FUNNY, v144SelectableGuideOrDefault(null))
+    fun `legacy frame and navi selections migrate to cute`() {
+        assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(V144GuideIdentity.FRAME))
+        assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(V144GuideIdentity.NAVI))
+        assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(null))
         assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(V144GuideIdentity.CUTE))
+        assertEquals(V144GuideIdentity.FUNNY, v144SelectableGuideOrDefault(V144GuideIdentity.FUNNY))
     }
 
     @Test
@@ -53,7 +54,7 @@ class V144GuideSystemTest {
     }
 
     @Test
-    fun `creator setup and guided tour semantic poses are covered for both active guides`() {
+    fun `creator setup and guided tour semantic poses are covered for every selectable guide`() {
         val setupStates = listOf(
             CinePulseState.PRESENT,
             CinePulseState.LOOK,
