@@ -1,0 +1,48 @@
+name: V146 one-time source patch
+
+on:
+  push:
+    branches:
+      - "feature/v146-guide-stability-ux"
+    paths:
+      - ".github/workflows/v146-source-patch.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V146
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v146-guide-stability-ux
+          fetch-depth: 0
+
+      - name: Apply surgical source edits
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt")
+          text = path.read_text(encoding="utf-8")
+          old = 'PBottomNavItem(PTab.TODAY, Icons.Outlined.Home, "Today", selected == PTab.TODAY, onSelect, Modifier.weight(1f))'
+          new = 'PBottomNavItem(PTab.TODAY, Icons.Outlined.Home, "Home", selected == PTab.TODAY, onSelect, Modifier.weight(1f))'
+          if old not in text:
+              raise SystemExit("Expected bottom-nav Today label was not found")
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding="utf-8")
+
+      - name: Commit V146 patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No source changes needed"
+            exit 0
+          fi
+          git config user.name "backlot-v146-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          git commit -m "fix(v146): rename bottom navigation Today to Home"
+          git push origin HEAD:feature/v146-guide-stability-ux
