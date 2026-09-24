@@ -4,12 +4,28 @@ import android.graphics.ImageDecoder
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class V146GuideAssetDecodeTest {
+
+    @Test
+    fun selectableRoster_isExactlyTheFourLockedGuides() {
+        assertEquals(
+            listOf(
+                V144GuideIdentity.FUNNY,
+                V144GuideIdentity.CUTE,
+                V144GuideIdentity.KITTY,
+                V144GuideIdentity.CUTE_GIRL,
+            ),
+            V144SelectableGuides,
+        )
+        assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(V144GuideIdentity.FRAME))
+        assertEquals(V144GuideIdentity.CUTE, v144SelectableGuideOrDefault(V144GuideIdentity.NAVI))
+    }
 
     @Test
     @SdkSuppress(minSdkVersion = 28)
