@@ -53,8 +53,8 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 145
-        versionName = "2.0.0-rc18-v145-post-qa-fix"
+        versionCode = 146
+        versionName = "2.0.0-rc19-v146-guide-stability-ux"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
