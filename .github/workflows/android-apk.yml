@@ -12,6 +12,7 @@ on:
       - "feature/v144-guide-schedule-refresh"
       - "fix/v144-post-qa-guide-revenue"
       - "feature/v146-guide-stability-ux"
+      - "feature/v147-story-intelligence-ott-radar"
     paths:
       - "app/**"
       - "*.gradle.kts"
