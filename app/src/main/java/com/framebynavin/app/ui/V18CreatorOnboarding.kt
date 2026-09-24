@@ -15,11 +15,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.data.CreatorMediaLanguageRegistry
+import com.framebynavin.app.data.CreatorMediaSourceRecommendationEngine
+import com.framebynavin.app.data.CreatorMediaSourceRegistry
 import com.framebynavin.app.data.CreatorModeRegistry
 import com.framebynavin.app.data.CreatorProfile
 import com.framebynavin.app.data.CreatorPlatformRegistry
 import com.framebynavin.app.data.ProductionStyleRegistry
 import com.framebynavin.app.ui.theme.*
+
+private const val V18_SETUP_PAGE_COUNT = 7
 
 private val creatorGoals = listOf(
     "Publish consistently",
@@ -59,6 +64,13 @@ internal fun V18CreatorOnboarding(
     var weeklyTarget by rememberSaveable(profile.weeklyPublishingTarget) {
         mutableIntStateOf(profile.weeklyPublishingTarget.coerceIn(1, 14))
     }
+    var preferredMediaLanguages by remember(profile.preferredMediaLanguages) {
+        mutableStateOf(profile.preferredMediaLanguages)
+    }
+    var selectedMediaSourceIds by remember(profile.selectedMediaSourceIds) {
+        mutableStateOf(profile.selectedMediaSourceIds)
+    }
+    var showAllSources by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(primaryMode) {
         secondaryModes = secondaryModes - primaryMode
@@ -67,11 +79,25 @@ internal fun V18CreatorOnboarding(
         if (primaryGoal !in selectedGoals) primaryGoal = selectedGoals.firstOrNull().orEmpty()
     }
 
+    val sourceSelection = remember(preferredMediaLanguages) {
+        CreatorMediaSourceRecommendationEngine.build(
+            catalog = CreatorMediaSourceRegistry.sources,
+            preferredLanguages = preferredMediaLanguages,
+        )
+    }
+    LaunchedEffect(preferredMediaLanguages, sourceSelection.allEligible) {
+        val eligibleIds = sourceSelection.allEligible.map { it.id }.toSet()
+        selectedMediaSourceIds = selectedMediaSourceIds.filterTo(linkedSetOf()) { it in eligibleIds }
+        showAllSources = false
+    }
+
     val canContinue = when (page) {
         0 -> primaryMode.isNotBlank()
         1 -> platforms.isNotEmpty()
         2 -> styles.isNotEmpty()
         3 -> selectedGoals.isNotEmpty() && primaryGoal in selectedGoals
+        4 -> preferredMediaLanguages.isNotEmpty()
+        5 -> selectedMediaSourceIds.isNotEmpty()
         else -> true
     }
 
@@ -93,18 +119,18 @@ internal fun V18CreatorOnboarding(
                     Text("BACKLOT", color = RecRed, fontSize = 9.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Black)
                     Text("Creator setup", color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
-                Text("${page + 1}/5", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("${page + 1}/$V18_SETUP_PAGE_COUNT", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
 
             Spacer(Modifier.height(18.dp))
             LinearProgressIndicator(
-                progress = { (page + 1) / 5f },
+                progress = { (page + 1) / V18_SETUP_PAGE_COUNT.toFloat() },
                 modifier = Modifier.fillMaxWidth().height(4.dp),
                 color = RecRed,
                 trackColor = CinemaLine,
             )
             Spacer(Modifier.height(12.dp))
-            V127SetupGuideStrip(page)
+            V127SetupGuideStrip(page.coerceAtMost(4))
             Spacer(Modifier.height(14.dp))
 
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
@@ -258,6 +284,90 @@ internal fun V18CreatorOnboarding(
                         }
                     }
 
+                    4 -> {
+                        Icon(Icons.Outlined.Language, "Media languages", tint = RecRed, modifier = Modifier.size(36.dp))
+                        Spacer(Modifier.height(14.dp))
+                        Text("Which cinema do you follow?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(5.dp))
+                        Text("Backlot will use these languages to shape Radar, OTT and source recommendations.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
+                        Spacer(Modifier.height(20.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CreatorMediaLanguageRegistry.supported.forEach { language ->
+                                val selected = language in preferredMediaLanguages
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = {
+                                        preferredMediaLanguages = when {
+                                            selected -> preferredMediaLanguages - language
+                                            preferredMediaLanguages.size < CreatorProfile.MAX_MEDIA_LANGUAGES -> preferredMediaLanguages + language
+                                            else -> preferredMediaLanguages
+                                        }
+                                    },
+                                    leadingIcon = if (selected) { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(15.dp)) } } else null,
+                                    label = { Text(language, fontSize = 10.sp) },
+                                )
+                            }
+                        }
+                    }
+
+                    5 -> {
+                        Icon(Icons.Outlined.Subscriptions, "Media sources", tint = MutedGold, modifier = Modifier.size(36.dp))
+                        Spacer(Modifier.height(14.dp))
+                        Text("Choose your sources", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            if (showAllSources) "All sources matching your languages." else "Recommended for you · top ${CreatorMediaSourceRecommendationEngine.DEFAULT_RECOMMENDED_COUNT}",
+                            color = MutedText,
+                            fontSize = 10.5.sp,
+                        )
+                        Spacer(Modifier.height(18.dp))
+
+                        sourceSelection.visible(showAllSources).forEach { source ->
+                            val selected = source.id in selectedMediaSourceIds
+                            Surface(
+                                onClick = {
+                                    selectedMediaSourceIds = if (selected) {
+                                        selectedMediaSourceIds - source.id
+                                    } else {
+                                        selectedMediaSourceIds + source.id
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                color = CinemaSurface,
+                                border = BorderStroke(1.dp, if (selected) RecRed.copy(alpha = .65f) else CinemaLine),
+                            ) {
+                                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        if (selected) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                                        null,
+                                        tint = if (selected) RecRed else MutedText,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(source.label, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            source.authority.name.replace('_', ' ') + if (source.languages.isNotEmpty()) " · ${source.languages.sorted().joinToString()}" else " · India / cross-language",
+                                            color = MutedText,
+                                            fontSize = 8.5.sp,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (sourceSelection.hasMore) {
+                            TextButton(onClick = { showAllSources = !showAllSources }) {
+                                Text(if (showAllSources) "SHOW RECOMMENDED" else "SEE MORE", fontWeight = FontWeight.Black)
+                                Spacer(Modifier.width(5.dp))
+                                Icon(if (showAllSources) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, modifier = Modifier.size(17.dp))
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text("${selectedMediaSourceIds.size} selected", color = MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                    }
+
                     else -> {
                         Icon(Icons.Outlined.SettingsSuggest, "System setup", tint = MutedGold, modifier = Modifier.size(36.dp))
                         Spacer(Modifier.height(14.dp))
@@ -286,6 +396,9 @@ internal fun V18CreatorOnboarding(
                                 val secondary = selectedGoals - primaryGoal
                                 if (secondary.isNotEmpty()) Text("Also: ${secondary.sorted().joinToString()}", color = MutedText, fontSize = 9.5.sp)
                                 Text("$weeklyTarget / week", color = MutedText, fontSize = 9.5.sp)
+                                Spacer(Modifier.height(6.dp))
+                                Text("Languages · ${preferredMediaLanguages.sorted().joinToString()}", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                                Text("Sources · ${selectedMediaSourceIds.size} selected", color = MutedText, fontSize = 9.5.sp)
                             }
                         }
                     }
@@ -304,7 +417,7 @@ internal fun V18CreatorOnboarding(
                 Spacer(Modifier.weight(1f))
                 Button(
                     onClick = {
-                        if (page < 4) {
+                        if (page < V18_SETUP_PAGE_COUNT - 1) {
                             page++
                         } else {
                             onFinish(
@@ -318,6 +431,8 @@ internal fun V18CreatorOnboarding(
                                     primaryGoal = primaryGoal,
                                     secondaryGoals = selectedGoals - primaryGoal,
                                     weeklyPublishingTarget = weeklyTarget,
+                                    preferredMediaLanguages = preferredMediaLanguages,
+                                    selectedMediaSourceIds = selectedMediaSourceIds,
                                     setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
                                 ).normalized(),
                             )
@@ -328,7 +443,7 @@ internal fun V18CreatorOnboarding(
                     shape = RoundedCornerShape(15.dp),
                     modifier = Modifier.height(50.dp),
                 ) {
-                    Text(if (page < 4) "CONTINUE" else "ENTER CREATOR OS", fontWeight = FontWeight.Black)
+                    Text(if (page < V18_SETUP_PAGE_COUNT - 1) "CONTINUE" else "ENTER CREATOR OS", fontWeight = FontWeight.Black)
                     Spacer(Modifier.width(5.dp))
                     Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(17.dp))
                 }
