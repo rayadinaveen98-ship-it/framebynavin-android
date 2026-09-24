@@ -31,8 +31,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Revenue has one incremental channel-level consent. Period tabs are data filters, not separate
- * permissions, so switching 7D/28D/90D/This Month silently loads the requested report.
+ * Revenue consent belongs to the connected YouTube channel, not to a date range.
+ * Period changes only swap data filters. They must never clear monetary access by themselves.
  */
 @Composable
 internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
@@ -120,7 +120,10 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                if (error is YouTubeRevenueException && error.httpCode in setOf(401, 403)) {
+                // Only an actual authentication failure revokes our persisted access marker.
+                // 403 can also mean unavailable monetary data for this channel/range, so it must
+                // not make every other period ask the creator to enable revenue again.
+                if (error is YouTubeRevenueException && error.httpCode == 401) {
                     markRevenueAuthorized(false)
                 }
                 if (requestNonce == nonce) {
@@ -140,9 +143,9 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
             ?: selectedPeriod
         pendingPeriodName = null
         if (result.resultCode != Activity.RESULT_OK || result.data == null) {
-            markRevenueAuthorized(false)
+            // Cancelling a token refresh does not revoke already-established monetary consent.
             revenueLoading = false
-            revenueError = "YouTube revenue connection was cancelled. Normal Insights are unaffected."
+            revenueError = "YouTube revenue refresh was cancelled. Your existing revenue access is unchanged."
             return@rememberLauncherForActivityResult
         }
         val authResult = runCatching {
@@ -150,7 +153,6 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
         }.getOrNull()
         val token = authResult?.accessToken
         if (token.isNullOrBlank()) {
-            markRevenueAuthorized(false)
             revenueLoading = false
             revenueError = "Google did not return a YouTube revenue access token."
         } else {
@@ -175,16 +177,17 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
             .addOnSuccessListener { result ->
                 if (result.hasResolution()) {
                     if (!allowResolution) {
+                        // Silent period switches are never allowed to turn monetary access off.
+                        // Keep the channel-level grant and let the creator explicitly refresh only
+                        // if Google needs a fresh interactive token.
                         pendingPeriodName = null
-                        markRevenueAuthorized(false)
                         revenueLoading = false
-                        revenueError = "Reconnect once to restore read-only YouTube revenue access."
+                        revenueError = "Revenue access is still enabled. Tap refresh once if Google asks to reconnect."
                         return@addOnSuccessListener
                     }
                     val pending = result.pendingIntent
                     if (pending == null) {
                         pendingPeriodName = null
-                        markRevenueAuthorized(false)
                         revenueLoading = false
                         revenueError = "Google needs revenue consent, but no consent screen was available."
                     } else {
@@ -198,7 +201,6 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
                     if (token.isNullOrBlank()) {
                         revenueLoading = false
                         if (allowResolution) {
-                            markRevenueAuthorized(false)
                             revenueError = "Google did not return a YouTube revenue access token."
                         }
                     } else {
@@ -226,7 +228,7 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
                 staleAfterMillis = REVENUE_REFRESH_AGE_MS,
             ) && !revenueLoading
         ) {
-            // Missing/stale period data is fetched silently. Consent is never popped by tab changes.
+            // Missing/stale period data is fetched silently. Consent state survives every tab.
             authorizeRevenue(period = selectedPeriod, allowResolution = false)
         }
     }
@@ -251,11 +253,11 @@ private fun v144RevenueFriendlyError(error: Throwable): String {
         error is YouTubeRevenueException && error.httpCode == 401 ->
             "Your YouTube revenue permission expired. Reconnect revenue access."
         error is YouTubeRevenueException && error.httpCode == 403 ->
-            "Revenue data is unavailable for this channel or needs read-only monetary permission."
+            "Revenue data is unavailable for this channel or range. Your existing revenue access stays enabled."
         raw.contains("DEVELOPER_ERROR", ignoreCase = true) || raw.contains("10:") ->
             "YouTube revenue sign-in is not fully set up for this app yet."
         raw.contains("403") || raw.contains("permission", ignoreCase = true) ->
-            "Reconnect once to grant read-only YouTube revenue access."
+            "YouTube revenue could not refresh this range. Your saved revenue access is unchanged."
         else ->
             "YouTube revenue couldn't refresh right now. Your normal Insights are unaffected."
     }
