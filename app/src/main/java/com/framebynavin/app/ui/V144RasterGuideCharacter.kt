@@ -85,6 +85,24 @@ internal fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState):
         CinePulseState.SUCCESS, CinePulseState.CELEBRATE -> R.drawable.guide_cute_celebrate
     }
 
+    V144GuideIdentity.KITTY -> when (state) {
+        CinePulseState.PRESENT -> R.drawable.guide_kitty_present
+        CinePulseState.POINT, CinePulseState.WALK, CinePulseState.NOD -> R.drawable.guide_kitty_point
+        CinePulseState.THINK -> R.drawable.guide_kitty_thinking
+        CinePulseState.SUCCESS, CinePulseState.CELEBRATE -> R.drawable.guide_kitty_celebrate
+        CinePulseState.IDLE, CinePulseState.LOOK, CinePulseState.WAVE,
+        CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_kitty_welcome
+    }
+
+    V144GuideIdentity.CUTE_GIRL -> when (state) {
+        CinePulseState.PRESENT -> R.drawable.guide_cute_girl_present
+        CinePulseState.POINT, CinePulseState.WALK, CinePulseState.NOD -> R.drawable.guide_cute_girl_point
+        CinePulseState.THINK -> R.drawable.guide_cute_girl_thinking
+        CinePulseState.SUCCESS, CinePulseState.CELEBRATE -> R.drawable.guide_cute_girl_celebrate
+        CinePulseState.IDLE, CinePulseState.LOOK, CinePulseState.WAVE,
+        CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_cute_girl_welcome
+    }
+
     // Defensive fallback; Frame/Navi are hidden from the current selectable roster.
-    V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> R.drawable.guide_funny_welcome
+    V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> R.drawable.guide_cute_welcome
 }
