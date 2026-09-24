@@ -7,6 +7,9 @@ package com.framebynavin.app.data
  * [primaryCreatorMode]. [normalized] mirrors the resolved primary mode into both fields so existing
  * projects/UI continue to behave while the Creator Modes architecture is introduced incrementally.
  * Account identity remains separate from this model.
+ *
+ * V3 adds optional media-discovery preferences. They deliberately do not participate in [isComplete]
+ * so existing creators are never forced back through onboarding after upgrading.
  */
 data class CreatorProfile(
     val displayName: String = "",
@@ -18,6 +21,8 @@ data class CreatorProfile(
     val primaryGoal: String = "",
     val secondaryGoals: Set<String> = emptySet(),
     val weeklyPublishingTarget: Int = 2,
+    val preferredMediaLanguages: Set<String> = emptySet(),
+    val selectedMediaSourceIds: Set<String> = emptySet(),
     val setupSchemaVersion: Int = 1,
 ) {
     val resolvedPrimaryCreatorMode: String
@@ -29,14 +34,17 @@ data class CreatorProfile(
             secondaryGoals.map(String::trim).filter { it.isNotBlank() && it != primaryGoal.trim() }.sorted().forEach(::add)
         }.take(MAX_ACTIVE_GOALS)
 
-    /** Legacy-complete profiles remain usable; V2 enrichment is never forced on upgrade. */
+    /** Legacy-complete profiles remain usable; V2/V3 enrichment is never forced on upgrade. */
     val isComplete: Boolean
         get() = resolvedPrimaryCreatorMode.isNotBlank() &&
             platforms.isNotEmpty() &&
             primaryGoal.isNotBlank()
 
     val isV2Configured: Boolean
-        get() = setupSchemaVersion >= CURRENT_SCHEMA_VERSION && isComplete && productionStyles.isNotEmpty()
+        get() = setupSchemaVersion >= 2 && isComplete && productionStyles.isNotEmpty()
+
+    val isMediaDiscoveryConfigured: Boolean
+        get() = setupSchemaVersion >= CURRENT_SCHEMA_VERSION && preferredMediaLanguages.isNotEmpty()
 
     val safeDisplayName: String
         get() = displayName.trim().ifBlank { "Creator" }
@@ -77,14 +85,28 @@ data class CreatorProfile(
             primaryGoal = normalizedPrimaryGoal,
             secondaryGoals = normalizedSecondaryGoals,
             weeklyPublishingTarget = weeklyPublishingTarget.coerceIn(1, 14),
+            preferredMediaLanguages = preferredMediaLanguages
+                .map(CreatorMediaLanguageRegistry::canonicalLabel)
+                .filter(String::isNotBlank)
+                .distinct()
+                .take(MAX_MEDIA_LANGUAGES)
+                .toSet(),
+            selectedMediaSourceIds = selectedMediaSourceIds
+                .map(String::trim)
+                .filter(String::isNotBlank)
+                .distinct()
+                .take(MAX_MEDIA_SOURCES)
+                .toSet(),
             setupSchemaVersion = setupSchemaVersion.coerceIn(1, CURRENT_SCHEMA_VERSION),
         )
     }
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 2
+        const val CURRENT_SCHEMA_VERSION = 3
         const val MAX_ACTIVE_GOALS = 3
         const val MAX_SECONDARY_MODES = 3
         const val MAX_PRODUCTION_STYLES = 6
+        const val MAX_MEDIA_LANGUAGES = 8
+        const val MAX_MEDIA_SOURCES = 120
     }
 }
