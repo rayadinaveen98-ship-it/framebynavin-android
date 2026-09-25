@@ -1,0 +1,124 @@
+name: Insights V2 Phase 1 Patch
+
+on:
+  push:
+    branches:
+      - feature/v145-insights-v2-major
+    paths:
+      - .github/workflows/insights-v2-phase1-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v145-insights-v2-major
+          fetch-depth: 0
+
+      - name: Apply exact Insights reliability patch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_exact(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}, found {count}: {old[:90]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          v11 = "app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt"
+          replace_exact(
+              v11,
+              "    var foundationRevision by remember { mutableIntStateOf(0) }\n",
+              "    var foundationRevision by remember { mutableIntStateOf(0) }\n    var deepInsightsRefreshing by remember { mutableStateOf(false) }\n",
+          )
+          replace_exact(
+              v11,
+              "                    withContext(Dispatchers.IO) {\n                        checkpointStore.captureFrom(fresh, store.links())\n                    }\n\n                    // Deep refresh stays in the background.",
+              "                    withContext(Dispatchers.IO) {\n                        checkpointStore.captureFrom(fresh, store.links())\n                    }\n\n                    // Core analytics is already ready for the selected range. Do not keep the\n                    // channel header in a misleading loading state while slower audience/reach\n                    // reports continue independently.\n                    if (isActive(request)) {\n                        syncing = false\n                        deepInsightsRefreshing = true\n                    }\n\n                    // Deep refresh stays in the background.",
+          )
+          replace_exact(
+              v11,
+              "                    activeRequest = null\n                    pendingResolution = null\n                    syncing = false\n",
+              "                    activeRequest = null\n                    pendingResolution = null\n                    syncing = false\n                    deepInsightsRefreshing = false\n",
+          )
+          replace_exact(
+              v11,
+              "        syncing = false\n        revoking = true\n",
+              "        syncing = false\n        deepInsightsRefreshing = false\n        revoking = true\n",
+          )
+          replace_exact(
+              v11,
+              "                    foundationRevision = foundationRevision,\n                    onLinkVideo = { selectedVideo = it },\n",
+              "                    foundationRevision = foundationRevision,\n                    foundationLoading = deepInsightsRefreshing,\n                    onLinkVideo = { selectedVideo = it },\n",
+          )
+
+          v172 = "app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt"
+          replace_exact(
+              v172,
+              "private enum class V172InsightsTab { OVERVIEW, CONTENT, CREATOR }",
+              "private enum class V172InsightsTab { OVERVIEW, CONTENT, REVENUE, CREATOR }",
+          )
+          replace_exact(
+              v172,
+              "    foundationRevision: Int = 0,\n    onLinkVideo: (YouTubeVideoSnapshot) -> Unit,\n",
+              "    foundationRevision: Int = 0,\n    foundationLoading: Boolean = false,\n    onLinkVideo: (YouTubeVideoSnapshot) -> Unit,\n",
+          )
+          replace_exact(
+              v172,
+              "            foundationRevision = foundationRevision,\n            onVideo = { detailVideoId = it.videoId },\n",
+              "            foundationRevision = foundationRevision,\n            foundationLoading = foundationLoading,\n            onVideo = { detailVideoId = it.videoId },\n",
+          )
+          replace_exact(
+              v172,
+              "        V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }\n        V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }\n",
+              "        V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }\n        V172InsightsTab.REVENUE -> V144YouTubeRevenueIntegration(snapshot)\n        V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }\n",
+          )
+          replace_exact(
+              v172,
+              "    foundationRevision: Int,\n    onVideo: (YouTubeVideoSnapshot) -> Unit,\n",
+              "    foundationRevision: Int,\n    foundationLoading: Boolean,\n    onVideo: (YouTubeVideoSnapshot) -> Unit,\n",
+          )
+          replace_exact(
+              v172,
+              "    V20InsightsFoundationCard(snapshot, foundationRevision)\n",
+              "    V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading)\n",
+          )
+          replace_exact(
+              v172,
+              "                V172Mini(\"SUBSCRIBERS\", String.format(Locale.US, \"%.1f\", format.subscribersPerThousandViews), Modifier.weight(1f))\n                V172Mini(\"ENGAGEMENT\", String.format(Locale.US, \"%.1f\", format.engagementPerThousandViews), Modifier.weight(1f))\n",
+              "                V172Mini(\"SUBS / 1K VIEWS\", String.format(Locale.US, \"%.1f\", format.subscribersPerThousandViews), Modifier.weight(1f))\n                V172Mini(\"ENGAGEMENT / 1K\", String.format(Locale.US, \"%.1f\", format.engagementPerThousandViews), Modifier.weight(1f))\n",
+          )
+
+      - name: Commit patched sources
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt
+          git diff --cached --check
+          git commit -m "feat(insights): separate core loading and add Revenue tab"
+          git push origin HEAD:feature/v145-insights-v2-major
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Lint
+        run: ./gradlew lintDebug --stacktrace
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug --stacktrace
