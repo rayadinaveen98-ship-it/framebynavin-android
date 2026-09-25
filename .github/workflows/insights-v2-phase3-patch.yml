@@ -1,4 +1,4 @@
-name: Insights V2 Phase 3 Patch
+name: Insights V2 Phase 3 Apply
 
 on:
   push:
@@ -11,155 +11,20 @@ permissions:
   contents: write
 
 jobs:
-  patch:
+  apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feature/v145-insights-v2-major
           fetch-depth: 0
-
-      - name: Apply dynamic Insights patches
-        shell: python
-        run: |
-          from pathlib import Path
-
-          def replace_exact(path, old, new):
-              p = Path(path)
-              text = p.read_text()
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"Expected one match in {path}, found {count}: {old[:110]!r}")
-              p.write_text(text.replace(old, new, 1))
-
-          engine = "app/src/main/java/com/framebynavin/app/youtube/YouTubeInsightEngine.kt"
-          replace_exact(
-              engine,
-              "data class YouTubeInsightSignal(\n    val kicker: String,\n    val title: String,\n    val body: String,\n    val tone: YouTubeInsightTone,\n)",
-              "data class YouTubeInsightSignal(\n    val kicker: String,\n    val title: String,\n    val body: String,\n    val tone: YouTubeInsightTone,\n    val action: String? = null,\n    val confidence: Int = 70,\n)",
-          )
-          marker = "        val formats = formatPerformance(snapshot, tasks, links)\n"
-          addition = '''        if (snapshot.views > 0L) {
-            val subsPerThousand = snapshot.netSubscribers * 1000.0 / snapshot.views.toDouble()
-            val previousSubsPerThousand = previous?.takeIf { it.views > 0L }
-                ?.let { it.netSubscribers * 1000.0 / it.views.toDouble() }
-            val delta = previousSubsPerThousand?.let { subsPerThousand - it }
-            if (delta != null && kotlin.math.abs(delta) >= 0.15) {
-                signals += YouTubeInsightSignal(
-                    kicker = "SUBSCRIBER CONVERSION",
-                    title = if (delta > 0) "More viewers are becoming subscribers" else "Subscriber conversion softened",
-                    body = "${String.format(Locale.US, "%.2f", subsPerThousand)} net subscribers per 1K views in this ${snapshot.windowDays}-day range vs ${String.format(Locale.US, "%.2f", previousSubsPerThousand)} before.",
-                    tone = if (delta > 0) YouTubeInsightTone.POSITIVE else YouTubeInsightTone.WATCH,
-                    action = if (delta > 0) "Study the videos with the strongest subscriber conversion and repeat the promise that earned the subscribe." else "Check whether recent videos deliver the promise quickly enough before asking viewers to subscribe.",
-                    confidence = 90,
-                )
-            }
-        }
-
-        val concentrationLeader = videos.firstOrNull()
-        if (concentrationLeader != null && concentrationLeader.viewSharePercent >= 40) {
-            signals += YouTubeInsightSignal(
-                kicker = "CHANNEL CONCENTRATION",
-                title = "One video is carrying ${concentrationLeader.viewSharePercent}% of period views",
-                body = "${concentrationLeader.video.title} is doing a large share of the work in this range.",
-                tone = YouTubeInsightTone.OPPORTUNITY,
-                action = "Build a related follow-up while the audience signal is still strong, without copying the same video.",
-                confidence = 88,
-            )
-        }
-
-'''
-          replace_exact(engine, marker, addition + marker)
-          replace_exact(
-              engine,
-              "        return signals.distinctBy { it.kicker to it.title }.take(5)\n",
-              "        return signals.distinctBy { it.kicker to it.title }.take(6).map { signal ->\n            if (signal.action != null) signal else signal.copy(\n                action = when (signal.tone) {\n                    YouTubeInsightTone.POSITIVE -> \"Open the supporting content and identify the repeatable pattern before your next upload.\"\n                    YouTubeInsightTone.WATCH -> \"Inspect the affected videos before changing your whole content strategy.\"\n                    YouTubeInsightTone.OPPORTUNITY -> \"Turn this signal into one focused follow-up experiment.\"\n                    YouTubeInsightTone.NEUTRAL -> \"Keep collecting evidence and act only when the pattern repeats.\"\n                },\n                confidence = when (signal.tone) {\n                    YouTubeInsightTone.POSITIVE -> 82\n                    YouTubeInsightTone.WATCH -> 80\n                    YouTubeInsightTone.OPPORTUNITY -> 78\n                    YouTubeInsightTone.NEUTRAL -> 65\n                },\n            )\n        }\n",
-          )
-
-          v172 = "app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt"
-          replace_exact(
-              v172,
-              "    foundationRevision: Int = 0,\n    foundationLoading: Boolean = false,\n    onLinkVideo: (YouTubeVideoSnapshot) -> Unit,\n",
-              "    foundationRevision: Int = 0,\n    foundationLoading: Boolean = false,\n    onCreateProject: () -> Unit = {},\n    onLinkVideo: (YouTubeVideoSnapshot) -> Unit,\n",
-          )
-          replace_exact(
-              v172,
-              "            foundationLoading = foundationLoading,\n            onVideo = { detailVideoId = it.videoId },\n",
-              "            foundationLoading = foundationLoading,\n            onCreateProject = onCreateProject,\n            onVideo = { detailVideoId = it.videoId },\n",
-          )
-          replace_exact(
-              v172,
-              "    foundationLoading: Boolean,\n    onVideo: (YouTubeVideoSnapshot) -> Unit,\n",
-              "    foundationLoading: Boolean,\n    onCreateProject: () -> Unit,\n    onVideo: (YouTubeVideoSnapshot) -> Unit,\n",
-          )
-          replace_exact(
-              v172,
-              "    V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading)\n",
-              "    V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading, onCreateProject = onCreateProject)\n",
-          )
-          replace_exact(
-              v172,
-              "            Text(signal.body, color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)\n",
-              "            Text(signal.body, color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)\n            Spacer(Modifier.height(7.dp))\n            Row(verticalAlignment = Alignment.CenterVertically) {\n                Text(\"${signal.confidence}% CONFIDENCE\", color = accent.copy(alpha = .88f), fontSize = 6.8.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))\n                Icon(Icons.Outlined.ChevronRight, \"Open evidence\", tint = MutedText, modifier = Modifier.size(14.dp))\n            }\n            signal.action?.let { action ->\n                Spacer(Modifier.height(4.dp))\n                Text(\"NEXT · $action\", color = ProjectorIvory.copy(alpha = .86f), fontSize = 8.1.sp, lineHeight = 11.5.sp, fontWeight = FontWeight.Medium)\n            }\n",
-          )
-          replace_exact(
-              v172,
-              "    val video = performance.video\n    AlertDialog(",
-              "    val video = performance.video\n    var showDeepAnalytics by rememberSaveable(video.videoId) { mutableStateOf(false) }\n    AlertDialog(",
-          )
-          replace_exact(
-              v172,
-              "                linkedTask?.let { task ->\n                    Spacer(Modifier.height(12.dp))\n                    V20VideoPostmortemCard(task = task, video = video, windowDays = windowDays)\n                }",
-              "                linkedTask?.let { task ->\n                    Spacer(Modifier.height(12.dp))\n                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF171719), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {\n                        Column(Modifier.padding(12.dp)) {\n                            Text(\"QUICK READ\", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black)\n                            Spacer(Modifier.height(3.dp))\n                            Text(\n                                when {\n                                    performance.baselineMultiple >= 1.5 -> \"This is clearly outperforming your recent-video baseline. Study the promise, opening and packaging before making a related follow-up.\"\n                                    performance.baselineMultiple in 0.01..0.75 -> \"This is below your recent-video baseline. Check packaging and early pacing before repeating the same approach.\"\n                                    video.netSubscribers > 0 -> \"Performance is near your baseline, but it is converting some viewers into subscribers. Preserve what earns that commitment.\"\n                                    else -> \"Performance is near your current baseline. Collect more evidence before making a large strategy change.\"\n                                },\n                                color = ProjectorIvory, fontSize = 8.7.sp, lineHeight = 12.5.sp,\n                            )\n                            TextButton(onClick = { showDeepAnalytics = !showDeepAnalytics }, contentPadding = PaddingValues(0.dp)) {\n                                Text(if (showDeepAnalytics) \"HIDE DEEP ANALYTICS\" else \"VIEW DEEP ANALYTICS\", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black)\n                            }\n                        }\n                    }\n                    if (showDeepAnalytics) {\n                        Spacer(Modifier.height(8.dp))\n                        V20VideoPostmortemCard(task = task, video = video, windowDays = windowDays)\n                    }\n                }",
-          )
-
-          v11 = "app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt"
-          replace_exact(
-              v11,
-              "                    foundationLoading = deepInsightsRefreshing,\n                    onLinkVideo = { selectedVideo = it },\n",
-              "                    foundationLoading = deepInsightsRefreshing,\n                    onCreateProject = onAdd,\n                    onLinkVideo = { selectedVideo = it },\n",
-          )
-
-          foundation = "app/src/main/java/com/framebynavin/app/ui/V20InsightsFoundationUi.kt"
-          replace_exact(
-              foundation,
-              "    loading: Boolean = false,\n) {",
-              "    loading: Boolean = false,\n    onCreateProject: () -> Unit = {},\n) {",
-          )
-          # Both loading and loaded paths contain the opportunity card.
-          text = Path(foundation).read_text()
-          old = "V20OpportunityEngineInsightsCard(snapshot)"
-          if text.count(old) != 2:
-              raise SystemExit(f"Expected two opportunity calls, found {text.count(old)}")
-          Path(foundation).write_text(text.replace(old, "V20OpportunityEngineInsightsCard(snapshot, onCreateProject)"))
-
-          opportunity = "app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt"
-          replace_exact(
-              opportunity,
-              "internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapshot) {",
-              "internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapshot, onCreateProject: (() -> Unit)? = null) {",
-          )
-          replace_exact(
-              opportunity,
-              "        onBrainControl = null,\n        onAction = null,\n    )\n}",
-              "        onBrainControl = null,\n        actionLabelOverride = if (onCreateProject != null) \"START THIS MOVE\" else null,\n        onAction = onCreateProject?.let { create -> { _: CreatorOpportunity -> create() } },\n    )\n}",
-          )
-          replace_exact(
-              opportunity,
-              "    onBrainControl: ((String, CreatorBrainLearningControl) -> Unit)?,\n    onAction: ((CreatorOpportunity) -> Unit)?,\n) {",
-              "    onBrainControl: ((String, CreatorBrainLearningControl) -> Unit)?,\n    actionLabelOverride: String? = null,\n    onAction: ((CreatorOpportunity) -> Unit)?,\n) {",
-          )
-          replace_exact(
-              opportunity,
-              "                    Text(primary.actionLabel, fontSize = 9.sp, fontWeight = FontWeight.Black)\n",
-              "                    Text(actionLabelOverride ?: primary.actionLabel, fontSize = 9.sp, fontWeight = FontWeight.Black)\n",
-          )
-
-      - name: Commit patched sources
+      - name: Apply source patch
+        run: python .github/scripts/apply_insights_v2_phase3.py
+      - name: Commit source changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/framebynavin/app/youtube/YouTubeInsightEngine.kt app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt app/src/main/java/com/framebynavin/app/ui/V20InsightsFoundationUi.kt app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+          git add app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt app/src/main/java/com/framebynavin/app/ui/V20InsightsFoundationUi.kt app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
           git diff --cached --check
-          git commit -m "feat(insights): make signals dynamic and next moves actionable"
+          git commit -m "feat(insights): make next moves actionable and simplify video detail"
           git push origin HEAD:feature/v145-insights-v2-major
