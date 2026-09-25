@@ -190,8 +190,8 @@ private fun V20OpportunitySurface(
     brainExplainability: CreatorBrainExplainabilitySnapshot,
     onBrainProject: ((String) -> Unit)?,
     onBrainControl: ((String, CreatorBrainLearningControl) -> Unit)?,
-    onAction: ((CreatorOpportunity) -> Unit)?,
     actionLabelOverride: String? = null,
+    onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
     val primary = snapshot.now.firstOrNull() ?: snapshot.primary ?: return
     var showDetails by remember(primary.id) { mutableStateOf(false) }
