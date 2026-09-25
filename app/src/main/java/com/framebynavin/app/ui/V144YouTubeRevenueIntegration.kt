@@ -229,6 +229,7 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
             revenueError = null
         },
         onRefresh = { authorizeRevenue(selectedPeriod, allowResolution = true) },
+        analyticsSnapshot = snapshot,
     )
 }
 

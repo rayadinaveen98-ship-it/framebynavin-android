@@ -62,11 +62,11 @@ internal fun V20GeminiIntelligenceCard(postmortem: CreatorVideoPostmortem) {
         border = BorderStroke(1.dp, RecRed.copy(alpha = .28f)),
     ) {
         Column(Modifier.padding(13.dp)) {
-            Text("GEMINI VIDEO AUTOPSY · OPTIONAL", color = RecRed, fontSize = 7.7.sp, fontWeight = FontWeight.Black, letterSpacing = .85.sp)
+            Text("AI DEEP AUTOPSY · OPTIONAL", color = RecRed, fontSize = 7.7.sp, fontWeight = FontWeight.Black, letterSpacing = .85.sp)
             Spacer(Modifier.height(4.dp))
-            Text("AI is off by default", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text("Quick Autopsy works without AI", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
             Text(
-                "Nothing is sent unless you enable AI and choose the exact evidence classes below. Firebase App Check protects live requests.",
+                "The evidence-based Quick Autopsy above always works locally. Enable this only when you want an optional Gemini deep dive; saved reports stay cached per video.",
                 color = MutedText,
                 fontSize = 7.8.sp,
                 lineHeight = 11.sp,
@@ -119,7 +119,7 @@ internal fun V20GeminiIntelligenceCard(postmortem: CreatorVideoPostmortem) {
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                         ) {
-                            Text(if (running) "ANALYZING…" else "ANALYZE VIDEO WITH GEMINI", fontSize = 7.8.sp, fontWeight = FontWeight.Black)
+                            Text(if (running) "ANALYZING…" else "RUN AI DEEP AUTOPSY", fontSize = 7.8.sp, fontWeight = FontWeight.Black)
                         }
                     }
                 }
@@ -201,8 +201,10 @@ private fun friendlyAiError(error: Throwable): String {
             "Firebase App Check has not accepted this debug build yet. Register the debug token from Logcat in Firebase App Check, then retry."
         raw.contains("model", ignoreCase = true) && raw.contains("not found", ignoreCase = true) ->
             "The configured Gemini model is not available to this Firebase project yet. No creator data was changed."
+        raw.contains("429") || raw.contains("quota", ignoreCase = true) || raw.contains("resource_exhausted", ignoreCase = true) || raw.contains("too many requests", ignoreCase = true) ->
+            "AI Deep Autopsy is temporarily busy or quota-limited. Quick Autopsy above is still ready, and any saved AI report remains available."
         raw.contains("network", ignoreCase = true) || raw.contains("timeout", ignoreCase = true) ->
-            "Gemini could not be reached. Check the connection and retry; your project and saved postmortem are unchanged."
-        else -> "Gemini Video Autopsy could not complete. Nothing was changed. ${raw.take(180)}"
+            "AI Deep Autopsy could not be reached. Quick Autopsy and any saved AI report are still available."
+        else -> "AI Deep Autopsy could not complete. Quick Autopsy is still available. ${raw.take(180)}"
     }
 }

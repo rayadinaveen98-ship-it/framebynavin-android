@@ -25,6 +25,7 @@ data class YouTubeRevenuePoint(
 
 data class YouTubeRevenueContentRow(
     val videoId: String,
+    val creatorContentType: String,
     val views: Long,
     val estimatedRevenue: Double,
     val estimatedAdRevenue: Double,
@@ -86,7 +87,7 @@ class YouTubeRevenueClient {
         val content = queryReport(
             accessToken,
             common + mapOf(
-                "dimensions" to "video",
+                "dimensions" to "video,creatorContentType",
                 "metrics" to "views,estimatedRevenue,estimatedAdRevenue,monetizedPlaybacks",
                 "sort" to "-estimatedRevenue",
                 "maxResults" to "50",
@@ -95,6 +96,7 @@ class YouTubeRevenueClient {
             val videoId = row["video"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
             YouTubeRevenueContentRow(
                 videoId = videoId,
+                creatorContentType = row["creatorContentType"]?.toString().orEmpty(),
                 views = row.long("views"),
                 estimatedRevenue = row.double("estimatedRevenue"),
                 estimatedAdRevenue = row.double("estimatedAdRevenue"),
@@ -233,6 +235,7 @@ class YouTubeRevenueStore(context: Context) {
                 put(
                     JSONObject()
                         .put("videoId", row.videoId)
+                        .put("creatorContentType", row.creatorContentType)
                         .put("views", row.views)
                         .put("estimatedRevenue", row.estimatedRevenue)
                         .put("estimatedAdRevenue", row.estimatedAdRevenue)
@@ -257,6 +260,7 @@ class YouTubeRevenueStore(context: Context) {
                 add(
                     YouTubeRevenueContentRow(
                         videoId = videoId,
+                        creatorContentType = item.optString("creatorContentType"),
                         views = item.optLong("views"),
                         estimatedRevenue = item.optDouble("estimatedRevenue"),
                         estimatedAdRevenue = item.optDouble("estimatedAdRevenue"),

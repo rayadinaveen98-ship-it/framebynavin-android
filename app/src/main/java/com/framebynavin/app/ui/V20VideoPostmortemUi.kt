@@ -64,9 +64,9 @@ internal fun V20VideoPostmortemCard(
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .30f)),
     ) {
         Column(Modifier.padding(13.dp)) {
-            Text("CREATOR POSTMORTEM", color = MutedGold, fontSize = 7.7.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+            Text("QUICK AUTOPSY", color = MutedGold, fontSize = 7.7.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(3.dp))
-            Text("Creation → publish → audience response", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text("Evidence-based read · no AI quota required", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
             Text(
                 "${postmortem.evidence.capturedCount}/${postmortem.evidence.totalCount} evidence layers connected · missing data stays missing",
                 color = MutedText,
