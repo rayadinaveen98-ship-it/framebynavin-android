@@ -24,6 +24,40 @@ data class YouTubeInsightSignal(
     val tone: YouTubeInsightTone,
 )
 
+data class YouTubeAdvancedSignal(
+    val id: String,
+    val kicker: String,
+    val title: String,
+    val evidence: String,
+    val whyItMatters: String,
+    val action: String,
+    val confidence: Int,
+    val tone: YouTubeInsightTone,
+)
+
+enum class YouTubeNextActionType {
+    CREATE_PROJECT,
+    OPEN_ANALYTICS,
+    OPEN_PROJECT,
+    LINK_PROJECT,
+    ADD_TO_WEEKLY_PLAN,
+}
+
+data class YouTubeNextAction(
+    val id: String,
+    val title: String,
+    val reason: String,
+    val actionLabel: String,
+    val type: YouTubeNextActionType,
+    val videoId: String? = null,
+    val taskId: String? = null,
+    val impact: Int,
+    val confidence: Int,
+    val urgency: Int,
+) {
+    val priorityScore: Int get() = impact * confidence * urgency
+}
+
 data class YouTubeFormatPerformance(
     val label: String,
     val uploadCount: Int,
@@ -34,6 +68,8 @@ data class YouTubeFormatPerformance(
     val watchMinutesPerUpload: Long,
     val subscribersPerThousandViews: Double,
     val engagementPerThousandViews: Double,
+    val netSubscribers: Long = 0L,
+    val subscribersPerUpload: Double = 0.0,
 )
 
 data class YouTubeVideoPerformance(
@@ -126,6 +162,8 @@ object YouTubeInsightEngine {
                 watchMinutesPerUpload = if (videos.isEmpty()) 0 else totalWatch / videos.size,
                 subscribersPerThousandViews = if (totalViews > 0) totalNetSubs * 1000.0 / totalViews else 0.0,
                 engagementPerThousandViews = if (totalViews > 0) totalEngagement * 1000.0 / totalViews else 0.0,
+                netSubscribers = totalNetSubs,
+                subscribersPerUpload = if (videos.isEmpty()) 0.0 else totalNetSubs.toDouble() / videos.size.toDouble(),
             )
         }.sortedWith(compareByDescending<YouTubeFormatPerformance> { it.watchMinutesPerUpload }.thenByDescending { it.viewsPerUpload })
     }
@@ -157,6 +195,196 @@ object YouTubeInsightEngine {
             bottleneckLabel = bottleneck?.key,
             bottleneckCount = bottleneck?.value?.size ?: 0,
         )
+    }
+
+    /**
+     * V148 signals are deliberately deterministic. They only describe evidence available in the
+     * current YouTube snapshot and never manufacture missing metrics.
+     */
+    fun advancedSignals(
+        snapshot: YouTubeAnalyticsSnapshot,
+        tasks: List<CreatorTask>,
+        links: Map<String, String>,
+    ): List<YouTubeAdvancedSignal> {
+        val signals = mutableListOf<YouTubeAdvancedSignal>()
+        val previous = snapshot.previousPeriod
+        val videos = videoPerformance(snapshot)
+        val top = videos.firstOrNull()
+
+        if (previous != null) {
+            val viewsDelta = change(snapshot.views, previous.views)
+            val watchDelta = change(snapshot.watchMinutes, previous.watchMinutes)
+            if (viewsDelta != null) {
+                val tone = if (viewsDelta >= 10) YouTubeInsightTone.POSITIVE else if (viewsDelta <= -10) YouTubeInsightTone.WATCH else YouTubeInsightTone.NEUTRAL
+                signals += YouTubeAdvancedSignal(
+                    id = "views_momentum",
+                    kicker = "VIEW MOMENTUM",
+                    title = when {
+                        viewsDelta >= 10 -> "Views are up ${viewsDelta}%"
+                        viewsDelta <= -10 -> "Views are down ${abs(viewsDelta)}%"
+                        else -> "Views are steady"
+                    },
+                    evidence = "${compact(snapshot.views)} views vs ${compact(previous.views)} in the previous ${snapshot.windowDays}-day period.",
+                    whyItMatters = if (abs(viewsDelta) >= 10) "Reach changed enough to inspect which uploads caused the movement." else "There is no large reach swing demanding a strategy change yet.",
+                    action = if (viewsDelta >= 10) "Open your strongest recent upload and identify the repeatable hook." else "Check recent uploads before changing your publishing plan.",
+                    confidence = if (snapshot.views >= 1_000L) 92 else 76,
+                    tone = tone,
+                )
+            }
+            if (watchDelta != null) {
+                signals += YouTubeAdvancedSignal(
+                    id = "watch_momentum",
+                    kicker = "WATCH TIME",
+                    title = when {
+                        watchDelta >= 10 -> "Watch time grew ${watchDelta}%"
+                        watchDelta <= -10 -> "Watch time fell ${abs(watchDelta)}%"
+                        else -> "Watch time is stable"
+                    },
+                    evidence = "${watch(snapshot.watchMinutes)} now vs ${watch(previous.watchMinutes)} previously.",
+                    whyItMatters = "Watch time shows whether reach is turning into meaningful viewing, not just clicks.",
+                    action = if (watchDelta < -10) "Inspect average view duration and the openings of recent uploads." else "Repeat the structure of videos contributing the most watch time.",
+                    confidence = if (snapshot.watchMinutes > 0L) 90 else 60,
+                    tone = if (watchDelta >= 10) YouTubeInsightTone.POSITIVE else if (watchDelta <= -10) YouTubeInsightTone.WATCH else YouTubeInsightTone.NEUTRAL,
+                )
+            }
+
+            val subsDelta = change(snapshot.netSubscribers, previous.netSubscribers)
+            if (subsDelta != null) {
+                signals += YouTubeAdvancedSignal(
+                    id = "subscriber_momentum",
+                    kicker = "SUBSCRIBER CONVERSION",
+                    title = if (subsDelta >= 0) "Net subscribers improved ${subsDelta}%" else "Net subscribers declined ${abs(subsDelta)}%",
+                    evidence = "${signed(snapshot.netSubscribers)} net subscribers in this period vs ${signed(previous.netSubscribers)} before.",
+                    whyItMatters = "Subscriber movement helps separate temporary reach from content that converts viewers into an audience.",
+                    action = "Compare subscribers per 1K views across your connected content types.",
+                    confidence = 88,
+                    tone = if (subsDelta >= 10) YouTubeInsightTone.POSITIVE else if (subsDelta <= -10) YouTubeInsightTone.WATCH else YouTubeInsightTone.NEUTRAL,
+                )
+            }
+        }
+
+        if (top != null && top.viewSharePercent >= 30) {
+            signals += YouTubeAdvancedSignal(
+                id = "concentration_${top.video.videoId}",
+                kicker = "CONTENT CONCENTRATION",
+                title = "One video drives ${top.viewSharePercent}% of period views",
+                evidence = "${top.video.title} generated ${compact(top.video.periodViews)} views in this range.",
+                whyItMatters = if (top.viewSharePercent >= 50) "Your current reach is highly concentrated, so a follow-up may capture demand while diversification remains important." else "A clear winner is emerging without fully dominating the channel.",
+                action = "Open this video's analytics and decide whether a follow-up project is justified.",
+                confidence = 94,
+                tone = YouTubeInsightTone.OPPORTUNITY,
+            )
+        }
+
+        val formats = formatPerformance(snapshot, tasks, links)
+        val bestSubscriberFormat = formats.filter { it.uploadCount >= 1 }.maxByOrNull { it.subscribersPerThousandViews }
+        if (bestSubscriberFormat != null && bestSubscriberFormat.views > 0L) {
+            signals += YouTubeAdvancedSignal(
+                id = "format_subscriber_conversion_${bestSubscriberFormat.label}",
+                kicker = "WHAT CONVERTS",
+                title = "${bestSubscriberFormat.label} leads subscriber conversion",
+                evidence = String.format(Locale.US, "%.1f subscribers / 1K views across %d connected upload%s.", bestSubscriberFormat.subscribersPerThousandViews, bestSubscriberFormat.uploadCount, if (bestSubscriberFormat.uploadCount == 1) "" else "s"),
+                whyItMatters = "This normalizes subscriber growth by views, so large videos do not automatically win the comparison.",
+                action = "Compare this format with your highest-view format before choosing the next project.",
+                confidence = if (bestSubscriberFormat.uploadCount >= 3) 88 else 68,
+                tone = YouTubeInsightTone.OPPORTUNITY,
+            )
+        }
+
+        return signals.distinctBy { it.id }.sortedByDescending { it.confidence }.take(6)
+    }
+
+    fun nextActions(
+        snapshot: YouTubeAnalyticsSnapshot,
+        tasks: List<CreatorTask>,
+        ideas: List<CreatorIdea>,
+        links: Map<String, String>,
+    ): List<YouTubeNextAction> {
+        val actions = mutableListOf<YouTubeNextAction>()
+        val taskById = tasks.associateBy { it.id }
+        val videos = videoPerformance(snapshot)
+        val top = videos.firstOrNull()
+
+        if (top != null) {
+            val linkedTaskId = links[top.video.videoId]
+            if (linkedTaskId == null) {
+                actions += YouTubeNextAction(
+                    id = "link_${top.video.videoId}",
+                    title = "Link your top video to its Backlot project",
+                    reason = "${top.video.title} is driving ${top.viewSharePercent}% of views, but Backlot cannot connect its performance to your workflow yet.",
+                    actionLabel = "Link project",
+                    type = YouTubeNextActionType.LINK_PROJECT,
+                    videoId = top.video.videoId,
+                    impact = 5,
+                    confidence = 5,
+                    urgency = 4,
+                )
+            } else {
+                actions += YouTubeNextAction(
+                    id = "open_${top.video.videoId}",
+                    title = "Study what worked in ${top.video.title}",
+                    reason = "It is currently ${String.format(Locale.US, "%.1f", top.baselineMultiple)}× your recent-video view baseline.",
+                    actionLabel = "Open analytics",
+                    type = YouTubeNextActionType.OPEN_ANALYTICS,
+                    videoId = top.video.videoId,
+                    taskId = linkedTaskId,
+                    impact = 5,
+                    confidence = 5,
+                    urgency = if (top.baselineMultiple >= 1.5) 5 else 3,
+                )
+                if (top.baselineMultiple >= 1.5) {
+                    actions += YouTubeNextAction(
+                        id = "followup_${top.video.videoId}",
+                        title = "Create a follow-up while this topic is working",
+                        reason = "The linked upload is materially above your recent baseline; a follow-up can test whether the demand is repeatable.",
+                        actionLabel = "Create project",
+                        type = YouTubeNextActionType.CREATE_PROJECT,
+                        videoId = top.video.videoId,
+                        taskId = linkedTaskId,
+                        impact = 5,
+                        confidence = 4,
+                        urgency = 5,
+                    )
+                }
+            }
+        }
+
+        val unlinkedVisible = visibleVideos(snapshot).firstOrNull { it.periodViews > 0L && links[it.videoId] == null }
+        if (unlinkedVisible != null && actions.none { it.videoId == unlinkedVisible.videoId && it.type == YouTubeNextActionType.LINK_PROJECT }) {
+            actions += YouTubeNextAction(
+                id = "link_secondary_${unlinkedVisible.videoId}",
+                title = "Connect ${unlinkedVisible.title}",
+                reason = "Linking published work lets Backlot learn which project types actually perform.",
+                actionLabel = "Link project",
+                type = YouTubeNextActionType.LINK_PROJECT,
+                videoId = unlinkedVisible.videoId,
+                impact = 3,
+                confidence = 5,
+                urgency = 2,
+            )
+        }
+
+        val creator = creatorSummary(tasks, ideas, links)
+        if (creator.bottleneckCount >= 2) {
+            val candidate = tasks.firstOrNull { it.status == TaskStatus.WORKING }
+            actions += YouTubeNextAction(
+                id = "workflow_bottleneck",
+                title = "Clear the ${creator.bottleneckLabel ?: "production"} bottleneck",
+                reason = "${creator.bottleneckCount} active projects are bunching in the same lane.",
+                actionLabel = candidate?.let { "Open project" } ?: "Review projects",
+                type = YouTubeNextActionType.OPEN_PROJECT,
+                taskId = candidate?.id,
+                impact = 4,
+                confidence = 4,
+                urgency = 3,
+            )
+        }
+
+        return actions
+            .filter { action -> action.taskId == null || taskById[action.taskId] != null }
+            .distinctBy { it.id }
+            .sortedByDescending { it.priorityScore }
+            .take(3)
     }
 
     fun topSignals(
