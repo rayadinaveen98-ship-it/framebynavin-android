@@ -94,14 +94,19 @@ object ProjectPulseNextStagePrompt {
         )
     }
 
+    /** Single explicit route used by project-stage notifications. */
+    internal fun projectLaunchIntent(context: Context, taskId: String): Intent =
+        Intent(context, MainActivity::class.java)
+            .setAction(CreatorWidgetContract.ACTION_OPEN_STUDIO)
+            .setData(Uri.parse("framebynavin://project/${Uri.encode(taskId)}"))
+            .putExtra(CreatorWidgetContract.EXTRA_TASK_ID, taskId)
+            .putExtra(ReminderConstants.EXTRA_TASK_ID, taskId)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
     private fun openProject(context: Context, taskId: String): PendingIntent = PendingIntent.getActivity(
         context,
         taskId.hashCode() xor 0x7399,
-        Intent(context, MainActivity::class.java)
-            .setAction(CreatorWidgetContract.ACTION_OPEN_STUDIO)
-            .putExtra(CreatorWidgetContract.EXTRA_TASK_ID, taskId)
-            .putExtra(ReminderConstants.EXTRA_TASK_ID, taskId)
-            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        projectLaunchIntent(context, taskId),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
