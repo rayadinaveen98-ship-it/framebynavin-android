@@ -1,0 +1,99 @@
+name: Insights V2 Phase 2 Patch
+
+on:
+  push:
+    branches:
+      - feature/v145-insights-v2-major
+    paths:
+      - .github/workflows/insights-v2-phase2-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v145-insights-v2-major
+          fetch-depth: 0
+
+      - name: Apply exact Revenue and AI patches
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_exact(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one match in {path}, found {count}: {old[:100]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          revenue = "app/src/main/java/com/framebynavin/app/youtube/YouTubeRevenue.kt"
+          replace_exact(
+              revenue,
+              "data class YouTubeRevenueContentRow(\n    val videoId: String,\n    val views: Long,",
+              "data class YouTubeRevenueContentRow(\n    val videoId: String,\n    val creatorContentType: String,\n    val views: Long,",
+          )
+          replace_exact(
+              revenue,
+              '                "dimensions" to "video",\n',
+              '                "dimensions" to "video,creatorContentType",\n',
+          )
+          replace_exact(
+              revenue,
+              "                videoId = videoId,\n                views = row.long(\"views\"),",
+              "                videoId = videoId,\n                creatorContentType = row[\"creatorContentType\"]?.toString().orEmpty(),\n                views = row.long(\"views\"),",
+          )
+          replace_exact(
+              revenue,
+              '                        .put("videoId", row.videoId)\n                        .put("views", row.views)',
+              '                        .put("videoId", row.videoId)\n                        .put("creatorContentType", row.creatorContentType)\n                        .put("views", row.views)',
+          )
+          replace_exact(
+              revenue,
+              "                        videoId = videoId,\n                        views = item.optLong(\"views\"),",
+              "                        videoId = videoId,\n                        creatorContentType = item.optString(\"creatorContentType\"),\n                        views = item.optLong(\"views\"),",
+          )
+
+          integration = "app/src/main/java/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
+          replace_exact(
+              integration,
+              "        onRefresh = { authorizeRevenue(selectedPeriod, allowResolution = true) },\n    )",
+              "        onRefresh = { authorizeRevenue(selectedPeriod, allowResolution = true) },\n        analyticsSnapshot = snapshot,\n    )",
+          )
+
+          gemini = "app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt"
+          replace_exact(gemini, 'Text("GEMINI VIDEO AUTOPSY · OPTIONAL"', 'Text("AI DEEP AUTOPSY · OPTIONAL"')
+          replace_exact(gemini, 'Text("AI is off by default"', 'Text("Quick Autopsy works without AI"')
+          replace_exact(
+              gemini,
+              '"Nothing is sent unless you enable AI and choose the exact evidence classes below. Firebase App Check protects live requests.",',
+              '"The evidence-based Quick Autopsy above always works locally. Enable this only when you want an optional Gemini deep dive; saved reports stay cached per video.",',
+          )
+          replace_exact(
+              gemini,
+              'Text(if (running) "ANALYZING…" else "ANALYZE VIDEO WITH GEMINI",',
+              'Text(if (running) "ANALYZING…" else "RUN AI DEEP AUTOPSY",',
+          )
+          replace_exact(
+              gemini,
+              '        raw.contains("network", ignoreCase = true) || raw.contains("timeout", ignoreCase = true) ->\n            "Gemini could not be reached. Check the connection and retry; your project and saved postmortem are unchanged."\n        else -> "Gemini Video Autopsy could not complete. Nothing was changed. ${raw.take(180)}"',
+              '        raw.contains("429") || raw.contains("quota", ignoreCase = true) || raw.contains("resource_exhausted", ignoreCase = true) || raw.contains("too many requests", ignoreCase = true) ->\n            "AI Deep Autopsy is temporarily busy or quota-limited. Quick Autopsy above is still ready, and any saved AI report remains available."\n        raw.contains("network", ignoreCase = true) || raw.contains("timeout", ignoreCase = true) ->\n            "AI Deep Autopsy could not be reached. Quick Autopsy and any saved AI report are still available."\n        else -> "AI Deep Autopsy could not complete. Quick Autopsy is still available. ${raw.take(180)}"',
+          )
+
+          postmortem = "app/src/main/java/com/framebynavin/app/ui/V20VideoPostmortemUi.kt"
+          replace_exact(postmortem, 'Text("CREATOR POSTMORTEM"', 'Text("QUICK AUTOPSY"')
+          replace_exact(postmortem, 'Text("Creation → publish → audience response"', 'Text("Evidence-based read · no AI quota required"')
+
+      - name: Commit patched sources
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/youtube/YouTubeRevenue.kt app/src/main/java/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt app/src/main/java/com/framebynavin/app/ui/V20VideoPostmortemUi.kt
+          git diff --cached --check
+          git commit -m "feat(insights): add content revenue types and quota-safe AI fallback"
+          git push origin HEAD:feature/v145-insights-v2-major
