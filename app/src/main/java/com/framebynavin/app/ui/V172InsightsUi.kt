@@ -31,7 +31,7 @@ import com.framebynavin.app.youtube.*
 import java.util.Locale
 import kotlin.math.abs
 
-private enum class V172InsightsTab { OVERVIEW, CONTENT, CREATOR }
+private enum class V172InsightsTab { OVERVIEW, CONTENT, REVENUE, CREATOR }
 
 @Composable
 internal fun V172InsightsBody(
@@ -40,6 +40,7 @@ internal fun V172InsightsBody(
     ideas: List<CreatorIdea>,
     links: Map<String, String>,
     foundationRevision: Int = 0,
+    foundationLoading: Boolean = false,
     onLinkVideo: (YouTubeVideoSnapshot) -> Unit,
 ) {
     var tabName by rememberSaveable { mutableStateOf(V172InsightsTab.OVERVIEW.name) }
@@ -60,10 +61,12 @@ internal fun V172InsightsBody(
             ideas = ideas,
             links = links,
             foundationRevision = foundationRevision,
+            foundationLoading = foundationLoading,
             onVideo = { detailVideoId = it.videoId },
             onDetail = { insightDetail = it },
         )
         V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }
+        V172InsightsTab.REVENUE -> V144YouTubeRevenueIntegration(snapshot)
         V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }
     }
 
@@ -137,12 +140,13 @@ private fun V172Overview(
     ideas: List<CreatorIdea>,
     links: Map<String, String>,
     foundationRevision: Int,
+    foundationLoading: Boolean,
     onVideo: (YouTubeVideoSnapshot) -> Unit,
     onDetail: (V20InsightsDrilldownRequest) -> Unit,
 ) {
     V172PulseCard(snapshot, onDetail)
     Spacer(Modifier.height(10.dp))
-    V20InsightsFoundationCard(snapshot, foundationRevision)
+    V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading)
     Spacer(Modifier.height(18.dp))
 
     Text("THIS IS WHAT MATTERS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
@@ -360,8 +364,8 @@ private fun V172FormatCard(rank: Int, format: YouTubeFormatPerformance) {
             }
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                V172Mini("SUBSCRIBERS", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))
-                V172Mini("ENGAGEMENT", String.format(Locale.US, "%.1f", format.engagementPerThousandViews), Modifier.weight(1f))
+                V172Mini("SUBS / 1K VIEWS", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))
+                V172Mini("ENGAGEMENT / 1K", String.format(Locale.US, "%.1f", format.engagementPerThousandViews), Modifier.weight(1f))
                 V172Mini("AVG VIEW", v172Duration(format.averageViewDurationSeconds), Modifier.weight(1f))
             }
         }

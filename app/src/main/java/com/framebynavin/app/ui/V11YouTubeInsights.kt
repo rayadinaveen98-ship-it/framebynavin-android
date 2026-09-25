@@ -75,6 +75,7 @@ internal fun V11InsightsScreen(
     var pendingResolutionDays by remember { mutableIntStateOf(28) }
     var autoRefreshKey by rememberSaveable { mutableStateOf("") }
     var foundationRevision by remember { mutableIntStateOf(0) }
+    var deepInsightsRefreshing by remember { mutableStateOf(false) }
     val personalization by remember(creatorProfile) {
         derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
     }
@@ -136,6 +137,14 @@ internal fun V11InsightsScreen(
                         checkpointStore.captureFrom(fresh, store.links())
                     }
 
+                    // Core analytics is already ready for the selected range. Do not keep the
+                    // channel header in a misleading loading state while slower audience/reach
+                    // reports continue independently.
+                    if (isActive(request)) {
+                        syncing = false
+                        deepInsightsRefreshing = true
+                    }
+
                     // Deep refresh stays in the background. Audience/retention and reach are
                     // independent and should not make cached/core Insights feel blocked.
                     val (foundationResult, reachResult) = withContext(Dispatchers.IO) {
@@ -179,6 +188,7 @@ internal fun V11InsightsScreen(
                     activeRequest = null
                     pendingResolution = null
                     syncing = false
+                    deepInsightsRefreshing = false
                 }
             }
         }
@@ -262,6 +272,7 @@ internal fun V11InsightsScreen(
         activeRequest = null
         pendingResolution = null
         syncing = false
+        deepInsightsRefreshing = false
         revoking = true
         snapshot = null
         selectedVideo = null
@@ -352,6 +363,7 @@ internal fun V11InsightsScreen(
                     ideas = ideas,
                     links = links,
                     foundationRevision = foundationRevision,
+                    foundationLoading = deepInsightsRefreshing,
                     onLinkVideo = { selectedVideo = it },
                 )
             }
