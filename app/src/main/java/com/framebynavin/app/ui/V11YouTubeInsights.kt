@@ -2,10 +2,8 @@ package com.framebynavin.app.ui
 
 import android.app.Activity
 import android.content.Intent
-import androidx.activity.ComponentActivity
 import android.widget.Toast
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,7 +16,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.SmartDisplay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,7 +32,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.framebynavin.app.data.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorIdea
+import com.framebynavin.app.data.CreatorPersonalizationEngine
+import com.framebynavin.app.data.CreatorProfile
+import com.framebynavin.app.data.CreatorTask
+import com.framebynavin.app.data.CreatorWriteConflict
+import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.youtube.*
 import com.google.android.gms.auth.api.identity.Identity
@@ -44,6 +54,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Backlot Insights V148 shell.
+ *
+ * Core analytics and deep audience/reach datasets intentionally have different loading lifecycles.
+ * The selected range is considered loaded as soon as the core YouTube Analytics snapshot is
+ * accepted. Foundation/reach then refresh independently and must never keep the header spinner or
+ * "Updating" copy alive after the selected-range numbers are already visible.
+ */
 @Composable
 internal fun V11InsightsScreen(
     creatorProfile: CreatorProfile,
@@ -52,41 +70,46 @@ internal fun V11InsightsScreen(
     onAdd: () -> Unit,
 ) {
     val context = LocalContext.current
+    val appContext = context.applicationContext
     val activity = context as? ComponentActivity
-    val store = remember { YouTubeAnalyticsStore(context.applicationContext) }
+    val store = remember { YouTubeAnalyticsStore(appContext) }
     val api = remember { YouTubeApiClient() }
     val foundationApi = remember { YouTubeInsightsFoundationClient() }
-    val foundationStore = remember { YouTubeInsightsFoundationStore(context.applicationContext) }
-    val checkpointStore = remember { YouTubePublishCheckpointStore(context.applicationContext) }
-    val reachStore = remember { YouTubeReachStore(context.applicationContext) }
+    val foundationStore = remember { YouTubeInsightsFoundationStore(appContext) }
+    val checkpointStore = remember { YouTubePublishCheckpointStore(appContext) }
+    val reachStore = remember { YouTubeReachStore(appContext) }
     val reachApi = remember { YouTubeReachReportingClient(reachStore) }
     val authClient = remember(activity) { activity?.let { Identity.getAuthorizationClient(it) } }
     val scope = rememberCoroutineScope()
 
     var windowDays by rememberSaveable { mutableIntStateOf(28) }
     var snapshot by remember { mutableStateOf(store.load(windowDays) ?: store.loadAny()) }
-    var syncing by remember { mutableStateOf(false) }
+    var coreSyncing by remember { mutableStateOf(false) }
     var revoking by remember { mutableStateOf(false) }
     var authError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedVideo by remember { mutableStateOf<YouTubeVideoSnapshot?>(null) }
     var links by remember { mutableStateOf(store.links()) }
     var activeRequest by remember { mutableStateOf<YouTubeCacheRequest?>(null) }
+    var activeRequestDays by remember { mutableIntStateOf(0) }
     var pendingResolution by remember { mutableStateOf<YouTubeCacheRequest?>(null) }
     var pendingResolutionDays by remember { mutableIntStateOf(28) }
     var autoRefreshKey by rememberSaveable { mutableStateOf("") }
     var foundationRevision by remember { mutableIntStateOf(0) }
-    val personalization by remember(creatorProfile) {
+    val personalization by remember(creatorProfile, tasks) {
         derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
     }
 
     fun refreshCacheView() {
-        snapshot = store.load(windowDays) ?: store.loadAny()
+        // Prefer the exact selected range. loadAny() is only a continuity fallback so the screen
+        // does not blank while an unseen range is fetched for the first time.
+        snapshot = store.load(windowDays) ?: snapshot ?: store.loadAny()
         links = store.links()
         val request = activeRequest
         if (request != null && !store.isCurrent(request)) {
             activeRequest = null
+            activeRequestDays = 0
             pendingResolution = null
-            syncing = false
+            coreSyncing = false
             selectedVideo = null
         }
     }
@@ -96,7 +119,6 @@ internal fun V11InsightsScreen(
         authError = null
     }
 
-    // A restore may happen from another screen. Re-read the cache on return.
     DisposableEffect(activity, store) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) refreshCacheView()
@@ -108,96 +130,107 @@ internal fun V11InsightsScreen(
         }
     }
 
-    fun isActive(request: YouTubeCacheRequest): Boolean =
-        activeRequest == request && store.isCurrent(request)
+    fun isActive(request: YouTubeCacheRequest, days: Int): Boolean =
+        activeRequest == request &&
+            activeRequestDays == days &&
+            windowDays == days &&
+            store.isCurrent(request)
 
-    fun finishRequest(request: YouTubeCacheRequest, error: String? = null) {
-        if (!isActive(request)) return
+    fun finishCoreRequest(request: YouTubeCacheRequest, error: String? = null) {
+        if (activeRequest != request) return
         store.cancelRequest(request)
         activeRequest = null
+        activeRequestDays = 0
         pendingResolution = null
-        syncing = false
+        coreSyncing = false
         authError = error
     }
 
-    fun syncWithToken(token: String, request: YouTubeCacheRequest, days: Int) {
-        if (!isActive(request)) return
+    fun launchDeepRefresh(token: String, fresh: YouTubeAnalyticsSnapshot) {
         scope.launch {
-            syncing = true
+            val (foundationResult, reachResult) = withContext(Dispatchers.IO) {
+                val foundationDeferred = async { runCatching { foundationApi.sync(token, fresh) } }
+                val reachDeferred = async { runCatching { reachApi.sync(token, fresh.channel.channelId) } }
+                foundationDeferred.await() to reachDeferred.await()
+            }
+            val foundation = foundationResult.getOrNull() ?: return@launch
+            val reach = reachResult.getOrNull()
+            val reachHealth = if (reach != null) {
+                YouTubeDatasetHealth(YouTubeFoundationDataset.REACH, reach.state, reach.note)
+            } else {
+                YouTubeDatasetHealth(
+                    YouTubeFoundationDataset.REACH,
+                    YouTubeDatasetState.UNAVAILABLE,
+                    "Reach could not be refreshed right now. Core Insights are up to date.",
+                )
+            }
+            val withReach = foundation.copy(
+                health = foundation.health.filterNot { it.dataset == YouTubeFoundationDataset.REACH } + reachHealth,
+            )
+            withContext(Dispatchers.IO) { foundationStore.save(withReach) }
+            // Only nudge the currently visible channel/range. Saving the cache is safe regardless.
+            if (snapshot?.channel?.channelId == fresh.channel.channelId && windowDays == fresh.windowDays) {
+                foundationRevision += 1
+            }
+        }
+    }
+
+    fun syncWithToken(token: String, request: YouTubeCacheRequest, days: Int) {
+        if (!isActive(request, days)) return
+        scope.launch {
+            coreSyncing = true
             authError = null
             try {
-                // Priority refresh: publish creator-facing data as soon as the core reports finish.
                 val fresh = withContext(Dispatchers.IO) { api.sync(token, days) }
-                if (store.save(fresh, request) && isActive(request)) {
-                    snapshot = fresh
-                    links = store.links()
-                    selectedVideo = null
-                    withContext(Dispatchers.IO) {
-                        checkpointStore.captureFrom(fresh, store.links())
-                    }
+                if (!isActive(request, days)) return@launch
+                val accepted = store.save(fresh, request)
+                if (!accepted || !isActive(request, days)) return@launch
 
-                    // Deep refresh stays in the background. Audience/retention and reach are
-                    // independent and should not make cached/core Insights feel blocked.
-                    val (foundationResult, reachResult) = withContext(Dispatchers.IO) {
-                        val foundationDeferred = async { runCatching { foundationApi.sync(token, fresh) } }
-                        val reachDeferred = async { runCatching { reachApi.sync(token, fresh.channel.channelId) } }
-                        foundationDeferred.await() to reachDeferred.await()
-                    }
-                    val foundation = foundationResult.getOrNull()
-                    if (foundation != null && isActive(request)) {
-                        val reach = reachResult.getOrNull()
-                        val reachHealth = if (reach != null) {
-                            YouTubeDatasetHealth(YouTubeFoundationDataset.REACH, reach.state, reach.note)
-                        } else {
-                            YouTubeDatasetHealth(
-                                YouTubeFoundationDataset.REACH,
-                                YouTubeDatasetState.UNAVAILABLE,
-                                "Reach could not be refreshed right now. Core Insights are up to date.",
-                            )
-                        }
-                        val withReach = foundation.copy(
-                            health = foundation.health
-                                .filterNot { it.dataset == YouTubeFoundationDataset.REACH } + reachHealth,
-                        )
-                        withContext(Dispatchers.IO) { foundationStore.save(withReach) }
-                        if (isActive(request)) foundationRevision += 1
-                    }
-                }
+                snapshot = fresh
+                links = store.links()
+                selectedVideo = null
+                withContext(Dispatchers.IO) { checkpointStore.captureFrom(fresh, store.links()) }
+
+                // Phase-1 fix: selected-range loading ends HERE. Deep audience/reach refresh is
+                // independent and no longer owns the header loading indicator.
+                finishCoreRequest(request)
+                launchDeepRefresh(token, fresh)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                if (isActive(request)) {
+                if (activeRequest == request) {
                     if (error is YouTubeApiException && error.httpCode == 401) {
                         store.disconnect()
                         snapshot = null
                         selectedVideo = null
                     }
-                    authError = ytFriendlyError(error)
+                    finishCoreRequest(request, ytFriendlyError(error))
                 }
             } finally {
-                if (activeRequest == request) {
-                    activeRequest = null
-                    pendingResolution = null
-                    syncing = false
+                if (activeRequest == request && activeRequestDays == days) {
+                    finishCoreRequest(request)
                 }
             }
         }
     }
 
-    val resolutionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+    val resolutionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
         val request = pendingResolution
+        val days = pendingResolutionDays
         pendingResolution = null
-        if (request == null || !isActive(request)) return@rememberLauncherForActivityResult
+        if (request == null || !isActive(request, days)) return@rememberLauncherForActivityResult
         if (result.resultCode != Activity.RESULT_OK || result.data == null) {
-            finishRequest(request, "YouTube connection was cancelled.")
+            finishCoreRequest(request, "YouTube connection was cancelled.")
             return@rememberLauncherForActivityResult
         }
         val authResult = runCatching { authClient?.getAuthorizationResultFromIntent(result.data!!) }.getOrNull()
         val token = authResult?.accessToken
         if (token.isNullOrBlank()) {
-            finishRequest(request, "Google did not return a YouTube access token.")
+            finishCoreRequest(request, "Google did not return a YouTube access token.")
         } else {
-            syncWithToken(token, request, pendingResolutionDays)
+            syncWithToken(token, request, days)
         }
     }
 
@@ -207,22 +240,28 @@ internal fun V11InsightsScreen(
             authError = "Google authorization is unavailable on this device."
             return
         }
+
+        // A range switch supersedes the previous request. This prevents a slow 90D response from
+        // replacing a newer 7D selection (or vice versa).
+        activeRequest?.let(store::cancelRequest)
         val request = store.beginRequest(selectAccount)
         activeRequest = request
+        activeRequestDays = days
         pendingResolution = null
-        syncing = true
+        coreSyncing = true
         authError = null
+
         client.authorize(YouTubeAuthorization.request(selectAccount))
             .addOnSuccessListener { result ->
-                if (!isActive(request)) return@addOnSuccessListener
+                if (!isActive(request, days)) return@addOnSuccessListener
                 if (result.hasResolution()) {
                     if (!allowResolution) {
-                        finishRequest(request)
+                        finishCoreRequest(request)
                         return@addOnSuccessListener
                     }
                     val pending = result.pendingIntent
                     if (pending == null) {
-                        finishRequest(request, "Google authorization needs attention, but no consent screen was available.")
+                        finishCoreRequest(request, "Google authorization needs attention, but no consent screen was available.")
                     } else {
                         pendingResolution = request
                         pendingResolutionDays = days
@@ -231,21 +270,20 @@ internal fun V11InsightsScreen(
                 } else {
                     val token = result.accessToken
                     if (token.isNullOrBlank()) {
-                        finishRequest(request, "Google authorization completed without a YouTube access token.")
+                        finishCoreRequest(request, "Google authorization completed without a YouTube access token.")
                     } else {
                         syncWithToken(token, request, days)
                     }
                 }
             }
             .addOnFailureListener { error ->
-                if (isActive(request)) finishRequest(request, ytFriendlyError(error))
+                if (activeRequest == request) finishCoreRequest(request, ytFriendlyError(error))
             }
     }
 
-
-    LaunchedEffect(snapshot?.fetchedAtMillis, windowDays, syncing, revoking) {
-        val cached = snapshot ?: return@LaunchedEffect
-        if (cached.windowDays != windowDays || syncing || revoking) return@LaunchedEffect
+    LaunchedEffect(snapshot?.fetchedAtMillis, windowDays, coreSyncing, revoking) {
+        val cached = store.load(windowDays) ?: return@LaunchedEffect
+        if (coreSyncing || revoking) return@LaunchedEffect
         val ageMillis = System.currentTimeMillis() - cached.fetchedAtMillis
         val refreshKey = "${cached.channel.channelId}:$windowDays:${cached.fetchedAtMillis}"
         if (ageMillis >= 15L * 60L * 1000L && autoRefreshKey != refreshKey) {
@@ -255,17 +293,17 @@ internal fun V11InsightsScreen(
     }
 
     fun disconnect() {
-        // Local invalidation must not wait for the network or Google Play services.
         store.disconnect()
         foundationStore.clear()
         reachStore.clear()
         activeRequest = null
+        activeRequestDays = 0
         pendingResolution = null
-        syncing = false
+        coreSyncing = false
         revoking = true
         snapshot = null
         selectedVideo = null
-        links = store.links() // Creator-owned links are deliberately preserved.
+        links = store.links()
         authError = null
         val request = RevokeAccessRequest.builder().setScopes(YouTubeAuthorization.scopes).build()
         val client = authClient
@@ -280,7 +318,7 @@ internal fun V11InsightsScreen(
                         authError = "Local analytics disconnected. Google permission revocation could not be confirmed."
                     }
                 }
-            } catch (error: Throwable) {
+            } catch (_: Throwable) {
                 revoking = false
                 authError = "Local analytics disconnected. Google permission revocation could not be confirmed."
             }
@@ -301,48 +339,56 @@ internal fun V11InsightsScreen(
                     Text("Insights", color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
                 }
                 Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(42.dp)) {
-                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, "Create project", tint = ProjectorIvory, modifier = Modifier.size(20.dp)) }
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.Add, "Create project", tint = ProjectorIvory, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
 
             Spacer(Modifier.height(18.dp))
             Text(personalization.insightTitle, color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
             Text(personalization.insightBody, color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
-            Spacer(Modifier.height(14.dp))
-            YTProfileFocusCard(creatorProfile, personalization)
             Spacer(Modifier.height(18.dp))
 
-            if (snapshot == null) {
+            val data = snapshot
+            if (data == null) {
                 YTConnectCard(
-                    syncing = syncing || revoking,
+                    syncing = coreSyncing || revoking,
                     error = authError,
-                    packageName = context.packageName,
-                    sha1 = remember { YouTubeAuthorization.signingSha1(context) },
                     onConnect = { authorize(true) },
                 )
-                Spacer(Modifier.height(18.dp))
-                YTLocalCreatorSection(tasks, ideas, personalization)
             } else {
-                val data = snapshot!!
                 YTChannelHeader(
                     data = data,
-                    syncing = syncing || revoking,
-                    windowDays = data.windowDays,
+                    syncing = coreSyncing || revoking,
+                    selectedWindowDays = windowDays,
                     onWindow = { days ->
                         if (days != windowDays) {
+                            activeRequest?.let(store::cancelRequest)
+                            activeRequest = null
+                            activeRequestDays = 0
+                            pendingResolution = null
+                            coreSyncing = false
                             windowDays = days
+                            authError = null
                             val cached = store.load(days)
-                            if (cached != null) snapshot = cached else authorize(false, days)
+                            if (cached != null) {
+                                snapshot = cached
+                            } else {
+                                // Keep the previous snapshot visible for continuity while fetching
+                                // the requested range; the header tells the user what is happening.
+                                authorize(selectAccount = false, days = days, allowResolution = false)
+                            }
                         }
                     },
-                    onSync = { authorize(false, windowDays) },
-                    onSwitchAccount = { authorize(true, windowDays) },
+                    onSync = { authorize(false, windowDays, allowResolution = true) },
+                    onSwitchAccount = { authorize(true, windowDays, allowResolution = true) },
                     onDisconnect = ::disconnect,
                 )
 
                 authError?.let {
                     Spacer(Modifier.height(10.dp))
-                    YTErrorCard(it, context.packageName, remember { YouTubeAuthorization.signingSha1(context) })
+                    YTErrorCard(it)
                 }
 
                 Spacer(Modifier.height(14.dp))
@@ -365,11 +411,11 @@ internal fun V11InsightsScreen(
             currentTaskId = links[video.videoId],
             onDismiss = { selectedVideo = null },
             onLink = { taskId ->
-                val epoch = CreatorDataGate.generation(context.applicationContext)
+                val epoch = CreatorDataGate.generation(appContext)
                 scope.launch {
                     try {
                         store.link(video.videoId, taskId, epoch)
-                        if (CreatorDataGate.generation(context.applicationContext) == epoch) {
+                        if (CreatorDataGate.generation(appContext) == epoch) {
                             links = store.links()
                             selectedVideo = null
                         }
@@ -385,56 +431,7 @@ internal fun V11InsightsScreen(
 }
 
 @Composable
-private fun YTProfileFocusCard(
-    profile: CreatorProfile,
-    personalization: CreatorPersonalizationSnapshot,
-) {
-    Surface(
-        Modifier.fillMaxWidth(),
-        RoundedCornerShape(19.dp),
-        Color(0xFF171310),
-        border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f)),
-    ) {
-        Column(Modifier.padding(15.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("YOUR CREATOR LENS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
-                    Spacer(Modifier.height(3.dp))
-                    Text(profile.primaryGoal, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                }
-                Text(
-                    "${personalization.publishedThisWeek} / ${personalization.weeklyTarget}",
-                    color = if (personalization.weeklyProgress >= 1f) SuccessGreen else MutedGold,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                )
-            }
-            Spacer(Modifier.height(9.dp))
-            LinearProgressIndicator(
-                progress = { personalization.weeklyProgress },
-                modifier = Modifier.fillMaxWidth().height(4.dp),
-                color = if (personalization.weeklyProgress >= 1f) SuccessGreen else MutedGold,
-                trackColor = CinemaLine,
-            )
-            Spacer(Modifier.height(7.dp))
-            Text(
-                "${profile.category} · ${personalization.platformSummary} · ${personalization.publishedThisWeek} / ${personalization.weeklyTarget} published this week",
-                color = MutedText,
-                fontSize = 8.7.sp,
-                lineHeight = 12.sp,
-            )
-        }
-    }
-}
-
-@Composable
-private fun YTConnectCard(
-    syncing: Boolean,
-    error: String?,
-    packageName: String,
-    sha1: String,
-    onConnect: () -> Unit,
-) {
+private fun YTConnectCard(syncing: Boolean, error: String?, onConnect: () -> Unit) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -444,33 +441,38 @@ private fun YTConnectCard(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Connect YouTube", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                    Text("See your channel performance", color = MutedText, fontSize = 9.2.sp)
+                    Text("Bring real channel performance into Backlot", color = MutedText, fontSize = 9.2.sp)
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Text("Bring views, watch time, subscribers and video performance into Backlot. It cannot upload or delete your videos.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Backlot requests read-only analytics. It cannot upload or delete your videos.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(14.dp))
-            Button(onClick = onConnect, enabled = !syncing, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(15.dp)) {
+            Button(
+                onClick = onConnect,
+                enabled = !syncing,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                shape = RoundedCornerShape(15.dp),
+            ) {
                 if (syncing) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
-                else { Icon(Icons.Outlined.Link, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(7.dp)); Text("CONNECT YOUTUBE", fontWeight = FontWeight.Black, fontSize = 10.sp) }
+                else {
+                    Icon(Icons.Outlined.Link, null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(7.dp))
+                    Text("CONNECT YOUTUBE", fontWeight = FontWeight.Black, fontSize = 10.sp)
+                }
             }
-            error?.let {
-                Spacer(Modifier.height(12.dp))
-                YTErrorCard(it, packageName, sha1)
-            }
+            error?.let { Spacer(Modifier.height(12.dp)); YTErrorCard(it) }
         }
     }
 }
 
 @Composable
-private fun YTErrorCard(message: String, packageName: String, sha1: String) {
+private fun YTErrorCard(message: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), Color(0xFF17110F), border = BorderStroke(1.dp, RecRed.copy(alpha = .35f))) {
         Column(Modifier.padding(13.dp)) {
             Text("YOUTUBE CONNECTION", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             Spacer(Modifier.height(4.dp))
             Text(message, color = ProjectorIvory, fontSize = 9.5.sp, lineHeight = 14.sp)
-            Spacer(Modifier.height(8.dp))
-            Text("Try connecting again. If it still fails, the app setup may need attention.", color = MutedText, fontSize = 8.2.sp)
         }
     }
 }
@@ -479,7 +481,7 @@ private fun YTErrorCard(message: String, packageName: String, sha1: String) {
 private fun YTChannelHeader(
     data: YouTubeAnalyticsSnapshot,
     syncing: Boolean,
-    windowDays: Int,
+    selectedWindowDays: Int,
     onWindow: (Int) -> Unit,
     onSync: () -> Unit,
     onSwitchAccount: () -> Unit,
@@ -495,7 +497,10 @@ private fun YTChannelHeader(
                 Column(Modifier.weight(1f)) {
                     Text(data.channel.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${ytCompact(data.channel.subscribers)} subscribers · ${data.channel.videoCount} videos", color = MutedText, fontSize = 8.8.sp)
-                    if (syncing) Text("Updating in background…", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    when {
+                        syncing -> Text("Refreshing ${selectedWindowDays}D…", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        data.windowDays != selectedWindowDays -> Text("Showing saved ${data.windowDays}D while ${selectedWindowDays}D loads", color = MutedGold, fontSize = 8.sp)
+                    }
                 }
                 TextButton(onClick = onSync, enabled = !syncing) {
                     if (syncing) CircularProgressIndicator(modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = RecRed)
@@ -503,14 +508,20 @@ private fun YTChannelHeader(
                 }
             }
             Spacer(Modifier.height(11.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
                 listOf(7, 28, 90).forEach { days ->
-                    FilterChip(selected = windowDays == days, onClick = { onWindow(days) }, label = { Text("${days}D", fontSize = 10.sp) })
+                    FilterChip(
+                        selected = selectedWindowDays == days,
+                        onClick = { onWindow(days) },
+                        label = { Text("${days}D", fontSize = 10.sp) },
+                    )
                 }
                 Spacer(Modifier.weight(1f))
                 Box {
                     var menu by remember { mutableStateOf(false) }
-                    IconButton(onClick = { menu = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.MoreVert, "YouTube account options", tint = MutedText, modifier = Modifier.size(20.dp)) }
+                    IconButton(onClick = { menu = true }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Outlined.MoreVert, "YouTube account options", tint = MutedText, modifier = Modifier.size(20.dp))
+                    }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("Switch account") }, onClick = { menu = false; onSwitchAccount() })
                         DropdownMenuItem(text = { Text("Disconnect") }, onClick = { menu = false; onDisconnect() })
@@ -524,179 +535,13 @@ private fun YTChannelHeader(
 }
 
 @Composable
-private fun YTMetrics(data: YouTubeAnalyticsSnapshot) {
-    Column {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            YTMetric("VIEWS", ytCompact(data.views), RecRed, Modifier.weight(1f))
-            YTMetric("WATCH TIME", ytWatch(data.watchMinutes), MutedGold, Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            YTMetric("NET SUBS", ytSigned(data.netSubscribers), if (data.netSubscribers >= 0) SuccessGreen else RecRed, Modifier.weight(1f))
-            YTMetric("AVG VIEW", ytDuration(data.averageViewDurationSeconds), ProjectorIvory, Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun YTMetric(label: String, value: String, accent: Color, modifier: Modifier) {
-    Surface(modifier, RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(14.dp)) {
-            Text(label, color = MutedText, fontSize = 7.8.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
-            Spacer(Modifier.height(5.dp))
-            Text(value, color = accent, fontSize = 22.sp, fontWeight = FontWeight.Black)
-        }
-    }
-}
-
-@Composable
-private fun YTSignalCard(data: YouTubeAnalyticsSnapshot) {
-    val best = data.topVideos.maxByOrNull { it.periodViews }
-    val avgTop = data.topVideos.map { it.periodViews }.filter { it > 0 }.average().takeIf { !it.isNaN() } ?: 0.0
-    val bestSignal = when {
-        best == null -> "Sync again after YouTube has enough report data."
-        avgTop > 0 && best.periodViews >= avgTop * 1.5 -> "${best.title} is clearly leading this ${data.windowDays}-day window."
-        else -> "Your top videos are relatively close together in this window."
-    }
-    val subscriberSignal = when {
-        data.netSubscribers > 0 -> "Subscriber momentum is positive at ${ytSigned(data.netSubscribers)} net."
-        data.netSubscribers < 0 -> "Subscriber movement is negative at ${data.netSubscribers}; check which uploads are losing viewers."
-        else -> "Subscriber movement is flat in this window."
-    }
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), Color(0xFF15130F), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f))) {
-        Column(Modifier.padding(16.dp)) {
-            Text("WHAT TO WATCH", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Spacer(Modifier.height(7.dp))
-            Text(bestSignal, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, lineHeight = 16.sp)
-            Spacer(Modifier.height(6.dp))
-            Text(subscriberSignal, color = MutedText, fontSize = 9.2.sp, lineHeight = 14.sp)
-        }
-    }
-}
-
-@Composable
-private fun YTTrendCard(data: YouTubeAnalyticsSnapshot) {
-    val points = data.trend.takeLast(14)
-    val max = points.maxOfOrNull { it.views }?.coerceAtLeast(1L) ?: 1L
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(16.dp)) {
-            Text("VIEW TREND", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            Text("Last ${points.size} reported days", color = MutedText, fontSize = 8.5.sp)
-            Spacer(Modifier.height(14.dp))
-            if (points.isEmpty()) {
-                Text("No daily trend returned yet.", color = MutedText, fontSize = 9.5.sp)
-            } else {
-                Row(Modifier.fillMaxWidth().height(58.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
-                    points.forEach { point ->
-                        val ratio = point.views.toFloat() / max.toFloat()
-                        Box(Modifier.weight(1f).height((7f + ratio * 49f).dp).background(if (point.views == max) RecRed else MutedGold.copy(alpha = .55f), RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun YTTopVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>, links: Map<String, String>, onVideo: (YouTubeVideoSnapshot) -> Unit) {
-    Text("TOP VIDEOS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Performance inside the selected ${data.windowDays}-day window.", color = MutedText, fontSize = 9.sp)
-    Spacer(Modifier.height(9.dp))
-    if (data.topVideos.isEmpty()) {
-        YTEmpty("No video performance data yet.")
-        return
-    }
-    data.topVideos.take(6).forEachIndexed { index, video ->
-        val linked = tasks.firstOrNull { it.id == links[video.videoId] }
-        YTVideoRow(video, "#${index + 1}", linked, onVideo)
-    }
-}
-
-@Composable
-private fun YTRecentVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>, links: Map<String, String>, onVideo: (YouTubeVideoSnapshot) -> Unit) {
-    Text("RECENT UPLOADS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Tap a video to connect it to the project that made it.", color = MutedText, fontSize = 9.sp)
-    Spacer(Modifier.height(9.dp))
-    data.recentVideos.take(10).forEach { video ->
-        val linked = tasks.firstOrNull { it.id == links[video.videoId] }
-        YTVideoRow(video, ytCompact(video.lifetimeViews), linked, onVideo)
-    }
-}
-
-@Composable
-private fun YTVideoRow(video: YouTubeVideoSnapshot, lead: String, linked: CreatorTask?, onVideo: (YouTubeVideoSnapshot) -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp).clickable { onVideo(video) },
-        shape = RoundedCornerShape(17.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine),
-    ) {
-        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(38.dp).background(RecRed.copy(alpha = .10f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
-                Text(lead, color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(video.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(3.dp))
-                Text("${ytCompact(video.periodViews)} views · ${ytWatch(video.watchMinutes)} · ${ytDuration(video.averageViewDurationSeconds)} avg", color = MutedText, fontSize = 8.3.sp)
-                Text(linked?.let { "Connected · ${it.title}" } ?: "Connect project", color = if (linked != null) MutedGold else RecRed, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-@Composable
-private fun YTFormatSignal(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>, links: Map<String, String>) {
-    val rows = data.recentVideos.mapNotNull { video ->
-        val task = tasks.firstOrNull { it.id == links[video.videoId] } ?: return@mapNotNull null
-        ytPillar(task) to video
-    }.groupBy({ it.first }, { it.second })
-        .map { (label, videos) -> Triple(label, videos.sumOf { it.periodViews }, videos.size) }
-        .sortedByDescending { it.second }
-
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(16.dp)) {
-            Text("WHAT'S WORKING", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            Text("Based on published videos you connect to projects.", color = MutedText, fontSize = 8.6.sp)
-            Spacer(Modifier.height(11.dp))
-            if (rows.isEmpty()) {
-                Text("Connect a few published videos to see which content types work best.", color = MutedText, fontSize = 9.4.sp, lineHeight = 14.sp)
-            } else {
-                rows.take(5).forEach { (label, views, count) ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, color = ProjectorIvory, fontSize = 9.7.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("$count video${if (count == 1) "" else "s"}", color = MutedText, fontSize = 8.sp)
-                        Spacer(Modifier.width(10.dp))
-                        Text(ytCompact(views), color = MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun YTLocalCreatorSection(
+private fun YTLinkProjectDialog(
+    video: YouTubeVideoSnapshot,
     tasks: List<CreatorTask>,
-    ideas: List<CreatorIdea>,
-    personalization: CreatorPersonalizationSnapshot,
+    currentTaskId: String?,
+    onDismiss: () -> Unit,
+    onLink: (String?) -> Unit,
 ) {
-    val active = tasks.count { it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING }
-    val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
-    Text("YOUR CREATOR PROGRESS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Your publishing rhythm matters alongside channel numbers.", color = MutedText, fontSize = 9.sp)
-    Spacer(Modifier.height(9.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        YTMetric("THIS WEEK", personalization.publishedThisWeek.toString(), SuccessGreen, Modifier.weight(1f))
-        YTMetric("TARGET", personalization.weeklyTarget.toString(), MutedGold, Modifier.weight(1f))
-        YTMetric("ACTIVE", active.toString(), RecRed, Modifier.weight(1f))
-    }
-    Spacer(Modifier.height(7.dp))
-    Text("$readyIdeas idea${if (readyIdeas == 1) "" else "s"} ready to produce · ${personalization.primaryPlatform} is your primary publishing lane.", color = MutedText, fontSize = 8.7.sp)
-}
-
-@Composable
-private fun YTLinkProjectDialog(video: YouTubeVideoSnapshot, tasks: List<CreatorTask>, currentTaskId: String?, onDismiss: () -> Unit, onLink: (String?) -> Unit) {
     val youtubeTasks = tasks.filter { it.platform.equals("YouTube", true) }
         .sortedWith(compareByDescending<CreatorTask> { it.status == TaskStatus.DONE }.thenByDescending { it.dueAtMillis })
     AlertDialog(
@@ -737,13 +582,6 @@ private fun YTLinkProjectDialog(video: YouTubeVideoSnapshot, tasks: List<Creator
     )
 }
 
-@Composable
-private fun YTEmpty(text: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = MutedText, fontSize = 9.4.sp, modifier = Modifier.padding(15.dp))
-    }
-}
-
 private fun ytFriendlyError(error: Throwable): String {
     val raw = error.message.orEmpty()
     return when {
@@ -756,8 +594,6 @@ private fun ytFriendlyError(error: Throwable): String {
     }
 }
 
-private fun ytPillar(task: CreatorTask): String = YouTubeContentClassifier.label(task)
-
 private fun ytCompact(value: Long): String = when {
     value >= 1_000_000_000L -> String.format(Locale.US, "%.1fB", value / 1_000_000_000.0)
     value >= 1_000_000L -> String.format(Locale.US, "%.1fM", value / 1_000_000.0)
@@ -765,11 +601,5 @@ private fun ytCompact(value: Long): String = when {
     else -> value.toString()
 }
 
-private fun ytWatch(minutes: Long): String {
-    val hours = minutes / 60.0
-    return if (hours >= 1000) String.format(Locale.US, "%.1fK h", hours / 1000.0) else String.format(Locale.US, "%.1f h", hours)
-}
-
-private fun ytDuration(seconds: Long): String = "%d:%02d".format(seconds / 60, seconds % 60)
-private fun ytSigned(value: Long): String = if (value > 0) "+${ytCompact(value)}" else ytCompact(value)
-private fun ytSyncTime(millis: Long): String = if (millis <= 0L) "never" else SimpleDateFormat("d MMM · h:mm a", Locale.getDefault()).format(Date(millis))
+private fun ytSyncTime(millis: Long): String =
+    if (millis <= 0L) "never" else SimpleDateFormat("d MMM · h:mm a", Locale.getDefault()).format(Date(millis))
