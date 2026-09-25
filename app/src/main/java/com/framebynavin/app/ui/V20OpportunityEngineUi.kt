@@ -86,7 +86,7 @@ internal fun V20OpportunityEngineCard(
 
 /** Opportunity guidance belongs in Insights; Today stays focused on current work. */
 @Composable
-internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapshot) {
+internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapshot, onCreateProject: (() -> Unit)? = null) {
     val context = LocalContext.current.applicationContext
     val local by produceState(
         initialValue = OpportunityLocalState(),
@@ -129,7 +129,8 @@ internal fun V20OpportunityEngineInsightsCard(analytics: YouTubeAnalyticsSnapsho
         brainExplainability = brainExplainability,
         onBrainProject = null,
         onBrainControl = null,
-        onAction = null,
+        actionLabelOverride = if (onCreateProject != null) "START THIS MOVE" else null,
+        onAction = onCreateProject?.let { create -> { _: CreatorOpportunity -> create() } },
     )
 }
 
@@ -190,6 +191,7 @@ private fun V20OpportunitySurface(
     onBrainProject: ((String) -> Unit)?,
     onBrainControl: ((String, CreatorBrainLearningControl) -> Unit)?,
     onAction: ((CreatorOpportunity) -> Unit)?,
+    actionLabelOverride: String? = null,
 ) {
     val primary = snapshot.now.firstOrNull() ?: snapshot.primary ?: return
     var showDetails by remember(primary.id) { mutableStateOf(false) }
@@ -273,7 +275,7 @@ private fun V20OpportunitySurface(
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     shape = RoundedCornerShape(15.dp),
                 ) {
-                    Text(primary.actionLabel, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text(actionLabelOverride ?: primary.actionLabel, fontSize = 9.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.width(6.dp))
                     Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(16.dp))
                 }

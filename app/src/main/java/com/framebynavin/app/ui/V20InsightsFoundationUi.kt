@@ -37,6 +37,7 @@ internal fun V20InsightsFoundationCard(
     snapshot: YouTubeAnalyticsSnapshot,
     refreshRevision: Int = 0,
     loading: Boolean = false,
+    onCreateProject: () -> Unit = {},
 ) {
     val context = LocalContext.current.applicationContext
     val foundation = remember(snapshot.channel.channelId, snapshot.windowDays, snapshot.fetchedAtMillis, refreshRevision) {
@@ -75,7 +76,7 @@ internal fun V20InsightsFoundationCard(
         Spacer(Modifier.height(10.dp))
         // Opportunity intelligence only needs the core snapshot, so it should never disappear
         // while deeper YouTube reports are still arriving.
-        V20OpportunityEngineInsightsCard(snapshot)
+        V20OpportunityEngineInsightsCard(snapshot, onCreateProject)
         return
     }
 
@@ -180,7 +181,7 @@ internal fun V20InsightsFoundationCard(
     }
 
     Spacer(Modifier.height(10.dp))
-    V20OpportunityEngineInsightsCard(snapshot)
+    V20OpportunityEngineInsightsCard(snapshot, onCreateProject)
 }
 
 private fun statusText(label: String, state: YouTubeDatasetState?): String = when (state) {

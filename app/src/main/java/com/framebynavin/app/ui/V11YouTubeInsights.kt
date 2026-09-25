@@ -364,6 +364,7 @@ internal fun V11InsightsScreen(
                     links = links,
                     foundationRevision = foundationRevision,
                     foundationLoading = deepInsightsRefreshing,
+                    onCreateProject = onAdd,
                     onLinkVideo = { selectedVideo = it },
                 )
             }

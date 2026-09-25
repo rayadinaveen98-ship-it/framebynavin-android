@@ -41,6 +41,7 @@ internal fun V172InsightsBody(
     links: Map<String, String>,
     foundationRevision: Int = 0,
     foundationLoading: Boolean = false,
+    onCreateProject: () -> Unit = {},
     onLinkVideo: (YouTubeVideoSnapshot) -> Unit,
 ) {
     var tabName by rememberSaveable { mutableStateOf(V172InsightsTab.OVERVIEW.name) }
@@ -62,6 +63,7 @@ internal fun V172InsightsBody(
             links = links,
             foundationRevision = foundationRevision,
             foundationLoading = foundationLoading,
+            onCreateProject = onCreateProject,
             onVideo = { detailVideoId = it.videoId },
             onDetail = { insightDetail = it },
         )
@@ -141,12 +143,13 @@ private fun V172Overview(
     links: Map<String, String>,
     foundationRevision: Int,
     foundationLoading: Boolean,
+    onCreateProject: () -> Unit,
     onVideo: (YouTubeVideoSnapshot) -> Unit,
     onDetail: (V20InsightsDrilldownRequest) -> Unit,
 ) {
     V172PulseCard(snapshot, onDetail)
     Spacer(Modifier.height(10.dp))
-    V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading)
+    V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading, onCreateProject = onCreateProject)
     Spacer(Modifier.height(18.dp))
 
     Text("THIS IS WHAT MATTERS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
@@ -259,6 +262,15 @@ private fun V172SignalCard(signal: YouTubeInsightSignal, onClick: () -> Unit) {
             Text(signal.title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(3.dp))
             Text(signal.body, color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+            Spacer(Modifier.height(7.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${signal.confidence}% CONFIDENCE", color = accent.copy(alpha = .88f), fontSize = 6.8.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.ChevronRight, "Open evidence", tint = MutedText, modifier = Modifier.size(14.dp))
+            }
+            signal.action?.let { action ->
+                Spacer(Modifier.height(4.dp))
+                Text("NEXT · $action", color = ProjectorIvory.copy(alpha = .86f), fontSize = 8.1.sp, lineHeight = 11.5.sp, fontWeight = FontWeight.Medium)
+            }
         }
     }
 }
@@ -446,6 +458,7 @@ private fun V172VideoDetailDialog(
     onLink: () -> Unit,
 ) {
     val video = performance.video
+    var showDeepAnalytics by rememberSaveable(video.videoId) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -487,7 +500,30 @@ private fun V172VideoDetailDialog(
                 }
                 linkedTask?.let { task ->
                     Spacer(Modifier.height(12.dp))
-                    V20VideoPostmortemCard(task = task, video = video, windowDays = windowDays)
+                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF171719), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text("QUICK READ", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black)
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                when {
+                                    performance.baselineMultiple >= 1.5 -> "This is clearly outperforming your recent-video baseline. Study the promise, opening and packaging before making a related follow-up."
+                                    performance.baselineMultiple in 0.01..0.75 -> "This is below your recent-video baseline. Check packaging and early pacing before repeating the same approach."
+                                    video.netSubscribers > 0 -> "Performance is near your baseline, but it is converting some viewers into subscribers. Preserve what earns that commitment."
+                                    else -> "Performance is near your current baseline. Collect more evidence before making a large strategy change."
+                                },
+                                color = ProjectorIvory,
+                                fontSize = 8.7.sp,
+                                lineHeight = 12.5.sp,
+                            )
+                            TextButton(onClick = { showDeepAnalytics = !showDeepAnalytics }, contentPadding = PaddingValues(0.dp)) {
+                                Text(if (showDeepAnalytics) "HIDE DEEP ANALYTICS" else "VIEW DEEP ANALYTICS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
+                    if (showDeepAnalytics) {
+                        Spacer(Modifier.height(8.dp))
+                        V20VideoPostmortemCard(task = task, video = video, windowDays = windowDays)
+                    }
                 }
             }
         },
