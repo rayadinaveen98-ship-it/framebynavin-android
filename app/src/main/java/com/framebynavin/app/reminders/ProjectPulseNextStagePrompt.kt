@@ -12,6 +12,7 @@ import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
+import com.framebynavin.app.widget.CreatorWidgetContract
 
 /** Stage transition prompts that never mutate workflow by themselves. */
 object ProjectPulseNextStagePrompt {
@@ -97,6 +98,8 @@ object ProjectPulseNextStagePrompt {
         context,
         taskId.hashCode() xor 0x7399,
         Intent(context, MainActivity::class.java)
+            .setAction(CreatorWidgetContract.ACTION_OPEN_STUDIO)
+            .putExtra(CreatorWidgetContract.EXTRA_TASK_ID, taskId)
             .putExtra(ReminderConstants.EXTRA_TASK_ID, taskId)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
