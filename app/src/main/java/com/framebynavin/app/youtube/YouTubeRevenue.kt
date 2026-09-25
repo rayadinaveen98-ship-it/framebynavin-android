@@ -23,6 +23,17 @@ data class YouTubeRevenuePoint(
     val estimatedRevenue: Double,
 )
 
+data class YouTubeRevenueContentRow(
+    val videoId: String,
+    val views: Long,
+    val estimatedRevenue: Double,
+    val estimatedAdRevenue: Double,
+    val monetizedPlaybacks: Long,
+) {
+    val calculatedRpm: Double
+        get() = if (views > 0L) estimatedRevenue * 1000.0 / views.toDouble() else 0.0
+}
+
 data class YouTubeRevenueSnapshot(
     val period: YouTubeRevenuePeriod,
     val startDate: String,
@@ -36,6 +47,7 @@ data class YouTubeRevenueSnapshot(
     val monetizedPlaybacks: Long,
     val adImpressions: Long,
     val trend: List<YouTubeRevenuePoint>,
+    val content: List<YouTubeRevenueContentRow> = emptyList(),
     val fetchedAtMillis: Long,
 ) {
     val calculatedRpm: Double
@@ -71,6 +83,24 @@ class YouTubeRevenueClient {
             val day = row["day"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
             YouTubeRevenuePoint(day, row.double("estimatedRevenue"))
         }
+        val content = queryReport(
+            accessToken,
+            common + mapOf(
+                "dimensions" to "video",
+                "metrics" to "views,estimatedRevenue,estimatedAdRevenue,monetizedPlaybacks",
+                "sort" to "-estimatedRevenue",
+                "maxResults" to "50",
+            ),
+        ).mapNotNull { row ->
+            val videoId = row["video"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            YouTubeRevenueContentRow(
+                videoId = videoId,
+                views = row.long("views"),
+                estimatedRevenue = row.double("estimatedRevenue"),
+                estimatedAdRevenue = row.double("estimatedAdRevenue"),
+                monetizedPlaybacks = row.long("monetizedPlaybacks"),
+            )
+        }
         return YouTubeRevenueSnapshot(
             period = period,
             startDate = range.first.toString(),
@@ -84,6 +114,7 @@ class YouTubeRevenueClient {
             monetizedPlaybacks = summary.long("monetizedPlaybacks"),
             adImpressions = summary.long("adImpressions"),
             trend = trend,
+            content = content,
             fetchedAtMillis = System.currentTimeMillis(),
         )
     }
@@ -96,7 +127,6 @@ class YouTubeRevenueClient {
             YouTubeRevenuePeriod.NINETY_DAYS -> end.minusDays(89)
             YouTubeRevenuePeriod.THIS_MONTH -> today.withDayOfMonth(1)
         }
-        // On the first day of a month there is no completed day in the current month yet.
         return if (start.isAfter(end)) start to start else start to end
     }
 
@@ -122,9 +152,7 @@ class YouTubeRevenueClient {
     }
 
     private fun getJson(params: Map<String, String>, token: String): JSONObject {
-        val query = params.entries.joinToString("&") { (key, value) ->
-            encode(key) + "=" + encode(value)
-        }
+        val query = params.entries.joinToString("&") { (key, value) -> encode(key) + "=" + encode(value) }
         val connection = (URL("$ANALYTICS_API/reports?$query").openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 15_000
@@ -200,6 +228,18 @@ class YouTubeRevenueStore(context: Context) {
                 put(JSONObject().put("date", point.date).put("estimatedRevenue", point.estimatedRevenue))
             }
         })
+        .put("content", JSONArray().apply {
+            snapshot.content.forEach { row ->
+                put(
+                    JSONObject()
+                        .put("videoId", row.videoId)
+                        .put("views", row.views)
+                        .put("estimatedRevenue", row.estimatedRevenue)
+                        .put("estimatedAdRevenue", row.estimatedAdRevenue)
+                        .put("monetizedPlaybacks", row.monetizedPlaybacks),
+                )
+            }
+        })
 
     private fun decode(root: JSONObject): YouTubeRevenueSnapshot {
         val trendJson = root.optJSONArray("trend") ?: JSONArray()
@@ -207,6 +247,22 @@ class YouTubeRevenueStore(context: Context) {
             for (index in 0 until trendJson.length()) {
                 val item = trendJson.optJSONObject(index) ?: continue
                 add(YouTubeRevenuePoint(item.optString("date"), item.optDouble("estimatedRevenue")))
+            }
+        }
+        val contentJson = root.optJSONArray("content") ?: JSONArray()
+        val content = buildList {
+            for (index in 0 until contentJson.length()) {
+                val item = contentJson.optJSONObject(index) ?: continue
+                val videoId = item.optString("videoId").takeIf(String::isNotBlank) ?: continue
+                add(
+                    YouTubeRevenueContentRow(
+                        videoId = videoId,
+                        views = item.optLong("views"),
+                        estimatedRevenue = item.optDouble("estimatedRevenue"),
+                        estimatedAdRevenue = item.optDouble("estimatedAdRevenue"),
+                        monetizedPlaybacks = item.optLong("monetizedPlaybacks"),
+                    ),
+                )
             }
         }
         return YouTubeRevenueSnapshot(
@@ -223,6 +279,7 @@ class YouTubeRevenueStore(context: Context) {
             monetizedPlaybacks = root.optLong("monetizedPlaybacks"),
             adImpressions = root.optLong("adImpressions"),
             trend = trend,
+            content = content,
             fetchedAtMillis = root.optLong("fetchedAtMillis"),
         )
     }
