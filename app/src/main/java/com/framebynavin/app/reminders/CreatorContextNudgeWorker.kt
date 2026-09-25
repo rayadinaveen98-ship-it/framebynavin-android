@@ -8,6 +8,8 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -68,6 +70,7 @@ class CreatorContextNudgeWorker(
 
     companion object {
         private const val WORK_NAME = "creator-context-nudges-v1"
+        private const val WORK_NOW_NAME = "creator-context-nudges-now-v1"
         private const val CHANNEL_ID = "creator_context_nudges"
         private const val PREFS = "creator_context_nudge_state"
         private const val KEY_LAST_NUDGE = "last_key"
@@ -80,6 +83,15 @@ class CreatorContextNudgeWorker(
             WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
                 WORK_NAME,
                 ExistingPeriodicWorkPolicy.UPDATE,
+                request,
+            )
+        }
+
+        fun enqueueNow(context: Context) {
+            val request = OneTimeWorkRequestBuilder<CreatorContextNudgeWorker>().build()
+            WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+                WORK_NOW_NAME,
+                ExistingWorkPolicy.REPLACE,
                 request,
             )
         }
