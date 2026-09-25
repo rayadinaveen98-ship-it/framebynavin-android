@@ -22,6 +22,8 @@ data class YouTubeInsightSignal(
     val title: String,
     val body: String,
     val tone: YouTubeInsightTone,
+    val action: String? = null,
+    val confidence: Int = 70,
 )
 
 data class YouTubeFormatPerformance(
@@ -174,6 +176,8 @@ object YouTubeInsightEngine {
                 "Learning your normal 24-hour pace",
                 "Your creator system is learning your normal 24-hour pace. Refresh YouTube over time and this card will show what is rising, steady or slowing down.",
                 YouTubeInsightTone.NEUTRAL,
+                action = "Keep collecting channel snapshots until Backlot has enough evidence to compare your normal pace.",
+                confidence = 55,
             )
         } else {
             val changeText = pulse24h.viewsChangePercent?.let { " · ${if (it > 0) "+" else ""}$it% vs before" }.orEmpty()
@@ -187,6 +191,12 @@ object YouTubeInsightEngine {
                     YouTubePulseMomentum.COOLING -> YouTubeInsightTone.WATCH
                     YouTubePulseMomentum.STEADY -> YouTubeInsightTone.NEUTRAL
                 },
+                action = when (pulse24h.momentum) {
+                    YouTubePulseMomentum.RISING -> "Open the strongest mover and identify the repeatable topic, packaging or format signal."
+                    YouTubePulseMomentum.COOLING -> "Check whether the slowdown is channel-wide or concentrated in the newest uploads before changing strategy."
+                    YouTubePulseMomentum.STEADY -> "Stay consistent and wait for a stronger movement before making a major change."
+                },
+                confidence = if (pulse24h.sampleHours >= 20) 90 else 78,
             )
             YouTubeOpportunityEngine.build(pulse24h, ideas).forEach { alert ->
                 signals += YouTubeInsightSignal(
@@ -194,6 +204,8 @@ object YouTubeInsightEngine {
                     alert.title,
                     if (alert.ideaId != null) "${alert.body} Open Idea Vault and build this idea." else alert.body,
                     alert.tone,
+                    action = "Turn this signal into one focused follow-up experiment.",
+                    confidence = 78,
                 )
             }
         }
@@ -207,12 +219,16 @@ object YouTubeInsightEngine {
                     top.video.title,
                     "This video is doing much better than your recent-video average and is driving ${top.viewSharePercent}% of views in this period.",
                     YouTubeInsightTone.POSITIVE,
+                    action = "Study this video's promise, opening and packaging, then build a related follow-up without copying it.",
+                    confidence = 90,
                 )
                 top.viewSharePercent >= 35 -> signals += YouTubeInsightSignal(
                     "TOP VIDEO",
                     top.video.title,
                     "This video is driving ${top.viewSharePercent}% of your views in this period. Look at what worked before changing direction.",
                     YouTubeInsightTone.OPPORTUNITY,
+                    action = "Use this as the reference point for your next content decision.",
+                    confidence = 85,
                 )
             }
         }
@@ -225,12 +241,44 @@ object YouTubeInsightEngine {
                 "Average view time fell ${abs(avgChange)}%",
                 "People are leaving sooner than before. Check your opening and pacing.",
                 YouTubeInsightTone.WATCH,
+                action = "Compare the first minute of recent uploads with your strongest retention performers before changing the full format.",
+                confidence = 86,
             )
             else if (avgChange >= 8) signals += YouTubeInsightSignal(
                 "VIEWERS STAYED LONGER",
                 "Average view time improved ${avgChange}%",
                 "People are staying longer. Check what your strongest videos did well.",
                 YouTubeInsightTone.POSITIVE,
+                action = "Identify which recent videos improved the average and reuse the strongest pacing pattern.",
+                confidence = 86,
+            )
+
+            if (snapshot.views > 0L && previous.views > 0L) {
+                val currentRate = snapshot.netSubscribers * 1000.0 / snapshot.views.toDouble()
+                val previousRate = previous.netSubscribers * 1000.0 / previous.views.toDouble()
+                val rateDelta = currentRate - previousRate
+                if (abs(rateDelta) >= 0.15) {
+                    signals += YouTubeInsightSignal(
+                        "SUBSCRIBER CONVERSION",
+                        if (rateDelta > 0) "More viewers are becoming subscribers" else "Subscriber conversion softened",
+                        "${String.format(Locale.US, "%.2f", currentRate)} net subscribers per 1K views in this ${snapshot.windowDays}-day range vs ${String.format(Locale.US, "%.2f", previousRate)} before.",
+                        if (rateDelta > 0) YouTubeInsightTone.POSITIVE else YouTubeInsightTone.WATCH,
+                        action = if (rateDelta > 0) "Study which videos earned the most subscribers per 1K views and repeat the audience promise." else "Inspect recent videos for weaker audience-fit or delayed value before changing your upload cadence.",
+                        confidence = 92,
+                    )
+                }
+            }
+        }
+
+        val concentrationLeader = videos.firstOrNull()
+        if (concentrationLeader != null && concentrationLeader.viewSharePercent >= 40) {
+            signals += YouTubeInsightSignal(
+                "CHANNEL CONCENTRATION",
+                "One video is carrying ${concentrationLeader.viewSharePercent}% of period views",
+                "${concentrationLeader.video.title} is doing a large share of the work in this range.",
+                YouTubeInsightTone.OPPORTUNITY,
+                action = "Build a related follow-up while the audience signal is strong, but diversify so one upload is not carrying the channel.",
+                confidence = 90,
             )
         }
 
@@ -239,16 +287,20 @@ object YouTubeInsightEngine {
         if (bestFormat != null) signals += YouTubeInsightSignal(
             "WHAT'S WORKING",
             bestFormat.label,
-            "On average, this gets ${compact(bestFormat.viewsPerUpload)} views and ${watch(bestFormat.watchMinutesPerUpload)} watch time per connected video. Consider another project like this.",
+            "On average, this gets ${compact(bestFormat.viewsPerUpload)} views and ${watch(bestFormat.watchMinutesPerUpload)} watch time per connected video.",
             YouTubeInsightTone.OPPORTUNITY,
+            action = "Consider another project in this format, then compare whether the result repeats.",
+            confidence = if (bestFormat.uploadCount >= 3) 88 else 70,
         )
 
         val creator = creatorSummary(tasks, ideas, links)
-        if (signals.size < 5 && creator.bottleneckCount >= 2) signals += YouTubeInsightSignal(
+        if (signals.size < 6 && creator.bottleneckCount >= 2) signals += YouTubeInsightSignal(
             "WORKFLOW",
             "${creator.bottleneckCount} active projects share the same lane",
             "You have several active projects around ${creator.bottleneckLabel ?: "production"}. Finishing those may help more than starting something new.",
             YouTubeInsightTone.NEUTRAL,
+            action = "Finish one of the blocked projects before adding another project to the same lane.",
+            confidence = 82,
         )
 
         if (signals.isEmpty()) signals += YouTubeInsightSignal(
@@ -256,8 +308,10 @@ object YouTubeInsightEngine {
             "Keep refreshing and connecting projects",
             "Insights get more useful as you connect published videos to the projects that made them.",
             YouTubeInsightTone.NEUTRAL,
+            action = "Connect the next published video to its Backlot project so future recommendations have stronger evidence.",
+            confidence = 55,
         )
-        return signals.distinctBy { it.kicker to it.title }.take(5)
+        return signals.distinctBy { it.kicker to it.title }.take(6)
     }
 
     private fun visibleVideos(snapshot: YouTubeAnalyticsSnapshot): List<YouTubeVideoSnapshot> =
