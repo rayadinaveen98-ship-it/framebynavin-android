@@ -53,12 +53,10 @@ internal fun V17AutomationCenterScreen(
     var prefs by remember { mutableStateOf(prefStore.snapshot()) }
     var runRequested by remember { mutableStateOf(false) }
     var helpRunRequested by remember { mutableStateOf(false) }
-    var nudgesEnabled by remember { mutableStateOf(contextNudgesEnabled) }
-    val notificationsReady = ReminderNotifications.canPost(context)
-
-    LaunchedEffect(contextNudgesEnabled) {
-        nudgesEnabled = contextNudgesEnabled
+    var nudgesEnabled by remember(contextNudgesEnabled) {
+        mutableStateOf(settingsStore.snapshot().contextNudgesEnabled)
     }
+    val notificationsReady = ReminderNotifications.canPost(context)
 
     val now = System.currentTimeMillis()
     val horizon = now + 14L * 24L * 60L * 60_000L
