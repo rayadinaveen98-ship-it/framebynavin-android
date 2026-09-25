@@ -1,0 +1,65 @@
+name: Insights V2 Final Validation
+
+on:
+  push:
+    branches:
+      - feature/v145-insights-v2-major
+    paths:
+      - .github/workflows/insights-v2-final-validation.yml
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v145-insights-v2-major
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle :app:testDebugUnitTest --stacktrace 2>&1 | tee unit-tests.log
+
+      - name: Lint
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle :app:lintDebug --stacktrace 2>&1 | tee lint.log
+
+      - name: Compile instrumentation APK
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebugAndroidTest --stacktrace 2>&1 | tee instrumentation.log
+
+      - name: Assemble debug APK
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug --stacktrace 2>&1 | tee assemble.log
+
+      - name: Upload validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Insights-V2-Validation-Logs
+          path: '*.log'
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Insights-V2-Major
+          path: app/build/outputs/apk/debug/app-debug.apk
