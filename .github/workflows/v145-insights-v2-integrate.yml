@@ -1,0 +1,147 @@
+name: V145 Insights V2 Integrate
+
+on:
+  push:
+    branches:
+      - feature/v145-insights-v2
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v145-insights-v2-integrate
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    if: ${{ !contains(github.event.head_commit.message, '[insights-v2-integrated]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feature/v145-insights-v2
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Apply guarded Insights V2 phase-one patch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}, found {count}: {old[:100]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          v11 = "app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt"
+          replace_once(
+              v11,
+              "    var syncing by remember { mutableStateOf(false) }\n    var revoking by remember { mutableStateOf(false) }",
+              "    var syncing by remember { mutableStateOf(false) }\n    // Visible range loading ends as soon as the core YouTube report is published.\n    // Deeper audience/reach enrichment may continue without making the loaded range look stuck.\n    var coreLoading by remember { mutableStateOf(false) }\n    var revoking by remember { mutableStateOf(false) }",
+          )
+          replace_once(
+              v11,
+              "            syncing = false\n            selectedVideo = null",
+              "            syncing = false\n            coreLoading = false\n            selectedVideo = null",
+          )
+          replace_once(
+              v11,
+              "        syncing = false\n        authError = error",
+              "        syncing = false\n        coreLoading = false\n        authError = error",
+          )
+          replace_once(
+              v11,
+              "                if (store.save(fresh, request) && isActive(request)) {\n                    snapshot = fresh\n                    links = store.links()",
+              "                if (store.save(fresh, request) && isActive(request)) {\n                    snapshot = fresh\n                    coreLoading = false\n                    links = store.links()",
+          )
+          replace_once(
+              v11,
+              "                    authError = ytFriendlyError(error)\n                }\n            } finally {",
+              "                    coreLoading = false\n                    authError = ytFriendlyError(error)\n                }\n            } finally {",
+          )
+          replace_once(
+              v11,
+              "                    syncing = false\n                }\n            }",
+              "                    syncing = false\n                    coreLoading = false\n                }\n            }",
+          )
+          replace_once(
+              v11,
+              "        syncing = true\n        authError = null\n        client.authorize(YouTubeAuthorization.request(selectAccount))",
+              "        syncing = true\n        coreLoading = store.load(days) == null || snapshot?.windowDays != days\n        authError = null\n        client.authorize(YouTubeAuthorization.request(selectAccount))",
+          )
+          replace_once(
+              v11,
+              "        syncing = false\n        revoking = true",
+              "        syncing = false\n        coreLoading = false\n        revoking = true",
+          )
+          replace_once(
+              v11,
+              "                    syncing = syncing || revoking,\n                    windowDays = data.windowDays,",
+              "                    syncing = coreLoading || revoking,\n                    windowDays = windowDays,",
+          )
+          replace_once(
+              v11,
+              "                            val cached = store.load(days)\n                            if (cached != null) snapshot = cached else authorize(false, days)",
+              "                            val cached = store.load(days)\n                            if (cached != null) {\n                                snapshot = cached\n                                coreLoading = false\n                            } else {\n                                coreLoading = true\n                                authorize(false, days)\n                            }",
+          )
+
+          v172 = "app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt"
+          replace_once(
+              v172,
+              "private enum class V172InsightsTab { OVERVIEW, CONTENT, CREATOR }",
+              "private enum class V172InsightsTab { OVERVIEW, CONTENT, REVENUE, CREATOR }",
+          )
+          replace_once(
+              v172,
+              "        V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }\n        V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }",
+              "        V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }\n        V172InsightsTab.REVENUE -> V144YouTubeRevenueIntegration(snapshot)\n        V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }",
+          )
+          replace_once(
+              v172,
+              '                V172Mini("SUBSCRIBERS", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))',
+              '                V172Mini("SUBS / 1K VIEWS", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))',
+          )
+
+          foundation = "app/src/main/java/com/framebynavin/app/ui/V20InsightsFoundationUi.kt"
+          replace_once(
+              foundation,
+              "    // Revenue is intentionally independent of the deep audience/foundation datasets. A creator\n    // should be able to enable and inspect monetary analytics even while those reports are empty.\n    if (foundation == null) {\n        V144YouTubeRevenueIntegration(snapshot)\n        return\n    }",
+              "    // Deep audience/reach reports arrive after core analytics. Keep the layout stable while\n    // they load so Channel Signals and Next Move do not pop into existence after sign-in.\n    if (foundation == null) {\n        Surface(\n            modifier = Modifier.fillMaxWidth(),\n            shape = RoundedCornerShape(18.dp),\n            color = Color(0xFF141619),\n            border = BorderStroke(1.dp, CinemaLine),\n        ) {\n            Column(Modifier.padding(14.dp)) {\n                Text(\"CHANNEL SIGNALS\", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)\n                Spacer(Modifier.height(3.dp))\n                Text(\"Loading deeper audience signals…\", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)\n                Spacer(Modifier.height(5.dp))\n                Text(\"Core analytics are ready. Audience, retention and reach are still enriching this range.\", color = MutedText, fontSize = 8.4.sp, lineHeight = 12.sp)\n            }\n        }\n        Spacer(Modifier.height(10.dp))\n        V20OpportunityEngineInsightsCard(snapshot)\n        return\n    }",
+          )
+          replace_once(
+              foundation,
+              "    Spacer(Modifier.height(10.dp))\n    V20OpportunityEngineInsightsCard(snapshot)\n    Spacer(Modifier.height(10.dp))\n    V144YouTubeRevenueIntegration(snapshot)",
+              "    Spacer(Modifier.height(10.dp))\n    V20OpportunityEngineInsightsCard(snapshot)",
+          )
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Debug compile
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Commit integrated source
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No source changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V20InsightsFoundationUi.kt
+          git commit -m "feat(insights): phase one reliability and revenue tab [insights-v2-integrated]"
+          git push origin HEAD:feature/v145-insights-v2
