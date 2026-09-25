@@ -100,7 +100,7 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Run V145 connected UI, guide asset and revenue smoke tests
+      - name: Run V145 connected UI, guide asset, revenue and deep-link smoke tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -111,3 +111,4 @@ jobs:
             gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V132ReleaseBlockerUiTest --stacktrace
             gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V145GuideAssetDecodeTest --stacktrace
             gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V145RevenueAccessUiTest --stacktrace
+            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.reminders.V145ProjectPulseDeepLinkTest --stacktrace
