@@ -1,0 +1,45 @@
+name: Insights V2 Compile Fix
+
+on:
+  push:
+    branches:
+      - feature/v145-insights-v2-major
+    paths:
+      - .github/workflows/insights-v2-compile-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v145-insights-v2-major
+          fetch-depth: 0
+      - name: Fix opportunity surface parameter order
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt')
+          s = p.read_text()
+          old = '''    onBrainControl: ((String, CreatorBrainLearningControl) -> Unit)?,
+    onAction: ((CreatorOpportunity) -> Unit)?,
+    actionLabelOverride: String? = null,
+) {'''
+          new = '''    onBrainControl: ((String, CreatorBrainLearningControl) -> Unit)?,
+    actionLabelOverride: String? = null,
+    onAction: ((CreatorOpportunity) -> Unit)?,
+) {'''
+          if s.count(old) != 1:
+              raise SystemExit('Opportunity surface signature did not match expected source')
+          p.write_text(s.replace(old, new, 1))
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+          git diff --cached --check
+          git commit -m "fix(insights): keep opportunity action as trailing lambda"
+          git push origin HEAD:feature/v145-insights-v2-major
