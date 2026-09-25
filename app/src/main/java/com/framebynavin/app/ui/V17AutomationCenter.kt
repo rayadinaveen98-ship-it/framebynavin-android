@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorAutomationPreferencesStore
 import com.framebynavin.app.data.CreatorAutomationStateStore
+import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorRoutine
 import com.framebynavin.app.data.CreatorRoutinePolicy
 import com.framebynavin.app.data.CreatorTask
@@ -27,7 +28,9 @@ import com.framebynavin.app.data.PostPublishCheckpointStatus
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.data.WeeklyScheduleSlot
 import com.framebynavin.app.reminders.CreatorAutoPlanWorker
+import com.framebynavin.app.reminders.CreatorContextNudgeWorker
 import com.framebynavin.app.reminders.CreatorRoutineWorker
+import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -46,8 +49,17 @@ internal fun V17AutomationCenterScreen(
     val context = LocalContext.current
     val prefStore = remember { CreatorAutomationPreferencesStore(context.applicationContext) }
     val stateStore = remember { CreatorAutomationStateStore(context.applicationContext) }
+    val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     var prefs by remember { mutableStateOf(prefStore.snapshot()) }
     var runRequested by remember { mutableStateOf(false) }
+    var helpRunRequested by remember { mutableStateOf(false) }
+    var nudgesEnabled by remember { mutableStateOf(contextNudgesEnabled) }
+    val notificationsReady = ReminderNotifications.canPost(context)
+
+    LaunchedEffect(contextNudgesEnabled) {
+        nudgesEnabled = contextNudgesEnabled
+    }
+
     val now = System.currentTimeMillis()
     val horizon = now + 14L * 24L * 60L * 60_000L
     val generated = tasks.count {
@@ -138,19 +150,34 @@ internal fun V17AutomationCenterScreen(
 
             Spacer(Modifier.height(18.dp))
             Text("AUTOMATIC HELP", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("Turn on proactive project help, then Backlot checks your active work in the background.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
             Spacer(Modifier.height(9.dp))
             V17StatusRow(
                 icon = Icons.Outlined.Share,
                 title = "Post-publish checkpoints",
-                body = if (postPublish > 0) "$postPublish post-publish actions waiting" else "Keeps 24-hour and 7-day performance reviews attached to the project you published",
+                body = if (postPublish > 0) "$postPublish post-publish actions waiting" else "Automatic after publishing · keeps 24-hour and 7-day reviews attached to the project",
                 enabled = true,
             )
             Spacer(Modifier.height(7.dp))
-            V17StatusRow(
-                icon = Icons.Outlined.NotificationsActive,
-                title = "Helpful reminders",
-                body = if (contextNudgesEnabled) "On · warns you when a project may need attention" else "Off · turn this on in Settings for extra project reminders",
-                enabled = contextNudgesEnabled,
+            V17AutomaticHelpRow(
+                enabled = nudgesEnabled,
+                notificationsReady = notificationsReady,
+                checkRequested = helpRunRequested,
+                onEnabledChange = { enabled ->
+                    settingsStore.setContextNudgesEnabled(enabled)
+                    nudgesEnabled = enabled
+                    helpRunRequested = false
+                    if (enabled) {
+                        CreatorContextNudgeWorker.ensurePeriodic(context)
+                        CreatorContextNudgeWorker.enqueueNow(context)
+                        helpRunRequested = true
+                    }
+                },
+                onCheckNow = {
+                    CreatorContextNudgeWorker.ensurePeriodic(context)
+                    CreatorContextNudgeWorker.enqueueNow(context)
+                    helpRunRequested = true
+                },
             )
 
             Spacer(Modifier.height(20.dp))
@@ -221,6 +248,56 @@ private fun V17StatusRow(
                 Text(body, color = MutedText, fontSize = 8.6.sp, lineHeight = 12.sp)
             }
             Text(if (enabled) "ON" else "OFF", color = if (enabled) SuccessGreen else MutedText, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+@Composable
+private fun V17AutomaticHelpRow(
+    enabled: Boolean,
+    notificationsReady: Boolean,
+    checkRequested: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onCheckNow: () -> Unit,
+) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, if (enabled) RecRed.copy(alpha = .40f) else CinemaLine)) {
+        Column(Modifier.padding(13.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.NotificationsActive, null, tint = if (enabled) RecRed else MutedText, modifier = Modifier.size(19.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Helpful reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        when {
+                            !notificationsReady -> "Notification permission is off · enable it in Backlot Settings for alerts"
+                            enabled -> "On · Backlot checks active projects and warns you when something needs attention"
+                            else -> "Off · enable proactive project checks"
+                        },
+                        color = MutedText,
+                        fontSize = 8.6.sp,
+                        lineHeight = 12.sp,
+                    )
+                }
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onEnabledChange,
+                    colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                )
+            }
+            if (enabled) {
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (checkRequested) "Project check queued" else "Background check runs automatically",
+                        color = if (checkRequested) SuccessGreen else MutedText,
+                        fontSize = 8.3.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onCheckNow) {
+                        Text("CHECK NOW", color = RecRed, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
         }
     }
 }
