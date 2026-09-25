@@ -63,3 +63,5 @@ jobs:
         with:
           name: Backlot-Insights-V2-Major
           path: app/build/outputs/apk/debug/app-debug.apk
+
+# validation rerun after opportunity action signature fix
