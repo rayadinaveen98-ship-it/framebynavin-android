@@ -36,6 +36,7 @@ private data class GuidedCoachCopy(
     val eyebrow: String,
     val title: String,
     val body: String,
+    val speech: String,
     val primary: String,
     val secondary: String? = null,
     val icon: ImageVector,
@@ -59,7 +60,6 @@ private fun spotlightFor(step: CreatorGuidedTourStep): SpotlightSpec = when (ste
     CreatorGuidedTourStep.CONTROL -> SpotlightSpec(.78f, .74f, .17f, .14f, 54f)
 }
 
-/** Premium spotlight journey: the real product remains visible while only the target stays clear. */
 @Composable
 internal fun V20GuidedFirstRunCoach(
     step: CreatorGuidedTourStep,
@@ -75,13 +75,13 @@ internal fun V20GuidedFirstRunCoach(
     val spotlightBreath by spotlightMotion.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1350, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(1050, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "spotlightBreathValue",
     )
-    val spotX by animateFloatAsState(spot.x, tween(360, easing = FastOutSlowInEasing), label = "spotX")
-    val spotY by animateFloatAsState(spot.y, tween(360, easing = FastOutSlowInEasing), label = "spotY")
-    val spotW by animateFloatAsState(spot.width, tween(360, easing = FastOutSlowInEasing), label = "spotW")
-    val spotH by animateFloatAsState(spot.height, tween(360, easing = FastOutSlowInEasing), label = "spotH")
+    val spotX by animateFloatAsState(spot.x, tween(320, easing = FastOutSlowInEasing), label = "spotX")
+    val spotY by animateFloatAsState(spot.y, tween(320, easing = FastOutSlowInEasing), label = "spotY")
+    val spotW by animateFloatAsState(spot.width, tween(320, easing = FastOutSlowInEasing), label = "spotW")
+    val spotH by animateFloatAsState(spot.height, tween(320, easing = FastOutSlowInEasing), label = "spotH")
 
     Box(Modifier.fillMaxSize()) {
         Canvas(
@@ -89,8 +89,8 @@ internal fun V20GuidedFirstRunCoach(
                 .fillMaxSize()
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
         ) {
-            drawRect(CinemaBlack.copy(alpha = .76f))
-            val breathing = 2.5f + spotlightBreath * 3.5f
+            drawRect(CinemaBlack.copy(alpha = .89f))
+            val breathing = 4f + spotlightBreath * 6f
             val left = size.width * spotX - breathing
             val top = size.height * spotY - breathing
             val width = size.width * spotW + breathing * 2f
@@ -103,11 +103,18 @@ internal fun V20GuidedFirstRunCoach(
                 blendMode = BlendMode.Clear,
             )
             drawRoundRect(
-                color = RecRed.copy(alpha = .34f + spotlightBreath * .28f),
+                color = RecRed.copy(alpha = .24f + spotlightBreath * .30f),
+                topLeft = Offset(left - 4f, top - 4f),
+                size = Size(width + 8f, height + 8f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(spot.corner + breathing + 4f, spot.corner + breathing + 4f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 5.5f + spotlightBreath * 3.5f),
+            )
+            drawRoundRect(
+                color = RecRed.copy(alpha = .72f + spotlightBreath * .26f),
                 topLeft = Offset(left, top),
                 size = Size(width, height),
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(spot.corner + breathing, spot.corner + breathing),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.6f + spotlightBreath * 1.2f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.6f + spotlightBreath * 1.8f),
             )
         }
 
@@ -127,36 +134,49 @@ internal fun V20GuidedFirstRunCoach(
             val copy = guidedCopy(current, hasProjects)
             Column(Modifier.fillMaxWidth()) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     horizontalArrangement = if (pointRight) Arrangement.Start else Arrangement.End,
                     verticalAlignment = Alignment.Bottom,
                 ) {
-                    FrameGuideCompanion(
-                        pose = copy.pose,
-                        modifier = Modifier.size(width = 60.dp, height = 72.dp),
-                        pointRight = pointRight,
-                    )
+                    if (pointRight) {
+                        FrameGuideCompanion(
+                            pose = copy.pose,
+                            modifier = Modifier.size(width = 75.dp, height = 90.dp),
+                            pointRight = true,
+                        )
+                        Spacer(Modifier.width(7.dp))
+                        V145GuideSpeechBubble(copy.speech)
+                    } else {
+                        V145GuideSpeechBubble(copy.speech)
+                        Spacer(Modifier.width(7.dp))
+                        FrameGuideCompanion(
+                            pose = copy.pose,
+                            modifier = Modifier.size(width = 75.dp, height = 90.dp),
+                            pointRight = false,
+                        )
+                    }
                 }
 
+                Spacer(Modifier.height(4.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    color = CinemaSurfaceRaised.copy(alpha = if (VisualExperiencePrefs.isGlass) .82f else .96f),
-                    border = BorderStroke(1.dp, RecRed.copy(alpha = .38f)),
-                    shadowElevation = 18.dp,
+                    color = CinemaSurfaceRaised.copy(alpha = if (VisualExperiencePrefs.isGlass) .90f else .98f),
+                    border = BorderStroke(1.2.dp, RecRed.copy(alpha = .58f)),
+                    shadowElevation = 20.dp,
                 ) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             repeat(6) { index ->
                                 Box(
-                                    Modifier.weight(1f).height(if (index == current.ordinal) 3.dp else 2.dp)
+                                    Modifier.weight(1f).height(if (index == current.ordinal) 4.dp else 2.dp)
                                         .background(if (index <= current.ordinal) RecRed else CinemaLine, RoundedCornerShape(100.dp))
                                 )
                             }
                         }
                         Spacer(Modifier.height(9.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(Modifier.size(34.dp), RoundedCornerShape(11.dp), RecRed.copy(alpha = .13f)) {
+                            Surface(Modifier.size(34.dp), RoundedCornerShape(11.dp), RecRed.copy(alpha = .16f)) {
                                 Box(contentAlignment = Alignment.Center) { Icon(copy.icon, null, tint = RecRed, modifier = Modifier.size(18.dp)) }
                             }
                             Spacer(Modifier.width(9.dp))
@@ -169,7 +189,7 @@ internal fun V20GuidedFirstRunCoach(
                             }
                         }
                         Spacer(Modifier.height(6.dp))
-                        Text(copy.body, color = ProjectorIvory.copy(alpha = .72f), fontSize = 9.7.sp, lineHeight = 13.5.sp)
+                        Text(copy.body, color = ProjectorIvory.copy(alpha = .76f), fontSize = 9.7.sp, lineHeight = 13.5.sp)
                         Spacer(Modifier.height(9.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             copy.secondary?.let { label ->
@@ -198,11 +218,81 @@ internal fun V20GuidedFirstRunCoach(
     }
 }
 
+@Composable
+private fun V145GuideSpeechBubble(text: String) {
+    Surface(
+        modifier = Modifier.widthIn(min = 150.dp, max = 255.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = ProjectorIvory,
+        border = BorderStroke(1.dp, Color.Black.copy(alpha = .08f)),
+        shadowElevation = 10.dp,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            color = CinemaBlack,
+            fontSize = 10.sp,
+            lineHeight = 13.5.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
 private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): GuidedCoachCopy = when (step) {
-    CreatorGuidedTourStep.TODAY -> GuidedCoachCopy("TODAY", "Your command center", "Today shows the next thing worth your attention.", "SHOW IDEAS", icon = Icons.Outlined.Home, pose = FrameGuidePose.PRESENT)
-    CreatorGuidedTourStep.IDEAS -> GuidedCoachCopy("IDEA VAULT", "Capture before it disappears", "Use + for a quick thought. Organize it later.", "CAPTURE IDEA", "NEXT", Icons.Outlined.Lightbulb, FrameGuidePose.POINT)
-    CreatorGuidedTourStep.PROJECT -> GuidedCoachCopy("PROJECT", if (hasProjects) "Open a project" else "Build your first project", if (hasProjects) "Open one and I’ll follow you into the workspace." else "Create one now, or continue without one.", if (hasProjects) "OPEN PROJECT" else "CREATE PROJECT", if (hasProjects) null else "NOT NOW", Icons.Outlined.AddCircleOutline, FrameGuidePose.WALK)
-    CreatorGuidedTourStep.WORKSPACE -> GuidedCoachCopy("WORKSPACE", "Move work stage by stage", "Your project tools and progress stay together here.", "SHOW INSIGHTS", icon = Icons.Outlined.MovieEdit, pose = FrameGuidePose.WAVE)
-    CreatorGuidedTourStep.INSIGHTS -> GuidedCoachCopy("INSIGHTS", "Your creator brain", "Patterns and evidence help you decide what to improve next.", "SHOW CONTROL", icon = Icons.Outlined.Insights, pose = FrameGuidePose.THINK)
-    CreatorGuidedTourStep.CONTROL -> GuidedCoachCopy("CONTROL", "Fast actions live here", "Create, capture and manage the system from one place.", "FINISH TOUR", icon = Icons.Outlined.GridView, pose = FrameGuidePose.CELEBRATE)
+    CreatorGuidedTourStep.TODAY -> GuidedCoachCopy(
+        "HOME",
+        "Your command center",
+        "Home shows the next thing worth your attention.",
+        "Start here each day. Backlot surfaces what needs your attention first, so you don't have to hunt through the app.",
+        "SHOW IDEAS",
+        icon = Icons.Outlined.Home,
+        pose = FrameGuidePose.PRESENT,
+    )
+    CreatorGuidedTourStep.IDEAS -> GuidedCoachCopy(
+        "IDEA VAULT",
+        "Capture before it disappears",
+        "Use + for a quick thought. Organize it later.",
+        "Got a movie thought, hook or scene idea? Capture it immediately here. You can turn it into a project whenever it becomes worth making.",
+        "CAPTURE IDEA",
+        "NEXT",
+        Icons.Outlined.Lightbulb,
+        FrameGuidePose.POINT,
+    )
+    CreatorGuidedTourStep.PROJECT -> GuidedCoachCopy(
+        "PROJECT",
+        if (hasProjects) "Open a project" else "Build your first project",
+        if (hasProjects) "Open one and I’ll follow you into the workspace." else "Create one now, or continue without one.",
+        if (hasProjects) "A project keeps one piece of content together from idea to publish. Open one to see its exact next step." else "Create a project when an idea becomes real work. Backlot will guide it from planning to publish.",
+        if (hasProjects) "OPEN PROJECT" else "CREATE PROJECT",
+        if (hasProjects) null else "NOT NOW",
+        Icons.Outlined.AddCircleOutline,
+        FrameGuidePose.WALK,
+    )
+    CreatorGuidedTourStep.WORKSPACE -> GuidedCoachCopy(
+        "WORKSPACE",
+        "Move work stage by stage",
+        "Your project tools and progress stay together here.",
+        "This is where a project actually moves. Finish the current step, use its tools, then Backlot exposes the next useful action.",
+        "SHOW INSIGHTS",
+        icon = Icons.Outlined.MovieEdit,
+        pose = FrameGuidePose.WAVE,
+    )
+    CreatorGuidedTourStep.INSIGHTS -> GuidedCoachCopy(
+        "INSIGHTS",
+        "Your creator brain",
+        "Patterns and evidence help you decide what to improve next.",
+        "Connect YouTube to track performance, audience and revenue. Use the patterns here to decide what to repeat and what to change.",
+        "SHOW CONTROL",
+        icon = Icons.Outlined.Insights,
+        pose = FrameGuidePose.THINK,
+    )
+    CreatorGuidedTourStep.CONTROL -> GuidedCoachCopy(
+        "CONTROL",
+        "Fast actions live here",
+        "Create, capture and manage the system from one place.",
+        "Use this button whenever you need a fast action without leaving what you're doing—new project, quick capture and system controls live here.",
+        "FINISH TOUR",
+        icon = Icons.Outlined.GridView,
+        pose = FrameGuidePose.CELEBRATE,
+    )
 }
