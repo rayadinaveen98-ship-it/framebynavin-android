@@ -25,8 +25,9 @@ import com.framebynavin.app.youtube.YouTubeInsightsFoundationStore
 import com.framebynavin.app.youtube.YouTubeReachStore
 
 /**
- * Small, additive proof surface for Insights Foundation 2.0.
- * This is intentionally not the final Creator Intelligence redesign.
+ * V148 reliability rule: deep YouTube datasets may arrive after the core analytics snapshot, but
+ * the Insights layout must never collapse or hide cards while that happens. Channel Signals and
+ * Opportunity Engine therefore keep stable slots from the first cached/core render.
  */
 @Composable
 internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refreshRevision: Int = 0) {
@@ -35,9 +36,14 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refre
         YouTubeInsightsFoundationStore(context).load(snapshot.windowDays, snapshot.channel.channelId)
     }
 
-    // Revenue is intentionally independent of the deep audience/foundation datasets. A creator
-    // should be able to enable and inspect monetary analytics even while those reports are empty.
     if (foundation == null) {
+        V148FoundationLearningCard()
+        Spacer(Modifier.height(10.dp))
+        // Opportunity Engine can already use the core snapshot. Do not hide it just because the
+        // deeper audience/reach datasets have not finished yet.
+        V20OpportunityEngineInsightsCard(snapshot)
+        Spacer(Modifier.height(10.dp))
+        // Revenue consent/data is independent of Foundation and remains available immediately.
         V144YouTubeRevenueIntegration(snapshot)
         return
     }
@@ -128,6 +134,7 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refre
                     fontSize = 8.1.sp,
                     lineHeight = 12.sp,
                 )
+                else -> Unit
             }
         }
     }
@@ -136,6 +143,40 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refre
     V20OpportunityEngineInsightsCard(snapshot)
     Spacer(Modifier.height(10.dp))
     V144YouTubeRevenueIntegration(snapshot)
+}
+
+@Composable
+private fun V148FoundationLearningCard() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFF141619),
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text("CHANNEL SIGNALS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Spacer(Modifier.height(3.dp))
+                    Text("What your audience is telling you", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                }
+                Text("Learning", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            }
+            Spacer(Modifier.height(9.dp))
+            Text(
+                "Core channel analytics are ready. Backlot is loading deeper traffic, audience, retention, reach, device and geography signals in the background.",
+                color = MutedText,
+                fontSize = 8.6.sp,
+                lineHeight = 13.sp,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "These deeper datasets do not block the rest of Insights.",
+                color = ProjectorIvory.copy(alpha = .76f),
+                fontSize = 8.2.sp,
+            )
+        }
+    }
 }
 
 private fun statusText(label: String, state: YouTubeDatasetState?): String = when (state) {
