@@ -35,10 +35,25 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refre
         YouTubeInsightsFoundationStore(context).load(snapshot.windowDays, snapshot.channel.channelId)
     }
 
-    // Revenue is intentionally independent of the deep audience/foundation datasets. A creator
-    // should be able to enable and inspect monetary analytics even while those reports are empty.
+    // Deep audience/reach reports arrive after core analytics. Keep the layout stable while
+    // they load so Channel Signals and Next Move do not pop into existence after sign-in.
     if (foundation == null) {
-        V144YouTubeRevenueIntegration(snapshot)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = Color(0xFF141619),
+            border = BorderStroke(1.dp, CinemaLine),
+        ) {
+            Column(Modifier.padding(14.dp)) {
+                Text("CHANNEL SIGNALS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                Spacer(Modifier.height(3.dp))
+                Text("Loading deeper audience signals…", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(5.dp))
+                Text("Core analytics are ready. Audience, retention and reach are still enriching this range.", color = MutedText, fontSize = 8.4.sp, lineHeight = 12.sp)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        V20OpportunityEngineInsightsCard(snapshot)
         return
     }
 
@@ -134,8 +149,6 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot, refre
 
     Spacer(Modifier.height(10.dp))
     V20OpportunityEngineInsightsCard(snapshot)
-    Spacer(Modifier.height(10.dp))
-    V144YouTubeRevenueIntegration(snapshot)
 }
 
 private fun statusText(label: String, state: YouTubeDatasetState?): String = when (state) {

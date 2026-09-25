@@ -31,7 +31,7 @@ import com.framebynavin.app.youtube.*
 import java.util.Locale
 import kotlin.math.abs
 
-private enum class V172InsightsTab { OVERVIEW, CONTENT, CREATOR }
+private enum class V172InsightsTab { OVERVIEW, CONTENT, REVENUE, CREATOR }
 
 @Composable
 internal fun V172InsightsBody(
@@ -64,6 +64,7 @@ internal fun V172InsightsBody(
             onDetail = { insightDetail = it },
         )
         V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }
+        V172InsightsTab.REVENUE -> V144YouTubeRevenueIntegration(snapshot)
         V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }
     }
 
@@ -360,7 +361,7 @@ private fun V172FormatCard(rank: Int, format: YouTubeFormatPerformance) {
             }
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                V172Mini("SUBSCRIBERS", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))
+                V172Mini("SUBS / 1K VIEWS", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))
                 V172Mini("ENGAGEMENT", String.format(Locale.US, "%.1f", format.engagementPerThousandViews), Modifier.weight(1f))
                 V172Mini("AVG VIEW", v172Duration(format.averageViewDurationSeconds), Modifier.weight(1f))
             }

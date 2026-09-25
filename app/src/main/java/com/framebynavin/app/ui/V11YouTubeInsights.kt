@@ -66,6 +66,9 @@ internal fun V11InsightsScreen(
     var windowDays by rememberSaveable { mutableIntStateOf(28) }
     var snapshot by remember { mutableStateOf(store.load(windowDays) ?: store.loadAny()) }
     var syncing by remember { mutableStateOf(false) }
+    // Visible range loading ends as soon as the core YouTube report is published.
+    // Deeper audience/reach enrichment may continue without making the loaded range look stuck.
+    var coreLoading by remember { mutableStateOf(false) }
     var revoking by remember { mutableStateOf(false) }
     var authError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedVideo by remember { mutableStateOf<YouTubeVideoSnapshot?>(null) }
@@ -87,6 +90,7 @@ internal fun V11InsightsScreen(
             activeRequest = null
             pendingResolution = null
             syncing = false
+            coreLoading = false
             selectedVideo = null
         }
     }
@@ -117,6 +121,7 @@ internal fun V11InsightsScreen(
         activeRequest = null
         pendingResolution = null
         syncing = false
+        coreLoading = false
         authError = error
     }
 
@@ -130,6 +135,7 @@ internal fun V11InsightsScreen(
                 val fresh = withContext(Dispatchers.IO) { api.sync(token, days) }
                 if (store.save(fresh, request) && isActive(request)) {
                     snapshot = fresh
+                    coreLoading = false
                     links = store.links()
                     selectedVideo = null
                     withContext(Dispatchers.IO) {
@@ -172,6 +178,7 @@ internal fun V11InsightsScreen(
                         snapshot = null
                         selectedVideo = null
                     }
+                    coreLoading = false
                     authError = ytFriendlyError(error)
                 }
             } finally {
@@ -179,6 +186,7 @@ internal fun V11InsightsScreen(
                     activeRequest = null
                     pendingResolution = null
                     syncing = false
+                    coreLoading = false
                 }
             }
         }
@@ -211,6 +219,7 @@ internal fun V11InsightsScreen(
         activeRequest = request
         pendingResolution = null
         syncing = true
+        coreLoading = store.load(days) == null || snapshot?.windowDays != days
         authError = null
         client.authorize(YouTubeAuthorization.request(selectAccount))
             .addOnSuccessListener { result ->
@@ -262,6 +271,7 @@ internal fun V11InsightsScreen(
         activeRequest = null
         pendingResolution = null
         syncing = false
+        coreLoading = false
         revoking = true
         snapshot = null
         selectedVideo = null
@@ -326,13 +336,19 @@ internal fun V11InsightsScreen(
                 val data = snapshot!!
                 YTChannelHeader(
                     data = data,
-                    syncing = syncing || revoking,
-                    windowDays = data.windowDays,
+                    syncing = coreLoading || revoking,
+                    windowDays = windowDays,
                     onWindow = { days ->
                         if (days != windowDays) {
                             windowDays = days
                             val cached = store.load(days)
-                            if (cached != null) snapshot = cached else authorize(false, days)
+                            if (cached != null) {
+                                snapshot = cached
+                                coreLoading = false
+                            } else {
+                                coreLoading = true
+                                authorize(false, days)
+                            }
                         }
                     },
                     onSync = { authorize(false, windowDays) },
