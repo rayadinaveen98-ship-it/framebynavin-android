@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material3.*
@@ -31,11 +32,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorBackupManager
+import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.data.PortableCreatorBackupManager
+import com.framebynavin.app.data.VoiceIdeaStorage
+import com.framebynavin.app.data.VoiceIdeaStorageSnapshot
+import com.framebynavin.app.data.formatVoiceStorageBytes
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,13 +59,28 @@ private fun BackupScreen(onClose: () -> Unit) {
     val activity = context as? ComponentActivity
     val manager = remember { PortableCreatorBackupManager(context.applicationContext) }
     val recoveryManager = remember { CreatorBackupManager(context.applicationContext) }
+    val ideaStore = remember { IdeaVaultStore(context.applicationContext) }
+    val voiceStorage = remember {
+        VoiceIdeaStorage(File(context.applicationContext.filesDir, VoiceIdeaStorage.DIRECTORY_NAME))
+    }
     val scope = rememberCoroutineScope()
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
     var preview by remember { mutableStateOf<CreatorBackupManager.BackupPreview?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var voiceStorageBusy by remember { mutableStateOf(false) }
+    var voiceStorageRefreshNonce by remember { mutableIntStateOf(0) }
+    var voiceStorageSnapshot by remember { mutableStateOf(VoiceIdeaStorageSnapshot()) }
+    var confirmVoiceCleanup by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var isError by remember { mutableStateOf(false) }
     val recoveryCount = remember { recoveryManager.recoveryCopies().size }
+    val actionBusy = busy || voiceStorageBusy
+
+    LaunchedEffect(voiceStorageRefreshNonce) {
+        voiceStorageSnapshot = withContext(Dispatchers.IO) {
+            voiceStorage.snapshot(ideaStore.load())
+        }
+    }
 
     val createDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -132,7 +153,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 body = "Projects, ideas, Voice Idea recordings, workflows, reminders, rewards, settings and your personal Best Frames. Backups are portable but not encrypted; save them somewhere private.",
                 icon = Icons.Outlined.CloudUpload,
                 button = "EXPORT BACKUP",
-                enabled = !busy,
+                enabled = !actionBusy,
             ) {
                 val name = SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.getDefault()).format(Date())
                 createDocument.launch("Backlot-Backup-$name.fbnbackup")
@@ -144,9 +165,35 @@ private fun BackupScreen(onClose: () -> Unit) {
                 body = "Backlot validates the file first. New portable backups restore Voice Idea audio too; older text backups remain supported.",
                 icon = Icons.Outlined.CloudDownload,
                 button = "CHOOSE BACKUP",
-                enabled = !busy,
+                enabled = !actionBusy,
             ) {
                 openDocument.launch(arrayOf("application/octet-stream", "application/zip", "application/json", "text/plain", "*/*"))
+            }
+
+            Spacer(Modifier.height(12.dp))
+            BackupActionCard(
+                title = "Voice storage",
+                body = buildString {
+                    append("${voiceStorageSnapshot.referencedCount} saved ${if (voiceStorageSnapshot.referencedCount == 1) "recording" else "recordings"} use ${formatVoiceStorageBytes(voiceStorageSnapshot.referencedBytes)}. ")
+                    append("Total Backlot Voice Idea media on this device: ${formatVoiceStorageBytes(voiceStorageSnapshot.totalOwnedBytes)}.")
+                    if (voiceStorageSnapshot.orphanCount > 0) {
+                        append(" ${voiceStorageSnapshot.orphanCount} unreferenced ${if (voiceStorageSnapshot.orphanCount == 1) "recording is" else "recordings are"} safe to clean (${formatVoiceStorageBytes(voiceStorageSnapshot.orphanBytes)}).")
+                    } else {
+                        append(" No old orphan recordings are waiting for cleanup.")
+                    }
+                    if (voiceStorageSnapshot.recentUnreferencedCount > 0) {
+                        append(" ${voiceStorageSnapshot.recentUnreferencedCount} recent unreferenced ${if (voiceStorageSnapshot.recentUnreferencedCount == 1) "take is" else "takes are"} protected for 10 minutes.")
+                    }
+                },
+                icon = Icons.Outlined.DeleteSweep,
+                button = if (voiceStorageSnapshot.orphanCount > 0) {
+                    "CLEAN ${voiceStorageSnapshot.orphanCount} ORPHAN${if (voiceStorageSnapshot.orphanCount == 1) "" else "S"}"
+                } else {
+                    "NOTHING TO CLEAN"
+                },
+                enabled = !actionBusy && voiceStorageSnapshot.orphanCount > 0,
+            ) {
+                confirmVoiceCleanup = true
             }
 
             Spacer(Modifier.height(12.dp))
@@ -159,12 +206,12 @@ private fun BackupScreen(onClose: () -> Unit) {
                 },
                 icon = Icons.Outlined.Restore,
                 button = "OPEN RECOVERY COPIES",
-                enabled = !busy,
+                enabled = !actionBusy,
             ) {
                 context.startActivity(Intent(context, RecoveryCopiesActivity::class.java))
             }
 
-            if (busy) {
+            if (actionBusy) {
                 Spacer(Modifier.height(18.dp))
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = RecRed, trackColor = CinemaLine)
             }
@@ -194,6 +241,56 @@ private fun BackupScreen(onClose: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (confirmVoiceCleanup) {
+        AlertDialog(
+            onDismissRequest = { if (!voiceStorageBusy) confirmVoiceCleanup = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Clean orphan recordings?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            text = {
+                Text(
+                    "Backlot will only delete finalized Voice Idea recordings that are no longer referenced by your Idea Vault and are at least 10 minutes old. Saved recordings, active working takes and recent unreferenced takes are protected. This cannot be undone.",
+                    color = MutedText,
+                    fontSize = 12.sp,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            voiceStorageBusy = true
+                            val result = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    voiceStorage.cleanupOrphans(ideaStore.load())
+                                }
+                            }
+                            voiceStorageBusy = false
+                            confirmVoiceCleanup = false
+                            result.onSuccess { cleaned ->
+                                isError = cleaned.failedCount > 0
+                                message = when {
+                                    cleaned.deletedCount == 0 && cleaned.failedCount == 0 -> "No orphan Voice Idea recordings needed cleanup."
+                                    cleaned.failedCount == 0 -> "Cleaned ${cleaned.deletedCount} orphan ${if (cleaned.deletedCount == 1) "recording" else "recordings"} and freed ${formatVoiceStorageBytes(cleaned.deletedBytes)}."
+                                    else -> "Cleaned ${cleaned.deletedCount} orphan ${if (cleaned.deletedCount == 1) "recording" else "recordings"}, but ${cleaned.failedCount} could not be removed."
+                                }
+                            }.onFailure {
+                                isError = true
+                                message = "Voice storage cleanup could not finish. Your saved recordings were left untouched."
+                            }
+                            voiceStorageRefreshNonce++
+                        }
+                    },
+                    enabled = !voiceStorageBusy,
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                ) { Text("CLEAN ORPHANS", fontWeight = FontWeight.Black) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmVoiceCleanup = false }, enabled = !voiceStorageBusy) {
+                    Text("CANCEL", color = MutedText)
+                }
+            },
+        )
     }
 
     preview?.let { checked ->
