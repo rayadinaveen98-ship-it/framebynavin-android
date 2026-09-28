@@ -12,6 +12,7 @@ on:
       - "feature/v144-guide-schedule-refresh"
       - "fix/v145-guide-revenue-hotfix"
       - "fix/v145-ux-automation-deeplink"
+      - "feature/voice-ideas-recorder"
     paths:
       - "app/**"
       - "*.gradle.kts"
