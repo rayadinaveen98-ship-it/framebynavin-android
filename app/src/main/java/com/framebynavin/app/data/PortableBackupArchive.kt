@@ -48,15 +48,15 @@ internal object PortableBackupArchive {
 
     fun write(backupJson: String, media: List<PortableBackupMedia>, output: OutputStream) {
         require(media.map { it.ideaId }.distinct().size == media.size) { "Duplicate voice idea media" }
+        preflightMedia(media)
         ZipOutputStream(BufferedOutputStream(output)).use { zip ->
             zip.putNextEntry(ZipEntry(BACKUP_ENTRY))
             zip.write(backupJson.toByteArray(Charsets.UTF_8))
             zip.closeEntry()
 
             val manifestLines = mutableListOf(MANIFEST_HEADER)
+            var totalMediaBytes = 0L
             media.forEachIndexed { index, item ->
-                require(item.ideaId.isNotBlank()) { "Voice media has no idea id" }
-                require(item.file.isFile) { "Voice recording is missing" }
                 val idHash = sha256(item.ideaId.toByteArray(Charsets.UTF_8)).take(16)
                 val entryName = "${MEDIA_PREFIX}media-$index-$idHash.m4a"
                 val digest = MessageDigest.getInstance("SHA-256")
@@ -69,7 +69,9 @@ internal object PortableBackupArchive {
                         val read = input.read(buffer)
                         if (read < 0) break
                         byteCount += read
+                        totalMediaBytes += read
                         require(byteCount <= MAX_MEDIA_FILE_BYTES) { "Voice recording is too large to back up" }
+                        require(totalMediaBytes <= MAX_TOTAL_MEDIA_BYTES) { "Voice recordings are too large to back up" }
                         digest.update(buffer, 0, read)
                         zip.write(buffer, 0, read)
                     }
@@ -85,6 +87,18 @@ internal object PortableBackupArchive {
             zip.putNextEntry(ZipEntry(MANIFEST_ENTRY))
             zip.write(manifestLines.joinToString("\n").toByteArray(Charsets.UTF_8))
             zip.closeEntry()
+        }
+    }
+
+    private fun preflightMedia(media: List<PortableBackupMedia>) {
+        var total = 0L
+        media.forEach { item ->
+            require(item.ideaId.isNotBlank()) { "Voice media has no idea id" }
+            require(item.file.isFile) { "Voice recording is missing" }
+            val size = item.file.length()
+            require(size <= MAX_MEDIA_FILE_BYTES) { "Voice recording is too large to back up" }
+            require(total <= MAX_TOTAL_MEDIA_BYTES - size) { "Voice recordings are too large to back up" }
+            total += size
         }
     }
 
