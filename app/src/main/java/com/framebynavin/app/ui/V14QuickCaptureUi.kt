@@ -2,7 +2,9 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Close
@@ -18,11 +20,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.data.CreatorIdea
-import com.framebynavin.app.data.CreatorQuickCaptureEngine
 import com.framebynavin.app.data.CreatorOsSettingsStore
+import com.framebynavin.app.data.CreatorQuickCaptureEngine
+import com.framebynavin.app.data.IdeaAudioSyncState
+import com.framebynavin.app.data.IdeaCaptureType
 import com.framebynavin.app.data.IdeaVaultLabels
 import com.framebynavin.app.ui.theme.*
+import com.framebynavin.app.voice.VoiceIdeaRecording
 import com.framebynavin.app.voice.VoiceIdeaText
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @Composable
 internal fun V14QuickCaptureDialog(
@@ -33,10 +41,38 @@ internal fun V14QuickCaptureDialog(
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
     var title by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
-    val suggestion = remember(title, notes, creatorProfile) { CreatorQuickCaptureEngine.suggest("$title $notes", creatorProfile) }
+    var voiceRecording by remember { mutableStateOf<VoiceIdeaRecording?>(null) }
+    var recordingCommitted by remember { mutableStateOf(false) }
+    val latestRecording by rememberUpdatedState(voiceRecording)
+    val latestCommitted by rememberUpdatedState(recordingCommitted)
+    val suggestion = remember(title, notes, creatorProfile) {
+        CreatorQuickCaptureEngine.suggest("$title $notes", creatorProfile)
+    }
+
+    fun discardRecording() {
+        voiceRecording?.localPath
+            ?.takeIf { it.isNotBlank() }
+            ?.let { path -> runCatching { File(path).delete() } }
+        voiceRecording = null
+    }
+
+    fun dismissQuickCapture() {
+        discardRecording()
+        onDismiss()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (!latestCommitted) {
+                latestRecording?.localPath
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { path -> runCatching { File(path).delete() } }
+            }
+        }
+    }
 
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = ::dismissQuickCapture,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -45,7 +81,7 @@ internal fun V14QuickCaptureDialog(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = ::dismissQuickCapture) {
                         Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory)
                     }
                     Spacer(Modifier.width(4.dp))
@@ -55,7 +91,12 @@ internal fun V14QuickCaptureDialog(
                     }
                 }
 
-                Column(Modifier.weight(1f).padding(horizontal = 20.dp)) {
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .padding(horizontal = 20.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
                     Spacer(Modifier.height(14.dp))
                     OutlinedTextField(
                         value = title,
@@ -70,6 +111,11 @@ internal fun V14QuickCaptureDialog(
                     Spacer(Modifier.height(10.dp))
                     V117VoiceIdeaInput(
                         onTranscript = { spoken -> title = VoiceIdeaText.append(title, spoken) },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    VoiceIdeaRecorderInput(
+                        recording = voiceRecording,
+                        onRecordingChanged = { voiceRecording = it },
                     )
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
@@ -100,21 +146,63 @@ internal fun V14QuickCaptureDialog(
                         }
                     }
                     Spacer(Modifier.height(7.dp))
-                    Text("You can refine or turn it into a project later.", color = MutedText, fontSize = 8.5.sp)
+                    Text(
+                        if (voiceRecording != null) {
+                            "The original recording will be saved with this Voice Idea. You can transcribe or refine it later."
+                        } else {
+                            "You can refine or turn it into a project later."
+                        },
+                        color = MutedText,
+                        fontSize = 8.5.sp,
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
 
                 Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
                     Button(
-                        onClick = { onSave(CreatorQuickCaptureEngine.toIdea(title, notes, profile = creatorProfile)) },
-                        enabled = title.isNotBlank(),
+                        onClick = {
+                            val finalizedRecording = voiceRecording
+                            val isVoiceIdea = finalizedRecording != null
+                            val finalTitle = title.trim().ifBlank {
+                                if (isVoiceIdea) v14DefaultVoiceIdeaTitle() else ""
+                            }
+                            val baseIdea = CreatorQuickCaptureEngine.toIdea(
+                                title = finalTitle,
+                                notes = notes,
+                                profile = creatorProfile,
+                            )
+                            val savedIdea = if (finalizedRecording == null) {
+                                baseIdea
+                            } else {
+                                baseIdea.copy(
+                                    captureType = IdeaCaptureType.VOICE,
+                                    audioLocalPath = finalizedRecording.localPath,
+                                    audioDurationMillis = finalizedRecording.durationMillis,
+                                    audioMimeType = finalizedRecording.mimeType,
+                                    audioSyncState = IdeaAudioSyncState.LOCAL_ONLY,
+                                )
+                            }
+
+                            recordingCommitted = finalizedRecording != null
+                            onSave(savedIdea)
+                            voiceRecording = null
+                        },
+                        enabled = title.isNotBlank() || voiceRecording != null,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp).height(52.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(15.dp),
                     ) {
-                        Text("SAVE IDEA", fontWeight = FontWeight.Black, fontSize = 10.sp)
+                        Text(
+                            if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE IDEA",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 10.sp,
+                        )
                     }
                 }
             }
         }
     }
 }
+
+private fun v14DefaultVoiceIdeaTitle(): String =
+    "Voice idea • ${SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(System.currentTimeMillis())}"
