@@ -62,7 +62,10 @@ class IdeaVaultStore(private val context: Context) {
     suspend fun capture(idea: CreatorIdea, expectedGeneration: Long): CreatorIdea =
         CreatorDataGate.readyTransaction(context) {
             CreatorDataGate.checkGeneration(context, expectedGeneration)
-            val normalized = idea.copy(title = idea.title.trim())
+            val normalized = idea.copy(
+                title = idea.title.trim(),
+                tags = idea.tags.map { it.trim() }.filter { it.isNotBlank() }.distinct(),
+            )
             require(normalized.id.isNotBlank() && normalized.title.isNotBlank()) {
                 "An idea needs an id and title"
             }
@@ -115,6 +118,14 @@ class IdeaVaultStore(private val context: Context) {
                     .put("sourceRefId", idea.sourceRefId)
                     .put("reminderAtMillis", idea.reminderAtMillis)
                     .put("reminderCadence", idea.reminderCadence.name)
+                    .put("captureType", idea.captureType.name)
+                    .put("audioLocalPath", idea.audioLocalPath)
+                    .put("audioRemoteUrl", idea.audioRemoteUrl)
+                    .put("audioDurationMillis", idea.audioDurationMillis)
+                    .put("audioMimeType", idea.audioMimeType)
+                    .put("audioSyncState", idea.audioSyncState.name)
+                    .put("transcript", idea.transcript)
+                    .put("tags", JSONArray().apply { idea.tags.forEach { put(it) } })
             )
         }
         return array.toString()
@@ -154,6 +165,24 @@ class IdeaVaultStore(private val context: Context) {
                         reminderCadence = runCatching {
                             IdeaReminderCadence.valueOf(item.optString("reminderCadence", IdeaReminderCadence.ONCE.name))
                         }.getOrDefault(IdeaReminderCadence.ONCE),
+                        captureType = runCatching {
+                            IdeaCaptureType.valueOf(item.optString("captureType", IdeaCaptureType.TEXT.name))
+                        }.getOrDefault(IdeaCaptureType.TEXT),
+                        audioLocalPath = item.optString("audioLocalPath", ""),
+                        audioRemoteUrl = item.optString("audioRemoteUrl", ""),
+                        audioDurationMillis = item.optLong("audioDurationMillis", 0L),
+                        audioMimeType = item.optString("audioMimeType", ""),
+                        audioSyncState = runCatching {
+                            IdeaAudioSyncState.valueOf(item.optString("audioSyncState", IdeaAudioSyncState.NONE.name))
+                        }.getOrDefault(IdeaAudioSyncState.NONE),
+                        transcript = item.optString("transcript", ""),
+                        tags = item.optJSONArray("tags")?.let { tags ->
+                            buildList {
+                                for (index in 0 until tags.length()) {
+                                    tags.optString(index).trim().takeIf { it.isNotBlank() }?.let(::add)
+                                }
+                            }
+                        } ?: emptyList(),
                     )
                 )
             }
