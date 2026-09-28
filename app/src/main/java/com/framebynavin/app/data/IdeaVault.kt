@@ -32,6 +32,26 @@ enum class IdeaPotential {
     HIGH,
 }
 
+/** How the original idea was captured. Existing ideas decode as TEXT. */
+enum class IdeaCaptureType {
+    TEXT,
+    VOICE,
+}
+
+/**
+ * Upload state for the original voice recording.
+ *
+ * The local audio file remains the source of truth. Sync/transcription layers may fail or retry
+ * independently without replacing the recording.
+ */
+enum class IdeaAudioSyncState {
+    NONE,
+    LOCAL_ONLY,
+    PENDING_UPLOAD,
+    SYNCED,
+    UPLOAD_FAILED,
+}
+
 data class CreatorIdea(
     val id: String,
     val title: String,
@@ -48,7 +68,18 @@ data class CreatorIdea(
     val sourceRefId: String = "",
     val reminderAtMillis: Long = 0L,
     val reminderCadence: IdeaReminderCadence = IdeaReminderCadence.ONCE,
-)
+    val captureType: IdeaCaptureType = IdeaCaptureType.TEXT,
+    val audioLocalPath: String = "",
+    val audioRemoteUrl: String = "",
+    val audioDurationMillis: Long = 0L,
+    val audioMimeType: String = "",
+    val audioSyncState: IdeaAudioSyncState = IdeaAudioSyncState.NONE,
+    val transcript: String = "",
+    val tags: List<String> = emptyList(),
+) {
+    val hasOriginalRecording: Boolean
+        get() = captureType == IdeaCaptureType.VOICE && audioLocalPath.isNotBlank()
+}
 
 object IdeaVaultLabels {
     fun category(category: IdeaCategory): String = when (category) {
