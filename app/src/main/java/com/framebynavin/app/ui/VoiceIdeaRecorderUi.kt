@@ -70,9 +70,16 @@ fun VoiceIdeaRecorderInput(
     }
 
     fun deleteFinalizedRecording() {
-        recording?.localPath?.takeIf { it.isNotBlank() }?.let { path ->
-            runCatching { File(path).delete() }
+        val path = recording?.localPath.orEmpty()
+        if (path.isNotBlank()) {
+            val file = File(path)
+            val removed = !file.exists() || runCatching { file.delete() }.getOrDefault(false)
+            if (!removed) {
+                errorMessage = "Couldn't remove the saved recording safely. The original take was kept."
+                return
+            }
         }
+        errorMessage = null
         onRecordingChanged(null)
     }
 
@@ -212,7 +219,14 @@ fun VoiceIdeaRecorderInput(
                                     .onSuccess { finalized ->
                                         val previousPath = recording?.localPath.orEmpty()
                                         if (previousPath.isNotBlank() && previousPath != finalized.localPath) {
-                                            runCatching { File(previousPath).delete() }
+                                            val previous = File(previousPath)
+                                            val removed = !previous.exists() || runCatching { previous.delete() }.getOrDefault(false)
+                                            if (!removed) {
+                                                runCatching { File(finalized.localPath).delete() }
+                                                syncState()
+                                                errorMessage = "Couldn't replace the previous recording safely. The original take was kept."
+                                                return@onSuccess
+                                            }
                                         }
                                         onRecordingChanged(finalized)
                                         syncState()
