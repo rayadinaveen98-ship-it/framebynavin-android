@@ -241,9 +241,6 @@ internal fun V09IdeaVaultScreen(
             onSave = { onSave(it); editing = null },
             onDelete = {
                 onDelete(idea.id)
-                if (idea.hasOriginalRecording) {
-                    runCatching { File(idea.audioLocalPath).delete() }
-                }
                 editing = null
             },
         )
