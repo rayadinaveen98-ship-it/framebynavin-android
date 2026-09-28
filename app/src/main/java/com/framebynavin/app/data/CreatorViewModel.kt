@@ -738,11 +738,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             reminderEnabled = false,
             reminderAtMillis = 0L,
             priority = TaskPriority.IMPORTANT,
-            notes = buildString {
-                append("From Idea Vault")
-                if (idea.topic.isNotBlank()) append(" · ${idea.topic}")
-                if (idea.notes.isNotBlank()) append("\n${idea.notes}")
-            },
+            notes = IdeaProjectBridge.projectNotes(idea),
             alertType = ReminderAlertType.NOTIFICATION,
             voiceEnabled = false,
             smartEscalationEnabled = false,
