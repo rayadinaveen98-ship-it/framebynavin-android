@@ -2,6 +2,8 @@ package com.framebynavin.app.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -82,5 +84,51 @@ class VoiceIdeaModelTest {
         )
 
         assertEquals("From Idea Vault · Lighting", IdeaProjectBridge.projectNotes(idea))
+    }
+
+    @Test
+    fun `idea vault project resolves its canonical source voice recording`() {
+        val voiceIdea = CreatorIdea(
+            id = "voice-source",
+            title = "Opening shot thought",
+            captureType = IdeaCaptureType.VOICE,
+            audioLocalPath = "/tmp/voice-source.m4a",
+            transcript = "Latest transcript stays on the idea.",
+            transcriptionState = IdeaTranscriptionState.COMPLETED,
+        )
+        val project = CreatorTask(
+            id = "project-1",
+            title = "Opening shot thought",
+            platform = "YouTube",
+            contentType = "Long-form",
+            dueLabel = "Today",
+            origin = CreatorTaskOrigin.IDEA_VAULT,
+            sourceRefId = voiceIdea.id,
+        )
+
+        assertSame(voiceIdea, IdeaProjectBridge.sourceIdea(project, listOf(voiceIdea)))
+        assertSame(voiceIdea, IdeaProjectBridge.sourceVoiceIdea(project, listOf(voiceIdea)))
+    }
+
+    @Test
+    fun `project source resolver ignores unrelated or missing recordings`() {
+        val textIdea = CreatorIdea(id = "text-source", title = "Text only")
+        val manualProject = CreatorTask(
+            id = "manual-1",
+            title = "Manual",
+            platform = "YouTube",
+            contentType = "Short",
+            dueLabel = "Today",
+            origin = CreatorTaskOrigin.MANUAL,
+            sourceRefId = textIdea.id,
+        )
+        val ideaProject = manualProject.copy(
+            id = "idea-project",
+            origin = CreatorTaskOrigin.IDEA_VAULT,
+        )
+
+        assertNull(IdeaProjectBridge.sourceIdea(manualProject, listOf(textIdea)))
+        assertSame(textIdea, IdeaProjectBridge.sourceIdea(ideaProject, listOf(textIdea)))
+        assertNull(IdeaProjectBridge.sourceVoiceIdea(ideaProject, listOf(textIdea)))
     }
 }
