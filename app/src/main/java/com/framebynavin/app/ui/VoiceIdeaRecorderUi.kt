@@ -78,8 +78,8 @@ fun VoiceIdeaRecorderInput(
 
     fun beginRecording() {
         errorMessage = null
-        // A replacement should never leave the previous finalized file orphaned.
-        deleteFinalizedRecording()
+        // Keep an existing finalized take until the replacement is safely finalized. If recorder
+        // startup, cancellation, or stop fails, the previous take remains available to the user.
         recorder.start()
             .onSuccess { syncState() }
             .onFailure { errorMessage = it.message ?: "Couldn't start recording." }
@@ -210,6 +210,10 @@ fun VoiceIdeaRecorderInput(
                                 errorMessage = null
                                 recorder.stop()
                                     .onSuccess { finalized ->
+                                        val previousPath = recording?.localPath.orEmpty()
+                                        if (previousPath.isNotBlank() && previousPath != finalized.localPath) {
+                                            runCatching { File(previousPath).delete() }
+                                        }
                                         onRecordingChanged(finalized)
                                         syncState()
                                     }
