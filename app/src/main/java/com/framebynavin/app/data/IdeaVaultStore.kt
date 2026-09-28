@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -51,7 +52,10 @@ class IdeaVaultStore(private val context: Context) {
         mutationMutex.withLock {
             val latest = load()
             val updated = transform(latest)
-            if (updated != latest) saveUnlocked(updated)
+            if (updated != latest) {
+                saveUnlocked(updated)
+                cleanupRemovedOrReplacedRecordings(latest, updated)
+            }
             updated
         }
     }
@@ -82,8 +86,10 @@ class IdeaVaultStore(private val context: Context) {
         mutationMutex.withLock {
             if (CreatorDataGate.generation(context) != expectedGeneration)
                 throw CreatorWriteConflict("An older idea edit was cancelled after restore")
-            val updated = CreatorDeltaEngine.merge(base, desired, load()) { it.id }
+            val latest = load()
+            val updated = CreatorDeltaEngine.merge(base, desired, latest) { it.id }
             saveUnlocked(updated)
+            cleanupRemovedOrReplacedRecordings(latest, updated)
             updated
         }
     }
@@ -97,6 +103,32 @@ class IdeaVaultStore(private val context: Context) {
     }
 
     fun validateJson(raw: String): Int = decode(raw).size
+
+    /**
+     * Removes only recordings owned by Backlot after the new vault state is durably written.
+     * Import/restore uses save() directly and intentionally never destroys local audio as a side effect.
+     */
+    private fun cleanupRemovedOrReplacedRecordings(before: List<CreatorIdea>, after: List<CreatorIdea>) {
+        val afterById = after.associateBy { it.id }
+        before.forEach { previous ->
+            val oldPath = previous.audioLocalPath.takeIf { it.isNotBlank() } ?: return@forEach
+            val currentPath = afterById[previous.id]?.audioLocalPath.orEmpty()
+            if (oldPath != currentPath) deleteOwnedFinalRecording(oldPath)
+        }
+    }
+
+    private fun deleteOwnedFinalRecording(path: String) {
+        runCatching {
+            val root = File(context.filesDir, VOICE_IDEA_DIRECTORY).canonicalFile
+            val target = File(path).canonicalFile
+            val isOwnedFinalRecording = target.parentFile == root &&
+                target.isFile &&
+                target.name.startsWith(VOICE_IDEA_FILE_PREFIX) &&
+                target.name.endsWith(VOICE_IDEA_FINAL_SUFFIX, ignoreCase = true) &&
+                !target.name.endsWith(VOICE_IDEA_WORKING_SUFFIX, ignoreCase = true)
+            if (isOwnedFinalRecording) target.delete()
+        }
+    }
 
     private fun encode(ideas: List<CreatorIdea>): String {
         val array = JSONArray()
@@ -187,5 +219,12 @@ class IdeaVaultStore(private val context: Context) {
                 )
             }
         }
+    }
+
+    companion object {
+        private const val VOICE_IDEA_DIRECTORY = "voice_ideas"
+        private const val VOICE_IDEA_FILE_PREFIX = "voice_idea_"
+        private const val VOICE_IDEA_WORKING_SUFFIX = ".recording.m4a"
+        private const val VOICE_IDEA_FINAL_SUFFIX = ".m4a"
     }
 }
