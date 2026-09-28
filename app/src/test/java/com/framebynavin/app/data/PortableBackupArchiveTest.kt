@@ -3,6 +3,7 @@ package com.framebynavin.app.data
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.RandomAccessFile
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.junit.Assert.assertArrayEquals
@@ -76,6 +77,22 @@ class PortableBackupArchiveTest {
         } finally {
             staged.cleanup()
         }
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `writer rejects voice media above portable total limit before streaming`() {
+        val sparseSize = 400L * 1024L * 1024L
+        val recordings = (0 until 3).map { index ->
+            temporaryFolder.newFile("large-$index.m4a").also { file ->
+                RandomAccessFile(file, "rw").use { sparse -> sparse.setLength(sparseSize) }
+            }
+        }
+
+        PortableBackupArchive.write(
+            backupJson = "{}",
+            media = recordings.mapIndexed { index, file -> PortableBackupMedia("idea-$index", file) },
+            output = ByteArrayOutputStream(),
+        )
     }
 
     @Test(expected = IllegalArgumentException::class)
