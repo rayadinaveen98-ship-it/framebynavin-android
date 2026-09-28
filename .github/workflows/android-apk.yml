@@ -79,7 +79,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v145-UX-Automation-Hotfix
+          name: Backlot-v146-Voice-Ideas
           path: app/build/outputs/apk/debug/app-debug.apk
 
   ui-smoke-v145:
@@ -113,3 +113,31 @@ jobs:
             gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V145GuideAssetDecodeTest --stacktrace
             gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V145RevenueAccessUiTest --stacktrace
             gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.reminders.V145ProjectPulseDeepLinkTest --stacktrace
+
+  voice-regression-v146:
+    if: github.ref == 'refs/heads/feature/voice-ideas-recorder'
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Run V146 connected regression suite
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest --stacktrace
