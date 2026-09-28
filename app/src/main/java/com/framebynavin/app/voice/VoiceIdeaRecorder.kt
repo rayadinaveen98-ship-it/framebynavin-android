@@ -206,5 +206,32 @@ class VoiceIdeaRecorder(context: Context) {
         private const val FINAL_SUFFIX = ".m4a"
         private const val AUDIO_BIT_RATE = 128_000
         private const val AUDIO_SAMPLE_RATE = 44_100
+        private const val ABANDONED_WORKING_FILE_AGE_MS = 24L * 60L * 60L * 1000L
+
+        /**
+         * Cleans only stale in-progress files left by an interrupted recorder session.
+         * Finalized Voice Idea recordings are deliberately never touched here.
+         */
+        fun cleanupAbandonedWorkingFiles(
+            context: Context,
+            maxAgeMillis: Long = ABANDONED_WORKING_FILE_AGE_MS,
+            nowMillis: Long = System.currentTimeMillis(),
+        ): Int {
+            val directory = File(context.applicationContext.filesDir, DIRECTORY_NAME)
+            if (!directory.isDirectory) return 0
+
+            var deleted = 0
+            directory.listFiles().orEmpty().forEach { file ->
+                val ageMillis = (nowMillis - file.lastModified()).coerceAtLeast(0L)
+                val isAbandonedWorkingFile = file.isFile &&
+                    file.name.startsWith(FILE_PREFIX) &&
+                    file.name.endsWith(WORKING_SUFFIX, ignoreCase = true) &&
+                    ageMillis >= maxAgeMillis
+                if (isAbandonedWorkingFile && runCatching { file.delete() }.getOrDefault(false)) {
+                    deleted++
+                }
+            }
+            return deleted
+        }
     }
 }
