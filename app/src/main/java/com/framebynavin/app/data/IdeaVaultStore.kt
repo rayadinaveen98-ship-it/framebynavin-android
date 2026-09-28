@@ -157,6 +157,8 @@ class IdeaVaultStore(private val context: Context) {
                     .put("audioMimeType", idea.audioMimeType)
                     .put("audioSyncState", idea.audioSyncState.name)
                     .put("transcript", idea.transcript)
+                    .put("transcriptionState", idea.transcriptionState.name)
+                    .put("transcriptionError", idea.transcriptionError)
                     .put("tags", JSONArray().apply { idea.tags.forEach { put(it) } })
             )
         }
@@ -172,6 +174,20 @@ class IdeaVaultStore(private val context: Context) {
                 val title = item.optString("title").trim()
                 require(id.isNotBlank()) { "Idea $i has no id" }
                 require(title.isNotBlank()) { "Idea $i has no title" }
+                val transcript = item.optString("transcript", "")
+                val legacyTranscriptionState = if (transcript.isNotBlank()) {
+                    IdeaTranscriptionState.COMPLETED
+                } else {
+                    IdeaTranscriptionState.NOT_REQUESTED
+                }
+                val transcriptionState = item.optString("transcriptionState", "")
+                    .trim()
+                    .takeIf { it.isNotBlank() }
+                    ?.let { rawState ->
+                        runCatching { IdeaTranscriptionState.valueOf(rawState) }
+                            .getOrDefault(legacyTranscriptionState)
+                    }
+                    ?: legacyTranscriptionState
                 add(
                     CreatorIdea(
                         id = id,
@@ -207,7 +223,9 @@ class IdeaVaultStore(private val context: Context) {
                         audioSyncState = runCatching {
                             IdeaAudioSyncState.valueOf(item.optString("audioSyncState", IdeaAudioSyncState.NONE.name))
                         }.getOrDefault(IdeaAudioSyncState.NONE),
-                        transcript = item.optString("transcript", ""),
+                        transcript = transcript,
+                        transcriptionState = transcriptionState,
+                        transcriptionError = item.optString("transcriptionError", ""),
                         tags = item.optJSONArray("tags")?.let { tags ->
                             buildList {
                                 for (index in 0 until tags.length()) {
