@@ -43,7 +43,7 @@ import com.framebynavin.app.ui.theme.RecRedDeep
 import com.framebynavin.app.voice.VoiceIdeaRecorder
 import com.framebynavin.app.voice.VoiceIdeaRecorderState
 import com.framebynavin.app.voice.VoiceIdeaRecording
-import java.io.File
+import com.framebynavin.app.voice.VoiceIdeaRecordingFiles
 import kotlinx.coroutines.delay
 
 /**
@@ -70,14 +70,9 @@ fun VoiceIdeaRecorderInput(
     }
 
     fun deleteFinalizedRecording() {
-        val path = recording?.localPath.orEmpty()
-        if (path.isNotBlank()) {
-            val file = File(path)
-            val removed = !file.exists() || runCatching { file.delete() }.getOrDefault(false)
-            if (!removed) {
-                errorMessage = "Couldn't remove the saved recording safely. The original take was kept."
-                return
-            }
+        if (!VoiceIdeaRecordingFiles.remove(recording)) {
+            errorMessage = "Couldn't remove the saved recording safely. The original take was kept."
+            return
         }
         errorMessage = null
         onRecordingChanged(null)
@@ -217,16 +212,10 @@ fun VoiceIdeaRecorderInput(
                                 errorMessage = null
                                 recorder.stop()
                                     .onSuccess { finalized ->
-                                        val previousPath = recording?.localPath.orEmpty()
-                                        if (previousPath.isNotBlank() && previousPath != finalized.localPath) {
-                                            val previous = File(previousPath)
-                                            val removed = !previous.exists() || runCatching { previous.delete() }.getOrDefault(false)
-                                            if (!removed) {
-                                                runCatching { File(finalized.localPath).delete() }
-                                                syncState()
-                                                errorMessage = "Couldn't replace the previous recording safely. The original take was kept."
-                                                return@onSuccess
-                                            }
+                                        if (!VoiceIdeaRecordingFiles.replace(recording, finalized)) {
+                                            syncState()
+                                            errorMessage = "Couldn't replace the previous recording safely. The original take was kept."
+                                            return@onSuccess
                                         }
                                         onRecordingChanged(finalized)
                                         syncState()
