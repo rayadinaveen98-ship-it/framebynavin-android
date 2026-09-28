@@ -42,18 +42,25 @@ internal fun V14QuickCaptureDialog(
     var title by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
     var voiceRecording by remember { mutableStateOf<VoiceIdeaRecording?>(null) }
-    var recordingCommitted by remember { mutableStateOf(false) }
-    val latestRecording by rememberUpdatedState(voiceRecording)
-    val latestCommitted by rememberUpdatedState(recordingCommitted)
+    val cleanupRecording = remember { mutableStateOf<VoiceIdeaRecording?>(null) }
+    val recordingCommitted = remember { mutableStateOf(false) }
     val suggestion = remember(title, notes, creatorProfile) {
         CreatorQuickCaptureEngine.suggest("$title $notes", creatorProfile)
     }
 
+    fun updateRecording(recording: VoiceIdeaRecording?) {
+        voiceRecording = recording
+        cleanupRecording.value = recording
+        recordingCommitted.value = false
+    }
+
     fun discardRecording() {
-        voiceRecording?.localPath
+        cleanupRecording.value?.localPath
             ?.takeIf { it.isNotBlank() }
             ?.let { path -> runCatching { File(path).delete() } }
         voiceRecording = null
+        cleanupRecording.value = null
+        recordingCommitted.value = false
     }
 
     fun dismissQuickCapture() {
@@ -63,8 +70,8 @@ internal fun V14QuickCaptureDialog(
 
     DisposableEffect(Unit) {
         onDispose {
-            if (!latestCommitted) {
-                latestRecording?.localPath
+            if (!recordingCommitted.value) {
+                cleanupRecording.value?.localPath
                     ?.takeIf { it.isNotBlank() }
                     ?.let { path -> runCatching { File(path).delete() } }
             }
@@ -115,7 +122,7 @@ internal fun V14QuickCaptureDialog(
                     Spacer(Modifier.height(12.dp))
                     VoiceIdeaRecorderInput(
                         recording = voiceRecording,
-                        onRecordingChanged = { voiceRecording = it },
+                        onRecordingChanged = ::updateRecording,
                     )
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
@@ -183,9 +190,10 @@ internal fun V14QuickCaptureDialog(
                                 )
                             }
 
-                            recordingCommitted = finalizedRecording != null
+                            recordingCommitted.value = finalizedRecording != null
                             onSave(savedIdea)
                             voiceRecording = null
+                            cleanupRecording.value = null
                         },
                         enabled = title.isNotBlank() || voiceRecording != null,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp).height(52.dp),
