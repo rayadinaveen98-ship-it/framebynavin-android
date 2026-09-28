@@ -58,7 +58,7 @@ internal object PortableBackupArchive {
                 require(item.ideaId.isNotBlank()) { "Voice media has no idea id" }
                 require(item.file.isFile) { "Voice recording is missing" }
                 val idHash = sha256(item.ideaId.toByteArray(Charsets.UTF_8)).take(16)
-                val entryName = "$MEDIA_PREFIX/media-$index-$idHash.m4a"
+                val entryName = "${MEDIA_PREFIX}media-$index-$idHash.m4a"
                 val digest = MessageDigest.getInstance("SHA-256")
                 var byteCount = 0L
 
