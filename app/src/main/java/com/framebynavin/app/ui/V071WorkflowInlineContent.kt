@@ -119,6 +119,9 @@ internal fun V071WorkflowInlineContent(
                 color = if (done) SuccessGreen else RecRed,
                 trackColor = Color(0xFF303030),
             )
+
+            ProjectVoiceIdeaSource(task)
+
             Spacer(Modifier.height(17.dp))
 
             template.stages.forEachIndexed { index, step ->
