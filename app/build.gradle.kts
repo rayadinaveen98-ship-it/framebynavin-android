@@ -53,6 +53,7 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
+        // Backlot V146 voice ideas release candidate.
         versionCode = 146
         versionName = "2.0.0-rc19-voice-ideas"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
