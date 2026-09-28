@@ -11,4 +11,14 @@ object IdeaProjectBridge {
             append(idea.transcript.trim())
         }
     }
+
+    /** Resolve the canonical source idea without copying mutable idea state into the project. */
+    fun sourceIdea(task: CreatorTask, ideas: List<CreatorIdea>): CreatorIdea? {
+        if (task.origin != CreatorTaskOrigin.IDEA_VAULT || task.sourceRefId.isBlank()) return null
+        return ideas.firstOrNull { it.id == task.sourceRefId }
+    }
+
+    /** A project-side voice surface should only appear while its original local recording exists. */
+    fun sourceVoiceIdea(task: CreatorTask, ideas: List<CreatorIdea>): CreatorIdea? =
+        sourceIdea(task, ideas)?.takeIf { it.hasOriginalRecording }
 }
