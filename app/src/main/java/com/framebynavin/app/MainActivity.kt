@@ -29,6 +29,7 @@ import com.framebynavin.app.ui.BacklotCharacterPrefs
 import com.framebynavin.app.ui.V131LaunchGate
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
+import com.framebynavin.app.voice.VoiceIdeaRecorder
 import com.framebynavin.app.widget.CreatorWidgetContract
 import com.framebynavin.app.widget.CreatorWidgetLaunch
 import kotlinx.coroutines.Dispatchers
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
                 CreatorBackupManager(applicationContext).recoverPendingRestore()
+                VoiceIdeaRecorder.cleanupAbandonedWorkingFiles(applicationContext)
                 ReminderNotifications.ensureChannel(applicationContext)
                 ReminderHealthScheduler.ensurePeriodic(applicationContext)
                 CreatorContextNudgeWorker.ensurePeriodic(applicationContext)
