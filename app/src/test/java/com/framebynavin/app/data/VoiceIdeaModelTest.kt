@@ -48,4 +48,39 @@ class VoiceIdeaModelTest {
         assertEquals(listOf("scene", "breakdown"), idea.tags)
         assertEquals("/tmp/voice-2.m4a", idea.audioLocalPath)
     }
+
+    @Test
+    fun `project conversion notes preserve voice transcript after creator notes`() {
+        val idea = CreatorIdea(
+            id = "voice-3",
+            title = "Rajamouli hero intro",
+            topic = "Hero introductions",
+            notes = "Compare Telugu and Hollywood staging.",
+            captureType = IdeaCaptureType.VOICE,
+            transcript = "Start with the emotional promise before the reveal.",
+            transcriptionState = IdeaTranscriptionState.COMPLETED,
+        )
+
+        assertEquals(
+            "From Idea Vault · Hero introductions\n" +
+                "Compare Telugu and Hollywood staging.\n\n" +
+                "Voice transcript\n" +
+                "Start with the emotional promise before the reveal.",
+            IdeaProjectBridge.projectNotes(idea),
+        )
+    }
+
+    @Test
+    fun `project conversion notes do not invent transcript section when transcript is absent`() {
+        val idea = CreatorIdea(
+            id = "voice-4",
+            title = "Lighting idea",
+            topic = "Lighting",
+            captureType = IdeaCaptureType.VOICE,
+            transcriptionState = IdeaTranscriptionState.FAILED,
+            transcriptionError = "Recognizer unavailable",
+        )
+
+        assertEquals("From Idea Vault · Lighting", IdeaProjectBridge.projectNotes(idea))
+    }
 }
