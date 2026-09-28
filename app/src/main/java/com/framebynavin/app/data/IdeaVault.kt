@@ -52,6 +52,19 @@ enum class IdeaAudioSyncState {
     UPLOAD_FAILED,
 }
 
+/**
+ * State of the optional transcript derived from the original Voice Idea recording.
+ *
+ * This state never controls whether the original audio can be saved or played.
+ */
+enum class IdeaTranscriptionState {
+    NOT_REQUESTED,
+    PENDING,
+    COMPLETED,
+    FAILED,
+    UNAVAILABLE,
+}
+
 data class CreatorIdea(
     val id: String,
     val title: String,
@@ -75,6 +88,8 @@ data class CreatorIdea(
     val audioMimeType: String = "",
     val audioSyncState: IdeaAudioSyncState = IdeaAudioSyncState.NONE,
     val transcript: String = "",
+    val transcriptionState: IdeaTranscriptionState = IdeaTranscriptionState.NOT_REQUESTED,
+    val transcriptionError: String = "",
     val tags: List<String> = emptyList(),
 ) {
     val hasOriginalRecording: Boolean
