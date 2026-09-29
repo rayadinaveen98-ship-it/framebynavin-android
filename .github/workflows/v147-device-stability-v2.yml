@@ -33,7 +33,9 @@ jobs:
           gradle-version: "8.11.1"
 
       - name: Apply device stability patch
-        run: python tools/v147_device_stability_patch.py
+        run: |
+          python tools/v147_device_stability_patch.py
+          python tools/v147_device_stability_test_patch.py
 
       - name: Verify source diff
         run: git diff --check
@@ -61,7 +63,8 @@ jobs:
             app/src/main/java/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt \
             app/src/main/java/com/framebynavin/app/ui/V144RasterGuideCharacter.kt \
             app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt \
-            app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt
+            app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt \
+            app/src/test/java/com/framebynavin/app/ui/V144GuideSystemTest.kt
           git diff --cached --check
           git commit -m "fix(v147): stabilize revenue guides transcription and insights state"
           git push origin HEAD:fix/v147-device-stability
@@ -73,4 +76,4 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-# Trigger: stability validation pass 2
+# Trigger: stability validation pass 3
