@@ -62,7 +62,7 @@ class V144IdeaReminderPolicyTest {
     }
 
     @Test
-    fun `missed one shot reminder expires instead of repeating`() {
+    fun `missed one shot reminder recovers instead of disappearing`() {
         val oldAt = millis(2026, 9, 20, 9, 30)
         val now = millis(2026, 9, 22, 12, 0)
         val idea = CreatorIdea(
@@ -74,8 +74,50 @@ class V144IdeaReminderPolicyTest {
 
         val normalized = IdeaReminderPolicy.normalize(idea, now, zone)
 
-        assertEquals(0L, normalized.reminderAtMillis)
-        assertFalse(IdeaReminderPolicy.isActionable(normalized))
+        assertEquals(
+            now + IdeaReminderPolicy.MISSED_ONE_SHOT_RECOVERY_DELAY_MILLIS,
+            normalized.reminderAtMillis,
+        )
+        assertEquals(IdeaReminderCadence.ONCE, normalized.reminderCadence)
+        assertTrue(IdeaReminderPolicy.isActionable(normalized))
+    }
+
+    @Test
+    fun `undelivered one shot reminder retries without being consumed`() {
+        val attemptedAt = millis(2026, 9, 22, 12, 0)
+        val idea = CreatorIdea(
+            id = "undelivered-once",
+            title = "Retry once",
+            reminderAtMillis = attemptedAt,
+            reminderCadence = IdeaReminderCadence.ONCE,
+        )
+
+        val retry = IdeaReminderPolicy.afterUndelivered(idea, attemptedAt, zone)
+
+        assertEquals(
+            attemptedAt + IdeaReminderPolicy.UNDELIVERED_ONE_SHOT_RETRY_MILLIS,
+            retry.reminderAtMillis,
+        )
+        assertEquals(IdeaReminderCadence.ONCE, retry.reminderCadence)
+        assertTrue(IdeaReminderPolicy.isActionable(retry))
+    }
+
+    @Test
+    fun `undelivered daily reminder preserves local cadence`() {
+        val scheduledAt = millis(2026, 9, 22, 9, 30)
+        val attemptedAt = millis(2026, 9, 22, 9, 31)
+        val idea = CreatorIdea(
+            id = "undelivered-daily",
+            title = "Retry daily",
+            reminderAtMillis = scheduledAt,
+            reminderCadence = IdeaReminderCadence.DAILY,
+        )
+
+        val retry = IdeaReminderPolicy.afterUndelivered(idea, attemptedAt, zone)
+
+        assertEquals(millis(2026, 9, 23, 9, 30), retry.reminderAtMillis)
+        assertEquals(IdeaReminderCadence.DAILY, retry.reminderCadence)
+        assertTrue(IdeaReminderPolicy.isActionable(retry))
     }
 
     @Test
