@@ -13,6 +13,7 @@ on:
       - "fix/v145-guide-revenue-hotfix"
       - "fix/v145-ux-automation-deeplink"
       - "feature/voice-ideas-recorder"
+      - "feature/v147-idea-reminders"
     paths:
       - "app/**"
       - "*.gradle.kts"
@@ -79,7 +80,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v146-Voice-Ideas
+          name: Backlot-v147-Idea-Reminders
           path: app/build/outputs/apk/debug/app-debug.apk
 
   ui-smoke-v145:
