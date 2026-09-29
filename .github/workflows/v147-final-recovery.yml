@@ -1,0 +1,80 @@
+name: V147 Final Recovery Build
+
+on:
+  push:
+    branches:
+      - fix/v147-device-stability
+    paths:
+      - .github/workflows/v147-final-recovery.yml
+
+permissions:
+  contents: write
+
+jobs:
+  recover-validate-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout stability branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/v147-device-stability
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply saved-audio safety patch
+        run: python tools/v147_voice_safety_patch.py
+
+      - name: Verify source diff
+        run: git diff --check
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Run Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Build final V147 APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload final APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v147-Final-Device-Stability
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Commit validated safety fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/build.gradle.kts app/src/main/java/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "fix(v147): keep saved-audio transcription microphone-safe"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:fix/v147-device-stability; then
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          echo "Push failed after retries, but validated APK artifact was already uploaded."
+          exit 0
