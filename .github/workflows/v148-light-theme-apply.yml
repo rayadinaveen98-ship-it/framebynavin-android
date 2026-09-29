@@ -1,0 +1,82 @@
+name: V148 Light Appearance Hardening
+
+on:
+  push:
+    branches:
+      - "feature/v148-light-theme"
+    paths:
+      - ".github/v148/apply_light_theme_audit.py"
+      - ".github/workflows/v148-light-theme-apply.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v148-light-appearance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harden-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout V148 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply controlled V148 cross-file patches
+        run: python .github/v148/apply_light_theme_audit.py --apply
+
+      - name: Print theme-surface audit
+        run: python .github/v148/apply_light_theme_audit.py | tee v148-theme-audit.txt
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Run Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Build V148 APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Commit validated V148 patch set
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No generated V148 changes to commit."
+          else
+            git commit -m "fix(v148): harden app-wide dark and light surfaces"
+            git push origin HEAD:feature/v148-light-theme
+          fi
+
+      - name: Upload V148 APK and audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v148-Light-Appearance
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            v148-theme-audit.txt
+          if-no-files-found: warn
+
+      - name: Enforce no unresolved dark-only surface literals
+        run: python .github/v148/apply_light_theme_audit.py --strict
