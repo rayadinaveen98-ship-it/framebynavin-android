@@ -1,0 +1,33 @@
+name: V147 Workflow Path Fix
+
+on:
+  push:
+    branches:
+      - fix/v147-device-stability
+    paths:
+      - .github/workflows/v147-workflow-path-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-path:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/v147-device-stability
+          fetch-depth: 0
+      - name: Correct Insights source path
+        run: |
+          sed -i 's#app/src/main/java/com/framebynavin/app/ui/V11InsightsScreen.kt#app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt#g' .github/workflows/v147-device-stability.yml
+          grep -q 'V11YouTubeInsights.kt' .github/workflows/v147-device-stability.yml
+          ! grep -q 'V11InsightsScreen.kt' .github/workflows/v147-device-stability.yml
+      - name: Commit corrected workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/v147-device-stability.yml
+          git diff --cached --check
+          git commit -m "ci(v147): fix insights workflow path"
+          git push origin HEAD:fix/v147-device-stability
