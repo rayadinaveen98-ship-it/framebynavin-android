@@ -44,6 +44,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private object V147InsightsSessionState {
+    var windowDays: Int = 28
+}
+
 @Composable
 internal fun V11InsightsScreen(
     creatorProfile: CreatorProfile,
@@ -63,7 +67,7 @@ internal fun V11InsightsScreen(
     val authClient = remember(activity) { activity?.let { Identity.getAuthorizationClient(it) } }
     val scope = rememberCoroutineScope()
 
-    var windowDays by rememberSaveable { mutableIntStateOf(28) }
+    var windowDays by rememberSaveable { mutableIntStateOf(V147InsightsSessionState.windowDays) }
     var snapshot by remember { mutableStateOf(store.load(windowDays) ?: store.loadAny()) }
     var syncing by remember { mutableStateOf(false) }
     var revoking by remember { mutableStateOf(false) }
@@ -93,6 +97,7 @@ internal fun V11InsightsScreen(
     }
 
     LaunchedEffect(windowDays) {
+        V147InsightsSessionState.windowDays = windowDays
         refreshCacheView()
         authError = null
     }

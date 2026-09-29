@@ -55,7 +55,7 @@ android {
         targetSdk = 36
         // Backlot V147 idea reminders release candidate.
         versionCode = 147
-        versionName = "2.0.0-rc20-idea-reminders"
+        versionName = "2.0.0-rc21-device-stability"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

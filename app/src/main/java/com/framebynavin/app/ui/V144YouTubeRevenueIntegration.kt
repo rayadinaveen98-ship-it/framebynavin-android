@@ -245,7 +245,11 @@ private fun v144RevenueFriendlyError(error: Throwable): String {
         raw.contains("403") || raw.contains("permission", ignoreCase = true) ->
             "Reconnect once to grant read-only YouTube revenue access."
         else ->
-            "YouTube revenue couldn't refresh right now. Your normal Insights are unaffected."
+            if (raw.isBlank()) {
+                "YouTube revenue couldn't refresh right now. Your normal Insights are unaffected."
+            } else {
+                "YouTube revenue couldn't refresh: ${raw.take(140)}"
+            }
     }
 }
 

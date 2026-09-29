@@ -10,8 +10,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.speech.RecognitionListener
-import android.speech.RecognitionSupport
-import android.speech.RecognitionSupportCallback
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import com.framebynavin.app.data.IdeaTranscriptionState
@@ -37,9 +35,8 @@ interface SavedVoiceIdeaTranscriberListener {
  *
  * The recorder stores AAC in an MPEG-4 container, while RecognizerIntent.EXTRA_AUDIO_SOURCE
  * expects raw audio. We therefore decode to an app-cache PCM16 file first. Android 13+ can then
- * pass that PCM file to the speech recognizer. The exact request is checked with
- * SpeechRecognizer.checkRecognitionSupport before startListening; if the service cannot verify
- * support we stop rather than risk EXTRA_AUDIO_SOURCE being ignored and the microphone opening.
+ * pass that PCM file to the speech recognizer. The prepared file remains alive for the
+ * complete recognition session and is deleted only after success, failure or cancellation.
  */
 class SavedVoiceIdeaTranscriber(
     context: Context,
@@ -93,7 +90,7 @@ class SavedVoiceIdeaTranscriber(
                     return@launch
                 }
                 activePcmFile = decoded.file
-                beginSupportCheck(token, decoded, language)
+                startRecognition(token, decoded, language)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
@@ -122,8 +119,17 @@ class SavedVoiceIdeaTranscriber(
         scope.cancel()
     }
 
-    private fun beginSupportCheck(token: Long, audio: DecodedPcmAudio, language: IdeaVoiceLanguage) {
+    private fun startRecognition(
+        token: Long,
+        audio: DecodedPcmAudio,
+        language: IdeaVoiceLanguage,
+    ) {
         if (token != session || destroyed) return
+        if (!audio.file.exists() || !audio.file.isFile || !audio.file.canRead() || audio.file.length() <= 0L) {
+            finishFailure(token, IdeaTranscriptionState.FAILED, "The prepared recording is unavailable. Try transcribing again.")
+            return
+        }
+
         val current = runCatching { SpeechRecognizer.createSpeechRecognizer(appContext) }
             .getOrElse {
                 finishFailure(token, IdeaTranscriptionState.UNAVAILABLE, "Speech recognition could not start on this phone.")
@@ -131,66 +137,13 @@ class SavedVoiceIdeaTranscriber(
             }
         recognizer = current
 
-        val supportFd = runCatching { ParcelFileDescriptor.open(audio.file, ParcelFileDescriptor.MODE_READ_ONLY) }
-            .getOrElse {
-                finishFailure(token, IdeaTranscriptionState.FAILED, "The prepared recording could not be opened.")
-                return
-            }
-        val supportIntent = buildRecognizerIntent(supportFd, audio, language)
-
-        runCatching {
-            current.checkRecognitionSupport(
-                supportIntent,
-                appContext.mainExecutor,
-                object : RecognitionSupportCallback {
-                    override fun onSupportResult(recognitionSupport: RecognitionSupport) {
-                        runCatching { supportFd.close() }
-                        if (token != session || destroyed) return
-
-                        val ready = recognitionSupport.installedOnDeviceLanguages.isNotEmpty() ||
-                            recognitionSupport.onlineLanguages.isNotEmpty()
-                        if (!ready) {
-                            finishFailure(
-                                token,
-                                IdeaTranscriptionState.UNAVAILABLE,
-                                "A speech model for this saved recording is not ready on this phone.",
-                            )
-                            return
-                        }
-                        startRecognition(token, current, audio, language)
-                    }
-
-                    override fun onError(error: Int) {
-                        runCatching { supportFd.close() }
-                        if (token != session || destroyed) return
-                        finishFailure(
-                            token,
-                            IdeaTranscriptionState.UNAVAILABLE,
-                            "This phone cannot safely transcribe saved recordings with its current speech service.",
-                        )
-                    }
-                },
-            )
-        }.onFailure {
-            runCatching { supportFd.close() }
-            finishFailure(
-                token,
-                IdeaTranscriptionState.UNAVAILABLE,
-                "This phone cannot verify saved-recording speech support.",
-            )
-        }
-    }
-
-    private fun startRecognition(
-        token: Long,
-        current: SpeechRecognizer,
-        audio: DecodedPcmAudio,
-        language: IdeaVoiceLanguage,
-    ) {
-        if (token != session || destroyed) return
         val audioFd = runCatching { ParcelFileDescriptor.open(audio.file, ParcelFileDescriptor.MODE_READ_ONLY) }
-            .getOrElse {
-                finishFailure(token, IdeaTranscriptionState.FAILED, "The prepared recording could not be opened.")
+            .getOrElse { error ->
+                finishFailure(
+                    token,
+                    IdeaTranscriptionState.FAILED,
+                    "The prepared recording could not be opened (${error.javaClass.simpleName}).",
+                )
                 return
             }
         activeAudioSource = audioFd
@@ -234,7 +187,11 @@ class SavedVoiceIdeaTranscriber(
         val intent = buildRecognizerIntent(audioFd, audio, language)
         runCatching { current.startListening(intent) }
             .onFailure {
-                finishFailure(token, IdeaTranscriptionState.FAILED, "Saved recording transcription could not start.")
+                finishFailure(
+                    token,
+                    IdeaTranscriptionState.FAILED,
+                    "Saved recording transcription could not start (${it.javaClass.simpleName}).",
+                )
             }
     }
 

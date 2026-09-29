@@ -98,7 +98,7 @@ internal fun V144SettingsHub(
             V144SettingsSection.GUIDE -> V144SettingsPage("GUIDE CHARACTER", "Choose who guides your creator journey", { sectionName = V144SettingsSection.HOME.name }) {
                 V144GuidePicker()
                 Spacer(Modifier.height(12.dp))
-                V144SettingsNote("Your guide choice is used across setup, guided tours and helper moments. Frame and Navi keep their vector renderer; Funny and Cute use the premium raster character system.")
+                V144SettingsNote("Your guide choice is used across setup, guided tours and helper moments. Funny and Cute are the active Backlot guides.")
             }
 
             V144SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", { sectionName = V144SettingsSection.HOME.name }) {
@@ -279,7 +279,7 @@ private fun V144SettingsHome(
             onClick = onProfile,
         )
         V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) { onOpen(V144SettingsSection.APPEARANCE) }
-        V144CategoryCard("Guide Character", "Frame, Navi, Funny or Cute", Icons.Outlined.Face, MutedGold) { onOpen(V144SettingsSection.GUIDE) }
+        V144CategoryCard("Guide Character", V145SelectableGuides.joinToString(" or ") { it.displayName }, Icons.Outlined.Face, MutedGold) { onOpen(V144SettingsSection.GUIDE) }
         V144CategoryCard("Voice", "Default project voice and preview", Icons.Outlined.RecordVoiceOver, RecRed) { onOpen(V144SettingsSection.VOICE) }
         V144CategoryCard(
             "Notifications & Reminders",

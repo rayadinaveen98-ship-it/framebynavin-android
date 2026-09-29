@@ -76,14 +76,7 @@ internal fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState):
         CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_funny_welcome
     }
 
-    V144GuideIdentity.CUTE -> when (state) {
-        CinePulseState.WAVE -> R.drawable.guide_cute_welcome
-        CinePulseState.LOOK, CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_cute_listening
-        CinePulseState.THINK -> R.drawable.guide_cute_thinking
-        CinePulseState.SUCCESS, CinePulseState.CELEBRATE -> R.drawable.guide_cute_celebrate
-        CinePulseState.IDLE, CinePulseState.WALK, CinePulseState.POINT,
-        CinePulseState.PRESENT, CinePulseState.NOD -> R.drawable.guide_cute_encourage
-    }
+    V144GuideIdentity.CUTE -> R.drawable.guide_cute_welcome
 
     // Defensive fallback; Frame/Navi normally stay on their vector renderer.
     V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> R.drawable.guide_funny_welcome

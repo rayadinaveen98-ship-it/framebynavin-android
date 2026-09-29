@@ -69,40 +69,57 @@ class YouTubeRevenueClient {
             "endDate" to range.second.toString(),
             "currency" to currencyCode,
         )
+
+        // Revenue totals are the critical dataset. Optional ad-rate, trend and content reports
+        // may be temporarily unavailable without blanking the complete earnings card.
         val summary = queryReport(
             accessToken,
-            common + ("metrics" to "views,estimatedRevenue,estimatedAdRevenue,playbackBasedCpm,cpm,monetizedPlaybacks,adImpressions"),
+            common + ("metrics" to "views,estimatedRevenue,estimatedAdRevenue,monetizedPlaybacks"),
         ).firstOrNull().orEmpty()
-        val trend = queryReport(
-            accessToken,
-            common + mapOf(
-                "dimensions" to "day",
-                "metrics" to "estimatedRevenue",
-                "sort" to "day",
-            ),
-        ).mapNotNull { row ->
-            val day = row["day"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-            YouTubeRevenuePoint(day, row.double("estimatedRevenue"))
-        }
-        val content = queryReport(
-            accessToken,
-            common + mapOf(
-                "dimensions" to "video,creatorContentType",
-                "metrics" to "views,estimatedRevenue,estimatedAdRevenue,monetizedPlaybacks",
-                "sort" to "-estimatedRevenue",
-                "maxResults" to "50",
-            ),
-        ).mapNotNull { row ->
-            val videoId = row["video"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-            YouTubeRevenueContentRow(
-                videoId = videoId,
-                creatorContentType = row["creatorContentType"]?.toString().orEmpty(),
-                views = row.long("views"),
-                estimatedRevenue = row.double("estimatedRevenue"),
-                estimatedAdRevenue = row.double("estimatedAdRevenue"),
-                monetizedPlaybacks = row.long("monetizedPlaybacks"),
-            )
-        }
+
+        val adSummary: Map<String, Any?> = runCatching {
+            queryReport(
+                accessToken,
+                common + ("metrics" to "playbackBasedCpm,cpm,adImpressions"),
+            ).firstOrNull().orEmpty()
+        }.getOrDefault(emptyMap())
+
+        val trend: List<YouTubeRevenuePoint> = runCatching {
+            queryReport(
+                accessToken,
+                common + mapOf(
+                    "dimensions" to "day",
+                    "metrics" to "estimatedRevenue",
+                    "sort" to "day",
+                ),
+            ).mapNotNull { row ->
+                val day = row["day"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                YouTubeRevenuePoint(day, row.double("estimatedRevenue"))
+            }
+        }.getOrDefault(emptyList())
+
+        val content: List<YouTubeRevenueContentRow> = runCatching {
+            queryReport(
+                accessToken,
+                common + mapOf(
+                    "dimensions" to "video,creatorContentType",
+                    "metrics" to "views,estimatedRevenue,estimatedAdRevenue,monetizedPlaybacks",
+                    "sort" to "-estimatedRevenue",
+                    "maxResults" to "50",
+                ),
+            ).mapNotNull { row ->
+                val videoId = row["video"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                YouTubeRevenueContentRow(
+                    videoId = videoId,
+                    creatorContentType = row["creatorContentType"]?.toString().orEmpty(),
+                    views = row.long("views"),
+                    estimatedRevenue = row.double("estimatedRevenue"),
+                    estimatedAdRevenue = row.double("estimatedAdRevenue"),
+                    monetizedPlaybacks = row.long("monetizedPlaybacks"),
+                )
+            }
+        }.getOrDefault(emptyList())
+
         return YouTubeRevenueSnapshot(
             period = period,
             startDate = range.first.toString(),
@@ -111,10 +128,10 @@ class YouTubeRevenueClient {
             views = summary.long("views"),
             estimatedRevenue = summary.double("estimatedRevenue"),
             estimatedAdRevenue = summary.double("estimatedAdRevenue"),
-            playbackBasedCpm = summary.double("playbackBasedCpm"),
-            impressionCpm = summary.double("cpm"),
+            playbackBasedCpm = adSummary.double("playbackBasedCpm"),
+            impressionCpm = adSummary.double("cpm"),
             monetizedPlaybacks = summary.long("monetizedPlaybacks"),
-            adImpressions = summary.long("adImpressions"),
+            adImpressions = adSummary.long("adImpressions"),
             trend = trend,
             content = content,
             fetchedAtMillis = System.currentTimeMillis(),
