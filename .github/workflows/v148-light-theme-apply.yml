@@ -66,14 +66,16 @@ jobs:
       - name: Recheck media and native-dialog semantics
         run: python .github/v148/finalize_light_semantics.py
 
-      - name: Commit validated V148 patch set
+      - name: Commit validated V148 source patch set
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          # Only source/config paths belong in Git. Gradle caches, app/build outputs and the generated
+          # audit report stay workflow artifacts even when this job performs the build.
+          git add app/build.gradle.kts app/src/main/java app/src/main/res app/src/test
           if git diff --cached --quiet; then
-            echo "No generated V148 changes to commit."
+            echo "No generated V148 source changes to commit."
           else
             git commit -m "fix(v148): harden app-wide dark and light surfaces"
             git push origin HEAD:feature/v148-light-theme
