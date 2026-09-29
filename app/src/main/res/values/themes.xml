@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Internal style names stay stable for update compatibility; visible identity is Backlot. -->
+    <!--
+      The OS starting window appears before app preferences can be read. V148 therefore uses a
+      Backlot-brand transition color instead of pretending the app is always dark. Compose takes
+      over with the saved Director's Cut/Light appearance as soon as MainActivity is created.
+    -->
     <style name="Theme.FrameByNavin" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#070707</item>
-        <item name="android:navigationBarColor">#070707</item>
-        <item name="android:windowBackground">#070707</item>
+        <item name="android:statusBarColor">#B43B37</item>
+        <item name="android:navigationBarColor">#B43B37</item>
+        <item name="android:windowBackground">#B43B37</item>
     </style>
 
     <style name="Theme.FrameByNavin.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#070707</item>
+        <item name="windowSplashScreenBackground">#B43B37</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/backlot_splash_mark</item>
         <item name="windowSplashScreenAnimationDuration">0</item>
         <item name="postSplashScreenTheme">@style/Theme.FrameByNavin</item>
