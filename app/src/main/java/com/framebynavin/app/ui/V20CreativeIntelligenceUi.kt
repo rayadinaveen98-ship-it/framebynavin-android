@@ -51,7 +51,7 @@ internal fun V20CreativeIntelligenceCard(
     Surface(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
         RoundedCornerShape(20.dp),
-        Color(0xFF171617),
+        MutedGold.copy(alpha = .05f),
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f)),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -103,7 +103,7 @@ private fun CreativePatternCard(pattern: CreatorCreativePattern) {
     Surface(
         Modifier.fillMaxWidth(),
         RoundedCornerShape(15.dp),
-        Color(0xFF202022),
+        CinemaSurfaceRaised,
         border = BorderStroke(1.dp, accent.copy(alpha = .18f)),
     ) {
         Column(Modifier.padding(11.dp)) {

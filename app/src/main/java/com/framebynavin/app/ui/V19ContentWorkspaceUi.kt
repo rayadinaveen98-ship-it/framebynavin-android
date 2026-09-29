@@ -242,7 +242,7 @@ internal fun V19ContentWorkspaceDialog(
                     )
                 }
 
-                Surface(color = Color(0xF20B0B0C), tonalElevation = 8.dp) {
+                Surface(color = BacklotNavigationSurface.copy(alpha = .96f), tonalElevation = 8.dp) {
                     Button(
                         onClick = {
                             onSave(

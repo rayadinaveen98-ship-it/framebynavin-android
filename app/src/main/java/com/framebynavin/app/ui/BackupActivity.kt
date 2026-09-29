@@ -221,7 +221,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 Surface(
                     Modifier.fillMaxWidth(),
                     RoundedCornerShape(16.dp),
-                    if (isError) Color(0xFF1A1110) else Color(0xFF101812),
+                    if (isError) RecRed.copy(alpha = .07f) else SuccessGreen.copy(alpha = .08f),
                     border = BorderStroke(1.dp, if (isError) RecRed.copy(alpha = .4f) else SuccessGreen.copy(alpha = .35f)),
                 ) {
                     Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {

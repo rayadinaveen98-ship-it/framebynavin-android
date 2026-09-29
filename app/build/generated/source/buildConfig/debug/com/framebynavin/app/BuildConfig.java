@@ -7,6 +7,6 @@ public final class BuildConfig {
   public static final boolean DEBUG = Boolean.parseBoolean("true");
   public static final String APPLICATION_ID = "com.framebynavin.app";
   public static final String BUILD_TYPE = "debug";
-  public static final int VERSION_CODE = 131;
-  public static final String VERSION_NAME = "2.0.0-rc7-cine-pulse-motion-pass";
+  public static final int VERSION_CODE = 148;
+  public static final String VERSION_NAME = "2.0.0-rc23-light-appearance";
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.youtube.V144YouTubeRevenueTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:34" hostname="runnervmtr4k5" time="0.001">
+  <properties/>
+  <testcase name="rpm is calculated from estimated revenue and views" classname="com.framebynavin.app.youtube.V144YouTubeRevenueTest" time="0.001"/>
+  <testcase name="seven day period uses seven completed calendar days" classname="com.framebynavin.app.youtube.V144YouTubeRevenueTest" time="0.0"/>
+  <testcase name="this month starts on first day and ends yesterday" classname="com.framebynavin.app.youtube.V144YouTubeRevenueTest" time="0.0"/>
+  <testcase name="zero views produce zero calculated rpm" classname="com.framebynavin.app.youtube.V144YouTubeRevenueTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

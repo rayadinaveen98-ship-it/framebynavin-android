@@ -1,14 +1,25 @@
 R_DEF: Internal format may change without notice
 local
+drawable backlot_icon_cinematic
+drawable backlot_icon_horizontal
+drawable backlot_icon_light
+drawable backlot_icon_minimal
+drawable backlot_splash_mark
+drawable guide_cute_celebrate
+drawable guide_cute_encourage
+drawable guide_cute_listening
+drawable guide_cute_thinking
+drawable guide_cute_welcome
+drawable guide_funny_celebrate
+drawable guide_funny_point
+drawable guide_funny_present
+drawable guide_funny_thinking
+drawable guide_funny_welcome
 drawable ic_framebynavin_launcher
 drawable ic_framebynavin_splash
-drawable widget_bg_aurora
 drawable widget_bg_directors
-drawable widget_bg_ember
 drawable widget_bg_ivory
-drawable widget_bg_lumen
-drawable widget_bg_midnight
-drawable widget_bg_violet
+drawable widget_bg_light
 drawable widget_creator_bg
 drawable widget_creator_button
 drawable widget_creator_button_red

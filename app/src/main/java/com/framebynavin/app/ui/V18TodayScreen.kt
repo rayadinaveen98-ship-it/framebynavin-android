@@ -225,7 +225,7 @@ private fun V18CreatorFocusCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF171310),
+        color = MutedGold.copy(alpha = .06f),
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .22f)),
     ) {
         Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp)) {
@@ -290,7 +290,7 @@ private fun V20WeeklyFocusDialog(
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory) }
                 }
                 Spacer(Modifier.height(12.dp))
-                Surface(shape = RoundedCornerShape(18.dp), color = Color(0xFF171310), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
+                Surface(shape = RoundedCornerShape(18.dp), color = MutedGold.copy(alpha = .07f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
                     Column(Modifier.padding(14.dp)) {
                         Text("WEEKLY OUTPUT", color = MutedText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(4.dp))
@@ -376,7 +376,7 @@ private fun PTodayProjectCard(task: CreatorTask, onClick: () -> Unit) {
     ) {
         Column(Modifier.padding(19.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(100.dp), color = if (overdue) RecRed.copy(alpha = .14f) else Color(0xFF171410)) {
+                Surface(shape = RoundedCornerShape(100.dp), color = if (overdue) RecRed.copy(alpha = .14f) else CinemaSurfaceRaised) {
                     Text(if (overdue) "OVERDUE" else task.dueLabel.uppercase(Locale.getDefault()), color = if (overdue) RecRed else MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), maxLines = 1)
                 }
                 Spacer(Modifier.weight(1f))

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.VoiceIdeaModelTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:34" hostname="runnervmtr4k5" time="0.001">
+  <properties/>
+  <testcase name="voice metadata keeps transcript separate from original recording" classname="com.framebynavin.app.data.VoiceIdeaModelTest" time="0.0"/>
+  <testcase name="project conversion notes do not invent transcript section when transcript is absent" classname="com.framebynavin.app.data.VoiceIdeaModelTest" time="0.001"/>
+  <testcase name="existing ideas default to text capture" classname="com.framebynavin.app.data.VoiceIdeaModelTest" time="0.0"/>
+  <testcase name="project source resolver ignores unrelated or missing recordings" classname="com.framebynavin.app.data.VoiceIdeaModelTest" time="0.0"/>
+  <testcase name="project conversion notes preserve voice transcript after creator notes" classname="com.framebynavin.app.data.VoiceIdeaModelTest" time="0.0"/>
+  <testcase name="idea vault project resolves its canonical source voice recording" classname="com.framebynavin.app.data.VoiceIdeaModelTest" time="0.0"/>
+  <testcase name="voice idea reports original recording only when local audio exists" classname="com.framebynavin.app.data.VoiceIdeaModelTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

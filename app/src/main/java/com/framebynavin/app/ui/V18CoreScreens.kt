@@ -249,7 +249,7 @@ internal fun PStudioProject(
                 onLongClick = onLongPress,
             ),
             shape = RoundedCornerShape(if (expanded) 21.dp else 18.dp),
-            color = if (selected) RecRed.copy(alpha = .10f) else if (expanded) Color(0xFF16130F) else CinemaSurface,
+            color = if (selected) RecRed.copy(alpha = .10f) else if (expanded) MutedGold.copy(alpha = .06f) else CinemaSurface,
             border = BorderStroke(1.dp, if (selected) RecRed else if (expanded) MutedGold.copy(alpha = .5f) else CinemaLine),
         ) {
             Column(Modifier.padding(if (compactCard) 10.dp else 15.dp)) {

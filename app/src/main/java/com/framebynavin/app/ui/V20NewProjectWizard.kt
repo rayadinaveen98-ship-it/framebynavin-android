@@ -468,7 +468,7 @@ internal fun V20NewProjectWizard(
                                 onClick = onOpenSettings,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
-                                color = Color(0xFF17130F),
+                                color = MutedGold.copy(alpha = .07f),
                                 border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f)),
                             ) {
                                 Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -556,7 +556,7 @@ private fun V20ProgressiveSection(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFF111113),
+                    color = CinemaSurfaceRaised,
                     border = BorderStroke(1.dp, RecRed.copy(alpha = .38f)),
                 ) {
                     Column(Modifier.padding(16.dp)) {

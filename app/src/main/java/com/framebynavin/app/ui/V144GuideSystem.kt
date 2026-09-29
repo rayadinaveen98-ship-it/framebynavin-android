@@ -275,4 +275,4 @@ private fun v144GuideIdentityColor(guide: V144GuideIdentity): Color = when (guid
     V144GuideIdentity.CUTE -> Color(0xFFE99AAF)
 }
 
-private val V144GuideStage = Color(0xFF15191F)
+private val V144GuideStage: Color get() = CinemaSurfaceRaised

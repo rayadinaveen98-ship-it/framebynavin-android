@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorGuidedTourPolicyTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-15T08:21:29" hostname="runnervmlun5p" time="0.0">
+<testsuite name="com.framebynavin.app.data.CreatorGuidedTourPolicyTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:33" hostname="runnervmtr4k5" time="0.001">
   <properties/>
-  <testcase name="tour order matches the real creator journey" classname="com.framebynavin.app.data.CreatorGuidedTourPolicyTest" time="0.0"/>
+  <testcase name="tour order matches the real creator journey" classname="com.framebynavin.app.data.CreatorGuidedTourPolicyTest" time="0.001"/>
   <testcase name="existing creators are not forced through the new tour" classname="com.framebynavin.app.data.CreatorGuidedTourPolicyTest" time="0.0"/>
   <testcase name="tour waits until creator setup is actually complete" classname="com.framebynavin.app.data.CreatorGuidedTourPolicyTest" time="0.0"/>
   <testcase name="brand new installs remain eligible after setup" classname="com.framebynavin.app.data.CreatorGuidedTourPolicyTest" time="0.0"/>

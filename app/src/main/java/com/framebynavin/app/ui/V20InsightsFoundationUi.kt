@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.CinemaLine
+import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
@@ -48,7 +49,7 @@ internal fun V20InsightsFoundationCard(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
-            color = Color(0xFF141619),
+            color = CinemaSurface,
             border = BorderStroke(1.dp, CinemaLine),
         ) {
             Column(Modifier.padding(14.dp)) {
@@ -95,7 +96,7 @@ internal fun V20InsightsFoundationCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = Color(0xFF141619),
+        color = CinemaSurface,
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Column(Modifier.padding(14.dp)) {

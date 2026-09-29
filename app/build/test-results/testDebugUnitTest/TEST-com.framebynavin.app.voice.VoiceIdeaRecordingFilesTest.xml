@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.voice.VoiceIdeaRecordingFilesTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:34" hostname="runnervmtr4k5" time="0.004">
+  <properties/>
+  <testcase name="successful replacement removes previous take only" classname="com.framebynavin.app.voice.VoiceIdeaRecordingFilesTest" time="0.001"/>
+  <testcase name="remove keeps reference when file deletion fails" classname="com.framebynavin.app.voice.VoiceIdeaRecordingFilesTest" time="0.001"/>
+  <testcase name="failed replacement keeps previous take and discards replacement" classname="com.framebynavin.app.voice.VoiceIdeaRecordingFilesTest" time="0.0"/>
+  <testcase name="first recording needs no ownership cleanup" classname="com.framebynavin.app.voice.VoiceIdeaRecordingFilesTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

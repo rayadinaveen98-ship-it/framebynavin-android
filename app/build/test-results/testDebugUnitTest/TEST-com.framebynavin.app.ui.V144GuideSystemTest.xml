@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.ui.V144GuideSystemTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:34" hostname="runnervmtr4k5" time="0.002">
+  <properties/>
+  <testcase name="cute uses the validated welcome master for every semantic state" classname="com.framebynavin.app.ui.V144GuideSystemTest" time="0.001"/>
+  <testcase name="v145 selectable roster contains only funny and cute" classname="com.framebynavin.app.ui.V144GuideSystemTest" time="0.001"/>
+  <testcase name="legacy frame and navi preferences migrate to funny" classname="com.framebynavin.app.ui.V144GuideSystemTest" time="0.0"/>
+  <testcase name="funny resolves every semantic state to a real raster asset" classname="com.framebynavin.app.ui.V144GuideSystemTest" time="0.0"/>
+  <testcase name="creator setup and guided tour semantic poses are covered for both active guides" classname="com.framebynavin.app.ui.V144GuideSystemTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

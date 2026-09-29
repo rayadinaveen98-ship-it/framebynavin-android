@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorContextV15Test" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-15T08:21:29" hostname="runnervmlun5p" time="0.014">
+<testsuite name="com.framebynavin.app.data.CreatorContextV15Test" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:33" hostname="runnervmtr4k5" time="0.013">
   <properties/>
-  <testcase name="contextNudgeFlagsLowProgressProjectDueSoon" classname="com.framebynavin.app.data.CreatorContextV15Test" time="0.007"/>
+  <testcase name="contextNudgeFlagsLowProgressProjectDueSoon" classname="com.framebynavin.app.data.CreatorContextV15Test" time="0.006"/>
   <testcase name="contentCalendarCombinesProjectsAndFutureWeeklySlots" classname="com.framebynavin.app.data.CreatorContextV15Test" time="0.003"/>
-  <testcase name="dailyBriefUsesSmartPriorityForFocus" classname="com.framebynavin.app.data.CreatorContextV15Test" time="0.003"/>
+  <testcase name="dailyBriefUsesSmartPriorityForFocus" classname="com.framebynavin.app.data.CreatorContextV15Test" time="0.004"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

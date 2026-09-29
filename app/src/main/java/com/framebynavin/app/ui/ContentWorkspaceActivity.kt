@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.*
-import com.framebynavin.app.ui.theme.FrameByNavinTheme
+import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -48,18 +48,18 @@ class ContentWorkspaceActivity : ComponentActivity() {
             FrameByNavinTheme {
                 Box(Modifier.fillMaxSize()) {
                     when {
-                        error != null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                        error != null -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
                             Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-                                Text("Workspace needs attention", color = Color.White)
+                                Text("Workspace needs attention", color = ProjectorIvory)
                                 Spacer(Modifier.height(8.dp))
-                                Text(error.orEmpty(), color = Color.LightGray)
+                                Text(error.orEmpty(), color = MutedText)
                                 Spacer(Modifier.height(12.dp))
                                 Button(onClick = { load(projectId) }) { Text("RELOAD PROJECT") }
                                 TextButton(onClick = { error = null; mode = Alpha6WorkspaceMode.HUB }) { Text("BACK TO HUB") }
                                 TextButton(onClick = { finish() }) { Text("CLOSE") }
                             }
                         }
-                        task == null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                        task == null -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
                             Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                                 CircularProgressIndicator()
                             }
@@ -102,7 +102,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onDismiss = { confirmEditorClose = true },
                             onSave = { id, revision, workspace -> saveProject(id, revision, workspace, Alpha6WorkspaceMode.PUBLISH) },
                         )
-                        else -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                        else -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
                             Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                                 CircularProgressIndicator()
                             }

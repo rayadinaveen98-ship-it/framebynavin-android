@@ -410,7 +410,7 @@ private fun YTProfileFocusCard(
     Surface(
         Modifier.fillMaxWidth(),
         RoundedCornerShape(19.dp),
-        Color(0xFF171310),
+        MutedGold.copy(alpha = .07f),
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f)),
     ) {
         Column(Modifier.padding(15.dp)) {
@@ -482,7 +482,7 @@ private fun YTConnectCard(
 
 @Composable
 private fun YTErrorCard(message: String, packageName: String, sha1: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), Color(0xFF17110F), border = BorderStroke(1.dp, RecRed.copy(alpha = .35f))) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), RecRed.copy(alpha = .07f), border = BorderStroke(1.dp, RecRed.copy(alpha = .35f))) {
         Column(Modifier.padding(13.dp)) {
             Text("YOUTUBE CONNECTION", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             Spacer(Modifier.height(4.dp))
@@ -581,7 +581,7 @@ private fun YTSignalCard(data: YouTubeAnalyticsSnapshot) {
         data.netSubscribers < 0 -> "Subscriber movement is negative at ${data.netSubscribers}; check which uploads are losing viewers."
         else -> "Subscriber movement is flat in this window."
     }
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), Color(0xFF15130F), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f))) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), MutedGold.copy(alpha = .06f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f))) {
         Column(Modifier.padding(16.dp)) {
             Text("WHAT TO WATCH", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(7.dp))

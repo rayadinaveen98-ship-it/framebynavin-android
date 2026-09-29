@@ -109,7 +109,7 @@ private fun V172TabRow(selected: V172InsightsTab, onSelect: (V172InsightsTab) ->
     Surface(
         Modifier.fillMaxWidth(),
         RoundedCornerShape(18.dp),
-        Color(0xFF151517),
+        CinemaSurface,
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Row(Modifier.padding(5.dp)) {
@@ -119,7 +119,7 @@ private fun V172TabRow(selected: V172InsightsTab, onSelect: (V172InsightsTab) ->
                     onClick = { onSelect(tab) },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(13.dp),
-                    color = if (active) Color(0xFF2A2323) else Color.Transparent,
+                    color = if (active) BacklotSurfaceSelected else Color.Transparent,
                 ) {
                     Text(
                         tab.name.lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase() },
@@ -202,13 +202,13 @@ private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot, onDetail: (V20Insi
     }
 }
 
-private val BrushCard = Color(0xFF171413)
+private val BrushCard: Color get() = MutedGold.copy(alpha = .06f)
 
 @Composable
 private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Unit) {
     val positive = (metric.percentChange ?: 0) > 0
     val negative = (metric.percentChange ?: 0) < 0
-    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), Color(0xFF202020)) {
+    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(metric.label, color = MutedText, fontSize = 7.3.sp, fontWeight = FontWeight.Bold, letterSpacing = .6.sp, modifier = Modifier.weight(1f))
@@ -491,7 +491,7 @@ private fun V172VideoDetailDialog(
                     V172Mini("COMMENTS", v172Compact(video.comments), Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(12.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF1C1C1E)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised) {
                     Column(Modifier.padding(12.dp)) {
                         Text("CONNECTED PROJECT", color = MutedText, fontSize = 7.7.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(3.dp))
@@ -500,7 +500,7 @@ private fun V172VideoDetailDialog(
                 }
                 linkedTask?.let { task ->
                     Spacer(Modifier.height(12.dp))
-                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF171719), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
+                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), MutedGold.copy(alpha = .06f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
                         Column(Modifier.padding(12.dp)) {
                             Text("QUICK READ", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black)
                             Spacer(Modifier.height(3.dp))
@@ -541,7 +541,7 @@ private fun V172VideoDetailDialog(
 
 @Composable
 private fun V172Mini(label: String, value: String, modifier: Modifier) {
-    Surface(modifier, RoundedCornerShape(12.dp), Color(0xFF202022)) {
+    Surface(modifier, RoundedCornerShape(12.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(horizontal = 9.dp, vertical = 9.dp)) {
             Text(label, color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             Spacer(Modifier.height(2.dp))

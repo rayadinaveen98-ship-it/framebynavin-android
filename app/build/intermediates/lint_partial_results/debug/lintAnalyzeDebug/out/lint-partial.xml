@@ -4,12 +4,12 @@
             <map id="GET_CREDENTIAL_CALLS">
                 <location id="0"
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CloudSyncActivity.kt"
-                    line="138"
+                    line="177"
                     column="30"
-                    startOffset="6492"
-                    endLine="138"
+                    startOffset="7995"
+                    endLine="177"
                     endColumn="109"
-                    endOffset="6571"/>
+                    endOffset="8074"/>
                 <location id="1"
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V23AccountOnboarding.kt"
                     line="70"
@@ -27,12 +27,12 @@
             <map id="OPTION_REFS">
                 <location id="0"
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CloudSyncActivity.kt"
-                    line="136"
+                    line="175"
                     column="30"
-                    startOffset="6290"
-                    endLine="136"
+                    startOffset="7793"
+                    endLine="175"
                     endColumn="55"
-                    endOffset="6315"/>
+                    endOffset="7818"/>
                 <location id="1"
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V23AccountOnboarding.kt"
                     line="68"
@@ -50,6 +50,14 @@
     </map>
     <map id="ScheduleExactAlarm">
         <location id="0"
+            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
+            line="47"
+            column="13"
+            startOffset="1998"
+            endLine="47"
+            endColumn="107"
+            endOffset="2092"/>
+        <location id="1"
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ReminderScheduler.kt"
             line="48"
             column="21"
@@ -57,7 +65,7 @@
             endLine="51"
             endColumn="22"
             endOffset="2221"/>
-        <location id="1"
+        <location id="2"
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ReminderScheduler.kt"
             line="73"
             column="17"
@@ -65,7 +73,7 @@
             endLine="77"
             endColumn="18"
             endOffset="3291"/>
-        <location id="2"
+        <location id="3"
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/SmartEscalationScheduler.kt"
             line="218"
             column="17"
@@ -73,7 +81,7 @@
             endLine="218"
             endColumn="109"
             endOffset="9820"/>
-        <location id="3"
+        <location id="4"
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/SmartEscalationScheduler.kt"
             line="220"
             column="17"
@@ -90,42 +98,42 @@
                     <map id="android.settings.APPLICATION_DETAILS_SETTINGS (used to start an activity)">
                         <location id="0"
                             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                            line="182"
+                            line="193"
                             column="48"
-                            startOffset="8433"
-                            endLine="182"
+                            startOffset="9093"
+                            endLine="193"
                             endColumn="100"
-                            endOffset="8485"/>
+                            endOffset="9145"/>
                     </map>
                     <map id="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS (used to start an activity)">
                         <location id="0"
                             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                            line="181"
+                            line="192"
                             column="45"
-                            startOffset="8322"
-                            endLine="181"
+                            startOffset="8982"
+                            endLine="192"
                             endColumn="105"
-                            endOffset="8382"/>
+                            endOffset="9042"/>
                     </map>
                     <map id="android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT (used to start an activity)">
                         <location id="0"
                             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                            line="177"
+                            line="188"
                             column="35"
-                            startOffset="8110"
-                            endLine="177"
+                            startOffset="8770"
+                            endLine="188"
                             endColumn="92"
-                            endOffset="8167"/>
+                            endOffset="8827"/>
                     </map>
                     <map id="android.settings.REQUEST_SCHEDULE_EXACT_ALARM (used to start an activity)">
                         <location id="0"
                             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                            line="172"
+                            line="183"
                             column="35"
-                            startOffset="7872"
-                            endLine="172"
+                            startOffset="8532"
+                            endLine="183"
                             endColumn="87"
-                            endOffset="7924"/>
+                            endOffset="8584"/>
                     </map>
             </map>
     </map>
@@ -137,6 +145,30 @@
             </map>
     </map>
     <map id="UnusedResources">
+        <location id="R.drawable.guide_cute_celebrate"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/drawable-nodpi/guide_cute_celebrate.webp"/>
+        <location id="R.drawable.guide_cute_encourage"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/drawable-nodpi/guide_cute_encourage.webp"/>
+        <location id="R.drawable.guide_cute_listening"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/drawable-nodpi/guide_cute_listening.webp"/>
+        <location id="R.drawable.guide_cute_thinking"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/drawable-nodpi/guide_cute_thinking.webp"/>
+        <location id="R.drawable.ic_framebynavin_splash"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/drawable/ic_framebynavin_splash.xml"
+            line="2"
+            column="1"
+            startOffset="39"
+            endLine="26"
+            endColumn="10"
+            endOffset="1040"/>
+        <location id="R.drawable.widget_bg_ivory"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/drawable/widget_bg_ivory.xml"
+            line="1"
+            column="1"
+            startOffset="0"
+            endLine="1"
+            endColumn="218"
+            endOffset="217"/>
         <location id="R.xml.creator_backup_rules"
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/xml/creator_backup_rules.xml"
             line="2"
@@ -155,7 +187,7 @@
             endOffset="653"/>
         <entry
             name="model"
-            string="drawable[ic_framebynavin_launcher(U),ic_framebynavin_splash(U),widget_creator_bg(U),widget_creator_button(U),widget_creator_button_red(U)],id[widget_root(U),widget_title(U),widget_project(U),widget_stage(U),widget_due(U),widget_reminder(U),widget_idea(U),widget_large_title(U),widget_large_today_count(U),widget_large_project_area(U),widget_large_project(U),widget_large_stage(U),widget_large_progress(U),widget_large_reminder(U),widget_large_idea(U),widget_large_project_button(U),widget_large_release(U),widget_large_brief(U),widget_large_calendar(U)],layout[widget_creator_compact(U),widget_creator_large(U)],style[Theme_FrameByNavin(U),Theme_FrameByNavin_Starting(U),Theme_SplashScreen(R)],xml[widget_creator_compact_info(U),widget_creator_large_info(U),creator_backup_rules(D),creator_data_extraction_rules(D)];18^2^4,19^2^3^4,1b^1c^1^1a,1d^18,1e^19;;;"/>
+            string="drawable[backlot_icon_cinematic(U),backlot_icon_minimal(U),backlot_icon_light(U),backlot_icon_horizontal(U),backlot_splash_mark(U),ic_framebynavin_launcher(U),ic_framebynavin_splash(D),widget_bg_directors(U),widget_bg_ivory(D),widget_bg_light(U),widget_creator_bg(U),widget_creator_button(U),widget_creator_button_red(U),guide_cute_celebrate(D),guide_cute_encourage(D),guide_cute_listening(D),guide_cute_thinking(D),guide_cute_welcome(U),guide_funny_celebrate(U),guide_funny_point(U),guide_funny_present(U),guide_funny_thinking(U),guide_funny_welcome(U)],id[widget_action_root(U),widget_action_kicker(U),widget_action_title(U),widget_action_subtitle(U),widget_root(U),widget_title(U),widget_project(U),widget_stage(U),widget_due(U),widget_reminder(U),widget_idea(U),widget_large_root(U),widget_large_title(U),widget_large_today_count(U),widget_large_project_area(U),widget_large_project(U),widget_large_stage(U),widget_large_progress(U),widget_large_reminder(U),widget_large_idea(U),widget_large_project_button(U),widget_large_release(U),widget_large_brief(U),widget_large_calendar(U)],layout[widget_creator_action(U),widget_creator_compact(U),widget_creator_large(U)],style[Theme_FrameByNavin(U),Theme_FrameByNavin_Starting(U),Theme_SplashScreen(R)],xml[widget_creator_compact_info(U),widget_creator_large_info(U),widget_quick_idea_info(U),widget_new_project_info(U),widget_current_project_info(U),widget_next_reminder_info(U),widget_calendar_info(U),widget_daily_brief_info(U),widget_insights_info(U),creator_backup_rules(D),creator_data_extraction_rules(D)];2f^7,30^a^c,31^a^b^c,33^34^4^32,35^30,36^31,37^2f,38^2f,39^2f,3a^2f,3b^2f,3c^2f,3d^2f;;;"/>
     </map>
 
 </incidents>

@@ -12,7 +12,7 @@
         android:id="@+id/widget_action_kicker"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="FRAMEBYNAVIN"
+        android:text="BACKLOT"
         android:textColor="#D8B56B"
         android:textSize="8sp"
         android:textStyle="bold"

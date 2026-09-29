@@ -144,10 +144,11 @@ enum class FrameTheme(
     STORYBOARD("Storyboard", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
 }
 
-val BacklotSelectableAppearances: List<FrameTheme> = listOf(
-    FrameTheme.DIRECTORS_CUT,
-    FrameTheme.BACKLOT_LIGHT,
-)
+val BacklotSelectableAppearances: List<FrameTheme>
+    get() = listOf(
+        FrameTheme.DIRECTORS_CUT,
+        FrameTheme.BACKLOT_LIGHT,
+    )
 
 private fun FrameTheme.supportedAppearance(): FrameTheme = when (this) {
     FrameTheme.DIRECTORS_CUT, FrameTheme.BACKLOT_LIGHT -> this
@@ -209,6 +210,7 @@ val BacklotSecondaryText: Color get() = VisualExperiencePrefs.palette.muted
 val BacklotAccent: Color get() = VisualExperiencePrefs.palette.primary
 val BacklotAccentContainer: Color get() = VisualExperiencePrefs.palette.primaryDeep
 val BacklotSecondaryAccent: Color get() = VisualExperiencePrefs.palette.secondary
+val BacklotOnSecondaryAccent: Color get() = if (VisualExperiencePrefs.isLight) Color.White else Color(0xFF171310)
 val BacklotSuccess: Color get() = VisualExperiencePrefs.palette.success
 val BacklotTertiary: Color get() = VisualExperiencePrefs.palette.tertiary
 val BacklotSurfaceSelected: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFF6E8E4) else Color(0xFF241615)
@@ -218,6 +220,16 @@ val BacklotInputSurface: Color get() = if (VisualExperiencePrefs.isLight) Color(
 val BacklotScrim: Color get() = Color.Black.copy(alpha = if (VisualExperiencePrefs.isLight) .38f else .62f)
 val BacklotWarning: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFF8A5B18) else Color(0xFFD8A657)
 val BacklotError: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFB33C38) else Color(0xFFE65F5A)
+
+// Media is content, not app chrome. Imported frames/video remain on a stable dark canvas in both appearances.
+val BacklotMediaCanvas: Color get() = Color(0xFF050505)
+val BacklotOnMedia: Color get() = Color(0xFFF4F0E8)
+val BacklotMediaBorder: Color get() = Color.White.copy(alpha = .14f)
+
+// Media is content, not app chrome. Imported frames/video remain on a stable dark canvas in both appearances.
+val BacklotMediaCanvas: Color get() = Color(0xFF050505)
+val BacklotOnMedia: Color get() = Color(0xFFF4F0E8)
+val BacklotMediaBorder: Color get() = Color.White.copy(alpha = .14f)
 
 // Compatibility aliases. Existing screens continue to follow the selected appearance while V148
 // gradually moves them to semantic names.

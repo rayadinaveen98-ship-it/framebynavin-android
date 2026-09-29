@@ -58,7 +58,7 @@ internal fun V20GeminiIntelligenceCard(postmortem: CreatorVideoPostmortem) {
     Surface(
         Modifier.fillMaxWidth(),
         RoundedCornerShape(16.dp),
-        Color(0xFF171719),
+        CinemaSurface,
         border = BorderStroke(1.dp, RecRed.copy(alpha = .28f)),
     ) {
         Column(Modifier.padding(13.dp)) {
@@ -96,7 +96,7 @@ internal fun V20GeminiIntelligenceCard(postmortem: CreatorVideoPostmortem) {
 
             preview?.let { pack ->
                 Spacer(Modifier.height(8.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), Color(0xFF202022)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), CinemaSurfaceRaised) {
                     Column(Modifier.padding(10.dp)) {
                         Text("READY FOR GEMINI", color = MutedGold, fontSize = 6.8.sp, fontWeight = FontWeight.Black)
                         Text(
@@ -127,7 +127,7 @@ internal fun V20GeminiIntelligenceCard(postmortem: CreatorVideoPostmortem) {
 
             error?.let {
                 Spacer(Modifier.height(8.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), Color(0xFF2A1718)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), RecRed.copy(alpha = .08f)) {
                     Text(it, modifier = Modifier.padding(10.dp), color = Color(0xFFFFB7B7), fontSize = 7.7.sp, lineHeight = 11.sp)
                 }
             }
@@ -162,7 +162,7 @@ private fun AiAutopsyReport(report: CreatorAiAutopsyReport) {
     Surface(
         Modifier.fillMaxWidth(),
         RoundedCornerShape(12.dp),
-        Color(0xFF121A17),
+        SuccessGreen.copy(alpha = .08f),
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .2f)),
     ) {
         Column(Modifier.padding(10.dp)) {

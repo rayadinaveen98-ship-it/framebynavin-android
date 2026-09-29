@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorTodayCommandCenterTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-15T08:21:29" hostname="runnervmlun5p" time="0.006">
+<testsuite name="com.framebynavin.app.data.CreatorTodayCommandCenterTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:34" hostname="runnervmtr4k5" time="0.008">
   <properties/>
-  <testcase name="upNextIsDeliberatelyLimitedToThreeItems" classname="com.framebynavin.app.data.CreatorTodayCommandCenterTest" time="0.004"/>
-  <testcase name="emptyQueueProducesNoSyntheticWork" classname="com.framebynavin.app.data.CreatorTodayCommandCenterTest" time="0.001"/>
-  <testcase name="focusUsesExistingPriorityEngineAndUpNextExcludesFocus" classname="com.framebynavin.app.data.CreatorTodayCommandCenterTest" time="0.0"/>
+  <testcase name="upNextIsDeliberatelyLimitedToThreeItems" classname="com.framebynavin.app.data.CreatorTodayCommandCenterTest" time="0.006"/>
+  <testcase name="emptyQueueProducesNoSyntheticWork" classname="com.framebynavin.app.data.CreatorTodayCommandCenterTest" time="0.0"/>
+  <testcase name="focusUsesExistingPriorityEngineAndUpNextExcludesFocus" classname="com.framebynavin.app.data.CreatorTodayCommandCenterTest" time="0.001"/>
   <testcase name="commitmentsAreChronologicalAndIgnoreFinishedOrArchivedProjects" classname="com.framebynavin.app.data.CreatorTodayCommandCenterTest" time="0.0"/>
   <testcase name="countsTodayAndOverdueWithoutMutatingTaskState" classname="com.framebynavin.app.data.CreatorTodayCommandCenterTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>

@@ -60,7 +60,7 @@ internal fun V20VideoPostmortemCard(
     Surface(
         Modifier.fillMaxWidth(),
         RoundedCornerShape(16.dp),
-        Color(0xFF171719),
+        CinemaSurface,
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .30f)),
     ) {
         Column(Modifier.padding(13.dp)) {

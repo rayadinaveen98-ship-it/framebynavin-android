@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.V144IdeaReminderPolicyTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:34" hostname="runnervmtr4k5" time="0.001">
+  <properties/>
+  <testcase name="one shot reminder stops after firing" classname="com.framebynavin.app.data.V144IdeaReminderPolicyTest" time="0.0"/>
+  <testcase name="undelivered one shot reminder retries without being consumed" classname="com.framebynavin.app.data.V144IdeaReminderPolicyTest" time="0.0"/>
+  <testcase name="missed daily reminder recovers to next future occurrence" classname="com.framebynavin.app.data.V144IdeaReminderPolicyTest" time="0.0"/>
+  <testcase name="missed one shot reminder recovers instead of disappearing" classname="com.framebynavin.app.data.V144IdeaReminderPolicyTest" time="0.0"/>
+  <testcase name="undelivered daily reminder preserves local cadence" classname="com.framebynavin.app.data.V144IdeaReminderPolicyTest" time="0.0"/>
+  <testcase name="daily reminder advances to same local time next day" classname="com.framebynavin.app.data.V144IdeaReminderPolicyTest" time="0.0"/>
+  <testcase name="converted and archived ideas cannot keep reminders" classname="com.framebynavin.app.data.V144IdeaReminderPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -125,7 +125,7 @@ internal fun V09IdeaVaultScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp),
                     shape = RoundedCornerShape(17.dp),
-                    color = Color(0xFF1A1710),
+                    color = MutedGold.copy(alpha = .08f),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .45f)),
                 ) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
@@ -269,12 +269,12 @@ private fun V09IdeaCard(
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
         shape = RoundedCornerShape(17.dp),
-        color = if (isOpportunity) Color(0xFF1A1712) else CinemaSurfaceRaised,
+        color = if (isOpportunity) MutedGold.copy(alpha = .07f) else CinemaSurfaceRaised,
         border = androidx.compose.foundation.BorderStroke(1.dp, if (isOpportunity) MutedGold.copy(alpha = .62f) else CinemaLine),
     ) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(100.dp), color = Color(0xFF14110D), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF342C21))) {
+                Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .08f), border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .22f))) {
                     Text(IdeaVaultLabels.category(idea.category), color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                 }
                 Spacer(Modifier.width(6.dp))

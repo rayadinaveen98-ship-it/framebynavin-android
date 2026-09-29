@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.VoiceIdeaStorageTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:34" hostname="runnervmtr4k5" time="0.007">
+  <properties/>
+  <testcase name="byte formatter stays readable across units" classname="com.framebynavin.app.data.VoiceIdeaStorageTest" time="0.002"/>
+  <testcase name="recording size rejects paths outside owned directory" classname="com.framebynavin.app.data.VoiceIdeaStorageTest" time="0.002"/>
+  <testcase name="snapshot separates referenced old orphan and recent unreferenced recordings" classname="com.framebynavin.app.data.VoiceIdeaStorageTest" time="0.002"/>
+  <testcase name="cleanup deletes only aged unreferenced Backlot finals" classname="com.framebynavin.app.data.VoiceIdeaStorageTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
+import com.framebynavin.app.ui.theme.BacklotOnSecondaryAccent
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
@@ -45,7 +46,7 @@ internal fun V144YouTubeRevenueCard(
     Surface(
         Modifier.fillMaxWidth(),
         RoundedCornerShape(22.dp),
-        Color(0xFF171310),
+        MutedGold.copy(alpha = .06f),
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .30f)),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -158,7 +159,7 @@ private fun V144RevenueWorkspace(
     }
 
     Spacer(Modifier.height(10.dp))
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF151517), border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             Text("SHOPPING", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
             Text("Separate Shopping earnings are not exposed by the connected YouTube Analytics channel report. Backlot will not show a fake ₹0.", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
@@ -265,7 +266,7 @@ private fun V144RevenueAccessError(error: String, loading: Boolean, onRefresh: (
 private fun V144RevenueConnect(loading: Boolean, onRefresh: () -> Unit) {
     Text("Connect read-only monetary permission once to bring estimated YouTube earnings into Backlot. The same permission unlocks every date range.", color = MutedText, fontSize = 9.2.sp, lineHeight = 14.sp)
     Spacer(Modifier.height(8.dp))
-    Button(onClick = onRefresh, enabled = !loading, colors = ButtonDefaults.buttonColors(containerColor = MutedGold, contentColor = Color(0xFF171310)), shape = RoundedCornerShape(13.dp)) {
+    Button(onClick = onRefresh, enabled = !loading, colors = ButtonDefaults.buttonColors(containerColor = MutedGold, contentColor = BacklotOnSecondaryAccent), shape = RoundedCornerShape(13.dp)) {
         Text("ENABLE REVENUE", fontSize = 9.sp, fontWeight = FontWeight.Black)
     }
 }

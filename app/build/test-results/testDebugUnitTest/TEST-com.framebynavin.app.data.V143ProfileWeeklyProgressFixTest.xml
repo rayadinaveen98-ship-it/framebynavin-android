@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.V143ProfileWeeklyProgressFixTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:34" hostname="runnervmtr4k5" time="0.004">
+  <properties/>
+  <testcase name="blank local name inherits connected account identity" classname="com.framebynavin.app.data.V143ProfileWeeklyProgressFixTest" time="0.0"/>
+  <testcase name="untouched v142 weekly project is presented at zero progress" classname="com.framebynavin.app.data.V143ProfileWeeklyProgressFixTest" time="0.004"/>
+  <testcase name="explicit local creator name is never overwritten" classname="com.framebynavin.app.data.V143ProfileWeeklyProgressFixTest" time="0.0"/>
+  <testcase name="creator-started weekly work keeps real progress" classname="com.framebynavin.app.data.V143ProfileWeeklyProgressFixTest" time="0.0"/>
+  <testcase name="new recurring projects always start at first workflow stage" classname="com.framebynavin.app.data.V143ProfileWeeklyProgressFixTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

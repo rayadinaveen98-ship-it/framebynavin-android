@@ -72,7 +72,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorDataGate
-import com.framebynavin.app.ui.theme.CinemaBlack
+import com.framebynavin.app.ui.theme.BacklotMediaBorder
+import com.framebynavin.app.ui.theme.BacklotMediaCanvas
+import com.framebynavin.app.ui.theme.BacklotOnMedia
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurfaceRaised
 import com.framebynavin.app.ui.theme.MutedText
@@ -334,11 +336,11 @@ internal fun V18CinematicHomeHero(creatorName: String) {
         Surface(
             modifier = Modifier.fillMaxWidth().height(252.dp),
             shape = RoundedCornerShape(26.dp),
-            color = CinemaBlack,
-            border = BorderStroke(1.dp, CinemaLine.copy(alpha = .72f)),
+            color = BacklotMediaCanvas,
+            border = BorderStroke(1.dp, BacklotMediaBorder),
             shadowElevation = 10.dp,
         ) {
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp)).background(CinemaBlack)) {
+            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp)).background(BacklotMediaCanvas)) {
                 AnimatedContent(
                     targetState = framePaths.getOrNull(index).orEmpty(),
                     transitionSpec = {
@@ -370,7 +372,7 @@ internal fun V18CinematicHomeHero(creatorName: String) {
                 ) {
                     Text("BACKLOT", color = RecRed, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.25.sp)
                     Spacer(Modifier.height(2.dp))
-                    Text(greeting, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                    Text(greeting, color = BacklotOnMedia, fontSize = 21.sp, fontWeight = FontWeight.Black)
                 }
 
                 if (importing) {
@@ -380,7 +382,7 @@ internal fun V18CinematicHomeHero(creatorName: String) {
                         color = Color.Black.copy(alpha = .55f),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = BacklotOnMedia)
                         }
                     }
                 } else {
@@ -496,7 +498,7 @@ private fun V18HeroIconButton(
             Icon(
                 icon,
                 contentDescription = contentDescription,
-                tint = if (danger) RecRed else ProjectorIvory,
+                tint = if (danger) RecRed else BacklotOnMedia,
                 modifier = Modifier.size(19.dp),
             )
         }

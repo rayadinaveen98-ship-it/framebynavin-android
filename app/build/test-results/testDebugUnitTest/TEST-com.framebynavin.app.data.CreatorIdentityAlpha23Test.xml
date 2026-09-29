@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.data.CreatorIdentityAlpha23Test" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-15T08:21:29" hostname="runnervmlun5p" time="0.006">
+<testsuite name="com.framebynavin.app.data.CreatorIdentityAlpha23Test" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:33" hostname="runnervmtr4k5" time="0.006">
   <properties/>
-  <testcase name="quickCapture_respectsSelectedPlatformsAndNonFilmCategory" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.001"/>
-  <testcase name="workflows_areFirstClassBeyondOriginalThreePlatforms" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.001"/>
-  <testcase name="platformRegistry_prioritizesCreatorSelectedPlatforms" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.0"/>
-  <testcase name="filmCreator_keepsFilmSpecificIdeaCategories" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.001"/>
+  <testcase name="quickCapture_respectsSelectedPlatformsAndNonFilmCategory" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.002"/>
+  <testcase name="workflows_areFirstClassBeyondOriginalThreePlatforms" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.0"/>
+  <testcase name="platformRegistry_prioritizesCreatorSelectedPlatforms" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.001"/>
+  <testcase name="filmCreator_keepsFilmSpecificIdeaCategories" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.0"/>
   <testcase name="publishingRhythmFocus_hasNoRedundantBodyCopy" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.003"/>
   <testcase name="creatorSetup_noLongerRequiresDisplayName" classname="com.framebynavin.app.data.CreatorIdentityAlpha23Test" time="0.0"/>
   <system-out><![CDATA[]]></system-out>

@@ -199,7 +199,7 @@ private fun V20OpportunitySurface(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        color = Color(0xFF171412),
+        color = MutedGold.copy(alpha = .06f),
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .34f)),
     ) {
         Column(Modifier.padding(18.dp)) {

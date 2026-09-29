@@ -801,7 +801,7 @@ private fun PControlCenter(
             Text("NEEDS A DECISION", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(8.dp))
             overdue.take(4).forEach { task ->
-                Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(17.dp), Color(0xFF15110F), border = BorderStroke(1.dp, Color(0xFF3B2521))) {
+                Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(17.dp), BacklotSurfaceSelected, border = BorderStroke(1.dp, RecRed.copy(alpha = .24f))) {
                     Column(Modifier.padding(13.dp)) {
                         Text(task.title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text(task.dueLabel, color = RecRed, fontSize = 8.8.sp)
@@ -842,7 +842,7 @@ private fun PWeekScreen(
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 42.dp)) {
             PBackHeader("WEEKLY PLAN", "Your recurring rhythm", onClose)
             Spacer(Modifier.height(18.dp))
-            Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), if (autoPlanEnabled) Color(0xFF17130F) else CinemaSurface, border = BorderStroke(1.dp, if (autoPlanEnabled) MutedGold.copy(alpha = .45f) else CinemaLine)) {
+            Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), if (autoPlanEnabled) BacklotSurfaceSelected else CinemaSurface, border = BorderStroke(1.dp, if (autoPlanEnabled) MutedGold.copy(alpha = .45f) else CinemaLine)) {
                 Row(Modifier.padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(42.dp).background(MutedGold.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.AutoAwesome, null, tint = MutedGold) }
                     Spacer(Modifier.width(12.dp))
@@ -1204,7 +1204,7 @@ internal fun PBottomNav(
     Surface(
         modifier,
         RoundedCornerShape(24.dp),
-        if (VisualExperiencePrefs.isLumen) CinemaSurface.copy(alpha = .88f) else Color(0xF2161618),
+        BacklotNavigationSurface.copy(alpha = .96f),
         border = BorderStroke(1.dp, CinemaLine),
         shadowElevation = 12.dp,
     ) {
@@ -1342,7 +1342,7 @@ internal fun PStageRail(task: CreatorTask) {
     val done = task.status == TaskStatus.DONE
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         template.stages.forEachIndexed { i, _ ->
-            Box(Modifier.weight(1f).height(if (!done && i == current) 5.dp else 3.dp).background(when { done || i < current -> SuccessGreen.copy(alpha = .75f); i == current -> RecRed; else -> Color(0xFF34312E) }, RoundedCornerShape(100.dp)))
+            Box(Modifier.weight(1f).height(if (!done && i == current) 5.dp else 3.dp).background(when { done || i < current -> SuccessGreen.copy(alpha = .75f); i == current -> RecRed; else -> CinemaLine }, RoundedCornerShape(100.dp)))
         }
     }
 }
@@ -1350,7 +1350,7 @@ internal fun PStageRail(task: CreatorTask) {
 @Composable
 internal fun PQueueDots(index: Int, size: Int) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        repeat(size.coerceAtMost(10)) { i -> Box(Modifier.padding(horizontal = 2.dp).size(if (i == index) 18.dp else 5.dp, 5.dp).background(if (i == index) RecRed else Color(0xFF44413D), RoundedCornerShape(100.dp))) }
+        repeat(size.coerceAtMost(10)) { i -> Box(Modifier.padding(horizontal = 2.dp).size(if (i == index) 18.dp else 5.dp, 5.dp).background(if (i == index) RecRed else MutedText.copy(alpha = .42f), RoundedCornerShape(100.dp))) }
     }
 }
 
@@ -1382,7 +1382,7 @@ private fun PBigAction(title: String, subtitle: String, icon: ImageVector, accen
 private fun PControlRow(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(17.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).background(Color(0xFF1F1F21), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = MutedGold, modifier = Modifier.size(18.dp)) }
+            Box(Modifier.size(34.dp).background(CinemaSurfaceRaised, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = MutedGold, modifier = Modifier.size(18.dp)) }
             Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = MutedText, fontSize = 8.7.sp) }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
@@ -1422,8 +1422,9 @@ private fun pPermissions(context: Context): PPermissions {
 
 private fun pPickDateTime(context: Context, currentMillis: Long, onPicked: (Long) -> Unit) {
     val initial = Calendar.getInstance().apply { timeInMillis = currentMillis.takeIf { it > System.currentTimeMillis() } ?: (System.currentTimeMillis() + 60 * 60_000L) }
-    DatePickerDialog(context, { _, year, month, day ->
-        TimePickerDialog(context, { _, hour, minute ->
+    val dialogTheme = if (VisualExperiencePrefs.isLight) android.R.style.Theme_Material_Light_Dialog_Alert else android.R.style.Theme_Material_Dialog_Alert
+    DatePickerDialog(context, dialogTheme, { _, year, month, day ->
+        TimePickerDialog(context, dialogTheme, { _, hour, minute ->
             val value = Calendar.getInstance().apply { set(year, month, day, hour, minute, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
             if (value > System.currentTimeMillis()) onPicked(value)
         }, initial.get(Calendar.HOUR_OF_DAY), initial.get(Calendar.MINUTE), false).show()

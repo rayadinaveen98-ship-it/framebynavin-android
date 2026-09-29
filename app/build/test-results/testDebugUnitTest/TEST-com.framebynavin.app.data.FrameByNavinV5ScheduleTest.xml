@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.framebynavin.app.data.FrameByNavinV5ScheduleTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:34" hostname="runnervmtr4k5" time="0.003">
+  <properties/>
+  <testcase name="weekly tentpoles retain their locked publish times" classname="com.framebynavin.app.data.FrameByNavinV5ScheduleTest" time="0.001"/>
+  <testcase name="v5 has 28 unique master projects and keeps stable ids" classname="com.framebynavin.app.data.FrameByNavinV5ScheduleTest" time="0.0"/>
+  <testcase name="major videos keep smart attention while routine rhythm stays lighter" classname="com.framebynavin.app.data.FrameByNavinV5ScheduleTest" time="0.0"/>
+  <testcase name="v5 removes old community cinema and flagship wording" classname="com.framebynavin.app.data.FrameByNavinV5ScheduleTest" time="0.0"/>
+  <testcase name="untouched V4 preset title migrates while creator custom title is preserved" classname="com.framebynavin.app.data.FrameByNavinV5ScheduleTest" time="0.001"/>
+  <testcase name="every day has the renamed 9am 1pm and 10pm backbone" classname="com.framebynavin.app.data.FrameByNavinV5ScheduleTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

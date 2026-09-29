@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V147 idea reminders release candidate.
-        versionCode = 147
-        versionName = "2.0.0-rc22-device-stability"
+        // Backlot V148 dark/light appearance release candidate.
+        versionCode = 148
+        versionName = "2.0.0-rc23-light-appearance"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

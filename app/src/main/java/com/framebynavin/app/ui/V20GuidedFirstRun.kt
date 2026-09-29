@@ -89,7 +89,7 @@ internal fun V20GuidedFirstRunCoach(
                 .fillMaxSize()
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
         ) {
-            drawRect(CinemaBlack.copy(alpha = .89f))
+            drawRect(BacklotScrim.copy(alpha = if (VisualExperiencePrefs.isLight) .48f else .72f))
             val breathing = 4f + spotlightBreath * 6f
             val left = size.width * spotX - breathing
             val top = size.height * spotY - breathing
@@ -223,14 +223,14 @@ private fun V145GuideSpeechBubble(text: String) {
     Surface(
         modifier = Modifier.widthIn(min = 150.dp, max = 255.dp),
         shape = RoundedCornerShape(16.dp),
-        color = ProjectorIvory,
-        border = BorderStroke(1.dp, Color.Black.copy(alpha = .08f)),
+        color = CinemaSurfaceRaised,
+        border = BorderStroke(1.dp, CinemaLine),
         shadowElevation = 10.dp,
     ) {
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            color = CinemaBlack,
+            color = ProjectorIvory,
             fontSize = 10.sp,
             lineHeight = 13.5.sp,
             fontWeight = FontWeight.SemiBold,

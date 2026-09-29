@@ -43,6 +43,7 @@ import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.ui.theme.CinemaLine
+import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.CinemaSurfaceRaised
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
@@ -117,7 +118,7 @@ internal fun V071WorkflowInlineContent(
                 progress = { progress / 100f },
                 modifier = Modifier.fillMaxWidth().height(5.dp),
                 color = if (done) SuccessGreen else RecRed,
-                trackColor = Color(0xFF303030),
+                trackColor = CinemaLine,
             )
 
             ProjectVoiceIdeaSource(task)
@@ -135,7 +136,7 @@ internal fun V071WorkflowInlineContent(
                             when {
                                 completed -> SuccessGreen.copy(alpha = .16f)
                                 current -> RecRed.copy(alpha = .18f)
-                                else -> Color(0xFF141414)
+                                else -> CinemaSurface
                             },
                             CircleShape,
                         ),
@@ -151,7 +152,7 @@ internal fun V071WorkflowInlineContent(
                             tint = when {
                                 completed -> SuccessGreen
                                 current -> RecRed
-                                else -> Color(0xFF5C5852)
+                                else -> MutedText.copy(alpha = .55f)
                             },
                             modifier = Modifier.size(16.dp),
                         )
@@ -160,7 +161,7 @@ internal fun V071WorkflowInlineContent(
                     Column(Modifier.weight(1f)) {
                         Text(
                             step.label,
-                            color = if (upcoming) Color(0xFF77726C) else ProjectorIvory,
+                            color = if (upcoming) MutedText else ProjectorIvory,
                             fontSize = 12.8.sp,
                             fontWeight = if (current) FontWeight.Bold else FontWeight.Medium,
                         )
@@ -176,7 +177,7 @@ internal fun V071WorkflowInlineContent(
                             color = when {
                                 completed -> SuccessGreen.copy(alpha = .75f)
                                 current -> MutedGold
-                                else -> Color(0xFF5F5B56)
+                                else -> MutedText.copy(alpha = .72f)
                             },
                             fontSize = 12.sp,
                         )
@@ -221,7 +222,7 @@ internal fun V071WorkflowInlineContent(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(15.dp),
-                    color = Color(0xFF10100F),
+                    color = CinemaSurface,
                     border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
                 ) {
                     Column(Modifier.padding(13.dp)) {
@@ -284,7 +285,7 @@ internal fun V071WorkflowInlineContent(
                             else onAdvance()
                         },
                         modifier = Modifier.weight(1.45f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF272727)),
+                        colors = ButtonDefaults.buttonColors(containerColor = CinemaSurfaceRaised),
                     ) {
                         Text(
                             when {

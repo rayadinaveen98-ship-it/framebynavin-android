@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import com.framebynavin.app.data.CreatorGuidedTourStep
+import com.framebynavin.app.ui.theme.BacklotScrim
 import com.framebynavin.app.ui.theme.RecRed
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 
@@ -74,7 +75,7 @@ internal fun V137GuideSharpWindow(
         layer.renderEffect = BlurEffect(18f, 18f, TileMode.Decal)
         drawLayer(layer)
         layer.renderEffect = null
-        drawRect(Color.Black.copy(alpha = maxOf(profile.guideScrimAlpha, .58f)))
+        drawRect(BacklotScrim.copy(alpha = maxOf(profile.guideScrimAlpha, if (VisualExperiencePrefs.isLight) .48f else .68f)))
 
         drawRoundRect(
             color = Color.Transparent,
