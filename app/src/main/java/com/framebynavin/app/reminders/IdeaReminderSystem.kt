@@ -52,8 +52,13 @@ class IdeaReminderScheduler(context: Context) {
     }
 
     fun cancel(ideaId: String) {
-        alarm.cancel(fireIntent(ideaId, 0L))
+        complete(ideaId)
         IdeaReminderNotifications.cancel(app, ideaId)
+    }
+
+    /** Remove the fired alarm from the ledger without dismissing the notification it just produced. */
+    fun complete(ideaId: String) {
+        alarm.cancel(fireIntent(ideaId, 0L))
         forget(ideaId)
     }
 
@@ -107,17 +112,26 @@ class IdeaReminderReceiver : BroadcastReceiver() {
                     IdeaReminderScheduler(app).cancel(ideaId)
                     return@launch
                 }
+
                 val now = System.currentTimeMillis()
-                val fired = IdeaReminderPolicy.afterFired(current, now)
-                val saved = store.mutate { ideas -> ideas.map { if (it.id == ideaId) fired.copy(updatedAtMillis = now) else it } }
-                    .firstOrNull { it.id == ideaId } ?: fired
+                val delivered = IdeaReminderNotifications.show(app, current)
+                val next = if (delivered) {
+                    IdeaReminderPolicy.afterFired(current, now)
+                } else {
+                    IdeaReminderPolicy.afterUndelivered(current, now)
+                }
+                val saved = store.mutate { ideas ->
+                    ideas.map { if (it.id == ideaId) next.copy(updatedAtMillis = now) else it }
+                }.firstOrNull { it.id == ideaId } ?: next
+
                 val scheduler = IdeaReminderScheduler(app)
-                if (saved.reminderCadence == IdeaReminderCadence.DAILY && IdeaReminderPolicy.isActionable(saved)) {
+                if (IdeaReminderPolicy.isActionable(saved)) {
                     scheduler.schedule(saved)
+                } else if (delivered) {
+                    scheduler.complete(ideaId)
                 } else {
                     scheduler.cancel(ideaId)
                 }
-                IdeaReminderNotifications.show(app, saved)
             } finally {
                 pending.finish()
             }
