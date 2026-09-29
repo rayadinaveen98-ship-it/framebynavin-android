@@ -7,7 +7,14 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-REPLACEMENTS = {
+# Exact replacements only. Each pair is idempotent: a second run accepts the already-patched form.
+REPLACEMENTS: dict[str, list[tuple[str, str]]] = {
+    "app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt": [
+        (
+            "val BacklotSecondaryAccent: Color get() = VisualExperiencePrefs.palette.secondary\nval BacklotSuccess: Color get() = VisualExperiencePrefs.palette.success",
+            "val BacklotSecondaryAccent: Color get() = VisualExperiencePrefs.palette.secondary\nval BacklotOnSecondaryAccent: Color get() = if (VisualExperiencePrefs.isLight) Color.White else Color(0xFF171310)\nval BacklotSuccess: Color get() = VisualExperiencePrefs.palette.success",
+        ),
+    ],
     "app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt": [
         (
             "Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(17.dp), Color(0xFF15110F), border = BorderStroke(1.dp, Color(0xFF3B2521)))",
@@ -34,9 +41,135 @@ REPLACEMENTS = {
             "Box(Modifier.size(34.dp).background(CinemaSurfaceRaised, RoundedCornerShape(11.dp))",
         ),
     ],
+    "app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt": [
+        (
+            "import com.framebynavin.app.ui.theme.FrameByNavinTheme",
+            "import com.framebynavin.app.ui.theme.*",
+        ),
+        ("color = Color(0xFF101010)", "color = CinemaBlack"),
+        ("color = Color.White", "color = ProjectorIvory"),
+        ("color = Color.LightGray", "color = MutedText"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V071WorkflowInlineContent.kt": [
+        ("containerColor = Color(0xFF272727)", "containerColor = CinemaSurfaceRaised"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V08WeeklyScheduleUi.kt": [
+        ("Surface(modifier, RoundedCornerShape(14.dp), Color(0xFF111111), border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine))",
+         "Surface(modifier, RoundedCornerShape(14.dp), CinemaSurface, border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine))"),
+        ("color = if (slot.enabled) CinemaSurfaceRaised else Color(0xFF0E0E0E)",
+         "color = if (slot.enabled) CinemaSurfaceRaised else CinemaSurface"),
+        ("border = androidx.compose.foundation.BorderStroke(1.dp, if (slot.enabled) CinemaLine else Color(0xFF181818))",
+         "border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine.copy(alpha = if (slot.enabled) 1f else .65f))"),
+        ("background(if (slot.enabled) RecRed else Color(0xFF494641), CircleShape)",
+         "background(if (slot.enabled) RecRed else MutedText.copy(alpha = .55f), CircleShape)"),
+        ("color = if (slot.enabled) ProjectorIvory else Color(0xFF77726C)",
+         "color = if (slot.enabled) ProjectorIvory else MutedText"),
+        ("Surface(shape = RoundedCornerShape(100.dp), color = Color(0xFF111111), border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine))",
+         "Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface, border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine))"),
+        ("Text(text, color = Color(0xFF97918A)", "Text(text, color = MutedText"),
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF10100F), border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine))"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt": [
+        ("color = Color(0xFF1A1710)", "color = MutedGold.copy(alpha = .08f)"),
+        ("color = if (isOpportunity) Color(0xFF1A1712) else CinemaSurfaceRaised",
+         "color = if (isOpportunity) MutedGold.copy(alpha = .07f) else CinemaSurfaceRaised"),
+        ("Surface(shape = RoundedCornerShape(100.dp), color = Color(0xFF14110D), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF342C21)))",
+         "Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .08f), border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .22f)))"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V09ReleaseDayUi.kt": [
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), Color(0xFF101812), border = androidx.compose.foundation.BorderStroke(1.dp, SuccessGreen.copy(alpha = .38f)))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), SuccessGreen.copy(alpha = .08f), border = androidx.compose.foundation.BorderStroke(1.dp, SuccessGreen.copy(alpha = .38f)))"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt": [
+        ("color = Color(0xFF17130F), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f))",
+         "color = MutedGold.copy(alpha = .07f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f))"),
+        ("Surface(color = Color(0xF20B0B0C), tonalElevation = 8.dp)",
+         "Surface(color = BacklotNavigationSurface.copy(alpha = .96f), tonalElevation = 8.dp)"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt": [
+        ("RoundedCornerShape(19.dp),\n        Color(0xFF171310),",
+         "RoundedCornerShape(19.dp),\n        MutedGold.copy(alpha = .07f),"),
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), Color(0xFF17110F), border = BorderStroke(1.dp, RecRed.copy(alpha = .35f)))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), RecRed.copy(alpha = .07f), border = BorderStroke(1.dp, RecRed.copy(alpha = .35f)))"),
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), Color(0xFF15130F), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f)))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), MutedGold.copy(alpha = .06f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f)))"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt": [
+        ("listOf(RecRed.copy(alpha = .13f), Color(0xFF0B0B0D), CinemaBlack)",
+         "listOf(RecRed.copy(alpha = .13f), CinemaSurface, CinemaBlack)"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V133CreatorHome.kt": [
+        ("Modifier.size(36.dp).background(Color(0xFF1C1714), RoundedCornerShape(11.dp))",
+         "Modifier.size(36.dp).background(MutedGold.copy(alpha = .08f), RoundedCornerShape(11.dp))"),
+        ("Modifier.size(34.dp).background(Color(0xFF1B1714), CircleShape)",
+         "Modifier.size(34.dp).background(MutedGold.copy(alpha = .08f), CircleShape)"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V144YouTubeRevenueUi.kt": [
+        ("import com.framebynavin.app.ui.theme.CinemaSurface\n", "import com.framebynavin.app.ui.theme.CinemaSurface\nimport com.framebynavin.app.ui.theme.BacklotOnSecondaryAccent\n"),
+        ("RoundedCornerShape(22.dp),\n        Color(0xFF171310),",
+         "RoundedCornerShape(22.dp),\n        MutedGold.copy(alpha = .06f),"),
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF151517), border = BorderStroke(1.dp, CinemaLine))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine))"),
+        ("contentColor = Color(0xFF171310)", "contentColor = BacklotOnSecondaryAccent"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V16CreatorIntelligenceUi.kt": [
+        ("color = androidx.compose.ui.graphics.Color(0xFF171717)", "color = CinemaSurfaceRaised"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt": [
+        ("RoundedCornerShape(18.dp),\n        Color(0xFF151517),",
+         "RoundedCornerShape(18.dp),\n        CinemaSurface,"),
+        ("color = if (active) Color(0xFF2A2323) else Color.Transparent",
+         "color = if (active) BacklotSurfaceSelected else Color.Transparent"),
+        ("private val BrushCard = Color(0xFF171413)", "private val BrushCard: Color get() = MutedGold.copy(alpha = .06f)"),
+        ("Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), Color(0xFF202020))",
+         "Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), CinemaSurfaceRaised)"),
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF1C1C1E))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised)"),
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF171719), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f)))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), MutedGold.copy(alpha = .06f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f)))"),
+        ("Surface(modifier, RoundedCornerShape(12.dp), Color(0xFF202022))",
+         "Surface(modifier, RoundedCornerShape(12.dp), CinemaSurfaceRaised)"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt": [
+        ("Surface(shape = RoundedCornerShape(18.dp), color = Color(0xFF171310), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f)))",
+         "Surface(shape = RoundedCornerShape(18.dp), color = MutedGold.copy(alpha = .07f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f)))"),
+        ("color = if (overdue) RecRed.copy(alpha = .14f) else Color(0xFF171410)",
+         "color = if (overdue) RecRed.copy(alpha = .14f) else CinemaSurfaceRaised"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceUi.kt": [
+        ("Surface(color = Color(0xF20B0B0C), tonalElevation = 8.dp)",
+         "Surface(color = BacklotNavigationSurface.copy(alpha = .96f), tonalElevation = 8.dp)"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V20CreatorDrilldownUi.kt": [
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), Color(0xFF1E1E20), border = BorderStroke(1.dp, accent.copy(alpha = .22f)))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, accent.copy(alpha = .22f)))"),
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), Color(0xFF1D1D1F))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised)"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V20GeminiIntelligenceUi.kt": [
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), Color(0xFF202022))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), CinemaSurfaceRaised)"),
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), Color(0xFF2A1718))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), RecRed.copy(alpha = .08f))"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V20InsightsDrilldownUi.kt": [
+        ("Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), Color(0xFF131517), border = BorderStroke(1.dp, CinemaLine))",
+         "Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine))"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/V20WorkflowIntelligenceUi.kt": [
+        ("Surface(modifier, RoundedCornerShape(13.dp), Color(0xFF202124))",
+         "Surface(modifier, RoundedCornerShape(13.dp), CinemaSurfaceRaised)"),
+    ],
+    "app/src/main/java/com/framebynavin/app/ui/BackupActivity.kt": [
+        ("if (isError) Color(0xFF1A1110) else Color(0xFF101812)",
+         "if (isError) RecRed.copy(alpha = .07f) else SuccessGreen.copy(alpha = .08f)"),
+    ],
     "app/build.gradle.kts": [
-        ("// Backlot V147 idea reminders release candidate.\n        versionCode = 147\n        versionName = \"2.0.0-rc22-device-stability\"",
-         "// Backlot V148 dark/light appearance release candidate.\n        versionCode = 148\n        versionName = \"2.0.0-rc23-light-appearance\""),
+        (
+            "// Backlot V147 idea reminders release candidate.\n        versionCode = 147\n        versionName = \"2.0.0-rc22-device-stability\"",
+            "// Backlot V148 dark/light appearance release candidate.\n        versionCode = 148\n        versionName = \"2.0.0-rc23-light-appearance\"",
+        ),
     ],
 }
 
@@ -52,7 +185,7 @@ RETIRED_WIDGET_BACKGROUNDS = [
     "app/src/main/res/drawable/widget_bg_storyboard.xml",
 ]
 
-# Files where raw colors are intentionally drawing artwork/media rather than app surfaces.
+# Raw colors are acceptable in self-contained artwork/media. App chrome and surfaces are not.
 AUDIT_EXCLUSIONS = {
     "app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt",
     "app/src/main/java/com/framebynavin/app/ui/V133BacklotAppIcon.kt",
@@ -63,26 +196,25 @@ AUDIT_EXCLUSIONS = {
     "app/src/main/java/com/framebynavin/app/ui/V144RasterGuideCharacter.kt",
 }
 
-DARK_LITERAL = re.compile(r"Color\((?:0x(?:FF|F[0-9A-Fa-f])[0-2][0-9A-Fa-f]{5})\)|Color\.Black")
-SURFACE_HINTS = (
-    "Surface(",
-    ".background(",
-    "containerColor",
-    "scrimColor",
-    "trackColor",
-    "indicatorColor",
-)
+# After V148, dark appearance literals outside the semantic theme/artwork layers are a regression.
+DARK_LITERAL = re.compile(r"(?:androidx\.compose\.ui\.graphics\.)?Color\((?:0x(?:FF|F[0-9A-Fa-f])[0-7][0-9A-Fa-f]{5})\)|Color\.Black")
+
+
+def apply_pair(path: pathlib.Path, rel: str, old: str, new: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if old in text:
+        path.write_text(text.replace(old, new), encoding="utf-8")
+        return
+    if new in text:
+        return
+    raise SystemExit(f"Expected V148 patch anchor not found in {rel}: {old[:120]!r}")
 
 
 def apply_replacements() -> None:
     for rel, replacements in REPLACEMENTS.items():
         path = ROOT / rel
-        text = path.read_text(encoding="utf-8")
         for old, new in replacements:
-            if old not in text:
-                raise SystemExit(f"Expected V148 patch anchor not found in {rel}: {old[:100]!r}")
-            text = text.replace(old, new)
-        path.write_text(text, encoding="utf-8")
+            apply_pair(path, rel, old, new)
 
     for rel in RETIRED_WIDGET_BACKGROUNDS:
         path = ROOT / rel
@@ -102,7 +234,7 @@ def audit() -> list[str]:
             if rel in AUDIT_EXCLUSIONS:
                 continue
             for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                if DARK_LITERAL.search(line) and any(hint in line for hint in SURFACE_HINTS):
+                if DARK_LITERAL.search(line):
                     findings.append(f"{rel}:{line_no}: {line.strip()}")
     return findings
 
@@ -122,7 +254,7 @@ def main() -> int:
         for item in findings:
             print(item)
     else:
-        print("No suspicious dark-only surface literals found outside the explicit artwork whitelist.")
+        print("No dark-only UI literals found outside the explicit theme/artwork whitelist.")
     print("V148_THEME_AUDIT_END")
     return 1 if args.strict and findings else 0
 
