@@ -20,6 +20,10 @@ PATCHES: dict[str, list[tuple[str, str]]] = {
     ],
     "app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt": [
         (
+            "val BacklotSelectableAppearances: List<FrameTheme> = listOf(\n    FrameTheme.DIRECTORS_CUT,\n    FrameTheme.BACKLOT_LIGHT,\n)",
+            "val BacklotSelectableAppearances: List<FrameTheme>\n    get() = listOf(\n        FrameTheme.DIRECTORS_CUT,\n        FrameTheme.BACKLOT_LIGHT,\n    )",
+        ),
+        (
             "val BacklotError: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFB33C38) else Color(0xFFE65F5A)\n",
             "val BacklotError: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFB33C38) else Color(0xFFE65F5A)\n\n// Media is content, not app chrome. Imported frames/video remain on a stable dark canvas in both appearances.\nval BacklotMediaCanvas: Color get() = Color(0xFF050505)\nval BacklotOnMedia: Color get() = Color(0xFFF4F0E8)\nval BacklotMediaBorder: Color get() = Color.White.copy(alpha = .14f)\n",
         ),
@@ -75,14 +79,17 @@ def main() -> int:
         for old, new in patches:
             apply_pair(path, rel, old, new)
 
-    # Guard the two cross-layer regressions this pass is specifically designed to prevent.
+    # Guard cross-layer regressions plus the JVM enum/file-facade initialization cycle.
     shell = (ROOT / "app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt").read_text(encoding="utf-8")
     media = (ROOT / "app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt").read_text(encoding="utf-8")
+    theme = (ROOT / "app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt").read_text(encoding="utf-8")
     errors: list[str] = []
     if "DatePickerDialog(context, {" in shell or "TimePickerDialog(context, {" in shell:
         errors.append("Native date/time picker still inherits the fixed Activity theme instead of selected appearance.")
     if ".background(CinemaBlack)" in media or "color = CinemaBlack," in media:
         errors.append("Media hero still uses app-background semantics instead of a stable media canvas.")
+    if "val BacklotSelectableAppearances: List<FrameTheme> = listOf(" in theme:
+        errors.append("Selectable appearance registry still has static enum initialization-cycle risk.")
     if errors:
         print("V148_SEMANTIC_GUARD_FAILED")
         for error in errors:
