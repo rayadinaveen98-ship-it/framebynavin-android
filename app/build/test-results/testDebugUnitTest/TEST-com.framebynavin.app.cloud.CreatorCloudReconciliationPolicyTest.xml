@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.framebynavin.app.cloud.CreatorCloudReconciliationPolicyTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-29T18:10:33" hostname="runnervmtr4k5" time="0.004">
+<testsuite name="com.framebynavin.app.cloud.CreatorCloudReconciliationPolicyTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-15T08:21:28" hostname="runnervmlun5p" time="0.003">
   <properties/>
-  <testcase name="cloud only edit restores when local still equals last synced" classname="com.framebynavin.app.cloud.CreatorCloudReconciliationPolicyTest" time="0.001"/>
+  <testcase name="cloud only edit restores when local still equals last synced" classname="com.framebynavin.app.cloud.CreatorCloudReconciliationPolicyTest" time="0.0"/>
   <testcase name="two device divergence never chooses a winner automatically" classname="com.framebynavin.app.cloud.CreatorCloudReconciliationPolicyTest" time="0.0"/>
   <testcase name="meaningful local and cloud require choice on first reconciliation" classname="com.framebynavin.app.cloud.CreatorCloudReconciliationPolicyTest" time="0.0"/>
   <testcase name="fresh phone restores existing cloud on first reconciliation" classname="com.framebynavin.app.cloud.CreatorCloudReconciliationPolicyTest" time="0.0"/>

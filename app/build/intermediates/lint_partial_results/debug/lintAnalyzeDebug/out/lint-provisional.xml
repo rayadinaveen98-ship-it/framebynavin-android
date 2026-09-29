@@ -2,186 +2,6 @@
 <incidents format="6" by="lint 8.9.2" type="conditional_incidents">
 
     <incident
-        id="InlinedApi"
-        severity="warning"
-        message="">
-        <fix-data minSdk="26-∞" requiresApi="31-∞"/>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt"
-            line="255"
-            column="44"
-            startOffset="10570"
-            endLine="255"
-            endColumn="89"
-            endOffset="10615"/>
-        <map>
-            <entry
-                name="message"
-                string="Field requires API level 31 (current min is %1$s): `android.speech.SpeechRecognizer#ERROR_LANGUAGE_NOT_SUPPORTED`"/>
-            <api-levels id="minSdk"
-                value="26-∞"/>
-            <entry
-                name="name"
-                string="ERROR_LANGUAGE_NOT_SUPPORTED"/>
-            <entry
-                name="owner"
-                string="android.speech.SpeechRecognizer"/>
-            <api-levels id="requiresApi"
-                value="31-∞"/>
-        </map>
-    </incident>
-
-    <incident
-        id="InlinedApi"
-        severity="warning"
-        message="">
-        <fix-data minSdk="26-∞" requiresApi="31-∞"/>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt"
-            line="256"
-            column="30"
-            startOffset="10648"
-            endLine="256"
-            endColumn="73"
-            endOffset="10691"/>
-        <map>
-            <entry
-                name="message"
-                string="Field requires API level 31 (current min is %1$s): `android.speech.SpeechRecognizer#ERROR_LANGUAGE_UNAVAILABLE`"/>
-            <api-levels id="minSdk"
-                value="26-∞"/>
-            <entry
-                name="name"
-                string="ERROR_LANGUAGE_UNAVAILABLE"/>
-            <entry
-                name="owner"
-                string="android.speech.SpeechRecognizer"/>
-            <api-levels id="requiresApi"
-                value="31-∞"/>
-        </map>
-    </incident>
-
-    <incident
-        id="InlinedApi"
-        severity="warning"
-        message="">
-        <fix-data minSdk="26-∞" requiresApi="33-∞"/>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt"
-            line="300"
-            column="18"
-            startOffset="12615"
-            endLine="300"
-            endColumn="53"
-            endOffset="12650"/>
-        <map>
-            <entry
-                name="message"
-                string="Field requires API level 33 (current min is %1$s): `android.speech.RecognizerIntent#EXTRA_AUDIO_SOURCE`"/>
-            <api-levels id="minSdk"
-                value="26-∞"/>
-            <entry
-                name="name"
-                string="EXTRA_AUDIO_SOURCE"/>
-            <entry
-                name="owner"
-                string="android.speech.RecognizerIntent"/>
-            <api-levels id="requiresApi"
-                value="33-∞"/>
-        </map>
-    </incident>
-
-    <incident
-        id="InlinedApi"
-        severity="warning"
-        message="">
-        <fix-data minSdk="26-∞" requiresApi="33-∞"/>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt"
-            line="301"
-            column="18"
-            startOffset="12678"
-            endLine="301"
-            endColumn="67"
-            endOffset="12727"/>
-        <map>
-            <entry
-                name="message"
-                string="Field requires API level 33 (current min is %1$s): `android.speech.RecognizerIntent#EXTRA_AUDIO_SOURCE_CHANNEL_COUNT`"/>
-            <api-levels id="minSdk"
-                value="26-∞"/>
-            <entry
-                name="name"
-                string="EXTRA_AUDIO_SOURCE_CHANNEL_COUNT"/>
-            <entry
-                name="owner"
-                string="android.speech.RecognizerIntent"/>
-            <api-levels id="requiresApi"
-                value="33-∞"/>
-        </map>
-    </incident>
-
-    <incident
-        id="InlinedApi"
-        severity="warning"
-        message="">
-        <fix-data minSdk="26-∞" requiresApi="33-∞"/>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt"
-            line="302"
-            column="18"
-            startOffset="12766"
-            endLine="302"
-            endColumn="62"
-            endOffset="12810"/>
-        <map>
-            <entry
-                name="message"
-                string="Field requires API level 33 (current min is %1$s): `android.speech.RecognizerIntent#EXTRA_AUDIO_SOURCE_ENCODING`"/>
-            <api-levels id="minSdk"
-                value="26-∞"/>
-            <entry
-                name="name"
-                string="EXTRA_AUDIO_SOURCE_ENCODING"/>
-            <entry
-                name="owner"
-                string="android.speech.RecognizerIntent"/>
-            <api-levels id="requiresApi"
-                value="33-∞"/>
-        </map>
-    </incident>
-
-    <incident
-        id="InlinedApi"
-        severity="warning"
-        message="">
-        <fix-data minSdk="26-∞" requiresApi="33-∞"/>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt"
-            line="303"
-            column="18"
-            startOffset="12861"
-            endLine="303"
-            endColumn="67"
-            endOffset="12910"/>
-        <map>
-            <entry
-                name="message"
-                string="Field requires API level 33 (current min is %1$s): `android.speech.RecognizerIntent#EXTRA_AUDIO_SOURCE_SAMPLING_RATE`"/>
-            <api-levels id="minSdk"
-                value="26-∞"/>
-            <entry
-                name="name"
-                string="EXTRA_AUDIO_SOURCE_SAMPLING_RATE"/>
-            <entry
-                name="owner"
-                string="android.speech.RecognizerIntent"/>
-            <api-levels id="requiresApi"
-                value="33-∞"/>
-        </map>
-    </incident>
-
-    <incident
         id="NotificationPermission"
         severity="error"
         message="When targeting Android 13 or higher, posting a permission requires holding the `POST_NOTIFICATIONS` permission">
@@ -190,10 +10,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/CreatorAutomationWorkers.kt"
             line="218"
             column="9"
-            startOffset="9545"
+            startOffset="9560"
             endLine="218"
             endColumn="96"
-            endOffset="9632"/>
+            endOffset="9647"/>
     </incident>
 
     <incident
@@ -203,27 +23,12 @@
         <fix-data missing="android.permission.POST_NOTIFICATIONS"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/CreatorContextNudgeWorker.kt"
-            line="66"
+            line="64"
             column="9"
-            startOffset="2993"
-            endLine="66"
+            startOffset="2911"
+            endLine="64"
             endColumn="54"
-            endOffset="3038"/>
-    </incident>
-
-    <incident
-        id="NotificationPermission"
-        severity="error"
-        message="When targeting Android 13 or higher, posting a permission requires holding the `POST_NOTIFICATIONS` permission">
-        <fix-data missing="android.permission.POST_NOTIFICATIONS"/>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-            line="205"
-            column="13"
-            startOffset="9389"
-            endLine="205"
-            endColumn="98"
-            endOffset="9474"/>
+            endOffset="2956"/>
     </incident>
 
     <incident
@@ -233,12 +38,12 @@
         <fix-data missing="android.permission.POST_NOTIFICATIONS"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt"
-            line="38"
+            line="37"
             column="9"
-            startOffset="1876"
-            endLine="38"
+            startOffset="1824"
+            endLine="37"
             endColumn="105"
-            endOffset="1972"/>
+            endOffset="1920"/>
     </incident>
 
     <incident
@@ -248,12 +53,12 @@
         <fix-data missing="android.permission.POST_NOTIFICATIONS"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt"
-            line="56"
+            line="55"
             column="21"
-            startOffset="2943"
-            endLine="56"
+            startOffset="2891"
+            endLine="55"
             endColumn="104"
-            endOffset="3026"/>
+            endOffset="2974"/>
     </incident>
 
     <incident
@@ -265,10 +70,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ReminderNotifications.kt"
             line="101"
             column="9"
-            startOffset="4787"
+            startOffset="4792"
             endLine="101"
             endColumn="60"
-            endOffset="4838"/>
+            endOffset="4843"/>
     </incident>
 
     <incident
@@ -278,12 +83,12 @@
         <fix-data minSdk="26-∞" requiresApi="27-∞"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
-            line="32"
-            column="148"
-            startOffset="1886"
-            endLine="32"
-            endColumn="177"
-            endOffset="1915"/>
+            line="42"
+            column="13"
+            startOffset="1859"
+            endLine="42"
+            endColumn="42"
+            endOffset="1888"/>
         <map>
             <entry
                 name="message"
@@ -302,12 +107,12 @@
         <fix-data minSdk="26-∞" requiresApi="27-∞"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
-            line="32"
-            column="178"
-            startOffset="1916"
-            endLine="32"
-            endColumn="205"
-            endOffset="1943"/>
+            line="43"
+            column="13"
+            startOffset="1901"
+            endLine="43"
+            endColumn="40"
+            endOffset="1928"/>
         <map>
             <entry
                 name="message"
@@ -326,12 +131,12 @@
         <fix-data minSdk="26-∞" requiresApi="27-∞"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
-            line="33"
-            column="156"
-            startOffset="2144"
-            endLine="33"
-            endColumn="185"
-            endOffset="2173"/>
+            line="51"
+            column="13"
+            startOffset="2202"
+            endLine="51"
+            endColumn="42"
+            endOffset="2231"/>
         <map>
             <entry
                 name="message"
@@ -350,12 +155,12 @@
         <fix-data minSdk="26-∞" requiresApi="27-∞"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*manifest*0}"
-            line="33"
-            column="186"
-            startOffset="2174"
-            endLine="33"
-            endColumn="213"
-            endOffset="2201"/>
+            line="52"
+            column="13"
+            startOffset="2244"
+            endLine="52"
+            endColumn="40"
+            endOffset="2271"/>
         <map>
             <entry
                 name="message"

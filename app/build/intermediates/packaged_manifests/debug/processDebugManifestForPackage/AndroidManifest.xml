@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.framebynavin.app"
-    android:versionCode="148"
-    android:versionName="2.0.0-rc23-light-appearance" >
+    android:versionCode="131"
+    android:versionName="2.0.0-rc7-cine-pulse-motion-pass" >
 
     <uses-sdk
         android:minSdkVersion="26"
@@ -43,9 +43,9 @@
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:debuggable="true"
         android:extractNativeLibs="false"
-        android:icon="@drawable/backlot_icon_cinematic"
-        android:label="Backlot"
-        android:roundIcon="@drawable/backlot_icon_cinematic"
+        android:icon="@drawable/ic_framebynavin_launcher"
+        android:label="FrameByNavin"
+        android:roundIcon="@drawable/ic_framebynavin_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.FrameByNavin"
         android:usesCleartextTraffic="false" >
@@ -106,12 +106,6 @@
             android:name="com.framebynavin.app.reminders.ReminderActionReceiver"
             android:exported="false" />
         <receiver
-            android:name="com.framebynavin.app.reminders.IdeaReminderReceiver"
-            android:exported="false" />
-        <receiver
-            android:name="com.framebynavin.app.reminders.IdeaReminderActionReceiver"
-            android:exported="false" />
-        <receiver
             android:name="com.framebynavin.app.reminders.ReminderRecoveryReceiver"
             android:enabled="true"
             android:exported="false" >
@@ -126,7 +120,7 @@
         <receiver
             android:name="com.framebynavin.app.widget.CreatorCompactWidgetProvider"
             android:exported="false"
-            android:label="Backlot Compact" >
+            android:label="FrameByNavin Compact" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -138,7 +132,7 @@
         <receiver
             android:name="com.framebynavin.app.widget.CreatorLargeWidgetProvider"
             android:exported="false"
-            android:label="Backlot Creator Desk" >
+            android:label="FrameByNavin Creator Desk" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -150,7 +144,7 @@
         <receiver
             android:name="com.framebynavin.app.widget.QuickIdeaWidgetProvider"
             android:exported="false"
-            android:label="Backlot Quick Idea" >
+            android:label="FrameByNavin Quick Idea" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -162,7 +156,7 @@
         <receiver
             android:name="com.framebynavin.app.widget.NewProjectWidgetProvider"
             android:exported="false"
-            android:label="Backlot New Project" >
+            android:label="FrameByNavin New Project" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -174,7 +168,7 @@
         <receiver
             android:name="com.framebynavin.app.widget.CurrentProjectWidgetProvider"
             android:exported="false"
-            android:label="Backlot Current Project" >
+            android:label="FrameByNavin Current Project" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -186,7 +180,7 @@
         <receiver
             android:name="com.framebynavin.app.widget.NextReminderWidgetProvider"
             android:exported="false"
-            android:label="Backlot Next Reminder" >
+            android:label="FrameByNavin Next Reminder" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -198,7 +192,7 @@
         <receiver
             android:name="com.framebynavin.app.widget.ContentCalendarWidgetProvider"
             android:exported="false"
-            android:label="Backlot Content Calendar" >
+            android:label="FrameByNavin Content Calendar" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -210,7 +204,7 @@
         <receiver
             android:name="com.framebynavin.app.widget.DailyBriefWidgetProvider"
             android:exported="false"
-            android:label="Backlot Daily Brief" >
+            android:label="FrameByNavin Daily Brief" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -222,7 +216,7 @@
         <receiver
             android:name="com.framebynavin.app.widget.CreatorInsightsWidgetProvider"
             android:exported="false"
-            android:label="Backlot Creator Insights" >
+            android:label="FrameByNavin Creator Insights" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -236,61 +230,13 @@
             android:name="com.framebynavin.app.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.FrameByNavin.Starting" />
-
-        <activity-alias
-            android:name="com.framebynavin.app.launcher.BacklotHorizontalAlias"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@drawable/backlot_icon_horizontal"
-            android:label="Backlot"
-            android:targetActivity="com.framebynavin.app.MainActivity" >
+            android:theme="@style/Theme.FrameByNavin.Starting" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity-alias>
-        <activity-alias
-            android:name="com.framebynavin.app.launcher.BacklotLightAlias"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@drawable/backlot_icon_light"
-            android:label="Backlot"
-            android:targetActivity="com.framebynavin.app.MainActivity" >
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-        <activity-alias
-            android:name="com.framebynavin.app.launcher.BacklotMinimalAlias"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@drawable/backlot_icon_minimal"
-            android:label="Backlot"
-            android:targetActivity="com.framebynavin.app.MainActivity" >
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias> <!-- Backlot launcher identity. Exactly one alias is enabled at first install. -->
-        <activity-alias
-            android:name="com.framebynavin.app.launcher.BacklotCinematicAlias"
-            android:enabled="true"
-            android:exported="true"
-            android:icon="@drawable/backlot_icon_cinematic"
-            android:label="Backlot"
-            android:targetActivity="com.framebynavin.app.MainActivity" >
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
+        </activity>
         <activity
             android:name="androidx.activity.ComponentActivity"
             android:exported="true"

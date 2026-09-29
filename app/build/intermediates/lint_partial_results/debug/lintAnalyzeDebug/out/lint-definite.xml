@@ -126,12 +126,12 @@
             priority="0"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="164"
+            line="122"
             column="14"
-            startOffset="9351"
-            endLine="164"
+            startOffset="6915"
+            endLine="122"
             endColumn="22"
-            endOffset="9359"/>
+            endOffset="6923"/>
     </incident>
 
     <incident
@@ -145,12 +145,12 @@
             priority="0"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-            line="185"
+            line="183"
             column="14"
-            startOffset="8164"
-            endLine="185"
+            startOffset="8049"
+            endLine="183"
             endColumn="22"
-            endOffset="8172"/>
+            endOffset="8057"/>
     </incident>
 
     <incident
@@ -216,12 +216,12 @@
         message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V20OpportunityEngineUi.kt"
-            line="463"
+            line="461"
             column="87"
-            startOffset="23271"
-            endLine="463"
+            startOffset="23006"
+            endLine="461"
             endColumn="141"
-            endOffset="23325"/>
+            endOffset="23060"/>
     </incident>
 
     <incident
@@ -230,12 +230,12 @@
         message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V20OpportunityEngineUi.kt"
-            line="587"
+            line="585"
             column="93"
-            startOffset="29629"
-            endLine="587"
+            startOffset="29364"
+            endLine="585"
             endColumn="141"
-            endOffset="29677"/>
+            endOffset="29412"/>
     </incident>
 
     <incident
@@ -244,12 +244,12 @@
         message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V20OpportunityEngineUi.kt"
-            line="638"
+            line="636"
             column="87"
-            startOffset="32504"
-            endLine="638"
+            startOffset="32239"
+            endLine="636"
             endColumn="141"
-            endOffset="32558"/>
+            endOffset="32293"/>
     </incident>
 
     <incident
@@ -260,10 +260,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/AlarmRingingService.kt"
             line="286"
             column="58"
-            startOffset="11990"
+            startOffset="12010"
             endLine="286"
             endColumn="106"
-            endOffset="12038"/>
+            endOffset="12058"/>
     </incident>
 
     <incident
@@ -272,12 +272,31 @@
         message="This argument is a new instance so `stopService` will not remove anything">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/VoiceReminderService.kt"
-            line="214"
+            line="211"
             column="58"
-            startOffset="9289"
-            endLine="214"
+            startOffset="9278"
+            endLine="211"
             endColumn="107"
-            endOffset="9338"/>
+            endOffset="9327"/>
+    </incident>
+
+    <incident
+        id="OldTargetApi"
+        severity="warning"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details.">
+        <fix-replace
+            description="Update targetSdkVersion to 36"
+            oldString="35"
+            replacement="36"
+            priority="0"/>
+        <location
+            file="${:app*projectDir}/build.gradle.kts"
+            line="24"
+            column="9"
+            startOffset="632"
+            endLine="24"
+            endColumn="23"
+            endOffset="646"/>
     </incident>
 
     <incident
@@ -292,12 +311,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="95"
+            line="56"
             column="20"
-            startOffset="3064"
-            endLine="95"
+            startOffset="1311"
+            endLine="56"
             endColumn="71"
-            endOffset="3115"/>
+            endOffset="1362"/>
     </incident>
 
     <incident
@@ -312,12 +331,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="96"
+            line="57"
             column="20"
-            startOffset="3136"
-            endLine="96"
+            startOffset="1383"
+            endLine="57"
             endColumn="63"
-            endOffset="3179"/>
+            endOffset="1426"/>
     </incident>
 
     <incident
@@ -332,12 +351,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="97"
+            line="58"
             column="20"
-            startOffset="3200"
-            endLine="97"
+            startOffset="1447"
+            endLine="58"
             endColumn="51"
-            endOffset="3231"/>
+            endOffset="1478"/>
     </incident>
 
     <incident
@@ -352,12 +371,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="98"
+            line="59"
             column="20"
-            startOffset="3252"
-            endLine="98"
+            startOffset="1499"
+            endLine="59"
             endColumn="59"
-            endOffset="3291"/>
+            endOffset="1538"/>
     </incident>
 
     <incident
@@ -372,12 +391,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="103"
+            line="64"
             column="20"
-            startOffset="3549"
-            endLine="103"
+            startOffset="1796"
+            endLine="64"
             endColumn="74"
-            endOffset="3603"/>
+            endOffset="1850"/>
     </incident>
 
     <incident
@@ -392,12 +411,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="104"
+            line="65"
             column="20"
-            startOffset="3624"
-            endLine="104"
+            startOffset="1871"
+            endLine="65"
             endColumn="70"
-            endOffset="3674"/>
+            endOffset="1921"/>
     </incident>
 
     <incident
@@ -412,12 +431,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="105"
+            line="66"
             column="20"
-            startOffset="3695"
-            endLine="105"
+            startOffset="1942"
+            endLine="66"
             endColumn="68"
-            endOffset="3743"/>
+            endOffset="1990"/>
     </incident>
 
     <incident
@@ -432,12 +451,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="106"
+            line="67"
             column="20"
-            startOffset="3764"
-            endLine="106"
+            startOffset="2011"
+            endLine="67"
             endColumn="68"
-            endOffset="3812"/>
+            endOffset="2059"/>
     </incident>
 
     <incident
@@ -452,12 +471,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="107"
+            line="68"
             column="20"
-            startOffset="3833"
-            endLine="107"
+            startOffset="2080"
+            endLine="68"
             endColumn="59"
-            endOffset="3872"/>
+            endOffset="2119"/>
     </incident>
 
     <incident
@@ -472,12 +491,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="108"
+            line="69"
             column="20"
-            startOffset="3893"
-            endLine="108"
+            startOffset="2140"
+            endLine="69"
             endColumn="70"
-            endOffset="3943"/>
+            endOffset="2190"/>
     </incident>
 
     <incident
@@ -492,12 +511,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="113"
+            line="74"
             column="20"
-            startOffset="4190"
-            endLine="113"
+            startOffset="2437"
+            endLine="74"
             endColumn="72"
-            endOffset="4242"/>
+            endOffset="2489"/>
     </incident>
 
     <incident
@@ -512,12 +531,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="120"
+            line="81"
             column="31"
-            startOffset="4520"
-            endLine="120"
+            startOffset="2767"
+            endLine="81"
             endColumn="82"
-            endOffset="4571"/>
+            endOffset="2818"/>
     </incident>
 
     <incident
@@ -532,12 +551,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="121"
+            line="82"
             column="31"
-            startOffset="4603"
-            endLine="121"
+            startOffset="2850"
+            endLine="82"
             endColumn="62"
-            endOffset="4634"/>
+            endOffset="2881"/>
     </incident>
 
     <incident
@@ -552,12 +571,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="122"
+            line="83"
             column="31"
-            startOffset="4666"
-            endLine="122"
+            startOffset="2913"
+            endLine="83"
             endColumn="59"
-            endOffset="4694"/>
+            endOffset="2941"/>
     </incident>
 
     <incident
@@ -572,12 +591,12 @@
             priority="0"/>
         <location
             file="${:app*projectDir}/build.gradle.kts"
-            line="123"
+            line="84"
             column="31"
-            startOffset="4726"
-            endLine="123"
+            startOffset="2973"
+            endLine="84"
             endColumn="75"
-            endOffset="4770"/>
+            endOffset="3017"/>
     </incident>
 
     <incident
@@ -586,40 +605,12 @@
         message="Modifier parameter should be the first optional parameter">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="1202"
+            line="1005"
             column="5"
-            startOffset="61811"
-            endLine="1202"
+            startOffset="53219"
+            endLine="1005"
             endColumn="13"
-            endOffset="61819"/>
-    </incident>
-
-    <incident
-        id="ModifierParameter"
-        severity="warning"
-        message="Modifier parameter should be the first optional parameter">
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V137CharacterSystem.kt"
-            line="236"
-            column="5"
-            startOffset="10743"
-            endLine="236"
-            endColumn="13"
-            endOffset="10751"/>
-    </incident>
-
-    <incident
-        id="ModifierParameter"
-        severity="warning"
-        message="Modifier parameter should be the first optional parameter">
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-            line="260"
-            column="5"
-            startOffset="11318"
-            endLine="260"
-            endColumn="13"
-            endOffset="11326"/>
+            endOffset="53227"/>
     </incident>
 
     <incident
@@ -631,10 +622,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/AlarmRingingService.kt"
             line="156"
             column="13"
-            startOffset="6809"
+            startOffset="6814"
             endLine="156"
             endColumn="59"
-            endOffset="6855"/>
+            endOffset="6860"/>
     </incident>
 
     <incident
@@ -646,10 +637,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/AlarmRingingService.kt"
             line="204"
             column="13"
-            startOffset="8804"
+            startOffset="8814"
             endLine="204"
             endColumn="59"
-            endOffset="8850"/>
+            endOffset="8860"/>
     </incident>
 
     <incident
@@ -659,12 +650,12 @@
         <fix-data conditional="true"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt"
-            line="64"
+            line="63"
             column="13"
-            startOffset="3247"
-            endLine="64"
+            startOffset="3195"
+            endLine="63"
             endColumn="59"
-            endOffset="3293"/>
+            endOffset="3241"/>
     </incident>
 
     <incident
@@ -691,10 +682,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ReminderNotifications.kt"
             line="42"
             column="13"
-            startOffset="1756"
+            startOffset="1761"
             endLine="42"
             endColumn="59"
-            endOffset="1802"/>
+            endOffset="1807"/>
     </incident>
 
     <incident
@@ -704,12 +695,12 @@
         <fix-data conditional="true"/>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/VoiceReminderService.kt"
-            line="150"
+            line="147"
             column="13"
-            startOffset="6407"
-            endLine="150"
+            startOffset="6386"
+            endLine="147"
             endColumn="59"
-            endOffset="6453"/>
+            endOffset="6432"/>
     </incident>
 
     <incident
@@ -723,17 +714,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorViewModel.kt"
-                startOffset="3068"
-                endOffset="3082"/>
+                startOffset="2933"
+                endOffset="2947"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorViewModel.kt"
-            line="61"
+            line="59"
             column="34"
-            startOffset="3068"
-            endLine="61"
+            startOffset="2933"
+            endLine="59"
             endColumn="48"
-            endOffset="3082"/>
+            endOffset="2947"/>
     </incident>
 
     <incident
@@ -744,38 +735,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V131PolishUi.kt"
             line="132"
             column="26"
-            startOffset="5987"
+            startOffset="5991"
             endLine="132"
             endColumn="32"
-            endOffset="5993"/>
-    </incident>
-
-    <incident
-        id="SmallSp"
-        severity="warning"
-        message="Avoid using sizes smaller than `11sp`: `8sp`">
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_action.xml"
-            line="17"
-            column="9"
-            startOffset="616"
-            endLine="17"
-            endColumn="31"
-            endOffset="638"/>
-    </incident>
-
-    <incident
-        id="SmallSp"
-        severity="warning"
-        message="Avoid using sizes smaller than `11sp`: `10sp`">
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_action.xml"
-            line="40"
-            column="9"
-            startOffset="1363"
-            endLine="40"
-            endColumn="32"
-            endOffset="1386"/>
+            endOffset="5997"/>
     </incident>
 
     <incident
@@ -786,10 +749,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_compact.xml"
             line="16"
             column="9"
-            startOffset="561"
+            startOffset="566"
             endLine="16"
             endColumn="32"
-            endOffset="584"/>
+            endOffset="589"/>
     </incident>
 
     <incident
@@ -800,10 +763,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_compact.xml"
             line="47"
             column="9"
-            startOffset="1545"
+            startOffset="1550"
             endLine="47"
             endColumn="32"
-            endOffset="1568"/>
+            endOffset="1573"/>
     </incident>
 
     <incident
@@ -814,10 +777,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_compact.xml"
             line="58"
             column="9"
-            startOffset="1881"
+            startOffset="1886"
             endLine="58"
             endColumn="32"
-            endOffset="1904"/>
+            endOffset="1909"/>
     </incident>
 
     <incident
@@ -828,10 +791,10 @@
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_compact.xml"
             line="69"
             column="9"
-            startOffset="2261"
+            startOffset="2266"
             endLine="69"
             endColumn="32"
-            endOffset="2284"/>
+            endOffset="2289"/>
     </incident>
 
     <incident
@@ -840,12 +803,12 @@
         message="Avoid using sizes smaller than `11sp`: `10sp`">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="22"
+            line="21"
             column="13"
-            startOffset="821"
-            endLine="22"
+            startOffset="786"
+            endLine="21"
             endColumn="36"
-            endOffset="844"/>
+            endOffset="809"/>
     </incident>
 
     <incident
@@ -854,12 +817,12 @@
         message="Avoid using sizes smaller than `11sp`: `9sp`">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="30"
+            line="29"
             column="13"
-            startOffset="1148"
-            endLine="30"
+            startOffset="1113"
+            endLine="29"
             endColumn="35"
-            endOffset="1170"/>
+            endOffset="1135"/>
     </incident>
 
     <incident
@@ -868,12 +831,12 @@
         message="Avoid using sizes smaller than `11sp`: `10sp`">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="78"
+            line="77"
             column="9"
-            startOffset="2897"
-            endLine="78"
+            startOffset="2862"
+            endLine="77"
             endColumn="32"
-            endOffset="2920"/>
+            endOffset="2885"/>
     </incident>
 
     <incident
@@ -882,12 +845,12 @@
         message="Avoid using sizes smaller than `11sp`: `9sp`">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="95"
+            line="94"
             column="13"
-            startOffset="3532"
-            endLine="95"
+            startOffset="3497"
+            endLine="94"
             endColumn="35"
-            endOffset="3554"/>
+            endOffset="3519"/>
     </incident>
 
     <incident
@@ -896,12 +859,12 @@
         message="Avoid using sizes smaller than `11sp`: `9sp`">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="107"
+            line="106"
             column="13"
-            startOffset="4031"
-            endLine="107"
+            startOffset="3996"
+            endLine="106"
             endColumn="35"
-            endOffset="4053"/>
+            endOffset="4018"/>
     </incident>
 
     <incident
@@ -910,12 +873,12 @@
         message="Avoid using sizes smaller than `11sp`: `9sp`">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="118"
+            line="117"
             column="13"
-            startOffset="4478"
-            endLine="118"
+            startOffset="4443"
+            endLine="117"
             endColumn="35"
-            endOffset="4500"/>
+            endOffset="4465"/>
     </incident>
 
     <incident
@@ -924,12 +887,12 @@
         message="Avoid using sizes smaller than `11sp`: `8sp`">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="137"
+            line="136"
             column="13"
-            startOffset="5171"
-            endLine="137"
+            startOffset="5136"
+            endLine="136"
             endColumn="35"
-            endOffset="5193"/>
+            endOffset="5158"/>
     </incident>
 
     <incident
@@ -938,12 +901,12 @@
         message="Avoid using sizes smaller than `11sp`: `8sp`">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="148"
+            line="147"
             column="13"
-            startOffset="5620"
-            endLine="148"
+            startOffset="5585"
+            endLine="147"
             endColumn="35"
-            endOffset="5642"/>
+            endOffset="5607"/>
     </incident>
 
     <incident
@@ -1440,17 +1403,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/AlarmRingingService.kt"
-                startOffset="7587"
-                endOffset="7600"/>
+                startOffset="7597"
+                endOffset="7610"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/AlarmRingingService.kt"
             line="173"
             column="89"
-            startOffset="7587"
+            startOffset="7597"
             endLine="173"
             endColumn="102"
-            endOffset="7600"/>
+            endOffset="7610"/>
     </incident>
 
     <incident
@@ -2607,8 +2570,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19283"
-                    endOffset="19287"/>
+                    startOffset="19288"
+                    endOffset="19292"/>
             </fix-replace>
             <fix-replace
                 description="Replace with commit = true) {"
@@ -2619,8 +2582,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19288"
-                    endOffset="19289"/>
+                    startOffset="19293"
+                    endOffset="19294"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -2631,8 +2594,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19327"
-                    endOffset="19336"/>
+                    startOffset="19332"
+                    endOffset="19341"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -2643,18 +2606,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19289"
-                    endOffset="19290"/>
+                    startOffset="19294"
+                    endOffset="19295"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
             line="381"
             column="15"
-            startOffset="19191"
+            startOffset="19196"
             endLine="382"
             endColumn="20"
-            endOffset="19289"/>
+            endOffset="19294"/>
     </incident>
 
     <incident
@@ -2675,8 +2638,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19766"
-                    endOffset="19779"/>
+                    startOffset="19771"
+                    endOffset="19784"/>
             </fix-replace>
             <fix-replace
                 description="Replace with edit"
@@ -2689,8 +2652,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19872"
-                    endOffset="19876"/>
+                    startOffset="19877"
+                    endOffset="19881"/>
             </fix-replace>
             <fix-replace
                 description="Replace with commit = true) {"
@@ -2701,8 +2664,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19877"
-                    endOffset="19878"/>
+                    startOffset="19882"
+                    endOffset="19883"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -2713,8 +2676,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19981"
-                    endOffset="19996"/>
+                    startOffset="19986"
+                    endOffset="20001"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;editor.&quot;"
@@ -2725,8 +2688,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19923"
-                    endOffset="19930"/>
+                    startOffset="19928"
+                    endOffset="19935"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -2737,18 +2700,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
-                    startOffset="19887"
-                    endOffset="19887"/>
+                    startOffset="19892"
+                    endOffset="19892"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorBackupManager.kt"
             line="394"
             column="22"
-            startOffset="19779"
+            startOffset="19784"
             endLine="395"
             endColumn="20"
-            endOffset="19878"/>
+            endOffset="19883"/>
     </incident>
 
     <incident
@@ -2840,419 +2803,9 @@
                 imports="androidx.core.content.edit"
                 priority="0">
                 <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="11980"
-                    endOffset="11984"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with commit = true) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement="commit = true) {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="11985"
-                    endOffset="11986"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".commit()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12284"
-                    endOffset="12293"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="11999"
-                    endOffset="12000"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with     "
-                robot="true"
-                independent="true"
-                oldString=""
-                replacement="    "
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="11987"
-                    endOffset="11987"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with     "
-                robot="true"
-                independent="true"
-                oldString=""
-                replacement="    "
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12045"
-                    endOffset="12045"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with     "
-                robot="true"
-                independent="true"
-                oldString=""
-                replacement="    "
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12101"
-                    endOffset="12101"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with     "
-                robot="true"
-                independent="true"
-                oldString=""
-                replacement="    "
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12174"
-                    endOffset="12174"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with     "
-                robot="true"
-                independent="true"
-                oldString=""
-                replacement="    "
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12230"
-                    endOffset="12230"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-            line="270"
-            column="15"
-            startOffset="11974"
-            endLine="270"
-            endColumn="27"
-            endOffset="11986"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12420"
-                    endOffset="12424"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12425"
-                    endOffset="12426"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12509"
-                    endOffset="12517"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12426"
-                    endOffset="12427"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-            line="280"
-            column="9"
-            startOffset="12414"
-            endLine="280"
-            endColumn="21"
-            endOffset="12426"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12594"
-                    endOffset="12598"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12599"
-                    endOffset="12600"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12641"
-                    endOffset="12649"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12600"
-                    endOffset="12601"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-            line="284"
-            column="9"
-            startOffset="12588"
-            endLine="284"
-            endColumn="21"
-            endOffset="12600"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12803"
-                    endOffset="12807"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with commit = true) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement="commit = true) {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12808"
-                    endOffset="12809"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".commit()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12848"
-                    endOffset="12857"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="12809"
-                    endOffset="12810"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-            line="290"
-            column="15"
-            startOffset="12797"
-            endLine="290"
-            endColumn="27"
-            endOffset="12809"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="13108"
-                    endOffset="13112"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with commit = true) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement="commit = true) {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="13113"
-                    endOffset="13114"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".commit()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="13148"
-                    endOffset="13157"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-                    startOffset="13114"
-                    endOffset="13115"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt"
-            line="296"
-            column="15"
-            startOffset="13102"
-            endLine="296"
-            endColumn="27"
-            endOffset="13114"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/CreatorContextNudgeWorker.kt"
-                    startOffset="3053"
-                    endOffset="3057"/>
+                    startOffset="2971"
+                    endOffset="2975"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -3263,8 +2816,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/CreatorContextNudgeWorker.kt"
-                    startOffset="3058"
-                    endOffset="3059"/>
+                    startOffset="2976"
+                    endOffset="2977"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -3275,8 +2828,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/CreatorContextNudgeWorker.kt"
-                    startOffset="3122"
-                    endOffset="3130"/>
+                    startOffset="3040"
+                    endOffset="3048"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -3287,18 +2840,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/CreatorContextNudgeWorker.kt"
-                    startOffset="3059"
-                    endOffset="3060"/>
+                    startOffset="2977"
+                    endOffset="2978"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/CreatorContextNudgeWorker.kt"
-            line="67"
+            line="65"
             column="9"
-            startOffset="3047"
-            endLine="67"
+            startOffset="2965"
+            endLine="65"
             endColumn="21"
-            endOffset="3059"/>
+            endOffset="2977"/>
     </incident>
 
     <incident
@@ -3613,8 +3166,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="1266"
-                    endOffset="1270"/>
+                    startOffset="6342"
+                    endOffset="6346"/>
             </fix-replace>
             <fix-replace
                 description="Replace with commit = true) {"
@@ -3625,8 +3178,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="1271"
-                    endOffset="1272"/>
+                    startOffset="6347"
+                    endOffset="6348"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -3637,8 +3190,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="1313"
-                    endOffset="1322"/>
+                    startOffset="6914"
+                    endOffset="6923"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -3649,148 +3202,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="1272"
-                    endOffset="1273"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="30"
-            column="19"
-            startOffset="1260"
-            endLine="30"
-            endColumn="31"
-            endOffset="1272"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="3003"
-                    endOffset="3007"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="3008"
-                    endOffset="3009"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="3058"
-                    endOffset="3066"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="3009"
-                    endOffset="3010"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="59"
-            column="13"
-            startOffset="2997"
-            endLine="59"
-            endColumn="25"
-            endOffset="3009"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="8708"
-                    endOffset="8712"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with commit = true) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement="commit = true) {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="8713"
-                    endOffset="8714"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".commit()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="9350"
-                    endOffset="9359"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="8727"
-                    endOffset="8728"/>
+                    startOffset="6361"
+                    endOffset="6362"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -3801,8 +3214,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="8715"
-                    endOffset="8715"/>
+                    startOffset="6349"
+                    endOffset="6349"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -3813,8 +3226,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="8805"
-                    endOffset="8805"/>
+                    startOffset="6439"
+                    endOffset="6439"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -3825,8 +3238,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="8880"
-                    endOffset="8880"/>
+                    startOffset="6514"
+                    endOffset="6514"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -3837,8 +3250,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="8950"
-                    endOffset="8950"/>
+                    startOffset="6547"
+                    endOffset="6547"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -3849,8 +3262,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="8983"
-                    endOffset="8983"/>
+                    startOffset="6621"
+                    endOffset="6621"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -3861,8 +3274,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="9057"
-                    endOffset="9057"/>
+                    startOffset="6694"
+                    endOffset="6694"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -3873,8 +3286,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="9130"
-                    endOffset="9130"/>
+                    startOffset="6755"
+                    endOffset="6755"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -3885,30 +3298,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="9191"
-                    endOffset="9191"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with     "
-                robot="true"
-                independent="true"
-                oldString=""
-                replacement="    "
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="9266"
-                    endOffset="9266"/>
+                    startOffset="6830"
+                    endOffset="6830"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="154"
+            line="113"
             column="9"
-            startOffset="8702"
-            endLine="154"
+            startOffset="6336"
+            endLine="113"
             endColumn="21"
-            endOffset="8714"/>
+            endOffset="6348"/>
     </incident>
 
     <incident
@@ -3931,8 +3332,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10736"
-                    endOffset="10740"/>
+                    startOffset="8146"
+                    endOffset="8150"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -3943,8 +3344,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10741"
-                    endOffset="10742"/>
+                    startOffset="8151"
+                    endOffset="8152"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -3955,8 +3356,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10793"
-                    endOffset="10801"/>
+                    startOffset="8203"
+                    endOffset="8211"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -3967,18 +3368,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10742"
-                    endOffset="10743"/>
+                    startOffset="8152"
+                    endOffset="8153"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="194"
+            line="149"
             column="9"
-            startOffset="10730"
-            endLine="194"
+            startOffset="8140"
+            endLine="149"
             endColumn="21"
-            endOffset="10742"/>
+            endOffset="8152"/>
     </incident>
 
     <incident
@@ -4001,8 +3402,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10871"
-                    endOffset="10875"/>
+                    startOffset="8281"
+                    endOffset="8285"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -4013,8 +3414,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10876"
-                    endOffset="10877"/>
+                    startOffset="8286"
+                    endOffset="8287"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -4025,8 +3426,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10920"
-                    endOffset="10928"/>
+                    startOffset="8330"
+                    endOffset="8338"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -4037,18 +3438,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10877"
-                    endOffset="10878"/>
+                    startOffset="8287"
+                    endOffset="8288"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="198"
+            line="153"
             column="9"
-            startOffset="10865"
-            endLine="198"
+            startOffset="8275"
+            endLine="153"
             endColumn="21"
-            endOffset="10877"/>
+            endOffset="8287"/>
     </incident>
 
     <incident
@@ -4071,8 +3472,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10985"
-                    endOffset="10989"/>
+                    startOffset="8452"
+                    endOffset="8456"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -4083,8 +3484,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10990"
-                    endOffset="10991"/>
+                    startOffset="8457"
+                    endOffset="8458"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -4095,8 +3496,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11064"
-                    endOffset="11072"/>
+                    startOffset="8478"
+                    endOffset="8486"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -4107,18 +3508,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="10991"
-                    endOffset="10992"/>
+                    startOffset="8458"
+                    endOffset="8459"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="202"
+            line="158"
             column="9"
-            startOffset="10979"
-            endLine="202"
+            startOffset="8446"
+            endLine="158"
             endColumn="21"
-            endOffset="10991"/>
+            endOffset="8458"/>
     </incident>
 
     <incident
@@ -4141,8 +3542,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11122"
-                    endOffset="11126"/>
+                    startOffset="8562"
+                    endOffset="8566"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -4153,8 +3554,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11127"
-                    endOffset="11128"/>
+                    startOffset="8567"
+                    endOffset="8568"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -4165,8 +3566,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11163"
-                    endOffset="11171"/>
+                    startOffset="8609"
+                    endOffset="8617"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -4177,18 +3578,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11128"
-                    endOffset="11129"/>
+                    startOffset="8568"
+                    endOffset="8569"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="206"
+            line="162"
             column="9"
-            startOffset="11116"
-            endLine="206"
+            startOffset="8556"
+            endLine="162"
             endColumn="21"
-            endOffset="11128"/>
+            endOffset="8568"/>
     </incident>
 
     <incident
@@ -4211,8 +3612,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11285"
-                    endOffset="11289"/>
+                    startOffset="8691"
+                    endOffset="8695"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -4223,8 +3624,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11290"
-                    endOffset="11291"/>
+                    startOffset="8696"
+                    endOffset="8697"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -4235,8 +3636,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11311"
-                    endOffset="11319"/>
+                    startOffset="8748"
+                    endOffset="8756"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -4247,18 +3648,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11291"
-                    endOffset="11292"/>
+                    startOffset="8697"
+                    endOffset="8698"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="211"
+            line="166"
             column="9"
-            startOffset="11279"
-            endLine="211"
+            startOffset="8685"
+            endLine="166"
             endColumn="21"
-            endOffset="11291"/>
+            endOffset="8697"/>
     </incident>
 
     <incident
@@ -4281,8 +3682,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11395"
-                    endOffset="11399"/>
+                    startOffset="8817"
+                    endOffset="8821"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -4293,8 +3694,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11400"
-                    endOffset="11401"/>
+                    startOffset="8822"
+                    endOffset="8823"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -4305,8 +3706,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11442"
-                    endOffset="11450"/>
+                    startOffset="8873"
+                    endOffset="8881"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -4317,18 +3718,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11401"
-                    endOffset="11402"/>
+                    startOffset="8823"
+                    endOffset="8824"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="215"
+            line="170"
             column="9"
-            startOffset="11389"
-            endLine="215"
+            startOffset="8811"
+            endLine="170"
             endColumn="21"
-            endOffset="11401"/>
+            endOffset="8823"/>
     </incident>
 
     <incident
@@ -4351,8 +3752,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11524"
-                    endOffset="11528"/>
+                    startOffset="8954"
+                    endOffset="8958"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -4363,8 +3764,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11529"
-                    endOffset="11530"/>
+                    startOffset="8959"
+                    endOffset="8960"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -4375,8 +3776,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11581"
-                    endOffset="11589"/>
+                    startOffset="9000"
+                    endOffset="9008"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -4387,18 +3788,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11530"
-                    endOffset="11531"/>
+                    startOffset="8960"
+                    endOffset="8961"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="219"
+            line="174"
             column="9"
-            startOffset="11518"
-            endLine="219"
+            startOffset="8948"
+            endLine="174"
             endColumn="21"
-            endOffset="11530"/>
+            endOffset="8960"/>
     </incident>
 
     <incident
@@ -4421,8 +3822,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11650"
-                    endOffset="11654"/>
+                    startOffset="9080"
+                    endOffset="9084"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -4433,8 +3834,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11655"
-                    endOffset="11656"/>
+                    startOffset="9085"
+                    endOffset="9086"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -4445,8 +3846,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11706"
-                    endOffset="11714"/>
+                    startOffset="9124"
+                    endOffset="9132"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -4457,158 +3858,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11656"
-                    endOffset="11657"/>
+                    startOffset="9086"
+                    endOffset="9087"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="223"
+            line="178"
             column="9"
-            startOffset="11644"
-            endLine="223"
+            startOffset="9074"
+            endLine="178"
             endColumn="21"
-            endOffset="11656"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11787"
-                    endOffset="11791"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11792"
-                    endOffset="11793"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11833"
-                    endOffset="11841"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11793"
-                    endOffset="11794"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="227"
-            column="9"
-            startOffset="11781"
-            endLine="227"
-            endColumn="21"
-            endOffset="11793"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11913"
-                    endOffset="11917"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11918"
-                    endOffset="11919"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11957"
-                    endOffset="11965"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-                    startOffset="11919"
-                    endOffset="11920"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/data/CreatorOsSettings.kt"
-            line="231"
-            column="9"
-            startOffset="11907"
-            endLine="231"
-            endColumn="21"
-            endOffset="11919"/>
+            endOffset="9086"/>
     </incident>
 
     <incident
@@ -5198,192 +4459,6 @@
     <incident
         id="UseKtx"
         severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="6717"
-                    endOffset="6721"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="6722"
-                    endOffset="6723"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="6763"
-                    endOffset="6771"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="6723"
-                    endOffset="6724"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-            line="179"
-            column="13"
-            startOffset="6711"
-            endLine="179"
-            endColumn="25"
-            endOffset="6723"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="7053"
-                    endOffset="7057"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="7058"
-                    endOffset="7059"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString="appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(KEY_THEME, supported.name)?.apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="6990"
-                    endOffset="7106"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-            line="187"
-            column="9"
-            startOffset="6990"
-            endLine="187"
-            endColumn="78"
-            endOffset="7059"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="7268"
-                    endOffset="7272"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="7273"
-                    endOffset="7274"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString="appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putBoolean(KEY_LAUNCH_SOUND, enabled)?.apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-                    startOffset="7205"
-                    endOffset="7322"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
-            line="192"
-            column="9"
-            startOffset="7205"
-            endLine="192"
-            endColumn="78"
-            endOffset="7274"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
         message="Use the KTX extension function `String.toUri` instead?">
         <fix-replace
             description="Replace with the toUri extension function"
@@ -5397,17 +4472,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="8600"
-                endOffset="8643"/>
+                startOffset="7940"
+                endOffset="7983"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="183"
+            line="172"
             column="103"
-            startOffset="8600"
-            endLine="183"
+            startOffset="7940"
+            endLine="172"
             endColumn="146"
-            endOffset="8643"/>
+            endOffset="7983"/>
     </incident>
 
     <incident
@@ -5426,17 +4501,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="8600"
-                endOffset="8643"/>
+                startOffset="7940"
+                endOffset="7983"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="183"
+            line="172"
             column="103"
-            startOffset="8600"
-            endLine="183"
+            startOffset="7940"
+            endLine="172"
             endColumn="146"
-            endOffset="8643"/>
+            endOffset="7983"/>
     </incident>
 
     <incident
@@ -5455,17 +4530,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="8843"
-                endOffset="8886"/>
+                startOffset="8183"
+                endOffset="8226"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="188"
+            line="177"
             column="108"
-            startOffset="8843"
-            endLine="188"
+            startOffset="8183"
+            endLine="177"
             endColumn="151"
-            endOffset="8886"/>
+            endOffset="8226"/>
     </incident>
 
     <incident
@@ -5484,17 +4559,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="8843"
-                endOffset="8886"/>
+                startOffset="8183"
+                endOffset="8226"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="188"
+            line="177"
             column="108"
-            startOffset="8843"
-            endLine="188"
+            startOffset="8183"
+            endLine="177"
             endColumn="151"
-            endOffset="8886"/>
+            endOffset="8226"/>
     </incident>
 
     <incident
@@ -5513,17 +4588,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="9161"
-                endOffset="9204"/>
+                startOffset="8501"
+                endOffset="8544"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="193"
+            line="182"
             column="116"
-            startOffset="9161"
-            endLine="193"
+            startOffset="8501"
+            endLine="182"
             endColumn="159"
-            endOffset="9204"/>
+            endOffset="8544"/>
     </incident>
 
     <incident
@@ -5542,244 +4617,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-                startOffset="9161"
-                endOffset="9204"/>
+                startOffset="8501"
+                endOffset="8544"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/FrameByNavinV101BApp.kt"
-            line="193"
+            line="182"
             column="116"
-            startOffset="9161"
-            endLine="193"
+            startOffset="8501"
+            endLine="182"
             endColumn="159"
-            endOffset="9204"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `String.toUri` instead?">
-        <fix-replace
-            description="Replace with the toUri extension function"
-            family="Replace with the toUri extension function"
-            robot="true"
-            independent="true"
-            oldString="Uri.parse(&quot;framebynavin://idea-reminder/${Uri.encode(ideaId)}&quot;)"
-            replacement="&quot;framebynavin://idea-reminder/${Uri.encode(ideaId)}&quot;.toUri()"
-            reformat="value"
-            imports="androidx.core.net.toUri"
-            priority="0">
-            <range
-                file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                startOffset="3236"
-                endOffset="3299"/>
-        </fix-replace>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-            line="77"
-            column="22"
-            startOffset="3236"
-            endLine="77"
-            endColumn="85"
-            endOffset="3299"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                    startOffset="3848"
-                    endOffset="3852"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                    startOffset="3853"
-                    endOffset="3854"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                    startOffset="3905"
-                    endOffset="3913"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                    startOffset="3854"
-                    endOffset="3855"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-            line="91"
-            column="9"
-            startOffset="3842"
-            endLine="91"
-            endColumn="21"
-            endOffset="3854"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                    startOffset="3976"
-                    endOffset="3980"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                    startOffset="3981"
-                    endOffset="3982"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                    startOffset="4033"
-                    endOffset="4041"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                    startOffset="3982"
-                    endOffset="3983"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-            line="95"
-            column="9"
-            startOffset="3970"
-            endLine="95"
-            endColumn="21"
-            endOffset="3982"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `String.toUri` instead?">
-        <fix-replace
-            description="Replace with the toUri extension function"
-            family="Replace with the toUri extension function"
-            robot="true"
-            independent="true"
-            oldString="Uri.parse(&quot;framebynavin://idea/${Uri.encode(ideaId)}/${Uri.encode(mode)}&quot;)"
-            replacement="&quot;framebynavin://idea/${Uri.encode(ideaId)}/${Uri.encode(mode)}&quot;.toUri()"
-            reformat="value"
-            imports="androidx.core.net.toUri"
-            priority="0">
-            <range
-                file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                startOffset="9921"
-                endOffset="9995"/>
-        </fix-replace>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-            line="217"
-            column="22"
-            startOffset="9921"
-            endLine="217"
-            endColumn="96"
-            endOffset="9995"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `String.toUri` instead?">
-        <fix-replace
-            description="Replace with the toUri extension function"
-            family="Replace with the toUri extension function"
-            robot="true"
-            independent="true"
-            oldString="Uri.parse(&quot;framebynavin://idea-reminder-action/${Uri.encode(ideaId)}/$salt&quot;)"
-            replacement="&quot;framebynavin://idea-reminder-action/${Uri.encode(ideaId)}/$salt&quot;.toUri()"
-            reformat="value"
-            imports="androidx.core.net.toUri"
-            priority="0">
-            <range
-                file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-                startOffset="10684"
-                endOffset="10760"/>
-        </fix-replace>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/IdeaReminderSystem.kt"
-            line="232"
-            column="22"
-            startOffset="10684"
-            endLine="232"
-            endColumn="98"
-            endOffset="10760"/>
+            endOffset="8544"/>
     </incident>
 
     <incident
@@ -6126,46 +4974,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt"
-                startOffset="4081"
-                endOffset="4174"/>
+                startOffset="4029"
+                endOffset="4122"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt"
-            line="84"
+            line="83"
             column="22"
-            startOffset="4081"
-            endLine="84"
+            startOffset="4029"
+            endLine="83"
             endColumn="115"
-            endOffset="4174"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `String.toUri` instead?">
-        <fix-replace
-            description="Replace with the toUri extension function"
-            family="Replace with the toUri extension function"
-            robot="true"
-            independent="true"
-            oldString="Uri.parse(&quot;framebynavin://project/${Uri.encode(taskId)}&quot;)"
-            replacement="&quot;framebynavin://project/${Uri.encode(taskId)}&quot;.toUri()"
-            reformat="value"
-            imports="androidx.core.net.toUri"
-            priority="0">
-            <range
-                file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt"
-                startOffset="4975"
-                endOffset="5032"/>
-        </fix-replace>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ProjectPulseNextStagePrompt.kt"
-            line="101"
-            column="22"
-            startOffset="4975"
-            endLine="101"
-            endColumn="79"
-            endOffset="5032"/>
+            endOffset="4122"/>
     </incident>
 
     <incident
@@ -6184,17 +5003,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ReminderNotifications.kt"
-                startOffset="6394"
-                endOffset="6486"/>
+                startOffset="6399"
+                endOffset="6491"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/ReminderNotifications.kt"
             line="137"
             column="22"
-            startOffset="6394"
+            startOffset="6399"
             endLine="137"
             endColumn="114"
-            endOffset="6486"/>
+            endOffset="6491"/>
     </incident>
 
     <incident
@@ -7304,825 +6123,9 @@
                 imports="androidx.core.content.edit"
                 priority="0">
                 <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="2028"
-                    endOffset="2032"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="2033"
-                    endOffset="2034"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="2067"
-                    endOffset="2075"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="2034"
-                    endOffset="2035"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-            line="43"
-            column="58"
-            startOffset="1970"
-            endLine="43"
-            endColumn="122"
-            endOffset="2034"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="2328"
-                    endOffset="2332"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="2333"
-                    endOffset="2334"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="2363"
-                    endOffset="2371"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="2334"
-                    endOffset="2335"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-            line="45"
-            column="54"
-            startOffset="2270"
-            endLine="45"
-            endColumn="118"
-            endOffset="2334"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="5785"
-                    endOffset="5789"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="5790"
-                    endOffset="5791"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="5808"
-                    endOffset="5816"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-                    startOffset="5791"
-                    endOffset="5792"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V129GoogleCalendarSettings.kt"
-            line="104"
-            column="21"
-            startOffset="5779"
-            endLine="104"
-            endColumn="33"
-            endOffset="5791"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V133BacklotAppIcon.kt"
-                    startOffset="3865"
-                    endOffset="3869"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V133BacklotAppIcon.kt"
-                    startOffset="3870"
-                    endOffset="3871"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V133BacklotAppIcon.kt"
-                    startOffset="3897"
-                    endOffset="3905"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V133BacklotAppIcon.kt"
-                    startOffset="3871"
-                    endOffset="3872"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V133BacklotAppIcon.kt"
-            line="84"
-            column="9"
-            startOffset="3791"
-            endLine="85"
-            endColumn="20"
-            endOffset="3871"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V137CharacterSystem.kt"
-                    startOffset="3815"
-                    endOffset="3819"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V137CharacterSystem.kt"
-                    startOffset="3820"
-                    endOffset="3821"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString="appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)&#xA;            ?.edit()?.putString(KEY_CHARACTER, character.name)?.apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V137CharacterSystem.kt"
-                    startOffset="3739"
-                    endOffset="3872"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V137CharacterSystem.kt"
-            line="85"
-            column="9"
-            startOffset="3739"
-            endLine="86"
-            endColumn="21"
-            endOffset="3821"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-                    startOffset="3780"
-                    endOffset="3784"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-                    startOffset="3785"
-                    endOffset="3786"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-                    startOffset="3828"
-                    endOffset="3836"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-                    startOffset="3786"
-                    endOffset="3787"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-            line="88"
-            column="13"
-            startOffset="3774"
-            endLine="88"
-            endColumn="25"
-            endOffset="3786"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-                    startOffset="4222"
-                    endOffset="4226"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-                    startOffset="4227"
-                    endOffset="4228"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString="appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)&#xA;            ?.edit()?.putString(KEY_CHARACTER, normalized.name)?.apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-                    startOffset="4146"
-                    endOffset="4280"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144GuideSystem.kt"
-            line="98"
-            column="9"
-            startOffset="4146"
-            endLine="99"
-            endColumn="21"
-            endOffset="4228"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="2323"
-                    endOffset="2327"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="2328"
-                    endOffset="2329"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="2360"
-                    endOffset="2368"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="2329"
-                    endOffset="2330"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-            line="51"
-            column="13"
-            startOffset="2312"
-            endLine="51"
-            endColumn="30"
-            endOffset="2329"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="2446"
-                    endOffset="2450"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="2451"
-                    endOffset="2452"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="2496"
-                    endOffset="2504"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="2452"
-                    endOffset="2453"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-            line="54"
-            column="13"
-            startOffset="2435"
-            endLine="54"
-            endColumn="30"
-            endOffset="2452"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="3915"
-                    endOffset="3919"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="3920"
-                    endOffset="3921"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="3965"
-                    endOffset="3973"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="3921"
-                    endOffset="3922"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-            line="84"
-            column="9"
-            startOffset="3904"
-            endLine="84"
-            endColumn="26"
-            endOffset="3921"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="4151"
-                    endOffset="4155"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="4156"
-                    endOffset="4157"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="4198"
-                    endOffset="4206"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="4157"
-                    endOffset="4158"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-            line="89"
-            column="13"
-            startOffset="4140"
-            endLine="89"
-            endColumn="30"
-            endOffset="4157"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="4525"
-                    endOffset="4529"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="4530"
-                    endOffset="4531"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="4539"
-                    endOffset="4547"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-                    startOffset="4531"
-                    endOffset="4532"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
-            line="98"
-            column="17"
-            startOffset="4514"
-            endLine="98"
-            endColumn="34"
-            endOffset="4531"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="5454"
-                    endOffset="5458"/>
+                    startOffset="5339"
+                    endOffset="5343"/>
             </fix-replace>
             <fix-replace
                 description="Replace with ) {"
@@ -8133,8 +6136,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="5459"
-                    endOffset="5460"/>
+                    startOffset="5344"
+                    endOffset="5345"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -8145,8 +6148,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="5496"
-                    endOffset="5504"/>
+                    startOffset="5381"
+                    endOffset="5389"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -8157,18 +6160,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="5460"
-                    endOffset="5461"/>
+                    startOffset="5345"
+                    endOffset="5346"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-            line="128"
+            line="126"
             column="13"
-            startOffset="5448"
-            endLine="128"
+            startOffset="5333"
+            endLine="126"
             endColumn="25"
-            endOffset="5460"/>
+            endOffset="5345"/>
     </incident>
 
     <incident
@@ -8191,8 +6194,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="7839"
-                    endOffset="7843"/>
+                    startOffset="7724"
+                    endOffset="7728"/>
             </fix-replace>
             <fix-replace
                 description="Replace with commit = true) {"
@@ -8203,8 +6206,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="7844"
-                    endOffset="7845"/>
+                    startOffset="7729"
+                    endOffset="7730"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -8215,8 +6218,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="7863"
-                    endOffset="7872"/>
+                    startOffset="7748"
+                    endOffset="7757"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -8227,18 +6230,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="7845"
-                    endOffset="7846"/>
+                    startOffset="7730"
+                    endOffset="7731"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-            line="178"
+            line="176"
             column="15"
-            startOffset="7781"
-            endLine="178"
+            startOffset="7666"
+            endLine="176"
             endColumn="79"
-            endOffset="7845"/>
+            endOffset="7730"/>
     </incident>
 
     <incident
@@ -8261,8 +6264,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="8072"
-                    endOffset="8076"/>
+                    startOffset="7957"
+                    endOffset="7961"/>
             </fix-replace>
             <fix-replace
                 description="Replace with commit = true) {"
@@ -8273,8 +6276,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="8077"
-                    endOffset="8078"/>
+                    startOffset="7962"
+                    endOffset="7963"/>
             </fix-replace>
             <fix-replace
                 description="Replace with }"
@@ -8285,8 +6288,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="8163"
-                    endOffset="8172"/>
+                    startOffset="8048"
+                    endOffset="8057"/>
             </fix-replace>
             <fix-replace
                 description="Delete &quot;.&quot;"
@@ -8297,8 +6300,8 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="8091"
-                    endOffset="8092"/>
+                    startOffset="7976"
+                    endOffset="7977"/>
             </fix-replace>
             <fix-replace
                 description="Replace with     "
@@ -8309,18 +6312,18 @@
                 priority="0">
                 <range
                     file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-                    startOffset="8079"
-                    endOffset="8079"/>
+                    startOffset="7964"
+                    endOffset="7964"/>
             </fix-replace>
         </fix-composite>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/ui/V175BestFramesUi.kt"
-            line="182"
+            line="180"
             column="9"
-            startOffset="8001"
-            endLine="183"
+            startOffset="7886"
+            endLine="181"
             endColumn="20"
-            endOffset="8078"/>
+            endOffset="7963"/>
     </incident>
 
     <incident
@@ -8339,17 +6342,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/VoiceReminderService.kt"
-                startOffset="5329"
-                endOffset="5442"/>
+                startOffset="5308"
+                endOffset="5421"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/VoiceReminderService.kt"
-            line="127"
+            line="124"
             column="24"
-            startOffset="5329"
-            endLine="127"
+            startOffset="5308"
+            endLine="124"
             endColumn="137"
-            endOffset="5442"/>
+            endOffset="5421"/>
     </incident>
 
     <incident
@@ -8368,17 +6371,17 @@
             priority="0">
             <range
                 file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/VoiceReminderService.kt"
-                startOffset="5329"
-                endOffset="5442"/>
+                startOffset="5308"
+                endOffset="5421"/>
         </fix-replace>
         <location
             file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/reminders/VoiceReminderService.kt"
-            line="127"
+            line="124"
             column="24"
-            startOffset="5329"
-            endLine="127"
+            startOffset="5308"
+            endLine="124"
             endColumn="137"
-            endOffset="5442"/>
+            endOffset="5421"/>
     </incident>
 
     <incident
@@ -10108,171 +8111,17 @@
     </incident>
 
     <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-                    startOffset="8805"
-                    endOffset="8809"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-                    startOffset="8810"
-                    endOffset="8811"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-                    startOffset="8872"
-                    endOffset="8880"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-                    startOffset="8811"
-                    endOffset="8812"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-            line="225"
-            column="9"
-            startOffset="8799"
-            endLine="225"
-            endColumn="21"
-            endOffset="8811"/>
-    </incident>
-
-    <incident
-        id="UseKtx"
-        severity="warning"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?">
-        <fix-composite
-            description="Replace with the edit extension function"
-            family="Replace with the edit extension function"
-            robot="true"
-            independent="true">
-            <fix-replace
-                description="Replace with edit"
-                robot="true"
-                independent="true"
-                oldString="edit"
-                replacement="edit"
-                reformat="value"
-                imports="androidx.core.content.edit"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-                    startOffset="8920"
-                    endOffset="8924"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with ) {"
-                robot="true"
-                independent="true"
-                oldString=")"
-                replacement=") {"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-                    startOffset="8925"
-                    endOffset="8926"/>
-            </fix-replace>
-            <fix-replace
-                description="Replace with }"
-                robot="true"
-                independent="true"
-                oldString=".apply()"
-                replacement="}"
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-                    startOffset="8934"
-                    endOffset="8942"/>
-            </fix-replace>
-            <fix-replace
-                description="Delete &quot;.&quot;"
-                robot="true"
-                independent="true"
-                oldString="."
-                replacement=""
-                priority="0">
-                <range
-                    file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-                    startOffset="8926"
-                    endOffset="8927"/>
-            </fix-replace>
-        </fix-composite>
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/framebynavin/app/youtube/YouTubeRevenue.kt"
-            line="229"
-            column="9"
-            startOffset="8914"
-            endLine="229"
-            endColumn="21"
-            endOffset="8926"/>
-    </incident>
-
-    <incident
         id="HardcodedText"
         severity="warning"
-        message="Hardcoded string &quot;BACKLOT&quot;, should use `@string` resource">
-        <location
-            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_action.xml"
-            line="15"
-            column="9"
-            startOffset="549"
-            endLine="15"
-            endColumn="31"
-            endOffset="571"/>
-    </incident>
-
-    <incident
-        id="HardcodedText"
-        severity="warning"
-        message="Hardcoded string &quot;BACKLOT&quot;, should use `@string` resource">
+        message="Hardcoded string &quot;FRAMEBYNAVIN&quot;, should use `@string` resource">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_compact.xml"
             line="14"
             column="9"
             startOffset="494"
             endLine="14"
-            endColumn="31"
-            endOffset="516"/>
+            endColumn="36"
+            endOffset="521"/>
     </incident>
 
     <incident
@@ -10283,24 +8132,24 @@
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_compact.xml"
             line="67"
             column="9"
-            startOffset="2188"
+            startOffset="2193"
             endLine="67"
             endColumn="37"
-            endOffset="2216"/>
+            endOffset="2221"/>
     </incident>
 
     <incident
         id="HardcodedText"
         severity="warning"
-        message="Hardcoded string &quot;BACKLOT&quot;, should use `@string` resource">
+        message="Hardcoded string &quot;FRAMEBYNAVIN&quot;, should use `@string` resource">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="20"
+            line="19"
             column="13"
-            startOffset="746"
-            endLine="20"
-            endColumn="35"
-            endOffset="768"/>
+            startOffset="706"
+            endLine="19"
+            endColumn="40"
+            endOffset="733"/>
     </incident>
 
     <incident
@@ -10309,12 +8158,12 @@
         message="Hardcoded string &quot;+ IDEA&quot;, should use `@string` resource">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="93"
+            line="92"
             column="13"
-            startOffset="3458"
-            endLine="93"
+            startOffset="3423"
+            endLine="92"
             endColumn="34"
-            endOffset="3479"/>
+            endOffset="3444"/>
     </incident>
 
     <incident
@@ -10323,12 +8172,12 @@
         message="Hardcoded string &quot;+ PROJECT&quot;, should use `@string` resource">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="105"
+            line="104"
             column="13"
-            startOffset="3954"
-            endLine="105"
+            startOffset="3919"
+            endLine="104"
             endColumn="37"
-            endOffset="3978"/>
+            endOffset="3943"/>
     </incident>
 
     <incident
@@ -10337,12 +8186,12 @@
         message="Hardcoded string &quot;RELEASE&quot;, should use `@string` resource">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="116"
+            line="115"
             column="13"
-            startOffset="4403"
-            endLine="116"
+            startOffset="4368"
+            endLine="115"
             endColumn="35"
-            endOffset="4425"/>
+            endOffset="4390"/>
     </incident>
 
     <incident
@@ -10351,12 +8200,12 @@
         message="Hardcoded string &quot;DAILY BRIEF&quot;, should use `@string` resource">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="135"
+            line="134"
             column="13"
-            startOffset="5092"
-            endLine="135"
+            startOffset="5057"
+            endLine="134"
             endColumn="39"
-            endOffset="5118"/>
+            endOffset="5083"/>
     </incident>
 
     <incident
@@ -10365,12 +8214,12 @@
         message="Hardcoded string &quot;CALENDAR&quot;, should use `@string` resource">
         <location
             file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/layout/widget_creator_large.xml"
-            line="146"
+            line="145"
             column="13"
-            startOffset="5544"
-            endLine="146"
+            startOffset="5509"
+            endLine="145"
             endColumn="36"
-            endOffset="5567"/>
+            endOffset="5532"/>
     </incident>
 
 </incidents>

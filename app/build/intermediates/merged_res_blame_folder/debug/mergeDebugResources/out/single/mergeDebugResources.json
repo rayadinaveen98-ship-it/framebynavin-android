@@ -1,11 +1,11 @@
 [
     {
-        "merged": "com.framebynavin.app-debug-70:/xml_widget_new_project_info.xml.flat",
-        "source": "com.framebynavin.app-main-72:/xml/widget_new_project_info.xml"
-    },
-    {
         "merged": "com.framebynavin.app-debug-70:/xml_widget_insights_info.xml.flat",
         "source": "com.framebynavin.app-main-72:/xml/widget_insights_info.xml"
+    },
+    {
+        "merged": "com.framebynavin.app-debug-70:/xml_widget_new_project_info.xml.flat",
+        "source": "com.framebynavin.app-main-72:/xml/widget_new_project_info.xml"
     },
     {
         "merged": "com.framebynavin.app-debug-70:/drawable_widget_creator_button.xml.flat",
@@ -20,32 +20,16 @@
         "source": "com.framebynavin.app-main-72:/xml/creator_data_extraction_rules.xml"
     },
     {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_funny_thinking.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_funny_thinking.webp"
-    },
-    {
-        "merged": "com.framebynavin.app-debug-70:/drawable_backlot_icon_minimal.xml.flat",
-        "source": "com.framebynavin.app-main-72:/drawable/backlot_icon_minimal.xml"
+        "merged": "com.framebynavin.app-debug-70:/drawable_widget_bg_aurora.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/widget_bg_aurora.xml"
     },
     {
         "merged": "com.framebynavin.app-debug-70:/layout_widget_creator_compact.xml.flat",
         "source": "com.framebynavin.app-main-72:/layout/widget_creator_compact.xml"
     },
     {
-        "merged": "com.framebynavin.app-debug-70:/drawable_backlot_splash_mark.xml.flat",
-        "source": "com.framebynavin.app-main-72:/drawable/backlot_splash_mark.xml"
-    },
-    {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_funny_welcome.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_funny_welcome.webp"
-    },
-    {
         "merged": "com.framebynavin.app-debug-70:/xml_widget_calendar_info.xml.flat",
         "source": "com.framebynavin.app-main-72:/xml/widget_calendar_info.xml"
-    },
-    {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_funny_present.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_funny_present.webp"
     },
     {
         "merged": "com.framebynavin.app-debug-70:/drawable_ic_framebynavin_launcher.xml.flat",
@@ -56,16 +40,12 @@
         "source": "com.framebynavin.app-main-72:/xml/widget_creator_large_info.xml"
     },
     {
-        "merged": "com.framebynavin.app-debug-70:/drawable_backlot_icon_cinematic.xml.flat",
-        "source": "com.framebynavin.app-main-72:/drawable/backlot_icon_cinematic.xml"
-    },
-    {
         "merged": "com.framebynavin.app-debug-70:/xml_widget_current_project_info.xml.flat",
         "source": "com.framebynavin.app-main-72:/xml/widget_current_project_info.xml"
     },
     {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_funny_celebrate.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_funny_celebrate.webp"
+        "merged": "com.framebynavin.app-debug-70:/drawable_widget_bg_lumen.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/widget_bg_lumen.xml"
     },
     {
         "merged": "com.framebynavin.app-debug-70:/xml_widget_quick_idea_info.xml.flat",
@@ -80,40 +60,32 @@
         "source": "com.framebynavin.app-main-72:/drawable/ic_framebynavin_splash.xml"
     },
     {
+        "merged": "com.framebynavin.app-debug-70:/xml_widget_next_reminder_info.xml.flat",
+        "source": "com.framebynavin.app-main-72:/xml/widget_next_reminder_info.xml"
+    },
+    {
         "merged": "com.framebynavin.app-debug-70:/xml_widget_daily_brief_info.xml.flat",
         "source": "com.framebynavin.app-main-72:/xml/widget_daily_brief_info.xml"
     },
     {
-        "merged": "com.framebynavin.app-debug-70:/xml_widget_next_reminder_info.xml.flat",
-        "source": "com.framebynavin.app-main-72:/xml/widget_next_reminder_info.xml"
+        "merged": "com.framebynavin.app-debug-70:/drawable_widget_bg_violet.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/widget_bg_violet.xml"
     },
     {
         "merged": "com.framebynavin.app-debug-70:/drawable_widget_bg_directors.xml.flat",
         "source": "com.framebynavin.app-main-72:/drawable/widget_bg_directors.xml"
     },
     {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_cute_celebrate.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_cute_celebrate.webp"
+        "merged": "com.framebynavin.app-debug-70:/drawable_widget_bg_midnight.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/widget_bg_midnight.xml"
     },
     {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_cute_listening.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_cute_listening.webp"
-    },
-    {
-        "merged": "com.framebynavin.app-debug-70:/drawable_backlot_icon_light.xml.flat",
-        "source": "com.framebynavin.app-main-72:/drawable/backlot_icon_light.xml"
-    },
-    {
-        "merged": "com.framebynavin.app-debug-70:/drawable_backlot_icon_horizontal.xml.flat",
-        "source": "com.framebynavin.app-main-72:/drawable/backlot_icon_horizontal.xml"
+        "merged": "com.framebynavin.app-debug-70:/drawable_widget_bg_ember.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/widget_bg_ember.xml"
     },
     {
         "merged": "com.framebynavin.app-debug-70:/xml_creator_backup_rules.xml.flat",
         "source": "com.framebynavin.app-main-72:/xml/creator_backup_rules.xml"
-    },
-    {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_cute_encourage.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_cute_encourage.webp"
     },
     {
         "merged": "com.framebynavin.app-debug-70:/layout_widget_creator_action.xml.flat",
@@ -124,27 +96,11 @@
         "source": "com.framebynavin.app-main-72:/drawable/widget_creator_button_red.xml"
     },
     {
-        "merged": "com.framebynavin.app-debug-70:/drawable_widget_bg_ivory.xml.flat",
-        "source": "com.framebynavin.app-main-72:/drawable/widget_bg_ivory.xml"
-    },
-    {
         "merged": "com.framebynavin.app-debug-70:/drawable_widget_creator_bg.xml.flat",
         "source": "com.framebynavin.app-main-72:/drawable/widget_creator_bg.xml"
     },
     {
-        "merged": "com.framebynavin.app-debug-70:/drawable_widget_bg_light.xml.flat",
-        "source": "com.framebynavin.app-main-72:/drawable/widget_bg_light.xml"
-    },
-    {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_cute_thinking.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_cute_thinking.webp"
-    },
-    {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_cute_welcome.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_cute_welcome.webp"
-    },
-    {
-        "merged": "com.framebynavin.app-debug-70:/drawable-nodpi_guide_funny_point.webp.flat",
-        "source": "com.framebynavin.app-main-72:/drawable-nodpi/guide_funny_point.webp"
+        "merged": "com.framebynavin.app-debug-70:/drawable_widget_bg_ivory.xml.flat",
+        "source": "com.framebynavin.app-main-72:/drawable/widget_bg_ivory.xml"
     }
 ]

@@ -3,7 +3,7 @@
     <map id="UnusedResources">
         <entry
             name="model"
-            string="drawable[guide_funny_present(R),guide_funny_point(R),guide_funny_thinking(R),guide_funny_celebrate(R),guide_cute_welcome(R)];;;;"/>
+            string=""/>
     </map>
 
 </incidents>
