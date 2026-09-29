@@ -6,6 +6,7 @@ on:
       - "feature/v148-light-theme"
     paths:
       - ".github/v148/apply_light_theme_audit.py"
+      - ".github/v148/finalize_light_semantics.py"
       - ".github/workflows/v148-light-theme-apply.yml"
   workflow_dispatch:
 
@@ -40,6 +41,9 @@ jobs:
       - name: Apply controlled V148 cross-file patches
         run: python .github/v148/apply_light_theme_audit.py --apply
 
+      - name: Apply media and native-dialog semantic pass
+        run: python .github/v148/finalize_light_semantics.py
+
       - name: Print theme-surface audit
         run: python .github/v148/apply_light_theme_audit.py | tee v148-theme-audit.txt
 
@@ -54,6 +58,12 @@ jobs:
 
       - name: Build V148 APK
         run: gradle :app:assembleDebug --stacktrace
+
+      - name: Enforce no unresolved dark-only surface literals
+        run: python .github/v148/apply_light_theme_audit.py --strict
+
+      - name: Recheck media and native-dialog semantics
+        run: python .github/v148/finalize_light_semantics.py
 
       - name: Commit validated V148 patch set
         shell: bash
@@ -77,6 +87,3 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             v148-theme-audit.txt
           if-no-files-found: warn
-
-      - name: Enforce no unresolved dark-only surface literals
-        run: python .github/v148/apply_light_theme_audit.py --strict
