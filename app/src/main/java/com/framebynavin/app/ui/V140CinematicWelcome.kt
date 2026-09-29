@@ -18,9 +18,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import com.framebynavin.app.ui.theme.BacklotBackground
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.ProjectorIvory
 import com.framebynavin.app.ui.theme.RecRed
+import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -31,16 +33,14 @@ private const val V140_AMBIENT_THREADS = 26
 private data class V140Segment(val ax: Float, val ay: Float, val bx: Float, val by: Float)
 
 /**
- * Backlot v140 launch ident.
- *
- * One master five-second timeline owns the complete ident. Threads stay alive while a selected
- * set resolves into the BACKLOT wordmark; completion is reported immediately to the launch gate,
- * so there is no independent splash timer and no dead hold after the wordmark settles.
+ * Backlot launch ident. V148 keeps the same five-second motion language in both appearances;
+ * the canvas/background and energy field now derive from the active Backlot palette.
  */
 @Composable
 internal fun V140CinematicWelcome(onFinished: () -> Unit) {
     val context = LocalContext.current
     val timeline = remember { Animatable(0f) }
+    val isLight = VisualExperiencePrefs.isLight
 
     LaunchedEffect(Unit) {
         WelcomeSonicIdent.play(context.applicationContext)
@@ -52,7 +52,7 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF020203)),
+            .background(BacklotBackground),
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val t = timeline.value.coerceIn(0f, 1f)
@@ -66,8 +66,8 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFF5A1519).copy(alpha = 0.15f * ignition * (1f - settle * .45f)),
-                        Color(0xFF2A2117).copy(alpha = 0.08f * ignition),
+                        RecRed.copy(alpha = (if (isLight) 0.075f else 0.15f) * ignition * (1f - settle * .45f)),
+                        MutedGold.copy(alpha = (if (isLight) 0.045f else 0.08f) * ignition),
                         Color.Transparent,
                     ),
                     center = center,
@@ -77,8 +77,7 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
                 center = center,
             )
 
-            // Ambient threads never freeze. They gather toward the future wordmark, cross it,
-            // then clear the stage while the letter threads finish settling.
+            // Ambient threads gather toward the future wordmark, then clear the stage.
             repeat(V140_AMBIENT_THREADS) { index ->
                 val side = if (index % 2 == 0) -1f else 1f
                 val lane = (index + 1f) / (V140_AMBIENT_THREADS + 1f)
@@ -111,7 +110,8 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
                     4 -> ProjectorIvory.copy(alpha = .72f)
                     else -> MutedGold.copy(alpha = .76f)
                 }
-                val alpha = (0.22f + (index % 5) * .055f) * ignition * (1f - formation * .62f) * (1f - settle * .70f)
+                val lightFactor = if (isLight) .72f else 1f
+                val alpha = (0.22f + (index % 5) * .055f) * ignition * (1f - formation * .62f) * (1f - settle * .70f) * lightFactor
                 drawPath(
                     path = path,
                     color = palette.copy(alpha = alpha.coerceIn(0f, .52f)),
@@ -122,8 +122,7 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
                 )
             }
 
-            // A quiet horizontal energy trace gives the moving threads a shared focal plane.
-            val traceAlpha = (0.11f * ignition * (1f - settle)).coerceAtLeast(0f)
+            val traceAlpha = (0.11f * ignition * (1f - settle) * if (isLight) .72f else 1f).coerceAtLeast(0f)
             drawLine(
                 brush = Brush.horizontalGradient(
                     colors = listOf(Color.Transparent, RecRed.copy(alpha = traceAlpha), MutedGold.copy(alpha = traceAlpha), Color.Transparent),
@@ -186,7 +185,6 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
                 }
             }
 
-            // Final micro-settle: a restrained underline sweeps once beneath the formed name.
             if (t > .79f) {
                 val sweep = v140Smooth(((t - .79f) / .17f).coerceIn(0f, 1f))
                 val start = originX - w * .012f
