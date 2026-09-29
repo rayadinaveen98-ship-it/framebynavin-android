@@ -10,6 +10,8 @@ import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.speech.RecognitionListener
+import android.speech.RecognitionSupport
+import android.speech.RecognitionSupportCallback
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import com.framebynavin.app.data.IdeaTranscriptionState
@@ -35,8 +37,10 @@ interface SavedVoiceIdeaTranscriberListener {
  *
  * The recorder stores AAC in an MPEG-4 container, while RecognizerIntent.EXTRA_AUDIO_SOURCE
  * expects raw audio. We therefore decode to an app-cache PCM16 file first. Android 13+ can then
- * pass that PCM file to the speech recognizer. The prepared file remains alive for the
- * complete recognition session and is deleted only after success, failure or cancellation.
+ * pass that PCM file to the speech recognizer. We verify the exact saved-audio request before
+ * listening because Android may fall back to the microphone when EXTRA_AUDIO_SOURCE is unsupported.
+ * One master descriptor stays alive across support-check and recognition; child descriptors are
+ * duplicated from it instead of reopening/deleting the temporary file between asynchronous steps.
  */
 class SavedVoiceIdeaTranscriber(
     context: Context,
@@ -47,6 +51,8 @@ class SavedVoiceIdeaTranscriber(
 
     private var activeJob: Job? = null
     private var recognizer: SpeechRecognizer? = null
+    private var activePreparedSource: ParcelFileDescriptor? = null
+    private var activeSupportSource: ParcelFileDescriptor? = null
     private var activeAudioSource: ParcelFileDescriptor? = null
     private var activePcmFile: File? = null
     private var session = 0L
@@ -90,7 +96,7 @@ class SavedVoiceIdeaTranscriber(
                     return@launch
                 }
                 activePcmFile = decoded.file
-                startRecognition(token, decoded, language)
+                beginSupportCheck(token, decoded, language)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
@@ -119,7 +125,7 @@ class SavedVoiceIdeaTranscriber(
         scope.cancel()
     }
 
-    private fun startRecognition(
+    private fun beginSupportCheck(
         token: Long,
         audio: DecodedPcmAudio,
         language: IdeaVoiceLanguage,
@@ -137,12 +143,99 @@ class SavedVoiceIdeaTranscriber(
             }
         recognizer = current
 
-        val audioFd = runCatching { ParcelFileDescriptor.open(audio.file, ParcelFileDescriptor.MODE_READ_ONLY) }
+        // Open the prepared PCM once. Keeping this master descriptor alive prevents the real-device
+        // reopen race that produced "The prepared recording could not be opened".
+        val prepared = runCatching { ParcelFileDescriptor.open(audio.file, ParcelFileDescriptor.MODE_READ_ONLY) }
             .getOrElse { error ->
                 finishFailure(
                     token,
                     IdeaTranscriptionState.FAILED,
                     "The prepared recording could not be opened (${error.javaClass.simpleName}).",
+                )
+                return
+            }
+        activePreparedSource = prepared
+
+        val supportFd = runCatching { ParcelFileDescriptor.dup(prepared.fileDescriptor) }
+            .getOrElse { error ->
+                finishFailure(
+                    token,
+                    IdeaTranscriptionState.FAILED,
+                    "The prepared recording could not be verified (${error.javaClass.simpleName}).",
+                )
+                return
+            }
+        activeSupportSource = supportFd
+        val supportIntent = buildRecognizerIntent(supportFd, audio, language)
+
+        runCatching {
+            current.checkRecognitionSupport(
+                supportIntent,
+                appContext.mainExecutor,
+                object : RecognitionSupportCallback {
+                    override fun onSupportResult(recognitionSupport: RecognitionSupport) {
+                        closeSupportSource(supportFd)
+                        if (token != session || destroyed) return
+
+                        val ready = recognitionSupport.installedOnDeviceLanguages.isNotEmpty() ||
+                            recognitionSupport.onlineLanguages.isNotEmpty()
+                        if (!ready) {
+                            finishFailure(
+                                token,
+                                IdeaTranscriptionState.UNAVAILABLE,
+                                "A speech model for this saved recording is not ready on this phone.",
+                            )
+                            return
+                        }
+                        startRecognition(token, current, audio, language)
+                    }
+
+                    override fun onError(error: Int) {
+                        closeSupportSource(supportFd)
+                        if (token != session || destroyed) return
+                        val message = if (error == SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT) {
+                            "This phone cannot verify saved-recording audio support, so Backlot will not open the microphone as a fallback."
+                        } else {
+                            "This phone cannot safely transcribe this saved recording right now (speech error $error)."
+                        }
+                        finishFailure(token, IdeaTranscriptionState.UNAVAILABLE, message)
+                    }
+                },
+            )
+        }.onFailure { error ->
+            closeSupportSource(supportFd)
+            finishFailure(
+                token,
+                IdeaTranscriptionState.UNAVAILABLE,
+                "Saved-recording speech support could not be verified (${error.javaClass.simpleName}).",
+            )
+        }
+    }
+
+    private fun closeSupportSource(source: ParcelFileDescriptor) {
+        if (activeSupportSource === source) activeSupportSource = null
+        runCatching { source.close() }
+    }
+
+    private fun startRecognition(
+        token: Long,
+        current: SpeechRecognizer,
+        audio: DecodedPcmAudio,
+        language: IdeaVoiceLanguage,
+    ) {
+        if (token != session || destroyed) return
+        val prepared = activePreparedSource
+        if (prepared == null) {
+            finishFailure(token, IdeaTranscriptionState.FAILED, "The prepared recording session was lost. Try again.")
+            return
+        }
+
+        val audioFd = runCatching { ParcelFileDescriptor.dup(prepared.fileDescriptor) }
+            .getOrElse { error ->
+                finishFailure(
+                    token,
+                    IdeaTranscriptionState.FAILED,
+                    "The prepared recording could not be handed to speech recognition (${error.javaClass.simpleName}).",
                 )
                 return
             }
@@ -251,8 +344,12 @@ class SavedVoiceIdeaTranscriber(
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = null
+        runCatching { activeSupportSource?.close() }
+        activeSupportSource = null
         runCatching { activeAudioSource?.close() }
         activeAudioSource = null
+        runCatching { activePreparedSource?.close() }
+        activePreparedSource = null
         activePcmFile?.delete()
         activePcmFile = null
     }
