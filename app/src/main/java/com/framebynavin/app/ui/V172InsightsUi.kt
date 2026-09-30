@@ -52,6 +52,18 @@ internal fun V172InsightsBody(
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
     val detail = videos.firstOrNull { it.video.videoId == detailVideoId }
 
+    LaunchedEffect(V148InsightsRouteState.pendingVideoId, snapshot.fetchedAtMillis) {
+        val requested = v148ResolveRequestedVideoId(
+            availableVideoIds = videos.map { it.video.videoId },
+            requestedVideoId = V148InsightsRouteState.pendingVideoId,
+        )
+        if (requested != null) {
+            tabName = V172InsightsTab.CONTENT.name
+            detailVideoId = requested
+            V148InsightsRouteState.clear()
+        }
+    }
+
     V172TabRow(tab) { tabName = it.name }
     Spacer(Modifier.height(16.dp))
 
@@ -168,7 +180,7 @@ private fun V172Overview(
     Text("The videos driving your channel right now.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     if (top.isEmpty()) V172Empty("Refresh YouTube to see which videos are performing best.")
-    else top.forEachIndexed { index, performance -> V172VideoRow(index + 1, performance, onVideo) }
+    else top.forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
 }
 
 @Composable
@@ -314,7 +326,7 @@ private fun V172Content(
     Spacer(Modifier.height(9.dp))
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
     if (videos.isEmpty()) V172Empty("No video performance data yet.")
-    else videos.take(12).forEachIndexed { index, performance -> V172VideoRow(index + 1, performance, onVideo) }
+    else videos.take(12).forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
 
     Spacer(Modifier.height(18.dp))
     Text("WHAT WORKS BEST", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)

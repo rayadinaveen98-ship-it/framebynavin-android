@@ -84,6 +84,14 @@ internal fun V11InsightsScreen(
         derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
     }
 
+    LaunchedEffect(V148InsightsRouteState.pendingWindowDays) {
+        val routedDays = V148InsightsRouteState.pendingWindowDays
+        if (routedDays in listOf(7, 28, 90) && routedDays != windowDays) {
+            windowDays = routedDays
+            snapshot = store.load(routedDays) ?: store.loadAny()
+        }
+    }
+
     fun refreshCacheView() {
         snapshot = store.load(windowDays) ?: store.loadAny()
         links = store.links()

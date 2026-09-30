@@ -55,7 +55,7 @@ android {
         targetSdk = 36
         // Backlot V148 dark/light appearance + startup/transition polish candidate.
         versionCode = 148
-        versionName = "2.0.0-rc24-light-transition-polish"
+        versionName = "2.0.0-rc25-reminder-insights-polish"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

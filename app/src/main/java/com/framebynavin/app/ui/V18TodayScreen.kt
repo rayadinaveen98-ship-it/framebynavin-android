@@ -113,6 +113,7 @@ internal fun PTodayScreen(
             }
             Spacer(Modifier.height(14.dp))
             V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
+            V148HomeTopPerformersSection(onOpenInsights = onOpenInsights)
             Spacer(Modifier.height(18.dp))
 
             if (selected == null) {
