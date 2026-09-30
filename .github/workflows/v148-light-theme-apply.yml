@@ -1,12 +1,13 @@
-name: V148 Light Appearance Hardening
+name: V148 Light Appearance Transition Polish
 
 on:
   push:
     branches:
-      - "feature/v148-light-theme"
+      - "feature/v148-light-theme-polish"
     paths:
       - ".github/v148/apply_light_theme_audit.py"
       - ".github/v148/finalize_light_semantics.py"
+      - ".github/v148/fix_transition_polish.py"
       - ".github/workflows/v148-light-theme-apply.yml"
   workflow_dispatch:
 
@@ -14,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: v148-light-appearance-${{ github.ref }}
+  group: v148-light-transition-polish-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -22,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout V148 branch
+      - name: Checkout V148 polish branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -37,6 +38,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
+
+      - name: Apply startup and transition polish
+        run: python .github/v148/fix_transition_polish.py
 
       - name: Apply controlled V148 cross-file patches
         run: python .github/v148/apply_light_theme_audit.py --apply
@@ -57,7 +61,7 @@ jobs:
       - name: Compile instrumentation tests
         run: gradle :app:assembleDebugAndroidTest --stacktrace
 
-      - name: Build V148 APK
+      - name: Build V148 polish APK
         run: gradle :app:assembleDebug --stacktrace
 
       - name: Enforce no unresolved dark-only surface literals
@@ -66,26 +70,29 @@ jobs:
       - name: Recheck media and native-dialog semantics
         run: python .github/v148/finalize_light_semantics.py
 
-      - name: Commit validated V148 source patch set
+      - name: Recheck startup and transition polish
+        run: python .github/v148/fix_transition_polish.py
+
+      - name: Commit validated V148 polish source patch set
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Only source/config paths belong in Git. Gradle caches, app/build outputs and the generated
-          # audit report stay workflow artifacts even when this job performs the build.
+          # Only source/config paths belong in Git. Gradle caches, app/build outputs and generated
+          # audit reports remain workflow artifacts.
           git add app/build.gradle.kts app/src/main/java app/src/main/res app/src/test
           if git diff --cached --quiet; then
-            echo "No generated V148 source changes to commit."
+            echo "No generated V148 polish source changes to commit."
           else
-            git commit -m "fix(v148): harden app-wide dark and light surfaces"
-            git push origin HEAD:feature/v148-light-theme
+            git commit -m "fix(v148): polish startup and workspace transitions"
+            git push origin HEAD:${{ github.ref_name }}
           fi
 
-      - name: Upload V148 APK and audit
+      - name: Upload V148 polish APK and audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v148-Light-Appearance
+          name: Backlot-v148-Light-Transition-Polish
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             v148-theme-audit.txt
