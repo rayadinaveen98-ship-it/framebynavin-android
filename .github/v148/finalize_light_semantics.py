@@ -5,6 +5,13 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
+MEDIA_BLOCK = """// Media is content, not app chrome. Imported frames/video remain on a stable dark canvas in both appearances.
+val BacklotMediaCanvas: Color get() = Color(0xFF050505)
+val BacklotOnMedia: Color get() = Color(0xFFF4F0E8)
+val BacklotMediaBorder: Color get() = Color.White.copy(alpha = .14f)
+"""
+MEDIA_ANCHOR = "val BacklotError: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFB33C38) else Color(0xFFE65F5A)"
+
 PATCHES: dict[str, list[tuple[str, str]]] = {
     "app/src/main/java/com/framebynavin/app/ui/V071WorkflowInlineContent.kt": [
         (
@@ -22,10 +29,6 @@ PATCHES: dict[str, list[tuple[str, str]]] = {
         (
             "val BacklotSelectableAppearances: List<FrameTheme> = listOf(\n    FrameTheme.DIRECTORS_CUT,\n    FrameTheme.BACKLOT_LIGHT,\n)",
             "val BacklotSelectableAppearances: List<FrameTheme>\n    get() = listOf(\n        FrameTheme.DIRECTORS_CUT,\n        FrameTheme.BACKLOT_LIGHT,\n    )",
-        ),
-        (
-            "val BacklotError: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFB33C38) else Color(0xFFE65F5A)\n",
-            "val BacklotError: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFB33C38) else Color(0xFFE65F5A)\n\n// Media is content, not app chrome. Imported frames/video remain on a stable dark canvas in both appearances.\nval BacklotMediaCanvas: Color get() = Color(0xFF050505)\nval BacklotOnMedia: Color get() = Color(0xFFF4F0E8)\nval BacklotMediaBorder: Color get() = Color.White.copy(alpha = .14f)\n",
         ),
     ],
     "app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt": [
@@ -65,15 +68,31 @@ PATCHES: dict[str, list[tuple[str, str]]] = {
 
 def apply_pair(path: pathlib.Path, rel: str, old: str, new: str) -> None:
     text = path.read_text(encoding="utf-8")
+    # Check the desired form first. Several migrations deliberately retain the old text as a
+    # prefix/subsequence, so old-first matching can duplicate imports/tokens on repeated CI runs.
+    if new in text:
+        return
     if old in text:
         path.write_text(text.replace(old, new), encoding="utf-8")
-        return
-    if new in text:
         return
     raise SystemExit(f"Expected V148 semantic anchor not found in {rel}: {old[:150]!r}")
 
 
+def normalize_media_tokens() -> None:
+    path = ROOT / "app/src/main/java/com/framebynavin/app/ui/theme/FrameByNavinTheme.kt"
+    text = path.read_text(encoding="utf-8")
+    if MEDIA_ANCHOR not in text:
+        raise SystemExit("Expected BacklotError anchor not found while normalizing media tokens.")
+
+    # Remove every prior generated copy, then insert exactly one canonical block after BacklotError.
+    cleaned = text.replace("\n\n" + MEDIA_BLOCK, "").replace(MEDIA_BLOCK, "")
+    cleaned = cleaned.replace(MEDIA_ANCHOR, MEDIA_ANCHOR + "\n\n" + MEDIA_BLOCK.rstrip(), 1)
+    path.write_text(cleaned, encoding="utf-8")
+
+
 def main() -> int:
+    normalize_media_tokens()
+
     for rel, patches in PATCHES.items():
         path = ROOT / rel
         for old, new in patches:
@@ -90,6 +109,8 @@ def main() -> int:
         errors.append("Media hero still uses app-background semantics instead of a stable media canvas.")
     if "val BacklotSelectableAppearances: List<FrameTheme> = listOf(" in theme:
         errors.append("Selectable appearance registry still has static enum initialization-cycle risk.")
+    if theme.count("val BacklotMediaCanvas: Color") != 1 or theme.count("val BacklotOnMedia: Color") != 1 or theme.count("val BacklotMediaBorder: Color") != 1:
+        errors.append("Media semantic tokens are not declared exactly once.")
     if errors:
         print("V148_SEMANTIC_GUARD_FAILED")
         for error in errors:
