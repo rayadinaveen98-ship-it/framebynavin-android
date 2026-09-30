@@ -97,6 +97,7 @@ class ReminderStageRewardV148Test {
 
         assertTrue(duplicate.newlyCredited.isEmpty())
         assertEquals(1, duplicate.entries.count { it.eventKey == firstEvidence.eventKey })
+        assertEquals(10, duplicate.entries.sumOf { if (it.eventKey == firstEvidence.eventKey) it.xp else 0 })
         assertEquals(now + 1_000L, duplicate.entries.single { it.eventKey == firstEvidence.eventKey }.occurredAtMillis)
     }
 
