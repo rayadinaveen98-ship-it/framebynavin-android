@@ -15,6 +15,7 @@ import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskPriority
@@ -26,6 +27,7 @@ class VoiceReminderService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var currentTask: CreatorTask? = null
     private var currentToken: String = ""
+    private var currentCreatorName: String = "Creator"
     private var currentStartId: Int = 0
     private var speechGeneration = 0
 
@@ -58,6 +60,8 @@ class VoiceReminderService : Service() {
         currentToken = token
         currentStartId = startId
         currentTask = task
+        currentCreatorName = CreatorOsSettingsStore(applicationContext)
+            .snapshot().creatorProfile.safeDisplayName
         handler.removeCallbacksAndMessages(null)
         ensureChannel()
         if (previous != null && previousToken != token) {
@@ -106,7 +110,7 @@ class VoiceReminderService : Service() {
             TaskPriority.CRITICAL -> "critical creator deadline"
         }
         val stage = CreatorWorkflowEngine.currentStage(task).label
-        val text = VoicePersonaEngine.reminderText(
+        val reminder = VoicePersonaEngine.reminderText(
             persona = task.voicePersona,
             title = task.title,
             urgency = urgency,
@@ -114,6 +118,8 @@ class VoiceReminderService : Service() {
             notes = task.notes,
             includeNotes = index == 0,
         )
+        val greeting = VoiceGreetingBuilder.greeting(currentCreatorName)
+        val text = "$greeting $reminder"
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "framebynavin-voice-${task.id}-$index")
     }
 
@@ -177,6 +183,7 @@ class VoiceReminderService : Service() {
         if (taskId != null && (currentTask?.id != taskId || (token != null && currentToken != token))) return
         currentTask = null
         currentToken = ""
+        currentCreatorName = "Creator"
         speechGeneration++
         runCatching { tts?.stop() }
         tts?.shutdown()
@@ -191,6 +198,7 @@ class VoiceReminderService : Service() {
     override fun onDestroy() {
         currentTask = null
         currentToken = ""
+        currentCreatorName = "Creator"
         speechGeneration++
         handler.removeCallbacksAndMessages(null)
         runCatching { tts?.stop() }
