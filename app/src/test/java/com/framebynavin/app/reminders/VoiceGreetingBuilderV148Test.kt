@@ -65,6 +65,32 @@ class VoiceGreetingBuilderV148Test {
     }
 
     @Test
+    fun sharedSpokenReminderPrependsExactlyOneTimeAwareGreeting() {
+        assertEquals(
+            "Hi, Good Evening, Navin. Backlot. Rajamouli video. This is your important creator reminder.",
+            VoiceGreetingBuilder.spokenReminder(
+                creatorName = "Navin Rayadi",
+                reminderBody = "Backlot. Rajamouli video. This is your important creator reminder.",
+                nowMillis = at(20, 30),
+                zoneId = zone,
+            ),
+        )
+    }
+
+    @Test
+    fun sharedSpokenReminderDoesNotAddTrailingSpaceForEmptyBody() {
+        assertEquals(
+            "Hi, Good Morning, Creator.",
+            VoiceGreetingBuilder.spokenReminder(
+                creatorName = "",
+                reminderBody = "   ",
+                nowMillis = at(8, 0),
+                zoneId = zone,
+            ),
+        )
+    }
+
+    @Test
     fun morningBoundaryMatchesProductRule() {
         assertEquals("Hi, Good Morning, Navin.", VoiceGreetingBuilder.greeting("Navin", at(5, 0), zone))
         assertEquals("Hi, Good Morning, Navin.", VoiceGreetingBuilder.greeting("Navin", at(11, 59), zone))
