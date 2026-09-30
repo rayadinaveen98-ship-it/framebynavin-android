@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorOsSettingsStore
+import com.framebynavin.app.data.CreatorPublicationRecovery
+import com.framebynavin.app.data.CreatorRewardEngine
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.ProjectAttentionPlan
@@ -20,7 +22,7 @@ import kotlinx.coroutines.launch
 
 /**
  * RC3 reminder actions are stage check-in responses. Legacy ACTION_DONE remains dismiss-only.
- * Stage Done is explicit and can advance only the authoritative CreatorWorkflowEngine stage.
+ * Stage Done is explicit and advances through the same authoritative workflow/reward path as Studio.
  */
 class ReminderActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -54,6 +56,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     val smart = SmartEscalationScheduler(app)
                     val history = ProjectPulseHistoryStore(app)
                     val now = System.currentTimeMillis()
+                    val generation = CreatorDataGate.generation(app)
                     val rescheduleAt = intent.getLongExtra(ReminderConstants.EXTRA_RESCHEDULE_AT, 0L)
                     val snoozeMinutes = CreatorOsSettingsStore(app).snapshot().snoozeMinutes
                     val pauseUntil = intent.getLongExtra(
@@ -67,8 +70,56 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     var response: ProjectPulseResponse? = null
                     var publicationBlocked = false
 
+                    // Stage Done needs durable evidence before the task mutation. If the process dies
+                    // after the task advances but before rewards persist, CreatorPublicationRecovery
+                    // replays the evidence only when the authoritative task proves the stage advanced.
+                    var stageRecovery: CreatorPublicationRecovery? = null
+                    var stageExpectedBefore: CreatorTask? = null
+                    var stageDesired: CreatorTask? = null
+                    if (action == ReminderConstants.ACTION_STAGE_DONE) {
+                        val candidate = store.load().firstOrNull { it.id == taskId } ?: return@readyTransaction
+                        if (!ProjectPulseEngine.isStageCheckIn(candidate) || !occurrences.matches(candidate, token)) {
+                            return@readyTransaction
+                        }
+                        if (ProjectPulseEngine.canCompleteCurrentStep(candidate)) {
+                            val desired = ReminderActionSafety.stageDone(candidate, now)
+                            if (desired == candidate) return@readyTransaction
+                            val stage = CreatorWorkflowEngine.currentStage(candidate)
+                            val recovery = CreatorPublicationRecovery(app)
+                            recovery.recoverPendingUnlocked()
+                            recovery.begin(
+                                expectedGeneration = generation,
+                                subjectId = taskId,
+                                stageEvidence = CreatorRewardEngine.stageCompleted(
+                                    taskId,
+                                    stage.id,
+                                    stage.label,
+                                    now,
+                                ),
+                                expectedStageIndex = desired.workflowStageIndex,
+                                expectedCompletedAt = desired.completedAtMillis,
+                                sourceStageIndex = CreatorWorkflowEngine.stageIndex(candidate),
+                                expectedStatus = desired.status.name,
+                            )
+                            stageRecovery = recovery
+                            stageExpectedBefore = candidate
+                            stageDesired = desired
+                        }
+                    }
+
                     val updated = try {
                         store.updateTask(taskId) { task ->
+                            val preparedStage = stageDesired
+                            if (action == ReminderConstants.ACTION_STAGE_DONE && preparedStage != null) {
+                                if (task != stageExpectedBefore || !occurrences.claim(task, token)) {
+                                    return@updateTask task
+                                }
+                                accepted = true
+                                before = task
+                                reachedStage = smart.activeStage(taskId)
+                                response = ProjectPulseResponse.STAGE_DONE
+                                return@updateTask preparedStage
+                            }
                             if (action == ReminderConstants.ACTION_STAGE_DONE && !ProjectPulseEngine.isStageCheckIn(task)) {
                                 return@updateTask task
                             }
@@ -94,14 +145,10 @@ class ReminderActionReceiver : BroadcastReceiver() {
                                         response = ProjectPulseResponse.DISMISSED
                                         ProjectPulseEngine.afterDismiss(ProjectPulseEngine.ensureStageManaged(task), now)
                                     } else {
-                                        response = ProjectPulseResponse.STAGE_DONE
-                                        val advanced = ReminderActionSafety.stageDone(task, now)
-                                        // Custom waits for a next-stage time, but its chosen delivery style survives.
-                                        if (task.attentionPlan == ProjectAttentionPlan.CUSTOM &&
-                                            advanced.status != TaskStatus.DONE && advanced.status != TaskStatus.SKIPPED &&
-                                            !advanced.reminderEnabled) {
-                                            advanced.copy(reminderMode = task.reminderMode, alertType = task.alertType)
-                                        } else advanced
+                                        // A completable Stage Done should always have been prepared above. Fail closed
+                                        // rather than advancing through a second, reward-less implementation.
+                                        response = ProjectPulseResponse.DISMISSED
+                                        ProjectPulseEngine.afterDismiss(ProjectPulseEngine.ensureStageManaged(task), now)
                                     }
                                 }
                                 ReminderConstants.ACTION_SNOOZE -> {
@@ -140,10 +187,19 @@ class ReminderActionReceiver : BroadcastReceiver() {
                         // compensate by restoring the exact occurrence authority instead of losing the action.
                         val claimed = before
                         if (claimed != null) runCatching { occurrences.restoreClaim(claimed!!, token) }
+                        stageRecovery?.let { recovery -> runCatching { recovery.recoverPendingUnlocked() } }
                         throw error
                     }
 
-                    if (!accepted || updated == null) return@readyTransaction
+                    if (!accepted || updated == null) {
+                        stageRecovery?.recoverPendingUnlocked()
+                        return@readyTransaction
+                    }
+
+                    // Finish only after the authoritative task write. The stage event key is stable, so
+                    // replay/double taps cannot award XP twice; publication recovery also repairs a crash
+                    // between the task write and this reward reconciliation.
+                    stageRecovery?.finish(generation)
 
                     // History is useful audit context, never a prerequisite for the authoritative project write.
                     before?.let { old -> response?.let { runCatching { history.append(old, it, now, updated) } } }
