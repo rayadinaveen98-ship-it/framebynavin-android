@@ -63,6 +63,43 @@ class ReminderStageRewardV148Test {
         assertEquals(1, replay.entries.count { it.eventKey == evidence.eventKey })
     }
 
+    @Test
+    fun repeatedTapAtDifferentTimeStillCannotDoubleCreditStage() {
+        val managed = ProjectPulseEngine.applyAttentionPlan(baseTask(), ProjectAttentionPlan.GUIDED, now)
+        val stage = CreatorWorkflowEngine.currentStage(managed)
+        val advanced = ReminderActionSafety.stageDone(managed, now + 1_000L)
+        val firstEvidence = CreatorRewardEngine.stageCompleted(
+            managed.id,
+            stage.id,
+            stage.label,
+            now + 1_000L,
+        )
+        val laterDuplicateEvidence = CreatorRewardEngine.stageCompleted(
+            managed.id,
+            stage.id,
+            stage.label,
+            now + 8_000L,
+        )
+        assertEquals(firstEvidence.eventKey, laterDuplicateEvidence.eventKey)
+
+        val first = CreatorRewardReconciliation.reconcile(
+            current = emptyList(),
+            tasks = listOf(advanced),
+            checkpoints = emptyList(),
+            stageEvidence = firstEvidence,
+        )
+        val duplicate = CreatorRewardReconciliation.reconcile(
+            current = first.entries,
+            tasks = listOf(advanced),
+            checkpoints = emptyList(),
+            stageEvidence = laterDuplicateEvidence,
+        )
+
+        assertTrue(duplicate.newlyCredited.isEmpty())
+        assertEquals(1, duplicate.entries.count { it.eventKey == firstEvidence.eventKey })
+        assertEquals(now + 1_000L, duplicate.entries.single { it.eventKey == firstEvidence.eventKey }.occurredAtMillis)
+    }
+
     private fun baseTask() = CreatorTask(
         id = "v148-reminder-reward",
         title = "V148 reminder reward",
