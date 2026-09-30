@@ -81,7 +81,14 @@ class VoiceReminderActivity : ComponentActivity() {
                     onPause = { dispatchReminderAction(ReminderConstants.ACTION_PAUSE, task.id) },
                     onReschedule = { openReschedulePicker(task.id) },
                     onDismiss = { dispatchReminderAction(ReminderConstants.ACTION_DISMISS, task.id) },
-                    onReplay = { VoiceReminderService.start(applicationContext, task.copy(voiceRepeatCount = 1), occurrenceId) },
+                    onReplay = {
+                        VoiceReminderService.start(
+                            applicationContext,
+                            task.copy(voiceRepeatCount = 1),
+                            occurrenceId,
+                            forceRestart = true,
+                        )
+                    },
                 )
             }
         }
