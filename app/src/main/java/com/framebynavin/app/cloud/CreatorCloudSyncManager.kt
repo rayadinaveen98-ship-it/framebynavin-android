@@ -31,6 +31,17 @@ data class CreatorCloudSyncStatus(
     val lastError: String?,
 )
 
+internal object CreatorCloudFailurePolicy {
+    fun shouldRecord(
+        expectedUserId: String?,
+        currentUserId: String?,
+        error: Throwable,
+    ): Boolean =
+        !expectedUserId.isNullOrBlank() &&
+            expectedUserId == currentUserId &&
+            error !is CloudAccountChanged
+}
+
 /**
  * Local-first creator backup/sync. Supabase stores versioned private snapshots; local files remain
  * the immediate working copy. Automatic sync never resolves a two-device/account divergence by
@@ -58,37 +69,44 @@ class CreatorCloudSyncManager(context: Context) {
     }
 
     suspend fun syncNow(): CreatorCloudSyncResult {
-        if (account.localState().session == null) return CreatorCloudSyncResult.Skipped("Sign in with Google to enable automatic creator backup.")
+        val expectedUserId = account.localState().session?.userId
+            ?: return CreatorCloudSyncResult.Skipped("Sign in with Google to enable automatic creator backup.")
         return try {
             account.withFreshSession { session -> syncAuthenticated(session) }
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
-            failure(e)
+            failure(e, expectedUserId)
         }
     }
 
     /** Explicit conflict action: make this phone's current creator state the next cloud revision. */
-    suspend fun keepThisPhone(): CreatorCloudSyncResult = try {
-        account.withFreshSession { session ->
-            val prepared = prepare()
-            val cloud = api.fetchCreatorSyncHead(session)
-            pushPrepared(session, prepared, cloud?.contentSha256, bindWorkspace = true)
+    suspend fun keepThisPhone(): CreatorCloudSyncResult {
+        val expectedUserId = account.localState().session?.userId
+        return try {
+            account.withFreshSession { session ->
+                val prepared = prepare()
+                val cloud = api.fetchCreatorSyncHead(session)
+                pushPrepared(session, prepared, cloud?.contentSha256, bindWorkspace = true)
+            }
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            failure(e, expectedUserId)
         }
-    } catch (e: Throwable) {
-        if (e is CancellationException) throw e
-        failure(e)
     }
 
     /** Explicit conflict action: replace covered local creator data with the current cloud head. */
-    suspend fun restoreCloud(): CreatorCloudSyncResult = try {
-        account.withFreshSession { session ->
-            val cloud = api.fetchCreatorSyncHead(session)
-                ?: return@withFreshSession CreatorCloudSyncResult.Skipped("No creator backup exists in this account yet.")
-            restoreSnapshot(session, cloud)
+    suspend fun restoreCloud(): CreatorCloudSyncResult {
+        val expectedUserId = account.localState().session?.userId
+        return try {
+            account.withFreshSession { session ->
+                val cloud = api.fetchCreatorSyncHead(session)
+                    ?: return@withFreshSession CreatorCloudSyncResult.Skipped("No creator backup exists in this account yet.")
+                restoreSnapshot(session, cloud)
+            }
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            failure(e, expectedUserId)
         }
-    } catch (e: Throwable) {
-        if (e is CancellationException) throw e
-        failure(e)
     }
 
     private suspend fun syncAuthenticated(session: CloudSession): CreatorCloudSyncResult {
@@ -221,7 +239,7 @@ class CreatorCloudSyncManager(context: Context) {
     private fun isFreshLocal(preview: CreatorBackupManager.BackupPreview): Boolean =
         preview.projectCount == 0 && preview.ideaCount == 0
 
-    private fun failure(error: Throwable): CreatorCloudSyncResult.Failure {
+    private fun failure(error: Throwable, expectedUserId: String?): CreatorCloudSyncResult.Failure {
         val retryable = when (error) {
             is CloudHttpException -> error.statusCode == 408 || error.statusCode == 429 || error.statusCode >= 500
             is IllegalArgumentException, is IllegalStateException -> false
@@ -235,7 +253,10 @@ class CreatorCloudSyncManager(context: Context) {
             }
             else -> error.message ?: "Creator cloud is temporarily unavailable."
         }
-        account.localState().session?.userId?.let { state.recordError(it, message) }
+        val currentUserId = account.localState().session?.userId
+        if (CreatorCloudFailurePolicy.shouldRecord(expectedUserId, currentUserId, error)) {
+            state.recordError(requireNotNull(expectedUserId), message)
+        }
         return CreatorCloudSyncResult.Failure(message, retryable)
     }
 
