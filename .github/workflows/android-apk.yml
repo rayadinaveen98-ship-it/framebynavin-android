@@ -15,6 +15,7 @@ on:
       - "feature/voice-ideas-recorder"
       - "feature/v147-idea-reminders"
       - "feature/v148-reminder-insights-polish"
+      - "feature/v149-supabase-voice-reminder-fix"
     paths:
       - "app/**"
       - "*.gradle.kts"
@@ -81,7 +82,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-v147-Idea-Reminders
+          name: Backlot-v149-rc26-Supabase-Voice-Reminder-Fix
           path: app/build/outputs/apk/debug/app-debug.apk
 
   ui-smoke-v145:
