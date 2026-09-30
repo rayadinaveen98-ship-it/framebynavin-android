@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.framebynavin.app.youtube.YouTubeAnalyticsStore
 import com.framebynavin.app.youtube.YouTubeInsightEngine
+import com.framebynavin.app.youtube.freshestYouTubeSnapshot
 
 /** One-shot navigation bridge from Home Top Performers into an exact Insights video. */
 internal object V148InsightsRouteState {
@@ -42,7 +43,15 @@ internal fun v148ResolveRequestedVideoId(
 internal fun V148HomeTopPerformersSection(onOpenInsights: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val store = remember(context) { YouTubeAnalyticsStore(context) }
-    val snapshot = remember(store) { store.loadAny() }
+    val snapshot = remember(store) {
+        freshestYouTubeSnapshot(
+            listOf(
+                store.load(7),
+                store.load(28),
+                store.load(90),
+            ),
+        )
+    }
     val performances = remember(snapshot) {
         snapshot?.let(YouTubeInsightEngine::videoPerformance).orEmpty()
     }
