@@ -258,16 +258,18 @@ private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): Guide
         Icons.Outlined.Lightbulb,
         FrameGuidePose.POINT,
     )
-    CreatorGuidedTourStep.PROJECT -> GuidedCoachCopy(
-        "PROJECT",
-        if (hasProjects) "Open a project" else "Build your first project",
-        if (hasProjects) "Open one and I’ll follow you into the workspace." else "Create one now, or continue without one.",
-        if (hasProjects) "A project keeps one piece of content together from idea to publish. Open one to see its exact next step." else "Create a project when an idea becomes real work. Backlot will guide it from planning to publish.",
-        if (hasProjects) "OPEN PROJECT" else "CREATE PROJECT",
-        if (hasProjects) null else "NOT NOW",
-        Icons.Outlined.AddCircleOutline,
-        FrameGuidePose.WALK,
-    )
+    CreatorGuidedTourStep.PROJECT -> v149GuidedProjectReminderCopy(hasProjects).let { projectCopy ->
+        GuidedCoachCopy(
+            "PROJECT + REMINDERS",
+            projectCopy.title,
+            projectCopy.body,
+            projectCopy.speech,
+            if (hasProjects) "OPEN PROJECT" else "CREATE PROJECT",
+            if (hasProjects) null else "NOT NOW",
+            Icons.Outlined.NotificationsActive,
+            FrameGuidePose.WALK,
+        )
+    }
     CreatorGuidedTourStep.WORKSPACE -> GuidedCoachCopy(
         "WORKSPACE",
         "Move work stage by stage",
