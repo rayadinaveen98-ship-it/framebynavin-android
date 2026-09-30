@@ -9,10 +9,46 @@ class VoiceGreetingBuilderV148Test {
     private val zone = ZoneId.of("Asia/Kolkata")
 
     @Test
-    fun usesCreatorNameWhenAvailable() {
+    fun usesCreatorFirstNameWhenAvailable() {
         assertEquals(
             "Hi, Good Afternoon, Navin.",
-            VoiceGreetingBuilder.greeting(" Navin ", at(14, 15), zone),
+            VoiceGreetingBuilder.greeting(" Navin Rayadi ", at(14, 15), zone),
+        )
+    }
+
+    @Test
+    fun prefersGoogleFirstNameForVoiceIdentity() {
+        assertEquals(
+            "Navin",
+            VoiceGreetingBuilder.preferredName(
+                googleAccountName = "Navin Rayadi",
+                cachedAccountName = "Cached Name",
+                creatorProfileName = "Creator Profile",
+            ),
+        )
+    }
+
+    @Test
+    fun usesCachedAccountWhenGoogleNameIsMissing() {
+        assertEquals(
+            "Naveen",
+            VoiceGreetingBuilder.preferredName(
+                googleAccountName = "",
+                cachedAccountName = "Naveen Kumar",
+                creatorProfileName = "Creator Profile",
+            ),
+        )
+    }
+
+    @Test
+    fun usesCreatorProfileWhenAccountNamesAreMissing() {
+        assertEquals(
+            "Navin",
+            VoiceGreetingBuilder.preferredName(
+                googleAccountName = "",
+                cachedAccountName = "",
+                creatorProfileName = "Navin Creator",
+            ),
         )
     }
 
@@ -21,6 +57,10 @@ class VoiceGreetingBuilderV148Test {
         assertEquals(
             "Hi, Good Morning, Creator.",
             VoiceGreetingBuilder.greeting("   ", at(9, 0), zone),
+        )
+        assertEquals(
+            "Creator",
+            VoiceGreetingBuilder.preferredName("", "", ""),
         )
     }
 
