@@ -39,15 +39,15 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Apply startup and transition polish
-        run: python .github/v148/fix_transition_polish.py
-
       - name: Apply controlled V148 cross-file patches
         run: python .github/v148/apply_light_theme_audit.py --apply
 
       # Cross-layer guard: media keeps authored black while native dialogs follow the selected appearance.
       - name: Apply media and native-dialog semantic pass
         run: python .github/v148/finalize_light_semantics.py
+
+      - name: Apply startup and transition polish
+        run: python .github/v148/fix_transition_polish.py
 
       - name: Print theme-surface audit
         run: python .github/v148/apply_light_theme_audit.py | tee v148-theme-audit.txt
