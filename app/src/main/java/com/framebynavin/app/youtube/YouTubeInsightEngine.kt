@@ -93,7 +93,9 @@ object YouTubeInsightEngine {
 
     fun videoPerformance(snapshot: YouTubeAnalyticsSnapshot): List<YouTubeVideoPerformance> {
         val videos = visibleVideos(snapshot).filter { it.periodViews > 0 }
-        val baseline = videos.map { it.periodViews }.average().takeIf { !it.isNaN() && it > 0 } ?: 0.0
+        val recentBaselineVideos = snapshot.recentVideos.filter { it.periodViews > 0 }
+        val baselineSource = recentBaselineVideos.ifEmpty { videos }
+        val baseline = baselineSource.map { it.periodViews }.average().takeIf { !it.isNaN() && it > 0 } ?: 0.0
         return videos.sortedByDescending { it.periodViews }.map { video ->
             YouTubeVideoPerformance(
                 video = video,
