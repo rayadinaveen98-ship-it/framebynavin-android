@@ -53,7 +53,7 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V148 dark/light appearance + startup/transition polish candidate.
+        // Backlot V148 reminder + Insights polish final candidate.
         versionCode = 148
         versionName = "2.0.0-rc25-reminder-insights-polish"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
