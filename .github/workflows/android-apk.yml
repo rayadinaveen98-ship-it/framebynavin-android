@@ -5,16 +5,6 @@ on:
   push:
     branches:
       - "main"
-      - "feature/v1.3.2-reliability-recovery"
-      - "repair/v1.3.2-release-blockers"
-      - "feature/v142-framebynavin-v4-schedule"
-      - "fix/v143-profile-weekly-progress"
-      - "feature/v144-guide-schedule-refresh"
-      - "fix/v145-guide-revenue-hotfix"
-      - "fix/v145-ux-automation-deeplink"
-      - "feature/voice-ideas-recorder"
-      - "feature/v147-idea-reminders"
-      - "feature/v148-reminder-insights-polish"
       - "feature/v149-supabase-voice-reminder-fix"
     paths:
       - "app/**"
@@ -66,16 +56,6 @@ jobs:
       - name: Compile instrumentation test APK
         run: gradle :app:assembleDebugAndroidTest --stacktrace
 
-      - name: Run release-blocker UI smoke tests
-        if: github.ref == 'refs/heads/repair/v1.3.2-release-blockers'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          profile: pixel_6
-          disable-animations: true
-          script: gradle :app:connectedDebugAndroidTest --stacktrace
-
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
@@ -85,10 +65,12 @@ jobs:
           name: Backlot-v149-rc26-Supabase-Voice-Reminder-Fix
           path: app/build/outputs/apk/debug/app-debug.apk
 
-  ui-smoke-v145:
-    if: github.ref == 'refs/heads/fix/v145-guide-revenue-hotfix' || github.ref == 'refs/heads/fix/v145-ux-automation-deeplink'
+  device-regression:
+    name: RC26 device regression
+    needs: build
+    if: github.ref == 'refs/heads/feature/v149-supabase-voice-reminder-fix' || github.ref == 'refs/heads/main'
     runs-on: macos-15-intel
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,39 +86,7 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Run V145 connected UI, guide asset, revenue and deep-link smoke tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          profile: pixel_6
-          disable-animations: true
-          script: |
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V132ReleaseBlockerUiTest --stacktrace
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V145GuideAssetDecodeTest --stacktrace
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V145RevenueAccessUiTest --stacktrace
-            gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.reminders.V145ProjectPulseDeepLinkTest --stacktrace
-
-  voice-regression-v146:
-    if: github.ref == 'refs/heads/feature/voice-ideas-recorder'
-    runs-on: macos-15-intel
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.11.1"
-
-      - name: Run V146 connected regression suite
+      - name: Run connected Android regression suite
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
