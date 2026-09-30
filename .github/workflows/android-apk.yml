@@ -14,6 +14,7 @@ on:
       - "fix/v145-ux-automation-deeplink"
       - "feature/voice-ideas-recorder"
       - "feature/v147-idea-reminders"
+      - "feature/v148-reminder-insights-polish"
     paths:
       - "app/**"
       - "*.gradle.kts"
