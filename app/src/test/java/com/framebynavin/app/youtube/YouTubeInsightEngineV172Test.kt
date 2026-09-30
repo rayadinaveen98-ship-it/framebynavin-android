@@ -77,6 +77,24 @@ class YouTubeInsightEngineV172Test {
         assertTrue(signals.any { it.kicker == "WORKING WELL" || it.kicker == "TOP VIDEO" })
     }
 
+    @Test
+    fun recentVideoBaselineIsNotDistortedByOlderBreakoutTopVideo() {
+        val recent = listOf(
+            video("recent-a", views = 100, watch = 20, subs = 1),
+            video("recent-b", views = 100, watch = 20, subs = 1),
+        )
+        val olderBreakout = video("older-breakout", views = 1000, watch = 200, subs = 10)
+        val snapshot = snapshot(views = 1200, watch = 240, videos = recent).copy(
+            topVideos = listOf(olderBreakout),
+            recentVideos = recent,
+        )
+
+        val breakoutPerformance = YouTubeInsightEngine.videoPerformance(snapshot)
+            .first { it.video.videoId == "older-breakout" }
+
+        assertEquals(10.0, breakoutPerformance.baselineMultiple, 0.001)
+    }
+
     private fun snapshot(
         views: Long,
         watch: Long,
