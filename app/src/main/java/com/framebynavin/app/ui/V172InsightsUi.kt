@@ -177,7 +177,7 @@ private fun V172Overview(
 
     val top = YouTubeInsightEngine.videoPerformance(snapshot).take(3)
     Text("TOP VIDEOS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("The videos driving your channel right now.", color = MutedText, fontSize = 9.sp)
+    Text("The videos leading this finalized Analytics window.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     if (top.isEmpty()) V172Empty("Refresh YouTube to see which videos are performing best.")
     else top.forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
@@ -297,7 +297,7 @@ private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Uni
                 Text("DAILY VIEWS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
                 Icon(Icons.Outlined.ChevronRight, "Open daily views", tint = MutedText, modifier = Modifier.size(18.dp))
             }
-            Text("Last ${points.size} days", color = MutedText, fontSize = 8.5.sp)
+            Text("Last ${points.size} reported days", color = MutedText, fontSize = 8.5.sp)
             Spacer(Modifier.height(13.dp))
             if (points.isEmpty()) Text("No daily trend data yet.", color = MutedText, fontSize = 9.sp)
             else Row(Modifier.fillMaxWidth().height(74.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
@@ -322,7 +322,7 @@ private fun V172Content(
     onVideo: (YouTubeVideoSnapshot) -> Unit,
 ) {
     Text("VIDEO PERFORMANCE", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("See which videos performed best in this period.", color = MutedText, fontSize = 9.sp)
+    Text("See which videos performed best in this finalized Analytics period.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
     if (videos.isEmpty()) V172Empty("No video performance data yet.")
@@ -364,7 +364,7 @@ private fun V172VideoRow(rank: Int, performance: YouTubeVideoPerformance, onVide
                     val difference = ((performance.baselineMultiple - 1.0) * 100).toInt()
                     if (difference >= 0) "$difference% above your usual" else "${abs(difference)}% below your usual"
                 } else "Learning your usual performance"
-                Text("$baseline · ${performance.viewSharePercent}% of views this period", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text("$baseline · ${performance.viewSharePercent}% of views in this finalized window", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
@@ -486,7 +486,7 @@ private fun V172VideoDetailDialog(
                     val difference = ((performance.baselineMultiple - 1.0) * 100).toInt()
                     if (difference >= 0) "$difference% above your usual" else "${abs(difference)}% below your usual"
                 } else "Learning your usual performance"
-                Text("$baseline · ${performance.viewSharePercent}% of views in this period", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("$baseline · ${performance.viewSharePercent}% of views in this finalized window", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     V172Mini("VIEWS", v172Compact(video.periodViews), Modifier.weight(1f))
