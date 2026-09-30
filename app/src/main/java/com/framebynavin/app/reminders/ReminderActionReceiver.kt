@@ -50,6 +50,13 @@ class ReminderActionReceiver : BroadcastReceiver() {
                 if (token.isBlank() || action !in acceptedActions) return@launch
 
                 CreatorDataGate.readyTransaction(app) {
+                    // Repair any previously committed Stage Done before validating this new action.
+                    // A crash may have advanced the task and consumed the old occurrence while the
+                    // reward marker was still pending; in that state the old token no longer matches.
+                    // Recovery therefore has to run before token/stage validation, not behind it.
+                    val publicationRecovery = CreatorPublicationRecovery(app)
+                    publicationRecovery.recoverPendingUnlocked()
+
                     val store = TaskStore(app)
                     val occurrences = ReminderOccurrenceStore(app)
                     val scheduler = ReminderScheduler(app)
@@ -85,9 +92,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                             val desired = ReminderActionSafety.stageDone(candidate, now)
                             if (desired == candidate) return@readyTransaction
                             val stage = CreatorWorkflowEngine.currentStage(candidate)
-                            val recovery = CreatorPublicationRecovery(app)
-                            recovery.recoverPendingUnlocked()
-                            recovery.begin(
+                            publicationRecovery.begin(
                                 expectedGeneration = generation,
                                 subjectId = taskId,
                                 stageEvidence = CreatorRewardEngine.stageCompleted(
@@ -101,7 +106,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                                 sourceStageIndex = CreatorWorkflowEngine.stageIndex(candidate),
                                 expectedStatus = desired.status.name,
                             )
-                            stageRecovery = recovery
+                            stageRecovery = publicationRecovery
                             stageExpectedBefore = candidate
                             stageDesired = desired
                         }
@@ -244,6 +249,8 @@ class ReminderActionReceiver : BroadcastReceiver() {
         val delayMinutes = intent.getIntExtra(ReminderConstants.EXTRA_DELAY_MINUTES, 0)
         if (expectedStage.isBlank() || expectedGeneration < 0L || delayMinutes <= 0) return
         CreatorDataGate.readyTransaction(context) {
+            // A follow-up prompt can be the first user interaction after a Stage Done crash.
+            CreatorPublicationRecovery(context).recoverPendingUnlocked()
             if (CreatorDataGate.generation(context) != expectedGeneration) return@readyTransaction
             val store = TaskStore(context)
             val now = System.currentTimeMillis()
