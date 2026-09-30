@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -89,7 +90,7 @@ internal fun V148YouTubeThumbnail(
                 color = BacklotPrimaryText,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Black,
-                modifier = Modifier.background(BacklotAccent.copy(alpha = .92f)),
+                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
             )
         }
     }
@@ -105,7 +106,8 @@ private fun loadV148YouTubeThumbnail(videoId: String): Bitmap? {
         connection?.instanceFollowRedirects = true
         connection?.useCaches = true
         connection?.connect()
-        if (connection?.responseCode !in 200..299) return@runCatching null
+        val responseCode = connection?.responseCode ?: return@runCatching null
+        if (responseCode !in 200..299) return@runCatching null
         val decoded = connection?.inputStream?.use(BitmapFactory::decodeStream) ?: return@runCatching null
         V148YouTubeThumbnailCache.put(videoId, decoded)
         decoded
