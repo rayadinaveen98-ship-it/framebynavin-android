@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V148 reminder + Insights polish final candidate.
-        versionCode = 148
-        versionName = "2.0.0-rc25-reminder-insights-polish"
+        // Backlot V149 Supabase + voice reminder reliability candidate.
+        versionCode = 149
+        versionName = "2.0.0-rc26-supabase-voice-reminder-fix"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
