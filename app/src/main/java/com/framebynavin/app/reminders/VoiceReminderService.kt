@@ -15,8 +15,6 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.framebynavin.app.cloud.CloudLocalStore
-import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskPriority
@@ -81,7 +79,7 @@ class VoiceReminderService : Service() {
         currentToken = token
         currentStartId = startId
         currentTask = task
-        currentCreatorName = resolveCreatorName()
+        currentCreatorName = VoiceCreatorNameResolver.resolve(applicationContext)
         handler.removeCallbacksAndMessages(null)
         ensureChannel()
         if (previous != null && !sameOccurrence) {
@@ -95,21 +93,6 @@ class VoiceReminderService : Service() {
         }
         beginSpeechCycle(task)
         return START_NOT_STICKY
-    }
-
-    private fun resolveCreatorName(): String {
-        val localCloud = CloudLocalStore(applicationContext)
-        val session = runCatching { localCloud.loadSession() }.getOrNull()
-        val cachedProfile = runCatching { localCloud.loadCreatorProfile() }.getOrNull()
-            ?.takeIf { profile -> session != null && profile.userId == session.userId }
-        val creatorProfileName = runCatching {
-            CreatorOsSettingsStore(applicationContext).snapshot().creatorProfile.displayName
-        }.getOrDefault("")
-        return VoiceGreetingBuilder.preferredName(
-            googleAccountName = session?.displayName.orEmpty(),
-            cachedAccountName = cachedProfile?.displayName.orEmpty(),
-            creatorProfileName = creatorProfileName,
-        )
     }
 
     private fun beginSpeechCycle(task: CreatorTask) {
@@ -187,7 +170,7 @@ class VoiceReminderService : Service() {
             notes = task.notes,
             includeNotes = true,
         )
-        return "${VoiceGreetingBuilder.greeting(currentCreatorName)} $reminder"
+        return VoiceGreetingBuilder.spokenReminder(currentCreatorName, reminder)
     }
 
     private fun speakFrozen(task: CreatorTask, token: String, generation: Int, index: Int) {
