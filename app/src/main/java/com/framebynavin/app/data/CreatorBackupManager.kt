@@ -18,6 +18,20 @@ import android.util.AtomicFile
 import java.security.MessageDigest
 import java.util.UUID
 
+internal object CreatorRecoveryRetentionPolicy {
+    const val MAX_RECOVERY_COPIES = 5
+
+    fun filesToDelete(
+        copies: List<File>,
+        maxCopies: Int = MAX_RECOVERY_COPIES,
+    ): List<File> {
+        require(maxCopies >= 1) { "At least one recovery copy must be retained" }
+        return copies
+            .sortedByDescending { it.lastModified() }
+            .drop(maxCopies)
+    }
+}
+
 /** Versioned, offline-only backup/restore for the local Creator OS. */
 class CreatorBackupManager(private val context: Context) {
     data class BackupPreview(
@@ -198,6 +212,12 @@ class CreatorBackupManager(private val context: Context) {
     private fun retainRecovery(raw: String): File {
         val file = File(recoveryDir(), "pre-restore-${UUID.randomUUID()}.fbnbackup")
         atomicWrite(file, raw)
+        // A completed recovery copy is useful, but an unbounded history retains deleted creator
+        // data forever and can consume substantial storage. No pending journal exists on entry to
+        // this method (restore recovers it first), so keeping the newest five is safe.
+        CreatorRecoveryRetentionPolicy.filesToDelete(recoveryCopies()).forEach { stale ->
+            runCatching { stale.delete() }
+        }
         return file
     }
     private fun clearPending() { AtomicFile(pendingFile()).delete() }
