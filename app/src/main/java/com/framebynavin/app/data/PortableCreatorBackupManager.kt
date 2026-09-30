@@ -83,9 +83,7 @@ class PortableCreatorBackupManager(context: Context) {
                 staged.inputStream().buffered().use { input ->
                     destination.outputStream().buffered().use(input::copyTo)
                 }
-                check(destination.isFile && destination.length() == staged.length()) {
-                    "Could not restore Voice Idea recording"
-                }
+                PortableVoiceMediaIntegrity.verifyInstalledCopy(staged, destination)
                 installed[ideaId] = destination
             }
             return installed
@@ -181,5 +179,33 @@ class PortableCreatorBackupManager(context: Context) {
             "workflowStageTimeline",
             "manifest",
         )
+    }
+}
+
+/**
+ * Verifies the final app-owned copy, not only the staged archive entry. A filesystem or write-path
+ * fault can preserve byte length while changing content, so length alone is not an integrity check.
+ */
+internal object PortableVoiceMediaIntegrity {
+    fun verifyInstalledCopy(staged: File, installed: File) {
+        require(staged.isFile && installed.isFile && installed.length() == staged.length()) {
+            "Could not restore Voice Idea recording"
+        }
+        require(sha256(installed) == sha256(staged)) {
+            "Restored Voice Idea recording failed integrity check"
+        }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }
