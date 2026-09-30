@@ -67,13 +67,13 @@ internal fun V18CreatorOnboarding(
         if (primaryGoal !in selectedGoals) primaryGoal = selectedGoals.firstOrNull().orEmpty()
     }
 
-    val canContinue = when (page) {
-        0 -> primaryMode.isNotBlank()
-        1 -> platforms.isNotEmpty()
-        2 -> styles.isNotEmpty()
-        3 -> selectedGoals.isNotEmpty() && primaryGoal in selectedGoals
-        else -> true
-    }
+    val canContinue = V149CreatorOnboardingPolicy.canContinue(
+        page = page,
+        primaryMode = primaryMode,
+        platforms = platforms,
+        selectedGoals = selectedGoals,
+        primaryGoal = primaryGoal,
+    )
 
     val selectedModeDefinition = CreatorModeRegistry.definition(primaryMode)
     val orderedProductionStyles = remember(primaryMode) {
@@ -174,7 +174,7 @@ internal fun V18CreatorOnboarding(
                         Spacer(Modifier.height(14.dp))
                         Text("How do you usually create?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(5.dp))
-                        Text("Recommended styles for ${selectedModeDefinition.label} appear first.", color = MutedText, fontSize = 10.sp)
+                        Text("Optional — recommended styles for ${selectedModeDefinition.label} appear first. You can refine this later.", color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
                         Spacer(Modifier.height(20.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             orderedProductionStyles.forEach { item ->
@@ -280,7 +280,7 @@ internal fun V18CreatorOnboarding(
                                 Text(primaryMode, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 if (secondaryModes.isNotEmpty()) Text("Also: ${secondaryModes.sorted().joinToString()}", color = MutedText, fontSize = 9.5.sp)
                                 Text(platforms.sorted().joinToString(), color = MutedText, fontSize = 9.5.sp)
-                                Text(styles.sorted().joinToString(), color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
+                                Text(if (styles.isEmpty()) "Production styles · Add later" else styles.sorted().joinToString(), color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
                                 Spacer(Modifier.height(5.dp))
                                 Text("Primary goal · $primaryGoal", color = MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
                                 val secondary = selectedGoals - primaryGoal
@@ -328,7 +328,10 @@ internal fun V18CreatorOnboarding(
                     shape = RoundedCornerShape(15.dp),
                     modifier = Modifier.height(50.dp),
                 ) {
-                    Text(if (page < 4) "CONTINUE" else "ENTER CREATOR OS", fontWeight = FontWeight.Black)
+                    Text(
+                        V149CreatorOnboardingPolicy.primaryActionLabel(page, styles.isNotEmpty()),
+                        fontWeight = FontWeight.Black,
+                    )
                     Spacer(Modifier.width(5.dp))
                     Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(17.dp))
                 }
