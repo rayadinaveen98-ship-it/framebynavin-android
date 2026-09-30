@@ -544,7 +544,16 @@ private fun YTChannelHeader(
                 }
             }
             Spacer(Modifier.height(7.dp))
-            Text("${data.startDate} → ${data.endDate} · updated ${ytSyncTime(data.fetchedAtMillis)}", color = MutedText, fontSize = 8.sp)
+            Text(
+                "${YouTubeAnalyticsQueryPolicy.finalizedWindowLabel(data.windowDays)} · ${data.startDate} → ${data.endDate}",
+                color = MutedText,
+                fontSize = 8.sp,
+            )
+            Text(
+                "${YouTubeAnalyticsQueryPolicy.freshnessNote()} · updated ${ytSyncTime(data.fetchedAtMillis)}",
+                color = MutedText.copy(alpha = .78f),
+                fontSize = 7.5.sp,
+            )
         }
     }
 }
@@ -581,8 +590,8 @@ private fun YTSignalCard(data: YouTubeAnalyticsSnapshot) {
     val avgTop = data.topVideos.map { it.periodViews }.filter { it > 0 }.average().takeIf { !it.isNaN() } ?: 0.0
     val bestSignal = when {
         best == null -> "Sync again after YouTube has enough report data."
-        avgTop > 0 && best.periodViews >= avgTop * 1.5 -> "${best.title} is clearly leading this ${data.windowDays}-day window."
-        else -> "Your top videos are relatively close together in this window."
+        avgTop > 0 && best.periodViews >= avgTop * 1.5 -> "${best.title} is clearly leading this finalized ${data.windowDays}-day window."
+        else -> "Your top videos are relatively close together in this finalized window."
     }
     val subscriberSignal = when {
         data.netSubscribers > 0 -> "Subscriber momentum is positive at ${ytSigned(data.netSubscribers)} net."
@@ -626,7 +635,7 @@ private fun YTTrendCard(data: YouTubeAnalyticsSnapshot) {
 @Composable
 private fun YTTopVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>, links: Map<String, String>, onVideo: (YouTubeVideoSnapshot) -> Unit) {
     Text("TOP VIDEOS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Performance inside the selected ${data.windowDays}-day window.", color = MutedText, fontSize = 9.sp)
+    Text("Performance inside the finalized ${data.windowDays}-day Analytics window.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     if (data.topVideos.isEmpty()) {
         YTEmpty("No video performance data yet.")
