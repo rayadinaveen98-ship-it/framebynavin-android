@@ -32,8 +32,7 @@ jobs:
                   app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt \
                   app/src/main/java/com/framebynavin/app/ui/V148InsightsRouteBridge.kt \
                   app/src/test/java/com/framebynavin/app/ui/V148InsightsRouteTest.kt \
-                  app/build.gradle.kts \
-                  .github/workflows/android-apk.yml
+                  app/build.gradle.kts
           git diff --cached --check
           git commit -m "Finalize V148 reminder and Insights polish"
           git push origin HEAD:feature/v148-reminder-insights-polish
