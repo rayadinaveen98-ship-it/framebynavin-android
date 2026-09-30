@@ -3,6 +3,7 @@ package com.framebynavin.app.ui.theme
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -225,12 +226,6 @@ val BacklotError: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFB33
 val BacklotMediaCanvas: Color get() = Color(0xFF050505)
 val BacklotOnMedia: Color get() = Color(0xFFF4F0E8)
 val BacklotMediaBorder: Color get() = Color.White.copy(alpha = .14f)
-
-// Media is content, not app chrome. Imported frames/video remain on a stable dark canvas in both appearances.
-val BacklotMediaCanvas: Color get() = Color(0xFF050505)
-val BacklotOnMedia: Color get() = Color(0xFFF4F0E8)
-val BacklotMediaBorder: Color get() = Color.White.copy(alpha = .14f)
-
 // Compatibility aliases. Existing screens continue to follow the selected appearance while V148
 // gradually moves them to semantic names.
 val CinemaBlack: Color get() = BacklotBackground
@@ -294,6 +289,7 @@ fun FrameByNavinTheme(content: @Composable () -> Unit) {
     val view = LocalView.current
     SideEffect {
         val window = view.context.frameActivity()?.window ?: return@SideEffect
+        window.setBackgroundDrawable(ColorDrawable(palette.background.toArgb()))
         window.statusBarColor = palette.background.toArgb()
         window.navigationBarColor = palette.background.toArgb()
         WindowCompat.getInsetsController(window, view).apply {

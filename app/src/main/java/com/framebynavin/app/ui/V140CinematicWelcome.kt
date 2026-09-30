@@ -27,13 +27,13 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-private const val V140_IDENT_DURATION_MS = 5_000
+private const val V140_IDENT_DURATION_MS = 3_000
 private const val V140_AMBIENT_THREADS = 26
 
 private data class V140Segment(val ax: Float, val ay: Float, val bx: Float, val by: Float)
 
 /**
- * Backlot launch ident. V148 keeps the same five-second motion language in both appearances;
+ * Backlot launch ident. V148 keeps the same three-second motion language in both appearances;
  * the canvas/background and energy field now derive from the active Backlot palette.
  */
 @Composable
@@ -56,9 +56,9 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val t = timeline.value.coerceIn(0f, 1f)
-            val formation = v140Smooth(((t - 0.30f) / 0.54f).coerceIn(0f, 1f))
-            val settle = v140Smooth(((t - 0.84f) / 0.16f).coerceIn(0f, 1f))
-            val ignition = v140Smooth((t / 0.16f).coerceIn(0f, 1f))
+            val formation = v140Smooth(((t - 0.14f) / 0.58f).coerceIn(0f, 1f))
+            val settle = v140Smooth(((t - 0.72f) / 0.28f).coerceIn(0f, 1f))
+            val ignition = v140Smooth((t / 0.12f).coerceIn(0f, 1f))
             val w = size.width
             val h = size.height
             val center = Offset(w * 0.5f, h * 0.50f)
@@ -81,7 +81,7 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
             repeat(V140_AMBIENT_THREADS) { index ->
                 val side = if (index % 2 == 0) -1f else 1f
                 val lane = (index + 1f) / (V140_AMBIENT_THREADS + 1f)
-                val phase = (t * 1.35f + index * 0.071f) % 1f
+                val phase = (t * 1.58f + index * 0.071f) % 1f
                 val baseY = h * (0.22f + lane * 0.56f)
                 val wave = sin((phase * PI * 2.0 + index * .63).toFloat()) * h * 0.026f
                 val startX = if (side < 0f) -w * .18f else w * 1.18f
@@ -185,8 +185,8 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
                 }
             }
 
-            if (t > .79f) {
-                val sweep = v140Smooth(((t - .79f) / .17f).coerceIn(0f, 1f))
+            if (t > .66f) {
+                val sweep = v140Smooth(((t - .66f) / .24f).coerceIn(0f, 1f))
                 val start = originX - w * .012f
                 val end = start + totalW * sweep
                 drawLine(

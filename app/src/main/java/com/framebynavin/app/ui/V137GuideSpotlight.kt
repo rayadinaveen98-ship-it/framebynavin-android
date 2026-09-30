@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import com.framebynavin.app.data.CreatorGuidedTourStep
 import com.framebynavin.app.ui.theme.BacklotScrim
+import com.framebynavin.app.ui.theme.BacklotScrim
 import com.framebynavin.app.ui.theme.RecRed
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 

@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V148 dark/light appearance release candidate.
+        // Backlot V148 dark/light appearance + startup/transition polish candidate.
         versionCode = 148
-        versionName = "2.0.0-rc23-light-appearance"
+        versionName = "2.0.0-rc24-light-transition-polish"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

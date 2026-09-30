@@ -8,13 +8,13 @@
     <style name="Theme.FrameByNavin" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#B43B37</item>
-        <item name="android:navigationBarColor">#B43B37</item>
-        <item name="android:windowBackground">#B43B37</item>
+        <item name="android:statusBarColor">#171513</item>
+        <item name="android:navigationBarColor">#171513</item>
+        <item name="android:windowBackground">#171513</item>
     </style>
 
     <style name="Theme.FrameByNavin.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#B43B37</item>
+        <item name="windowSplashScreenBackground">#171513</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/backlot_splash_mark</item>
         <item name="windowSplashScreenAnimationDuration">0</item>
         <item name="postSplashScreenTheme">@style/Theme.FrameByNavin</item>

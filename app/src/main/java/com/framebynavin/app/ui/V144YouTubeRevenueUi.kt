@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.BacklotOnSecondaryAccent
+import com.framebynavin.app.ui.theme.BacklotOnSecondaryAccent
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory

@@ -1,14 +1,17 @@
 package com.framebynavin.app.ui
 
 import android.os.Bundle
+import android.graphics.drawable.ColorDrawable
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.*
@@ -40,13 +43,15 @@ class ContentWorkspaceActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        VisualExperiencePrefs.initialize(applicationContext)
+        window.setBackgroundDrawable(ColorDrawable(BacklotBackground.toArgb()))
         restoreModeAfterLoad = savedInstanceState?.getString(STATE_EDITOR_MODE)?.let { saved ->
             runCatching { Alpha6WorkspaceMode.valueOf(saved) }.getOrNull()
         }?.takeUnless { it == Alpha6WorkspaceMode.HUB }
         val projectId = intent.getStringExtra(EXTRA_PROJECT_ID).orEmpty()
         setContent {
             FrameByNavinTheme {
-                Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().background(BacklotBackground)) {
                     when {
                         error != null -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
                             Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
