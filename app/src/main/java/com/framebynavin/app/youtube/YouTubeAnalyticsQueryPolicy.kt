@@ -31,6 +31,15 @@ internal object YouTubeAnalyticsQueryPolicy {
         return YouTubeAnalyticsQueryWindow(start, end, previousStart, previousEnd)
     }
 
+    /** UI copy must never imply that a finalized Analytics window is Studio real-time data. */
+    fun finalizedWindowLabel(windowDays: Int): String {
+        require(windowDays in setOf(7, 28, 90))
+        return "FINALIZED ${windowDays}D"
+    }
+
+    fun freshnessNote(): String =
+        "YouTube Analytics may trail Studio by 48–72h"
+
     fun periodCount(row: Map<String, Any?>, key: String): Long {
         val value = row[key] ?: return 0L
         return when (value) {
