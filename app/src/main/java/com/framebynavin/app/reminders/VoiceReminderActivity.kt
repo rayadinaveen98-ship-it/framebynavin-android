@@ -72,6 +72,7 @@ class VoiceReminderActivity : ComponentActivity() {
                     title = task.title,
                     dueLabel = task.dueLabel,
                     stageLabel = CreatorWorkflowEngine.currentStage(task).label,
+                    suggestedAction = CreatorWorkflowEngine.nextAction(task),
                     notes = task.notes,
                     snoozeMinutes = snoozeMinutes,
                     stageCheckIn = ProjectPulseEngine.isStageCheckIn(task),
