@@ -32,7 +32,7 @@ jobs:
           gradle-version: "8.11.1"
 
       - name: Wire live V148 Home and Insights surfaces
-        shell: python
+        shell: python {0}
         run: |
           from pathlib import Path
 
