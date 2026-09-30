@@ -80,11 +80,13 @@ class PortableCreatorBackupManager(context: Context) {
         try {
             stagedByIdeaId.forEach { (ideaId, staged) ->
                 val destination = uniqueVoiceDestination(voiceDir)
+                // Track the destination before any bytes are written so a partial write or a
+                // post-copy integrity failure is removed by the common rollback path below.
+                installed[ideaId] = destination
                 staged.inputStream().buffered().use { input ->
                     destination.outputStream().buffered().use(input::copyTo)
                 }
                 PortableVoiceMediaIntegrity.verifyInstalledCopy(staged, destination)
-                installed[ideaId] = destination
             }
             return installed
         } catch (error: Throwable) {
