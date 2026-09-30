@@ -183,13 +183,3 @@ gradle.write_text(
         1,
     )
 )
-
-apk_workflow = Path(".github/workflows/android-apk.yml")
-apk_source = apk_workflow.read_text()
-apk_workflow.write_text(
-    apk_source.replace(
-        "name: Backlot-v147-Idea-Reminders",
-        "name: Backlot-v148-Reminder-Insights-Polish",
-        1,
-    )
-)
