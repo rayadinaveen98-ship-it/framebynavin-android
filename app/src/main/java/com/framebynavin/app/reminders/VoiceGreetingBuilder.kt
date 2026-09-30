@@ -36,6 +36,18 @@ object VoiceGreetingBuilder {
         return "Hi, Good $dayPart, $safeName."
     }
 
+    /** One envelope for alarm voice, dedicated voice reminders and future spoken surfaces. */
+    fun spokenReminder(
+        creatorName: String,
+        reminderBody: String,
+        nowMillis: Long = System.currentTimeMillis(),
+        zoneId: ZoneId = ZoneId.systemDefault(),
+    ): String {
+        val body = reminderBody.trim()
+        return if (body.isBlank()) greeting(creatorName, nowMillis, zoneId)
+        else "${greeting(creatorName, nowMillis, zoneId)} $body"
+    }
+
     internal fun firstName(value: String): String = value
         .trim()
         .split(Regex("\\s+"))
