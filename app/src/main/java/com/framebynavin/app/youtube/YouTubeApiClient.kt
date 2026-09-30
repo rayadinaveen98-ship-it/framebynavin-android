@@ -71,6 +71,7 @@ class YouTubeApiClient {
                 "dimensions" to "video",
                 "filters" to "video==${recentIds.joinToString(",")}",
                 "metrics" to summaryMetrics,
+                "maxResults" to recentIds.size.toString(),
             ),
         )
         val recentVideos = recentIds.mapNotNull { id ->
