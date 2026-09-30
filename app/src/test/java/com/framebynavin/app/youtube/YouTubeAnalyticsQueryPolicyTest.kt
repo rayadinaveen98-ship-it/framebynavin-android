@@ -30,6 +30,17 @@ class YouTubeAnalyticsQueryPolicyTest {
     }
 
     @Test
+    fun `labels selected windows as finalized instead of implying Studio realtime`() {
+        assertEquals("FINALIZED 7D", YouTubeAnalyticsQueryPolicy.finalizedWindowLabel(7))
+        assertEquals("FINALIZED 28D", YouTubeAnalyticsQueryPolicy.finalizedWindowLabel(28))
+        assertEquals("FINALIZED 90D", YouTubeAnalyticsQueryPolicy.finalizedWindowLabel(90))
+        assertEquals(
+            "YouTube Analytics may trail Studio by 48–72h",
+            YouTubeAnalyticsQueryPolicy.freshnessNote(),
+        )
+    }
+
+    @Test
     fun `period zero stays zero instead of becoming a lifetime engagement count`() {
         val row = mapOf<String, Any?>("likes" to 0, "comments" to 0.0)
 
