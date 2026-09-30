@@ -20,27 +20,17 @@ jobs:
           ref: feature/v148-reminder-insights-polish
           fetch-depth: 0
 
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.11.1"
-
-      - name: Wire live V148 Home and Insights surfaces
-        shell: python {0}
+      - name: Wire and commit live V148 integration
         run: |
+          python - <<'PY'
           from pathlib import Path
 
           def replace_once(path, old, new):
               p = Path(path)
               s = p.read_text()
-              if s.count(old) != 1:
-                  raise SystemExit(f"{path}: expected one match, found {s.count(old)}")
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}")
               p.write_text(s.replace(old, new, 1))
 
           today = 'app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt'
@@ -106,8 +96,7 @@ jobs:
     fun refreshCacheView() {''',
           )
 
-          bridge = Path('app/src/main/java/com/framebynavin/app/ui/V148InsightsRouteBridge.kt')
-          bridge.write_text('''package com.framebynavin.app.ui
+          Path('app/src/main/java/com/framebynavin/app/ui/V148InsightsRouteBridge.kt').write_text('''package com.framebynavin.app.ui
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -123,7 +112,6 @@ import androidx.compose.ui.unit.dp
 import com.framebynavin.app.youtube.YouTubeAnalyticsStore
 import com.framebynavin.app.youtube.YouTubeInsightEngine
 
-/** One-shot navigation bridge from Home Top Performers into an exact Insights video. */
 internal object V148InsightsRouteState {
     var pendingVideoId by mutableStateOf<String?>(null)
     var pendingWindowDays by mutableIntStateOf(0)
@@ -146,7 +134,6 @@ internal fun v148ResolveRequestedVideoId(
     requested.isNotBlank() && availableVideoIds.any { it == requested }
 }
 
-/** Uses the exact same YouTubeInsightEngine ranking source as Insights and hides itself without usable data. */
 @Composable
 internal fun V148HomeTopPerformersSection(onOpenInsights: () -> Unit) {
     val context = LocalContext.current.applicationContext
@@ -209,25 +196,10 @@ class V148InsightsRouteTest {
 
           apk_workflow = Path('.github/workflows/android-apk.yml')
           a = apk_workflow.read_text()
-          old_artifact = 'name: Backlot-v147-Idea-Reminders'
-          if old_artifact in a:
-              a = a.replace(old_artifact, 'name: Backlot-v148-Reminder-Insights-Polish', 1)
+          a = a.replace('name: Backlot-v147-Idea-Reminders', 'name: Backlot-v148-Reminder-Insights-Polish', 1)
           apk_workflow.write_text(a)
+          PY
 
-      - name: Run V148 unit tests
-        run: gradle :app:testDebugUnitTest --stacktrace
-
-      - name: Run V148 lint
-        run: gradle :app:lintDebug --stacktrace
-
-      - name: Compile instrumentation APK
-        run: gradle :app:assembleDebugAndroidTest --stacktrace
-
-      - name: Build final debug APK
-        run: gradle :app:assembleDebug --stacktrace
-
-      - name: Commit validated V148 integration
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt \
