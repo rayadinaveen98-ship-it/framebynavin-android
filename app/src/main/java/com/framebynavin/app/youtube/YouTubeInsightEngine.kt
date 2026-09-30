@@ -117,7 +117,13 @@ object YouTubeInsightEngine {
             val totalWatch = videos.sumOf { it.watchMinutes }
             val totalNetSubs = videos.sumOf { it.netSubscribers }
             val totalEngagement = videos.sumOf { it.likes + it.comments }
-            val avgView = videos.map { it.averageViewDurationSeconds }.filter { it > 0 }.average().takeIf { !it.isNaN() }?.roundToInt()?.toLong() ?: 0L
+            val viewDurationWeight = videos.filter { it.periodViews > 0L && it.averageViewDurationSeconds > 0L }
+            val weightedDurationViews = viewDurationWeight.sumOf { it.periodViews }
+            val avgView = if (weightedDurationViews > 0L) {
+                (viewDurationWeight.sumOf {
+                    it.averageViewDurationSeconds.toDouble() * it.periodViews.toDouble()
+                } / weightedDurationViews.toDouble()).roundToInt().toLong()
+            } else 0L
             YouTubeFormatPerformance(
                 label = label,
                 uploadCount = videos.size,
