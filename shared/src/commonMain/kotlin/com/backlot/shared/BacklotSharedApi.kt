@@ -1,5 +1,9 @@
 package com.backlot.shared
 
+import com.backlot.shared.cloud.BacklotIdentityProvider
+import com.backlot.shared.cloud.BacklotIdentityRef
+import com.backlot.shared.cloud.BacklotSessionReducer
+import com.backlot.shared.cloud.BacklotSessionSnapshot
 import com.backlot.shared.workflow.BacklotContentDna
 import com.backlot.shared.workflow.BacklotProjectDescriptor
 import com.backlot.shared.workflow.BacklotWorkflowResolver
@@ -12,7 +16,7 @@ import com.backlot.shared.workflow.BacklotWorkflowTemplate
  * resolver graph. More shared capabilities can be added here as the migration proceeds.
  */
 object BacklotSharedApi {
-    const val CONTRACT_VERSION: Int = 1
+    const val CONTRACT_VERSION: Int = 2
 
     fun resolveWorkflow(
         creatorModeId: String,
@@ -34,4 +38,35 @@ object BacklotSharedApi {
             ),
         )
     )
+
+    /** Shared signed-out state. Native auth/session credentials remain outside this API. */
+    fun signedOutSession(): BacklotSessionSnapshot = BacklotSessionReducer.signedOut()
+
+    /**
+     * Clears any previously visible identity while a native provider resolves sign-in or an
+     * account switch.
+     */
+    fun resolvingSession(): BacklotSessionSnapshot = BacklotSessionReducer.beginResolution()
+
+    /**
+     * Converts a completed native identity result into provider-neutral shared product state.
+     * Provider access/refresh tokens must never be passed through this facade.
+     */
+    fun signedInSession(
+        provider: BacklotIdentityProvider,
+        providerSubject: String,
+        email: String,
+        displayName: String,
+        avatarUrl: String,
+    ): BacklotSessionSnapshot = BacklotSessionReducer.authenticated(
+        BacklotIdentityRef(
+            provider = provider,
+            providerSubject = providerSubject,
+            email = email,
+            displayName = displayName,
+            avatarUrl = avatarUrl,
+        )
+    )
+
+    fun signOutSession(): BacklotSessionSnapshot = BacklotSessionReducer.signOut()
 }
