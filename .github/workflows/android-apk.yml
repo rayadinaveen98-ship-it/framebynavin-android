@@ -71,6 +71,8 @@ jobs:
     if: github.ref == 'refs/heads/feature/v149-supabase-voice-reminder-fix' || github.ref == 'refs/heads/main'
     runs-on: macos-15-intel
     timeout-minutes: 35
+    env:
+      BACKLOT_CI_EMULATOR: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
