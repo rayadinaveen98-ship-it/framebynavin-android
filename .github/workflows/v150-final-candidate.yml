@@ -32,6 +32,7 @@ jobs:
           set -euo pipefail
           grep -q 'versionCode = 150' app/build.gradle.kts
           grep -q 'versionName = "2.0.0-v150-pilot-product-focus"' app/build.gradle.kts
+          grep -q 'core-splashscreen:1.0.1' app/build.gradle.kts
 
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
@@ -61,3 +62,5 @@ jobs:
           path: final-apk/
           if-no-files-found: error
           retention-days: 30
+
+# Candidate rerun after full V149 Gradle config restoration.
