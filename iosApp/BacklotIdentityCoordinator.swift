@@ -16,12 +16,12 @@ final class BacklotIdentityCoordinator {
     init(
         sessionStore: BacklotSessionStore,
         identityRepository: BacklotNativeIdentityRepositoryProtocol = BacklotNativeIdentityRepository(),
-        appleSignIn: BacklotAppleSignInCoordinator = BacklotAppleSignInCoordinator(),
+        appleSignIn: BacklotAppleSignInCoordinator? = nil,
         appleExchange: BacklotAppleIdentityExchanging
     ) {
         self.sessionStore = sessionStore
         self.identityRepository = identityRepository
-        self.appleSignIn = appleSignIn
+        self.appleSignIn = appleSignIn ?? BacklotAppleSignInCoordinator()
         self.appleExchange = appleExchange
     }
 
