@@ -1,0 +1,63 @@
+name: Backlot V150 Final Candidate
+
+on:
+  push:
+    branches:
+      - feature/v150-pilot-product-focus
+    paths:
+      - .github/workflows/v150-final-candidate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Verify V150 identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 150' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0-v150-pilot-product-focus"' app/build.gradle.kts
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation APK
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Build installable APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Package final candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p final-apk
+          cp app/build/outputs/apk/debug/app-debug.apk final-apk/Backlot-V150-Pilot-Product-Focus.apk
+          sha256sum final-apk/Backlot-V150-Pilot-Product-Focus.apk > final-apk/Backlot-V150-Pilot-Product-Focus.sha256
+          test -s final-apk/Backlot-V150-Pilot-Product-Focus.apk
+          cat final-apk/Backlot-V150-Pilot-Product-Focus.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V150-Pilot-Product-Focus
+          path: final-apk/
+          if-no-files-found: error
+          retention-days: 30
