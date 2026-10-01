@@ -113,6 +113,7 @@ internal fun PTodayScreen(
             }
             Spacer(Modifier.height(14.dp))
             V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
+            V148HomeTopPerformersSection(onOpenInsights = onOpenInsights)
             Spacer(Modifier.height(18.dp))
 
             if (selected == null) {
@@ -155,7 +156,12 @@ internal fun PTodayScreen(
                 Spacer(Modifier.height(10.dp))
                 PQueueDots(index, queue.size)
                 Spacer(Modifier.height(12.dp))
-                PNextMoveCard(selected)
+                PNextMoveCard(
+                    task = selected,
+                    alternatives = NextMovePresentation.alternatives(queue, selected.id),
+                    onStart = { onStart(selected.id) },
+                    onOpenProject = onOpenProject,
+                )
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
@@ -225,7 +231,7 @@ private fun V18CreatorFocusCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF171310),
+        color = MutedGold.copy(alpha = .06f),
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .22f)),
     ) {
         Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp)) {
@@ -290,7 +296,7 @@ private fun V20WeeklyFocusDialog(
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory) }
                 }
                 Spacer(Modifier.height(12.dp))
-                Surface(shape = RoundedCornerShape(18.dp), color = Color(0xFF171310), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
+                Surface(shape = RoundedCornerShape(18.dp), color = MutedGold.copy(alpha = .07f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
                     Column(Modifier.padding(14.dp)) {
                         Text("WEEKLY OUTPUT", color = MutedText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(4.dp))
@@ -376,7 +382,7 @@ private fun PTodayProjectCard(task: CreatorTask, onClick: () -> Unit) {
     ) {
         Column(Modifier.padding(19.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(100.dp), color = if (overdue) RecRed.copy(alpha = .14f) else Color(0xFF171410)) {
+                Surface(shape = RoundedCornerShape(100.dp), color = if (overdue) RecRed.copy(alpha = .14f) else CinemaSurfaceRaised) {
                     Text(if (overdue) "OVERDUE" else task.dueLabel.uppercase(Locale.getDefault()), color = if (overdue) RecRed else MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), maxLines = 1)
                 }
                 Spacer(Modifier.weight(1f))
@@ -401,23 +407,139 @@ private fun PTodayProjectCard(task: CreatorTask, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PNextMoveCard(task: CreatorTask) {
+private fun PNextMoveCard(
+    task: CreatorTask,
+    alternatives: List<CreatorTask>,
+    onStart: () -> Unit,
+    onOpenProject: (String) -> Unit,
+) {
     val recommendation = CreatorPriorityEngine.recommendation(task)
     val next = CreatorWorkflowEngine.nextStage(task)
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(19.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
+    var expanded by rememberSaveable(task.id) { mutableStateOf(false) }
+
+    Surface(
+        onClick = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(19.dp),
+        color = CinemaSurfaceRaised,
+        border = BorderStroke(1.dp, if (expanded) RecRed.copy(alpha = .38f) else CinemaLine),
+    ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("NEXT MOVE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.weight(1f))
                 Text(recommendation.urgencyLabel, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Spacer(Modifier.width(5.dp))
+                Icon(
+                    if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    if (expanded) "Collapse Next Move" else "Expand Next Move",
+                    tint = MutedText,
+                    modifier = Modifier.size(17.dp),
+                )
             }
             Spacer(Modifier.height(5.dp))
             Text(recommendation.action, color = ProjectorIvory, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(5.dp))
-            Text(recommendation.reason, color = MutedText, fontSize = 9.3.sp, lineHeight = 13.sp)
-            next?.let {
-                Spacer(Modifier.height(5.dp))
-                Text("After that · ${it.label}", color = MutedText, fontSize = 9.5.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                    Text(task.priority.name, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                }
+                Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                    Text("PRIORITY ${recommendation.score}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                }
+                next?.let {
+                    Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                        Text("NEXT · ${it.label.uppercase(Locale.getDefault())}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), maxLines = 1)
+                    }
+                }
+            }
+
+            if (!expanded) {
+                Spacer(Modifier.height(9.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tap to understand why", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.width(2.dp))
+                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(14.dp))
+                }
+            }
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Column {
+                    Spacer(Modifier.height(13.dp))
+                    HorizontalDivider(color = CinemaLine)
+                    Spacer(Modifier.height(12.dp))
+                    Text("WHY THIS MOVE", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Spacer(Modifier.height(5.dp))
+                    Text(recommendation.reason, color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
+
+                    Spacer(Modifier.height(12.dp))
+                    Text("SIGNALS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        listOf(
+                            "Priority ${task.priority.name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }}",
+                            if (task.status == TaskStatus.WORKING) "Already in progress" else "Ready to start",
+                            task.dueLabel.takeIf { it.isNotBlank() }?.let { "Due $it" },
+                            next?.let { "After this: ${it.label}" },
+                        ).filterNotNull().joinToString(" · "),
+                        color = MutedText,
+                        fontSize = 9.sp,
+                        lineHeight = 13.sp,
+                    )
+
+                    Spacer(Modifier.height(13.dp))
+                    Button(
+                        onClick = onStart,
+                        modifier = Modifier.fillMaxWidth().height(45.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(13.dp),
+                    ) {
+                        Icon(Icons.Outlined.PlayArrow, null, modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("START THIS MOVE", fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                    }
+
+                    if (alternatives.isNotEmpty()) {
+                        Spacer(Modifier.height(14.dp))
+                        Text("ALSO NOW", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                        Spacer(Modifier.height(6.dp))
+                        alternatives.forEach { alternative ->
+                            val alternativeRecommendation = CreatorPriorityEngine.recommendation(alternative)
+                            Surface(
+                                onClick = { onOpenProject(alternative.id) },
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                shape = RoundedCornerShape(13.dp),
+                                color = CinemaSurface,
+                                border = BorderStroke(1.dp, CinemaLine),
+                            ) {
+                                Row(Modifier.padding(horizontal = 11.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(alternative.title, color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(alternativeRecommendation.action, color = MutedText, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(alternativeRecommendation.urgencyLabel, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black)
+                                    Spacer(Modifier.width(3.dp))
+                                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    TextButton(
+                        onClick = { expanded = false },
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Text("HIDE REASONING", color = MutedText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(3.dp))
+                        Icon(Icons.Outlined.ExpandLess, null, tint = MutedText, modifier = Modifier.size(14.dp))
+                    }
+                }
             }
         }
     }

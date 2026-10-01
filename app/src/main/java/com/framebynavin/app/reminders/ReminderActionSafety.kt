@@ -1,5 +1,6 @@
 package com.framebynavin.app.reminders
 
+import com.framebynavin.app.data.CreatorPublicationEngine
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ProjectPulseEngine
 import com.framebynavin.app.data.ReminderMode
@@ -43,8 +44,12 @@ object ReminderActionSafety {
     }
 
     fun stageDone(task: CreatorTask, nowMillis: Long): CreatorTask {
-        if (!isActionable(task) || !ProjectPulseEngine.isStageCheckIn(task)) return task
-        return ProjectPulseEngine.completeCurrentStep(task, nowMillis)
+        if (!isActionable(task) || !ProjectPulseEngine.isStageCheckIn(task) ||
+            !ProjectPulseEngine.canCompleteCurrentStep(task)) return task
+        // Use the same canonical workflow transition as Studio. The reminder surface may only
+        // advance an already-published publication stage; it never infers publication itself.
+        val advanced = CreatorPublicationEngine.advance(task, nowMillis)
+        return ProjectPulseEngine.afterWorkflowStageChanged(task, advanced, nowMillis)
     }
 
     fun snooze(task: CreatorTask, atMillis: Long, nowMillis: Long): CreatorTask {

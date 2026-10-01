@@ -36,7 +36,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
     Surface(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
         RoundedCornerShape(20.dp),
-        Color(0xFF151618),
+        CinemaSurface,
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -116,7 +116,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
 
 @Composable
 private fun WorkflowMini(label: String, value: String, modifier: Modifier) {
-    Surface(modifier, RoundedCornerShape(13.dp), Color(0xFF202124)) {
+    Surface(modifier, RoundedCornerShape(13.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(9.dp)) {
             Text(label, color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Bold, letterSpacing = .45.sp)
             Text(value, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)

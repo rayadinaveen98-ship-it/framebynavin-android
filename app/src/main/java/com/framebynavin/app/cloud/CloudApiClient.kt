@@ -137,6 +137,7 @@ class CloudApiClient {
             email = user?.optString("email").orEmpty().ifBlank { fallback?.email.orEmpty() },
             displayName = metadata?.optString("full_name").orEmpty()
                 .ifBlank { metadata?.optString("name").orEmpty() }
+                .ifBlank { metadata?.optString("given_name").orEmpty() }
                 .ifBlank { fallback?.displayName.orEmpty() },
             avatarUrl = metadata?.optString("avatar_url").orEmpty()
                 .ifBlank { metadata?.optString("picture").orEmpty() }

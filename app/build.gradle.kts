@@ -53,8 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 139
-        versionName = "2.0.0-rc12-theme-system-finalization"
+        // Backlot V149 Supabase + voice reminder reliability candidate.
+        versionCode = 149
+        versionName = "2.0.0-rc26-supabase-voice-reminder-fix"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

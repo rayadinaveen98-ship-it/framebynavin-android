@@ -73,7 +73,7 @@ internal fun V127SetupGuideStrip(page: Int) {
                 FrameGuideCompanion(poses[index], Modifier.size(width = 68.dp, height = 80.dp), pointRight = true)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(BacklotCharacterPrefs.currentCharacter.displayName.uppercase(), color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Text(V144GuidePrefs.currentGuide.displayName.uppercase(), color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(2.dp))
                     Text(tips[index], color = ProjectorIvory, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium)
                 }

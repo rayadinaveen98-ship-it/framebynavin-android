@@ -31,7 +31,7 @@ import com.framebynavin.app.youtube.*
 import java.util.Locale
 import kotlin.math.abs
 
-private enum class V172InsightsTab { OVERVIEW, CONTENT, CREATOR }
+private enum class V172InsightsTab { OVERVIEW, CONTENT, REVENUE, CREATOR }
 
 @Composable
 internal fun V172InsightsBody(
@@ -39,6 +39,9 @@ internal fun V172InsightsBody(
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     links: Map<String, String>,
+    foundationRevision: Int = 0,
+    foundationLoading: Boolean = false,
+    onCreateProject: () -> Unit = {},
     onLinkVideo: (YouTubeVideoSnapshot) -> Unit,
 ) {
     var tabName by rememberSaveable { mutableStateOf(V172InsightsTab.OVERVIEW.name) }
@@ -49,6 +52,18 @@ internal fun V172InsightsBody(
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
     val detail = videos.firstOrNull { it.video.videoId == detailVideoId }
 
+    LaunchedEffect(V148InsightsRouteState.pendingVideoId, snapshot.fetchedAtMillis) {
+        val requested = v148ResolveRequestedVideoId(
+            availableVideoIds = videos.map { it.video.videoId },
+            requestedVideoId = V148InsightsRouteState.pendingVideoId,
+        )
+        if (requested != null) {
+            tabName = V172InsightsTab.CONTENT.name
+            detailVideoId = requested
+            V148InsightsRouteState.clear()
+        }
+    }
+
     V172TabRow(tab) { tabName = it.name }
     Spacer(Modifier.height(16.dp))
 
@@ -58,10 +73,14 @@ internal fun V172InsightsBody(
             tasks = tasks,
             ideas = ideas,
             links = links,
+            foundationRevision = foundationRevision,
+            foundationLoading = foundationLoading,
+            onCreateProject = onCreateProject,
             onVideo = { detailVideoId = it.videoId },
             onDetail = { insightDetail = it },
         )
         V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }
+        V172InsightsTab.REVENUE -> V144YouTubeRevenueIntegration(snapshot)
         V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }
     }
 
@@ -102,7 +121,7 @@ private fun V172TabRow(selected: V172InsightsTab, onSelect: (V172InsightsTab) ->
     Surface(
         Modifier.fillMaxWidth(),
         RoundedCornerShape(18.dp),
-        Color(0xFF151517),
+        CinemaSurface,
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Row(Modifier.padding(5.dp)) {
@@ -112,7 +131,7 @@ private fun V172TabRow(selected: V172InsightsTab, onSelect: (V172InsightsTab) ->
                     onClick = { onSelect(tab) },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(13.dp),
-                    color = if (active) Color(0xFF2A2323) else Color.Transparent,
+                    color = if (active) BacklotSurfaceSelected else Color.Transparent,
                 ) {
                     Text(
                         tab.name.lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase() },
@@ -134,12 +153,15 @@ private fun V172Overview(
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     links: Map<String, String>,
+    foundationRevision: Int,
+    foundationLoading: Boolean,
+    onCreateProject: () -> Unit,
     onVideo: (YouTubeVideoSnapshot) -> Unit,
     onDetail: (V20InsightsDrilldownRequest) -> Unit,
 ) {
     V172PulseCard(snapshot, onDetail)
     Spacer(Modifier.height(10.dp))
-    V20InsightsFoundationCard(snapshot)
+    V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading, onCreateProject = onCreateProject)
     Spacer(Modifier.height(18.dp))
 
     Text("THIS IS WHAT MATTERS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
@@ -155,10 +177,10 @@ private fun V172Overview(
 
     val top = YouTubeInsightEngine.videoPerformance(snapshot).take(3)
     Text("TOP VIDEOS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("The videos driving your channel right now.", color = MutedText, fontSize = 9.sp)
+    Text("The videos leading this finalized Analytics window.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     if (top.isEmpty()) V172Empty("Refresh YouTube to see which videos are performing best.")
-    else top.forEachIndexed { index, performance -> V172VideoRow(index + 1, performance, onVideo) }
+    else top.forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
 }
 
 @Composable
@@ -192,13 +214,13 @@ private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot, onDetail: (V20Insi
     }
 }
 
-private val BrushCard = Color(0xFF171413)
+private val BrushCard: Color get() = MutedGold.copy(alpha = .06f)
 
 @Composable
 private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Unit) {
     val positive = (metric.percentChange ?: 0) > 0
     val negative = (metric.percentChange ?: 0) < 0
-    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), Color(0xFF202020)) {
+    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(metric.label, color = MutedText, fontSize = 7.3.sp, fontWeight = FontWeight.Bold, letterSpacing = .6.sp, modifier = Modifier.weight(1f))
@@ -252,6 +274,15 @@ private fun V172SignalCard(signal: YouTubeInsightSignal, onClick: () -> Unit) {
             Text(signal.title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(3.dp))
             Text(signal.body, color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+            Spacer(Modifier.height(7.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${signal.confidence}% CONFIDENCE", color = accent.copy(alpha = .88f), fontSize = 6.8.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.ChevronRight, "Open evidence", tint = MutedText, modifier = Modifier.size(14.dp))
+            }
+            signal.action?.let { action ->
+                Spacer(Modifier.height(4.dp))
+                Text("NEXT · $action", color = ProjectorIvory.copy(alpha = .86f), fontSize = 8.1.sp, lineHeight = 11.5.sp, fontWeight = FontWeight.Medium)
+            }
         }
     }
 }
@@ -266,7 +297,7 @@ private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Uni
                 Text("DAILY VIEWS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
                 Icon(Icons.Outlined.ChevronRight, "Open daily views", tint = MutedText, modifier = Modifier.size(18.dp))
             }
-            Text("Last ${points.size} days", color = MutedText, fontSize = 8.5.sp)
+            Text("Last ${points.size} reported days", color = MutedText, fontSize = 8.5.sp)
             Spacer(Modifier.height(13.dp))
             if (points.isEmpty()) Text("No daily trend data yet.", color = MutedText, fontSize = 9.sp)
             else Row(Modifier.fillMaxWidth().height(74.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
@@ -291,11 +322,11 @@ private fun V172Content(
     onVideo: (YouTubeVideoSnapshot) -> Unit,
 ) {
     Text("VIDEO PERFORMANCE", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("See which videos performed best in this period.", color = MutedText, fontSize = 9.sp)
+    Text("See which videos performed best in this finalized Analytics period.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
     if (videos.isEmpty()) V172Empty("No video performance data yet.")
-    else videos.take(12).forEachIndexed { index, performance -> V172VideoRow(index + 1, performance, onVideo) }
+    else videos.take(12).forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
 
     Spacer(Modifier.height(18.dp))
     Text("WHAT WORKS BEST", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
@@ -333,7 +364,7 @@ private fun V172VideoRow(rank: Int, performance: YouTubeVideoPerformance, onVide
                     val difference = ((performance.baselineMultiple - 1.0) * 100).toInt()
                     if (difference >= 0) "$difference% above your usual" else "${abs(difference)}% below your usual"
                 } else "Learning your usual performance"
-                Text("$baseline · ${performance.viewSharePercent}% of views this period", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text("$baseline · ${performance.viewSharePercent}% of views in this finalized window", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
@@ -357,8 +388,8 @@ private fun V172FormatCard(rank: Int, format: YouTubeFormatPerformance) {
             }
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                V172Mini("SUBSCRIBERS", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))
-                V172Mini("ENGAGEMENT", String.format(Locale.US, "%.1f", format.engagementPerThousandViews), Modifier.weight(1f))
+                V172Mini("SUBS / 1K VIEWS", String.format(Locale.US, "%.1f", format.subscribersPerThousandViews), Modifier.weight(1f))
+                V172Mini("ENGAGEMENT / 1K", String.format(Locale.US, "%.1f", format.engagementPerThousandViews), Modifier.weight(1f))
                 V172Mini("AVG VIEW", v172Duration(format.averageViewDurationSeconds), Modifier.weight(1f))
             }
         }
@@ -439,6 +470,7 @@ private fun V172VideoDetailDialog(
     onLink: () -> Unit,
 ) {
     val video = performance.video
+    var showDeepAnalytics by rememberSaveable(video.videoId) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -454,7 +486,7 @@ private fun V172VideoDetailDialog(
                     val difference = ((performance.baselineMultiple - 1.0) * 100).toInt()
                     if (difference >= 0) "$difference% above your usual" else "${abs(difference)}% below your usual"
                 } else "Learning your usual performance"
-                Text("$baseline · ${performance.viewSharePercent}% of views in this period", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("$baseline · ${performance.viewSharePercent}% of views in this finalized window", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     V172Mini("VIEWS", v172Compact(video.periodViews), Modifier.weight(1f))
@@ -471,7 +503,7 @@ private fun V172VideoDetailDialog(
                     V172Mini("COMMENTS", v172Compact(video.comments), Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(12.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF1C1C1E)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised) {
                     Column(Modifier.padding(12.dp)) {
                         Text("CONNECTED PROJECT", color = MutedText, fontSize = 7.7.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(3.dp))
@@ -480,7 +512,30 @@ private fun V172VideoDetailDialog(
                 }
                 linkedTask?.let { task ->
                     Spacer(Modifier.height(12.dp))
-                    V20VideoPostmortemCard(task = task, video = video, windowDays = windowDays)
+                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), MutedGold.copy(alpha = .06f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text("QUICK READ", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black)
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                when {
+                                    performance.baselineMultiple >= 1.5 -> "This is clearly outperforming your recent-video baseline. Study the promise, opening and packaging before making a related follow-up."
+                                    performance.baselineMultiple in 0.01..0.75 -> "This is below your recent-video baseline. Check packaging and early pacing before repeating the same approach."
+                                    video.netSubscribers > 0 -> "Performance is near your baseline, but it is converting some viewers into subscribers. Preserve what earns that commitment."
+                                    else -> "Performance is near your current baseline. Collect more evidence before making a large strategy change."
+                                },
+                                color = ProjectorIvory,
+                                fontSize = 8.7.sp,
+                                lineHeight = 12.5.sp,
+                            )
+                            TextButton(onClick = { showDeepAnalytics = !showDeepAnalytics }, contentPadding = PaddingValues(0.dp)) {
+                                Text(if (showDeepAnalytics) "HIDE DEEP ANALYTICS" else "VIEW DEEP ANALYTICS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
+                    if (showDeepAnalytics) {
+                        Spacer(Modifier.height(8.dp))
+                        V20VideoPostmortemCard(task = task, video = video, windowDays = windowDays)
+                    }
                 }
             }
         },
@@ -498,7 +553,7 @@ private fun V172VideoDetailDialog(
 
 @Composable
 private fun V172Mini(label: String, value: String, modifier: Modifier) {
-    Surface(modifier, RoundedCornerShape(12.dp), Color(0xFF202022)) {
+    Surface(modifier, RoundedCornerShape(12.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(horizontal = 9.dp, vertical = 9.dp)) {
             Text(label, color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             Spacer(Modifier.height(2.dp))

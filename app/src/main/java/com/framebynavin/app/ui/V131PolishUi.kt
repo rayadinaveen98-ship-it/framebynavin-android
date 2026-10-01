@@ -106,7 +106,7 @@ internal fun V131CinematicWelcome() {
     Box(
         Modifier.fillMaxSize().background(
             Brush.radialGradient(
-                listOf(RecRed.copy(alpha = .13f), Color(0xFF0B0B0D), CinemaBlack),
+                listOf(RecRed.copy(alpha = .13f), CinemaSurface, CinemaBlack),
                 radius = 1150f,
             )
         ),

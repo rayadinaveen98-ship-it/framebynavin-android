@@ -40,6 +40,8 @@
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.EscalationReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderActionReceiver" android:exported="false" />
+        <receiver android:name=".reminders.IdeaReminderReceiver" android:exported="false" />
+        <receiver android:name=".reminders.IdeaReminderActionReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderRecoveryReceiver" android:enabled="true" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

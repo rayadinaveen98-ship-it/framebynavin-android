@@ -17,6 +17,7 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
                 val appContext = context.applicationContext
                 ReminderHealthScheduler.ensurePeriodic(appContext)
                 ReminderRecoveryEngine.reconcile(appContext)
+                IdeaReminderScheduler(appContext).reconcile()
             } finally {
                 pendingResult.finish()
             }

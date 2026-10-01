@@ -1,18 +1,21 @@
 package com.framebynavin.app.ui
 
 import android.os.Bundle
+import android.graphics.drawable.ColorDrawable
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.*
-import com.framebynavin.app.ui.theme.FrameByNavinTheme
+import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,26 +43,28 @@ class ContentWorkspaceActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        VisualExperiencePrefs.initialize(applicationContext)
+        window.setBackgroundDrawable(ColorDrawable(BacklotBackground.toArgb()))
         restoreModeAfterLoad = savedInstanceState?.getString(STATE_EDITOR_MODE)?.let { saved ->
             runCatching { Alpha6WorkspaceMode.valueOf(saved) }.getOrNull()
         }?.takeUnless { it == Alpha6WorkspaceMode.HUB }
         val projectId = intent.getStringExtra(EXTRA_PROJECT_ID).orEmpty()
         setContent {
             FrameByNavinTheme {
-                Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().background(BacklotBackground)) {
                     when {
-                        error != null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                        error != null -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
                             Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-                                Text("Workspace needs attention", color = Color.White)
+                                Text("Workspace needs attention", color = ProjectorIvory)
                                 Spacer(Modifier.height(8.dp))
-                                Text(error.orEmpty(), color = Color.LightGray)
+                                Text(error.orEmpty(), color = MutedText)
                                 Spacer(Modifier.height(12.dp))
                                 Button(onClick = { load(projectId) }) { Text("RELOAD PROJECT") }
                                 TextButton(onClick = { error = null; mode = Alpha6WorkspaceMode.HUB }) { Text("BACK TO HUB") }
                                 TextButton(onClick = { finish() }) { Text("CLOSE") }
                             }
                         }
-                        task == null -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                        task == null -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
                             Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                                 CircularProgressIndicator()
                             }
@@ -102,7 +107,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onDismiss = { confirmEditorClose = true },
                             onSave = { id, revision, workspace -> saveProject(id, revision, workspace, Alpha6WorkspaceMode.PUBLISH) },
                         )
-                        else -> Surface(Modifier.fillMaxSize(), color = Color(0xFF101010)) {
+                        else -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
                             Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                                 CircularProgressIndicator()
                             }

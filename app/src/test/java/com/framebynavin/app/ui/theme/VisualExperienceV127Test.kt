@@ -9,19 +9,13 @@ import org.junit.Test
 
 class VisualExperienceV127Test {
     @Test
-    fun `v139 ships ten distinct selectable visual languages`() {
-        assertEquals(10, FrameTheme.entries.size)
-        assertEquals(10, FrameTheme.entries.map { it.displayName }.distinct().size)
-        assertEquals(10, FrameTheme.entries.map { it.palette.primary }.distinct().size)
-        assertEquals(10, FrameTheme.entries.map { it.profile.visualLanguage }.distinct().size)
-        assertTrue(FrameTheme.entries.any { it.displayName == "Studio Gold" })
-        assertTrue(FrameTheme.entries.any { it.displayName == "Ivory Atelier" })
-        assertTrue(FrameTheme.entries.any { it.displayName == "Paper Quiet" })
-        assertTrue(FrameTheme.entries.any { it.displayName == "Moss Studio" })
-        assertTrue(FrameTheme.entries.any { it.displayName == "Terracotta Calm" })
-        assertTrue(FrameTheme.entries.any { it.displayName == "Night Bloom" })
-        assertTrue(FrameTheme.entries.any { it.displayName == "Blue Hour" })
-        assertTrue(FrameTheme.entries.any { it.displayName == "Storyboard" })
+    fun `v148 exposes only Directors Cut and Light`() {
+        assertEquals(
+            listOf(FrameTheme.DIRECTORS_CUT, FrameTheme.BACKLOT_LIGHT),
+            BacklotSelectableAppearances,
+        )
+        assertTrue(BacklotSelectableAppearances.all { it.selectable })
+        assertEquals(2, BacklotSelectableAppearances.map { it.displayName }.distinct().size)
     }
 
     @Test
@@ -32,36 +26,38 @@ class VisualExperienceV127Test {
         assertEquals(Color(0xFFF4F0E8), director.palette.foreground)
         assertEquals(FrameVisualLanguage.CINEMATIC, director.profile.visualLanguage)
         assertFalse(director.palette.isLight)
+        assertTrue(director.selectable)
     }
 
     @Test
-    fun `yellow v138 direction lives separately as Studio Gold`() {
-        val studioGold = FrameTheme.STUDIO_GOLD
-        assertEquals(Color(0xFFF4C430), studioGold.palette.primary)
-        assertEquals(FrameVisualLanguage.LUXE, studioGold.profile.visualLanguage)
-        assertNotEquals(FrameTheme.DIRECTORS_CUT.palette.primary, studioGold.palette.primary)
+    fun `Light is a true light translation of Directors Cut`() {
+        val dark = FrameTheme.DIRECTORS_CUT
+        val light = FrameTheme.BACKLOT_LIGHT
+        assertTrue(light.palette.isLight)
+        assertTrue(light.selectable)
+        assertNotEquals(dark.palette.background, light.palette.background)
+        assertNotEquals(dark.palette.foreground, light.palette.foreground)
+        assertEquals(dark.profile, light.profile)
+        assertEquals(FrameVisualLanguage.CINEMATIC, light.profile.visualLanguage)
     }
 
     @Test
-    fun `every palette preserves readable semantic separation`() {
-        FrameTheme.entries.forEach { theme ->
+    fun `retired theme ids remain migration only and cannot be selected`() {
+        val retired = FrameTheme.entries.filterNot { it in BacklotSelectableAppearances }
+        assertEquals(9, retired.size)
+        assertTrue(retired.all { !it.selectable })
+        assertTrue(retired.all { it.palette == FrameTheme.DIRECTORS_CUT.palette })
+        assertTrue(retired.all { it.profile == FrameTheme.DIRECTORS_CUT.profile })
+    }
+
+    @Test
+    fun `both supported palettes preserve readable semantic separation`() {
+        BacklotSelectableAppearances.forEach { theme ->
             assertNotEquals(theme.palette.background, theme.palette.foreground)
             assertNotEquals(theme.palette.surface, theme.palette.primary)
             assertNotEquals(theme.palette.primary, theme.palette.secondary)
-            assertTrue(theme.profile.cardRadius.value >= 0f)
+            assertTrue(theme.profile.cardRadius.value > 0f)
             assertTrue(theme.profile.sectionGap.value > 0f)
         }
-    }
-
-    @Test
-    fun `v139 spans light dark editorial organic and production moods`() {
-        assertTrue(FrameTheme.LUMEN_FLOW.palette.isLight)
-        assertTrue(FrameTheme.PAPER_QUIET.palette.isLight)
-        assertTrue(FrameTheme.STORYBOARD.palette.isLight)
-        assertEquals(FrameSurfacePersonality.EDITORIAL, FrameTheme.PAPER_QUIET.palette.surfacePersonality)
-        assertEquals(FrameSurfacePersonality.EDITORIAL, FrameTheme.EMBER.palette.surfacePersonality)
-        assertFalse(FrameTheme.MOSS_STUDIO.palette.isLight)
-        assertFalse(FrameTheme.VIOLET_NEON.palette.isLight)
-        assertEquals(FrameVisualLanguage.STORYBOARD, FrameTheme.STORYBOARD.profile.visualLanguage)
     }
 }

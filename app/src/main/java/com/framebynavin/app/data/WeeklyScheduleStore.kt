@@ -30,14 +30,23 @@ class WeeklyScheduleStore(private val context: Context) {
 
     suspend fun loadOrSeed(): List<WeeklyScheduleSlot> = CreatorDataGate.transaction {
         val prefs = context.weeklyScheduleDataStore.data.first()
-        val raw = prefs[slotsKey] ?: return@transaction emptyList()
+        val raw = prefs[slotsKey]
+        if (raw == null) {
+            val seeded = WeeklyScheduleEngine.defaultSlots()
+            mutationMutex.withLock { saveUnlocked(seeded) }
+            return@transaction seeded
+        }
         val decoded = runCatching { decode(raw) }.getOrElse { cause ->
             val backup = prefs[backupKey] ?: throw IllegalStateException("Weekly plan is unreadable. The original has been retained.", cause)
             runCatching { decode(backup) }.getOrElse { throw IllegalStateException("Both weekly plan copies are unreadable.", it) }
         }
         val cleaned = decoded.filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
-        if (cleaned.size != decoded.size) save(cleaned)
-        cleaned
+        val migrated = cleaned.map(WeeklyScheduleEngine::migratePresetSlot)
+        val resolved = if (migrated.isEmpty()) WeeklyScheduleEngine.defaultSlots() else migrated
+        if (resolved != decoded) {
+            mutationMutex.withLock { saveUnlocked(resolved) }
+        }
+        resolved
     }
 
     suspend fun save(slots: List<WeeklyScheduleSlot>)= CreatorDataGate.transaction {
@@ -48,7 +57,9 @@ class WeeklyScheduleStore(private val context: Context) {
 
     private suspend fun loadRaw(): List<WeeklyScheduleSlot> {
         val raw = context.weeklyScheduleDataStore.data.first()[slotsKey] ?: return emptyList()
-        return decode(raw).filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
+        return decode(raw)
+            .filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
+            .map(WeeklyScheduleEngine::migratePresetSlot)
     }
 
     suspend fun applyDelta(base: List<WeeklyScheduleSlot>, desired: List<WeeklyScheduleSlot>, expectedGeneration: Long): List<WeeklyScheduleSlot> = CreatorDataGate.transaction {

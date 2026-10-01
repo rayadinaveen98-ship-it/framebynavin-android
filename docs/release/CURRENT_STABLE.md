@@ -1,52 +1,51 @@
 # Backlot Current Stable
 
-## Status
+## Stable checkpoint
 
-**LOCKED FOR DAILY-USE VALIDATION**
+**Backlot V149 / RC26 – Supabase Voice Reminder Fix** is the current stable daily-use checkpoint.
 
-As of 2026-09-15, Backlot **v139** is the current stable daily-use build. We are intentionally holding feature work on this snapshot while it is used on a real device for several days and practical issues are collected.
+- Version code: `149`
+- Binary version name: `2.0.0-rc26-supabase-voice-reminder-fix`
+- Stable branch: `stable/backlot-v149`
+- Manually verified application source head: `ac4b7b3ff961d7af39bcdfa3b88c3ffe17a2bed1`
+- Android APK workflow run for verified source: `36799359846`
+- CI result: `success`
+- Manual/real-device verification: passed on October 1, 2026
 
-## Exact frozen snapshot
+## Stable scope
 
-- App: **Backlot**
-- Version code: **139**
-- Version name: `2.0.0-rc12-theme-system-finalization`
-- Validated source commit: `a02057599e75e5af2fdc8f581074585c8587e1f9`
-- Frozen branch: `release/backlot-v139-final`
-- Development lineage: `feature/v139-theme-system-finalization`
-- CI workflow run: `34986413539`
-- CI result: **SUCCESS**
+The V149 stable checkpoint includes the Supabase/voice-reminder reliability work and the V149 hardening pass. In particular, it preserves:
 
-The frozen release branch points exactly at the validated source commit above. Do not move or develop directly on `release/backlot-v139-final`.
+- Google/cached account first-name preference for spoken reminders, with safe fallbacks;
+- `given_name` identity support;
+- duplicate reminder-occurrence suppression so speech does not restart unexpectedly;
+- full reminder sentence freezing before TTS starts;
+- repeat timing that waits for the current utterance to complete;
+- explicit manual Replay behavior;
+- reminder scheduling and recovery hardening;
+- secure backup/restore hardening;
+- creator/settings/cloud-sync reliability coverage added during V149.
 
-## Validation completed
+## Verification decision
 
-The v139 workflow completed successfully with:
+The application source at `ac4b7b3ff961d7af39bcdfa3b88c3ffe17a2bed1` passed the repository Android pipeline and was manually verified on a real device. The Supabase identity and voice-reminder behavior were reported working as expected, so RC26 is promoted to the current stable checkpoint.
 
-- v139 theme contract verification
-- user-facing Backlot brand audit
-- unit tests
-- Kotlin compilation
-- debug APK assembly
-- installable APK artifact packaging/upload
+The binary version string remains unchanged intentionally. Changing the application version payload after manual verification would create a different build than the one that was actually tested. Stability is therefore recorded by this frozen Git checkpoint and release documentation.
 
-Physical-device visual and day-to-day UX validation remain intentionally in progress through real usage.
+## Branch policy
 
-## Daily-use APK
+- `stable/backlot-v149` is the frozen rollback/reference branch for this checkpoint.
+- Do not add feature work directly to the stable branch.
+- `main` should represent this checkpoint after integration.
+- New product work should start from the updated `main`/V149 stable baseline.
 
-- Artifact name: `Backlot-v139-ThemeSystem.apk`
-- SHA-256: `5414831f8ef40177cec3746c29b2d755cce180abcc489f3bad78cf1363eb62bd`
+## Ongoing beta validation
 
-## Product state locked in v139
+The following are useful broader beta-validation areas, but they are not blockers for the V149 stable checkpoint:
 
-- Backlot is the user-facing product identity.
-- Director's Cut is restored as the classic Backlot black/red visual identity.
-- Studio Gold remains a separate visual language.
-- Ten theme systems are available for real-device evaluation.
-- Frame/Navi guide identity and the current personalization system remain part of the build.
-- The current splash/launcher Backlot identity remains part of the build.
-- Quick Idea follows the active visual language.
+- additional offline/online sync and account-switch stress coverage;
+- backup/restore testing across more devices/accounts;
+- YouTube Insights comparisons against YouTube Studio across additional data sets;
+- onboarding usability studies with new creators.
 
-## Rule for the next iteration
-
-Do not change the frozen v139 branch. Collect observations from daily use first. When development resumes, preserve this branch as the rollback/reference point and make the next version from the current main lineage in a new feature branch.
+Preserve an independent backup before installing future development candidates with irreplaceable creator data.

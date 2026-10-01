@@ -121,7 +121,7 @@ internal fun V09ReleaseDayScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp).clickable { outputs = if (selected) outputs - output else outputs + output },
                     shape = RoundedCornerShape(17.dp),
-                    color = if (selected) Color(0xFF19120F) else CinemaSurface,
+                    color = if (selected) RecRed.copy(alpha = .07f) else CinemaSurface,
                     border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) RecRed.copy(alpha = .6f) else CinemaLine),
                 ) {
                     Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -138,7 +138,7 @@ internal fun V09ReleaseDayScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth().clickable { deepDive = !deepDive },
                 shape = RoundedCornerShape(17.dp),
-                color = if (deepDive) Color(0xFF15130E) else CinemaSurface,
+                color = if (deepDive) MutedGold.copy(alpha = .07f) else CinemaSurface,
                 border = androidx.compose.foundation.BorderStroke(1.dp, if (deepDive) MutedGold.copy(alpha = .55f) else CinemaLine),
             ) {
                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -176,7 +176,7 @@ internal fun V09ReleaseDayScreen(
 
             result?.let { launch ->
                 Spacer(Modifier.height(13.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), Color(0xFF101812), border = androidx.compose.foundation.BorderStroke(1.dp, SuccessGreen.copy(alpha = .38f))) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), SuccessGreen.copy(alpha = .08f), border = androidx.compose.foundation.BorderStroke(1.dp, SuccessGreen.copy(alpha = .38f))) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen)
                         Spacer(Modifier.width(9.dp))

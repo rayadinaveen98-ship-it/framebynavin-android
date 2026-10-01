@@ -1,0 +1,46 @@
+name: Insights V2 Phase 3 Apply
+
+on:
+  push:
+    branches:
+      - feature/v145-insights-v2-major
+    paths:
+      - .github/workflows/insights-v2-phase3-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v145-insights-v2-major
+          fetch-depth: 0
+      - name: Apply compile fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt')
+          s = p.read_text()
+          old = '''    onBrainControl: ((String, CreatorBrainLearningControl) -> Unit)?,
+              onAction: ((CreatorOpportunity) -> Unit)?,
+              actionLabelOverride: String? = null,
+          ) {'''.replace('              ', '    ')
+          new = '''    onBrainControl: ((String, CreatorBrainLearningControl) -> Unit)?,
+              actionLabelOverride: String? = null,
+              onAction: ((CreatorOpportunity) -> Unit)?,
+          ) {'''.replace('              ', '    ')
+          if s.count(old) != 1:
+              raise SystemExit('Expected opportunity signature once')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V20OpportunityEngineUi.kt
+          git diff --cached --check
+          git commit -m "fix(insights): keep opportunity action as trailing lambda"
+          git push origin HEAD:feature/v145-insights-v2-major

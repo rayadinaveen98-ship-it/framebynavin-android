@@ -196,16 +196,8 @@ object CreatorWidgetUpdater {
     }
 
     private fun themeBackground(): Int = when (VisualExperiencePrefs.currentTheme) {
-        FrameTheme.DIRECTORS_CUT -> R.drawable.widget_bg_directors
-        FrameTheme.STUDIO_GOLD -> R.drawable.widget_bg_studio_gold
-        FrameTheme.MIDNIGHT -> R.drawable.widget_bg_midnight
-        FrameTheme.LUMEN_FLOW -> R.drawable.widget_bg_lumen
-        FrameTheme.PAPER_QUIET -> R.drawable.widget_bg_paper
-        FrameTheme.MOSS_STUDIO -> R.drawable.widget_bg_moss
-        FrameTheme.EMBER -> R.drawable.widget_bg_ember
-        FrameTheme.VIOLET_NEON -> R.drawable.widget_bg_violet
-        FrameTheme.AURORA_GLASS -> R.drawable.widget_bg_aurora
-        FrameTheme.STORYBOARD -> R.drawable.widget_bg_storyboard
+        FrameTheme.BACKLOT_LIGHT -> R.drawable.widget_bg_light
+        else -> R.drawable.widget_bg_directors
     }
 
     private fun activeTasks(tasks: List<CreatorTask>): List<CreatorTask> = tasks

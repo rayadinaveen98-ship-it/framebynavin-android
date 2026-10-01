@@ -17,7 +17,7 @@ class V18UxIdentityAlpha15UiTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun captureLivesInCenterNavAndCalendarIsNotPrimary() {
+    fun createProjectLivesInCenterNavAndCalendarIsNotPrimary() {
         var captured = false
         composeRule.setContent {
             PBottomNav(
@@ -28,7 +28,7 @@ class V18UxIdentityAlpha15UiTest {
         }
 
         composeRule.onAllNodesWithText("Calendar").assertCountEquals(0)
-        composeRule.onNodeWithContentDescription("Capture idea").performClick()
+        composeRule.onNodeWithContentDescription("Create project").performClick()
         composeRule.runOnIdle { assertTrue(captured) }
     }
 }

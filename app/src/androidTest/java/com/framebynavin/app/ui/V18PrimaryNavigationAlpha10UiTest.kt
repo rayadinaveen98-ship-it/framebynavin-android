@@ -29,7 +29,7 @@ class V18PrimaryNavigationAlpha10UiTest {
             "Ideas" to PTab.IDEAS,
             "Create" to PTab.CREATE,
             "Insights" to PTab.INSIGHTS,
-            "Today" to PTab.TODAY,
+            "Home" to PTab.TODAY,
         ).forEach { (label, expected) ->
             composeRule.onNodeWithText(label).performClick()
             composeRule.runOnIdle { assertEquals(expected, selected) }

@@ -30,11 +30,19 @@ enum class ProjectAttentionPlan {
     CUSTOM,
 }
 
+/**
+ * Persisted enum IDs. Existing four values keep their original names for backup/preferences
+ * compatibility; v140 appends four character styles without renaming historical data.
+ */
 enum class VoicePersona {
     WARM,
     YOUNG,
     MAN,
     WOMAN,
+    FUNNY,
+    CARTOON,
+    ALIEN,
+    ROBOT,
 }
 
 enum class CreatorTaskOrigin {

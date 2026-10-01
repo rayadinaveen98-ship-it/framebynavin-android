@@ -1,0 +1,356 @@
+name: V147 Device Stability Fix
+
+on:
+  push:
+    branches:
+      - fix/v147-device-stability
+    paths:
+      - .github/workflows/v147-device-stability.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout stability branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/v147-device-stability
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply V147 device stability fixes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one exact match in {path}, found {count}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          def regex_once(path, pattern, replacement):
+              p = Path(path)
+              text = p.read_text()
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f"Expected one regex match in {path}, found {count}: {pattern[:120]!r}")
+              p.write_text(updated)
+
+          # 1) Revenue: keep core earnings independent from optional CPM/trend/content reports.
+          revenue = "app/src/main/java/com/framebynavin/app/youtube/YouTubeRevenue.kt"
+          new_sync = r'''    fun sync(
+              accessToken: String,
+              period: YouTubeRevenuePeriod,
+              today: LocalDate = LocalDate.now(),
+              currencyCode: String = deviceCurrencyCode(),
+          ): YouTubeRevenueSnapshot {
+              val range = rangeFor(period, today)
+              val common = mapOf(
+                  "ids" to "channel==MINE",
+                  "startDate" to range.first.toString(),
+                  "endDate" to range.second.toString(),
+                  "currency" to currencyCode,
+              )
+
+              // Earnings are the critical report. Optional ad-rate, trend and content reports must
+              // never blank the whole Revenue card when YouTube temporarily rejects one dataset.
+              val summary = queryReport(
+                  accessToken,
+                  common + ("metrics" to "views,estimatedRevenue,estimatedAdRevenue,monetizedPlaybacks"),
+              ).firstOrNull().orEmpty()
+
+              val adSummary = runCatching {
+                  queryReport(
+                      accessToken,
+                      common + ("metrics" to "playbackBasedCpm,cpm,adImpressions"),
+                  ).firstOrNull().orEmpty()
+              }.getOrDefault(emptyMap())
+
+              val trend = runCatching {
+                  queryReport(
+                      accessToken,
+                      common + mapOf(
+                          "dimensions" to "day",
+                          "metrics" to "estimatedRevenue",
+                          "sort" to "day",
+                      ),
+                  ).mapNotNull { row ->
+                      val day = row["day"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                      YouTubeRevenuePoint(day, row.double("estimatedRevenue"))
+                  }
+              }.getOrDefault(emptyList())
+
+              val content = runCatching {
+                  queryReport(
+                      accessToken,
+                      common + mapOf(
+                          "dimensions" to "video,creatorContentType",
+                          "metrics" to "views,estimatedRevenue,estimatedAdRevenue,monetizedPlaybacks",
+                          "sort" to "-estimatedRevenue",
+                          "maxResults" to "50",
+                      ),
+                  ).mapNotNull { row ->
+                      val videoId = row["video"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                      YouTubeRevenueContentRow(
+                          videoId = videoId,
+                          creatorContentType = row["creatorContentType"]?.toString().orEmpty(),
+                          views = row.long("views"),
+                          estimatedRevenue = row.double("estimatedRevenue"),
+                          estimatedAdRevenue = row.double("estimatedAdRevenue"),
+                          monetizedPlaybacks = row.long("monetizedPlaybacks"),
+                      )
+                  }
+              }.getOrDefault(emptyList())
+
+              return YouTubeRevenueSnapshot(
+                  period = period,
+                  startDate = range.first.toString(),
+                  endDate = range.second.toString(),
+                  currencyCode = currencyCode,
+                  views = summary.long("views"),
+                  estimatedRevenue = summary.double("estimatedRevenue"),
+                  estimatedAdRevenue = summary.double("estimatedAdRevenue"),
+                  playbackBasedCpm = adSummary.double("playbackBasedCpm"),
+                  impressionCpm = adSummary.double("cpm"),
+                  monetizedPlaybacks = summary.long("monetizedPlaybacks"),
+                  adImpressions = adSummary.long("adImpressions"),
+                  trend = trend,
+                  content = content,
+                  fetchedAtMillis = System.currentTimeMillis(),
+              )
+          }
+
+          internal fun rangeFor'''
+          regex_once(
+              revenue,
+              r'    fun sync\(.*?\n    internal fun rangeFor',
+              new_sync,
+          )
+
+          integration = "app/src/main/java/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt"
+          replace_once(
+              integration,
+              '        else ->\n            "YouTube revenue couldn\'t refresh right now. Your normal Insights are unaffected."',
+              '        else ->\n            if (raw.isBlank()) {\n                "YouTube revenue couldn\'t refresh right now. Your normal Insights are unaffected."\n            } else {\n                "YouTube revenue couldn\'t refresh: ${raw.take(140)}"\n            }',
+          )
+
+          # 2) Voice transcription: decode once, validate once and hand one live descriptor to
+          # SpeechRecognizer. The previous support-check -> close -> reopen path could lose the
+          # prepared PCM file/descriptor on real devices.
+          transcriber = "app/src/main/java/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt"
+          replace_once(transcriber, 'import android.speech.RecognitionSupport\n', '')
+          replace_once(transcriber, 'import android.speech.RecognitionSupportCallback\n', '')
+          replace_once(
+              transcriber,
+              ' * pass that PCM file to the speech recognizer. The exact request is checked with\n * SpeechRecognizer.checkRecognitionSupport before startListening; if the service cannot verify\n * support we stop rather than risk EXTRA_AUDIO_SOURCE being ignored and the microphone opening.\n',
+              ' * pass that PCM file to the speech recognizer. The prepared file stays alive for the\n * entire recognition session and is deleted only after a terminal success/failure/cancel.\n',
+          )
+          replace_once(
+              transcriber,
+              '                beginSupportCheck(token, decoded, language)\n',
+              '                startRecognition(token, decoded, language)\n',
+          )
+
+          new_recognition = r'''    private fun startRecognition(
+              token: Long,
+              audio: DecodedPcmAudio,
+              language: IdeaVoiceLanguage,
+          ) {
+              if (token != session || destroyed) return
+              if (!audio.file.exists() || !audio.file.isFile || !audio.file.canRead() || audio.file.length() <= 0L) {
+                  finishFailure(
+                      token,
+                      IdeaTranscriptionState.FAILED,
+                      "The prepared recording is unavailable. Try transcribing again.",
+                  )
+                  return
+              }
+
+              val current = runCatching { SpeechRecognizer.createSpeechRecognizer(appContext) }
+                  .getOrElse {
+                      finishFailure(
+                          token,
+                          IdeaTranscriptionState.UNAVAILABLE,
+                          "Speech recognition could not start on this phone.",
+                      )
+                      return
+                  }
+              recognizer = current
+
+              val audioFd = runCatching {
+                  ParcelFileDescriptor.open(audio.file, ParcelFileDescriptor.MODE_READ_ONLY)
+              }.getOrElse { error ->
+                  finishFailure(
+                      token,
+                      IdeaTranscriptionState.FAILED,
+                      "The prepared recording could not be opened (${error.javaClass.simpleName}).",
+                  )
+                  return
+              }
+              activeAudioSource = audioFd
+
+              current.setRecognitionListener(object : RecognitionListener {
+                  override fun onReadyForSpeech(params: Bundle?) = Unit
+                  override fun onBeginningOfSpeech() = Unit
+                  override fun onRmsChanged(rmsdB: Float) = Unit
+                  override fun onBufferReceived(buffer: ByteArray?) = Unit
+                  override fun onEndOfSpeech() = Unit
+                  override fun onPartialResults(partialResults: Bundle?) = Unit
+                  override fun onEvent(eventType: Int, params: Bundle?) = Unit
+
+                  override fun onError(error: Int) {
+                      if (token != session || destroyed) return
+                      val unavailable = error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ||
+                          error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE
+                      finishFailure(
+                          token,
+                          if (unavailable) IdeaTranscriptionState.UNAVAILABLE else IdeaTranscriptionState.FAILED,
+                          savedRecordingError(error),
+                      )
+                  }
+
+                  override fun onResults(results: Bundle?) {
+                      if (token != session || destroyed) return
+                      val text = bestText(results)
+                      if (text.isBlank()) {
+                          finishFailure(token, IdeaTranscriptionState.FAILED, "No clear speech was found in this recording.")
+                          return
+                      }
+                      val confidence = results?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
+                          ?.firstOrNull()
+                          ?.takeIf { it >= 0f }
+                      cleanupRecognitionResources()
+                      listener.onTranscriptReady(text, confidence)
+                      listener.onTranscriptionState(IdeaTranscriptionState.COMPLETED)
+                  }
+              })
+
+              val intent = buildRecognizerIntent(audioFd, audio, language)
+              runCatching { current.startListening(intent) }
+                  .onFailure {
+                      finishFailure(
+                          token,
+                          IdeaTranscriptionState.FAILED,
+                          "Saved recording transcription could not start (${it.javaClass.simpleName}).",
+                      )
+                  }
+          }
+
+          private fun buildRecognizerIntent'''
+          regex_once(
+              transcriber,
+              r'    private fun beginSupportCheck\(.*?\n    private fun buildRecognizerIntent',
+              new_recognition,
+          )
+
+          # 3) Guide stability: the alternate Cute pose WebPs showed corruption on-device.
+          # Keep the approved welcome master artwork for every Cute state until replacement
+          # pose exports are approved; motion still comes from Compose and remains subtle.
+          raster = "app/src/main/java/com/framebynavin/app/ui/V144RasterGuideCharacter.kt"
+          regex_once(
+              raster,
+              r'    V144GuideIdentity\.CUTE -> when \(state\) \{.*?\n    \}\n\n    // Defensive fallback',
+              '    V144GuideIdentity.CUTE -> R.drawable.guide_cute_welcome\n\n    // Defensive fallback',
+          )
+
+          # 4) Settings: roster text must come from the two actually selectable guides.
+          settings = "app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt"
+          replace_once(
+              settings,
+              '                V144SettingsNote("Your guide choice is used across setup, guided tours and helper moments. Frame and Navi keep their vector renderer; Funny and Cute use the premium raster character system.")',
+              '                V144SettingsNote("Your guide choice is used across setup, guided tours and helper moments. Funny and Cute are the active Backlot guides.")',
+          )
+          replace_once(
+              settings,
+              '        V144CategoryCard("Guide Character", "Frame, Navi, Funny or Cute", Icons.Outlined.Face, MutedGold) { onOpen(V144SettingsSection.GUIDE) }',
+              '        V144CategoryCard("Guide Character", V145SelectableGuides.joinToString(" or ") { it.displayName }, Icons.Outlined.Face, MutedGold) { onOpen(V144SettingsSection.GUIDE) }',
+          )
+
+          # 5) Insights range: remember 7D/28D/90D across tab navigation for this app process.
+          insights = "app/src/main/java/com/framebynavin/app/ui/V11InsightsScreen.kt"
+          replace_once(
+              insights,
+              'import java.util.Locale\n',
+              'import java.util.Locale\n\nprivate object V147InsightsSessionState {\n    var windowDays: Int = 28\n}\n',
+          )
+          replace_once(
+              insights,
+              '    var windowDays by rememberSaveable { mutableIntStateOf(28) }',
+              '    var windowDays by rememberSaveable { mutableIntStateOf(V147InsightsSessionState.windowDays) }',
+          )
+          replace_once(
+              insights,
+              '    LaunchedEffect(windowDays) {\n        refreshCacheView()',
+              '    LaunchedEffect(windowDays) {\n        V147InsightsSessionState.windowDays = windowDays\n        refreshCacheView()',
+          )
+
+          # Release-candidate stamp for the fixed APK.
+          build_gradle = "app/build.gradle.kts"
+          replace_once(
+              build_gradle,
+              'versionName = "2.0.0-rc20-idea-reminders"',
+              'versionName = "2.0.0-rc21-device-stability"',
+          )
+
+          # Guardrails: fail the workflow if stale/problematic code survives the patch.
+          assert 'Frame, Navi, Funny or Cute' not in Path(settings).read_text()
+          assert 'checkRecognitionSupport' not in Path(transcriber).read_text()
+          assert 'guide_cute_thinking' not in Path(raster).read_text()
+          assert 'guide_cute_celebrate' not in Path(raster).read_text()
+          assert 'V147InsightsSessionState.windowDays' in Path(insights).read_text()
+
+      - name: Verify patch diff
+        run: git diff --check
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Run Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Build final V147 debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Commit validated source fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            app/build.gradle.kts \
+            app/src/main/java/com/framebynavin/app/youtube/YouTubeRevenue.kt \
+            app/src/main/java/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt \
+            app/src/main/java/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt \
+            app/src/main/java/com/framebynavin/app/ui/V144RasterGuideCharacter.kt \
+            app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt \
+            app/src/main/java/com/framebynavin/app/ui/V11InsightsScreen.kt
+          git diff --cached --check
+          git commit -m "fix(v147): stabilize revenue guides transcription and insights state"
+          git push origin HEAD:fix/v147-device-stability
+
+      - name: Upload final APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v147-Device-Stability
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

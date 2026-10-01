@@ -97,8 +97,8 @@ internal fun V08WeeklyScheduleScreen(
                             Surface(
                                 Modifier.fillMaxWidth(),
                                 RoundedCornerShape(14.dp),
-                                Color(0xFF15120F),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF3A2B22)),
+                                MutedGold.copy(alpha = .06f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .22f)),
                             ) {
                                 Column(Modifier.padding(12.dp)) {
                                     Text("NEXT SLOT", color = MutedText, fontSize = 8.5.sp, letterSpacing = 1.sp)
@@ -203,7 +203,7 @@ internal fun V08WeeklyScheduleScreen(
 
 @Composable
 private fun V08Metric(label: String, value: String, modifier: Modifier) {
-    Surface(modifier, RoundedCornerShape(14.dp), Color(0xFF111111), border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine)) {
+    Surface(modifier, RoundedCornerShape(14.dp), CinemaSurface, border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(11.dp)) {
             Text(label, color = MutedText, fontSize = 7.8.sp)
             Text(value, color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
@@ -216,15 +216,15 @@ private fun V08SlotCard(slot: WeeklyScheduleSlot, onToggle: (Boolean) -> Unit, o
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
         shape = RoundedCornerShape(17.dp),
-        color = if (slot.enabled) CinemaSurfaceRaised else Color(0xFF0E0E0E),
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (slot.enabled) CinemaLine else Color(0xFF181818)),
+        color = if (slot.enabled) CinemaSurfaceRaised else CinemaSurface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine.copy(alpha = if (slot.enabled) 1f else .65f)),
     ) {
         Column(Modifier.padding(13.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).background(if (slot.enabled) RecRed else Color(0xFF494641), CircleShape))
+                Box(Modifier.size(8.dp).background(if (slot.enabled) RecRed else MutedText.copy(alpha = .55f), CircleShape))
                 Spacer(Modifier.width(9.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(slot.title, color = if (slot.enabled) ProjectorIvory else Color(0xFF77726C), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                    Text(slot.title, color = if (slot.enabled) ProjectorIvory else MutedText, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                     Text("${slot.platform} · ${slot.contentType}", color = MutedText, fontSize = 9.2.sp)
                 }
                 Switch(checked = slot.enabled, onCheckedChange = onToggle, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
@@ -247,8 +247,8 @@ private fun V08SlotCard(slot: WeeklyScheduleSlot, onToggle: (Boolean) -> Unit, o
 
 @Composable
 private fun V08TinyChip(text: String) {
-    Surface(shape = RoundedCornerShape(100.dp), color = Color(0xFF111111), border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = Color(0xFF97918A), fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
+    Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface, border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine)) {
+        Text(text, color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp))
     }
 }
 
@@ -331,7 +331,7 @@ private fun V08SlotEditor(
                             TaskPriority.entries.forEach { value -> FilterChip(priority == value, { priority = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 10.sp) }) }
                         }
                         Spacer(Modifier.height(14.dp))
-                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), Color(0xFF10100F), border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine)) {
+                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine)) {
                             Column(Modifier.padding(12.dp)) {
                                 Text("PRODUCTION RUNWAY", color = MutedText, fontSize = 8.sp, letterSpacing = 1.sp)
                                 Spacer(Modifier.height(4.dp))

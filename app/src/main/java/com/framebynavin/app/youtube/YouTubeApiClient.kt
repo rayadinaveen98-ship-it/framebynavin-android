@@ -7,16 +7,16 @@ import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
-import java.time.LocalDate
 
 class YouTubeApiClient {
     fun sync(accessToken: String, windowDays: Int): YouTubeAnalyticsSnapshot {
         require(windowDays in setOf(7, 28, 90))
         val channel = fetchChannel(accessToken)
-        val end = LocalDate.now().minusDays(1)
-        val start = end.minusDays((windowDays - 1).toLong())
-        val previousEnd = start.minusDays(1)
-        val previousStart = previousEnd.minusDays((windowDays - 1).toLong())
+        val queryWindow = YouTubeAnalyticsQueryPolicy.window(windowDays)
+        val end = queryWindow.end
+        val start = queryWindow.start
+        val previousEnd = queryWindow.previousEnd
+        val previousStart = queryWindow.previousStart
         val summaryMetrics = "views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost,likes,comments"
 
         val summary = queryReport(
@@ -71,6 +71,7 @@ class YouTubeApiClient {
                 "dimensions" to "video",
                 "filters" to "video==${recentIds.joinToString(",")}",
                 "metrics" to summaryMetrics,
+                "maxResults" to recentIds.size.toString(),
             ),
         )
         val recentVideos = recentIds.mapNotNull { id ->
@@ -225,8 +226,8 @@ class YouTubeApiClient {
             averageViewDurationSeconds = row.long("averageViewDuration"),
             subscribersGained = row.long("subscribersGained"),
             subscribersLost = row.long("subscribersLost"),
-            likes = row.long("likes").takeIf { it > 0 } ?: detail.likes,
-            comments = row.long("comments").takeIf { it > 0 } ?: detail.comments,
+            likes = YouTubeAnalyticsQueryPolicy.periodCount(row, "likes"),
+            comments = YouTubeAnalyticsQueryPolicy.periodCount(row, "comments"),
         )
     }
 
