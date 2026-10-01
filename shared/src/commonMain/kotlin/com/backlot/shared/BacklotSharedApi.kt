@@ -51,6 +51,9 @@ object BacklotSharedApi {
     /**
      * Converts a completed native identity result into provider-neutral shared product state.
      * Provider access/refresh tokens must never be passed through this facade.
+     *
+     * This compatibility path intentionally has no cloud account id. Existing Android/local-only
+     * callers can keep using it while native cloud auth migrates to [signedInCloudSession].
      */
     fun signedInSession(
         provider: BacklotIdentityProvider,
@@ -62,6 +65,28 @@ object BacklotSharedApi {
         BacklotIdentityRef(
             provider = provider,
             providerSubject = providerSubject,
+            email = email,
+            displayName = displayName,
+            avatarUrl = avatarUrl,
+        )
+    )
+
+    /**
+     * Cloud-backed identity path. [cloudAccountId] is the canonical Supabase user id and is the
+     * only account key that future cross-device sync should use for cloud ownership.
+     */
+    fun signedInCloudSession(
+        provider: BacklotIdentityProvider,
+        providerSubject: String,
+        cloudAccountId: String,
+        email: String,
+        displayName: String,
+        avatarUrl: String,
+    ): BacklotSessionSnapshot = BacklotSessionReducer.authenticated(
+        BacklotIdentityRef(
+            provider = provider,
+            providerSubject = providerSubject,
+            cloudAccountId = cloudAccountId,
             email = email,
             displayName = displayName,
             avatarUrl = avatarUrl,

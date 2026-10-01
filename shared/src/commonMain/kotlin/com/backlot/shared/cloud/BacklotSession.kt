@@ -56,6 +56,9 @@ object BacklotSessionReducer {
         require(identity.providerSubject.isNotBlank()) {
             "Authenticated Backlot identity requires a non-blank provider subject"
         }
+        require(identity.cloudAccountId.isEmpty() || identity.cloudAccountId.isNotBlank()) {
+            "Backlot cloud account id cannot be blank when present"
+        }
         return BacklotSessionSnapshot(
             status = BacklotSessionStatus.SIGNED_IN,
             identity = identity,

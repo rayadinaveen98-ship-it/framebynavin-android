@@ -93,8 +93,10 @@ final class BacklotSupabaseAppleIdentityExchange: BacklotAppleIdentityExchanging
 
         let subject = authorization.providerSubject
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let cloudAccountId = resolvedUser.id.uuidString.lowercased()
         guard
             !subject.isEmpty,
+            !cloudAccountId.isEmpty,
             !session.accessToken.isEmpty,
             !session.refreshToken.isEmpty,
             session.expiresAt.isFinite,
@@ -106,6 +108,7 @@ final class BacklotSupabaseAppleIdentityExchange: BacklotAppleIdentityExchanging
         return BacklotNativeAuthSession(
             provider: .apple,
             providerSubject: subject,
+            cloudAccountId: cloudAccountId,
             email: resolvedEmail,
             displayName: resolvedName,
             avatarURL: avatarURL,

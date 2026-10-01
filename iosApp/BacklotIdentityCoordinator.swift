@@ -85,6 +85,7 @@ final class BacklotIdentityCoordinator {
         sessionStore.acceptIdentity(
             provider: provider,
             providerSubject: nativeSession.providerSubject,
+            cloudAccountId: nativeSession.cloudAccountId,
             email: nativeSession.email,
             displayName: nativeSession.displayName,
             avatarURL: nativeSession.avatarURL

@@ -9,10 +9,15 @@ enum class BacklotIdentityProvider {
 /**
  * Platform-neutral identity reference. Provider tokens and refresh secrets stay inside native
  * adapters/secure storage and are deliberately excluded from this shared product model.
+ *
+ * [providerSubject] identifies one identity at its external provider. [cloudAccountId] is the
+ * provider-neutral Supabase user id that must own cloud data once a native adapter has resolved a
+ * Backlot cloud account. It stays empty for legacy/local-only sessions during migration.
  */
 data class BacklotIdentityRef(
     val provider: BacklotIdentityProvider,
     val providerSubject: String,
+    val cloudAccountId: String = "",
     val email: String = "",
     val displayName: String = "",
     val avatarUrl: String = "",

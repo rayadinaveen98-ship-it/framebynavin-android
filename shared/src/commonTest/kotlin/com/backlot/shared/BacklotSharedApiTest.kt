@@ -1,5 +1,6 @@
 package com.backlot.shared
 
+import com.backlot.shared.cloud.BacklotIdentityProvider
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -35,5 +36,36 @@ class BacklotSharedApiTest {
             legacyContentType = "Long-form",
         )
         assertNull(template)
+    }
+
+    @Test
+    fun legacySignedInSessionRemainsProviderOnly() {
+        val session = BacklotSharedApi.signedInSession(
+            provider = BacklotIdentityProvider.GOOGLE,
+            providerSubject = "google-user",
+            email = "creator@example.com",
+            displayName = "Creator",
+            avatarUrl = "",
+        )
+
+        assertTrue(session.isSignedIn)
+        assertEquals("google-user", session.identity?.providerSubject)
+        assertEquals("", session.identity?.cloudAccountId)
+    }
+
+    @Test
+    fun cloudSignedInSessionCarriesCanonicalAccountId() {
+        val session = BacklotSharedApi.signedInCloudSession(
+            provider = BacklotIdentityProvider.APPLE,
+            providerSubject = "apple-user",
+            cloudAccountId = "canonical-cloud-user",
+            email = "creator@example.com",
+            displayName = "Creator",
+            avatarUrl = "",
+        )
+
+        assertTrue(session.isSignedIn)
+        assertEquals("apple-user", session.identity?.providerSubject)
+        assertEquals("canonical-cloud-user", session.identity?.cloudAccountId)
     }
 }

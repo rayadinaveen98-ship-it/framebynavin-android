@@ -12,11 +12,13 @@ enum BacklotNativeIdentityProvider: String, Codable, Sendable {
 
 /// Secure native session envelope persisted only in the iOS Keychain.
 ///
-/// `providerSubject` is the stable provider account identifier. Supabase access/refresh tokens stay
-/// native and can later be refreshed by the Supabase adapter before the product session is exposed.
+/// `providerSubject` identifies the provider account. `cloudAccountId` is the provider-neutral
+/// Supabase user id used for cloud ownership. It remains optional so Keychain payloads created by
+/// earlier V151 builds can still be decoded during the migration.
 struct BacklotNativeAuthSession: Codable, Equatable, Sendable {
     let provider: BacklotNativeIdentityProvider
     let providerSubject: String
+    let cloudAccountId: String?
     let email: String
     let displayName: String
     let avatarURL: String
@@ -144,7 +146,10 @@ final class BacklotKeychainSessionStore: BacklotSecureSessionStoring {
         let subject = session.providerSubject.trimmingCharacters(in: .whitespacesAndNewlines)
         let accessToken = session.supabaseAccessToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let refreshToken = session.supabaseRefreshToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !subject.isEmpty, !accessToken.isEmpty, !refreshToken.isEmpty else {
+        let cloudAccountIsValid = session.cloudAccountId.map {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        } ?? true
+        guard !subject.isEmpty, cloudAccountIsValid, !accessToken.isEmpty, !refreshToken.isEmpty else {
             throw BacklotSecureSessionError.invalidSession
         }
     }

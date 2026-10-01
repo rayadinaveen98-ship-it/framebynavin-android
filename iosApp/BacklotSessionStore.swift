@@ -24,20 +24,35 @@ final class BacklotSessionStore: ObservableObject {
     }
 
     /// Native auth adapters call this only after provider authentication has completed.
+    ///
+    /// A nil cloud account id is accepted only for migration of provider-only sessions created by
+    /// earlier builds. Fresh Supabase sign-ins use the canonical cloud-backed session path.
     func acceptIdentity(
         provider: BacklotIdentityProvider,
         providerSubject: String,
+        cloudAccountId: String? = nil,
         email: String = "",
         displayName: String = "",
         avatarURL: String = ""
     ) {
-        snapshot = BacklotSharedApi.shared.signedInSession(
-            provider: provider,
-            providerSubject: providerSubject,
-            email: email,
-            displayName: displayName,
-            avatarUrl: avatarURL
-        )
+        if let cloudAccountId {
+            snapshot = BacklotSharedApi.shared.signedInCloudSession(
+                provider: provider,
+                providerSubject: providerSubject,
+                cloudAccountId: cloudAccountId,
+                email: email,
+                displayName: displayName,
+                avatarUrl: avatarURL
+            )
+        } else {
+            snapshot = BacklotSharedApi.shared.signedInSession(
+                provider: provider,
+                providerSubject: providerSubject,
+                email: email,
+                displayName: displayName,
+                avatarUrl: avatarURL
+            )
+        }
     }
 
     func signOut() {

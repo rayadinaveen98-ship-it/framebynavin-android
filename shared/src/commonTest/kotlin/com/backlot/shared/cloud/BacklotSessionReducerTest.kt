@@ -18,6 +18,7 @@ class BacklotSessionReducerTest {
     private val accountB = BacklotIdentityRef(
         provider = BacklotIdentityProvider.APPLE,
         providerSubject = "apple-account-b",
+        cloudAccountId = "cloud-account-b",
         email = "b@example.com",
         displayName = "Creator B",
     )
@@ -49,6 +50,7 @@ class BacklotSessionReducerTest {
 
         assertEquals(BacklotSessionStatus.SIGNED_IN, session.status)
         assertEquals(accountB, session.identity)
+        assertEquals("cloud-account-b", session.identity?.cloudAccountId)
         assertTrue(session.isSignedIn)
     }
 
@@ -83,6 +85,23 @@ class BacklotSessionReducerTest {
         assertFailsWith<IllegalArgumentException> {
             BacklotSessionReducer.authenticated(invalidIdentity)
         }
+    }
+
+    @Test
+    fun whitespaceCloudAccountIdCannotBecomeAuthenticatedSession() {
+        val invalidIdentity = accountB.copy(cloudAccountId = "   ")
+
+        assertFailsWith<IllegalArgumentException> {
+            BacklotSessionReducer.authenticated(invalidIdentity)
+        }
+    }
+
+    @Test
+    fun legacyIdentityMayRemainLocalOnlyDuringMigration() {
+        val session = BacklotSessionReducer.authenticated(accountA)
+
+        assertEquals("", session.identity?.cloudAccountId)
+        assertTrue(session.isSignedIn)
     }
 
     @Test
