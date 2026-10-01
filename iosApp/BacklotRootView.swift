@@ -3,13 +3,16 @@ import BacklotShared
 
 struct BacklotRootView: View {
     @State private var selection: BacklotTab = .today
+    @StateObject private var sessionStore = BacklotSessionStore()
 
     var body: some View {
         TabView(selection: $selection) {
             BacklotPlaceholderScreen(
                 eyebrow: "BACKLOT",
                 title: "Today",
-                message: "Your creator day, next move and active projects will live here."
+                message: sessionStore.isSignedIn
+                    ? "Your creator day, next move and active projects will live here. Creator cloud identity is connected through the shared Backlot session."
+                    : "Your creator day, next move and active projects will live here. This device is currently signed out of the creator cloud."
             )
             .tabItem { Label("Today", systemImage: "sparkles") }
             .tag(BacklotTab.today)
@@ -43,6 +46,7 @@ struct BacklotRootView: View {
             .tag(BacklotTab.insights)
         }
         .tint(.primary)
+        .environmentObject(sessionStore)
     }
 }
 
