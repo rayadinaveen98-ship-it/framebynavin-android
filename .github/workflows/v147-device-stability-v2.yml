@@ -1,0 +1,79 @@
+name: V147 Device Stability Fix V2
+
+on:
+  push:
+    branches:
+      - fix/v147-device-stability
+    paths:
+      - .github/workflows/v147-device-stability-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout stability branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/v147-device-stability
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply device stability patch
+        run: |
+          python tools/v147_device_stability_patch.py
+          python tools/v147_device_stability_test_patch.py
+
+      - name: Verify source diff
+        run: git diff --check
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Run Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Build V147 stability APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Commit validated source fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            app/build.gradle.kts \
+            app/src/main/java/com/framebynavin/app/youtube/YouTubeRevenue.kt \
+            app/src/main/java/com/framebynavin/app/ui/V144YouTubeRevenueIntegration.kt \
+            app/src/main/java/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt \
+            app/src/main/java/com/framebynavin/app/ui/V144RasterGuideCharacter.kt \
+            app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt \
+            app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt \
+            app/src/test/java/com/framebynavin/app/ui/V144GuideSystemTest.kt
+          git diff --cached --check
+          git commit -m "fix(v147): stabilize revenue guides transcription and insights state"
+          git push origin HEAD:fix/v147-device-stability
+
+      - name: Upload final APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v147-Device-Stability
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+# Trigger: stability validation pass 3

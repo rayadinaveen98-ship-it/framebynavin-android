@@ -19,7 +19,7 @@ class V18CinematicHomeHeroAlpha16UiTest {
     fun emptyHeroKeepsGreetingAndOffersImageAddAction() {
         composeRule.setContent { V18CinematicHomeHero("King") }
 
-        composeRule.onNodeWithText("FRAME BY NAVIN").assertIsDisplayed()
+        composeRule.onNodeWithText("BACKLOT").assertIsDisplayed()
         composeRule.onNode(hasText("King", substring = true)).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Add slideshow images").assertIsDisplayed()
     }

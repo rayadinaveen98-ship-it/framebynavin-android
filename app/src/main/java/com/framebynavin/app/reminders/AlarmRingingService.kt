@@ -28,6 +28,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.framebynavin.app.data.CreatorTask
+import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.ProjectAttentionPlan
 import com.framebynavin.app.data.ReminderAlertType
 import com.framebynavin.app.data.ReminderMode
@@ -211,22 +212,33 @@ class AlarmRingingService : Service() {
 
     private fun startVoice(task: CreatorTask) {
         val token = currentToken
+        val creatorName = VoiceCreatorNameResolver.resolve(applicationContext)
+        val urgency = when (task.priority) {
+            TaskPriority.NORMAL -> "reminder"
+            TaskPriority.IMPORTANT -> "important creator reminder"
+            TaskPriority.CRITICAL -> "critical creator deadline"
+        }
+        val reminderBody = VoicePersonaEngine.reminderText(
+            persona = task.voicePersona,
+            title = task.title,
+            urgency = urgency,
+            stage = CreatorWorkflowEngine.currentStage(task).label,
+            notes = task.notes,
+            includeNotes = true,
+        )
+        val speechText = VoiceGreetingBuilder.spokenReminder(creatorName, reminderBody)
         tts?.shutdown()
         tts = TextToSpeech(this) { status ->
             if (!isCurrent(task.id, token)) return@TextToSpeech
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.getDefault()
-                tts?.let { VoicePersonaEngine.apply(it, task.voicePersona) }
-                val urgency = when (task.priority) {
-                    TaskPriority.NORMAL -> "reminder"
-                    TaskPriority.IMPORTANT -> "important reminder"
-                    TaskPriority.CRITICAL -> "critical deadline"
-                }
-                tts?.speak(
-                    "Backlot. ${task.title}. This is your $urgency.",
+                val engine = tts ?: return@TextToSpeech
+                engine.language = Locale.getDefault()
+                VoicePersonaEngine.apply(engine, task.voicePersona)
+                engine.speak(
+                    speechText,
                     TextToSpeech.QUEUE_FLUSH,
                     null,
-                    "framebynavin-${task.id}",
+                    "framebynavin-${task.id}-${token.hashCode()}",
                 )
             }
         }

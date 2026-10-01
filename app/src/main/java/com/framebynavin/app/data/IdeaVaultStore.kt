@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -51,7 +52,10 @@ class IdeaVaultStore(private val context: Context) {
         mutationMutex.withLock {
             val latest = load()
             val updated = transform(latest)
-            if (updated != latest) saveUnlocked(updated)
+            if (updated != latest) {
+                saveUnlocked(updated)
+                cleanupRemovedOrReplacedRecordings(latest, updated)
+            }
             updated
         }
     }
@@ -62,7 +66,10 @@ class IdeaVaultStore(private val context: Context) {
     suspend fun capture(idea: CreatorIdea, expectedGeneration: Long): CreatorIdea =
         CreatorDataGate.readyTransaction(context) {
             CreatorDataGate.checkGeneration(context, expectedGeneration)
-            val normalized = idea.copy(title = idea.title.trim())
+            val normalized = idea.copy(
+                title = idea.title.trim(),
+                tags = idea.tags.map { it.trim() }.filter { it.isNotBlank() }.distinct(),
+            )
             require(normalized.id.isNotBlank() && normalized.title.isNotBlank()) {
                 "An idea needs an id and title"
             }
@@ -79,8 +86,10 @@ class IdeaVaultStore(private val context: Context) {
         mutationMutex.withLock {
             if (CreatorDataGate.generation(context) != expectedGeneration)
                 throw CreatorWriteConflict("An older idea edit was cancelled after restore")
-            val updated = CreatorDeltaEngine.merge(base, desired, load()) { it.id }
+            val latest = load()
+            val updated = CreatorDeltaEngine.merge(base, desired, latest) { it.id }
             saveUnlocked(updated)
+            cleanupRemovedOrReplacedRecordings(latest, updated)
             updated
         }
     }
@@ -94,6 +103,32 @@ class IdeaVaultStore(private val context: Context) {
     }
 
     fun validateJson(raw: String): Int = decode(raw).size
+
+    /**
+     * Removes only recordings owned by Backlot after the new vault state is durably written.
+     * Import/restore uses save() directly and intentionally never destroys local audio as a side effect.
+     */
+    private fun cleanupRemovedOrReplacedRecordings(before: List<CreatorIdea>, after: List<CreatorIdea>) {
+        val afterById = after.associateBy { it.id }
+        before.forEach { previous ->
+            val oldPath = previous.audioLocalPath.takeIf { it.isNotBlank() } ?: return@forEach
+            val currentPath = afterById[previous.id]?.audioLocalPath.orEmpty()
+            if (oldPath != currentPath) deleteOwnedFinalRecording(oldPath)
+        }
+    }
+
+    private fun deleteOwnedFinalRecording(path: String) {
+        runCatching {
+            val root = File(context.filesDir, VOICE_IDEA_DIRECTORY).canonicalFile
+            val target = File(path).canonicalFile
+            val isOwnedFinalRecording = target.parentFile == root &&
+                target.isFile &&
+                target.name.startsWith(VOICE_IDEA_FILE_PREFIX) &&
+                target.name.endsWith(VOICE_IDEA_FINAL_SUFFIX, ignoreCase = true) &&
+                !target.name.endsWith(VOICE_IDEA_WORKING_SUFFIX, ignoreCase = true)
+            if (isOwnedFinalRecording) target.delete()
+        }
+    }
 
     private fun encode(ideas: List<CreatorIdea>): String {
         val array = JSONArray()
@@ -113,6 +148,18 @@ class IdeaVaultStore(private val context: Context) {
                     .put("updatedAtMillis", idea.updatedAtMillis)
                     .put("projectTaskId", idea.projectTaskId)
                     .put("sourceRefId", idea.sourceRefId)
+                    .put("reminderAtMillis", idea.reminderAtMillis)
+                    .put("reminderCadence", idea.reminderCadence.name)
+                    .put("captureType", idea.captureType.name)
+                    .put("audioLocalPath", idea.audioLocalPath)
+                    .put("audioRemoteUrl", idea.audioRemoteUrl)
+                    .put("audioDurationMillis", idea.audioDurationMillis)
+                    .put("audioMimeType", idea.audioMimeType)
+                    .put("audioSyncState", idea.audioSyncState.name)
+                    .put("transcript", idea.transcript)
+                    .put("transcriptionState", idea.transcriptionState.name)
+                    .put("transcriptionError", idea.transcriptionError)
+                    .put("tags", JSONArray().apply { idea.tags.forEach { put(it) } })
             )
         }
         return array.toString()
@@ -127,6 +174,20 @@ class IdeaVaultStore(private val context: Context) {
                 val title = item.optString("title").trim()
                 require(id.isNotBlank()) { "Idea $i has no id" }
                 require(title.isNotBlank()) { "Idea $i has no title" }
+                val transcript = item.optString("transcript", "")
+                val legacyTranscriptionState = if (transcript.isNotBlank()) {
+                    IdeaTranscriptionState.COMPLETED
+                } else {
+                    IdeaTranscriptionState.NOT_REQUESTED
+                }
+                val transcriptionState = item.optString("transcriptionState", "")
+                    .trim()
+                    .takeIf { it.isNotBlank() }
+                    ?.let { rawState ->
+                        runCatching { IdeaTranscriptionState.valueOf(rawState) }
+                            .getOrDefault(legacyTranscriptionState)
+                    }
+                    ?: legacyTranscriptionState
                 add(
                     CreatorIdea(
                         id = id,
@@ -148,9 +209,40 @@ class IdeaVaultStore(private val context: Context) {
                         updatedAtMillis = item.optLong("updatedAtMillis", System.currentTimeMillis()),
                         projectTaskId = item.optString("projectTaskId", ""),
                         sourceRefId = item.optString("sourceRefId", ""),
+                        reminderAtMillis = item.optLong("reminderAtMillis", 0L),
+                        reminderCadence = runCatching {
+                            IdeaReminderCadence.valueOf(item.optString("reminderCadence", IdeaReminderCadence.ONCE.name))
+                        }.getOrDefault(IdeaReminderCadence.ONCE),
+                        captureType = runCatching {
+                            IdeaCaptureType.valueOf(item.optString("captureType", IdeaCaptureType.TEXT.name))
+                        }.getOrDefault(IdeaCaptureType.TEXT),
+                        audioLocalPath = item.optString("audioLocalPath", ""),
+                        audioRemoteUrl = item.optString("audioRemoteUrl", ""),
+                        audioDurationMillis = item.optLong("audioDurationMillis", 0L),
+                        audioMimeType = item.optString("audioMimeType", ""),
+                        audioSyncState = runCatching {
+                            IdeaAudioSyncState.valueOf(item.optString("audioSyncState", IdeaAudioSyncState.NONE.name))
+                        }.getOrDefault(IdeaAudioSyncState.NONE),
+                        transcript = transcript,
+                        transcriptionState = transcriptionState,
+                        transcriptionError = item.optString("transcriptionError", ""),
+                        tags = item.optJSONArray("tags")?.let { tags ->
+                            buildList {
+                                for (index in 0 until tags.length()) {
+                                    tags.optString(index).trim().takeIf { it.isNotBlank() }?.let(::add)
+                                }
+                            }
+                        } ?: emptyList(),
                     )
                 )
             }
         }
+    }
+
+    companion object {
+        private const val VOICE_IDEA_DIRECTORY = "voice_ideas"
+        private const val VOICE_IDEA_FILE_PREFIX = "voice_idea_"
+        private const val VOICE_IDEA_WORKING_SUFFIX = ".recording.m4a"
+        private const val VOICE_IDEA_FINAL_SUFFIX = ".m4a"
     }
 }

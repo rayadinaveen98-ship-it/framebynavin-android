@@ -160,7 +160,7 @@ internal fun V20CreatorDrilldownDialog(
 
 @Composable
 private fun CreatorDetailHero(value: String, body: String, accent: Color) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), Color(0xFF1E1E20), border = BorderStroke(1.dp, accent.copy(alpha = .22f))) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, accent.copy(alpha = .22f))) {
         Column(Modifier.padding(15.dp)) {
             Text(value, color = accent, fontSize = 23.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(3.dp))
@@ -200,7 +200,7 @@ private fun CreatorDetailRow(title: String, meta: String, body: String) {
 
 @Composable
 private fun CreatorExplain(text: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), Color(0xFF1D1D1F)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised) {
         Text(text, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp, modifier = Modifier.padding(13.dp))
     }
     Spacer(Modifier.height(8.dp))

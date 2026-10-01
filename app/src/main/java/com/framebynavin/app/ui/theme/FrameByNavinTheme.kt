@@ -3,6 +3,7 @@ package com.framebynavin.app.ui.theme
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -59,214 +60,105 @@ data class FramePalette(
     val primaryContentDark: Boolean = false,
 )
 
+private fun directorsCutProfile() = FrameThemeProfile(
+    visualLanguage = FrameVisualLanguage.CINEMATIC,
+    cardRadius = 15.dp,
+    buttonRadius = 13.dp,
+    smallRadius = 10.dp,
+    navigationRadius = 22.dp,
+    pagePadding = 18.dp,
+    sectionGap = 16.dp,
+    borderWidth = 1.dp,
+    headlineScale = 1.00f,
+    guideScrimAlpha = .58f,
+    atmosphereAlpha = 1.00f,
+    compact = true,
+)
+
+private fun directorsCutPalette() = FramePalette(
+    background = Color(0xFF070707),
+    surface = Color(0xFF101010),
+    surfaceRaised = Color(0xFF171717),
+    line = Color(0xFF2B2927),
+    foreground = Color(0xFFF4F0E8),
+    muted = Color(0xFF938E86),
+    primary = Color(0xFFE94A45),
+    primaryDeep = Color(0xFF321111),
+    secondary = Color(0xFFD2AE67),
+    success = Color(0xFF6FA382),
+    tertiary = Color(0xFF8D7857),
+)
+
+private fun backlotLightPalette() = FramePalette(
+    background = Color(0xFFF7F4EE),
+    surface = Color(0xFFFFFCF7),
+    surfaceRaised = Color(0xFFFFFFFF),
+    line = Color(0xFFDDD6CC),
+    foreground = Color(0xFF1C1B19),
+    muted = Color(0xFF68635D),
+    primary = Color(0xFFC83F3A),
+    primaryDeep = Color(0xFFF6DFDC),
+    secondary = Color(0xFF8A6A2F),
+    success = Color(0xFF4F765D),
+    tertiary = Color(0xFF765C3B),
+    isLight = true,
+)
+
 /**
- * v139 finalizes ten real visual languages. Existing enum ids are retained for upgrade safety;
- * new looks get new ids instead of silently replacing Director's Cut again.
+ * V148 reduces Backlot to one design language with two appearances.
+ *
+ * Legacy enum ids are deliberately retained so upgrades from older builds can read a previously
+ * saved preference safely. They are not selectable and are normalized to Director's Cut during
+ * initialization. This avoids both migration crashes and accidental resurrection of retired looks.
  */
 enum class FrameTheme(
     val displayName: String,
     val tagline: String,
     val palette: FramePalette,
     val profile: FrameThemeProfile,
+    val selectable: Boolean,
 ) {
     DIRECTORS_CUT(
         "Director's Cut",
-        "Classic Backlot · cinema black · REC red · warm ivory",
-        FramePalette(
-            background = Color(0xFF070707),
-            surface = Color(0xFF101010),
-            surfaceRaised = Color(0xFF171717),
-            line = Color(0xFF2B2927),
-            foreground = Color(0xFFF4F0E8),
-            muted = Color(0xFF938E86),
-            primary = Color(0xFFE94A45),
-            primaryDeep = Color(0xFF321111),
-            secondary = Color(0xFFD2AE67),
-            success = Color(0xFF6FA382),
-            tertiary = Color(0xFF8D7857),
-        ),
-        FrameThemeProfile(FrameVisualLanguage.CINEMATIC, 15.dp, 13.dp, 10.dp, 22.dp, 18.dp, 16.dp, 1.dp, 1.00f, .58f, 1.00f, compact = true),
+        "Dark · Default · cinema black · REC red · warm ivory",
+        directorsCutPalette(),
+        directorsCutProfile(),
+        true,
     ),
-    STUDIO_GOLD(
-        "Studio Gold",
-        "Charcoal · precise gold · restrained editorial luxury",
-        FramePalette(
-            background = Color(0xFF080B0B),
-            surface = Color(0xFF111311),
-            surfaceRaised = Color(0xFF191A18),
-            line = Color(0xFF302E28),
-            foreground = Color(0xFFF4F0E8),
-            muted = Color(0xFFA69F95),
-            primary = Color(0xFFF4C430),
-            primaryDeep = Color(0xFF3A2C00),
-            secondary = Color(0xFFD9A441),
-            success = Color(0xFF6FA382),
-            tertiary = Color(0xFFA66E3F),
-            primaryContentDark = true,
-        ),
-        FrameThemeProfile(FrameVisualLanguage.LUXE, 20.dp, 16.dp, 12.dp, 26.dp, 22.dp, 20.dp, 1.dp, 1.03f, .54f, .88f),
+    BACKLOT_LIGHT(
+        "Light",
+        "Bright production workspace · same Backlot identity",
+        backlotLightPalette(),
+        directorsCutProfile(),
+        true,
     ),
-    MIDNIGHT(
-        "Mono Ink",
-        "Graphite · ivory · typography-first discipline",
-        FramePalette(
-            background = Color(0xFF090909),
-            surface = Color(0xFF121212),
-            surfaceRaised = Color(0xFF1B1B1B),
-            line = Color(0xFF343434),
-            foreground = Color(0xFFF2F2EF),
-            muted = Color(0xFF929292),
-            primary = Color(0xFFF2F2EF),
-            primaryDeep = Color(0xFF2B2B2B),
-            secondary = Color(0xFF737373),
-            success = Color(0xFF7E9A87),
-            tertiary = Color(0xFFBDBDBD),
-            primaryContentDark = true,
-        ),
-        FrameThemeProfile(FrameVisualLanguage.MONO, 6.dp, 5.dp, 3.dp, 8.dp, 18.dp, 13.dp, 1.dp, .96f, .61f, .55f, compact = true),
-    ),
-    LUMEN_FLOW(
-        "Ivory Atelier",
-        "Gallery ivory · charcoal · quiet negative space",
-        FramePalette(
-            background = Color(0xFFF8F5EE),
-            surface = Color(0xFFF0ECE3),
-            surfaceRaised = Color(0xFFFFFDF8),
-            line = Color(0xFFD8D0C4),
-            foreground = Color(0xFF20201F),
-            muted = Color(0xFF746E66),
-            primary = Color(0xFF20201F),
-            primaryDeep = Color(0xFFE5E0D7),
-            secondary = Color(0xFFB7A58A),
-            success = Color(0xFF607C68),
-            tertiary = Color(0xFF9D8061),
-            surfacePersonality = FrameSurfacePersonality.LUMEN,
-            isLight = true,
-        ),
-        FrameThemeProfile(FrameVisualLanguage.GALLERY, 2.dp, 3.dp, 2.dp, 4.dp, 26.dp, 24.dp, 1.dp, 1.08f, .44f, .58f),
-    ),
-    PAPER_QUIET(
-        "Paper Quiet",
-        "Warm paper · ink · ruled editorial calm",
-        FramePalette(
-            background = Color(0xFFF4E9D7),
-            surface = Color(0xFFEFE0C9),
-            surfaceRaised = Color(0xFFFAF2E4),
-            line = Color(0xFFD3BFA5),
-            foreground = Color(0xFF1E1E1E),
-            muted = Color(0xFF6C6258),
-            primary = Color(0xFFC97B63),
-            primaryDeep = Color(0xFFE8CDBD),
-            secondary = Color(0xFFA8A08F),
-            success = Color(0xFF657F68),
-            tertiary = Color(0xFF6A7A6B),
-            surfacePersonality = FrameSurfacePersonality.EDITORIAL,
-            isLight = true,
-            primaryContentDark = true,
-        ),
-        FrameThemeProfile(FrameVisualLanguage.PAPER, 10.dp, 8.dp, 6.dp, 12.dp, 23.dp, 18.dp, 1.dp, 1.02f, .46f, .80f),
-    ),
-    MOSS_STUDIO(
-        "Moss Studio",
-        "Deep moss · sage · soft organic studio rhythm",
-        FramePalette(
-            background = Color(0xFF102017),
-            surface = Color(0xFF183021),
-            surfaceRaised = Color(0xFF21402C),
-            line = Color(0xFF355744),
-            foreground = Color(0xFFF3F2E7),
-            muted = Color(0xFFA9B8A8),
-            primary = Color(0xFFA7DAB0),
-            primaryDeep = Color(0xFF294632),
-            secondary = Color(0xFF7C9A80),
-            success = Color(0xFF83B492),
-            tertiary = Color(0xFFE8E5D9),
-            primaryContentDark = true,
-        ),
-        FrameThemeProfile(FrameVisualLanguage.ORGANIC, 28.dp, 24.dp, 18.dp, 30.dp, 22.dp, 21.dp, 1.dp, 1.00f, .50f, .82f),
-    ),
-    EMBER(
-        "Terracotta Calm",
-        "Clay · sand · asymmetric poster-like composition",
-        FramePalette(
-            background = Color(0xFF2B1B16),
-            surface = Color(0xFF3B241C),
-            surfaceRaised = Color(0xFF4A2E24),
-            line = Color(0xFF6A4335),
-            foreground = Color(0xFFF8E7D8),
-            muted = Color(0xFFC5A999),
-            primary = Color(0xFFC65F3B),
-            primaryDeep = Color(0xFF5C2615),
-            secondary = Color(0xFFE8D3C4),
-            success = Color(0xFF7EA07E),
-            tertiary = Color(0xFFB88873),
-            surfacePersonality = FrameSurfacePersonality.EDITORIAL,
-        ),
-        FrameThemeProfile(FrameVisualLanguage.POSTER, 4.dp, 3.dp, 2.dp, 6.dp, 24.dp, 22.dp, 2.dp, 1.12f, .52f, .95f),
-    ),
-    VIOLET_NEON(
-        "Night Bloom",
-        "Deep plum · rose · elegant curved linework",
-        FramePalette(
-            background = Color(0xFF140E1D),
-            surface = Color(0xFF1E132B),
-            surfaceRaised = Color(0xFF28193A),
-            line = Color(0xFF45305B),
-            foreground = Color(0xFFF4EAF7),
-            muted = Color(0xFFB7A8C3),
-            primary = Color(0xFFE9739E),
-            primaryDeep = Color(0xFF4E1430),
-            secondary = Color(0xFF8C74B8),
-            success = Color(0xFF79A88D),
-            tertiary = Color(0xFFC185D8),
-        ),
-        FrameThemeProfile(FrameVisualLanguage.BLOOM, 24.dp, 20.dp, 16.dp, 28.dp, 22.dp, 20.dp, 1.dp, 1.05f, .54f, .88f),
-    ),
-    AURORA_GLASS(
-        "Blue Hour",
-        "Slate blue · fog grey · wide cinematic quiet",
-        FramePalette(
-            background = Color(0xFF0D1723),
-            surface = Color(0xFF142233),
-            surfaceRaised = Color(0xFF1B2D41),
-            line = Color(0xFF31455A),
-            foreground = Color(0xFFE8EEF3),
-            muted = Color(0xFF9DABB8),
-            primary = Color(0xFF88A9C2),
-            primaryDeep = Color(0xFF26394B),
-            secondary = Color(0xFFB9C4CD),
-            success = Color(0xFF769789),
-            tertiary = Color(0xFF6D859A),
-            surfacePersonality = FrameSurfacePersonality.GLASS,
-            primaryContentDark = true,
-        ),
-        FrameThemeProfile(FrameVisualLanguage.HORIZON, 18.dp, 14.dp, 10.dp, 20.dp, 24.dp, 18.dp, 1.dp, 1.00f, .52f, .74f),
-    ),
-    STORYBOARD(
-        "Storyboard",
-        "Frame grids · shot labels · clean production notation",
-        FramePalette(
-            background = Color(0xFFF0EFEA),
-            surface = Color(0xFFFAF9F5),
-            surfaceRaised = Color(0xFFE5E3DC),
-            line = Color(0xFFB8B5AC),
-            foreground = Color(0xFF1A1B1D),
-            muted = Color(0xFF686A6E),
-            primary = Color(0xFF2D5D7B),
-            primaryDeep = Color(0xFFD1DEE6),
-            secondary = Color(0xFF8A6748),
-            success = Color(0xFF5F7E68),
-            tertiary = Color(0xFFB4453F),
-            surfacePersonality = FrameSurfacePersonality.EDITORIAL,
-            isLight = true,
-        ),
-        FrameThemeProfile(FrameVisualLanguage.STORYBOARD, 1.dp, 1.dp, 1.dp, 2.dp, 20.dp, 16.dp, 1.dp, .98f, .47f, .86f, compact = true),
-    ),
+
+    // Legacy preference ids. Keep for upgrade compatibility only.
+    STUDIO_GOLD("Studio Gold", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
+    MIDNIGHT("Mono Ink", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
+    LUMEN_FLOW("Ivory Atelier", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
+    PAPER_QUIET("Paper Quiet", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
+    MOSS_STUDIO("Moss Studio", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
+    EMBER("Terracotta Calm", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
+    VIOLET_NEON("Night Bloom", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
+    AURORA_GLASS("Blue Hour", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
+    STORYBOARD("Storyboard", "Retired appearance", directorsCutPalette(), directorsCutProfile(), false),
+}
+
+val BacklotSelectableAppearances: List<FrameTheme>
+    get() = listOf(
+        FrameTheme.DIRECTORS_CUT,
+        FrameTheme.BACKLOT_LIGHT,
+    )
+
+private fun FrameTheme.supportedAppearance(): FrameTheme = when (this) {
+    FrameTheme.DIRECTORS_CUT, FrameTheme.BACKLOT_LIGHT -> this
+    else -> FrameTheme.DIRECTORS_CUT
 }
 
 /** Visual preferences stay separate from creator/business settings. */
 object VisualExperiencePrefs {
-    // Retain this private preference file id so existing installs keep their selected visual state.
+    // Retain this private preference file id so existing installs keep their visual preference.
     private const val PREFS = "framebynavin_visual_experience"
     private const val KEY_THEME = "theme"
     private const val KEY_LAUNCH_SOUND = "launch_sound"
@@ -281,15 +173,19 @@ object VisualExperiencePrefs {
         if (appContext != null) return
         appContext = context.applicationContext
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        currentTheme = runCatching {
-            FrameTheme.valueOf(prefs.getString(KEY_THEME, FrameTheme.DIRECTORS_CUT.name).orEmpty())
-        }.getOrDefault(FrameTheme.DIRECTORS_CUT)
+        val storedName = prefs.getString(KEY_THEME, FrameTheme.DIRECTORS_CUT.name).orEmpty()
+        val restored = runCatching { FrameTheme.valueOf(storedName) }.getOrDefault(FrameTheme.DIRECTORS_CUT)
+        currentTheme = restored.supportedAppearance()
+        if (storedName != currentTheme.name) {
+            prefs.edit().putString(KEY_THEME, currentTheme.name).apply()
+        }
         launchSoundEnabled = prefs.getBoolean(KEY_LAUNCH_SOUND, true)
     }
 
     fun setTheme(theme: FrameTheme) {
-        currentTheme = theme
-        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(KEY_THEME, theme.name)?.apply()
+        val supported = theme.supportedAppearance()
+        currentTheme = supported
+        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putString(KEY_THEME, supported.name)?.apply()
     }
 
     fun updateLaunchSound(enabled: Boolean) {
@@ -299,22 +195,50 @@ object VisualExperiencePrefs {
 
     val palette: FramePalette get() = currentTheme.palette
     val profile: FrameThemeProfile get() = currentTheme.profile
+    val isLight: Boolean get() = palette.isLight
     val isGlass: Boolean get() = palette.surfacePersonality == FrameSurfacePersonality.GLASS
     val isEditorial: Boolean get() = palette.surfacePersonality == FrameSurfacePersonality.EDITORIAL
     val isLumen: Boolean get() = palette.surfacePersonality == FrameSurfacePersonality.LUMEN
 }
 
-val CinemaBlack: Color get() = VisualExperiencePrefs.palette.background
-val CinemaSurface: Color get() = VisualExperiencePrefs.palette.surface
-val CinemaSurfaceRaised: Color get() = VisualExperiencePrefs.palette.surfaceRaised
-val CinemaLine: Color get() = VisualExperiencePrefs.palette.line
-val ProjectorIvory: Color get() = VisualExperiencePrefs.palette.foreground
-val MutedText: Color get() = VisualExperiencePrefs.palette.muted
-val RecRed: Color get() = VisualExperiencePrefs.palette.primary
-val RecRedDeep: Color get() = VisualExperiencePrefs.palette.primaryDeep
-val MutedGold: Color get() = VisualExperiencePrefs.palette.secondary
-val SuccessGreen: Color get() = VisualExperiencePrefs.palette.success
-val FrameTertiary: Color get() = VisualExperiencePrefs.palette.tertiary
+// V148 semantic appearance tokens. New UI should use these names instead of assuming a color.
+val BacklotBackground: Color get() = VisualExperiencePrefs.palette.background
+val BacklotSurface: Color get() = VisualExperiencePrefs.palette.surface
+val BacklotSurfaceRaised: Color get() = VisualExperiencePrefs.palette.surfaceRaised
+val BacklotBorder: Color get() = VisualExperiencePrefs.palette.line
+val BacklotPrimaryText: Color get() = VisualExperiencePrefs.palette.foreground
+val BacklotSecondaryText: Color get() = VisualExperiencePrefs.palette.muted
+val BacklotAccent: Color get() = VisualExperiencePrefs.palette.primary
+val BacklotAccentContainer: Color get() = VisualExperiencePrefs.palette.primaryDeep
+val BacklotSecondaryAccent: Color get() = VisualExperiencePrefs.palette.secondary
+val BacklotOnSecondaryAccent: Color get() = if (VisualExperiencePrefs.isLight) Color.White else Color(0xFF171310)
+val BacklotSuccess: Color get() = VisualExperiencePrefs.palette.success
+val BacklotTertiary: Color get() = VisualExperiencePrefs.palette.tertiary
+val BacklotSurfaceSelected: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFF6E8E4) else Color(0xFF241615)
+val BacklotSurfacePressed: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFEDE8E0) else Color(0xFF20201F)
+val BacklotNavigationSurface: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFFFFDF9) else Color(0xFF0F0F0F)
+val BacklotInputSurface: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFFFFFFF) else Color(0xFF141414)
+val BacklotScrim: Color get() = Color.Black.copy(alpha = if (VisualExperiencePrefs.isLight) .38f else .62f)
+val BacklotWarning: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFF8A5B18) else Color(0xFFD8A657)
+val BacklotError: Color get() = if (VisualExperiencePrefs.isLight) Color(0xFFB33C38) else Color(0xFFE65F5A)
+
+// Media is content, not app chrome. Imported frames/video remain on a stable dark canvas in both appearances.
+val BacklotMediaCanvas: Color get() = Color(0xFF050505)
+val BacklotOnMedia: Color get() = Color(0xFFF4F0E8)
+val BacklotMediaBorder: Color get() = Color.White.copy(alpha = .14f)
+// Compatibility aliases. Existing screens continue to follow the selected appearance while V148
+// gradually moves them to semantic names.
+val CinemaBlack: Color get() = BacklotBackground
+val CinemaSurface: Color get() = BacklotSurface
+val CinemaSurfaceRaised: Color get() = BacklotSurfaceRaised
+val CinemaLine: Color get() = BacklotBorder
+val ProjectorIvory: Color get() = BacklotPrimaryText
+val MutedText: Color get() = BacklotSecondaryText
+val RecRed: Color get() = BacklotAccent
+val RecRedDeep: Color get() = BacklotAccentContainer
+val MutedGold: Color get() = BacklotSecondaryAccent
+val SuccessGreen: Color get() = BacklotSuccess
+val FrameTertiary: Color get() = BacklotTertiary
 
 val BacklotCardRadius: Dp get() = VisualExperiencePrefs.profile.cardRadius
 val BacklotButtonRadius: Dp get() = VisualExperiencePrefs.profile.buttonRadius
@@ -365,6 +289,7 @@ fun FrameByNavinTheme(content: @Composable () -> Unit) {
     val view = LocalView.current
     SideEffect {
         val window = view.context.frameActivity()?.window ?: return@SideEffect
+        window.setBackgroundDrawable(ColorDrawable(palette.background.toArgb()))
         window.statusBarColor = palette.background.toArgb()
         window.navigationBarColor = palette.background.toArgb()
         WindowCompat.getInsetsController(window, view).apply {
@@ -383,8 +308,9 @@ fun FrameByNavinTheme(content: @Composable () -> Unit) {
             surface = palette.surface,
             onSurface = palette.foreground,
             surfaceVariant = palette.surfaceRaised,
+            onSurfaceVariant = palette.muted,
             outline = palette.line,
-            error = Color(0xFFB34D49),
+            error = BacklotError,
         )
     } else {
         darkColorScheme(
@@ -397,8 +323,9 @@ fun FrameByNavinTheme(content: @Composable () -> Unit) {
             surface = palette.surface,
             onSurface = palette.foreground,
             surfaceVariant = palette.surfaceRaised,
+            onSurfaceVariant = palette.muted,
             outline = palette.line,
-            error = Color(0xFFE65F5A),
+            error = BacklotError,
         )
     }
     MaterialTheme(

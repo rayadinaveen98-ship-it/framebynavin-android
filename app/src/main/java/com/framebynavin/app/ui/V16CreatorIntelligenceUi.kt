@@ -109,7 +109,7 @@ internal fun V16CreatorIntelligenceCard(
 
 @Composable
 private fun V16Metric(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(modifier, RoundedCornerShape(14.dp), color = androidx.compose.ui.graphics.Color(0xFF171717)) {
+    Surface(modifier, RoundedCornerShape(14.dp), color = CinemaSurface) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 11.dp)) {
             Text(label, color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(3.dp))

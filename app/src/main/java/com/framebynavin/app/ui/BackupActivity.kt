@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material3.*
@@ -30,10 +32,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.CreatorBackupManager
+import com.framebynavin.app.data.IdeaVaultStore
+import com.framebynavin.app.data.PortableCreatorBackupManager
+import com.framebynavin.app.data.VoiceIdeaStorage
+import com.framebynavin.app.data.VoiceIdeaStorageSnapshot
+import com.framebynavin.app.data.formatVoiceStorageBytes
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,33 +57,51 @@ class BackupActivity : ComponentActivity() {
 private fun BackupScreen(onClose: () -> Unit) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
-    val manager = remember { CreatorBackupManager(context.applicationContext) }
+    val manager = remember { PortableCreatorBackupManager(context.applicationContext) }
+    val recoveryManager = remember { CreatorBackupManager(context.applicationContext) }
+    val ideaStore = remember { IdeaVaultStore(context.applicationContext) }
+    val voiceStorage = remember {
+        VoiceIdeaStorage(File(context.applicationContext.filesDir, VoiceIdeaStorage.DIRECTORY_NAME))
+    }
     val scope = rememberCoroutineScope()
-    var pendingExport by remember { mutableStateOf<String?>(null) }
-    var pendingRestoreRaw by remember { mutableStateOf<String?>(null) }
+    var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
     var preview by remember { mutableStateOf<CreatorBackupManager.BackupPreview?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var voiceStorageBusy by remember { mutableStateOf(false) }
+    var voiceStorageRefreshNonce by remember { mutableIntStateOf(0) }
+    var voiceStorageSnapshot by remember { mutableStateOf(VoiceIdeaStorageSnapshot()) }
+    var confirmVoiceCleanup by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var isError by remember { mutableStateOf(false) }
-    val recoveryCount = remember { manager.recoveryCopies().size }
+    val recoveryCount = remember { recoveryManager.recoveryCopies().size }
+    val actionBusy = busy || voiceStorageBusy
+
+    LaunchedEffect(voiceStorageRefreshNonce) {
+        voiceStorageSnapshot = withContext(Dispatchers.IO) {
+            voiceStorage.snapshot(ideaStore.load())
+        }
+    }
 
     val createDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
-        val raw = pendingExport
-        pendingExport = null
-        if (uri != null && raw != null) {
+        if (uri != null) {
             scope.launch {
                 busy = true
                 val result = runCatching {
                     withContext(Dispatchers.IO) {
-                        context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(raw) }
-                            ?: error("Could not open the selected file.")
+                        context.contentResolver.openOutputStream(uri)?.use { output ->
+                            manager.writeBackup(output)
+                        } ?: error("Could not open the selected file.")
                     }
                 }
                 busy = false
                 isError = result.isFailure
-                message = if (result.isSuccess) "Backup saved. Keep this unencrypted file somewhere private." else "Could not save the backup. Try another location."
+                message = if (result.isSuccess) {
+                    "Backup saved with portable Voice Idea recordings. Keep this unencrypted file somewhere private."
+                } else {
+                    "Could not save the backup. Try another location."
+                }
             }
         }
     }
@@ -85,19 +111,19 @@ private fun BackupScreen(onClose: () -> Unit) {
             scope.launch {
                 busy = true
                 val result = runCatching {
-                    val raw = withContext(Dispatchers.IO) {
-                        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use(manager::validate)
                             ?: error("Could not read the selected file.")
                     }
-                    val checked = manager.validate(raw)
-                    raw to checked
                 }
                 busy = false
-                result.onSuccess { (raw, checked) ->
-                    pendingRestoreRaw = raw
+                result.onSuccess { checked ->
+                    pendingRestoreUri = uri
                     preview = checked
                     message = null
+                    isError = false
                 }.onFailure {
+                    pendingRestoreUri = null
                     isError = true
                     message = "That file could not be opened as a Backlot backup."
                 }
@@ -124,35 +150,50 @@ private fun BackupScreen(onClose: () -> Unit) {
 
             BackupActionCard(
                 title = "Export backup",
-                body = "Projects, ideas, workflows, reminders, rewards, settings and your personal Best Frames. Backups are portable but not encrypted; save them somewhere private.",
+                body = "Projects, ideas, Voice Idea recordings, workflows, reminders, rewards, settings and your personal Best Frames. Backups are portable but not encrypted; save them somewhere private.",
                 icon = Icons.Outlined.CloudUpload,
                 button = "EXPORT BACKUP",
-                enabled = !busy,
+                enabled = !actionBusy,
             ) {
-                scope.launch {
-                    busy = true
-                    val result = runCatching { manager.createBackup() }
-                    busy = false
-                    result.onSuccess { raw ->
-                        pendingExport = raw
-                        val name = SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.getDefault()).format(Date())
-                        createDocument.launch("Backlot-Backup-$name.fbnbackup")
-                    }.onFailure {
-                        isError = true
-                        message = "Could not create the backup. Try again."
-                    }
-                }
+                val name = SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.getDefault()).format(Date())
+                createDocument.launch("Backlot-Backup-$name.fbnbackup")
             }
 
             Spacer(Modifier.height(12.dp))
             BackupActionCard(
                 title = "Restore backup",
-                body = "The app validates the file and shows what it contains before replacing anything.",
+                body = "Backlot validates the file first. New portable backups restore Voice Idea audio too; older text backups remain supported.",
                 icon = Icons.Outlined.CloudDownload,
                 button = "CHOOSE BACKUP",
-                enabled = !busy,
+                enabled = !actionBusy,
             ) {
-                openDocument.launch(arrayOf("application/octet-stream", "application/json", "text/plain", "*/*"))
+                openDocument.launch(arrayOf("application/octet-stream", "application/zip", "application/json", "text/plain", "*/*"))
+            }
+
+            Spacer(Modifier.height(12.dp))
+            BackupActionCard(
+                title = "Voice storage",
+                body = buildString {
+                    append("${voiceStorageSnapshot.referencedCount} saved ${if (voiceStorageSnapshot.referencedCount == 1) "recording" else "recordings"} use ${formatVoiceStorageBytes(voiceStorageSnapshot.referencedBytes)}. ")
+                    append("Total Backlot Voice Idea media on this device: ${formatVoiceStorageBytes(voiceStorageSnapshot.totalOwnedBytes)}.")
+                    if (voiceStorageSnapshot.orphanCount > 0) {
+                        append(" ${voiceStorageSnapshot.orphanCount} unreferenced ${if (voiceStorageSnapshot.orphanCount == 1) "recording is" else "recordings are"} safe to clean (${formatVoiceStorageBytes(voiceStorageSnapshot.orphanBytes)}).")
+                    } else {
+                        append(" No old orphan recordings are waiting for cleanup.")
+                    }
+                    if (voiceStorageSnapshot.recentUnreferencedCount > 0) {
+                        append(" ${voiceStorageSnapshot.recentUnreferencedCount} recent unreferenced ${if (voiceStorageSnapshot.recentUnreferencedCount == 1) "take is" else "takes are"} protected for 10 minutes.")
+                    }
+                },
+                icon = Icons.Outlined.DeleteSweep,
+                button = if (voiceStorageSnapshot.orphanCount > 0) {
+                    "CLEAN ${voiceStorageSnapshot.orphanCount} ORPHAN${if (voiceStorageSnapshot.orphanCount == 1) "" else "S"}"
+                } else {
+                    "NOTHING TO CLEAN"
+                },
+                enabled = !actionBusy && voiceStorageSnapshot.orphanCount > 0,
+            ) {
+                confirmVoiceCleanup = true
             }
 
             Spacer(Modifier.height(12.dp))
@@ -165,12 +206,12 @@ private fun BackupScreen(onClose: () -> Unit) {
                 },
                 icon = Icons.Outlined.Restore,
                 button = "OPEN RECOVERY COPIES",
-                enabled = !busy,
+                enabled = !actionBusy,
             ) {
                 context.startActivity(Intent(context, RecoveryCopiesActivity::class.java))
             }
 
-            if (busy) {
+            if (actionBusy) {
                 Spacer(Modifier.height(18.dp))
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = RecRed, trackColor = CinemaLine)
             }
@@ -180,7 +221,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 Surface(
                     Modifier.fillMaxWidth(),
                     RoundedCornerShape(16.dp),
-                    if (isError) Color(0xFF1A1110) else Color(0xFF101812),
+                    if (isError) RecRed.copy(alpha = .07f) else SuccessGreen.copy(alpha = .08f),
                     border = BorderStroke(1.dp, if (isError) RecRed.copy(alpha = .4f) else SuccessGreen.copy(alpha = .35f)),
                 ) {
                     Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -196,15 +237,65 @@ private fun BackupScreen(onClose: () -> Unit) {
                 Column(Modifier.padding(15.dp)) {
                     Text("RESTORE SAFETY", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                     Spacer(Modifier.height(6.dp))
-                    Text("Before restoring, Backlot keeps a retained recovery copy on this device. A restore journal can recover after a crash. Existing cloud backups are not overwritten. You can manage retained copies from Recovery copies above.", color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
+                    Text("Before restoring, Backlot keeps a retained recovery copy on this device. A restore journal can recover after a crash. Portable Voice Idea media is integrity-checked before creator data is replaced. Existing cloud backups are not overwritten.", color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
                 }
             }
         }
     }
 
+    if (confirmVoiceCleanup) {
+        AlertDialog(
+            onDismissRequest = { if (!voiceStorageBusy) confirmVoiceCleanup = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Clean orphan recordings?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            text = {
+                Text(
+                    "Backlot will only delete finalized Voice Idea recordings that are no longer referenced by your Idea Vault and are at least 10 minutes old. Saved recordings, active working takes and recent unreferenced takes are protected. This cannot be undone.",
+                    color = MutedText,
+                    fontSize = 12.sp,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            voiceStorageBusy = true
+                            val result = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    voiceStorage.cleanupOrphans(ideaStore.load())
+                                }
+                            }
+                            voiceStorageBusy = false
+                            confirmVoiceCleanup = false
+                            result.onSuccess { cleaned ->
+                                isError = cleaned.failedCount > 0
+                                message = when {
+                                    cleaned.deletedCount == 0 && cleaned.failedCount == 0 -> "No orphan Voice Idea recordings needed cleanup."
+                                    cleaned.failedCount == 0 -> "Cleaned ${cleaned.deletedCount} orphan ${if (cleaned.deletedCount == 1) "recording" else "recordings"} and freed ${formatVoiceStorageBytes(cleaned.deletedBytes)}."
+                                    else -> "Cleaned ${cleaned.deletedCount} orphan ${if (cleaned.deletedCount == 1) "recording" else "recordings"}, but ${cleaned.failedCount} could not be removed."
+                                }
+                            }.onFailure {
+                                isError = true
+                                message = "Voice storage cleanup could not finish. Your saved recordings were left untouched."
+                            }
+                            voiceStorageRefreshNonce++
+                        }
+                    },
+                    enabled = !voiceStorageBusy,
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                ) { Text("CLEAN ORPHANS", fontWeight = FontWeight.Black) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmVoiceCleanup = false }, enabled = !voiceStorageBusy) {
+                    Text("CANCEL", color = MutedText)
+                }
+            },
+        )
+    }
+
     preview?.let { checked ->
         AlertDialog(
-            onDismissRequest = { if (!busy) { preview = null; pendingRestoreRaw = null } },
+            onDismissRequest = { if (!busy) { preview = null; pendingRestoreUri = null } },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Restore this backup?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
             text = {
@@ -215,19 +306,25 @@ private fun BackupScreen(onClose: () -> Unit) {
                     BackupPreviewRow("Active reminders", checked.activeReminderCount.toString())
                     BackupPreviewRow("Settings", if (checked.settingsIncluded) "Included" else "Missing")
                     Spacer(Modifier.height(10.dp))
-                    Text("This replaces local creator data. Your previous data will be retained in an internal recovery copy. Older backups may not include personal frames, and will not erase your current frames.", color = MutedText, fontSize = 12.sp)
+                    Text("This replaces local creator data. Your previous data will be retained in an internal recovery copy. Older backups may not include personal frames or Voice Idea audio, and will not erase your current personal frames.", color = MutedText, fontSize = 12.sp)
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        val raw = pendingRestoreRaw ?: return@Button
+                        val uri = pendingRestoreUri ?: return@Button
                         scope.launch {
                             busy = true
-                            val result = runCatching { manager.restore(raw) }
+                            val result = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    context.contentResolver.openInputStream(uri)?.use { input ->
+                                        manager.restore(input)
+                                    } ?: error("Could not reopen the selected backup.")
+                                }
+                            }
                             busy = false
                             preview = null
-                            pendingRestoreRaw = null
+                            pendingRestoreUri = null
                             if (result.isSuccess) {
                                 isError = false
                                 message = "Backup restored. Restarting Backlot…"
@@ -246,7 +343,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 ) { Text("RESTORE", fontWeight = FontWeight.Black) }
             },
             dismissButton = {
-                TextButton(onClick = { preview = null; pendingRestoreRaw = null }, enabled = !busy) { Text("CANCEL", color = MutedText) }
+                TextButton(onClick = { preview = null; pendingRestoreUri = null }, enabled = !busy) { Text("CANCEL", color = MutedText) }
             },
         )
     }

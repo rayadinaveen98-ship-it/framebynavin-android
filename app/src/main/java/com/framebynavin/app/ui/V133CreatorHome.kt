@@ -387,7 +387,7 @@ private fun V133NextUpCard(task: CreatorTask, onClick: () -> Unit) {
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(36.dp).background(Color(0xFF1C1714), RoundedCornerShape(11.dp)),
+                Modifier.size(36.dp).background(MutedGold.copy(alpha = .08f), RoundedCornerShape(11.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Outlined.MovieCreation, null, tint = MutedGold, modifier = Modifier.size(18.dp))
@@ -418,7 +418,7 @@ private fun V133QuickAction(
     ) {
         Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(34.dp).background(Color(0xFF1B1714), CircleShape),
+                Modifier.size(34.dp).background(MutedGold.copy(alpha = .08f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(icon, null, tint = MutedGold, modifier = Modifier.size(18.dp))

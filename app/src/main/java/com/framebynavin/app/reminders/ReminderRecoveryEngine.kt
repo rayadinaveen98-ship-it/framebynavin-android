@@ -2,6 +2,7 @@ package com.framebynavin.app.reminders
 
 import android.content.Context
 import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorPublicationRecovery
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskStatus
@@ -19,6 +20,10 @@ object ReminderRecoveryEngine {
         nowMillis: Long = System.currentTimeMillis(),
     ) = CreatorDataGate.readyTransaction(context) {
         val appContext = context.applicationContext
+        // Stage Done writes reward evidence before the authoritative task mutation. If the process
+        // dies after that task write but before reward finalization, repair the durable marker on
+        // every normal reminder recovery entry point (startup/resume/boot/health reconciliation).
+        CreatorPublicationRecovery(appContext).recoverPendingUnlocked()
         TaskStore(appContext).load().forEach { task ->
             reconcileTask(appContext, task, nowMillis)
         }

@@ -33,8 +33,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
+import com.framebynavin.app.voice.VoiceIdeaRecording
 import com.framebynavin.app.youtube.YouTubeAnalyticsStore
 import com.framebynavin.app.youtube.YouTubeOpportunityEngine
+import com.framebynavin.app.widget.CreatorWidgetContract
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -48,6 +51,9 @@ internal fun V09IdeaVaultScreen(
     onDelete: (String) -> Unit,
     onArchive: (String) -> Unit,
     onConvert: (String, String, String, Long) -> String?,
+    externalIdeaId: String = "",
+    externalIdeaMode: String = "",
+    externalLaunchNonce: Long = 0L,
 ) {
     val context = LocalContext.current
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
@@ -55,9 +61,23 @@ internal fun V09IdeaVaultScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var statusFilter by rememberSaveable { mutableStateOf<IdeaStatus?>(null) }
     var categoryFilter by rememberSaveable { mutableStateOf<IdeaCategory?>(null) }
+    var captureFilter by rememberSaveable { mutableStateOf<IdeaCaptureType?>(null) }
     var editing by remember { mutableStateOf<CreatorIdea?>(null) }
     var creating by remember { mutableStateOf(false) }
     var converting by remember { mutableStateOf<CreatorIdea?>(null) }
+    var handledExternalNonce by rememberSaveable { mutableLongStateOf(0L) }
+
+    LaunchedEffect(externalLaunchNonce, externalIdeaId, ideas.size) {
+        if (externalLaunchNonce == 0L || externalLaunchNonce == handledExternalNonce || externalIdeaId.isBlank()) {
+            return@LaunchedEffect
+        }
+        val target = ideas.firstOrNull { it.id == externalIdeaId } ?: return@LaunchedEffect
+        handledExternalNonce = externalLaunchNonce
+        when (externalIdeaMode) {
+            CreatorWidgetContract.IDEA_MODE_CONVERT -> converting = target
+            else -> editing = target
+        }
+    }
 
     val opportunityReport = YouTubeAnalyticsStore.latest24HourReport
     val opportunityAlerts by remember(opportunityReport) {
@@ -66,15 +86,17 @@ internal fun V09IdeaVaultScreen(
     val opportunityIdeaIds by remember { derivedStateOf { opportunityAlerts.mapNotNull { it.ideaId }.toSet() } }
     val opportunityMatch by remember { derivedStateOf { opportunityAlerts.firstOrNull { it.ideaId != null } } }
     val readyCount by remember { derivedStateOf { ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE } } }
+    val voiceCount by remember { derivedStateOf { ideas.count { it.captureType == IdeaCaptureType.VOICE } } }
 
     val filtered by remember {
         derivedStateOf {
             ideas.filter { idea ->
-                val textMatch = query.isBlank() || listOf(idea.title, idea.topic, idea.notes)
+                val textMatch = query.isBlank() || listOf(idea.title, idea.topic, idea.notes, idea.transcript)
                     .any { it.contains(query, ignoreCase = true) }
                 val statusMatch = statusFilter == null || idea.status == statusFilter
                 val categoryMatch = categoryFilter == null || idea.category == categoryFilter
-                textMatch && statusMatch && categoryMatch
+                val captureMatch = captureFilter == null || idea.captureType == captureFilter
+                textMatch && statusMatch && categoryMatch && captureMatch
             }.sortedWith(
                 compareByDescending<CreatorIdea> { it.id in opportunityIdeaIds }
                     .thenBy { it.status == IdeaStatus.ARCHIVED }
@@ -103,7 +125,7 @@ internal fun V09IdeaVaultScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp),
                     shape = RoundedCornerShape(17.dp),
-                    color = Color(0xFF1A1710),
+                    color = MutedGold.copy(alpha = .08f),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .45f)),
                 ) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
@@ -122,7 +144,7 @@ internal fun V09IdeaVaultScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                placeholder = { Text("Search ideas, topics or notes…") },
+                placeholder = { Text("Search ideas, topics, notes or transcripts…") },
             )
 
             Spacer(Modifier.height(10.dp))
@@ -151,6 +173,14 @@ internal fun V09IdeaVaultScreen(
                         label = { Text(IdeaVaultLabels.category(category), fontSize = 10.sp) },
                     )
                 }
+            }
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                FilterChip(selected = captureFilter == null, onClick = { captureFilter = null }, label = { Text("All types", fontSize = 10.sp) })
+                FilterChip(selected = captureFilter == IdeaCaptureType.VOICE, onClick = { captureFilter = IdeaCaptureType.VOICE }, label = { Text("Voice ($voiceCount)", fontSize = 10.sp) })
+                FilterChip(selected = captureFilter == IdeaCaptureType.TEXT, onClick = { captureFilter = IdeaCaptureType.TEXT }, label = { Text("Text", fontSize = 10.sp) })
             }
 
             Spacer(Modifier.height(6.dp))
@@ -209,7 +239,10 @@ internal fun V09IdeaVaultScreen(
             idea = idea,
             onDismiss = { editing = null },
             onSave = { onSave(it); editing = null },
-            onDelete = { onDelete(idea.id); editing = null },
+            onDelete = {
+                onDelete(idea.id)
+                editing = null
+            },
         )
     }
 
@@ -236,16 +269,22 @@ private fun V09IdeaCard(
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
         shape = RoundedCornerShape(17.dp),
-        color = if (isOpportunity) Color(0xFF1A1712) else CinemaSurfaceRaised,
+        color = if (isOpportunity) MutedGold.copy(alpha = .07f) else CinemaSurfaceRaised,
         border = androidx.compose.foundation.BorderStroke(1.dp, if (isOpportunity) MutedGold.copy(alpha = .62f) else CinemaLine),
     ) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(100.dp), color = Color(0xFF14110D), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF342C21))) {
+                Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .08f), border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .22f))) {
                     Text(IdeaVaultLabels.category(idea.category), color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                 }
                 Spacer(Modifier.width(6.dp))
                 Text(IdeaVaultLabels.status(idea.status).uppercase(), color = MutedText, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+                if (idea.captureType == IdeaCaptureType.VOICE) {
+                    Spacer(Modifier.width(6.dp))
+                    Surface(shape = RoundedCornerShape(100.dp), color = RecRed.copy(alpha = .12f)) {
+                        Text("VOICE", color = RecRed, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                    }
+                }
                 Spacer(Modifier.weight(1f))
                 if (isOpportunity) {
                     Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .12f)) {
@@ -261,6 +300,10 @@ private fun V09IdeaCard(
             if (idea.notes.isNotBlank()) {
                 Spacer(Modifier.height(5.dp))
                 Text(idea.notes, color = MutedText, fontSize = 9.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (idea.hasOriginalRecording) {
+                Spacer(Modifier.height(9.dp))
+                VoiceIdeaPlaybackControl(idea = idea)
             }
             Spacer(Modifier.height(9.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -304,19 +347,63 @@ private fun V09IdeaEditor(
         CreatorPlatformRegistry.orderedSelected(creatorProfile, include = if (idea.id.isBlank()) null else idea.platformHint)
     }
     var notes by remember(idea.id) { mutableStateOf(idea.notes) }
+    var reminderAtMillis by remember(idea.id) { mutableLongStateOf(idea.reminderAtMillis) }
+    var reminderCadence by remember(idea.id) { mutableStateOf(idea.reminderCadence) }
     var showOrganize by rememberSaveable(idea.id) { mutableStateOf(false) }
+    var voiceRecording by remember(idea.id) { mutableStateOf<VoiceIdeaRecording?>(null) }
     val formats = v09Formats(platform)
     LaunchedEffect(platform) { if (format !in formats) format = formats.first() }
 
+    fun discardNewRecording() {
+        voiceRecording?.localPath?.takeIf { it.isNotBlank() }?.let { path -> runCatching { File(path).delete() } }
+        voiceRecording = null
+    }
+
+    fun dismissEditor() {
+        discardNewRecording()
+        onDismiss()
+    }
+
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = ::dismissEditor,
         containerColor = CinemaSurfaceRaised,
         title = { Text(if (idea.id.isBlank()) "New Idea" else "Edit Idea", color = ProjectorIvory, fontWeight = FontWeight.Black) },
         text = {
             Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
                 OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Idea title") })
+
+                if (idea.id.isBlank()) {
+                    Spacer(Modifier.height(10.dp))
+                    VoiceIdeaRecorderInput(
+                        recording = voiceRecording,
+                        onRecordingChanged = { voiceRecording = it },
+                    )
+                } else if (idea.hasOriginalRecording) {
+                    Spacer(Modifier.height(10.dp))
+                    VoiceIdeaPlaybackControl(idea = idea)
+                }
+
                 Spacer(Modifier.height(9.dp))
                 OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes · optional") })
+                Spacer(Modifier.height(8.dp))
+                V117VoiceIdeaInput(
+                    onTranscript = { transcript ->
+                        val clean = transcript.trim()
+                        if (clean.isNotBlank()) {
+                            notes = if (notes.isBlank()) clean else notes.trimEnd() + System.lineSeparator() + clean
+                        }
+                    },
+                )
+                Spacer(Modifier.height(10.dp))
+                V144IdeaReminderPicker(
+                    reminderAtMillis = reminderAtMillis,
+                    cadence = reminderCadence,
+                    enabled = status != IdeaStatus.CONVERTED && status != IdeaStatus.ARCHIVED,
+                    onChange = { atMillis, cadence ->
+                        reminderAtMillis = atMillis
+                        reminderCadence = cadence
+                    },
+                )
                 Spacer(Modifier.height(12.dp))
                 Surface(
                     onClick = { showOrganize = !showOrganize },
@@ -375,10 +462,12 @@ private fun V09IdeaEditor(
             Button(
                 onClick = {
                     val now = System.currentTimeMillis()
+                    val finalizedRecording = voiceRecording
+                    val newVoiceIdea = idea.id.isBlank() && finalizedRecording != null
                     onSave(
                         idea.copy(
                             id = idea.id.ifBlank { UUID.randomUUID().toString() },
-                            title = title.trim(),
+                            title = title.trim().ifBlank { if (newVoiceIdea) v09DefaultVoiceIdeaTitle() else "" },
                             topic = topic.trim(),
                             category = category,
                             status = status,
@@ -386,16 +475,25 @@ private fun V09IdeaEditor(
                             platformHint = platform,
                             formatHint = format,
                             notes = notes.trim(),
+                            reminderAtMillis = reminderAtMillis,
+                            reminderCadence = reminderCadence,
+                            captureType = if (newVoiceIdea) IdeaCaptureType.VOICE else idea.captureType,
+                            audioLocalPath = finalizedRecording?.localPath ?: idea.audioLocalPath,
+                            audioDurationMillis = finalizedRecording?.durationMillis ?: idea.audioDurationMillis,
+                            audioMimeType = finalizedRecording?.mimeType ?: idea.audioMimeType,
+                            audioSyncState = if (newVoiceIdea) IdeaAudioSyncState.LOCAL_ONLY else idea.audioSyncState,
                             createdAtMillis = idea.createdAtMillis.takeIf { it > 0L } ?: now,
                             updatedAtMillis = now,
                         )
                     )
+                    // The saved idea now owns this file; do not delete it when the editor leaves composition.
+                    voiceRecording = null
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() || voiceRecording != null,
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-            ) { Text("SAVE") }
+            ) { Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL", color = MutedText) } },
+        dismissButton = { TextButton(onClick = ::dismissEditor) { Text("CANCEL", color = MutedText) } },
     )
 }
 
@@ -485,5 +583,8 @@ private fun V09ConvertIdeaDialog(
 private fun V09VaultLabel(text: String) {
     Text(text, color = MutedGold, fontSize = 8.2.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 5.dp))
 }
+
+private fun v09DefaultVoiceIdeaTitle(): String =
+    "Voice idea • ${SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(System.currentTimeMillis())}"
 
 private fun v09Formats(platform: String): List<String> = CreatorPlatformRegistry.formats(platform)

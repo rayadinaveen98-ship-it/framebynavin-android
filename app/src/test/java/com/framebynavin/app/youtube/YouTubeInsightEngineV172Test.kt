@@ -51,11 +51,48 @@ class YouTubeInsightEngineV172Test {
     }
 
     @Test
+    fun formatAverageViewDurationIsWeightedByPeriodViews() {
+        val taskA = CreatorTask(id = "a", title = "Short A", platform = "YouTube", contentType = "Short", dueLabel = "")
+        val taskB = CreatorTask(id = "b", title = "Short B", platform = "YouTube", contentType = "Short", dueLabel = "")
+        val videos = listOf(
+            video("small", views = 100, watch = 10, subs = 1, averageViewDurationSeconds = 30),
+            video("large", views = 900, watch = 450, subs = 10, averageViewDurationSeconds = 300),
+        )
+        val snapshot = snapshot(views = 1000, watch = 460, videos = videos)
+
+        val row = YouTubeInsightEngine.formatPerformance(
+            snapshot,
+            listOf(taskA, taskB),
+            mapOf("small" to "a", "large" to "b"),
+        ).single { it.label == "Short-form" }
+
+        assertEquals(273L, row.averageViewDurationSeconds)
+    }
+
+    @Test
     fun topSignalIdentifiesClearPerformanceDriver() {
         val videos = listOf(video("leader", 8000, 800, 60), video("other", 1000, 100, 5))
         val snapshot = snapshot(views = 9000, watch = 900, videos = videos)
         val signals = YouTubeInsightEngine.topSignals(snapshot, emptyList(), emptyList(), emptyMap())
         assertTrue(signals.any { it.kicker == "WORKING WELL" || it.kicker == "TOP VIDEO" })
+    }
+
+    @Test
+    fun recentVideoBaselineIsNotDistortedByOlderBreakoutTopVideo() {
+        val recent = listOf(
+            video("recent-a", views = 100, watch = 20, subs = 1),
+            video("recent-b", views = 100, watch = 20, subs = 1),
+        )
+        val olderBreakout = video("older-breakout", views = 1000, watch = 200, subs = 10)
+        val snapshot = snapshot(views = 1200, watch = 240, videos = recent).copy(
+            topVideos = listOf(olderBreakout),
+            recentVideos = recent,
+        )
+
+        val breakoutPerformance = YouTubeInsightEngine.videoPerformance(snapshot)
+            .first { it.video.videoId == "older-breakout" }
+
+        assertEquals(10.0, breakoutPerformance.baselineMultiple, 0.001)
     }
 
     private fun snapshot(
@@ -82,14 +119,20 @@ class YouTubeInsightEngineV172Test {
         previousPeriod = previous,
     )
 
-    private fun video(id: String, views: Long, watch: Long, subs: Long) = YouTubeVideoSnapshot(
+    private fun video(
+        id: String,
+        views: Long,
+        watch: Long,
+        subs: Long,
+        averageViewDurationSeconds: Long = 180,
+    ) = YouTubeVideoSnapshot(
         videoId = id,
         title = id,
         publishedAtMillis = 0L,
         periodViews = views,
         lifetimeViews = views,
         watchMinutes = watch,
-        averageViewDurationSeconds = 180,
+        averageViewDurationSeconds = averageViewDurationSeconds,
         subscribersGained = subs,
         subscribersLost = 0,
         likes = 100,

@@ -72,6 +72,8 @@ internal fun V20NewProjectWizard(
     onPickCustomReminder: () -> Unit,
     priority: TaskPriority,
     onPriorityChange: (TaskPriority) -> Unit,
+    voicePersona: VoicePersona,
+    onPreviewVoice: (VoicePersona) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
     reminderSetupReady: Boolean,
@@ -430,6 +432,15 @@ internal fun V20NewProjectWizard(
                             }
                         }
 
+                        if (attentionPlan != ProjectAttentionPlan.OFF) {
+                            Spacer(Modifier.height(14.dp))
+                            V141InheritedVoiceCard(
+                                voice = voicePersona,
+                                onPreview = onPreviewVoice,
+                                onOpenSettings = onOpenSettings,
+                            )
+                        }
+
                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                             Spacer(Modifier.height(14.dp))
                             V20FieldLabel("REMINDER TIME")
@@ -457,7 +468,7 @@ internal fun V20NewProjectWizard(
                                 onClick = onOpenSettings,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(14.dp),
-                                color = Color(0xFF17130F),
+                                color = MutedGold.copy(alpha = .07f),
                                 border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f)),
                             ) {
                                 Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -545,7 +556,7 @@ private fun V20ProgressiveSection(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFF111113),
+                    color = CinemaSurfaceRaised,
                     border = BorderStroke(1.dp, RecRed.copy(alpha = .38f)),
                 ) {
                     Column(Modifier.padding(16.dp)) {

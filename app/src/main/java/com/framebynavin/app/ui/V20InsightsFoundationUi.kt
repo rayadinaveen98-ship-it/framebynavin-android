@@ -3,10 +3,12 @@ package com.framebynavin.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -14,10 +16,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.CinemaLine
+import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
-import com.framebynavin.app.ui.theme.RecRed
 import com.framebynavin.app.ui.theme.SuccessGreen
 import com.framebynavin.app.youtube.YouTubeAnalyticsSnapshot
 import com.framebynavin.app.youtube.YouTubeDatasetState
@@ -26,15 +28,58 @@ import com.framebynavin.app.youtube.YouTubeInsightsFoundationStore
 import com.framebynavin.app.youtube.YouTubeReachStore
 
 /**
- * Small, additive proof surface for Insights Foundation 2.0.
- * This is intentionally not the final Creator Intelligence redesign.
+ * Stable Insights foundation surface.
+ *
+ * Core analytics arrives before YouTube's deeper audience/reach reports. Keep the card positions
+ * stable while those reports are loading so creators never see the dashboard jump around.
  */
 @Composable
-internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
+internal fun V20InsightsFoundationCard(
+    snapshot: YouTubeAnalyticsSnapshot,
+    refreshRevision: Int = 0,
+    loading: Boolean = false,
+    onCreateProject: () -> Unit = {},
+) {
     val context = LocalContext.current.applicationContext
-    val foundation = remember(snapshot.channel.channelId, snapshot.windowDays, snapshot.fetchedAtMillis) {
+    val foundation = remember(snapshot.channel.channelId, snapshot.windowDays, snapshot.fetchedAtMillis, refreshRevision) {
         YouTubeInsightsFoundationStore(context).load(snapshot.windowDays, snapshot.channel.channelId)
-    } ?: return
+    }
+
+    if (foundation == null) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = CinemaSurface,
+            border = BorderStroke(1.dp, CinemaLine),
+        ) {
+            Column(Modifier.padding(14.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("CHANNEL SIGNALS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                        Spacer(Modifier.height(3.dp))
+                        Text("What your audience is telling you", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                    }
+                    if (loading) {
+                        CircularProgressIndicator(modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = MutedGold)
+                    }
+                }
+                Spacer(Modifier.height(9.dp))
+                Text(
+                    if (loading) "Loading deeper audience, reach and retention signals…" else "Deep audience signals are not ready yet. Core channel Insights are already available.",
+                    color = MutedText,
+                    fontSize = 8.6.sp,
+                    lineHeight = 13.sp,
+                )
+                Spacer(Modifier.height(7.dp))
+                Text("Traffic waiting  ·  Audience waiting  ·  Devices waiting  ·  Geography waiting  ·  Retention waiting  ·  Reach waiting", color = MutedText.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        // Opportunity intelligence only needs the core snapshot, so it should never disappear
+        // while deeper YouTube reports are still arriving.
+        V20OpportunityEngineInsightsCard(snapshot, onCreateProject)
+        return
+    }
 
     val traffic = foundation.health(YouTubeFoundationDataset.TRAFFIC)?.state
     val audience = foundation.health(YouTubeFoundationDataset.SUBSCRIBED_STATUS)?.state
@@ -43,7 +88,7 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
     val retention = foundation.health(YouTubeFoundationDataset.RETENTION)?.state
     val reachHealth = foundation.health(YouTubeFoundationDataset.REACH)
     val reachState = reachHealth?.state
-    val reachSummary = remember(snapshot.channel.channelId, snapshot.startDate, snapshot.endDate, snapshot.fetchedAtMillis) {
+    val reachSummary = remember(snapshot.channel.channelId, snapshot.startDate, snapshot.endDate, snapshot.fetchedAtMillis, refreshRevision) {
         YouTubeReachStore(context).summary(snapshot.startDate, snapshot.endDate)
     }
     val reach = if (reachSummary != null) YouTubeDatasetState.READY else reachState
@@ -51,15 +96,19 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = Color(0xFF141619),
+        color = CinemaSurface,
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Column(Modifier.padding(14.dp)) {
-            Row(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("CHANNEL SIGNALS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(3.dp))
                     Text("What your audience is telling you", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                }
+                if (loading) {
+                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = MutedGold)
+                    Spacer(Modifier.width(6.dp))
                 }
                 Text("${foundation.readyDatasetCount()} ready", color = SuccessGreen, fontSize = 8.sp, fontWeight = FontWeight.Black)
             }
@@ -122,12 +171,18 @@ internal fun V20InsightsFoundationCard(snapshot: YouTubeAnalyticsSnapshot) {
                     fontSize = 8.1.sp,
                     lineHeight = 12.sp,
                 )
+                else -> Text(
+                    "Reach is still being prepared. Core performance remains available.",
+                    color = MutedText,
+                    fontSize = 8.1.sp,
+                    lineHeight = 12.sp,
+                )
             }
         }
     }
 
     Spacer(Modifier.height(10.dp))
-    V20OpportunityEngineInsightsCard(snapshot)
+    V20OpportunityEngineInsightsCard(snapshot, onCreateProject)
 }
 
 private fun statusText(label: String, state: YouTubeDatasetState?): String = when (state) {

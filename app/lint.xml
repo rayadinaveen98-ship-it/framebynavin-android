@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!--
+      SavedVoiceIdeaTranscriber is runtime-gated to Android 13+ before it reaches the
+      RecognizerIntent.EXTRA_AUDIO_SOURCE / RecognitionSupport APIs. Keep lint strict
+      everywhere else; only suppress NewApi for this guarded implementation file.
+    -->
+    <issue id="NewApi">
+        <ignore path="src/main/java/com/framebynavin/app/voice/SavedVoiceIdeaTranscriber.kt" />
+    </issue>
+</lint>

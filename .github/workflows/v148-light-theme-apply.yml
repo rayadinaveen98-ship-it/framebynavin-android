@@ -1,0 +1,99 @@
+name: V148 Light Appearance Transition Polish
+
+on:
+  push:
+    branches:
+      - "feature/v148-light-theme-polish"
+    paths:
+      - ".github/v148/apply_light_theme_audit.py"
+      - ".github/v148/finalize_light_semantics.py"
+      - ".github/v148/fix_transition_polish.py"
+      - ".github/workflows/v148-light-theme-apply.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v148-light-transition-polish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harden-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout V148 polish branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Apply controlled V148 cross-file patches
+        run: python .github/v148/apply_light_theme_audit.py --apply
+
+      # Cross-layer guard: media keeps authored black while native dialogs follow the selected appearance.
+      - name: Apply media and native-dialog semantic pass
+        run: python .github/v148/finalize_light_semantics.py
+
+      - name: Apply startup and transition polish
+        run: python .github/v148/fix_transition_polish.py
+
+      - name: Print theme-surface audit
+        run: python .github/v148/apply_light_theme_audit.py | tee v148-theme-audit.txt
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Run Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Build V148 polish APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Enforce no unresolved dark-only surface literals
+        run: python .github/v148/apply_light_theme_audit.py --strict
+
+      - name: Recheck media and native-dialog semantics
+        run: python .github/v148/finalize_light_semantics.py
+
+      - name: Recheck startup and transition polish
+        run: python .github/v148/fix_transition_polish.py
+
+      - name: Commit validated V148 polish source patch set
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Only source/config paths belong in Git. Gradle caches, app/build outputs and generated
+          # audit reports remain workflow artifacts.
+          git add app/build.gradle.kts app/src/main/java app/src/main/res app/src/test
+          if git diff --cached --quiet; then
+            echo "No generated V148 polish source changes to commit."
+          else
+            git commit -m "fix(v148): polish startup and workspace transitions"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+
+      - name: Upload V148 polish APK and audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v148-Light-Transition-Polish
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            v148-theme-audit.txt
+          if-no-files-found: warn

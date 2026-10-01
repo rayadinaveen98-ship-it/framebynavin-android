@@ -43,6 +43,9 @@ data class StageCheckpoint(
 object WeeklyScheduleEngine {
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
+    /** Stable IDs are intentionally retained from V4 so existing weekly projects do not duplicate. */
+    private const val FRAMEBYNAVIN_STABLE_PREFIX = "fbn_v4_"
+
     private val legacySeedSlotIds = setOf(
         "mon_x_thought",
         "mon_frame_today",
@@ -57,9 +60,206 @@ object WeeklyScheduleEngine {
         "sun_companion_reel",
     )
 
+    private val v4DefaultTitlesBySuffix = mapOf(
+        "_frame" to "Frame of the Day · IG + YT Community + X",
+        "_recommendation" to "Movie Recommendation · IG Reel + YT Short + X",
+        "_10pm_cinema" to "10 PM Cinema · Instagram",
+        "tue_scene_works" to "Why This Scene Works · IG Reel + YT Short + X",
+        "wed_cinematic_moment" to "Every Cinematic Moment",
+        "wed_ecm_promo" to "Every Cinematic Moment Promo · IG Reel + YT Short + X",
+        "fri_review" to "Friday Movie Review",
+        "fri_review_promo" to "Review Promo · IG Reel + YT Short + X",
+        "sun_flagship" to "Flagship Cinematic Analysis",
+        "sun_flagship_promo" to "Flagship Promo · IG Reel + YT Short + X",
+    )
+
     fun isLegacySeedSlot(slotId: String): Boolean = slotId in legacySeedSlotIds
 
-    fun defaultSlots(): List<WeeklyScheduleSlot> = emptyList()
+    /**
+     * FrameByNavin V5 creator rhythm.
+     *
+     * V5 changes the actual recurring content identities while keeping the existing publish times.
+     * Cross-platform content remains one master Backlot project rather than duplicate projects.
+     */
+    fun frameByNavinV5Slots(): List<WeeklyScheduleSlot> = buildList {
+        DayOfWeek.values().forEach { day ->
+            val dayKey = day.name.lowercase(Locale.ROOT).take(3)
+            add(
+                slot(
+                    id = "${FRAMEBYNAVIN_STABLE_PREFIX}${dayKey}_frame",
+                    title = "Frames of the Day · IG Reel + YT Short + X",
+                    day = day,
+                    hour = 9,
+                    minute = 0,
+                    platform = "Instagram",
+                    contentType = "Reel",
+                    reminderMode = ReminderMode.SIMPLE,
+                    priority = TaskPriority.NORMAL,
+                )
+            )
+            add(
+                slot(
+                    id = "${FRAMEBYNAVIN_STABLE_PREFIX}${dayKey}_recommendation",
+                    title = "Daily Movie Recommendation · IG Reel + YT Short + X",
+                    day = day,
+                    hour = 13,
+                    minute = 0,
+                    platform = "YouTube",
+                    contentType = "Short",
+                    reminderMode = ReminderMode.SIMPLE,
+                    priority = TaskPriority.IMPORTANT,
+                )
+            )
+            add(
+                slot(
+                    id = "${FRAMEBYNAVIN_STABLE_PREFIX}${dayKey}_10pm_cinema",
+                    title = "10 PM Music · Instagram",
+                    day = day,
+                    hour = 22,
+                    minute = 0,
+                    platform = "Instagram",
+                    contentType = "Reel",
+                    reminderMode = ReminderMode.SIMPLE,
+                    priority = TaskPriority.NORMAL,
+                )
+            )
+        }
+
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}tue_scene_works",
+                title = "Why This Scene Works · IG Reel + YT Short + X",
+                day = DayOfWeek.TUESDAY,
+                hour = 20,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Short",
+                reminderMode = ReminderMode.SMART,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}wed_cinematic_moment",
+                title = "Every Cinematic Moment",
+                day = DayOfWeek.WEDNESDAY,
+                hour = 19,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Cinematic Moment",
+                reminderMode = ReminderMode.SMART,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}wed_ecm_promo",
+                title = "Every Cinematic Moment Promo · IG Reel + YT Short + X",
+                day = DayOfWeek.WEDNESDAY,
+                hour = 20,
+                minute = 30,
+                platform = "YouTube",
+                contentType = "Short",
+                reminderMode = ReminderMode.SIMPLE,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}fri_review",
+                title = "Friday Movie Review",
+                day = DayOfWeek.FRIDAY,
+                hour = 19,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Long-form",
+                reminderMode = ReminderMode.SMART,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}fri_review_promo",
+                title = "Review Promo · IG Reel + YT Short + X",
+                day = DayOfWeek.FRIDAY,
+                hour = 20,
+                minute = 30,
+                platform = "YouTube",
+                contentType = "Short",
+                reminderMode = ReminderMode.SIMPLE,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}sun_flagship",
+                title = "Cinematic Analysis",
+                day = DayOfWeek.SUNDAY,
+                hour = 10,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Long-form",
+                reminderMode = ReminderMode.SMART,
+                priority = TaskPriority.CRITICAL,
+            )
+        )
+        add(
+            slot(
+                id = "${FRAMEBYNAVIN_STABLE_PREFIX}sun_flagship_promo",
+                title = "Cinematic Analysis Promo · IG Reel + YT Short + X",
+                day = DayOfWeek.SUNDAY,
+                hour = 18,
+                minute = 0,
+                platform = "YouTube",
+                contentType = "Short",
+                reminderMode = ReminderMode.SIMPLE,
+                priority = TaskPriority.IMPORTANT,
+            )
+        )
+    }
+
+    /** Source compatibility for older callers; IDs remain intentionally stable. */
+    fun frameByNavinV4Slots(): List<WeeklyScheduleSlot> = frameByNavinV5Slots()
+
+    fun defaultSlots(): List<WeeklyScheduleSlot> = frameByNavinV5Slots()
+
+    fun isFrameByNavinV5Preset(slots: List<WeeklyScheduleSlot>): Boolean {
+        val expectedIds = frameByNavinV5Slots().mapTo(linkedSetOf()) { it.id }
+        val actualIds = slots.mapTo(linkedSetOf()) { it.id }
+        return expectedIds == actualIds
+    }
+
+    fun isFrameByNavinV4Preset(slots: List<WeeklyScheduleSlot>): Boolean = isFrameByNavinV5Preset(slots)
+
+    /**
+     * Upgrades untouched V4 preset entries to V5 without overwriting creator customization.
+     * Times, enabled state, cadence and reminder choices are preserved.
+     */
+    fun migratePresetSlot(slot: WeeklyScheduleSlot): WeeklyScheduleSlot {
+        val oldTitle = v4DefaultTitleFor(slot.id) ?: return slot
+        if (slot.title != oldTitle) return slot
+        val replacement = frameByNavinV5Slots().firstOrNull { it.id == slot.id } ?: return slot
+        return replacement.copy(
+            dayOfWeek = slot.dayOfWeek,
+            hour = slot.hour,
+            minute = slot.minute,
+            enabled = slot.enabled,
+            cadence = slot.cadence,
+            reminderMode = slot.reminderMode,
+            priority = slot.priority,
+        )
+    }
+
+    private fun v4DefaultTitleFor(slotId: String): String? {
+        if (!slotId.startsWith(FRAMEBYNAVIN_STABLE_PREFIX)) return null
+        val suffix = slotId.removePrefix(FRAMEBYNAVIN_STABLE_PREFIX)
+        return when {
+            suffix.endsWith("_frame") -> v4DefaultTitlesBySuffix["_frame"]
+            suffix.endsWith("_recommendation") -> v4DefaultTitlesBySuffix["_recommendation"]
+            suffix.endsWith("_10pm_cinema") -> v4DefaultTitlesBySuffix["_10pm_cinema"]
+            else -> v4DefaultTitlesBySuffix[suffix]
+        }
+    }
 
     fun upcomingOccurrences(
         slots: List<WeeklyScheduleSlot>,
@@ -84,7 +284,7 @@ object WeeklyScheduleEngine {
         }.sortedBy { it.publishAtMillis }
     }
 
-    fun occurrenceKey(slotId: String, date: LocalDate): String = "$slotId@${date}"
+    fun occurrenceKey(slotId: String, date: LocalDate): String = "$slotId@$date"
 
     fun dateFromOccurrenceKey(key: String): LocalDate? =
         key.substringAfter('@', "").takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
@@ -103,11 +303,12 @@ object WeeklyScheduleEngine {
 
     fun checkpoints(task: CreatorTask): List<StageCheckpoint> = checkpoints(task.platform, task.contentType, task.dueAtMillis)
 
+    /** A deadline can suggest urgency, but it can never prove that creative work is already done. */
     fun suggestedStageIndex(platform: String, contentType: String, publishAtMillis: Long, nowMillis: Long = System.currentTimeMillis()): Int {
-        val checkpoints = checkpoints(platform, contentType, publishAtMillis)
-        if (checkpoints.isEmpty()) return 0
-        val completedByClock = checkpoints.count { it.dueAtMillis <= nowMillis }
-        return completedByClock.coerceIn(0, checkpoints.lastIndex)
+        // Keep the arguments for source/binary compatibility with older callers. New recurring
+        // projects always begin at their first workflow step; only creator actions advance them.
+        if (platform.isEmpty() && contentType.isEmpty() && publishAtMillis == nowMillis) return 0
+        return 0
     }
 
     fun reminderTargetForStage(task: CreatorTask, stageIndex: Int, nowMillis: Long = System.currentTimeMillis()): Long {

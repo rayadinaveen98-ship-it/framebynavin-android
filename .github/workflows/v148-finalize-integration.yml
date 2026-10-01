@@ -1,0 +1,38 @@
+name: V148 Finalize Integration
+
+on:
+  push:
+    branches:
+      - feature/v148-reminder-insights-polish
+    paths:
+      - .github/workflows/v148-finalize-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V148 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v148-reminder-insights-polish
+          fetch-depth: 0
+
+      - name: Apply live V148 integration
+        run: python .github/v148/finalize_integration.py
+
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V11YouTubeInsights.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V172InsightsUi.kt \
+                  app/src/main/java/com/framebynavin/app/ui/V148InsightsRouteBridge.kt \
+                  app/src/test/java/com/framebynavin/app/ui/V148InsightsRouteTest.kt \
+                  app/build.gradle.kts
+          git diff --cached --check
+          git commit -m "Finalize V148 reminder and Insights polish"
+          git push origin HEAD:feature/v148-reminder-insights-polish

@@ -339,6 +339,8 @@ internal fun PProjectComposer(
             },
             priority = priority,
             onPriorityChange = { priority = it },
+            voicePersona = voice,
+            onPreviewVoice = { pComposerPreviewVoice(context, it) },
             notes = notes,
             onNotesChange = { notes = it },
             reminderSetupReady = reminderSetupReady,
@@ -508,6 +510,15 @@ internal fun PProjectComposer(
                         )
                     }
 
+                    if (attentionPlan != ProjectAttentionPlan.OFF) {
+                        Spacer(Modifier.height(16.dp))
+                        V140VoiceStudioPicker(
+                            selected = voice,
+                            onSelected = { voice = it },
+                            onPreview = { pComposerPreviewVoice(context, it) },
+                        )
+                    }
+
                     pulsePreview?.let { pulse ->
                         Spacer(Modifier.height(8.dp))
                         Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
@@ -539,7 +550,7 @@ internal fun PProjectComposer(
 
                     if (requiresAdvancedPermissions && !reminderSetupReady) {
                         Spacer(Modifier.height(12.dp))
-                        Surface(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = Color(0xFF17130F), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f))) {
+                        Surface(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = MutedGold.copy(alpha = .07f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f))) {
                             Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Outlined.Settings, null, tint = MutedGold, modifier = Modifier.size(17.dp))
                                 Spacer(Modifier.width(8.dp))
@@ -561,7 +572,7 @@ internal fun PProjectComposer(
                     }
                 }
 
-                Surface(color = Color(0xF20B0B0C), tonalElevation = 8.dp) {
+                Surface(color = BacklotNavigationSurface.copy(alpha = .96f), tonalElevation = 8.dp) {
                     Button(
                         onClick = {
                             onSave(
@@ -660,7 +671,7 @@ private fun PSmartWindowCard(valid: Boolean, requiredMinutes: Int, availableMinu
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(15.dp),
-        color = if (valid) Color(0xFF101812) else Color(0xFF1A1110),
+        color = if (valid) SuccessGreen.copy(alpha = .08f) else RecRed.copy(alpha = .07f),
         border = BorderStroke(1.dp, if (valid) SuccessGreen.copy(alpha = .35f) else RecRed.copy(alpha = .4f)),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -688,17 +699,17 @@ private fun PModeCard(mode: ReminderMode, selected: Boolean, enabled: Boolean, o
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        color = if (selected) Color(0xFF19130F) else CinemaSurface,
+        color = if (selected) RecRed.copy(alpha = .07f) else CinemaSurface,
         border = BorderStroke(1.dp, if (selected) RecRed.copy(alpha = .55f) else CinemaLine),
     ) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = if (!enabled) Color(0xFF56524E) else if (selected) RecRed else MutedGold, modifier = Modifier.size(20.dp))
+                Icon(icon, null, tint = if (!enabled) MutedText.copy(alpha = .50f) else if (selected) RecRed else MutedGold, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(7.dp))
             Column(Modifier.weight(1f)) {
-                Text(pModeLabel(mode), color = if (enabled) ProjectorIvory else Color(0xFF6D6964), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(description, color = if (enabled) MutedText else Color(0xFF56524E), fontSize = 8.7.sp, lineHeight = 12.sp)
+                Text(pModeLabel(mode), color = if (enabled) ProjectorIvory else MutedText.copy(alpha = .65f), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                Text(description, color = if (enabled) MutedText else MutedText.copy(alpha = .50f), fontSize = 8.7.sp, lineHeight = 12.sp)
             }
             RadioButton(selected = selected, onClick = if (enabled) onClick else null, enabled = enabled, colors = RadioButtonDefaults.colors(selectedColor = RecRed))
         }
@@ -770,7 +781,7 @@ private fun pComposerPreviewVoice(context: Context, persona: VoicePersona) {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.getDefault()
             tts?.let { VoicePersonaEngine.apply(it, persona) }
-            tts?.speak("Backlot. This is ${VoicePersonaEngine.label(persona)}.", TextToSpeech.QUEUE_FLUSH, null, "composer-${persona.name}")
+            tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "composer-${persona.name}")
             Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
         } else tts?.shutdown()
     }

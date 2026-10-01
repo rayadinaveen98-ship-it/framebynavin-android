@@ -1,73 +1,56 @@
-# Backlot for Android
+# Backlot Android
 
-Backlot is an Android-first creator operating system built with Kotlin and Jetpack Compose. It is designed around the full creator loop: **Idea → Creation → Execution → Publication → Performance → Learning → Next Idea**.
+Backlot is an Android-first, offline-first Creator OS built with Kotlin and Jetpack Compose. It is designed to help creators capture ideas, turn them into projects, execute through reminders/workflows, and connect published work back to channel insights.
 
-> Repository and package identifiers still contain the historical `framebynavin` name for compatibility. The user-facing product identity is **Backlot**.
+## Current stable version
 
-## Current stable daily-use build
+The current verified stable checkpoint is **Backlot V149 / RC26 – Supabase Voice Reminder Fix**.
 
-Backlot **v139** is the current locked daily-use build.
+- `versionCode`: `149`
+- binary `versionName`: `2.0.0-rc26-supabase-voice-reminder-fix`
+- stable branch: `stable/backlot-v149`
+- manually verified application source head: `ac4b7b3ff961d7af39bcdfa3b88c3ffe17a2bed1`
+- successful Android APK workflow run for that source: `36799359846`
+- workflow result: `success`
 
-- Version code: **139**
-- Version name: `2.0.0-rc12-theme-system-finalization`
-- Validated source commit: `a02057599e75e5af2fdc8f581074585c8587e1f9`
-- Frozen release branch: `release/backlot-v139-final`
-- Validation workflow: run `34986413539` — **SUCCESS**
-- APK: `Backlot-v139-ThemeSystem.apk`
-- APK SHA-256: `5414831f8ef40177cec3746c29b2d755cce180abcc489f3bad78cf1363eb62bd`
+The binary version name is intentionally preserved so the stable checkpoint identifies the exact application build that completed real-device verification. The stable designation is carried by this Git checkpoint rather than by changing the tested application payload after verification.
 
-The exact stable state and hold policy are recorded in [`docs/release/CURRENT_STABLE.md`](docs/release/CURRENT_STABLE.md).
+V149/RC26 stabilizes the Supabase-backed identity and voice-reminder path. Its main changes include:
 
-## v139 visual system
+- prefer the connected/cached Google account first name for spoken reminders, with creator-profile and generic fallbacks;
+- accept Google `given_name` metadata as an additional identity source;
+- prevent duplicate delivery of the same reminder occurrence from restarting speech;
+- freeze the complete reminder sentence before speaking and wait for TTS completion before any configured repeat;
+- keep manual Replay as an explicit forced restart path;
+- harden reminder scheduling, secure backup/restore, settings and creator-state reliability tests added during the V149 hardening pass.
 
-v139 is the current visual-personalization checkpoint. It keeps Director's Cut as the classic Backlot black/red identity and separates the previous gold direction into Studio Gold.
-
-The ten available visual languages are:
-
-1. Director's Cut
-2. Studio Gold
-3. Mono Ink
-4. Ivory Atelier
-5. Paper Quiet
-6. Moss Studio
-7. Terracotta Calm
-8. Night Bloom
-9. Blue Hour
-10. Storyboard
-
-Frame/Navi guide identity, current Backlot splash/launcher identity, widgets, and Quick Idea are included in the daily-use build. Quick Idea follows the active visual language.
-
-## Product scope
-
-Backlot currently includes creator planning and execution tools such as Idea Vault, projects and workflow stages, Project Pulse, reminders and alarms, Daily Brief, calendar and publishing flows, creator analytics and Insights, workflow intelligence, opportunity/context tools, account/profile and backup/cloud capabilities, widgets, Best Frames, Cine Pulse/guide experiences, and supporting creator utilities.
-
-The long-term differentiator is not a generic assistant. Backlot should learn from the creator's own history: how an idea was researched, hooked, scripted, produced, published and performed, then turn that evidence into better next decisions.
+The connected Supabase project used by Backlot is active and the reminder identity path remains resilient to temporary backend unavailability by using cached authenticated identity where available.
 
 ## Build and verification
 
-GitHub Actions is the authoritative Android build environment. The v139 validation completed successfully for:
+GitHub Actions is the authoritative Android build environment. The main workflow is `.github/workflows/android-apk.yml`.
 
-- theme contract verification
-- user-facing Backlot brand audit
-- unit tests
-- Kotlin compilation
-- debug APK assembly
-- artifact packaging/upload
+For V149 it runs:
 
-Physical-device visual quality and daily-use UX are validated separately through real use; a green CI build is not treated as physical-device visual approval.
+1. unit tests;
+2. Android lint;
+3. instrumentation-test APK compilation;
+4. debug APK assembly;
+5. artifact upload.
 
-## Branch policy while v139 is being used
+The manually verified application source head `ac4b7b3ff961d7af39bcdfa3b88c3ffe17a2bed1` completed workflow run `36799359846` successfully.
 
-- `release/backlot-v139-final` is the frozen rollback/reference snapshot and must not be developed on directly.
-- `main` is the current repository source-of-truth line.
-- Future product work should start in a new feature branch after daily-use observations from v139 are reviewed.
-- Do not rewrite compatibility identifiers such as the Android application ID solely for branding cleanup.
+## Release status
 
-## Android compatibility
+**Stable checkpoint approved on October 1, 2026 after successful real-device/manual verification.**
 
-- Application ID: `com.framebynavin.app`
-- Minimum SDK: 26
-- Target SDK: 36
-- Java/JDK: 17
+The previously pending Supabase + Google first-name reminder path and uninterrupted voice-reminder playback checks are complete and working as expected on the verified build.
 
-The application ID and some internal class/theme/backup identifiers intentionally retain historical naming to protect compatibility and existing data.
+The following remain ongoing product/beta validation areas rather than blockers for the V149 stable checkpoint:
+
+- broader offline/online sync and account-switch stress coverage;
+- backup/restore coverage across more device/account combinations;
+- YouTube Insights metric comparison against YouTube Studio over additional channels/data sets;
+- onboarding usability testing with creators who have not previously used Backlot.
+
+Preserve an independent backup before using development builds with irreplaceable creator data. New feature work should branch from `stable/backlot-v149` (or the corresponding updated `main` checkpoint once merged) rather than modifying this stable branch directly.
