@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "FrameByNavin"
 include(":app")
+include(":shared")
