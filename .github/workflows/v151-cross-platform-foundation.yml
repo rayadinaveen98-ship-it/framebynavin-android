@@ -6,6 +6,7 @@ on:
       - feature/backlot-v151-cross-platform-foundation
     paths:
       - 'shared/**'
+      - 'iosApp/**'
       - 'app/**'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
@@ -32,6 +33,9 @@ jobs:
 
       - name: Compile shared Android target
         run: gradle :shared:compileDebugKotlinAndroid --stacktrace
+
+      - name: Shared common tests on Android target
+        run: gradle :shared:testDebugUnitTest --stacktrace
 
       - name: Android unit tests including shared parity
         run: gradle :app:testDebugUnitTest --stacktrace
@@ -65,3 +69,16 @@ jobs:
           set -euo pipefail
           test -d shared/build/bin/iosSimulatorArm64/debugFramework/BacklotShared.framework
           test -f shared/build/bin/iosSimulatorArm64/debugFramework/BacklotShared.framework/BacklotShared
+
+      - name: Type-check native SwiftUI shell against BacklotShared
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          xcrun swiftc \
+            -typecheck \
+            -sdk "$SDK" \
+            -target arm64-apple-ios17.0-simulator \
+            -F shared/build/bin/iosSimulatorArm64/debugFramework \
+            -framework BacklotShared \
+            iosApp/BacklotApp.swift iosApp/BacklotRootView.swift
