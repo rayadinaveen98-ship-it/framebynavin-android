@@ -1,0 +1,255 @@
+name: V150 Phase B Product Focus
+
+on:
+  push:
+    branches:
+      - feature/v150-pilot-product-focus
+    paths:
+      - .github/workflows/v150-phase-b-product.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wire Workflow V2 and Ideas V2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('app/src/main/java/com/framebynavin/app/data/CreatorWorkflow.kt')
+          s = workflow.read_text()
+          old = '    fun templateFor(task: CreatorTask): WorkflowTemplate = templateFor(task.platform, task.contentType)'
+          new = '    fun templateFor(task: CreatorTask): WorkflowTemplate = CreatorWorkflowV2.templateFor(task) ?: templateFor(task.platform, task.contentType)'
+          if old in s:
+              s = s.replace(old, new, 1)
+          assert new in s
+          workflow.write_text(s)
+
+          ideas = Path('app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt')
+          s = ideas.read_text()
+          state_anchor = '    var captureFilter by rememberSaveable { mutableStateOf<IdeaCaptureType?>(null) }\n'
+          if 'var showFilters by rememberSaveable' not in s:
+              assert state_anchor in s
+              s = s.replace(state_anchor, state_anchor + '    var showFilters by rememberSaveable { mutableStateOf(false) }\n', 1)
+
+          count_anchor = '    val voiceCount by remember { derivedStateOf { ideas.count { it.captureType == IdeaCaptureType.VOICE } } }\n'
+          if 'val activeFilterCount by remember' not in s:
+              assert count_anchor in s
+              s = s.replace(count_anchor, count_anchor + '''    val activeFilterCount by remember {
+        derivedStateOf {
+            listOfNotNull(
+                statusFilter?.takeIf { it !in setOf(IdeaStatus.INBOX, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.CONVERTED) },
+                categoryFilter,
+                captureFilter,
+            ).size
+        }
+    }
+''', 1)
+
+          opp_start = s.index('            opportunityMatch?.let { match ->')
+          opp_end = s.index('            OutlinedTextField(', opp_start)
+          compact_opp = '''            opportunityMatch?.let { match ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MutedGold.copy(alpha = .055f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .24f)),
+                ) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("⚡", fontSize = 14.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("MATCHED TO YOUR CHANNEL MOMENTUM", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Text(match.ideaTitle ?: match.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+
+'''
+          s = s[:opp_start] + compact_opp + s[opp_end:]
+
+          filter_start_marker = '            Spacer(Modifier.height(10.dp))\n            Row(\n                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),'
+          filter_start = s.index(filter_start_marker)
+          filter_end_marker = '            Spacer(Modifier.height(6.dp))\n            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {'
+          filter_end = s.index(filter_end_marker, filter_start)
+          compact_filters = '''            Spacer(Modifier.height(9.dp))
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                FilterChip(selected = statusFilter == null, onClick = { statusFilter = null }, label = { Text("All", fontSize = 10.sp) })
+                FilterChip(selected = statusFilter == IdeaStatus.INBOX, onClick = { statusFilter = IdeaStatus.INBOX }, label = { Text("Inbox", fontSize = 10.sp) })
+                FilterChip(selected = statusFilter == IdeaStatus.READY_TO_PRODUCE, onClick = { statusFilter = IdeaStatus.READY_TO_PRODUCE }, label = { Text("Ready", fontSize = 10.sp) })
+                FilterChip(selected = statusFilter == IdeaStatus.CONVERTED, onClick = { statusFilter = IdeaStatus.CONVERTED }, label = { Text("Converted", fontSize = 10.sp) })
+                FilterChip(
+                    selected = activeFilterCount > 0,
+                    onClick = { showFilters = true },
+                    label = { Text(if (activeFilterCount > 0) "Filters ($activeFilterCount)" else "Filters", fontSize = 10.sp) },
+                )
+            }
+
+'''
+          s = s[:filter_start] + compact_filters + s[filter_end:]
+
+          sheet_anchor = '    if (creating) {\n'
+          if 'V150IdeaFilterSheet(' not in s:
+              assert sheet_anchor in s
+              sheet = '''    if (showFilters) {
+        V150IdeaFilterSheet(
+            visibleCategories = visibleCategories,
+            statusFilter = statusFilter,
+            categoryFilter = categoryFilter,
+            captureFilter = captureFilter,
+            voiceCount = voiceCount,
+            onStatus = { statusFilter = it },
+            onCategory = { categoryFilter = it },
+            onCapture = { captureFilter = it },
+            onDismiss = { showFilters = false },
+        )
+    }
+
+'''
+              s = s.replace(sheet_anchor, sheet + sheet_anchor, 1)
+
+          old_notes = '''            if (idea.notes.isNotBlank()) {
+                Spacer(Modifier.height(5.dp))
+                Text(idea.notes, color = MutedText, fontSize = 9.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (idea.hasOriginalRecording) {
+                Spacer(Modifier.height(9.dp))
+                VoiceIdeaPlaybackControl(idea = idea)
+            }
+'''
+          if old_notes in s:
+              s = s.replace(old_notes, '', 1)
+
+          old_tail = '''                Spacer(Modifier.weight(1f))
+                if (isOpportunity) {
+                    Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .12f)) {
+                        Text("MATCHED", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(idea.potential.name, color = if (idea.potential == IdeaPotential.HIGH) RecRed else MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+'''
+          new_tail = '''                Spacer(Modifier.weight(1f))
+                if (isOpportunity) {
+                    Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .12f)) {
+                        Text("⚡ MOMENTUM", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                    }
+                }
+'''
+          if old_tail in s:
+              s = s.replace(old_tail, new_tail, 1)
+
+          ideas.write_text(s)
+          PY
+
+      - name: Add workflow resolver tests
+        shell: bash
+        run: |
+          mkdir -p app/src/test/java/com/framebynavin/app/data
+          cat > app/src/test/java/com/framebynavin/app/data/CreatorWorkflowV150Test.kt <<'KOTLIN'
+          package com.framebynavin.app.data
+
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertNull
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
+
+          class CreatorWorkflowV150Test {
+              @Test
+              fun techReviewUsesEvidenceDrivenWorkflow() {
+                  val task = CreatorTask(
+                      id = "tech",
+                      title = "Phone review",
+                      platform = "YouTube",
+                      contentType = "Long-form",
+                      contentDna = CreatorContentDna(
+                          creatorModeId = "tech",
+                          archetypeId = "review",
+                          platform = "YouTube",
+                          deliveryFormat = "Long-form",
+                      ),
+                  )
+                  val template = requireNotNull(CreatorWorkflowV2.templateFor(task))
+                  assertEquals("Test Plan", template.stages.first().label)
+                  assertTrue(template.stages.any { it.label == "Evidence" })
+                  assertTrue(template.stages.any { it.id == "published" })
+              }
+
+              @Test
+              fun newsWorkflowVerifiesBeforePublishing() {
+                  val task = CreatorTask(
+                      id = "news",
+                      title = "Update",
+                      platform = "YouTube",
+                      contentType = "Video",
+                      contentDna = CreatorContentDna(
+                          creatorModeId = "news_commentary",
+                          archetypeId = "news_update",
+                          platform = "YouTube",
+                          deliveryFormat = "Video",
+                      ),
+                  )
+                  val template = requireNotNull(CreatorWorkflowV2.templateFor(task))
+                  assertEquals("Source Collection", template.stages[0].label)
+                  assertEquals("Verify", template.stages[1].label)
+                  assertTrue(template.stages.indexOfFirst { it.id == "verify" } < template.stages.indexOfFirst { it.id == "published" })
+              }
+
+              @Test
+              fun legacyProjectWithoutDnaKeepsExistingWorkflow() {
+                  val task = CreatorTask(id = "legacy", title = "Legacy", platform = "YouTube", contentType = "Long-form")
+                  assertNull(CreatorWorkflowV2.templateFor(task))
+                  assertEquals("youtube_longform", CreatorWorkflowEngine.templateFor(task).id)
+              }
+          }
+          KOTLIN
+
+      - name: Commit product focus integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Backlot V150 Builder"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/java/com/framebynavin/app/data/CreatorWorkflow.kt app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt app/src/test/java/com/framebynavin/app/data/CreatorWorkflowV150Test.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(v150): activate category workflows and clean idea vault"
+            git push origin HEAD:feature/v150-pilot-product-focus
+          fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backlot-v150-phase-b-product-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
