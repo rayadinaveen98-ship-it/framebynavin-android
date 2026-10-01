@@ -58,7 +58,7 @@ final class BacklotIdentityCoordinator {
         } catch {
             // Failed account switching must not strand the UI in RESOLVING. If a previous valid
             // session exists, restore it; otherwise return to the explicit signed-out state.
-            if let previous = try? identityRepository.persistedSession(), let previous {
+            if let previous = try? identityRepository.persistedSession() {
                 promote(previous)
             } else {
                 sessionStore.signOut()
