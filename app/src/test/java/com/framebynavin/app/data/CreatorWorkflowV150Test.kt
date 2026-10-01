@@ -13,6 +13,7 @@ class CreatorWorkflowV150Test {
             title = "Phone review",
             platform = "YouTube",
             contentType = "Long-form",
+            dueLabel = "",
             contentDna = CreatorContentDna(
                 creatorModeId = "tech",
                 archetypeId = "review",
@@ -33,6 +34,7 @@ class CreatorWorkflowV150Test {
             title = "Update",
             platform = "YouTube",
             contentType = "Video",
+            dueLabel = "",
             contentDna = CreatorContentDna(
                 creatorModeId = "news_commentary",
                 archetypeId = "news_update",
@@ -48,7 +50,7 @@ class CreatorWorkflowV150Test {
 
     @Test
     fun legacyProjectWithoutDnaKeepsExistingWorkflow() {
-        val task = CreatorTask(id = "legacy", title = "Legacy", platform = "YouTube", contentType = "Long-form")
+        val task = CreatorTask(id = "legacy", title = "Legacy", platform = "YouTube", contentType = "Long-form", dueLabel = "")
         assertNull(CreatorWorkflowV2.templateFor(task))
         assertEquals("youtube_longform", CreatorWorkflowEngine.templateFor(task).id)
     }
