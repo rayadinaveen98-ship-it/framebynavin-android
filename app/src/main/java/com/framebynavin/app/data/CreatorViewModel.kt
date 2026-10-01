@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.framebynavin.app.cloud.CreatorCloudSyncWorker
 import com.framebynavin.app.reminders.IdeaReminderScheduler
 import com.framebynavin.app.reminders.ReminderConstants
 import com.framebynavin.app.reminders.ReminderNotifications
@@ -121,6 +122,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                         try {
                             refreshCanonicalState()
                             if (weeklyAutoPlanEnabled && writeError == null) syncWeeklyScheduleInternal()
+                            if (writeError == null) CreatorCloudSyncWorker.enqueueSoon(getApplication())
                         } catch (error: Throwable) {
                             if (error is kotlinx.coroutines.CancellationException) throw error
                             writeError = error.message ?: "Could not reload saved creator data"

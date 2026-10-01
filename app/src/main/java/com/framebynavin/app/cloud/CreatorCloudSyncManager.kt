@@ -53,6 +53,7 @@ class CreatorCloudSyncManager(context: Context) {
     private val api = CloudApiClient()
     private val backup = CreatorBackupManager(app)
     private val state = CreatorCloudSyncStateStore(app)
+    private val voiceMedia = CreatorCloudVoiceMediaManager(app)
 
     fun status(): CreatorCloudSyncStatus {
         val session = account.localState().session
@@ -84,7 +85,7 @@ class CreatorCloudSyncManager(context: Context) {
         val expectedUserId = account.localState().session?.userId
         return try {
             account.withFreshSession { session ->
-                val prepared = prepare()
+                val prepared = prepare(session)
                 val cloud = api.fetchCreatorSyncHead(session)
                 pushPrepared(session, prepared, cloud?.contentSha256, bindWorkspace = true)
             }
@@ -110,7 +111,7 @@ class CreatorCloudSyncManager(context: Context) {
     }
 
     private suspend fun syncAuthenticated(session: CloudSession): CreatorCloudSyncResult {
-        val prepared = prepare()
+        val prepared = prepare(session)
         val cloud = api.fetchCreatorSyncHead(session)
         val saved = state.load(session.userId)
         val owner = state.workspaceOwnerUserId()
@@ -138,6 +139,7 @@ class CreatorCloudSyncManager(context: Context) {
                 restoreSnapshot(session, requireNotNull(cloud))
             CreatorCloudReconciliationAction.NO_CHANGE -> {
                 val current = requireNotNull(cloud)
+                voiceMedia.restoreMissing(session)
                 state.bindWorkspace(session.userId)
                 state.recordSuccess(session.userId, current.contentSha256, current.revision)
                 CreatorCloudSyncResult.Synced(current.revision, "Creator backup is up to date.")
@@ -185,6 +187,7 @@ class CreatorCloudSyncManager(context: Context) {
         require(contentSha256(cloud.payload) == cloud.contentSha256) { "Cloud backup content check failed" }
         val preview = backup.validate(cloud.payload)
         backup.restore(cloud.payload)
+        voiceMedia.restoreMissing(session)
         state.bindWorkspace(session.userId)
         state.recordSuccess(session.userId, cloud.contentSha256, cloud.revision)
         return CreatorCloudSyncResult.Restored(cloud.revision, preview.projectCount, preview.ideaCount)
@@ -205,8 +208,9 @@ class CreatorCloudSyncManager(context: Context) {
         )
     }
 
-    private suspend fun prepare(): PreparedCreatorSnapshot {
-        val payload = backup.createBackup()
+    private suspend fun prepare(session: CloudSession): PreparedCreatorSnapshot {
+        voiceMedia.protectLocal(session)
+        val payload = CreatorCloudPayloadSanitizer.sanitize(backup.createBackup())
         val preview = backup.validate(payload)
         return PreparedCreatorSnapshot(
             payload = payload,
