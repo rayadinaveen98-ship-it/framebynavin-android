@@ -61,4 +61,4 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-# Rerun marker: task constructor test fix
+# Rerun marker: valid JVM suite only
