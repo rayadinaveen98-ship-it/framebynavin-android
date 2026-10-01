@@ -82,3 +82,38 @@ jobs:
             -F shared/build/bin/iosSimulatorArm64/debugFramework \
             -framework BacklotShared \
             iosApp/BacklotApp.swift iosApp/BacklotRootView.swift
+
+      - name: Install XcodeGen
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
+      - name: Generate iOS project
+        run: xcodegen generate --spec iosApp/project.yml
+
+      - name: Build Backlot iOS Simulator app
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project iosApp/Backlot.xcodeproj \
+            -scheme Backlot \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Verify iOS app bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find ~/Library/Developer/Xcode/DerivedData -path '*Build/Products/Debug-iphonesimulator/Backlot.app' -print -quit)"
+          test -n "$APP"
+          test -d "$APP"
+          test -f "$APP/Backlot"
+          echo "Built: $APP"
