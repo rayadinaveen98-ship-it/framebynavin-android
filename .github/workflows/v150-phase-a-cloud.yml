@@ -25,7 +25,6 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
           p = Path('app/src/main/java/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt')
           s = p.read_text()
           if 'private val voiceMedia = CreatorCloudVoiceMediaManager(app)' not in s:
@@ -35,32 +34,19 @@ jobs:
           if 'val prepared = prepare()' in s:
               assert s.count('val prepared = prepare()') == 2
               s = s.replace('val prepared = prepare()', 'val prepared = prepare(session)')
-          old_prepare = '''    private suspend fun prepare(): PreparedCreatorSnapshot {
-        val payload = backup.createBackup()
-        val preview = backup.validate(payload)
-        return PreparedCreatorSnapshot('''
+          old_prepare = '    private suspend fun prepare(): PreparedCreatorSnapshot {\n        val payload = backup.createBackup()\n        val preview = backup.validate(payload)\n        return PreparedCreatorSnapshot('
           if old_prepare in s:
-              new_prepare = '''    private suspend fun prepare(session: CloudSession): PreparedCreatorSnapshot {
-        voiceMedia.protectLocal(session)
-        val payload = CreatorCloudPayloadSanitizer.sanitize(backup.createBackup())
-        val preview = backup.validate(payload)
-        return PreparedCreatorSnapshot('''
+              new_prepare = '    private suspend fun prepare(session: CloudSession): PreparedCreatorSnapshot {\n        voiceMedia.protectLocal(session)\n        val payload = CreatorCloudPayloadSanitizer.sanitize(backup.createBackup())\n        val preview = backup.validate(payload)\n        return PreparedCreatorSnapshot('
               s = s.replace(old_prepare, new_prepare, 1)
           old_restore = '        backup.restore(cloud.payload)\n        state.bindWorkspace(session.userId)'
           if old_restore in s:
               s = s.replace(old_restore, '        backup.restore(cloud.payload)\n        voiceMedia.restoreMissing(session)\n        state.bindWorkspace(session.userId)', 1)
-          old_nochange = '''            CreatorCloudReconciliationAction.NO_CHANGE -> {
-                val current = requireNotNull(cloud)
-                state.bindWorkspace(session.userId)'''
+          old_nochange = '            CreatorCloudReconciliationAction.NO_CHANGE -> {\n                val current = requireNotNull(cloud)\n                state.bindWorkspace(session.userId)'
           if old_nochange in s:
-              s = s.replace(old_nochange, '''            CreatorCloudReconciliationAction.NO_CHANGE -> {
-                val current = requireNotNull(cloud)
-                voiceMedia.restoreMissing(session)
-                state.bindWorkspace(session.userId)''', 1)
+              s = s.replace(old_nochange, '            CreatorCloudReconciliationAction.NO_CHANGE -> {\n                val current = requireNotNull(cloud)\n                voiceMedia.restoreMissing(session)\n                state.bindWorkspace(session.userId)', 1)
           assert 'private suspend fun prepare(session: CloudSession)' in s
-          assert 'voiceMedia.restoreMissing(session)' in s
+          assert s.count('voiceMedia.restoreMissing(session)') >= 2
           p.write_text(s)
-
           vm = Path('app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt')
           s = vm.read_text()
           if 'import com.framebynavin.app.cloud.CreatorCloudSyncWorker' not in s:
