@@ -155,11 +155,16 @@ final class BacklotKeychainSessionStore: BacklotSecureSessionStoring {
     }
 }
 
-/// Native identity boundary used by future Apple/Google + Supabase adapters.
+/// Native identity boundary used by Apple/Google + Supabase adapters.
 ///
 /// The shared Backlot session receives only provider-neutral identity fields after this repository
 /// has loaded/refreshed a valid native auth session. Tokens never leave this boundary.
 protocol BacklotNativeIdentityRepositoryProtocol {
+    /// Returns the raw Keychain session even when its access token is expired so a native Supabase
+    /// adapter can exchange the refresh token for a rotated session.
+    func storedSession() throws -> BacklotNativeAuthSession?
+
+    /// Compatibility helper for callers that can only accept a currently valid access token.
     func persistedSession() throws -> BacklotNativeAuthSession?
     func persist(_ session: BacklotNativeAuthSession) throws
     func signOut() throws
@@ -172,15 +177,18 @@ final class BacklotNativeIdentityRepository: BacklotNativeIdentityRepositoryProt
         self.secureStore = secureStore
     }
 
+    func storedSession() throws -> BacklotNativeAuthSession? {
+        try secureStore.load()
+    }
+
     func persistedSession() throws -> BacklotNativeAuthSession? {
-        guard let session = try secureStore.load() else {
+        guard let session = try storedSession() else {
             return nil
         }
 
-        // An expired token is not promoted into shared product state. The Supabase adapter can later
-        // replace this with a refresh flow; until then fail closed and remove the stale credential.
+        // Compatibility callers still fail closed on an expired access token. The orchestration
+        // layer uses storedSession() instead so it can attempt a Supabase refresh first.
         guard !session.isExpired else {
-            try secureStore.clear()
             return nil
         }
         return session

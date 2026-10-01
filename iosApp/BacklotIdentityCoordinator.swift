@@ -4,42 +4,63 @@ import Foundation
 /// Native Identity V2 orchestration boundary.
 ///
 /// This coordinator is the only place that joins native provider authentication, Supabase session
-/// exchange, secure persistence, and Backlot's provider-neutral shared product session. Provider
-/// credentials and Supabase tokens remain in native types and are never passed to BacklotShared.
+/// exchange/refresh, secure persistence, and Backlot's provider-neutral shared product session.
+/// Provider credentials and Supabase tokens remain in native types and are never passed to
+/// BacklotShared.
 @MainActor
 final class BacklotIdentityCoordinator {
     private let sessionStore: BacklotSessionStore
     private let identityRepository: BacklotNativeIdentityRepositoryProtocol
     private let appleSignIn: BacklotAppleSignInCoordinator
     private let appleExchange: BacklotAppleIdentityExchanging
+    private let sessionRefresher: BacklotNativeSessionRefreshing?
 
     init(
         sessionStore: BacklotSessionStore,
         identityRepository: BacklotNativeIdentityRepositoryProtocol = BacklotNativeIdentityRepository(),
         appleSignIn: BacklotAppleSignInCoordinator? = nil,
-        appleExchange: BacklotAppleIdentityExchanging
+        appleExchange: BacklotAppleIdentityExchanging,
+        sessionRefresher: BacklotNativeSessionRefreshing? = nil
     ) {
         self.sessionStore = sessionStore
         self.identityRepository = identityRepository
         self.appleSignIn = appleSignIn ?? BacklotAppleSignInCoordinator()
         self.appleExchange = appleExchange
+        self.sessionRefresher = sessionRefresher
     }
 
-    /// Restore an unexpired native session into the shared product state on app launch.
+    /// Restore a native session into shared product state on app launch.
     ///
-    /// Expired credentials are rejected by the repository and never promoted into shared state.
+    /// A still-valid access token is promoted immediately. An expired access token is refreshed
+    /// through Supabase when a refresher is configured; because Supabase rotates refresh tokens,
+    /// the refreshed native session is persisted before it becomes visible to shared product state.
     @discardableResult
-    func restorePersistedSession() -> Bool {
+    func restorePersistedSession() async -> Bool {
         sessionStore.beginAuthentication()
 
         do {
-            guard let nativeSession = try identityRepository.persistedSession() else {
+            guard let nativeSession = try identityRepository.storedSession() else {
                 sessionStore.signOut()
                 return false
             }
-            promote(nativeSession)
+
+            if !nativeSession.isExpired {
+                promote(nativeSession)
+                return true
+            }
+
+            guard let sessionRefresher else {
+                sessionStore.signOut()
+                return false
+            }
+
+            let refreshedSession = try await sessionRefresher.refresh(nativeSession)
+            try identityRepository.persist(refreshedSession)
+            promote(refreshedSession)
             return true
         } catch {
+            // Keep any stored refresh token on transient/network failure so a later launch can retry.
+            // Shared product state remains signed out until a native session is proven valid again.
             sessionStore.signOut()
             return false
         }
