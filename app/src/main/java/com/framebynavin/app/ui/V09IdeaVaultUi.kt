@@ -62,6 +62,7 @@ internal fun V09IdeaVaultScreen(
     var statusFilter by rememberSaveable { mutableStateOf<IdeaStatus?>(null) }
     var categoryFilter by rememberSaveable { mutableStateOf<IdeaCategory?>(null) }
     var captureFilter by rememberSaveable { mutableStateOf<IdeaCaptureType?>(null) }
+    var showFilters by rememberSaveable { mutableStateOf(false) }
     var editing by remember { mutableStateOf<CreatorIdea?>(null) }
     var creating by remember { mutableStateOf(false) }
     var converting by remember { mutableStateOf<CreatorIdea?>(null) }
@@ -87,6 +88,15 @@ internal fun V09IdeaVaultScreen(
     val opportunityMatch by remember { derivedStateOf { opportunityAlerts.firstOrNull { it.ideaId != null } } }
     val readyCount by remember { derivedStateOf { ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE } } }
     val voiceCount by remember { derivedStateOf { ideas.count { it.captureType == IdeaCaptureType.VOICE } } }
+    val activeFilterCount by remember {
+        derivedStateOf {
+            listOfNotNull(
+                statusFilter?.takeIf { it !in setOf(IdeaStatus.INBOX, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.CONVERTED) },
+                categoryFilter,
+                captureFilter,
+            ).size
+        }
+    }
 
     val filtered by remember {
         derivedStateOf {
@@ -123,19 +133,21 @@ internal fun V09IdeaVaultScreen(
 
             opportunityMatch?.let { match ->
                 Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp),
-                    shape = RoundedCornerShape(17.dp),
-                    color = MutedGold.copy(alpha = .08f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .45f)),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MutedGold.copy(alpha = .055f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .24f)),
                 ) {
-                    Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
-                        Text("MATCHED IDEA", color = MutedGold, fontSize = 7.8.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(3.dp))
-                        Text(match.ideaTitle ?: match.title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("This idea matches a topic gaining attention on your channel, so I moved it to the top.", color = MutedText, fontSize = 8.8.sp, lineHeight = 12.5.sp)
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("⚡", fontSize = 14.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("MATCHED TO YOUR CHANNEL MOMENTUM", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Text(match.ideaTitle ?: match.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(4.dp))
             }
 
             OutlinedTextField(
@@ -147,40 +159,20 @@ internal fun V09IdeaVaultScreen(
                 placeholder = { Text("Search ideas, topics, notes or transcripts…") },
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(9.dp))
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 FilterChip(selected = statusFilter == null, onClick = { statusFilter = null }, label = { Text("All", fontSize = 10.sp) })
-                listOf(IdeaStatus.INBOX, IdeaStatus.WORTH_EXPLORING, IdeaStatus.RESEARCHING, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.CONVERTED).forEach { status ->
-                    FilterChip(
-                        selected = statusFilter == status,
-                        onClick = { statusFilter = status },
-                        label = { Text(IdeaVaultLabels.status(status), fontSize = 10.sp) },
-                    )
-                }
-            }
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                FilterChip(selected = categoryFilter == null, onClick = { categoryFilter = null }, label = { Text("All topics", fontSize = 10.sp) })
-                visibleCategories.forEach { category ->
-                    FilterChip(
-                        selected = categoryFilter == category,
-                        onClick = { categoryFilter = category },
-                        label = { Text(IdeaVaultLabels.category(category), fontSize = 10.sp) },
-                    )
-                }
-            }
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                FilterChip(selected = captureFilter == null, onClick = { captureFilter = null }, label = { Text("All types", fontSize = 10.sp) })
-                FilterChip(selected = captureFilter == IdeaCaptureType.VOICE, onClick = { captureFilter = IdeaCaptureType.VOICE }, label = { Text("Voice ($voiceCount)", fontSize = 10.sp) })
-                FilterChip(selected = captureFilter == IdeaCaptureType.TEXT, onClick = { captureFilter = IdeaCaptureType.TEXT }, label = { Text("Text", fontSize = 10.sp) })
+                FilterChip(selected = statusFilter == IdeaStatus.INBOX, onClick = { statusFilter = IdeaStatus.INBOX }, label = { Text("Inbox", fontSize = 10.sp) })
+                FilterChip(selected = statusFilter == IdeaStatus.READY_TO_PRODUCE, onClick = { statusFilter = IdeaStatus.READY_TO_PRODUCE }, label = { Text("Ready", fontSize = 10.sp) })
+                FilterChip(selected = statusFilter == IdeaStatus.CONVERTED, onClick = { statusFilter = IdeaStatus.CONVERTED }, label = { Text("Converted", fontSize = 10.sp) })
+                FilterChip(
+                    selected = activeFilterCount > 0,
+                    onClick = { showFilters = true },
+                    label = { Text(if (activeFilterCount > 0) "Filters ($activeFilterCount)" else "Filters", fontSize = 10.sp) },
+                )
             }
 
             Spacer(Modifier.height(6.dp))
@@ -223,6 +215,20 @@ internal fun V09IdeaVaultScreen(
                 }
             }
         }
+    }
+
+    if (showFilters) {
+        V150IdeaFilterSheet(
+            visibleCategories = visibleCategories,
+            statusFilter = statusFilter,
+            categoryFilter = categoryFilter,
+            captureFilter = captureFilter,
+            voiceCount = voiceCount,
+            onStatus = { statusFilter = it },
+            onCategory = { categoryFilter = it },
+            onCapture = { captureFilter = it },
+            onDismiss = { showFilters = false },
+        )
     }
 
     if (creating) {
@@ -288,23 +294,13 @@ private fun V09IdeaCard(
                 Spacer(Modifier.weight(1f))
                 if (isOpportunity) {
                     Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .12f)) {
-                        Text("MATCHED", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                        Text("⚡ MOMENTUM", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                     }
-                    Spacer(Modifier.width(6.dp))
                 }
-                Text(idea.potential.name, color = if (idea.potential == IdeaPotential.HIGH) RecRed else MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(8.dp))
             Text(idea.title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (idea.topic.isNotBlank()) Text(idea.topic, color = MutedGold, fontSize = 9.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (idea.notes.isNotBlank()) {
-                Spacer(Modifier.height(5.dp))
-                Text(idea.notes, color = MutedText, fontSize = 9.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            if (idea.hasOriginalRecording) {
-                Spacer(Modifier.height(9.dp))
-                VoiceIdeaPlaybackControl(idea = idea)
-            }
             Spacer(Modifier.height(9.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${idea.platformHint} · ${idea.formatHint}", color = MutedText, fontSize = 8.8.sp)

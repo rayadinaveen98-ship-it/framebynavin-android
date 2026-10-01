@@ -13,7 +13,7 @@ data class WorkflowTemplate(
 )
 
 object CreatorWorkflowEngine {
-    fun templateFor(task: CreatorTask): WorkflowTemplate = templateFor(task.platform, task.contentType)
+    fun templateFor(task: CreatorTask): WorkflowTemplate = CreatorWorkflowV2.templateFor(task) ?: templateFor(task.platform, task.contentType)
 
     fun templateFor(platform: String, contentType: String): WorkflowTemplate {
         val p = platform.trim().lowercase()
