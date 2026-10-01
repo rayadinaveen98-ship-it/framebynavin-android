@@ -81,7 +81,7 @@ jobs:
             -target arm64-apple-ios17.0-simulator \
             -F shared/build/bin/iosSimulatorArm64/debugFramework \
             -framework BacklotShared \
-            iosApp/BacklotApp.swift iosApp/BacklotRootView.swift
+            iosApp/BacklotApp.swift iosApp/BacklotSessionStore.swift iosApp/BacklotRootView.swift
 
       - name: Install XcodeGen
         shell: bash
