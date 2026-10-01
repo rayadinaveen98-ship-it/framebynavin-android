@@ -1,0 +1,67 @@
+name: Backlot V151 Cross-Platform Foundation
+
+on:
+  push:
+    branches:
+      - feature/backlot-v151-cross-platform-foundation
+    paths:
+      - 'shared/**'
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - '.github/workflows/v151-cross-platform-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-shared-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Compile shared Android target
+        run: gradle :shared:compileKotlinAndroid --stacktrace
+
+      - name: Android unit tests including shared parity
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Android installable APK regression build
+        run: gradle :app:assembleDebug --stacktrace
+
+  ios-shared-framework:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Link BacklotShared iOS Simulator framework
+        run: gradle :shared:linkDebugFrameworkIosSimulatorArm64 --stacktrace
+
+      - name: Verify framework exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d shared/build/bin/iosSimulatorArm64/debugFramework/BacklotShared.framework
+          test -f shared/build/bin/iosSimulatorArm64/debugFramework/BacklotShared.framework/BacklotShared
