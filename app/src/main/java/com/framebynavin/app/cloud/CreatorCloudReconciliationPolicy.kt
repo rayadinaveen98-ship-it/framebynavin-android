@@ -1,5 +1,8 @@
 package com.framebynavin.app.cloud
 
+import com.backlot.shared.cloud.BacklotReconciliationAction
+import com.backlot.shared.cloud.BacklotReconciliationPolicy
+
 internal enum class CreatorCloudReconciliationAction {
     UPLOAD_LOCAL,
     RESTORE_CLOUD,
@@ -7,27 +10,28 @@ internal enum class CreatorCloudReconciliationAction {
     REQUIRE_CHOICE,
 }
 
-/** Pure reconciliation policy; no I/O and deliberately no last-write-wins fallback. */
+/**
+ * Android compatibility adapter for the cross-platform Backlot reconciliation policy.
+ * Existing callers and persisted behavior remain unchanged while iOS consumes the same decision
+ * engine from :shared.
+ */
 internal object CreatorCloudReconciliationPolicy {
     fun decide(
         localContentSha256: String,
         cloudContentSha256: String?,
         lastSyncedContentSha256: String?,
         localIsFresh: Boolean,
-    ): CreatorCloudReconciliationAction {
-        if (cloudContentSha256 == null) return CreatorCloudReconciliationAction.UPLOAD_LOCAL
-        if (localContentSha256 == cloudContentSha256) return CreatorCloudReconciliationAction.NO_CHANGE
-
-        val last = lastSyncedContentSha256.orEmpty()
-        if (last.isBlank()) {
-            return if (localIsFresh) CreatorCloudReconciliationAction.RESTORE_CLOUD
-            else CreatorCloudReconciliationAction.REQUIRE_CHOICE
-        }
-
-        return when {
-            last == cloudContentSha256 -> CreatorCloudReconciliationAction.UPLOAD_LOCAL
-            last == localContentSha256 -> CreatorCloudReconciliationAction.RESTORE_CLOUD
-            else -> CreatorCloudReconciliationAction.REQUIRE_CHOICE
-        }
+    ): CreatorCloudReconciliationAction = when (
+        BacklotReconciliationPolicy.decide(
+            localContentSha256 = localContentSha256,
+            cloudContentSha256 = cloudContentSha256,
+            lastSyncedContentSha256 = lastSyncedContentSha256,
+            localIsFresh = localIsFresh,
+        )
+    ) {
+        BacklotReconciliationAction.UPLOAD_LOCAL -> CreatorCloudReconciliationAction.UPLOAD_LOCAL
+        BacklotReconciliationAction.RESTORE_CLOUD -> CreatorCloudReconciliationAction.RESTORE_CLOUD
+        BacklotReconciliationAction.NO_CHANGE -> CreatorCloudReconciliationAction.NO_CHANGE
+        BacklotReconciliationAction.REQUIRE_CHOICE -> CreatorCloudReconciliationAction.REQUIRE_CHOICE
     }
 }
