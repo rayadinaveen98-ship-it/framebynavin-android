@@ -53,7 +53,7 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V150 Pilot & Product Focus candidate.
+        // Backlot V150 Pilot & Product Focus stable baseline.
         versionCode = 150
         versionName = "2.0.0-v150-pilot-product-focus"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -92,6 +92,8 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":shared"))
+
     implementation(platform("androidx.compose:compose-bom:2025.04.01"))
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.core:core-ktx:1.16.0")
