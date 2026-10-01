@@ -60,3 +60,5 @@ jobs:
           name: backlot-v150-phase-b-product-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+# Rerun marker: task constructor test fix
