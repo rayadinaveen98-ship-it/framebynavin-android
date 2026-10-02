@@ -13,10 +13,11 @@ final class BacklotIdentityController: ObservableObject {
     private var sessionObservation: AnyCancellable?
 
     init(
-        sessionStore: BacklotSessionStore = BacklotSessionStore(),
+        sessionStore: BacklotSessionStore? = nil,
         configuration: BacklotRuntimeConfiguration? = BacklotRuntimeConfiguration.load()
     ) {
-        self.sessionStore = sessionStore
+        let resolvedSessionStore = sessionStore ?? BacklotSessionStore()
+        self.sessionStore = resolvedSessionStore
 
         #if canImport(Supabase)
         if let configuration {
@@ -30,7 +31,7 @@ final class BacklotIdentityController: ObservableObject {
                     publishableKey: configuration.supabasePublishableKey
                 )
                 coordinator = BacklotIdentityCoordinator(
-                    sessionStore: sessionStore,
+                    sessionStore: resolvedSessionStore,
                     appleExchange: appleExchange,
                     sessionRefresher: sessionRefresher
                 )
@@ -46,7 +47,7 @@ final class BacklotIdentityController: ObservableObject {
         coordinator = nil
         #endif
 
-        sessionObservation = sessionStore.objectWillChange.sink { [weak self] _ in
+        sessionObservation = resolvedSessionStore.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
     }
