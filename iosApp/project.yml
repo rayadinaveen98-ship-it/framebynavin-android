@@ -14,6 +14,9 @@ packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
     exactVersion: 2.55.3
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    exactVersion: 10.0.0
 
 targets:
   Backlot:
@@ -25,6 +28,13 @@ targets:
         excludes:
           - project.yml
           - README.md
+    info:
+      path: BacklotInfo.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - "$(BACKLOT_GOOGLE_REVERSED_CLIENT_ID)"
     entitlements:
       path: Backlot.entitlements
       properties:
@@ -35,6 +45,8 @@ targets:
         embed: false
       - package: Supabase
         product: Supabase
+      - package: GoogleSignIn
+        product: GoogleSignIn
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.backlot.app.dev
@@ -48,4 +60,7 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_BACKLOT_SUPABASE_URL: "$(BACKLOT_SUPABASE_URL)"
         INFOPLIST_KEY_BACKLOT_SUPABASE_PUBLISHABLE_KEY: "$(BACKLOT_SUPABASE_PUBLISHABLE_KEY)"
+        INFOPLIST_KEY_BACKLOT_GOOGLE_IOS_CLIENT_ID: "$(BACKLOT_GOOGLE_IOS_CLIENT_ID)"
+        INFOPLIST_KEY_BACKLOT_GOOGLE_SERVER_CLIENT_ID: "$(BACKLOT_GOOGLE_SERVER_CLIENT_ID)"
+        INFOPLIST_KEY_BACKLOT_GOOGLE_REVERSED_CLIENT_ID: "$(BACKLOT_GOOGLE_REVERSED_CLIENT_ID)"
         TARGETED_DEVICE_FAMILY: "1,2"

@@ -1,6 +1,17 @@
 import BacklotShared
 import Foundation
 
+enum BacklotIdentityCoordinatorError: Error, LocalizedError {
+    case googleNotConfigured
+
+    var errorDescription: String? {
+        switch self {
+        case .googleNotConfigured:
+            return "Google Sign-In is not configured for this Backlot build."
+        }
+    }
+}
+
 /// Native Identity V2 orchestration boundary.
 ///
 /// This coordinator is the only place that joins native provider authentication, Supabase session
@@ -13,6 +24,8 @@ final class BacklotIdentityCoordinator {
     private let identityRepository: BacklotNativeIdentityRepositoryProtocol
     private let appleSignIn: BacklotAppleSignInCoordinator
     private let appleExchange: BacklotAppleIdentityExchanging
+    private let googleSignIn: BacklotGoogleAuthorizing?
+    private let googleExchange: BacklotGoogleIdentityExchanging?
     private let sessionRefresher: BacklotNativeSessionRefreshing?
 
     init(
@@ -20,12 +33,16 @@ final class BacklotIdentityCoordinator {
         identityRepository: BacklotNativeIdentityRepositoryProtocol = BacklotNativeIdentityRepository(),
         appleSignIn: BacklotAppleSignInCoordinator? = nil,
         appleExchange: BacklotAppleIdentityExchanging,
+        googleSignIn: BacklotGoogleAuthorizing? = nil,
+        googleExchange: BacklotGoogleIdentityExchanging? = nil,
         sessionRefresher: BacklotNativeSessionRefreshing? = nil
     ) {
         self.sessionStore = sessionStore
         self.identityRepository = identityRepository
         self.appleSignIn = appleSignIn ?? BacklotAppleSignInCoordinator()
         self.appleExchange = appleExchange
+        self.googleSignIn = googleSignIn
+        self.googleExchange = googleExchange
         self.sessionRefresher = sessionRefresher
     }
 
@@ -77,21 +94,48 @@ final class BacklotIdentityCoordinator {
             try identityRepository.persist(nativeSession)
             promote(nativeSession)
         } catch {
-            // Failed account switching must not strand the UI in RESOLVING. If a previous valid
-            // session exists, restore it; otherwise return to the explicit signed-out state.
-            if let previous = try? identityRepository.persistedSession() {
-                promote(previous)
-            } else {
-                sessionStore.signOut()
-            }
+            restorePreviousSessionOrSignOut()
             throw error
         }
+    }
+
+    /// Execute native Sign in with Google, exchange the Google ID/access tokens through Supabase,
+    /// then persist and promote only the provider-neutral Backlot identity.
+    func signInWithGoogle() async throws {
+        guard let googleSignIn, let googleExchange else {
+            throw BacklotIdentityCoordinatorError.googleNotConfigured
+        }
+
+        sessionStore.beginAuthentication()
+
+        do {
+            let authorization = try await googleSignIn.signIn()
+            let nativeSession = try await googleExchange.exchange(authorization)
+            try identityRepository.persist(nativeSession)
+            promote(nativeSession)
+        } catch {
+            restorePreviousSessionOrSignOut()
+            throw error
+        }
+    }
+
+    func handleOpenURL(_ url: URL) -> Bool {
+        googleSignIn?.handleOpenURL(url) ?? false
     }
 
     /// Do not claim sign-out until secure native credentials have actually been removed.
     func signOut() throws {
         try identityRepository.signOut()
+        googleSignIn?.signOut()
         sessionStore.signOut()
+    }
+
+    private func restorePreviousSessionOrSignOut() {
+        if let previous = try? identityRepository.persistedSession() {
+            promote(previous)
+        } else {
+            sessionStore.signOut()
+        }
     }
 
     private func promote(_ nativeSession: BacklotNativeAuthSession) {

@@ -53,6 +53,9 @@ struct BacklotRootView: View {
         .task {
             await identityController.restoreSession()
         }
+        .onOpenURL { url in
+            _ = identityController.handleOpenURL(url)
+        }
     }
 }
 
@@ -90,14 +93,27 @@ private struct BacklotIdentityStatusBar: View {
                     }
                     .font(.caption.weight(.semibold))
                 } else if controller.isConfigured {
-                    Button {
-                        Task { await controller.signInWithApple() }
-                    } label: {
-                        Label("Sign in with Apple", systemImage: "apple.logo")
-                            .font(.caption.weight(.semibold))
+                    HStack(spacing: 8) {
+                        Button {
+                            Task { await controller.signInWithApple() }
+                        } label: {
+                            Label("Apple", systemImage: "apple.logo")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+
+                        if controller.isGoogleConfigured {
+                            Button {
+                                Task { await controller.signInWithGoogle() }
+                            } label: {
+                                Label("Google", systemImage: "g.circle")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
                 }
             }
 
@@ -118,7 +134,9 @@ private struct BacklotIdentityStatusBar: View {
             return "Connected"
         }
         if controller.isConfigured {
-            return "Signed out"
+            return controller.isGoogleConfigured
+                ? "Signed out · Apple + Google ready"
+                : "Signed out · Apple ready"
         }
         return "Supabase runtime configuration missing"
     }

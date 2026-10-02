@@ -1,8 +1,15 @@
 import Foundation
 
+struct BacklotGoogleRuntimeConfiguration: Equatable, Sendable {
+    let iosClientID: String
+    let serverClientID: String
+    let reversedClientID: String
+}
+
 struct BacklotRuntimeConfiguration: Equatable, Sendable {
     let supabaseURL: URL
     let supabasePublishableKey: String
+    let google: BacklotGoogleRuntimeConfiguration?
 
     static func load(
         bundle: Bundle = .main,
@@ -29,9 +36,42 @@ struct BacklotRuntimeConfiguration: Equatable, Sendable {
             return nil
         }
 
+        let googleIOSClientID = resolvedValue(
+            key: "BACKLOT_GOOGLE_IOS_CLIENT_ID",
+            bundle: bundle,
+            environment: environment
+        )
+        let googleServerClientID = resolvedValue(
+            key: "BACKLOT_GOOGLE_SERVER_CLIENT_ID",
+            bundle: bundle,
+            environment: environment
+        )
+        let googleReversedClientID = resolvedValue(
+            key: "BACKLOT_GOOGLE_REVERSED_CLIENT_ID",
+            bundle: bundle,
+            environment: environment
+        )
+
+        let google: BacklotGoogleRuntimeConfiguration?
+        if
+            let googleIOSClientID,
+            let googleServerClientID,
+            let googleReversedClientID,
+            isRegisteredURLScheme(googleReversedClientID, bundle: bundle)
+        {
+            google = BacklotGoogleRuntimeConfiguration(
+                iosClientID: googleIOSClientID,
+                serverClientID: googleServerClientID,
+                reversedClientID: googleReversedClientID
+            )
+        } else {
+            google = nil
+        }
+
         return BacklotRuntimeConfiguration(
             supabaseURL: url,
-            supabasePublishableKey: publishableKey
+            supabasePublishableKey: publishableKey,
+            google: google
         )
     }
 
@@ -52,5 +92,20 @@ struct BacklotRuntimeConfiguration: Equatable, Sendable {
             return nil
         }
         return value
+    }
+
+    private static func isRegisteredURLScheme(_ scheme: String, bundle: Bundle) -> Bool {
+        guard
+            let urlTypes = bundle.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]]
+        else {
+            return false
+        }
+
+        return urlTypes.contains { type in
+            guard let schemes = type["CFBundleURLSchemes"] as? [String] else {
+                return false
+            }
+            return schemes.contains(scheme)
+        }
     }
 }

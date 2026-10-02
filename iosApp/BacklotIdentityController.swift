@@ -6,6 +6,7 @@ final class BacklotIdentityController: ObservableObject {
     let sessionStore: BacklotSessionStore
 
     @Published private(set) var isConfigured: Bool = false
+    @Published private(set) var isGoogleConfigured: Bool = false
     @Published private(set) var isWorking: Bool = false
     @Published private(set) var errorMessage: String?
 
@@ -30,9 +31,33 @@ final class BacklotIdentityController: ObservableObject {
                     supabaseURL: configuration.supabaseURL,
                     publishableKey: configuration.supabasePublishableKey
                 )
+
+                var googleSignIn: BacklotGoogleAuthorizing?
+                var googleExchange: BacklotGoogleIdentityExchanging?
+
+                #if canImport(GoogleSignIn)
+                if let googleConfiguration = configuration.google {
+                    do {
+                        googleSignIn = try BacklotGoogleSignInCoordinator(
+                            clientID: googleConfiguration.iosClientID,
+                            serverClientID: googleConfiguration.serverClientID
+                        )
+                        googleExchange = try BacklotSupabaseGoogleIdentityExchange(
+                            supabaseURL: configuration.supabaseURL,
+                            publishableKey: configuration.supabasePublishableKey
+                        )
+                        isGoogleConfigured = true
+                    } catch {
+                        errorMessage = error.localizedDescription
+                    }
+                }
+                #endif
+
                 coordinator = BacklotIdentityCoordinator(
                     sessionStore: resolvedSessionStore,
                     appleExchange: appleExchange,
+                    googleSignIn: googleSignIn,
+                    googleExchange: googleExchange,
                     sessionRefresher: sessionRefresher
                 )
                 isConfigured = true
@@ -75,6 +100,23 @@ final class BacklotIdentityController: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func signInWithGoogle() async {
+        guard let coordinator, isGoogleConfigured else { return }
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+
+        do {
+            try await coordinator.signInWithGoogle()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func handleOpenURL(_ url: URL) -> Bool {
+        coordinator?.handleOpenURL(url) ?? false
     }
 
     func signOut() {
