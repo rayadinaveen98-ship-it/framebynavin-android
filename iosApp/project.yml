@@ -25,6 +25,11 @@ targets:
         excludes:
           - project.yml
           - README.md
+    entitlements:
+      path: Backlot.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
     dependencies:
       - framework: ../shared/build/bin/iosSimulatorArm64/debugFramework/BacklotShared.framework
         embed: false
