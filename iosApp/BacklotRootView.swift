@@ -3,14 +3,14 @@ import BacklotShared
 
 struct BacklotRootView: View {
     @State private var selection: BacklotTab = .today
-    @StateObject private var sessionStore = BacklotSessionStore()
+    @StateObject private var identityController = BacklotIdentityController()
 
     var body: some View {
         TabView(selection: $selection) {
             BacklotPlaceholderScreen(
                 eyebrow: "BACKLOT",
                 title: "Today",
-                message: sessionStore.isSignedIn
+                message: identityController.isSignedIn
                     ? "Your creator day, next move and active projects will live here. Creator cloud identity is connected through the shared Backlot session."
                     : "Your creator day, next move and active projects will live here. This device is currently signed out of the creator cloud."
             )
@@ -46,7 +46,13 @@ struct BacklotRootView: View {
             .tag(BacklotTab.insights)
         }
         .tint(.primary)
-        .environmentObject(sessionStore)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            BacklotIdentityStatusBar(controller: identityController)
+        }
+        .environmentObject(identityController.sessionStore)
+        .task {
+            await identityController.restoreSession()
+        }
     }
 }
 
@@ -56,6 +62,66 @@ private enum BacklotTab: Hashable {
     case create
     case calendar
     case insights
+}
+
+private struct BacklotIdentityStatusBar: View {
+    @ObservedObject var controller: BacklotIdentityController
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("CREATOR CLOUD")
+                        .font(.caption2.weight(.bold))
+                        .tracking(1.2)
+                    Text(statusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if controller.isWorking {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if controller.isSignedIn {
+                    Button("Sign Out") {
+                        controller.signOut()
+                    }
+                    .font(.caption.weight(.semibold))
+                } else if controller.isConfigured {
+                    Button {
+                        Task { await controller.signInWithApple() }
+                    } label: {
+                        Label("Sign in with Apple", systemImage: "apple.logo")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+            }
+
+            if let errorMessage = controller.errorMessage, !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.regularMaterial)
+    }
+
+    private var statusText: String {
+        if controller.isSignedIn {
+            return "Connected"
+        }
+        if controller.isConfigured {
+            return "Signed out"
+        }
+        return "Supabase runtime configuration missing"
+    }
 }
 
 private struct BacklotPlaceholderScreen: View {
