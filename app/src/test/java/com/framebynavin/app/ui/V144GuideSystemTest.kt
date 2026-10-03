@@ -19,7 +19,7 @@ class V144GuideSystemTest {
     }
 
     @Test
-    fun `legacy frame and navi preferences migrate to funny`() {
+    fun `legacy guide values still normalize correctly for compatibility`() {
         assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("FRAME"))
         assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("NAVI"))
         assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("FUNNY"))
