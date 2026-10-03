@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.framebynavin.app.ui
 
 import androidx.activity.compose.BackHandler
