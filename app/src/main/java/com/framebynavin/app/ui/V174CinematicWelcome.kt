@@ -18,8 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -31,14 +29,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.*
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * Backlot founder ident.
@@ -62,18 +57,17 @@ private fun v151Progress(nowMs: Long, startMs: Long, endMs: Long): Float {
 @Composable
 internal fun V174CinematicWelcome(onFinished: () -> Unit) {
     val context = LocalContext.current
-    val timeline = remember { androidx.compose.animation.core.Animatable(0f) }
+    val timeline = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        val track = withContext(Dispatchers.Default) {
-            WelcomeSonicIdent.prepare(context.applicationContext)
-        }
+
+        val track = WelcomeSonicIdent.prepare(context.applicationContext)
         runCatching { track?.play() }
         timeline.snapTo(0f)
         timeline.animateTo(
             1f,
             animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = WelcomeSonicIdent.TOTAL_DURATION_MS,
+                durationMillis = WelcomeSonicIdent.TOTAL_DURATION_MS.toInt(),
                 easing = androidx.compose.animation.core.LinearEasing,
             ),
         )
@@ -82,21 +76,22 @@ internal fun V174CinematicWelcome(onFinished: () -> Unit) {
         onFinished()
     }
 
+    val nowMs = (timeline.value * WelcomeSonicIdent.TOTAL_DURATION_MS).toLong()
+    val ignition = v151Progress(nowMs, 0L, WelcomeSonicIdent.IGNITION_END_MS)
+    val strips = v151Progress(nowMs, 60L, 2600L)
+    val impact = v151Progress(nowMs, 2450L, WelcomeSonicIdent.IMPACT_END_MS)
+    val mark = v151Progress(nowMs, 2540L, WelcomeSonicIdent.MARK_END_MS)
+    val title = v151Progress(nowMs, 3040L, WelcomeSonicIdent.TITLE_END_MS)
+    val sweep = v151Progress(nowMs, WelcomeSonicIdent.UNDERLINE_START_MS, WelcomeSonicIdent.UNDERLINE_END_MS)
+    val settle = v151Progress(nowMs, WelcomeSonicIdent.SETTLE_START_MS, WelcomeSonicIdent.TOTAL_DURATION_MS)
+    val revealGlow = 0.08f + 0.24f * mark + 0.12f * impact - 0.035f * settle + 0.06f * ignition
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF020203)),
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            val nowMs = (timeline.value * WelcomeSonicIdent.TOTAL_DURATION_MS).toLong()
-            val ignition = v151Progress(nowMs, 0L, WelcomeSonicIdent.IGNITION_END_MS)
-            val strips = v151Progress(nowMs, 60L, 2600L)
-            val impact = v151Progress(nowMs, 2450L, WelcomeSonicIdent.IMPACT_END_MS)
-            val mark = v151Progress(nowMs, 2540L, WelcomeSonicIdent.MARK_END_MS)
-            val title = v151Progress(nowMs, 3040L, WelcomeSonicIdent.TITLE_END_MS)
-            val sweep = v151Progress(nowMs, WelcomeSonicIdent.UNDERLINE_START_MS, WelcomeSonicIdent.UNDERLINE_END_MS)
-            val settle = v151Progress(nowMs, WelcomeSonicIdent.SETTLE_START_MS, WelcomeSonicIdent.TOTAL_DURATION_MS)
-            val revealGlow = 0.08f + 0.24f * mark + 0.12f * impact - 0.035f * settle
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
