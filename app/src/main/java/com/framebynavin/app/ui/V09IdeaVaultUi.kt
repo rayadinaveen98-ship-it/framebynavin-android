@@ -654,6 +654,7 @@ private fun V09NewIdeaCleanEditor(
     }
 }
 
+@Composable
 private fun V09IdeaEditor(
     idea: CreatorIdea,
     onDismiss: () -> Unit,
