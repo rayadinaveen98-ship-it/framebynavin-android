@@ -647,9 +647,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             },
         )
     } else if (!V144GuidePrefs.hasSelection) {
-        V144GuideChoiceGate {
-            V18CreatorOnboarding(
-                profile = settings.creatorProfile,
+        // Guide selection is its own setup stage. Once a guide is selected, this branch
+        // disappears and the creator setup stage below becomes visible.
+        V144GuideChoiceGate()
+    } else if (V151SetupPolicy.needsCreatorSetup(
+        onboardingComplete = settings.onboardingComplete,
+        profileComplete = settings.creatorProfile.isComplete,
+    )) {
+        V18CreatorOnboarding(
+            profile = settings.creatorProfile,
             notificationsReady = permissions.notifications,
             preciseTimingReady = permissions.preciseTiming,
             fullScreenReady = permissions.fullScreen,
@@ -658,13 +664,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onPreciseTiming = ::requestPreciseTiming,
             onFullScreen = ::requestFullScreen,
             onBattery = ::openBatterySettings,
-                onFinish = { profile ->
-                    settingsStore.setCreatorProfile(profile)
-                    settingsStore.setOnboardingComplete(true)
-                    settings = settingsStore.snapshot()
-                },
-            )
-        }
+            onFinish = { profile ->
+                settingsStore.setCreatorProfile(profile)
+                settingsStore.setOnboardingComplete(true)
+                settings = settingsStore.snapshot()
+            },
+        )
     }
 
     if (
