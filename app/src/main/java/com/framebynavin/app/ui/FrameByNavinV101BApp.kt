@@ -646,9 +646,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 settings = settingsStore.snapshot()
             },
         )
-    } else if (!settings.onboardingComplete || !settings.creatorProfile.isComplete) {
-        V18CreatorOnboarding(
-            profile = settings.creatorProfile,
+    } else if (!V144GuidePrefs.hasSelection) {
+        V144GuideChoiceGate {
+            V18CreatorOnboarding(
+                profile = settings.creatorProfile,
             notificationsReady = permissions.notifications,
             preciseTimingReady = permissions.preciseTiming,
             fullScreenReady = permissions.fullScreen,
@@ -657,12 +658,13 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onPreciseTiming = ::requestPreciseTiming,
             onFullScreen = ::requestFullScreen,
             onBattery = ::openBatterySettings,
-            onFinish = { profile ->
-                settingsStore.setCreatorProfile(profile)
-                settingsStore.setOnboardingComplete(true)
-                settings = settingsStore.snapshot()
-            },
-        )
+                onFinish = { profile ->
+                    settingsStore.setCreatorProfile(profile)
+                    settingsStore.setOnboardingComplete(true)
+                    settings = settingsStore.snapshot()
+                },
+            )
+        }
     }
 
     if (
