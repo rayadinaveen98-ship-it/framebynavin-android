@@ -17,6 +17,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -45,33 +48,38 @@ import kotlinx.coroutines.launch
  * the geometry, palette and motion language are Backlot's own.
  */
 private const val V20_WELCOME_STRIPE_COUNT = 30
-private const val V129_THREAD_GAP_SCALE = 1.25f
 
+private fun v151Progress(nowMs: Long, startMs: Long, endMs: Long): Float {
+    if (nowMs <= startMs) return 0f
+    if (nowMs >= endMs) return 1f
+    return ((nowMs - startMs).toFloat() / (endMs - startMs).toFloat()).coerceIn(0f, 1f)
+}
+
+/**
+ * V151 visual ident. One monotonic timeline drives every visual landmark; the audio generator
+ * reads the same shared landmarks from WelcomeSonicIdent, so the two cannot drift apart.
+ */
 @Composable
-internal fun V174CinematicWelcome() {
+internal fun V174CinematicWelcome(onFinished: () -> Unit) {
     val context = LocalContext.current
-    val ignition = remember { Animatable(0f) }
-    val strips = remember { Animatable(0f) }
-    val impact = remember { Animatable(0f) }
-    val mark = remember { Animatable(0f) }
-    val title = remember { Animatable(0f) }
-    val sweep = remember { Animatable(0f) }
-    val settle = remember { Animatable(0f) }
+    val timeline = remember { androidx.compose.animation.core.Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        WelcomeSonicIdent.play(context.applicationContext)
-        delay(60)
-        ignition.animateTo(1f, tween(220, easing = LinearOutSlowInEasing))
-        // Alpha20: the stripe event owns the whole screen first. The brand reveal starts only
-        // after the last stripe has crossed its travel window.
-        strips.animateTo(1f, tween(2350, easing = FastOutSlowInEasing))
-        impact.animateTo(1f, tween(170, easing = LinearOutSlowInEasing))
-        launch { mark.animateTo(1f, tween(470, easing = FastOutSlowInEasing)) }
-        delay(270)
-        launch { title.animateTo(1f, tween(390, easing = LinearOutSlowInEasing)) }
-        delay(160)
-        sweep.animateTo(1f, tween(560, easing = LinearEasing))
-        settle.animateTo(1f, tween(480, easing = FastOutSlowInEasing))
+        val track = withContext(Dispatchers.Default) {
+            WelcomeSonicIdent.prepare(context.applicationContext)
+        }
+        runCatching { track?.play() }
+        timeline.snapTo(0f)
+        timeline.animateTo(
+            1f,
+            animationSpec = androidx.compose.animation.core.tween(
+                durationMillis = WelcomeSonicIdent.TOTAL_DURATION_MS,
+                easing = androidx.compose.animation.core.LinearEasing,
+            ),
+        )
+        runCatching { track?.stop() }
+        runCatching { track?.release() }
+        onFinished()
     }
 
     Box(
@@ -80,7 +88,15 @@ internal fun V174CinematicWelcome() {
             .background(Color(0xFF020203)),
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            val revealGlow = 0.08f + 0.24f * mark.value + 0.12f * impact.value - 0.035f * settle.value
+            val nowMs = (timeline.value * WelcomeSonicIdent.TOTAL_DURATION_MS).toLong()
+            val ignition = v151Progress(nowMs, 0L, WelcomeSonicIdent.IGNITION_END_MS)
+            val strips = v151Progress(nowMs, 60L, 2600L)
+            val impact = v151Progress(nowMs, 2450L, WelcomeSonicIdent.IMPACT_END_MS)
+            val mark = v151Progress(nowMs, 2540L, WelcomeSonicIdent.MARK_END_MS)
+            val title = v151Progress(nowMs, 3040L, WelcomeSonicIdent.TITLE_END_MS)
+            val sweep = v151Progress(nowMs, WelcomeSonicIdent.UNDERLINE_START_MS, WelcomeSonicIdent.UNDERLINE_END_MS)
+            val settle = v151Progress(nowMs, WelcomeSonicIdent.SETTLE_START_MS, WelcomeSonicIdent.TOTAL_DURATION_MS)
+            val revealGlow = 0.08f + 0.24f * mark + 0.12f * impact - 0.035f * settle
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
@@ -94,69 +110,67 @@ internal fun V174CinematicWelcome() {
                 radius = size.width * 0.62f,
                 center = Offset(size.width / 2f, size.height * 0.47f),
             )
-        }
 
+            if (strips > 0f) {
+                val progress = strips
+                val screenH = size.height
+                val overscanH = screenH * 1.18f
+                val centerY = screenH * 0.50f
+                val fadeOut = (1f - impact * 0.92f).coerceIn(0f, 1f)
+                val palette = listOf(
+                    MutedGold, RecRed, ProjectorIvory.copy(alpha = .72f),
+                    RecRed.copy(alpha = .78f), MutedGold.copy(alpha = .86f), RecRedDeep,
+                    ProjectorIvory.copy(alpha = .48f), MutedGold.copy(alpha = .62f),
+                )
 
-        Canvas(Modifier.fillMaxSize()) {
-            if (strips.value <= 0f) return@Canvas
-            val progress = strips.value.coerceIn(0f, 1f)
-            val screenH = size.height
-            val overscanH = screenH * 1.18f
-            val centerY = screenH * 0.50f
-            val fadeOut = (1f - impact.value * 0.92f).coerceIn(0f, 1f)
-            val palette = listOf(
-                MutedGold, RecRed, ProjectorIvory.copy(alpha = .72f),
-                RecRed.copy(alpha = .78f), MutedGold.copy(alpha = .86f), RecRedDeep,
-                ProjectorIvory.copy(alpha = .48f), MutedGold.copy(alpha = .62f),
-            )
+                repeat(V20_WELCOME_STRIPE_COUNT) { index ->
+                    val stagger = index * 0.014f
+                    val local = ((progress - stagger) / (1f - stagger)).coerceIn(0f, 1f)
+                    if (local <= 0f) return@repeat
+                    val side = if (index % 2 == 0) -1f else 1f
+                    val lane = (index / 2 + 1).toFloat() / (V20_WELCOME_STRIPE_COUNT / 2f + 1f)
+                    val startX = size.width * 0.50f + side * size.width * 0.025f
+                    val endX = size.width * 0.50f + side * size.width * (0.50f + lane * 0.10f)
+                    val eased = local * local * (3f - 2f * local)
+                    val drift = kotlin.math.sin((eased * 3.1415926f) + index * .47f) * size.width * .012f
+                    val x = startX + (endX - startX) * eased + drift
+                    val base = size.width * (if (index % 3 == 0) 0.030f else if (index % 3 == 1) 0.018f else 0.010f)
+                    val width = base * (0.72f + 0.28f * local)
+                    val color = palette[index % palette.size]
+                    val alpha = (0.66f + (index % 4) * 0.075f) * fadeOut
 
-            repeat(V20_WELCOME_STRIPE_COUNT) { index ->
-                val stagger = index * 0.014f
-                val local = ((progress - stagger) / (1f - stagger)).coerceIn(0f, 1f)
-                if (local <= 0f) return@repeat
-                val side = if (index % 2 == 0) -1f else 1f
-                val lane = (index / 2 + 1).toFloat() / (V20_WELCOME_STRIPE_COUNT / 2f + 1f)
-                val startX = size.width * 0.50f + side * size.width * 0.025f * V129_THREAD_GAP_SCALE
-                val endX = size.width * 0.50f + side * size.width * (0.50f + lane * 0.10f * V129_THREAD_GAP_SCALE)
-                val eased = local * local * (3f - 2f * local)
-                val drift = kotlin.math.sin((eased * 3.1415926f) + index * .47f) * size.width * .012f
-                val x = startX + (endX - startX) * eased + drift
-                val base = size.width * (if (index % 3 == 0) 0.030f else if (index % 3 == 1) 0.018f else 0.010f)
-                val width = base * (0.72f + 0.28f * local)
-                val color = palette[index % palette.size]
-                val alpha = (0.66f + (index % 4) * 0.075f) * fadeOut
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                color.copy(alpha = alpha * 0.72f),
+                                color.copy(alpha = alpha),
+                                color.copy(alpha = alpha * 0.90f),
+                                color.copy(alpha = alpha * 0.62f),
+                                Color.Transparent,
+                            ),
+                            startY = centerY - overscanH / 2f,
+                            endY = centerY + overscanH / 2f,
+                        ),
+                        topLeft = Offset(x - width / 2f, centerY - overscanH / 2f),
+                        size = Size(width, overscanH),
+                    )
+                }
 
                 drawRect(
-                    brush = Brush.verticalGradient(
+                    brush = Brush.radialGradient(
                         colors = listOf(
-                            Color.Transparent,
-                            color.copy(alpha = alpha * 0.72f),
-                            color.copy(alpha = alpha),
-                            color.copy(alpha = alpha * 0.90f),
-                            color.copy(alpha = alpha * 0.62f),
+                            Color(0xFFFFD39A).copy(alpha = 0.17f * fadeOut),
+                            Color(0xFFD72B29).copy(alpha = 0.08f * fadeOut),
                             Color.Transparent,
                         ),
-                        startY = centerY - overscanH / 2f,
-                        endY = centerY + overscanH / 2f,
+                        center = Offset(size.width / 2f, centerY),
+                        radius = size.width * 0.52f,
                     ),
-                    topLeft = Offset(x - width / 2f, centerY - overscanH / 2f),
-                    size = Size(width, overscanH),
+                    topLeft = Offset.Zero,
+                    size = size,
                 )
             }
-
-            drawRect(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFFFD39A).copy(alpha = 0.17f * fadeOut),
-                        Color(0xFFD72B29).copy(alpha = 0.08f * fadeOut),
-                        Color.Transparent,
-                    ),
-                    center = Offset(size.width / 2f, centerY),
-                    radius = size.width * 0.52f,
-                ),
-                topLeft = Offset.Zero,
-                size = size,
-            )
         }
 
         BacklotIdentMark(
@@ -165,11 +179,11 @@ internal fun V174CinematicWelcome() {
                 .offset(y = (-36).dp)
                 .size(148.dp)
                 .graphicsLayer {
-                    alpha = mark.value
-                    scaleX = 0.84f + (0.16f * mark.value)
-                    scaleY = 0.84f + (0.16f * mark.value)
+                    alpha = mark
+                    scaleX = 0.84f + (0.16f * mark)
+                    scaleY = 0.84f + (0.16f * mark)
                 },
-            reveal = mark.value,
+            reveal = mark,
         )
 
         Text(
@@ -177,11 +191,11 @@ internal fun V174CinematicWelcome() {
             modifier = Modifier
                 .align(Alignment.Center)
                 .offset(y = 83.dp)
-                .alpha(title.value)
+                .alpha(title)
                 .graphicsLayer {
-                    scaleX = 0.965f + (0.035f * title.value)
-                    scaleY = 0.965f + (0.035f * title.value)
-                    translationY = 7f * (1f - title.value)
+                    scaleX = 0.965f + (0.035f * title)
+                    scaleY = 0.965f + (0.035f * title)
+                    translationY = 7f * (1f - title)
                 },
             color = ProjectorIvory,
             fontSize = 29.2.sp,
@@ -196,7 +210,7 @@ internal fun V174CinematicWelcome() {
             modifier = Modifier
                 .align(Alignment.Center)
                 .offset(y = 116.dp)
-                .alpha(title.value),
+                .alpha(title),
             color = MutedGold.copy(alpha = .92f),
             fontSize = 8.6.sp,
             fontWeight = FontWeight.Bold,
@@ -204,15 +218,15 @@ internal fun V174CinematicWelcome() {
             textAlign = TextAlign.Center,
         )
 
-        if (sweep.value > 0f) {
-            val xFraction = -0.30f + (1.60f * sweep.value)
+        if (sweep > 0f) {
+            val xFraction = -0.30f + (1.60f * sweep)
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .offset(y = 133.dp)
                     .fillMaxWidth(0.72f)
                     .height(2.dp)
-                    .alpha((1f - settle.value) * 0.80f)
+                    .alpha((1f - settle) * 0.80f)
                     .background(
                         Brush.horizontalGradient(
                             colorStops = arrayOf(
