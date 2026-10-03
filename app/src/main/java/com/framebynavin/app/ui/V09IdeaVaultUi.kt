@@ -18,6 +18,11 @@ import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.RocketLaunch
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
@@ -322,6 +327,333 @@ private fun V09IdeaCard(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun V09NewIdeaCleanEditor(
+    onDismiss: () -> Unit,
+    onSave: (CreatorIdea) -> Unit,
+) {
+    val context = LocalContext.current
+    val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
+    val visibleCategories = remember(creatorProfile) { IdeaVaultLabels.categoriesFor(creatorProfile) }
+    val defaultPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
+
+    var title by rememberSaveable { mutableStateOf("") }
+    var topic by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf(visibleCategories.firstOrNull() ?: IdeaCategory.CINEMATIC_ANALYSIS) }
+    var status by rememberSaveable { mutableStateOf(IdeaStatus.INBOX) }
+    var potential by rememberSaveable { mutableStateOf(IdeaPotential.MEDIUM) }
+    var platform by rememberSaveable { mutableStateOf(defaultPlatform) }
+    var format by rememberSaveable { mutableStateOf(CreatorPlatformRegistry.defaultFormat(defaultPlatform)) }
+    var notes by rememberSaveable { mutableStateOf("") }
+    var reminderAtMillis by rememberSaveable { mutableLongStateOf(0L) }
+    var reminderCadence by rememberSaveable { mutableStateOf(IdeaReminderCadence.ONCE) }
+    var voiceRecording by remember { mutableStateOf<VoiceIdeaRecording?>(null) }
+    var showRecorder by rememberSaveable { mutableStateOf(false) }
+    var showDictation by rememberSaveable { mutableStateOf(false) }
+    var showNotes by rememberSaveable { mutableStateOf(false) }
+    var showReminder by rememberSaveable { mutableStateOf(false) }
+    var showOrganize by rememberSaveable { mutableStateOf(false) }
+
+    val platformOptions = remember(creatorProfile) {
+        CreatorPlatformRegistry.orderedSelected(creatorProfile)
+    }
+    val formats = v09Formats(platform)
+    LaunchedEffect(platform) {
+        if (format !in formats) format = formats.firstOrNull().orEmpty()
+    }
+
+    fun discardRecording() {
+        voiceRecording?.localPath?.takeIf { it.isNotBlank() }?.let { path -> runCatching { File(path).delete() } }
+        voiceRecording = null
+    }
+
+    fun dismiss() {
+        discardRecording()
+        onDismiss()
+    }
+
+    Dialog(
+        onDismissRequest = ::dismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .imePadding(),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("NEW IDEA", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
+                        Text("Capture first. Organize later.", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                        Text("One clear place for the idea — every advanced option stays one tap away.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+                    }
+                    IconButton(onClick = ::dismiss) {
+                        Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory)
+                    }
+                }
+
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                ) {
+                    Surface(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(22.dp),
+                        color = CinemaSurfaceRaised,
+                        border = BorderStroke(1.dp, RecRed.copy(alpha = .45f)),
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("YOUR IDEA", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
+                            Spacer(Modifier.height(7.dp))
+                            OutlinedTextField(
+                                title,
+                                { title = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("Movie, scene, hook, story or anything worth keeping…") },
+                                minLines = 3,
+                                maxLines = 6,
+                                shape = RoundedCornerShape(16.dp),
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            onClick = { showRecorder = !showRecorder; if (showRecorder) showDictation = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(17.dp),
+                            color = if (showRecorder || voiceRecording != null) RecRed.copy(alpha = .13f) else CinemaSurface,
+                            border = BorderStroke(1.dp, if (showRecorder || voiceRecording != null) RecRed.copy(alpha = .5f) else CinemaLine),
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Mic, null, tint = RecRed, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(7.dp))
+                                Column {
+                                    Text("RECORD", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                    Text(if (voiceRecording != null) "Recording ready" else "Original audio", color = MutedText, fontSize = 7.8.sp)
+                                }
+                            }
+                        }
+                        Surface(
+                            onClick = { showDictation = !showDictation; if (showDictation) showRecorder = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(17.dp),
+                            color = if (showDictation) MutedGold.copy(alpha = .10f) else CinemaSurface,
+                            border = BorderStroke(1.dp, if (showDictation) MutedGold.copy(alpha = .45f) else CinemaLine),
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Mic, null, tint = MutedGold, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(7.dp))
+                                Column {
+                                    Text("DICTATE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                    Text("Turn speech into text", color = MutedText, fontSize = 7.8.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    AnimatedVisibility(showRecorder) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            VoiceIdeaRecorderInput(
+                                recording = voiceRecording,
+                                onRecordingChanged = { voiceRecording = it },
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(showDictation) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            V117VoiceIdeaInput(
+                                onTranscript = { transcript ->
+                                    val clean = transcript.trim()
+                                    if (clean.isNotBlank()) {
+                                        title = if (title.isBlank()) clean else title.trimEnd() + " " + clean
+                                    }
+                                },
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Surface(
+                        onClick = { showNotes = !showNotes },
+                        Modifier.fillMaxWidth(),
+                        RoundedCornerShape(16.dp),
+                        CinemaSurface,
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Notes, null, tint = MutedGold, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("NOTES", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text(if (notes.isBlank()) "Optional context, references or details" else "Notes added", color = MutedText, fontSize = 7.8.sp)
+                            }
+                            Icon(if (showNotes) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
+                        }
+                    }
+                    AnimatedVisibility(showNotes) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                notes,
+                                { notes = it },
+                                Modifier.fillMaxWidth().heightIn(min = 105.dp),
+                                label = { Text("Notes") },
+                                placeholder = { Text("Angle, reference, hook or anything worth remembering…") },
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        onClick = { showReminder = !showReminder },
+                        Modifier.fillMaxWidth(),
+                        RoundedCornerShape(16.dp),
+                        CinemaSurface,
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Alarm, null, tint = MutedGold, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("REMINDER", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text(if (reminderAtMillis > 0L) "Reminder configured" else "Optional — decide later when to revisit", color = MutedText, fontSize = 7.8.sp)
+                            }
+                            Icon(if (showReminder) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
+                        }
+                    }
+                    AnimatedVisibility(showReminder) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            V144IdeaReminderPicker(
+                                reminderAtMillis = reminderAtMillis,
+                                cadence = reminderCadence,
+                                enabled = status != IdeaStatus.CONVERTED && status != IdeaStatus.ARCHIVED,
+                                onChange = { at, cadence ->
+                                    reminderAtMillis = at
+                                    reminderCadence = cadence
+                                },
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        onClick = { showOrganize = !showOrganize },
+                        Modifier.fillMaxWidth(),
+                        RoundedCornerShape(16.dp),
+                        CinemaSurface,
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Tune, null, tint = MutedGold, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("ORGANIZE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text("Topic, category, status and publishing hints", color = MutedText, fontSize = 7.8.sp)
+                            }
+                            Icon(if (showOrganize) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
+                        }
+                    }
+
+                    AnimatedVisibility(showOrganize) {
+                        Column(Modifier.padding(top = 8.dp, bottom = 8.dp)) {
+                            OutlinedTextField(topic, { topic = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Topic · optional") })
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("CATEGORY")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                visibleCategories.forEach { value ->
+                                    FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = 9.sp) })
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("STATUS")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                listOf(IdeaStatus.INBOX, IdeaStatus.WORTH_EXPLORING, IdeaStatus.RESEARCHING, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.ARCHIVED).forEach { value ->
+                                    FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = 9.sp) })
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("POTENTIAL")
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                IdeaPotential.entries.forEach { value ->
+                                    FilterChip(potential == value, { potential = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 9.sp) })
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("LIKELY PLATFORM")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 9.sp) }) }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("LIKELY FORMAT")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 9.sp) }) }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+                }
+
+                Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
+                    Button(
+                        onClick = {
+                            val now = System.currentTimeMillis()
+                            val finalizedRecording = voiceRecording
+                            val newVoiceIdea = finalizedRecording != null
+                            onSave(
+                                CreatorIdea(
+                                    id = UUID.randomUUID().toString(),
+                                    title = title.trim().ifBlank { if (newVoiceIdea) v09DefaultVoiceIdeaTitle() else "" },
+                                    topic = topic.trim(),
+                                    category = category,
+                                    status = status,
+                                    potential = potential,
+                                    platformHint = platform,
+                                    formatHint = format,
+                                    notes = notes.trim(),
+                                    reminderAtMillis = reminderAtMillis,
+                                    reminderCadence = reminderCadence,
+                                    captureType = if (newVoiceIdea) IdeaCaptureType.VOICE else IdeaCaptureType.TEXT,
+                                    audioLocalPath = finalizedRecording?.localPath.orEmpty(),
+                                    audioDurationMillis = finalizedRecording?.durationMillis ?: 0L,
+                                    audioMimeType = finalizedRecording?.mimeType.orEmpty(),
+                                    audioSyncState = if (newVoiceIdea) IdeaAudioSyncState.LOCAL_ONLY else IdeaAudioSyncState.NONE,
+                                    createdAtMillis = now,
+                                    updatedAtMillis = now,
+                                )
+                            )
+                            voiceRecording = null
+                        },
+                        enabled = title.isNotBlank() || voiceRecording != null,
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(15.dp),
+                    ) {
+                        Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE IDEA", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun V09IdeaEditor(
     idea: CreatorIdea,
     onDismiss: () -> Unit,
@@ -329,6 +661,13 @@ private fun V09IdeaEditor(
     onDelete: (() -> Unit)?,
 ) {
     val context = LocalContext.current
+    if (idea.id.isBlank()) {
+        V09NewIdeaCleanEditor(
+            onDismiss = onDismiss,
+            onSave = onSave,
+        )
+        return
+    }
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
     val visibleCategories = remember(creatorProfile) { IdeaVaultLabels.categoriesFor(creatorProfile) }
     val defaultPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
