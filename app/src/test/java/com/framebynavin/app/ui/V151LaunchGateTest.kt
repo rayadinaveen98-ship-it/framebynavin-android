@@ -17,6 +17,28 @@ class V151LaunchGateTest {
     }
 
     @Test
+    fun guideSelectionDoesNotSkipIncompleteCreatorSetup() {
+        assertTrue(
+            V151SetupPolicy.needsCreatorSetup(
+                onboardingComplete = false,
+                profileComplete = false,
+            )
+        )
+        assertTrue(
+            V151SetupPolicy.needsCreatorSetup(
+                onboardingComplete = true,
+                profileComplete = false,
+            )
+        )
+        assertTrue(
+            V151SetupPolicy.needsCreatorSetup(
+                onboardingComplete = false,
+                profileComplete = true,
+            )
+        )
+    }
+
+    @Test
     fun audioAndVisualTimelineShareOneDuration() {
         assertTrue(WelcomeSonicIdent.TOTAL_DURATION_MS > 0L)
         assertTrue(WelcomeSonicIdent.SETTLE_START_MS < WelcomeSonicIdent.TOTAL_DURATION_MS)
