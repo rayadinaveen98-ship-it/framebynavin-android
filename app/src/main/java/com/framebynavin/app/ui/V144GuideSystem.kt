@@ -67,7 +67,7 @@ internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? {
  * Legacy Frame/Navi selections are normalized to Funny and are not exposed in V145 UI.
  */
 object V144GuidePrefs {
-    private const val PREFS = "backlot_character_identity"
+    private const val PREFS = "backlot_character_identity_v151"
     private const val KEY_CHARACTER = "selected_character"
     private var appContext: Context? = null
 
