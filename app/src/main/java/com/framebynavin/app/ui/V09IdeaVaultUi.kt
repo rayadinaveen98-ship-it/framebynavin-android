@@ -327,8 +327,6 @@ private fun V09IdeaCard(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun V09NewIdeaCleanEditor(
@@ -493,9 +491,9 @@ private fun V09NewIdeaCleanEditor(
 
                     Surface(
                         onClick = { showNotes = !showNotes },
-                        Modifier.fillMaxWidth(),
-                        RoundedCornerShape(16.dp),
-                        CinemaSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = CinemaSurface,
                         border = BorderStroke(1.dp, CinemaLine),
                     ) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -524,9 +522,9 @@ private fun V09NewIdeaCleanEditor(
                     Spacer(Modifier.height(8.dp))
                     Surface(
                         onClick = { showReminder = !showReminder },
-                        Modifier.fillMaxWidth(),
-                        RoundedCornerShape(16.dp),
-                        CinemaSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = CinemaSurface,
                         border = BorderStroke(1.dp, CinemaLine),
                     ) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -557,9 +555,9 @@ private fun V09NewIdeaCleanEditor(
                     Spacer(Modifier.height(8.dp))
                     Surface(
                         onClick = { showOrganize = !showOrganize },
-                        Modifier.fillMaxWidth(),
-                        RoundedCornerShape(16.dp),
-                        CinemaSurface,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = CinemaSurface,
                         border = BorderStroke(1.dp, CinemaLine),
                     ) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -644,7 +642,7 @@ private fun V09NewIdeaCleanEditor(
                             voiceRecording = null
                         },
                         enabled = title.isNotBlank() || voiceRecording != null,
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(52.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(52.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(15.dp),
                     ) {
