@@ -4,20 +4,20 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class V149LaunchPolicyTest {
+class V151LaunchPolicyTest {
     @Test
     fun normalFirstLaunchShowsIdent() {
-        assertTrue(V149LaunchPolicy.shouldShowCinematicIdent(externalLaunch = false, hasSeenIdent = false))
+        assertTrue(V151LaunchPolicy.shouldShowCinematicIdent(externalLaunch = false, ))
     }
 
     @Test
     fun returningNormalLaunchSkipsIdent() {
-        assertFalse(V149LaunchPolicy.shouldShowCinematicIdent(externalLaunch = false, hasSeenIdent = true))
+        assertFalse(V151LaunchPolicy.shouldShowCinematicIdent(externalLaunch = false, ))
     }
 
     @Test
     fun widgetOrDeepLinkLaunchAlwaysSkipsIdent() {
-        assertFalse(V149LaunchPolicy.shouldShowCinematicIdent(externalLaunch = true, hasSeenIdent = false))
-        assertFalse(V149LaunchPolicy.shouldShowCinematicIdent(externalLaunch = true, hasSeenIdent = true))
+        assertFalse(V151LaunchPolicy.shouldShowCinematicIdent(externalLaunch = true, ))
+        assertFalse(V151LaunchPolicy.shouldShowCinematicIdent(externalLaunch = true, ))
     }
 }
