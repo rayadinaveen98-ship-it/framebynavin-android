@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
