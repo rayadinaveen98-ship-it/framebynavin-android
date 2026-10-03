@@ -19,6 +19,14 @@ internal object V151LaunchPolicy {
     fun shouldShowCinematicIdent(externalLaunch: Boolean): Boolean = !externalLaunch
 }
 
+internal object V151SetupPolicy {
+    /** Guide choice is a separate gate; once selected, incomplete creator setup must remain visible. */
+    fun needsCreatorSetup(
+        onboardingComplete: Boolean,
+        profileComplete: Boolean,
+    ): Boolean = !onboardingComplete || !profileComplete
+}
+
 /**
  * The cinematic studio ident is part of every normal Backlot launch. Widget/deep-link launches
  * stay instant so a targeted action is never blocked by branding.
