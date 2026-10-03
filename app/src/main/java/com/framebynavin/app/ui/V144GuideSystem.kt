@@ -101,6 +101,11 @@ object V144GuidePrefs {
 }
 
 @Composable
+internal fun V144GuideChoiceGate() {
+    V144GuideChoiceGate(content = {})
+}
+
+@Composable
 internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
     val context = LocalContext.current
     V144GuidePrefs.initialize(context)
