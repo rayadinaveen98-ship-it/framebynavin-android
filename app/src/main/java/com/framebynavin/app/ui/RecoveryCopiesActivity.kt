@@ -92,14 +92,14 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Spacer(Modifier.width(4.dp))
                 Column {
-                    Text("RECOVERY COPIES", color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                    Text("Restore journal history", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    Text("SAVED RECOVERY COPIES", color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text("Previous copies of your work", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
             }
 
             Spacer(Modifier.height(12.dp))
             Text(
-                "Backlot creates one retained local copy before replacing creator data. These copies are not uploaded. Export one before restoring if you want an external copy.",
+                "Backlot keeps a copy on this phone before a restore. These copies aren't uploaded.",
                 color = MutedText,
                 fontSize = 11.sp,
                 lineHeight = 15.sp,
@@ -118,7 +118,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
             Spacer(Modifier.height(18.dp))
             if (files.isEmpty()) {
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-                    Text("No retained recovery copies on this device.", color = MutedText, modifier = Modifier.padding(16.dp), fontSize = 11.sp)
+                    Text("No recovery copies saved on this phone.", color = MutedText, modifier = Modifier.padding(16.dp), fontSize = 11.sp)
                 }
             } else {
                 files.forEach { file ->
@@ -143,7 +143,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
             onDismissRequest = { if (!busy) restoreFile = null },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Restore this recovery copy?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("Current creator data will be replaced. Backlot will first create another retained recovery copy of the current state.", color = MutedText) },
+            text = { Text("Your current data will be replaced. Backlot will save a recovery copy first.", color = MutedText) },
             confirmButton = {
                 Button(
                     enabled = !busy,
@@ -188,7 +188,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
             onDismissRequest = { deleteFile = null },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Delete recovery copy?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("This only deletes this retained internal recovery file. Your current creator data is not changed.", color = MutedText) },
+            text = { Text("This deletes only the selected recovery copy. Your current work stays safe.", color = MutedText) },
             confirmButton = {
                 TextButton(onClick = {
                     val deleted = runCatching { file.delete() }.getOrDefault(false)
