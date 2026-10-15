@@ -10,12 +10,13 @@ import org.junit.Test
 class V144GuideSystemTest {
 
     @Test
-    fun `v145 selectable roster contains only funny and cute`() {
+    fun `v152 selectable roster contains only Spark`() {
         assertEquals(
-            listOf(V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE),
+            listOf(V144GuideIdentity.FUNNY),
             V145SelectableGuides,
         )
         assertTrue(V145SelectableGuides.all { it.description.isNotBlank() })
+        assertEquals("Spark", V144GuideIdentity.FUNNY.displayName)
     }
 
     @Test
@@ -23,7 +24,7 @@ class V144GuideSystemTest {
         assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("FRAME"))
         assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("NAVI"))
         assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("FUNNY"))
-        assertEquals(V144GuideIdentity.CUTE, v145NormalizeSavedGuide("CUTE"))
+        assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("CUTE"))
         assertNull(v145NormalizeSavedGuide(null))
         assertNull(v145NormalizeSavedGuide("UNKNOWN"))
     }
