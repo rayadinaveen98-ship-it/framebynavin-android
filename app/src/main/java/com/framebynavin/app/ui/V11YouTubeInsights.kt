@@ -174,7 +174,7 @@ internal fun V11InsightsScreen(
                             YouTubeDatasetHealth(
                                 YouTubeFoundationDataset.REACH,
                                 YouTubeDatasetState.UNAVAILABLE,
-                                "Reach could not be refreshed right now. Core Insights are up to date.",
+                                "Reach didn't update. Other results are still available.",
                             )
                         }
                         val withReach = foundation.copy(
@@ -424,7 +424,7 @@ private fun YTProfileFocusCard(
         Column(Modifier.padding(15.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("YOUR CREATOR LENS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+                    Text("YOUR CHANNEL", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
                     Spacer(Modifier.height(3.dp))
                     Text(profile.primaryGoal, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                 }
@@ -470,11 +470,11 @@ private fun YTConnectCard(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Connect YouTube", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                    Text("See your channel performance", color = MutedText, fontSize = 9.2.sp)
+                    Text("See how your channel is doing", color = MutedText, fontSize = 9.2.sp)
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Text("Bring views, watch time, subscribers and video performance into Backlot. It cannot upload or delete your videos.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("See views, watch time and subscribers. Backlot cannot post or delete videos.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(14.dp))
             Button(onClick = onConnect, enabled = !syncing, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(15.dp)) {
                 if (syncing) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
@@ -496,7 +496,7 @@ private fun YTErrorCard(message: String, packageName: String, sha1: String) {
             Spacer(Modifier.height(4.dp))
             Text(message, color = ProjectorIvory, fontSize = 9.5.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(8.dp))
-            Text("Try connecting again. If it still fails, the app setup may need attention.", color = MutedText, fontSize = 8.2.sp)
+            Text("Try connecting again. If it still fails, check Settings.", color = MutedText, fontSize = 8.2.sp)
         }
     }
 }
@@ -521,7 +521,7 @@ private fun YTChannelHeader(
                 Column(Modifier.weight(1f)) {
                     Text(data.channel.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${ytCompact(data.channel.subscribers)} subscribers · ${data.channel.videoCount} videos", color = MutedText, fontSize = 8.8.sp)
-                    if (syncing) Text("Updating in background…", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    if (syncing) Text("Updating…", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = onSync, enabled = !syncing) {
                     if (syncing) CircularProgressIndicator(modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = RecRed)
@@ -591,7 +591,7 @@ private fun YTSignalCard(data: YouTubeAnalyticsSnapshot) {
     val bestSignal = when {
         best == null -> "Sync again after YouTube has enough report data."
         avgTop > 0 && best.periodViews >= avgTop * 1.5 -> "${best.title} is clearly leading this finalized ${data.windowDays}-day window."
-        else -> "Your top videos are relatively close together in this finalized window."
+        else -> "Your top videos performed similarly in this period."
     }
     val subscriberSignal = when {
         data.netSubscribers > 0 -> "Subscriber momentum is positive at ${ytSigned(data.netSubscribers)} net."
