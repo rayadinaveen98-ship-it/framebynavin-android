@@ -259,7 +259,7 @@ internal fun V20NewProjectWizard(
                 ) {
                     if (!showAdvancedSetup) {
                         Text(
-                            "Start with the essentials. You can change the details anytime.",
+                            "Name your project, then check where, when and how you'll post.",
                             color = MutedText,
                             fontSize = 13.sp,
                             lineHeight = 19.sp,
@@ -325,7 +325,10 @@ internal fun V20NewProjectWizard(
                             fontSize = 12.sp,
                         )
                         Spacer(Modifier.height(6.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
                             FilterChip(
                                 selected = attentionPlan == ProjectAttentionPlan.OFF,
                                 onClick = { onAttentionPlanChange(ProjectAttentionPlan.OFF) },
@@ -339,6 +342,13 @@ internal fun V20NewProjectWizard(
                         }
                         if (attentionPlan == ProjectAttentionPlan.CUSTOM && !customReady) {
                             Text("Change your reminder time in More Options.", color = RecRed, fontSize = 12.sp)
+                        }
+                        if (requiresAdvancedPermissions && !reminderSetupReady && attentionPlan != ProjectAttentionPlan.OFF) {
+                            TextButton(onClick = onOpenSettings) {
+                                Icon(Icons.Outlined.NotificationsActive, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("SET UP REMINDER PERMISSIONS", fontSize = 12.sp)
+                            }
                         }
                         Spacer(Modifier.height(20.dp))
                         Button(
