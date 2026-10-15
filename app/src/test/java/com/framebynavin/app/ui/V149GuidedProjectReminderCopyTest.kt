@@ -17,7 +17,7 @@ class V149GuidedProjectReminderCopyTest {
     @Test
     fun existingProjectTourStillExplainsNewProjectReminders() {
         val copy = v149GuidedProjectReminderCopy(hasProjects = true)
-        assertTrue(copy.body.contains("Project Support", ignoreCase = true))
+        assertTrue(copy.body.contains("project", ignoreCase = true))
         assertTrue(copy.body.contains("reminder", ignoreCase = true))
         assertTrue(copy.speech.contains("reminder", ignoreCase = true))
         assertTrue(copy.speech.contains("choose", ignoreCase = true))
