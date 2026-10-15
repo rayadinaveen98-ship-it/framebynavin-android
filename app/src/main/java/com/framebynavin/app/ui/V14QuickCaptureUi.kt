@@ -93,8 +93,8 @@ internal fun V14QuickCaptureDialog(
                     }
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("QUICK CAPTURE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                        Text("Save it before it disappears", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                        Text("NEW IDEA", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        Text("Save an idea", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                 }
 
@@ -110,7 +110,7 @@ internal fun V14QuickCaptureDialog(
                         onValueChange = { title = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Idea") },
-                        placeholder = { Text("A scene, hook, topic or idea worth exploring") },
+                        placeholder = { Text("What's on your mind?") },
                         minLines = 2,
                         maxLines = 6,
                         shape = RoundedCornerShape(16.dp),
@@ -130,7 +130,7 @@ internal fun V14QuickCaptureDialog(
                         onValueChange = { notes = it },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 90.dp),
                         label = { Text("Notes · optional") },
-                        placeholder = { Text("Angle, scene, hook or anything worth remembering…") },
+                        placeholder = { Text("Add notes (optional)…") },
                         maxLines = 5,
                         shape = RoundedCornerShape(16.dp),
                     )
@@ -146,7 +146,7 @@ internal fun V14QuickCaptureDialog(
                             Icon(Icons.Outlined.Bolt, null, tint = MutedGold, modifier = Modifier.size(19.dp))
                             Spacer(Modifier.width(9.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("IDEA VAULT", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                                Text("YOUR IDEAS", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                                 Text(IdeaVaultLabels.category(suggestion.category), color = ProjectorIvory, fontSize = 10.8.sp, fontWeight = FontWeight.Bold)
                                 Text("${suggestion.platformHint} · ${suggestion.formatHint}", color = MutedText, fontSize = 8.4.sp)
                             }
@@ -155,7 +155,7 @@ internal fun V14QuickCaptureDialog(
                     Spacer(Modifier.height(7.dp))
                     Text(
                         if (voiceRecording != null) {
-                            "The original recording will be saved with this Voice Idea. You can transcribe or refine it later."
+                            "Your recording stays saved with this idea."
                         } else {
                             "You can refine or turn it into a project later."
                         },
