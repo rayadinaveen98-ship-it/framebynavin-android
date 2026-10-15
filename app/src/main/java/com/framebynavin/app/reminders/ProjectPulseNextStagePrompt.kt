@@ -45,9 +45,9 @@ object ProjectPulseNextStagePrompt {
         NotificationCompat.Builder(app, ReminderConstants.PULSE_PROMPT_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("Publication still needs confirmation")
-            .setContentText("Open Publish Studio before completing the ${CreatorWorkflowEngine.currentStage(task).label} stage.")
+            .setContentText("Open Prepare to Publish before finishing ${CreatorWorkflowEngine.currentStage(task).label}.")
             .setStyle(NotificationCompat.BigTextStyle().bigText(
-                "Project Pulse did not advance the workflow. Publish Studio remains the authority for live deliverables. Tap to open the project."
+                "Couldn't move to the next step. Open your project and try again."
             ))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
@@ -66,7 +66,7 @@ object ProjectPulseNextStagePrompt {
                 ReminderConstants.PULSE_PROMPT_CHANNEL_ID,
                 "Stage check-in choices",
                 NotificationManager.IMPORTANCE_HIGH,
-            ).apply { description = "Choose when Project Pulse should check the next workflow stage" }
+            ).apply { description = "When should we remind you about the next step?" }
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
