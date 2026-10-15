@@ -39,6 +39,21 @@ internal fun v20NewProjectSupportReady(
 ): Boolean = plan != ProjectAttentionPlan.CUSTOM ||
     (reminderAtMillis > nowMillis && reminderAtMillis <= dueAtMillis)
 
+/** Quick and advanced project creation must obey the same save requirements. */
+internal object V153QuickCreatePolicy {
+    fun canCreate(
+        title: String,
+        archetypeId: String,
+        platform: String,
+        format: String,
+        dueAtMillis: Long,
+        nowMillis: Long,
+        supportReady: Boolean,
+    ): Boolean = title.isNotBlank() && archetypeId.isNotBlank() &&
+        platform.isNotBlank() && format.isNotBlank() &&
+        dueAtMillis > nowMillis && supportReady
+}
+
 /**
  * New Project V2.2
  *
@@ -125,8 +140,15 @@ internal fun V20NewProjectWizard(
 
     val customReady = v20NewProjectSupportReady(attentionPlan, customReminderAt, dueAt, now)
     val supportReady = customReady
-    val allReady = title.isNotBlank() && archetypeId.isNotBlank() && platform.isNotBlank() &&
-        contentType.isNotBlank() && dueAt > now && supportReady
+    val allReady = V153QuickCreatePolicy.canCreate(
+        title = title,
+        archetypeId = archetypeId,
+        platform = platform,
+        format = contentType,
+        dueAtMillis = dueAt,
+        nowMillis = now,
+        supportReady = supportReady,
+    )
     val progress = ((revealedStage + 1).coerceIn(1, 7)) / 7f
     val supportSummary = buildString {
         append(ProjectPulseEngine.planLabel(attentionPlan))
@@ -269,6 +291,15 @@ internal fun V20NewProjectWizard(
                         TextButton(onClick = { showAllPlatforms = !showAllPlatforms }) {
                             Text(if (showAllPlatforms) "SHOW MY PLATFORMS" else "OTHER PLATFORMS", fontSize = 12.sp)
                         }
+                        Spacer(Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Type: $chosenTypeLabel", color = MutedText, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                            TextButton(onClick = {
+                                showAdvancedSetup = true
+                                activeStage = 1
+                                revealedStage = 1
+                            }) { Text("CHANGE TYPE", fontSize = 12.sp) }
+                        }
                         Spacer(Modifier.height(14.dp))
                         V20FieldLabel("POST FORMAT")
                         FlowRow(
@@ -336,7 +367,11 @@ internal fun V20NewProjectWizard(
                         }
                     } else {
                         TextButton(
-                            onClick = { showAdvancedSetup = false },
+                            onClick = {
+                                showAdvancedSetup = false
+                                activeStage = 0
+                                revealedStage = 0
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Icon(Icons.Outlined.ArrowBack, null, modifier = Modifier.size(17.dp))
