@@ -146,8 +146,8 @@ internal fun V20NewProjectWizard(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("CONTENT TYPES", color = RecRed, fontSize = 8.4.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                            Text("Choose the right format", color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                            Text("TYPES", color = RecRed, fontSize = 8.4.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                            Text("Choose a content type", color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
                             Text(CreatorModeRegistry.definition(creatorModeId).label, color = MutedGold, fontSize = 9.sp)
                         }
                         IconButton(onClick = { showAllTypes = false }) {
@@ -203,7 +203,7 @@ internal fun V20NewProjectWizard(
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
                         Text("NEW PROJECT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                        Text("Create project", color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                        Text("New project", color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
                     }
                     Surface(
                         shape = RoundedCornerShape(100.dp),
@@ -233,7 +233,7 @@ internal fun V20NewProjectWizard(
                 ) {
                     V20ProgressiveSection(
                         index = 0,
-                        label = "PROJECT NAME",
+                        label = "NAME",
                         title = "What are you making?",
                         summary = title.ifBlank { "Add a project name" },
                         active = activeStage == 0,
@@ -254,8 +254,8 @@ internal fun V20NewProjectWizard(
 
                     V20ProgressiveSection(
                         index = 1,
-                        label = "CONTENT TYPE",
-                        title = "What kind of project is it?",
+                        label = "TYPE",
+                        title = "What are you making?",
                         summary = chosenTypeLabel,
                         active = activeStage == 1,
                         revealed = revealedStage >= 1,
@@ -303,7 +303,7 @@ internal fun V20NewProjectWizard(
                         ) {
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text("CREATIVE STYLE", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text("YOUR STYLE", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                     Text(
                                         productionStyles.takeIf { it.isNotEmpty() }?.joinToString() ?: "Using setup default",
                                         color = MutedText,
@@ -362,7 +362,7 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 3,
                         label = "FORMAT",
-                        title = "How are you publishing it?",
+                        title = "What format?",
                         summary = contentType.ifBlank { "Choose a format" },
                         active = activeStage == 3,
                         revealed = revealedStage >= 3,
@@ -374,13 +374,13 @@ internal fun V20NewProjectWizard(
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        V20InlineContinue("SET DEADLINE", contentType.isNotBlank()) { revealNext(3) }
+                        V20InlineContinue("SET DUE DATE", contentType.isNotBlank()) { revealNext(3) }
                     }
 
                     V20ProgressiveSection(
                         index = 4,
-                        label = "DEADLINE",
-                        title = "When do you want it ready?",
+                        label = "DUE DATE",
+                        title = "When is it due?",
                         summary = v20WizardDateTime(dueAt),
                         active = activeStage == 4,
                         revealed = revealedStage >= 4,
@@ -406,8 +406,8 @@ internal fun V20NewProjectWizard(
 
                     V20ProgressiveSection(
                         index = 5,
-                        label = "PROJECT SUPPORT",
-                        title = "How much help should Backlot give?",
+                        label = "REMINDERS",
+                        title = "Would you like reminders?",
                         summary = supportSummary,
                         active = activeStage == 5,
                         revealed = revealedStage >= 5,
@@ -458,7 +458,7 @@ internal fun V20NewProjectWizard(
                             }
                             if (!customReady) {
                                 Spacer(Modifier.height(6.dp))
-                                Text("Choose a reminder between now and the deadline.", color = RecRed, fontSize = 8.5.sp)
+                                Text("Pick a reminder time before your due date.", color = RecRed, fontSize = 8.5.sp)
                             }
                         }
 
@@ -474,7 +474,7 @@ internal fun V20NewProjectWizard(
                                 Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Outlined.Settings, null, tint = MutedGold, modifier = Modifier.size(17.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Finish reminder setup", color = ProjectorIvory, fontSize = 9.5.sp, modifier = Modifier.weight(1f))
+                                    Text("Set up reminders", color = ProjectorIvory, fontSize = 9.5.sp, modifier = Modifier.weight(1f))
                                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(16.dp))
                                 }
                             }
@@ -497,8 +497,8 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 6,
                         label = "REVIEW",
-                        title = "Ready to create?",
-                        summary = "Review & create",
+                        title = "Check your details",
+                        summary = "Review and create",
                         active = activeStage == 6,
                         revealed = revealedStage >= 6,
                         onEdit = { activeStage = 6 },
@@ -518,7 +518,7 @@ internal fun V20NewProjectWizard(
                         }
                         if (productionStyles.isNotEmpty()) {
                             Spacer(Modifier.height(4.dp))
-                            Text("Creative style · ${productionStyles.joinToString()}", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
+                            Text("Style · ${productionStyles.joinToString()}", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
                         }
                         Spacer(Modifier.height(14.dp))
                         Button(
@@ -528,7 +528,7 @@ internal fun V20NewProjectWizard(
                             shape = RoundedCornerShape(17.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         ) {
-                            Text("CREATE & OPEN WORKSPACE", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text("CREATE PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Black)
                             Spacer(Modifier.width(6.dp))
                             Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(17.dp))
                         }
