@@ -18,6 +18,6 @@ internal fun v149GuidedProjectReminderCopy(hasProjects: Boolean): V149GuidedProj
         V149GuidedProjectReminderCopy(
             title = "Build your first project",
             body = "Start a project and choose reminders if you'd like help staying on track.",
-            speech = "Turn an idea into a project and keep all your steps together.",
+            speech = "Turn an idea into a project and keep the steps together. You can add reminders if you'd like.",
         )
     }
