@@ -646,10 +646,6 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 settings = settingsStore.snapshot()
             },
         )
-    } else if (!V144GuidePrefs.hasSelection) {
-        // Guide selection is its own setup stage. Once a guide is selected, this branch
-        // disappears and the creator setup stage below becomes visible.
-        V144GuideChoiceGate()
     } else if (V151SetupPolicy.needsCreatorSetup(
         onboardingComplete = settings.onboardingComplete,
         profileComplete = settings.creatorProfile.isComplete,
@@ -665,9 +661,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onFullScreen = ::requestFullScreen,
             onBattery = ::openBatterySettings,
             onFinish = { profile ->
-                settingsStore.setCreatorProfile(profile)
-                settingsStore.setOnboardingComplete(true)
+                val saved = settingsStore.completeCreatorSetup(profile)
                 settings = settingsStore.snapshot()
+                saved && settings.onboardingComplete && settings.creatorProfile.isComplete
             },
         )
     }
