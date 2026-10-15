@@ -42,9 +42,11 @@ internal fun V18CreatorOnboarding(
     onPreciseTiming: () -> Unit,
     onFullScreen: () -> Unit,
     onBattery: () -> Unit,
-    onFinish: (CreatorProfile) -> Unit,
+    onFinish: (CreatorProfile) -> Boolean,
 ) {
     var page by rememberSaveable { mutableIntStateOf(0) }
+    var isSaving by rememberSaveable { mutableStateOf(false) }
+    var saveFailed by rememberSaveable { mutableStateOf(false) }
     var primaryMode by rememberSaveable(profile.resolvedPrimaryCreatorMode) {
         mutableStateOf(profile.resolvedPrimaryCreatorMode)
     }
@@ -307,9 +309,12 @@ internal fun V18CreatorOnboarding(
                     onClick = {
                         if (page < 4) {
                             page++
-                        } else {
-                            onFinish(
-                                CreatorProfile(
+                        } else if (!isSaving) {
+                            isSaving = true
+                            saveFailed = false
+                            val completed = runCatching {
+                                onFinish(
+                                    CreatorProfile(
                                     displayName = profile.displayName,
                                     category = primaryMode,
                                     primaryCreatorMode = primaryMode,
@@ -319,12 +324,17 @@ internal fun V18CreatorOnboarding(
                                     primaryGoal = primaryGoal,
                                     secondaryGoals = selectedGoals - primaryGoal,
                                     weeklyPublishingTarget = weeklyTarget,
-                                    setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
-                                ).normalized(),
-                            )
+                                        setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
+                                    ).normalized(),
+                                )
+                            }.getOrDefault(false)
+                            if (!completed) {
+                                isSaving = false
+                                saveFailed = true
+                            }
                         }
                     },
-                    enabled = canContinue,
+                    enabled = canContinue && !isSaving,
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     shape = RoundedCornerShape(15.dp),
                     modifier = Modifier.height(50.dp),
@@ -336,6 +346,14 @@ internal fun V18CreatorOnboarding(
                     Spacer(Modifier.width(5.dp))
                     Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(17.dp))
                 }
+            }
+            if (saveFailed) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Could not save creator setup. Please try again.",
+                    color = RecRed,
+                    fontSize = 11.sp,
+                )
             }
         }
     }
