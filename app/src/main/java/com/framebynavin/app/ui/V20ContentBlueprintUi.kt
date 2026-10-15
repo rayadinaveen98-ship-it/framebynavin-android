@@ -89,7 +89,7 @@ internal fun V20ContentBlueprintDialog(
                             Text(blueprint.summary, color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
                             Spacer(Modifier.height(10.dp))
                             Text(
-                                "Suggestions only — these won't change your project.",
+                                "Ideas to help you plan. Nothing changes automatically.",
                                 color = RecRed,
                                 fontSize = 7.8.sp,
                                 fontWeight = FontWeight.Black,
