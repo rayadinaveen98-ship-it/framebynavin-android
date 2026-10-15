@@ -164,7 +164,7 @@ private fun V172Overview(
     V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading, onCreateProject = onCreateProject)
     Spacer(Modifier.height(18.dp))
 
-    Text("THIS IS WHAT MATTERS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+    Text("YOUR RESULTS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
     Spacer(Modifier.height(8.dp))
     YouTubeInsightEngine.topSignals(snapshot, tasks, ideas, links).forEach { signal ->
         V172SignalCard(signal) { onDetail(V20InsightsDrilldownRequest.signal(signal)) }
@@ -177,7 +177,7 @@ private fun V172Overview(
 
     val top = YouTubeInsightEngine.videoPerformance(snapshot).take(3)
     Text("TOP VIDEOS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("The videos leading this finalized Analytics window.", color = MutedText, fontSize = 9.sp)
+    Text("Your top videos for the selected dates.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     if (top.isEmpty()) V172Empty("Refresh YouTube to see which videos are performing best.")
     else top.forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
@@ -193,7 +193,7 @@ private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot, onDetail: (V20Insi
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .24f)),
     ) {
         Column(Modifier.padding(18.dp)) {
-            Text("CHANNEL PULSE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("CHANNEL AT A GLANCE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(5.dp))
             Text(YouTubeInsightEngine.pulseTitle(snapshot), color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(5.dp))
@@ -321,16 +321,16 @@ private fun V172Content(
     links: Map<String, String>,
     onVideo: (YouTubeVideoSnapshot) -> Unit,
 ) {
-    Text("VIDEO PERFORMANCE", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("See which videos performed best in this finalized Analytics period.", color = MutedText, fontSize = 9.sp)
+    Text("VIDEO RESULTS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    Text("See your best-performing videos for this period.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
     if (videos.isEmpty()) V172Empty("No video performance data yet.")
     else videos.take(12).forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
 
     Spacer(Modifier.height(18.dp))
-    Text("WHAT WORKS BEST", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Compare your content types fairly.", color = MutedText, fontSize = 9.sp)
+    Text("TOP CONTENT TYPES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    Text("Compare videos by content type.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     val formats = remember(snapshot, tasks, links) { YouTubeInsightEngine.formatPerformance(snapshot, tasks, links) }
     if (formats.isEmpty()) V172Empty("Connect published videos to projects to compare what works best.")
@@ -518,10 +518,10 @@ private fun V172VideoDetailDialog(
                             Spacer(Modifier.height(3.dp))
                             Text(
                                 when {
-                                    performance.baselineMultiple >= 1.5 -> "This is clearly outperforming your recent-video baseline. Study the promise, opening and packaging before making a related follow-up."
-                                    performance.baselineMultiple in 0.01..0.75 -> "This is below your recent-video baseline. Check packaging and early pacing before repeating the same approach."
+                                    performance.baselineMultiple >= 1.5 -> "This video is doing better than your recent average. Review its title and opening."
+                                    performance.baselineMultiple in 0.01..0.75 -> "This video is below your recent average. Review its title and opening."
                                     video.netSubscribers > 0 -> "Performance is near your baseline, but it is converting some viewers into subscribers. Preserve what earns that commitment."
-                                    else -> "Performance is near your current baseline. Collect more evidence before making a large strategy change."
+                                    else -> "Results are close to your recent average. Watch for more data."
                                 },
                                 color = ProjectorIvory,
                                 fontSize = 8.7.sp,

@@ -70,7 +70,7 @@ internal fun V141InheritedVoiceCard(
                 Spacer(Modifier.width(9.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "VOICE · FROM SETTINGS",
+                        "REMINDER VOICE",
                         color = MutedGold,
                         fontSize = 7.8.sp,
                         fontWeight = FontWeight.Black,
@@ -104,7 +104,7 @@ internal fun V141InheritedVoiceCard(
             }
 
             Text(
-                "New projects automatically use your Backlot voice preference. Change it once in Settings and future projects follow it.",
+                "New projects use your voice setting. You can change it in Settings.",
                 color = MutedText,
                 fontSize = 8.2.sp,
                 lineHeight = 11.5.sp,
@@ -132,7 +132,7 @@ internal fun V141InheritedVoiceCard(
                 ) {
                     Icon(Icons.Outlined.Settings, null, tint = ProjectorIvory, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("CHANGE IN SETTINGS", color = ProjectorIvory, fontSize = 7.7.sp, fontWeight = FontWeight.Black)
+                    Text("CHANGE VOICE", color = ProjectorIvory, fontSize = 7.7.sp, fontWeight = FontWeight.Black)
                 }
             }
         }

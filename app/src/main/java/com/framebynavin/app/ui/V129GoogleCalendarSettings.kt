@@ -144,8 +144,8 @@ internal fun V129GoogleCalendarSettings(tasks: List<CreatorTask>) {
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Project deadlines in Google Calendar", color=ProjectorIvory, fontSize=11.5.sp, fontWeight=FontWeight.Bold)
-                        Text("Your in-app reminders stay separate.", color=MutedText, fontSize=8.5.sp)
+                        Text("Show deadlines in Google Calendar", color=ProjectorIvory, fontSize=11.5.sp, fontWeight=FontWeight.Bold)
+                        Text("Backlot reminders still work separately.", color=MutedText, fontSize=8.5.sp)
                     }
                     if (granted && calendars.isNotEmpty()) {
                         Switch(
@@ -165,7 +165,7 @@ internal fun V129GoogleCalendarSettings(tasks: List<CreatorTask>) {
                         shape=RoundedCornerShape(13.dp),
                     ) { Text("CONNECT GOOGLE CALENDAR", fontSize=9.sp, fontWeight=FontWeight.Black) }
                 } else if (calendars.isEmpty()) {
-                    Text("No writable Google Calendar is synced on this phone. Add or enable one in Android Calendar, then return here.", color=MutedText, fontSize=8.8.sp, lineHeight=13.sp)
+                    Text("No calendar is available. Add a Google Calendar on your phone, then try again.", color=MutedText, fontSize=8.8.sp, lineHeight=13.sp)
                 } else {
                     Text("Calendar", color=ProjectorIvory, fontSize=9.5.sp, fontWeight=FontWeight.Bold)
                     Spacer(Modifier.height(5.dp))

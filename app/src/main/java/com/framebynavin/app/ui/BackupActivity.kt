@@ -98,7 +98,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 busy = false
                 isError = result.isFailure
                 message = if (result.isSuccess) {
-                    "Backup saved with portable Voice Idea recordings. Keep this unencrypted file somewhere private."
+                    "Backup saved, including supported voice recordings. The file isn't encrypted—keep it private."
                 } else {
                     "Could not save the backup. Try another location."
                 }
@@ -139,13 +139,13 @@ private fun BackupScreen(onClose: () -> Unit) {
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Spacer(Modifier.width(4.dp))
                 Column {
-                    Text("DATA & BACKUP", color = RecRed, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                    Text("Keep your creator data safe", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("BACKUP & RESTORE", color = RecRed, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                    Text("Keep your work safe", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
                 }
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("Everything stays local unless you explicitly export a backup or use Backlot cloud backup.", color = MutedText, fontSize = 12.sp, lineHeight = 15.sp)
+            Text("Your work stays on this phone unless you back it up or export it.", color = MutedText, fontSize = 12.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(20.dp))
 
             BackupActionCard(
@@ -162,7 +162,7 @@ private fun BackupScreen(onClose: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             BackupActionCard(
                 title = "Restore backup",
-                body = "Backlot validates the file first. New portable backups restore Voice Idea audio too; older text backups remain supported.",
+                body = "Backlot checks your backup before restoring. Newer backups can also restore voice recordings.",
                 icon = Icons.Outlined.CloudDownload,
                 button = "CHOOSE BACKUP",
                 enabled = !actionBusy,
@@ -235,7 +235,7 @@ private fun BackupScreen(onClose: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Column(Modifier.padding(15.dp)) {
-                    Text("RESTORE SAFETY", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                    Text("RESTORING DATA", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                     Spacer(Modifier.height(6.dp))
                     Text("Before restoring, Backlot keeps a retained recovery copy on this device. A restore journal can recover after a crash. Portable Voice Idea media is integrity-checked before creator data is replaced. Existing cloud backups are not overwritten.", color = MutedText, fontSize = 12.sp, lineHeight = 14.sp)
                 }
@@ -247,7 +247,7 @@ private fun BackupScreen(onClose: () -> Unit) {
         AlertDialog(
             onDismissRequest = { if (!voiceStorageBusy) confirmVoiceCleanup = false },
             containerColor = CinemaSurfaceRaised,
-            title = { Text("Clean orphan recordings?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
+            title = { Text("Remove unused recordings?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
             text = {
                 Text(
                     "Backlot will only delete finalized Voice Idea recordings that are no longer referenced by your Idea Vault and are at least 10 minutes old. Saved recordings, active working takes and recent unreferenced takes are protected. This cannot be undone.",
@@ -283,7 +283,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                     },
                     enabled = !voiceStorageBusy,
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                ) { Text("CLEAN ORPHANS", fontWeight = FontWeight.Black) }
+                ) { Text("REMOVE UNUSED FILES", fontWeight = FontWeight.Black) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmVoiceCleanup = false }, enabled = !voiceStorageBusy) {
@@ -306,7 +306,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                     BackupPreviewRow("Active reminders", checked.activeReminderCount.toString())
                     BackupPreviewRow("Settings", if (checked.settingsIncluded) "Included" else "Missing")
                     Spacer(Modifier.height(10.dp))
-                    Text("This replaces local creator data. Your previous data will be retained in an internal recovery copy. Older backups may not include personal frames or Voice Idea audio, and will not erase your current personal frames.", color = MutedText, fontSize = 12.sp)
+                    Text("Restoring replaces supported data on this phone. Backlot saves a recovery copy first. Older backups may not include voice recordings or personal frames.", color = MutedText, fontSize = 12.sp)
                 }
             },
             confirmButton = {

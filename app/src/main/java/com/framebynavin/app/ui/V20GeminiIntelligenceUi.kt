@@ -62,11 +62,11 @@ internal fun V20GeminiIntelligenceCard(postmortem: CreatorVideoPostmortem) {
         border = BorderStroke(1.dp, RecRed.copy(alpha = .28f)),
     ) {
         Column(Modifier.padding(13.dp)) {
-            Text("AI DEEP AUTOPSY · OPTIONAL", color = RecRed, fontSize = 7.7.sp, fontWeight = FontWeight.Black, letterSpacing = .85.sp)
+            Text("DEEPER AI REVIEW · OPTIONAL", color = RecRed, fontSize = 7.7.sp, fontWeight = FontWeight.Black, letterSpacing = .85.sp)
             Spacer(Modifier.height(4.dp))
-            Text("Quick Autopsy works without AI", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text("Video Review works without AI", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
             Text(
-                "The evidence-based Quick Autopsy above always works locally. Enable this only when you want an optional Gemini deep dive; saved reports stay cached per video.",
+                "Use AI only if you want a deeper review. Your usual Video Review still works.",
                 color = MutedText,
                 fontSize = 7.8.sp,
                 lineHeight = 11.sp,
@@ -90,7 +90,7 @@ internal fun V20GeminiIntelligenceCard(postmortem: CreatorVideoPostmortem) {
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 ) {
-                    Text("REVIEW SAFE ANALYSIS PACK", fontSize = 7.8.sp, fontWeight = FontWeight.Black)
+                    Text("REVIEW WHAT AI CAN SEE", fontSize = 7.8.sp, fontWeight = FontWeight.Black)
                 }
             }
 
@@ -106,7 +106,7 @@ internal fun V20GeminiIntelligenceCard(postmortem: CreatorVideoPostmortem) {
                         )
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            "Full scripts and research notes remain withheld. Gemini is instructed to cite evidence IDs and to label inference rather than invent causation.",
+                            "Full scripts and research notes aren't shared. AI must label uncertain claims.",
                             color = MutedText,
                             fontSize = 7.4.sp,
                             lineHeight = 10.sp,
@@ -142,7 +142,7 @@ internal fun V20GeminiIntelligenceCard(postmortem: CreatorVideoPostmortem) {
                     },
                     contentPadding = PaddingValues(0.dp),
                 ) {
-                    Text("CLEAR SAVED AUTOPSY", color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                    Text("DELETE SAVED AI REVIEW", color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -166,7 +166,7 @@ private fun AiAutopsyReport(report: CreatorAiAutopsyReport) {
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .2f)),
     ) {
         Column(Modifier.padding(10.dp)) {
-            Text("SAVED VIDEO AUTOPSY", color = MutedGold, fontSize = 6.8.sp, fontWeight = FontWeight.Black)
+            Text("SAVED AI REVIEW", color = MutedGold, fontSize = 6.8.sp, fontWeight = FontWeight.Black)
             Text(
                 "${report.modelName} · ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(report.generatedAtMillis))}",
                 color = MutedText,
@@ -202,9 +202,9 @@ private fun friendlyAiError(error: Throwable): String {
         raw.contains("model", ignoreCase = true) && raw.contains("not found", ignoreCase = true) ->
             "The configured Gemini model is not available to this Firebase project yet. No creator data was changed."
         raw.contains("429") || raw.contains("quota", ignoreCase = true) || raw.contains("resource_exhausted", ignoreCase = true) || raw.contains("too many requests", ignoreCase = true) ->
-            "AI Deep Autopsy is temporarily busy or quota-limited. Quick Autopsy above is still ready, and any saved AI report remains available."
+            "AI review is busy right now. Your regular Video Review still works."
         raw.contains("network", ignoreCase = true) || raw.contains("timeout", ignoreCase = true) ->
-            "AI Deep Autopsy could not be reached. Quick Autopsy and any saved AI report are still available."
+            "AI review couldn't connect. Your regular review and saved AI results are still available."
         else -> "AI Deep Autopsy could not complete. Quick Autopsy is still available. ${raw.take(180)}"
     }
 }

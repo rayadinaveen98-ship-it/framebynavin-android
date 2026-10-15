@@ -389,11 +389,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     shadowElevation = 10.dp,
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.GridView, "Control", tint = ProjectorIvory, modifier = Modifier.size(19.dp))
+                        Icon(Icons.Outlined.GridView, "Quick Actions", tint = ProjectorIvory, modifier = Modifier.size(19.dp))
                         AnimatedVisibility(visible = controlExpanded) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Spacer(Modifier.width(7.dp))
-                                Text("CONTROL", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Text("QUICK ACTIONS", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
                             }
                         }
                     }
@@ -775,13 +775,13 @@ private fun PControlCenter(
     val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
     Column(Modifier.fillMaxWidth().heightIn(max = 730.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
         Text("BACKLOT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-        Text("Control", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-        Text("Start, capture or adjust your creator day.", color = MutedText, fontSize = 10.sp)
+        Text("Quick Actions", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
+        Text("Create something or pick up where you left off.", color = MutedText, fontSize = 10.sp)
         Spacer(Modifier.height(17.dp))
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            PBigAction("NEW PROJECT", "Plan something", Icons.Outlined.Add, RecRed, onNewProject, Modifier.weight(1f))
-            PBigAction("RELEASE DAY", "Move fast", Icons.Outlined.Bolt, RecRed, onRelease, Modifier.weight(1f))
+            PBigAction("NEW PROJECT", "Start creating", Icons.Outlined.Add, RecRed, onNewProject, Modifier.weight(1f))
+            PBigAction("TRENDING MOMENT", "Plan a quick response", Icons.Outlined.Bolt, RecRed, onRelease, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
         PControlRow("Quick Capture", "Type or speak an idea", Icons.Outlined.Bolt, onQuickCapture)
@@ -998,12 +998,12 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("HELPFUL REMINDERS", "Extra reminders when a project may need attention.")
+            PSettingsHeading("HELPFUL REMINDERS", "Get alerts when a project needs attention.")
             Spacer(Modifier.height(8.dp))
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Helpful project reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("Extra project reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                         Text(
                             when {
                                 !permissions.notifications -> "Enable notification permission above first."
@@ -1032,7 +1032,7 @@ private fun PSettingsScreen(
                 onPreview = { pPreviewVoice(context, it) },
             )
             Text(
-                "New projects inherit this voice automatically. Existing projects keep their saved voice unless you edit them.",
+                "New projects use this voice. You can change it per project.",
                 color = MutedText,
                 fontSize = 8.2.sp,
                 lineHeight = 11.5.sp,
@@ -1104,7 +1104,7 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("YOUTUBE CONNECTION", "See your real channel performance inside Insights.")
+            PSettingsHeading("YOUTUBE CONNECTION", "See how your YouTube videos are doing.")
             Spacer(Modifier.height(8.dp))
             Surface(
                 onClick = onYouTube,
@@ -1236,7 +1236,7 @@ internal fun PBottomNav(
                     }
                 }
             }
-            PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Create", selected == PTab.CREATE, onSelect, Modifier.weight(1f))
+            PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Projects", selected == PTab.CREATE, onSelect, Modifier.weight(1f))
             PBottomNavItem(PTab.INSIGHTS, Icons.Outlined.Insights, "Insights", selected == PTab.INSIGHTS, onSelect, Modifier.weight(1f))
         }
     }
@@ -1271,7 +1271,7 @@ private fun PBottomNavItem(
             Text(
                 label,
                 color = if (active) ProjectorIvory else MutedText,
-                fontSize = 9.5.sp,
+                fontSize = 11.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1360,14 +1360,14 @@ internal fun PQueueDots(index: Int, size: Int) {
 @Composable
 internal fun PMetric(label: String, value: String, accent: Color, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(14.dp)) { Text(label, color = MutedText, fontSize = 7.8.sp, letterSpacing = .7.sp); Spacer(Modifier.height(4.dp)); Text(value, color = accent, fontSize = 25.sp, fontWeight = FontWeight.Black) }
+        Column(Modifier.padding(14.dp)) { Text(label, color = MutedText, fontSize = 12.sp, letterSpacing = .3.sp); Spacer(Modifier.height(4.dp)); Text(value, color = accent, fontSize = 25.sp, fontWeight = FontWeight.Black) }
     }
 }
 
 @Composable
 internal fun PSmallStat(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(11.dp)) { Text(value, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black); Text(label, color = MutedText, fontSize = 7.sp, lineHeight = 9.sp) }
+        Column(Modifier.padding(11.dp)) { Text(value, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black); Text(label, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp) }
     }
 }
 
@@ -1386,7 +1386,7 @@ private fun PControlRow(title: String, subtitle: String, icon: ImageVector, onCl
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(17.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(34.dp).background(CinemaSurfaceRaised, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = MutedGold, modifier = Modifier.size(18.dp)) }
-            Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = MutedText, fontSize = 8.7.sp) }
+            Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = MutedText, fontSize = 12.sp) }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
     }
@@ -1397,7 +1397,7 @@ private fun PPermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
     Surface(onClick = if (ready) ({}) else onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(15.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (ready) SuccessGreen else MutedGold, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(9.dp)); Text(label, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f)); Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(9.dp)); Text(label, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f)); Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -1405,7 +1405,7 @@ private fun PPermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
 @Composable
 private fun PSettingsHeading(title: String, subtitle: String) {
     Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text(subtitle, color = MutedText, fontSize = 8.8.sp)
+    Text(subtitle, color = MutedText, fontSize = 12.sp)
 }
 
 internal fun pActiveQueue(tasks: List<CreatorTask>): List<CreatorTask> =

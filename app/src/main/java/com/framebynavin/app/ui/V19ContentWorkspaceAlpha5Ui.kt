@@ -105,7 +105,7 @@ internal fun V19PublishStudioAlpha5Dialog(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("PUBLISH STUDIO · RC2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("PREPARE TO PUBLISH", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("R$originalRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -113,7 +113,7 @@ internal fun V19PublishStudioAlpha5Dialog(
 
                 if (recovered != null) {
                     Surface(Modifier.fillMaxWidth(), color = MutedGold.copy(alpha = .08f)) {
-                        Text("Recovered unsaved Publish Studio draft", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
+                        Text("Your unsaved publishing details were recovered", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
                     }
                 }
 
@@ -122,7 +122,7 @@ internal fun V19PublishStudioAlpha5Dialog(
                 ) {
                     Alpha5PublishSummary(deliverables)
                     Spacer(Modifier.height(16.dp))
-                    Alpha5Title("OUTPUTS", "Choose the exact platform deliverable you are preparing. Publish Studio is the single live-state authority.")
+                    Alpha5Title("OUTPUTS", "Choose the post you're preparing.")
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         deliverables.forEach { item ->
                             FilterChip(
@@ -140,7 +140,7 @@ internal fun V19PublishStudioAlpha5Dialog(
 
                     Spacer(Modifier.height(20.dp))
                     if (selected == null) {
-                        Alpha5Empty("No deliverables yet. Add one here or create outputs from Plan & Produce.")
+                        Alpha5Empty("No posts planned yet. Add one to get started.")
                     } else {
                         Alpha5DeliverableEditor(
                             deliverable = selected,
@@ -163,7 +163,7 @@ internal fun V19PublishStudioAlpha5Dialog(
                     Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp)) {
                         if (unrecordedPublishedEdits) {
                             Text(
-                                "A published output has metadata changes that are not in its history yet. Record an update or reopen it before saving.",
+                                "This published post has unsaved changes. Record an update or reopen it.",
                                 color = RecRed,
                                 fontSize = 8.5.sp,
                             )
@@ -181,7 +181,7 @@ internal fun V19PublishStudioAlpha5Dialog(
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             shape = RoundedCornerShape(15.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        ) { Text("SAVE PUBLISH WORKFLOW", fontWeight = FontWeight.Black) }
+                        ) { Text("SAVE PUBLISH DETAILS", fontWeight = FontWeight.Black) }
                     }
                 }
             }
@@ -284,7 +284,7 @@ private fun Alpha5DeliverableEditor(
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("FINAL METADATA", "These fields are snapshotted into publication history.")
+            Alpha5Title("FINAL METADATA", "These details are saved when you confirm publication.")
             Alpha5Field("FINAL TITLE", deliverable.title, { onChange(deliverable.copy(title = it)) }, "Final platform title")
             Alpha5Field("DESCRIPTION / CAPTION", deliverable.description, { onChange(deliverable.copy(description = it)) }, "Platform description or caption", 4)
             Alpha5Field("TAGS / HASHTAGS", deliverable.tags, { onChange(deliverable.copy(tags = it)) }, "Tags, keywords or hashtags", 2)
@@ -338,11 +338,11 @@ private fun Alpha5DeliverableEditor(
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("PUBLISH", "Confirmation records a snapshot; it does not finish the parent project.")
+            Alpha5Title("PUBLISH", "This records the post as published. Your project remains open.")
             when (deliverable.status) {
                 CreatorDeliverableStatus.PUBLISHED -> {
                     if (unrecorded) {
-                        Text("Metadata changed since the last publication record. Record an update before saving.", color = RecRed, fontSize = 8.5.sp)
+                        Text("This published post has changes. Record an update to save them.", color = RecRed, fontSize = 8.5.sp)
                         Spacer(Modifier.height(7.dp))
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -364,7 +364,7 @@ private fun Alpha5DeliverableEditor(
                     }
                     if (!ready) {
                         Spacer(Modifier.height(5.dp))
-                        Text("Choose a final title and resolve every required gate item first.", color = MutedText, fontSize = 8.2.sp)
+                        Text("Add a final title and complete the required checks.", color = MutedText, fontSize = 8.2.sp)
                     }
                 }
             }
@@ -523,7 +523,7 @@ private fun Alpha5PublicationActionDialog(
                     minLines = 2,
                 )
                 if (action == Alpha5PublicationAction.REOPEN) {
-                    Text("Reopening keeps the historical publication snapshot but returns this output to Ready. The parent project is unchanged.", color = MutedText, fontSize = 8.5.sp)
+                    Text("Reopening keeps the publication record and sets this post back to Ready.", color = MutedText, fontSize = 8.5.sp)
                 }
             }
         },

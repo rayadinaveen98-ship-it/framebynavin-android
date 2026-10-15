@@ -40,11 +40,11 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("WORKFLOW INTELLIGENCE", color = MutedGold, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+            Text("PROJECT PROGRESS", color = MutedGold, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(5.dp))
-            Text("See where your projects tend to slow down", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            Text("See which steps take longer", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(3.dp))
-            Text("Tap for stage-by-stage details", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+            Text("See each project step", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
             Text(
                 "Last 7 days · ${snapshot.responseCount7Days} check-in responses · ${snapshot.stageDone7Days} stage completions",
@@ -63,7 +63,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
             val bottleneck = snapshot.historicalBottleneck
             when {
                 bottleneck?.timingBasis == CreatorWorkflowTimingBasis.TIMELINE_EXACT -> {
-                    Text("WHERE YOU USUALLY SLOW DOWN", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text("SLOWEST STEP", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Text(
                         "${bottleneck.stageLabel} currently has your longest measured time in stage · median ${workflowDuration(bottleneck.medianTimeInStageMillis)} across ${bottleneck.exactTimelineSamples} transition-measured exits.",
                         color = ProjectorIvory,
@@ -72,7 +72,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
                     )
                 }
                 bottleneck != null -> {
-                    Text("EARLY SLOWDOWN PATTERN", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text("EARLY SIGNS", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Text(
                         "${bottleneck.stageLabel} has the longest observed check-in span · median ${workflowDuration(bottleneck.medianObservedSpanMillis)} across ${bottleneck.completionSamples} measured completions.",
                         color = ProjectorIvory,
@@ -81,7 +81,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
                     )
                 }
                 snapshot.activeBottleneckCount >= 2 -> {
-                    Text("WHERE WORK IS PILING UP", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text("BUSIEST STEP", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Text(
                         "${snapshot.activeBottleneckCount} active projects are currently at ${snapshot.activeBottleneckLabel}. Historical timing needs more completed samples before calling this a repeated slowdown.",
                         color = ProjectorIvory,
@@ -90,13 +90,13 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
                     )
                 }
                 snapshot.measuredTimelineExits > 0 -> Text(
-                    "${snapshot.measuredTimelineExits} stage exits are measured so far. Backlot waits for repeated evidence before naming a repeated slowdown.",
+                    "${snapshot.measuredTimelineExits} steps measured. We need more completed work to spot a pattern.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     lineHeight = 12.sp,
                 )
                 else -> Text(
-                    "Backlot is learning stage timing. Existing stages start as observed lower-bound measurements; future stage transitions are timed from entry to exit.",
+                    "We're learning how long each step takes. More completed projects will improve this.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     lineHeight = 12.sp,
@@ -105,7 +105,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
 
             Spacer(Modifier.height(8.dp))
             Text(
-                "Time in stage is elapsed workflow residence, not active hands-on work. Backlot will not turn elapsed time into fake work hours.",
+                "Step time includes breaks and waiting, not just time spent working.",
                 color = MutedText.copy(alpha = .78f),
                 fontSize = 7.6.sp,
                 lineHeight = 11.sp,

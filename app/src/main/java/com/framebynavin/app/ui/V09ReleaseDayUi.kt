@@ -44,8 +44,8 @@ internal fun V09ReleaseDayScreen(
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Spacer(Modifier.width(4.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("RELEASE DAY", color = RecRed, fontSize = 8.5.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Black)
-                    Text("Move while it matters", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("QUICK RESPONSE", color = RecRed, fontSize = 8.5.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Black)
+                    Text("Make something timely", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
                 }
                 Box(Modifier.size(40.dp).background(RecRed.copy(alpha = .12f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
                     Icon(Icons.Outlined.Bolt, null, tint = RecRed, modifier = Modifier.size(22.dp))
@@ -60,8 +60,8 @@ internal fun V09ReleaseDayScreen(
                     }
                     Spacer(Modifier.width(11.dp))
                     Column {
-                        Text("ONE MOMENT. SEVERAL POSTS.", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Choose what deserves an immediate response and what can wait.", color = MutedText, fontSize = 9.3.sp)
+                        Text("ONE STORY. MORE THAN ONE POST.", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Pick what you want to post now or plan for later.", color = MutedText, fontSize = 9.3.sp)
                     }
                 }
             }
@@ -145,8 +145,8 @@ internal fun V09ReleaseDayScreen(
                     Checkbox(checked = deepDive, onCheckedChange = null, colors = CheckboxDefaults.colors(checkedColor = MutedGold))
                     Spacer(Modifier.width(5.dp))
                     Column {
-                        Text("SAVE A DEEP-DIVE IDEA", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Keep a future analysis angle in Idea Vault.", color = MutedText, fontSize = 9.sp)
+                        Text("SAVE FOR LATER", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Save an idea to revisit.", color = MutedText, fontSize = 9.sp)
                     }
                 }
             }
@@ -157,7 +157,7 @@ internal fun V09ReleaseDayScreen(
                 value = details,
                 onValueChange = { details = it },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 92.dp),
-                placeholder = { Text("What stands out? What should your take focus on?") },
+                placeholder = { Text("What's your angle?") },
                 shape = RoundedCornerShape(16.dp),
             )
 
@@ -171,7 +171,7 @@ internal fun V09ReleaseDayScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                 shape = RoundedCornerShape(16.dp),
             ) {
-                Icon(Icons.Outlined.Bolt, null); Spacer(Modifier.width(7.dp)); Text("CREATE RESPONSE PLAN", fontWeight = FontWeight.Black, fontSize = 10.sp)
+                Icon(Icons.Outlined.Bolt, null); Spacer(Modifier.width(7.dp)); Text("PLAN POSTS", fontWeight = FontWeight.Black, fontSize = 10.sp)
             }
 
             result?.let { launch ->

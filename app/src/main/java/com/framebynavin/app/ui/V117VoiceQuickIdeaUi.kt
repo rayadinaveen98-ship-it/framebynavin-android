@@ -145,7 +145,7 @@ internal fun V117VoiceIdeaInput(
                         Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Voice capture", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                            Text("Open Frame Pulse, then tap when you are ready.", color = MutedText, fontSize = 8.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("Tap to start speaking.", color = MutedText, fontSize = 8.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     Spacer(Modifier.height(5.dp))
@@ -158,7 +158,7 @@ internal fun V117VoiceIdeaInput(
                 ) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("FRAME PULSE", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+                            Text("VOICE INPUT", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
                             Text(if (listening) listeningSubtitle(language, detectedLanguage) else "Idle · tap the orb to listen", color = MutedText, fontSize = 8.5.sp)
                         }
                         Text(if (listening) formatVoiceTime(elapsedSeconds) else "READY", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
@@ -201,7 +201,7 @@ internal fun V117VoiceIdeaInput(
                         Text(message, color = RecRed, fontSize = 8.5.sp, lineHeight = 12.sp, textAlign = TextAlign.Center)
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text("Speech becomes text only. The app does not save the audio.", color = MutedText, fontSize = 7.6.sp)
+                    Text("Your words become text. No audio recording is saved.", color = MutedText, fontSize = 7.6.sp)
                 }
             }
         }

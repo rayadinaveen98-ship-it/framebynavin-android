@@ -60,7 +60,7 @@ internal fun V144YouTubeRevenueCard(
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("REVENUE INTELLIGENCE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                    Text("EARNINGS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                     Text("YouTube earnings", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
                 }
                 IconButton(onClick = onRefresh, enabled = !loading, modifier = Modifier.size(42.dp)) {
@@ -133,13 +133,13 @@ private fun V144RevenueWorkspace(
 
     Spacer(Modifier.height(16.dp))
     Text("VIDEOS VS SHORTS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
-    Text("YouTube's own creator-content classification — no title guessing.", color = MutedText, fontSize = 8.sp)
+    Text("YouTube groups videos and Shorts using its own data.", color = MutedText, fontSize = 8.sp)
     Spacer(Modifier.height(8.dp))
     V144RevenueFormatSplit(data)
 
     Spacer(Modifier.height(16.dp))
     Text("TOP EARNING CONTENT", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
-    Text("Individual estimated revenue and RPM for this range.", color = MutedText, fontSize = 8.sp)
+    Text("Estimated earnings for each video in this period.", color = MutedText, fontSize = 8.sp)
     Spacer(Modifier.height(8.dp))
     V144RevenueContentList(data, analyticsSnapshot)
 
@@ -148,7 +148,7 @@ private fun V144RevenueWorkspace(
     val concentration = if (data.estimatedRevenue > 0.0) (top3 * 100.0 / data.estimatedRevenue).coerceIn(0.0, 100.0) else 0.0
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
-            Text("REVENUE CONCENTRATION", color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Black)
+            Text("WHERE EARNINGS COME FROM", color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Black)
             Text(
                 if (data.content.isEmpty()) "Refresh revenue to calculate per-content concentration."
                 else "Top 3 content items generated ${String.format(Locale.US, "%.0f", concentration)}% of estimated revenue in this range.",
@@ -163,7 +163,7 @@ private fun V144RevenueWorkspace(
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             Text("SHOPPING", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-            Text("Separate Shopping earnings are not exposed by the connected YouTube Analytics channel report. Backlot will not show a fake ₹0.", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
+            Text("YouTube hasn't provided separate Shopping earnings here.", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
         }
     }
 
@@ -183,7 +183,7 @@ private fun V144RevenueWorkspace(
 @Composable
 private fun V144RevenueFormatSplit(data: YouTubeRevenueSnapshot) {
     if (data.content.isEmpty()) {
-        Text("Per-content earnings are not in this cached snapshot yet. Refresh once to load the new breakdown.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.sp)
+        Text("Video earnings aren't loaded yet. Tap Refresh.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.sp)
         return
     }
     val shorts = data.content.filter { it.creatorContentType == "SHORTS" }
@@ -218,7 +218,7 @@ private fun V144RevenueFormatSplit(data: YouTubeRevenueSnapshot) {
 @Composable
 private fun V144RevenueContentList(data: YouTubeRevenueSnapshot, analyticsSnapshot: YouTubeAnalyticsSnapshot?) {
     if (data.content.isEmpty()) {
-        Text("Refresh once to load individual content earnings.", color = MutedText, fontSize = 8.5.sp)
+        Text("Tap Refresh to load earnings by video.", color = MutedText, fontSize = 8.5.sp)
         return
     }
     val titles = analyticsSnapshot
@@ -265,7 +265,7 @@ private fun V144RevenueAccessError(error: String, loading: Boolean, onRefresh: (
 
 @Composable
 private fun V144RevenueConnect(loading: Boolean, onRefresh: () -> Unit) {
-    Text("Connect read-only monetary permission once to bring estimated YouTube earnings into Backlot. The same permission unlocks every date range.", color = MutedText, fontSize = 9.2.sp, lineHeight = 14.sp)
+    Text("Allow read-only earnings access to see estimated YouTube revenue.", color = MutedText, fontSize = 9.2.sp, lineHeight = 14.sp)
     Spacer(Modifier.height(8.dp))
     Button(onClick = onRefresh, enabled = !loading, colors = ButtonDefaults.buttonColors(containerColor = MutedGold, contentColor = BacklotOnSecondaryAccent), shape = RoundedCornerShape(13.dp)) {
         Text("ENABLE REVENUE", fontSize = 9.sp, fontWeight = FontWeight.Black)
@@ -310,7 +310,7 @@ private fun V144RevenueMetric(label: String, value: String, accent: Color, modif
 private fun V144RevenueTrend(data: YouTubeRevenueSnapshot) {
     val points = data.trend.takeLast(14)
     if (points.isEmpty()) {
-        Text("Revenue trend will appear when YouTube returns daily monetary data.", color = MutedText, fontSize = 8.5.sp)
+        Text("Earnings trend will appear when YouTube provides daily data.", color = MutedText, fontSize = 8.5.sp)
         return
     }
     val max = points.maxOfOrNull { it.estimatedRevenue }?.takeIf { it > 0.0 } ?: 1.0

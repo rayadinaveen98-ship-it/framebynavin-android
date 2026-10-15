@@ -113,8 +113,8 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
 
     Spacer(Modifier.height(18.dp))
     if (kind == V20InsightsDetailKind.AVG_VIEW) {
-        Text("PERIOD COMPARISON", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("YouTube's current Backlot snapshot does not include daily average-view-duration points, so this view keeps the comparison honest instead of drawing an invented daily line.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("COMPARE PERIODS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("YouTube hasn't provided daily average watch time for this view.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
     } else {
         Text(if (kind == V20InsightsDetailKind.DAILY_VIEWS) "DAILY VIEWS" else "DAILY TREND", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
         Text("Tap anywhere on the chart to inspect an exact day.", color = MutedText, fontSize = 8.5.sp)
@@ -123,7 +123,7 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
     }
 
     Spacer(Modifier.height(20.dp))
-    Text("VIDEOS DRIVING THIS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("VIDEOS BEHIND THIS CHANGE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
     Text("Ranked using the same ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
     Spacer(Modifier.height(8.dp))
     v20RankedVideos(snapshot, kind).take(5).forEachIndexed { index, video ->
@@ -192,9 +192,9 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
 
 @Composable
 private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
-    Text("24H EVIDENCE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("24-HOUR CHANGE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
     Text(
-        "This is a sample-to-sample counter comparison from Backlot's stored YouTube refreshes. It is not a fabricated hourly analytics curve.",
+        "This compares two saved updates. It is not live hourly data.",
         color = MutedText,
         fontSize = 8.5.sp,
         lineHeight = 12.5.sp,
@@ -204,7 +204,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     if (report == null) {
         V20EvidenceNote(
             title = "LEARNING YOUR BASELINE",
-            body = "There are not yet two suitable stored samples roughly 24 hours apart. Refresh YouTube over time; Backlot will only show this comparison once the evidence window is available.",
+            body = "Check again after two YouTube updates roughly a day apart.",
         )
         return
     }
@@ -223,7 +223,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Text(
             report.viewsChangePercent?.let { "${if (it > 0) "+" else ""}$it% views versus the preceding comparable sample window." }
-                ?: "A preceding comparable sample window is not available yet, so no percentage comparison is shown.",
+                ?: "Not enough earlier data to show a fair percentage change.",
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             color = when {
                 report.viewsChangePercent == null -> MutedText
@@ -238,7 +238,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     }
 
     Spacer(Modifier.height(14.dp))
-    Text("SAMPLE COVERAGE", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    Text("DATA WINDOW", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
     Text(
         "${v20PulseTime(report.baselineCapturedAtMillis)} → ${v20PulseTime(report.currentCapturedAtMillis)} · about ${report.sampleHours} hours",
         color = MutedText,
@@ -247,7 +247,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     )
 
     Spacer(Modifier.height(14.dp))
-    Text("TOP MOVERS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    Text("FASTEST-GROWING VIDEOS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
     if (report.topMovers.isEmpty()) {
         Text("No individual video gained enough sampled views to list in this window.", color = MutedText, fontSize = 8.5.sp)
     } else {
@@ -276,7 +276,7 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
     val performance = remember(snapshot, signal.title) {
         YouTubeInsightEngine.videoPerformance(snapshot).firstOrNull { it.video.title == signal.title }
     }
-    Text("WHY THIS SIGNAL", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("WHY THIS MATTERS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
     Text("Measured in the active ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
     Spacer(Modifier.height(8.dp))
     if (performance == null) {
@@ -293,14 +293,14 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
         V20DetailMetric("WATCH", v20Watch(performance.video.watchMinutes), Modifier.weight(1f))
     }
     Spacer(Modifier.height(9.dp))
-    Text("The recent-video average is a descriptive baseline across visible videos in this snapshot. It is not a quality rating and does not establish why the video performed this way.", color = MutedText, fontSize = 8.3.sp, lineHeight = 12.3.sp)
+    Text("This compares recent videos. It doesn't explain why a video performed better.", color = MutedText, fontSize = 8.3.sp, lineHeight = 12.3.sp)
 }
 
 @Composable
 private fun V20AverageViewEvidence(snapshot: YouTubeAnalyticsSnapshot) {
     val previous = snapshot.previousPeriod
-    Text("WHY THIS SIGNAL", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("Average view duration is compared period-to-period; Backlot does not invent daily AVD points.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.5.sp)
+    Text("WHY THIS MATTERS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("Average watch time is compared by period, not by invented daily values.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.5.sp)
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         V20DetailMetric("THIS PERIOD", v20Duration(snapshot.averageViewDurationSeconds), Modifier.weight(1f))

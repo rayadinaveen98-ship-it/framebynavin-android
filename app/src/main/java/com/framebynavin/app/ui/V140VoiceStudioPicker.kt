@@ -41,15 +41,15 @@ internal fun V140VoiceStudioPicker(
     Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("BACKLOT VOICE STUDIO", color = MutedGold, fontSize = 8.4.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Choose the delivery personality", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("REMINDER VOICE", color = MutedGold, fontSize = 8.4.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Choose a voice", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
             Surface(
                 shape = RoundedCornerShape(100.dp),
                 color = MutedGold.copy(alpha = .10f),
                 border = BorderStroke(1.dp, MutedGold.copy(alpha = .24f)),
             ) {
-                Text("8 STYLES", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
+                Text("VOICE OPTIONS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -111,7 +111,7 @@ internal fun V140VoiceStudioPicker(
             Spacer(Modifier.height(8.dp))
         }
         Text(
-            "Human styles use the best local voice your phone exposes. Character styles add stronger pitch, pace and phrasing so they stay distinct even on devices with fewer TTS voices.",
+            "Voice options depend on your phone. Tap Preview to listen.",
             color = MutedText,
             fontSize = 7.8.sp,
             lineHeight = 11.sp,

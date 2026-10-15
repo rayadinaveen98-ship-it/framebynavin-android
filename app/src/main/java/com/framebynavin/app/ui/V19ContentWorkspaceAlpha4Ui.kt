@@ -42,7 +42,7 @@ internal fun V19ContentWorkspaceAlpha4Hub(
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("CONTENT PROJECT 2.0 · RC2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("PROJECT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
                         Text(task.title, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("R${workspace.revision}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -50,7 +50,7 @@ internal fun V19ContentWorkspaceAlpha4Hub(
 
                 Spacer(Modifier.height(24.dp))
                 Text("CREATOR WORKSPACE", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Text("Choose the layer you want to work in. Script Studio is the single writing authority; Plan & Produce keeps only its compiled summary.", color = MutedText, fontSize = 10.sp)
+                Text("Choose what you want to work on next.", color = MutedText, fontSize = 10.sp)
 
                 Spacer(Modifier.height(20.dp))
                 Alpha4HubCard(
@@ -67,13 +67,13 @@ internal fun V19ContentWorkspaceAlpha4Hub(
                     eyebrow = "SINGLE SCRIPT AUTHORITY",
                     title = "Script Studio",
                     body = "Develop hooks and titles, structure beats, write narration, plan visuals and prepare the script for recording.",
-                    meta = "Structured writing · shot notes · B-roll · readiness",
+                    meta = "Script, narration and visual notes",
                     onClick = onOpenScript,
                 )
 
                 Spacer(Modifier.weight(1f))
                 Text(
-                    "Selected hook and compiled narration are mirrored into project summary fields for compatibility; they are edited only here.",
+                    "Edit your hook and narration here.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     modifier = Modifier.padding(bottom = 18.dp),
@@ -182,7 +182,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("SCRIPT STUDIO · RC2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("SCRIPT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("S$originalStudioRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -190,7 +190,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
 
                 if (recovered != null) {
                     Surface(Modifier.fillMaxWidth(), color = MutedGold.copy(alpha = .08f)) {
-                        Text("Recovered unsaved Script Studio draft", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
+                        Text("Your unsaved script was recovered", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
                     }
                 }
 
@@ -200,7 +200,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
                     Alpha4ScriptSummary(current)
                     Spacer(Modifier.height(18.dp))
 
-                    Alpha4Title("CREATION STATE", "Track the script without changing project completion.")
+                    Alpha4Title("CREATION STATE", "Track your script's progress separately.")
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         CreatorScriptStatus.entries.forEach { item ->
                             FilterChip(
@@ -228,7 +228,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
                         )
                         Spacer(Modifier.height(7.dp))
                     }
-                    if (hooks.isEmpty()) Alpha4Empty("No hook ideas yet. Add a few before locking the opening.")
+                    if (hooks.isEmpty()) Alpha4Empty("No opening hook yet. Add one to start.")
 
                     Spacer(Modifier.height(22.dp))
                     Alpha4Title("TITLE LAB", "Explore multiple titles without overwriting the project title.")
@@ -308,7 +308,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
                         shape = RoundedCornerShape(15.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     ) {
-                        Text("SAVE SCRIPT STUDIO", fontWeight = FontWeight.Black)
+                        Text("SAVE SCRIPT", fontWeight = FontWeight.Black)
                     }
                 }
             }

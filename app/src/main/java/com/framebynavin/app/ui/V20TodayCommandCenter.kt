@@ -98,7 +98,7 @@ internal fun V20TodayCommandCenter(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("TODAY", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                    Text("Make the next move.", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                    Text("What will you make today?", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
                     Text(
                         when {
                             command.overdueCount > 0 -> "${command.overdueCount} overdue · ${command.dueTodayCount} due today"
@@ -161,7 +161,7 @@ internal fun V20TodayCommandCenter(
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold, modifier = Modifier.size(19.dp))
                         Spacer(Modifier.size(9.dp))
-                        Text("No active deadlines. Add one when a publish date matters.", color = MutedText, fontSize = 10.sp)
+                        Text("No deadlines coming up.", color = MutedText, fontSize = 10.sp)
                     }
                 }
             } else {
@@ -195,7 +195,7 @@ internal fun V20TodayCommandCenter(
                     Spacer(Modifier.size(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Quick Capture", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("Save an idea now. Decide what it becomes later.", color = MutedText, fontSize = 9.2.sp)
+                        Text("Save a thought before you forget it.", color = MutedText, fontSize = 9.2.sp)
                     }
                     Icon(Icons.Outlined.ArrowForward, null, tint = MutedGold, modifier = Modifier.size(18.dp))
                 }
@@ -371,13 +371,13 @@ private fun V20EmptyContinue(onCapture: () -> Unit, onAdd: () -> Unit) {
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Column(Modifier.padding(20.dp)) {
-            Text("Nothing needs execution right now.", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("Nothing urgent right now.", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
-            Text("Capture the next idea, or create a project when you know what you want to make.", color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
+            Text("Save an idea or start a project.", color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(13.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onCapture, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(14.dp)) {
-                    Text("CAPTURE IDEA", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text("SAVE IDEA", fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
                 OutlinedButton(onClick = onAdd, border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(14.dp)) {
                     Text("NEW PROJECT", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)

@@ -407,8 +407,8 @@ internal fun PProjectComposer(
                     ) {
                         Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("CREATIVE OPTIONS · OPTIONAL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                                Text("Mode, content type and production style", color = MutedText, fontSize = 8.5.sp)
+                                Text("MORE OPTIONS · OPTIONAL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                                Text("Type and style", color = MutedText, fontSize = 8.5.sp)
                             }
                             Icon(
                                 if (showCreativeSetup) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
@@ -422,8 +422,8 @@ internal fun PProjectComposer(
                             Spacer(Modifier.height(8.dp))
                     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                                     Column(Modifier.padding(14.dp)) {
-                                        Text("CREATIVE OPTIONS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                                        Text("Optional details that help Backlot learn what works for you.", color = MutedText, fontSize = 8.5.sp)
+                                        Text("MORE OPTIONS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                                        Text("Add more details if you like.", color = MutedText, fontSize = 8.5.sp)
                                         Spacer(Modifier.height(14.dp))
                                         PComposerLabel("CREATOR MODE")
                                         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -482,7 +482,7 @@ internal fun PProjectComposer(
                     }
 
                     Spacer(Modifier.height(24.dp))
-                    Text("KEEP THIS PROJECT ON TRACK", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                    Text("PROJECT REMINDERS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.height(10.dp))
                     ProjectAttentionPlan.entries.forEach { plan ->
                         PAttentionPlanCard(plan, selected = attentionPlan == plan) { attentionPlan = plan }
@@ -503,7 +503,7 @@ internal fun PProjectComposer(
                         }
                         Spacer(Modifier.height(5.dp))
                         Text(
-                            if (deliveryPreference == ReminderDeliveryPreference.AUTO) "Auto adapts delivery to project urgency. Choose another style to keep it for every stage."
+                            if (deliveryPreference == ReminderDeliveryPreference.AUTO) "Auto adjusts reminders as your deadline gets closer."
                             else "${pDeliveryPreferenceLabel(deliveryPreference)} will stay selected as this project moves through stages.",
                             color = MutedText,
                             fontSize = 8.5.sp,
@@ -524,7 +524,7 @@ internal fun PProjectComposer(
                         Spacer(Modifier.height(8.dp))
                         Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
                             Column(Modifier.padding(13.dp)) {
-                                Text("NEXT CHECK-IN", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                                Text("NEXT REMINDER", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                                 Spacer(Modifier.height(4.dp))
                                 Text(pFormatDateTime(pulse.nextCheckpointAtMillis), color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 Text("${pulse.currentStage.label} · ${pModeLabel(pulse.recommendedMode)}", color = MutedText, fontSize = 9.sp)
@@ -545,7 +545,7 @@ internal fun PProjectComposer(
                         }
                         if (!customReady) {
                             Spacer(Modifier.height(7.dp))
-                            Text("Choose a reminder between now and publish time.", color = RecRed, fontSize = 8.5.sp)
+                            Text("Choose a reminder before your deadline.", color = RecRed, fontSize = 8.5.sp)
                         }
                     }
 
@@ -555,7 +555,7 @@ internal fun PProjectComposer(
                             Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Outlined.Settings, null, tint = MutedGold, modifier = Modifier.size(17.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Finish reminder setup", color = ProjectorIvory, fontSize = 9.5.sp, modifier = Modifier.weight(1f))
+                                Text("Set up reminders", color = ProjectorIvory, fontSize = 9.5.sp, modifier = Modifier.weight(1f))
                                 Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -568,7 +568,7 @@ internal fun PProjectComposer(
                     if (task != null && (task.reminderEnabled || task.attentionPlan != ProjectAttentionPlan.OFF)) {
                         Spacer(Modifier.height(12.dp))
                         TextButton(onClick = onRemoveReminder, modifier = Modifier.fillMaxWidth()) {
-                            Text("TURN OFF REMINDERS", color = MutedText, fontSize = 8.5.sp)
+                            Text("NO REMINDERS", color = MutedText, fontSize = 8.5.sp)
                         }
                     }
                 }

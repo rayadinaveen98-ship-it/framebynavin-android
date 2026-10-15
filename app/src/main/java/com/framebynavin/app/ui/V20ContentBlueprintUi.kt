@@ -43,7 +43,7 @@ internal fun V20ContentBlueprintDialog(
                     }
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("DNA BLUEPRINT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        Text("CONTENT GUIDE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                         Text(task.title, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                 }
@@ -89,7 +89,7 @@ internal fun V20ContentBlueprintDialog(
                             Text(blueprint.summary, color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
                             Spacer(Modifier.height(10.dp))
                             Text(
-                                "ADVISORY ONLY · nothing here changes stages, reminders or publication state",
+                                "Ideas to help you plan. Nothing changes automatically.",
                                 color = RecRed,
                                 fontSize = 7.8.sp,
                                 fontWeight = FontWeight.Black,
@@ -136,7 +136,7 @@ internal fun V20ContentBlueprintDialog(
                     }
 
                     Spacer(Modifier.height(24.dp))
-                    V20BlueprintSectionHeader(Icons.Outlined.Build, "USEFUL TOOLS", "Not app requirements — just useful working materials for this DNA.")
+                    V20BlueprintSectionHeader(Icons.Outlined.Build, "USEFUL TOOLS", "Helpful materials for your content. All optional.")
                     Spacer(Modifier.height(9.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         blueprint.toolSuggestions.forEach { tool ->

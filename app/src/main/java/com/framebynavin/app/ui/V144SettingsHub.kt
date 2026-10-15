@@ -95,10 +95,10 @@ internal fun V144SettingsHub(
                 V127AppearanceSettings(showGuidePicker = false)
             }
 
-            V144SettingsSection.GUIDE -> V144SettingsPage("GUIDE CHARACTER", "Choose who guides your creator journey", { sectionName = V144SettingsSection.HOME.name }) {
+            V144SettingsSection.GUIDE -> V144SettingsPage("SPARK", "Your creative companion", { sectionName = V144SettingsSection.HOME.name }) {
                 V144GuidePicker()
                 Spacer(Modifier.height(12.dp))
-                V144SettingsNote("Your guide choice is used across setup, guided tours and helper moments. Funny and Cute are the active Backlot guides.")
+                V144SettingsNote("Spark is your creative companion throughout Backlot. There's nothing to set up.")
             }
 
             V144SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", { sectionName = V144SettingsSection.HOME.name }) {
@@ -108,7 +108,7 @@ internal fun V144SettingsHub(
                     onPreview = { v144PreviewVoice(context, it) },
                 )
                 Spacer(Modifier.height(8.dp))
-                V144SettingsNote("New projects inherit this voice automatically. Existing projects keep their saved voice unless you edit them.")
+                V144SettingsNote("This voice is used for new projects. You can change each project later.")
             }
 
             V144SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V144SettingsSection.HOME.name }) {
@@ -196,14 +196,14 @@ internal fun V144SettingsHub(
                 )
                 Spacer(Modifier.height(9.dp))
                 V144ActionCard(
-                    title = "Google account & Cloud Sync",
-                    subtitle = "Connected account, cloud backups and restore state.",
+                    title = "Google account & backup",
+                    subtitle = "Manage your account and backups.",
                     icon = Icons.Outlined.CloudSync,
                     accent = MutedGold,
                     onClick = onCloudSync,
                 )
                 Spacer(Modifier.height(12.dp))
-                V144SettingsNote("Google Calendar controls live under Planning & Calendar because they affect your publishing workflow rather than account identity.")
+                V144SettingsNote("Manage Google Calendar in Planning & Calendar.")
             }
 
             V144SettingsSection.DATA -> V144SettingsPage("DATA, BACKUP & SYNC", "Keep your Backlot data recoverable", { sectionName = V144SettingsSection.HOME.name }) {
@@ -226,8 +226,8 @@ internal fun V144SettingsHub(
 
             V144SettingsSection.ABOUT -> V144SettingsPage("ABOUT BACKLOT", "Version, help and guided setup", { sectionName = V144SettingsSection.HOME.name }) {
                 V144ActionCard(
-                    title = "Replay guided first run",
-                    subtitle = "Today → Ideas → Project → Workspace → Insights → Control",
+                    title = "Show app tour",
+                    subtitle = "Home → Ideas → Projects → Insights → Quick Actions",
                     icon = Icons.Outlined.School,
                     accent = MutedGold,
                     onClick = onReplayTour,
@@ -264,10 +264,10 @@ private fun V144SettingsHome(
         V144SettingsHeader("SETTINGS", "Backlot, your way", onClose)
         Spacer(Modifier.height(10.dp))
         Text(
-            "Everything is grouped by purpose now — open only what you want to change.",
+            "Choose what you'd like to change.",
             color = MutedText,
-            fontSize = 9.5.sp,
-            lineHeight = 14.sp,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
         )
         Spacer(Modifier.height(18.dp))
 
@@ -279,7 +279,7 @@ private fun V144SettingsHome(
             onClick = onProfile,
         )
         V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) { onOpen(V144SettingsSection.APPEARANCE) }
-        V144CategoryCard("Guide Character", V145SelectableGuides.joinToString(" or ") { it.displayName }, Icons.Outlined.Face, MutedGold) { onOpen(V144SettingsSection.GUIDE) }
+        V144CategoryCard("Spark", "Your creative companion", Icons.Outlined.Face, MutedGold) { onOpen(V144SettingsSection.GUIDE) }
         V144CategoryCard("Voice", "Default project voice and preview", Icons.Outlined.RecordVoiceOver, RecRed) { onOpen(V144SettingsSection.VOICE) }
         V144CategoryCard(
             "Notifications & Reminders",
@@ -337,8 +337,8 @@ private fun V144CategoryCard(title: String, subtitle: String, icon: ImageVector,
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MutedText, fontSize = 8.8.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
@@ -360,7 +360,7 @@ private fun V144StatusCard(title: String, subtitle: String, icon: ImageVector, a
             Spacer(Modifier.width(11.dp))
             Column {
                 Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MutedText, fontSize = 8.8.sp, lineHeight = 12.sp)
+                Text(subtitle, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp)
             }
         }
     }
@@ -378,8 +378,8 @@ private fun V144PermissionRow(label: String, ready: Boolean, onClick: () -> Unit
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (ready) SuccessGreen else MutedGold, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(9.dp))
-            Text(label, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f))
-            Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = ProjectorIvory, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -387,13 +387,13 @@ private fun V144PermissionRow(label: String, ready: Boolean, onClick: () -> Unit
 @Composable
 private fun V144SectionTitle(title: String, subtitle: String) {
     Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text(subtitle, color = MutedText, fontSize = 8.8.sp)
+    Text(subtitle, color = MutedText, fontSize = 12.sp)
 }
 
 @Composable
 private fun V144SettingsNote(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp, modifier = Modifier.padding(12.dp))
+        Text(text, color = MutedText, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(12.dp))
     }
 }
 

@@ -26,10 +26,10 @@ internal fun V181PublicationDialog(task: CreatorTask, onDismiss: () -> Unit, onS
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = CinemaSurfaceRaised,
-        title = { Text("Publication details", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
+        title = { Text("Published video details", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Record when your content actually went live. Publishing is separate from finishing promotion or review.", color = MutedText, fontSize = 14.sp, lineHeight = 20.sp)
+                Text("Record when your video went live. This doesn't publish it for you.", color = MutedText, fontSize = 14.sp, lineHeight = 20.sp)
                 Text(task.title, color = ProjectorIvory, fontWeight = FontWeight.Bold)
                 OutlinedButton(onClick = {
                     val date = Calendar.getInstance().apply { timeInMillis = at }
@@ -49,7 +49,7 @@ internal fun V181PublicationDialog(task: CreatorTask, onDismiss: () -> Unit, onS
                 error?.let { Text(it, color = RecRed, fontSize = 13.sp) }
                 if (task.publishedAtMillis > 0L) {
                     TextButton(onClick = { onSave(0L, "") }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text("REMOVE INCORRECT PUBLICATION", color = RecRed)
+                        Text("REMOVE PUBLISH RECORD", color = RecRed)
                     }
                 }
             }
@@ -63,7 +63,7 @@ internal fun V181PublicationDialog(task: CreatorTask, onDismiss: () -> Unit, onS
                     else -> null
                 }
                 if (error == null) onSave(at, clean)
-            }) { Text("SAVE PUBLICATION") }
+            }) { Text("SAVE DETAILS") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL") } },
     )
