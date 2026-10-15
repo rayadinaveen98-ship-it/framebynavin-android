@@ -45,9 +45,9 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
 
         Text("APPEARANCE", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Choose how Backlot looks.", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("Make Backlot yours", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
         Text(
-            "One Backlot design language, two complete appearances. Layout, typography and workflow stay consistent in both.",
+            "Pick the look you prefer.",
             color = MutedText,
             fontSize = 9.sp,
             lineHeight = 13.sp,
@@ -85,7 +85,7 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Launch sound", color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-                    Text("Short original sonic ident on normal cold launches.", color = MutedText, fontSize = 8.2.sp)
+                    Text("Play Backlot's opening sound when you launch the app.", color = MutedText, fontSize = 8.2.sp)
                 }
                 Switch(
                     checked = VisualExperiencePrefs.launchSoundEnabled,
