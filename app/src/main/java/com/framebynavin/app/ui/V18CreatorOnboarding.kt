@@ -45,8 +45,8 @@ internal fun V18CreatorOnboarding(
     onFinish: (CreatorProfile) -> Boolean,
 ) {
     var page by rememberSaveable { mutableIntStateOf(0) }
-    var isSaving by rememberSaveable { mutableStateOf(false) }
-    var saveFailed by rememberSaveable { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
+    var saveFailed by remember { mutableStateOf(false) }
     var primaryMode by rememberSaveable(profile.resolvedPrimaryCreatorMode) {
         mutableStateOf(profile.resolvedPrimaryCreatorMode)
     }
@@ -315,15 +315,15 @@ internal fun V18CreatorOnboarding(
                             val completed = runCatching {
                                 onFinish(
                                     CreatorProfile(
-                                    displayName = profile.displayName,
-                                    category = primaryMode,
-                                    primaryCreatorMode = primaryMode,
-                                    secondaryCreatorModes = secondaryModes,
-                                    platforms = platforms,
-                                    productionStyles = styles,
-                                    primaryGoal = primaryGoal,
-                                    secondaryGoals = selectedGoals - primaryGoal,
-                                    weeklyPublishingTarget = weeklyTarget,
+                                        displayName = profile.displayName,
+                                        category = primaryMode,
+                                        primaryCreatorMode = primaryMode,
+                                        secondaryCreatorModes = secondaryModes,
+                                        platforms = platforms,
+                                        productionStyles = styles,
+                                        primaryGoal = primaryGoal,
+                                        secondaryGoals = selectedGoals - primaryGoal,
+                                        weeklyPublishingTarget = weeklyTarget,
                                         setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
                                     ).normalized(),
                                 )
