@@ -1271,7 +1271,7 @@ private fun PBottomNavItem(
             Text(
                 label,
                 color = if (active) ProjectorIvory else MutedText,
-                fontSize = 9.5.sp,
+                fontSize = 11.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1360,14 +1360,14 @@ internal fun PQueueDots(index: Int, size: Int) {
 @Composable
 internal fun PMetric(label: String, value: String, accent: Color, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(14.dp)) { Text(label, color = MutedText, fontSize = 7.8.sp, letterSpacing = .7.sp); Spacer(Modifier.height(4.dp)); Text(value, color = accent, fontSize = 25.sp, fontWeight = FontWeight.Black) }
+        Column(Modifier.padding(14.dp)) { Text(label, color = MutedText, fontSize = 12.sp, letterSpacing = .3.sp); Spacer(Modifier.height(4.dp)); Text(value, color = accent, fontSize = 25.sp, fontWeight = FontWeight.Black) }
     }
 }
 
 @Composable
 internal fun PSmallStat(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(11.dp)) { Text(value, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black); Text(label, color = MutedText, fontSize = 7.sp, lineHeight = 9.sp) }
+        Column(Modifier.padding(11.dp)) { Text(value, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black); Text(label, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp) }
     }
 }
 
@@ -1386,7 +1386,7 @@ private fun PControlRow(title: String, subtitle: String, icon: ImageVector, onCl
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(17.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(34.dp).background(CinemaSurfaceRaised, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = MutedGold, modifier = Modifier.size(18.dp)) }
-            Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = MutedText, fontSize = 8.7.sp) }
+            Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = MutedText, fontSize = 12.sp) }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
     }
@@ -1397,7 +1397,7 @@ private fun PPermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
     Surface(onClick = if (ready) ({}) else onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(15.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (ready) SuccessGreen else MutedGold, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(9.dp)); Text(label, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f)); Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(9.dp)); Text(label, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f)); Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -1405,7 +1405,7 @@ private fun PPermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
 @Composable
 private fun PSettingsHeading(title: String, subtitle: String) {
     Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text(subtitle, color = MutedText, fontSize = 8.8.sp)
+    Text(subtitle, color = MutedText, fontSize = 12.sp)
 }
 
 internal fun pActiveQueue(tasks: List<CreatorTask>): List<CreatorTask> =
