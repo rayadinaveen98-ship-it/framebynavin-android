@@ -17,6 +17,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.withFrameNanos
+import android.os.SystemClock
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,26 +62,35 @@ private fun v151Progress(nowMs: Long, startMs: Long, endMs: Long): Float {
 @Composable
 internal fun V174CinematicWelcome(onFinished: () -> Unit) {
     val context = LocalContext.current
-    val timeline = remember { Animatable(0f) }
+    var nowMs by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(Unit) {
-
-        val track = WelcomeSonicIdent.prepare(context.applicationContext)
-        runCatching { track?.play() }
-        timeline.snapTo(0f)
-        timeline.animateTo(
-            1f,
-            animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = WelcomeSonicIdent.TOTAL_DURATION_MS.toInt(),
-                easing = androidx.compose.animation.core.LinearEasing,
-            ),
-        )
-        runCatching { track?.stop() }
-        runCatching { track?.release() }
+        // Prefer the actual speaker playback cursor over a separate UI animation timer.
+        val track = runCatching { WelcomeSonicIdent.prepare(context.applicationContext) }.getOrNull()
+        val started = track != null && runCatching { track.play() }.isSuccess
+        val startNanos = SystemClock.elapsedRealtimeNanos()
+        try {
+            while (nowMs < WelcomeSonicIdent.TOTAL_DURATION_MS) {
+                withFrameNanos {
+                    val elapsedMs = (SystemClock.elapsedRealtimeNanos() - startNanos) / 1_000_000L
+                    val audioMs = if (started) runCatching {
+                        (track!!.playbackHeadPosition.toLong() and 0xffffffffL) * 1000L /
+                            WelcomeSonicIdent.SAMPLE_RATE
+                    }.getOrDefault(0L) else 0L
+                    val stalled = started && (
+                        (elapsedMs > 600L && audioMs == 0L) ||
+                            elapsedMs > WelcomeSonicIdent.TOTAL_DURATION_MS + 850L
+                        )
+                    val target = if (started && !stalled) audioMs else elapsedMs
+                    nowMs = maxOf(nowMs, target).coerceAtMost(WelcomeSonicIdent.TOTAL_DURATION_MS)
+                }
+            }
+        } finally {
+            runCatching { track?.stop() }
+            runCatching { track?.release() }
+        }
         onFinished()
     }
-
-    val nowMs = (timeline.value * WelcomeSonicIdent.TOTAL_DURATION_MS).toLong()
     val ignition = v151Progress(nowMs, 0L, WelcomeSonicIdent.IGNITION_END_MS)
     val strips = v151Progress(nowMs, 60L, 2600L)
     val impact = v151Progress(nowMs, 2450L, WelcomeSonicIdent.IMPACT_END_MS)
