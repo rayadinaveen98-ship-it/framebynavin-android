@@ -191,11 +191,33 @@ class CreatorOsSettingsStore(context: Context) {
     }
 
     fun setAccountOnboardingComplete(value: Boolean) {
-        prefs.edit().putBoolean(KEY_ACCOUNT_ONBOARDING_COMPLETE, value).apply()
+        // Completion gates must survive an immediate process death / relaunch.
+        check(prefs.edit().putBoolean(KEY_ACCOUNT_ONBOARDING_COMPLETE, value).commit()) {
+            "Could not save account onboarding completion"
+        }
     }
 
     fun setOnboardingComplete(value: Boolean) {
-        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).apply()
+        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).commit()
+    }
+
+    /**
+     * Finish the full creator profile and setup gate as ONE durable transaction.
+     * Never publish onboardingComplete=true if required fields are missing or the write fails.
+     */
+    fun completeCreatorSetup(value: CreatorProfile): Boolean {
+        val profile = value.normalized()
+        if (!profile.isComplete) return false
+        val saved = prefs.edit()
+            .putProfile(profile)
+            .putBoolean(KEY_ONBOARDING_COMPLETE, true)
+            .commit()
+        if (!saved) return false
+        val verified = snapshot()
+        return verified.onboardingComplete && verified.creatorProfile.isComplete &&
+            verified.creatorProfile.resolvedPrimaryCreatorMode == profile.resolvedPrimaryCreatorMode &&
+            verified.creatorProfile.platforms == profile.platforms &&
+            verified.creatorProfile.primaryGoal == profile.primaryGoal
     }
 
     fun markGuidedTourComplete() {
