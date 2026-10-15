@@ -96,7 +96,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 ) {
                     TextButton(onClick = onDismiss) { Text("CLOSE") }
                     Column(Modifier.weight(1f)) {
-                        Text("PROJECT WORKSPACE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                        Text("YOUR PROJECT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                         Text(task.title, color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Surface(
@@ -137,14 +137,14 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     Column(Modifier.padding(17.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("CURRENT STAGE", color = RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                                Text("CURRENT STEP", color = RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                                 Spacer(Modifier.height(3.dp))
                                 Text(currentStage.label, color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
                             }
                             Text("${stageIndex + 1}/${template.stages.size}", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.height(9.dp))
-                        Text("NEXT MOVE", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        Text("UP NEXT", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                         Text(nextAction, color = ProjectorIvory, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(14.dp))
                         Button(
@@ -168,16 +168,16 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         Icon(Icons.Outlined.CloudDone, null, tint = MutedGold, modifier = Modifier.size(19.dp))
                         Spacer(Modifier.width(9.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("PROJECT SAVED", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                            Text("Workspace changes stay connected to this project.", color = MutedText, fontSize = 8.5.sp)
+                            Text("SAVED", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text("Your changes are saved with this project.", color = MutedText, fontSize = 8.5.sp)
                         }
                     }
                 }
 
                 Spacer(Modifier.height(22.dp))
-                SectionEyebrow("PRODUCTION WORKFLOW")
+                SectionEyebrow("PROJECT STEPS")
                 Text(template.label, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Text("See exactly where the project is without opening every tool.", color = MutedText, fontSize = 9.5.sp)
+                Text("Track your progress and continue where you left off.", color = MutedText, fontSize = 9.5.sp)
                 Spacer(Modifier.height(12.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -198,9 +198,9 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 }
 
                 Spacer(Modifier.height(24.dp))
-                SectionEyebrow("WORKSPACES")
-                Text("Everything for this project", color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
-                Text("Strategy, production, writing and publishing remain separate—but connected.", color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
+                SectionEyebrow("YOUR TOOLS")
+                Text("Everything you need", color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                Text("Plan, write and prepare your post in one place.", color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
 
                 Spacer(Modifier.height(14.dp))
                 WorkspaceToolCard(
@@ -216,7 +216,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 WorkspaceToolCard(
                     icon = Icons.Outlined.Dashboard,
                     eyebrow = "PRODUCTION BOARD",
-                    title = "Plan & Produce",
+                    title = "Plan",
                     body = "Brief, research, references, assets, checklist and outputs.",
                     meta = if (checklistTotal > 0) "$checklistDone/$checklistTotal checklist · ${workspace.assets.size} assets" else "${workspace.assets.size} assets · ${workspace.deliverables.size} outputs",
                     status = when {
@@ -230,7 +230,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 WorkspaceToolCard(
                     icon = Icons.Outlined.EditNote,
                     eyebrow = "SCRIPT STUDIO",
-                    title = "Write the piece",
+                    title = "Script",
                     body = "Hook, narration, structured beats and visual notes.",
                     meta = scriptMeta,
                     status = when {
@@ -243,7 +243,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 WorkspaceToolCard(
                     icon = Icons.Outlined.Publish,
                     eyebrow = "PUBLISH STUDIO",
-                    title = "Package & Publish",
+                    title = "Prepare to Publish",
                     body = "Titles, covers, descriptions, deliverables and final publish checks.",
                     meta = "$ready ready · $published published",
                     status = when {
@@ -257,7 +257,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
 
                 Spacer(Modifier.height(28.dp))
                 Text(
-                    "One project. One production history. Every workspace stays connected.",
+                    "Your work stays together in this project.",
                     color = MutedText,
                     fontSize = 8.5.sp,
                     modifier = Modifier.padding(bottom = 22.dp),
