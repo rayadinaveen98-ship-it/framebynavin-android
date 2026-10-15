@@ -5,6 +5,9 @@ on:
     branches:
       - fix/backlot-v152-onboarding-stability
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
