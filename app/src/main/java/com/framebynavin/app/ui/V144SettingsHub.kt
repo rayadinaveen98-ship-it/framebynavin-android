@@ -266,8 +266,8 @@ private fun V144SettingsHome(
         Text(
             "Choose what you'd like to change.",
             color = MutedText,
-            fontSize = 9.5.sp,
-            lineHeight = 14.sp,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
         )
         Spacer(Modifier.height(18.dp))
 
@@ -337,8 +337,8 @@ private fun V144CategoryCard(title: String, subtitle: String, icon: ImageVector,
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MutedText, fontSize = 8.8.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
@@ -360,7 +360,7 @@ private fun V144StatusCard(title: String, subtitle: String, icon: ImageVector, a
             Spacer(Modifier.width(11.dp))
             Column {
                 Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MutedText, fontSize = 8.8.sp, lineHeight = 12.sp)
+                Text(subtitle, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp)
             }
         }
     }
@@ -378,8 +378,8 @@ private fun V144PermissionRow(label: String, ready: Boolean, onClick: () -> Unit
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (ready) SuccessGreen else MutedGold, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(9.dp))
-            Text(label, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f))
-            Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = ProjectorIvory, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -387,13 +387,13 @@ private fun V144PermissionRow(label: String, ready: Boolean, onClick: () -> Unit
 @Composable
 private fun V144SectionTitle(title: String, subtitle: String) {
     Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text(subtitle, color = MutedText, fontSize = 8.8.sp)
+    Text(subtitle, color = MutedText, fontSize = 12.sp)
 }
 
 @Composable
 private fun V144SettingsNote(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp, modifier = Modifier.padding(12.dp))
+        Text(text, color = MutedText, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(12.dp))
     }
 }
 
