@@ -81,7 +81,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     fun describe(result: CreatorCloudSyncResult): String = when (result) {
         is CreatorCloudSyncResult.Synced -> result.message
         is CreatorCloudSyncResult.Restored -> "Cloud workspace restored: ${result.projectCount} projects and ${result.ideaCount} ideas."
-        is CreatorCloudSyncResult.Conflict -> "This phone and cloud both changed. Choose which workspace to keep; nothing was overwritten."
+        is CreatorCloudSyncResult.Conflict -> "Your phone and cloud have different work. Choose which copy to keep; nothing was replaced."
         is CreatorCloudSyncResult.Skipped -> result.message
         is CreatorCloudSyncResult.Failure -> result.message
     }
@@ -223,7 +223,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column {
-                    Text("CREATOR CLOUD", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    Text("BACKUP & SYNC", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                     Text("Backup & Recovery", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
                 }
             }
@@ -235,7 +235,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                 Text("Automatic creator backup", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    "Your phone remains the working copy. When you connect Google, Backlot privately syncs portable creator snapshots to your Supabase account and restores cloud changes only when it is safe.",
+                    "Your work stays on this phone. Sign in to back up supported data privately. Restoring another copy needs your approval.",
                     color = MutedText,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
@@ -246,7 +246,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
             if (session == null) {
                 CloudCard {
                     Text("Connect your creator account", color = ProjectorIvory, fontWeight = FontWeight.Bold)
-                    Text("Google is your identity. Supabase keeps the private automatic backup for that identity.", color = MutedText, fontSize = 12.sp)
+                    Text("Sign in with Google to back up your work privately.", color = MutedText, fontSize = 12.sp)
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = ::startGoogleSignIn, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("CONTINUE WITH GOOGLE") }
                 }
@@ -259,7 +259,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                     Text(
                         when {
                             conflict != null || syncStatus.needsResolution -> "Sync needs your choice"
-                            last > 0L -> "Last automatic sync · ${cloudTime(last)} · revision ${syncStatus.revision}"
+                            last > 0L -> "Last backed up · ${cloudTime(last)}"
                             else -> "Automatic sync will start when the account is ready"
                         },
                         color = if (conflict != null || syncStatus.needsResolution) MutedGold else Color(0xFF86C995),
@@ -274,29 +274,29 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                 if (conflict != null) {
                     Spacer(Modifier.height(12.dp))
                     CloudCard {
-                        Text("SYNC CONFLICT", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                        Text("Nothing was overwritten", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                        Text("TWO DIFFERENT COPIES FOUND", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text("Your work is safe", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                         Text("Phone: ${conflict.localProjectCount} projects · ${conflict.localIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
                         Text("Cloud: ${conflict.cloudProjectCount} projects · ${conflict.cloudIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
                         Spacer(Modifier.height(12.dp))
                         Button(onClick = { resolveCloud(true) }, enabled = !busy && conflict.cloudRevision > 0L, modifier = Modifier.fillMaxWidth()) {
-                            Text("RESTORE CLOUD WORKSPACE")
+                            Text("USE CLOUD COPY")
                         }
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(onClick = { resolveCloud(false) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                            Text("KEEP THIS PHONE'S WORK", color = ProjectorIvory)
+                            Text("KEEP PHONE COPY", color = ProjectorIvory)
                         }
                     }
                 }
 
                 Spacer(Modifier.height(20.dp))
-                Text("OPTIONAL MANUAL COPY", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                Text("Google Drive is no longer the automatic backup system. Use it only when you want an extra manual export/import restore point.", color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                Text("MANUAL BACKUP", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text("Google Drive is optional for saving or loading a manual backup.", color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
                 Spacer(Modifier.height(8.dp))
                 CloudCard {
                     if (driveToken == null) {
                         OutlinedButton(onClick = ::authorizeDrive, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                            Icon(Icons.Outlined.AddToDrive, null); Spacer(Modifier.width(7.dp)); Text("CONNECT DRIVE FOR IMPORT / EXPORT")
+                            Icon(Icons.Outlined.AddToDrive, null); Spacer(Modifier.width(7.dp)); Text("CONNECT GOOGLE DRIVE")
                         }
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -318,13 +318,13 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                             },
                             enabled = !busy,
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text("EXPORT MANUAL DRIVE COPY") }
+                        ) { Text("SAVE COPY TO DRIVE") }
                     }
                 }
 
                 if (driveToken != null) {
                     Spacer(Modifier.height(12.dp))
-                    Text("DRIVE IMPORT POINTS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    Text("SAVED DRIVE COPIES", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
                     if (!busy && drivePoints.isEmpty()) {
                         Text("No manual Drive copies found.", color = MutedText, fontSize = 12.sp)
                     } else {
@@ -360,7 +360,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
             onDismissRequest = { if (!busy) restoreTarget = null },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Import this Drive copy?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("This is a manual import. Backlot validates the copy and keeps a local recovery journal before replacing covered creator data. Automatic creator cloud will reconcile afterward.", color = MutedText) },
+            text = { Text("Importing replaces supported data on this phone. Backlot makes a recovery copy first.", color = MutedText) },
             confirmButton = {
                 TextButton(onClick = {
                     val access = driveToken ?: return@TextButton
