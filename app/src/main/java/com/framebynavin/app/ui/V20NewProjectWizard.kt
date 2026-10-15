@@ -88,6 +88,8 @@ internal fun V20NewProjectWizard(
     var showAllTypes by rememberSaveable { mutableStateOf(false) }
     var showAllPlatforms by rememberSaveable { mutableStateOf(false) }
     var customizeStyles by rememberSaveable { mutableStateOf(false) }
+    // V153: the default path is quick create; the original complete wizard remains available.
+    var showAdvancedSetup by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val now = System.currentTimeMillis()
 
@@ -202,7 +204,7 @@ internal fun V20NewProjectWizard(
                     }
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("NEW PROJECT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text("NEW PROJECT", color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                         Text("New project", color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
                     }
                     Surface(
@@ -211,7 +213,7 @@ internal fun V20NewProjectWizard(
                         border = BorderStroke(1.dp, MutedGold.copy(alpha = .20f)),
                     ) {
                         Text(
-                            "${(revealedStage + 1).coerceAtMost(7)}/7",
+                            if (showAdvancedSetup) "${(revealedStage + 1).coerceAtMost(7)}/7" else "QUICK",
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                             color = MutedGold,
                             fontSize = 8.5.sp,
@@ -219,19 +221,130 @@ internal fun V20NewProjectWizard(
                         )
                     }
                 }
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
-                    color = RecRed,
-                    trackColor = CinemaLine,
-                )
+                if (showAdvancedSetup) {
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(2.dp),
+                        color = RecRed,
+                        trackColor = CinemaLine,
+                    )
+                }
 
                 Column(
                     Modifier.weight(1f).verticalScroll(scrollState)
                         .padding(horizontal = 20.dp, vertical = 18.dp)
                         .padding(bottom = 30.dp),
                 ) {
-                    V20ProgressiveSection(
+                    if (!showAdvancedSetup) {
+                        Text(
+                            "Start with the essentials. You can change the details anytime.",
+                            color = MutedText,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        V20FieldLabel("PROJECT NAME")
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = onTitleChange,
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("What are you making?") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        V20FieldLabel("WHERE WILL YOU POST?")
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            platformOptions.forEach { value ->
+                                FilterChip(
+                                    selected = platform == value,
+                                    onClick = { onPlatformChange(value) },
+                                    label = { Text(value, fontSize = 12.sp) },
+                                )
+                            }
+                        }
+                        TextButton(onClick = { showAllPlatforms = !showAllPlatforms }) {
+                            Text(if (showAllPlatforms) "SHOW MY PLATFORMS" else "OTHER PLATFORMS", fontSize = 12.sp)
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        V20FieldLabel("POST FORMAT")
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            formatOptions.forEach { value ->
+                                FilterChip(
+                                    selected = contentType == value,
+                                    onClick = { onContentTypeChange(value) },
+                                    label = { Text(value, fontSize = 12.sp) },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(20.dp))
+                        V20FieldLabel("WHEN IS IT DUE?")
+                        V20DateTimeButton(v20WizardDateTime(dueAt), onPickDue)
+                        Spacer(Modifier.height(20.dp))
+                        V20FieldLabel("REMINDERS")
+                        Text(
+                            "Current setting: $supportSummary",
+                            color = MutedText,
+                            fontSize = 12.sp,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = attentionPlan == ProjectAttentionPlan.OFF,
+                                onClick = { onAttentionPlanChange(ProjectAttentionPlan.OFF) },
+                                label = { Text("No reminders", fontSize = 12.sp) },
+                            )
+                            FilterChip(
+                                selected = attentionPlan == ProjectAttentionPlan.GUIDED,
+                                onClick = { onAttentionPlanChange(ProjectAttentionPlan.GUIDED) },
+                                label = { Text("Help me stay on track", fontSize = 12.sp) },
+                            )
+                        }
+                        if (attentionPlan == ProjectAttentionPlan.CUSTOM && !customReady) {
+                            Text("Change your reminder time in More Options.", color = RecRed, fontSize = 12.sp)
+                        }
+                        Spacer(Modifier.height(20.dp))
+                        Button(
+                            onClick = onCreate,
+                            enabled = allReady,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        ) {
+                            Text("CREATE PROJECT", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.width(6.dp))
+                            Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        TextButton(
+                            onClick = {
+                                showAdvancedSetup = true
+                                activeStage = 0
+                                revealedStage = 0
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Outlined.Tune, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("MORE OPTIONS · PROJECT TYPE, STYLE & REMINDERS", fontSize = 12.sp)
+                        }
+                    } else {
+                        TextButton(
+                            onClick = { showAdvancedSetup = false },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Outlined.ArrowBack, null, modifier = Modifier.size(17.dp))
+                            Spacer(Modifier.width(7.dp))
+                            Text("BACK TO QUICK CREATE", fontSize = 12.sp)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        V20ProgressiveSection(
                         index = 0,
                         label = "NAME",
                         title = "What are you making?",
@@ -255,7 +368,7 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 1,
                         label = "TYPE",
-                        title = "What are you making?",
+                        title = "What kind of content?",
                         summary = chosenTypeLabel,
                         active = activeStage == 1,
                         revealed = revealedStage >= 1,
@@ -275,7 +388,7 @@ internal fun V20NewProjectWizard(
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                             TextButton(onClick = { showAllTypes = true }) {
-                                Text("BROWSE ALL TYPES", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                                Text("BROWSE ALL TYPES", fontSize = 11.sp, fontWeight = FontWeight.Black)
                             }
                             TextButton(onClick = { showAllModes = !showAllModes }) {
                                 Text(if (showAllModes) "HIDE MODES" else "CHANGE MODE", fontSize = 8.sp, fontWeight = FontWeight.Black)
@@ -533,6 +646,7 @@ internal fun V20NewProjectWizard(
                             Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(17.dp))
                         }
                     }
+                    }
                 }
             }
         }
@@ -571,7 +685,7 @@ private fun V20ProgressiveSection(
                                 )
                             }
                             Spacer(Modifier.width(8.dp))
-                            Text(label, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                            Text(label, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, lineHeight = 22.sp)
@@ -591,10 +705,10 @@ private fun V20ProgressiveSection(
                         Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(9.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(label, color = MutedText, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                             Text(summary, color = ProjectorIvory, fontSize = 10.3.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text("CHANGE", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Black)
+                        Text("CHANGE", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
                 }
             }
@@ -611,7 +725,7 @@ private fun V20InlineContinue(label: String, enabled: Boolean, onClick: () -> Un
         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
         shape = RoundedCornerShape(14.dp),
     ) {
-        Text(label, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.width(5.dp))
         Icon(Icons.Outlined.ArrowDownward, null, modifier = Modifier.size(15.dp))
     }
