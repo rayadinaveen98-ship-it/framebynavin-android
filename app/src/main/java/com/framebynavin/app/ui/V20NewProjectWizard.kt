@@ -216,7 +216,7 @@ internal fun V20NewProjectWizard(
                             if (showAdvancedSetup) "${(revealedStage + 1).coerceAtMost(7)}/7" else "QUICK",
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                             color = MutedGold,
-                            fontSize = 8.5.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Black,
                         )
                     }
@@ -332,7 +332,7 @@ internal fun V20NewProjectWizard(
                         ) {
                             Icon(Icons.Outlined.Tune, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("MORE OPTIONS · PROJECT TYPE, STYLE & REMINDERS", fontSize = 12.sp)
+                            Text("MORE OPTIONS", fontSize = 13.sp)
                         }
                     } else {
                         TextButton(
@@ -641,7 +641,7 @@ internal fun V20NewProjectWizard(
                             shape = RoundedCornerShape(17.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         ) {
-                            Text("CREATE PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text("CREATE PROJECT", fontSize = 14.sp, fontWeight = FontWeight.Black)
                             Spacer(Modifier.width(6.dp))
                             Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(17.dp))
                         }
@@ -680,7 +680,7 @@ private fun V20ProgressiveSection(
                                     "${index + 1}",
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                     color = RecRed,
-                                    fontSize = 8.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Black,
                                 )
                             }
@@ -706,7 +706,7 @@ private fun V20ProgressiveSection(
                         Spacer(Modifier.width(9.dp))
                         Column(Modifier.weight(1f)) {
                             Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                            Text(summary, color = ProjectorIvory, fontSize = 10.3.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(summary, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Text("CHANGE", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
@@ -733,7 +733,7 @@ private fun V20InlineContinue(label: String, enabled: Boolean, onClick: () -> Un
 
 @Composable
 private fun V20FieldLabel(text: String) {
-    Text(text, color = MutedGold, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp, modifier = Modifier.padding(bottom = 7.dp))
+    Text(text, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp, modifier = Modifier.padding(bottom = 7.dp))
 }
 
 @Composable
