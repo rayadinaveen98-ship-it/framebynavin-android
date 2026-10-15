@@ -79,10 +79,10 @@ internal fun V08WeeklyScheduleScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
                 ) {
                     Column(Modifier.padding(17.dp)) {
-                        Text("AUTO-PLAN THE CREATOR WEEK", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                        Text("PLAN MY WEEK", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(5.dp))
                         Text(
-                            "Enabled slots create Studio projects for the next 8 days. Each project starts at the right step, and reminders can follow your project steps automatically.",
+                            "Turn on a weekly slot to create upcoming projects automatically.",
                             color = MutedText,
                             fontSize = 10.5.sp,
                             lineHeight = 15.sp,
@@ -101,7 +101,7 @@ internal fun V08WeeklyScheduleScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .22f)),
                             ) {
                                 Column(Modifier.padding(12.dp)) {
-                                    Text("NEXT SLOT", color = MutedText, fontSize = 8.5.sp, letterSpacing = 1.sp)
+                                    Text("NEXT PLANNED POST", color = MutedText, fontSize = 8.5.sp, letterSpacing = 1.sp)
                                     Spacer(Modifier.height(3.dp))
                                     Text(next.slot.title, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                                     Text("${WeeklyScheduleEngine.formatOccurrence(next.publishAtMillis)} · ${next.slot.platform} ${next.slot.contentType}", color = MutedGold, fontSize = 9.5.sp)
@@ -121,7 +121,7 @@ internal fun V08WeeklyScheduleScreen(
                     ) {
                         Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("REFRESH 8 DAYS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("UPDATE UPCOMING PROJECTS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = {
@@ -143,12 +143,12 @@ internal fun V08WeeklyScheduleScreen(
                     ) {
                         Icon(Icons.Outlined.Add, null, modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("CUSTOM SLOT", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                        Text("ADD WEEKLY POST", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 Spacer(Modifier.height(18.dp))
                 Text("YOUR WEEK", color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
-                Text("Tap a slot to edit it. Turning one off stops future generation; projects already created stay in your queue.", color = MutedText, fontSize = 9.8.sp, lineHeight = 14.sp)
+                Text("Tap a plan to edit it. Turning it off won't delete existing projects.", color = MutedText, fontSize = 9.8.sp, lineHeight = 14.sp)
                 Spacer(Modifier.height(12.dp))
             }
 
@@ -172,7 +172,7 @@ internal fun V08WeeklyScheduleScreen(
             item {
                 Spacer(Modifier.height(12.dp))
                 TextButton(onClick = { confirmReset = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("RESET TO DEFAULT WEEK", color = MutedText, fontSize = 10.sp)
+                    Text("RESTORE DEFAULT WEEK", color = MutedText, fontSize = 10.sp)
                 }
             }
         }
@@ -192,7 +192,7 @@ internal fun V08WeeklyScheduleScreen(
             onDismissRequest = { confirmReset = false },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Reset weekly schedule?", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
-            text = { Text("This restores the locked Backlot weekly slots. Existing generated projects are not deleted.", color = MutedText) },
+            text = { Text("This restores your default weekly plan. Existing projects stay saved.", color = MutedText) },
             confirmButton = {
                 Button(onClick = { confirmReset = false; onReset() }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("RESET") }
             },
@@ -288,7 +288,7 @@ private fun V08SlotEditor(
             Column(Modifier.fillMaxWidth().heightIn(max = 650.dp)) {
                 androidx.compose.foundation.rememberScrollState().let { scroll ->
                     Column(Modifier.fillMaxWidth().verticalScroll(scroll)) {
-                        OutlinedTextField(title, { title = it }, label = { Text("Slot title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(title, { title = it }, label = { Text("Post name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.height(13.dp)); V08Label("DAY")
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             DayOfWeek.values().forEach { value -> FilterChip(day == value, { day = value }, { Text(value.name.take(3), fontSize = 10.sp) }) }
@@ -318,7 +318,7 @@ private fun V08SlotEditor(
                         }
                         Text(
                             when (reminderMode) {
-                                ReminderMode.SMART -> "Smart escalation follows the deadline of your current step and moves forward when you complete that step."
+                                ReminderMode.SMART -> "Reminder timing follows your project's next step."
                                 ReminderMode.SIMPLE -> "One notification targets the current step deadline."
                                 else -> "Projects are generated without an automatic reminder."
                             },
