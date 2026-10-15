@@ -145,7 +145,7 @@ internal fun V131CinematicWelcome() {
                 Text("FRAME", color = ProjectorIvory, fontSize = 31.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
                 Text("BY NAVIN", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
                 Spacer(Modifier.height(14.dp))
-                Text("CREATOR OS", color = MutedText, fontSize = 8.sp, letterSpacing = 2.2.sp)
+                Text("YOUR CREATOR SPACE", color = MutedText, fontSize = 8.sp, letterSpacing = 2.2.sp)
             }
         }
 
@@ -202,7 +202,7 @@ internal fun V131PlanScreen(
         )
         Spacer(Modifier.height(18.dp))
         Text("See the week clearly.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
-        Text("Tap a project to edit it. Long-press to select one or more.", color = MutedText, fontSize = 9.4.sp)
+        Text("Tap to open a project. Hold to select several.", color = MutedText, fontSize = 9.4.sp)
         Spacer(Modifier.height(18.dp))
 
         if (active.isEmpty() && completed.isEmpty()) {
@@ -343,7 +343,7 @@ internal fun V131ReminderCenter(
                     onBack = onDismiss,
                 )
                 Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
-                    Text("What needs you next.", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    Text("What needs attention?", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.height(16.dp))
                     if (active.isEmpty()) {
                         V131Empty("Nothing needs attention", "Your active projects will surface here when a checkpoint matters.", onNew)
