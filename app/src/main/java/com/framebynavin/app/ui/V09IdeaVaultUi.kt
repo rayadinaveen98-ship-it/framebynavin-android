@@ -131,8 +131,8 @@ internal fun V09IdeaVaultScreen(
             ) {
                 if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column(Modifier.weight(1f)) {
-                    Text("IDEA VAULT", color = MutedGold, fontSize = 9.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
-                    Text("Capture now. Produce later.", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    Text("IDEAS", color = MutedGold, fontSize = 9.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
+                    Text("Save it now. Make it later.", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
                 IconButton(onClick = { creating = true }) {
                     Icon(Icons.Outlined.Add, "New idea", tint = ProjectorIvory)
@@ -150,7 +150,7 @@ internal fun V09IdeaVaultScreen(
                         Text("⚡", fontSize = 14.sp)
                         Spacer(Modifier.width(8.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("MATCHED TO YOUR CHANNEL MOMENTUM", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Text("RELATED TO YOUR CHANNEL", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                             Text(match.ideaTitle ?: match.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -164,7 +164,7 @@ internal fun V09IdeaVaultScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                placeholder = { Text("Search ideas, topics, notes or transcripts…") },
+                placeholder = { Text("Search your ideas…") },
             )
 
             Spacer(Modifier.height(9.dp))
@@ -199,10 +199,10 @@ internal fun V09IdeaVaultScreen(
                     Icon(Icons.Outlined.Lightbulb, null, tint = MutedGold, modifier = Modifier.size(34.dp))
                     Spacer(Modifier.height(9.dp))
                     Text(if (ideas.isEmpty()) "Your vault is empty" else "No ideas match this filter", color = ProjectorIvory, fontWeight = FontWeight.Bold)
-                    Text("Save rough thoughts without turning everything into a deadline.", color = MutedText, fontSize = 10.sp)
+                    Text("Keep ideas here until you're ready to use them.", color = MutedText, fontSize = 10.sp)
                     if (ideas.isEmpty()) {
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = { creating = true }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("ADD FIRST IDEA") }
+                        Button(onClick = { creating = true }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("SAVE YOUR FIRST IDEA") }
                     }
                 }
             } else {
@@ -317,7 +317,7 @@ private fun V09IdeaCard(
                     TextButton(onClick = onConvert) {
                         Icon(Icons.Outlined.RocketLaunch, null, tint = RecRed, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("TURN INTO PROJECT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("MAKE A PROJECT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 if (idea.status != IdeaStatus.ARCHIVED) {
@@ -392,8 +392,8 @@ private fun V09NewIdeaCleanEditor(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text("NEW IDEA", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
-                        Text("Capture first. Organize later.", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                        Text("One clear place for the idea — every advanced option stays one tap away.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+                        Text("Save your idea", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                        Text("Write or record an idea. Add details if you like.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
                     }
                     IconButton(onClick = ::dismiss) {
                         Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory)
@@ -419,7 +419,7 @@ private fun V09NewIdeaCleanEditor(
                                 title,
                                 { title = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Movie, scene, hook, story or anything worth keeping…") },
+                                placeholder = { Text("What's your idea?") },
                                 minLines = 3,
                                 maxLines = 6,
                                 shape = RoundedCornerShape(16.dp),
@@ -458,7 +458,7 @@ private fun V09NewIdeaCleanEditor(
                                 Spacer(Modifier.width(7.dp))
                                 Column {
                                     Text("DICTATE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                    Text("Turn speech into text", color = MutedText, fontSize = 7.8.sp)
+                                    Text("Speak to write an idea", color = MutedText, fontSize = 7.8.sp)
                                 }
                             }
                         }
@@ -515,7 +515,7 @@ private fun V09NewIdeaCleanEditor(
                                 { notes = it },
                                 Modifier.fillMaxWidth().heightIn(min = 105.dp),
                                 label = { Text("Notes") },
-                                placeholder = { Text("Angle, reference, hook or anything worth remembering…") },
+                                placeholder = { Text("Add any notes you want to keep…") },
                             )
                         }
                     }
@@ -566,7 +566,7 @@ private fun V09NewIdeaCleanEditor(
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
                                 Text("ORGANIZE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                Text("Topic, category, status and publishing hints", color = MutedText, fontSize = 7.8.sp)
+                                Text("Topic, status and where to post", color = MutedText, fontSize = 7.8.sp)
                             }
                             Icon(if (showOrganize) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
                         }
@@ -904,7 +904,7 @@ private fun V09ConvertIdeaDialog(
                     OutlinedButton(onClick = { pickTime() }, modifier = Modifier.weight(1f)) { Text("TIME", fontSize = 10.sp) }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("The project will open in Create with the right workflow and reminder timing for its format.", color = MutedText, fontSize = 9.3.sp)
+                Text("We'll open your new project so you can start working.", color = MutedText, fontSize = 9.3.sp)
             }
         },
         confirmButton = {
