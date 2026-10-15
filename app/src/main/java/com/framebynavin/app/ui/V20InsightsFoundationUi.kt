@@ -55,9 +55,9 @@ internal fun V20InsightsFoundationCard(
             Column(Modifier.padding(14.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("CHANNEL SIGNALS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                        Text("AUDIENCE INSIGHTS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                         Spacer(Modifier.height(3.dp))
-                        Text("What your audience is telling you", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                        Text("Understand your audience", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
                     }
                     if (loading) {
                         CircularProgressIndicator(modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = MutedGold)
@@ -65,13 +65,13 @@ internal fun V20InsightsFoundationCard(
                 }
                 Spacer(Modifier.height(9.dp))
                 Text(
-                    if (loading) "Loading deeper audience, reach and retention signals…" else "Deep audience signals are not ready yet. Core channel Insights are already available.",
+                    if (loading) "Loading deeper audience, reach and retention signals…" else "More audience details aren't ready yet. Your main results are available.",
                     color = MutedText,
                     fontSize = 8.6.sp,
                     lineHeight = 13.sp,
                 )
                 Spacer(Modifier.height(7.dp))
-                Text("Traffic waiting  ·  Audience waiting  ·  Devices waiting  ·  Geography waiting  ·  Retention waiting  ·  Reach waiting", color = MutedText.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
+                Text("More audience details are on the way.", color = MutedText.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -102,9 +102,9 @@ internal fun V20InsightsFoundationCard(
         Column(Modifier.padding(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("CHANNEL SIGNALS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Text("AUDIENCE INSIGHTS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(3.dp))
-                    Text("What your audience is telling you", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                    Text("Understand your audience", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
                 }
                 if (loading) {
                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = MutedGold)
@@ -139,13 +139,13 @@ internal fun V20InsightsFoundationCard(
 
             if (foundation.metricContract.crossesPublicViewBoundary) {
                 Spacer(Modifier.height(8.dp))
-                Text("YouTube changed how some views are counted. Backlot handles older comparisons carefully.", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
+                Text("YouTube's view-counting rules changed. Older numbers may not compare directly.", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
             }
 
             Spacer(Modifier.height(8.dp))
             when {
                 reach == YouTubeDatasetState.READY && reachSummary != null -> {
-                    Text("THUMBNAIL REACH", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text("THUMBNAIL VIEWS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Text(
                         "${compactFoundation(reachSummary.impressions)} impressions · ${String.format(java.util.Locale.US, "%.1f", reachSummary.ctrPercent)}% CTR",
                         color = ProjectorIvory,
@@ -160,13 +160,13 @@ internal fun V20InsightsFoundationCard(
                     lineHeight = 12.sp,
                 )
                 reach == YouTubeDatasetState.UNAVAILABLE -> Text(
-                    reachHealth?.note ?: "Reach reporting is unavailable right now. Normal Insights still works.",
+                    reachHealth?.note ?: "Reach data isn't available right now. Other results still work.",
                     color = MutedText,
                     fontSize = 8.1.sp,
                     lineHeight = 12.sp,
                 )
                 reach == YouTubeDatasetState.NOT_CONFIGURED -> Text(
-                    "Reach will appear after YouTube finishes its first reach report.",
+                    "Reach data will appear when YouTube provides it.",
                     color = MutedText,
                     fontSize = 8.1.sp,
                     lineHeight = 12.sp,
