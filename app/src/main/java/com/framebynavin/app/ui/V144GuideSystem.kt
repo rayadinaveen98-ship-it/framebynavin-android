@@ -209,8 +209,8 @@ internal fun V144GuidePicker() {
     Column(Modifier.fillMaxWidth()) {
         Text("GUIDE CHARACTER", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Choose who stays with you.", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("Every guide keeps its own visual identity in every Backlot theme.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("Spark, your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("One lively guide, ready whenever you create.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(10.dp))
 
         V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
@@ -219,7 +219,7 @@ internal fun V144GuidePicker() {
                     val active = guide == selected
                     val identity = v144GuideIdentityColor(guide)
                     Surface(
-                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) },
+                        modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(18.dp),
                         color = if (active) CinemaSurfaceRaised else CinemaSurface,
                         border = BorderStroke(1.2.dp, if (active) identity else CinemaLine),
