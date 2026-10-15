@@ -88,8 +88,8 @@ internal fun V17AutomationCenterScreen(
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("Let Backlot handle repeat work.", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-            Text("Backlot can plan and remind. You still control publishing and deletion.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
+            Text("Plan ahead, automatically", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
+            Text("Backlot can plan and remind you. It won't post or delete your work.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
 
             Spacer(Modifier.height(20.dp))
             Text("AUTO PLAN", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -147,8 +147,8 @@ internal fun V17AutomationCenterScreen(
             }
 
             Spacer(Modifier.height(18.dp))
-            Text("AUTOMATIC HELP", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text("Turn on proactive project help, then Backlot checks your active work in the background.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+            Text("EXTRA REMINDERS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("Get reminders when a project needs attention.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
             Spacer(Modifier.height(9.dp))
             V17StatusRow(
                 icon = Icons.Outlined.Share,
@@ -179,8 +179,8 @@ internal fun V17AutomationCenterScreen(
             )
 
             Spacer(Modifier.height(20.dp))
-            Text("REGULAR CHECK-INS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text("Choose the regular reminders you want from Backlot.", color = MutedText, fontSize = 9.sp)
+            Text("REGULAR REMINDERS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("Choose when Backlot reminds you.", color = MutedText, fontSize = 9.sp)
             Spacer(Modifier.height(9.dp))
             V17RoutineRow(
                 title = "Daily Brief",
@@ -222,7 +222,7 @@ internal fun V17AutomationCenterScreen(
                     Spacer(Modifier.width(10.dp))
                     Column {
                         Text("You stay in control", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        Text("Backlot can plan and remind. It will never publish or delete anything without you.", color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
+                        Text("Backlot won't post or delete anything for you.", color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
                     }
                 }
             }
@@ -267,8 +267,8 @@ private fun V17AutomaticHelpRow(
                     Text("Helpful reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                     Text(
                         when {
-                            !notificationsReady -> "Notification permission is off · enable it in Backlot Settings for alerts"
-                            enabled -> "On · Backlot checks active projects and warns you when something needs attention"
+                            !notificationsReady -> "Turn on notifications in Settings to get alerts."
+                            enabled -> "On · Get alerts when active projects need attention"
                             else -> "Off · enable proactive project checks"
                         },
                         color = MutedText,
@@ -292,7 +292,7 @@ private fun V17AutomaticHelpRow(
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(onClick = onCheckNow) {
-                        Text("CHECK NOW", color = RecRed, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                        Text("CHECK PROJECTS", color = RecRed, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
                     }
                 }
             }
