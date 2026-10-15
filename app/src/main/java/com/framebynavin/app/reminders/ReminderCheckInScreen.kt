@@ -161,7 +161,7 @@ internal fun ReminderCheckInScreen(
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
                     Text(
-                        text = "SUGGESTED ACTION",
+                        text = "UP NEXT",
                         color = accent,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Black,
@@ -210,7 +210,7 @@ internal fun ReminderCheckInScreen(
                 ) {
                     Icon(Icons.Outlined.Check, null)
                     Spacer(Modifier.size(7.dp))
-                    Text("STAGE DONE", fontWeight = FontWeight.Black)
+                    Text("STEP DONE", fontWeight = FontWeight.Black)
                 }
                 Spacer(Modifier.height(7.dp))
             }
@@ -224,7 +224,7 @@ internal fun ReminderCheckInScreen(
             ) {
                 Icon(Icons.Outlined.Work, null, tint = accent)
                 Spacer(Modifier.size(7.dp))
-                Text("I'M WORKING ON IT", color = BacklotPrimaryText, fontWeight = FontWeight.Bold)
+                Text("I'M ON IT", color = BacklotPrimaryText, fontWeight = FontWeight.Bold)
             }
 
             Spacer(Modifier.height(7.dp))
@@ -284,7 +284,7 @@ internal fun ReminderCheckInScreen(
                     }
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("DISMISS FOR NOW", color = BacklotSecondaryText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("NOT NOW", color = BacklotSecondaryText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
