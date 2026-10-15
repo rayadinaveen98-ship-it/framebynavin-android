@@ -120,7 +120,7 @@ internal fun V144IdeaReminderPicker(
     ) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 11.dp)) {
             Text(
-                "IDEA NUDGE",
+                "IDEA REMINDER",
                 color = MutedGold,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Black,
@@ -146,7 +146,7 @@ internal fun V144IdeaReminderPicker(
             Spacer(Modifier.height(5.dp))
             Text(
                 if (cadence == IdeaReminderCadence.DAILY && reminderAtMillis > now)
-                    "Daily repeats until you stop it, archive it, or turn it into a project."
+                    "Reminds you daily until you turn it off or use the idea."
                 else
                     "3h, 6h, Tomorrow and Custom send one nudge only.",
                 color = MutedText,
