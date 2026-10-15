@@ -39,8 +39,14 @@ class V151LaunchGateTest {
     }
 
     @Test
+    fun completedProfileDoesNotRepeatCreatorSetup() {
+        assertFalse(V151SetupPolicy.needsCreatorSetup(onboardingComplete = true, profileComplete = true))
+    }
+
+    @Test
     fun audioAndVisualTimelineShareOneDuration() {
         assertTrue(WelcomeSonicIdent.TOTAL_DURATION_MS > 0L)
+        assertTrue(WelcomeSonicIdent.SAMPLE_RATE > 0L)
         assertTrue(WelcomeSonicIdent.SETTLE_START_MS < WelcomeSonicIdent.TOTAL_DURATION_MS)
         assertTrue(WelcomeSonicIdent.UNDERLINE_START_MS < WelcomeSonicIdent.UNDERLINE_END_MS)
     }
