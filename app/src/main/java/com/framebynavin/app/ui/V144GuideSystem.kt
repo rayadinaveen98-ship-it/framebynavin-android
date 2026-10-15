@@ -42,15 +42,13 @@ enum class V144GuideIdentity(val displayName: String, val description: String) {
     // Kept only as compatibility values for older persisted installs. They are no longer selectable.
     FRAME("Frame", "Simple. Expressive. Always with you."),
     NAVI("Navi", "Curious. Calm. Creative."),
-    FUNNY("Funny", "Witty. Expressive. Never too serious."),
+    // Keep the persisted enum key FUNNY to migrate V151 installations without erasing preferences.
+    FUNNY("Spark", "Lively. Creative. Always moving forward."),
     CUTE("Cute", "Warm. Gentle. Always encouraging."),
 }
 
 /** Active roster until the next two approved raster guides are designed. */
-internal val V145SelectableGuides = listOf(
-    V144GuideIdentity.FUNNY,
-    V144GuideIdentity.CUTE,
-)
+internal val V145SelectableGuides = listOf(V144GuideIdentity.FUNNY)
 
 internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? {
     val parsed = value?.let { saved ->
@@ -58,7 +56,7 @@ internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? {
     } ?: return null
     return when (parsed) {
         V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
-        V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> parsed
+        V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> V144GuideIdentity.FUNNY
     }
 }
 
@@ -74,7 +72,7 @@ object V144GuidePrefs {
     var selectedGuide by mutableStateOf<V144GuideIdentity?>(null)
         private set
 
-    val hasSelection: Boolean get() = selectedGuide != null
+    val hasSelection: Boolean get() = true // Spark is automatic; no first-run character gate.
     val currentGuide: V144GuideIdentity get() = selectedGuide ?: V144GuideIdentity.FUNNY
 
     fun initialize(context: Context) {
@@ -92,7 +90,7 @@ object V144GuidePrefs {
     fun select(guide: V144GuideIdentity) {
         val normalized = when (guide) {
             V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
-            V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> guide
+            V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> V144GuideIdentity.FUNNY
         }
         selectedGuide = normalized
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
