@@ -326,9 +326,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 )
                 PTab.IDEAS -> V09IdeaVaultScreen(
                     ideas = vm.ideas,
+                    deletedIdeas = vm.deletedIdeas,
                     onClose = null,
                     onSave = vm::saveIdea,
                     onDelete = vm::deleteIdea,
+                    onRestore = vm::restoreIdea,
                     onArchive = vm::archiveIdea,
                     onConvert = { ideaId, platform, format, dueAtMillis ->
                         val projectId = vm.convertIdeaToProject(ideaId, platform, format, dueAtMillis)

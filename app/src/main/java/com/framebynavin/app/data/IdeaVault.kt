@@ -91,7 +91,10 @@ data class CreatorIdea(
     val transcriptionState: IdeaTranscriptionState = IdeaTranscriptionState.NOT_REQUESTED,
     val transcriptionError: String = "",
     val tags: List<String> = emptyList(),
+    /** 0 for active records. A non-zero timestamp is a reversible deletion marker. */
+    val trashedAtMillis: Long = 0L,
 ) {
+    val isTrashed: Boolean get() = trashedAtMillis > 0L
     val hasOriginalRecording: Boolean
         get() = captureType == IdeaCaptureType.VOICE && audioLocalPath.isNotBlank()
 }

@@ -13,7 +13,8 @@ object IdeaReminderPolicy {
     const val UNDELIVERED_ONE_SHOT_RETRY_MILLIS = 15L * 60_000L
 
     fun isActionable(idea: CreatorIdea): Boolean =
-        idea.reminderAtMillis > 0L &&
+        !idea.isTrashed &&
+            idea.reminderAtMillis > 0L &&
             idea.status != IdeaStatus.CONVERTED &&
             idea.status != IdeaStatus.ARCHIVED &&
             idea.projectTaskId.isBlank()
