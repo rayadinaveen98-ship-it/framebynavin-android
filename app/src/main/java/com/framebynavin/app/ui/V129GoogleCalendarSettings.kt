@@ -38,13 +38,30 @@ internal object CreatorCalendarSync {
     private const val KEY_CALENDAR_ID = "calendar_id"
     private const val EVENT_PREFIX = "event_"
     private const val KEY_LAST_SUCCESS = "last_success_at"
+    private const val KEY_S1_CONSENT = "export_consent_s1"
 
     fun hasPermission(context: Context): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED
 
-    fun isEnabled(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
-    fun setEnabled(context: Context, enabled: Boolean) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, enabled).apply()
+    fun isEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        // Older versions might have chosen a calendar automatically. Require fresh
+        // explicit consent before any further export after upgrading to S1.
+        return prefs.getBoolean(KEY_ENABLED, false) && prefs.getBoolean(KEY_S1_CONSENT, false)
+    }
+    fun setEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_ENABLED, enabled)
+            .apply()
+    }
+    fun consentToExport(context: Context) {
+        val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_S1_CONSENT, true)
+            .putBoolean(KEY_ENABLED, true)
+            .commit()
+        check(saved) { "Calendar consent could not be saved." }
+    }
     fun selectedCalendarId(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_CALENDAR_ID, -1L)
     fun lastSuccessAt(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_LAST_SUCCESS, 0L)
     fun selectCalendar(context: Context, id: Long) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(KEY_CALENDAR_ID, id).apply()
@@ -334,9 +351,14 @@ internal fun V129GoogleCalendarSettings(tasks: List<CreatorTask>) {
             confirmButton = {
                 Button(onClick = {
                     confirmEnable = false
-                    CreatorCalendarSync.setEnabled(context, true)
-                    enabled = true
-                    startSync()
+                    runCatching {
+                        CreatorCalendarSync.consentToExport(context)
+                    }.onSuccess {
+                        enabled = true
+                        startSync()
+                    }.onFailure {
+                        message = "Calendar permission choice could not be saved."
+                    }
                 }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("ENABLE & SYNC") }
             },
             dismissButton = {
