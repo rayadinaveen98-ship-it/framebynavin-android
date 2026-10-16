@@ -17,6 +17,7 @@
 ### Never delete existing weekly projects implicitly
 - Changing Weekly Auto Plan from on to off **stops future generation only**.
 - App startup/reload with Auto Plan off must not delete pending recurring projects.
+- Retired legacy weekly-slot IDs must never cause deletion of existing creator-owned projects.
 - Disabling/deleting/resetting a schedule slot never deletes any project from that slot.
 - Every generated project is a snapshot owned by the creator: editing the weekly template must not silently modify that project's title, due date, format, priority, custom notes, state, or reminder.
 - Next generations use the latest slot template. Manual project edits remain authoritative.
