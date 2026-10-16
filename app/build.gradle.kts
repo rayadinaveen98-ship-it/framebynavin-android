@@ -54,8 +54,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Backlot V150 Pilot & Product Focus candidate.
-        versionCode = 155
-        versionName = "2.0.5-v155-reminder-reliability-r1-preview"
+        versionCode = 156
+        versionName = "2.0.6-v156-simplified-reminder-setup-r2-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
