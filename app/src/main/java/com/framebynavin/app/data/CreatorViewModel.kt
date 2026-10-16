@@ -742,7 +742,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun deleteTask(id: String) = deleteTasks(setOf(id))
 
     fun saveIdea(idea: CreatorIdea): String? {
-        if (idea.title.isBlank()) return null
+        if (writeError != null || idea.title.isBlank()) return null
         val now = System.currentTimeMillis()
         // A stale editor must not silently resurrect an item in Recently Deleted.
         if (idea.isTrashed || deletedIdeas.any { it.id == idea.id }) return null
@@ -769,6 +769,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     /** Move to Recently Deleted; never delete an original recording or linked project. */
     fun deleteIdea(id: String) {
+        if (writeError != null) return
         val record = ideas.firstOrNull { it.id == id } ?: return
         val now = System.currentTimeMillis().coerceAtLeast(1L)
         ideas.removeAll { it.id == id }
@@ -783,6 +784,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     /** Restores the exact idea, original voice path and prior project link. */
     fun restoreIdea(id: String) {
+        if (writeError != null) return
         val record = deletedIdeas.firstOrNull { it.id == id } ?: return
         if (ideas.any { it.id == id }) return
         deletedIdeas.removeAll { it.id == id }
@@ -803,6 +805,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun convertIdeaToProject(id: String, platform: String, contentType: String, dueAtMillis: Long): String? {
+        if (writeError != null) return null
         val ideaIndex = ideas.indexOfFirst { it.id == id }
         if (ideaIndex == -1) return null
         val idea = ideas[ideaIndex]
