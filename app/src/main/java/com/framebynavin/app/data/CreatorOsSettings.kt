@@ -250,6 +250,24 @@ class CreatorOsSettingsStore(context: Context) {
         prefs.edit().putProfile(profile).apply()
     }
 
+    /**
+     * Settings editor is not onboarding. Save only the profile fields, synchronously
+     * and verifiably, leaving account/onboarding gates and all project data untouched.
+     */
+    fun saveCreatorProfileEdits(value: CreatorProfile): Boolean {
+        val profile = value.normalized()
+        if (!profile.isComplete) return false
+        if (!prefs.edit().putProfile(profile).commit()) return false
+        val confirmed = snapshot().creatorProfile
+        return confirmed.resolvedPrimaryCreatorMode == profile.resolvedPrimaryCreatorMode &&
+            confirmed.platforms == profile.platforms &&
+            confirmed.primaryGoal == profile.primaryGoal &&
+            confirmed.secondaryCreatorModes == profile.secondaryCreatorModes &&
+            confirmed.secondaryGoals == profile.secondaryGoals &&
+            confirmed.productionStyles == profile.productionStyles &&
+            confirmed.weeklyPublishingTarget == profile.weeklyPublishingTarget
+    }
+
     fun setDefaultVoicePersona(value: VoicePersona) {
         prefs.edit().putString(KEY_DEFAULT_VOICE, value.name).apply()
     }
