@@ -42,7 +42,9 @@ class WeeklyScheduleStore(private val context: Context) {
         }
         val cleaned = decoded.filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
         val migrated = cleaned.map(WeeklyScheduleEngine::migratePresetSlot)
-        val resolved = if (migrated.isEmpty()) WeeklyScheduleEngine.defaultSlots() else migrated
+        // Only a genuinely new install (raw == null above) receives starter slots.
+        // An existing empty list is intentional and must survive restarts and restores.
+        val resolved = migrated
         if (resolved != decoded) {
             mutationMutex.withLock { saveUnlocked(resolved) }
         }
