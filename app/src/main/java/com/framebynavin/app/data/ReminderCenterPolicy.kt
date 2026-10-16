@@ -76,10 +76,13 @@ object ReminderCenterPolicy {
 
     fun nextSnoozeAt(task: CreatorTask, nowMillis: Long, minutes: Int): Long? {
         if (minutes !in 1..120) return null
-        val candidate = nowMillis + minutes * MINUTE
+        // Snoozing an upcoming reminder postpones its planned alert. For a
+        // reminder that already passed, snooze forward from the present.
+        val original = maxOf(nowMillis, task.reminderAtMillis)
+        val candidate = original + minutes * MINUTE
         val limit = task.dueAtMillis.takeIf { it > nowMillis }
         val at = if (limit == null) candidate else minOf(candidate, limit)
-        return at.takeIf { it > nowMillis }
+        return at.takeIf { it > original }
     }
 
     fun canPause(task: CreatorTask, nowMillis: Long): Boolean =
