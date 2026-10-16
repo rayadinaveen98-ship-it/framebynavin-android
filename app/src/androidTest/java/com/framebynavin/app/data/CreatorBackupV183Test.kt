@@ -123,7 +123,7 @@ class CreatorBackupV183Test {
             // must not leak into the legacy test payload even though v3 validation ignores unknown keys.
             listOf(
                 "personalFrames", "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
-                "projectPulseHistory", "workflowStageTimeline", "postPublish", "rewards", "smartEscalationConfig",
+                "projectPulseHistory", "workflowStageTimeline", "automationPreferences", "postPublish", "rewards", "smartEscalationConfig",
             ).forEach(root::remove)
             val legacy = resign(root)
             assertEquals(3, manager.validate(legacy).schemaVersion)
