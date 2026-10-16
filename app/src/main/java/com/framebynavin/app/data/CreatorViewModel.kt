@@ -975,8 +975,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun resetWeeklySchedule() {
+        // Only reached after an explicit UI confirmation; existing creator-owned
+        // projects are never edited or deleted by a template reset.
+        val template = CreatorWeeklyPresetPolicy.previewFor(settingsStore.snapshot().creatorProfile)
         weeklySlots.clear()
-        weeklySlots.addAll(WeeklyScheduleEngine.defaultSlots())
+        weeklySlots.addAll(template)
         persistWeeklySlots()
         if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal()
     }
