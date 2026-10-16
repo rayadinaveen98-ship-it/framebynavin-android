@@ -100,6 +100,8 @@ PORTABLE="app/src/main/java/com/framebynavin/app/data/PortableCreatorBackupManag
 ! grep -Fq 'syncScheduledTask(' "$VM"
 grep -Fq 'if (enabled) syncWeeklyScheduleInternal()' "$VM"
 grep -Fq 'val resolved = migrated' "$WEEK_STORE"
+! grep -Fq '.filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }' "$WEEK_STORE"
+grep -Fq 'customizedLegacyWeeklySlotIsNeverSilentlyDropped' app/src/androidTest/java/com/framebynavin/app/data/V160QuickActionsSafetyInstrumentedTest.kt
 grep -Fq 'const val SCHEMA_VERSION = 9' "$BACKUP"
 grep -Fq '.put("automationPreferences", requireNotNull(snapshot.automationPrefsJson))' "$BACKUP"
 grep -Fq 'PortableVoiceExportPolicy.requireReadableOwnedRecording(' "$PORTABLE"
