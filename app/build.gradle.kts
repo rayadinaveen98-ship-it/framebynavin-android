@@ -54,8 +54,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Backlot V150 Pilot & Product Focus candidate.
-        versionCode = 162
-        versionName = "2.1.2-v162-idea-vault-p3-preview"
+        versionCode = 163
+        versionName = "2.1.3-v163-daily-brief-calendar-p4-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
