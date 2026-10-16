@@ -94,7 +94,7 @@ internal fun V144SettingsHub(
                 V144CategoryCard("Spark", "Your creative companion", Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
                 }
-                V144CategoryCard("Voice", "Default voice for your projects", Icons.Outlined.RecordVoiceOver, RecRed) {
+                V144CategoryCard("Voice", "Reminder voice and previews", Icons.Outlined.RecordVoiceOver, RecRed) {
                     sectionName = V167SettingsSection.VOICE.name
                 }
                 V144SettingsNote("These choices change how Backlot looks and sounds. Existing projects stay unchanged.")
