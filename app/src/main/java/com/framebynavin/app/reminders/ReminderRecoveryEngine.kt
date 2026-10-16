@@ -53,18 +53,36 @@ object ReminderRecoveryEngine {
         }
 
         if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) {
-            scheduler.cancel(task.id)
-            smart.recover(task)
+            // Do not use cancel(): it invalidates an active Smart action token and
+            // stops an already speaking/ringing surface on every app resume.
+            scheduler.cancelPendingOnly(task.id)
+            if (task.reminderAtMillis <= nowMillis) {
+                // After the final Smart target we must not restart escalation.
+                // On first catch-up, retire an old live Smart stage; after a
+                // recovered notification is shown, preserve its action token
+                // on every subsequent app resume/reboot reconciliation.
+                val alreadyRecovered = AlarmLedger(appContext)
+                    .wasDelivered(task.id, task.reminderAtMillis)
+                if (alreadyRecovered) smart.cancelPendingOnly(task.id)
+                else smart.cancel(task.id)
+                MissedReminderRecovery.deliverTaskIfNeeded(appContext, task, nowMillis)
+            } else {
+                smart.recover(task)
+            }
             return
         }
 
-        smart.cancel(task.id)
+        // Remove obsolete Smart alarm stages without invalidating a regular
+        // notification's current action token.
+        smart.cancelPendingOnly(task.id)
         if (task.reminderAtMillis > nowMillis) {
             // Reusing the same PendingIntent identity replaces/reasserts the existing alarm;
             // it does not create a second independently firing alarm.
             scheduler.schedule(task)
         } else {
-            scheduler.cancel(task.id)
+            // A one-shot alert may already be on screen. Clearing its entire
+            // task occurrence here makes visible Snooze/Dismiss buttons stale.
+            scheduler.cancelPendingOnly(task.id)
             MissedReminderRecovery.deliverTaskIfNeeded(appContext, task, nowMillis)
         }
     }

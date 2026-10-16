@@ -89,6 +89,16 @@ class ReminderScheduler(private val context: Context) {
         }
     }
 
+    /**
+     * Reconciliation-only cleanup of an obsolete regular PendingIntent.
+     * Do not invalidate an active Smart occurrence or stop a voice/alarm surface:
+     * recovery is not a creator-requested cancellation.
+     */
+    fun cancelPendingOnly(taskId: String) {
+        existingPendingIntent(taskId)?.let { alarmManager.cancel(it) }
+        ledger.clear(taskId)
+    }
+
     fun cancel(taskId: String) {
         ReminderOccurrenceStore(context).invalidate(taskId)
         ReminderSurfaceRegistry.closeTask(taskId)

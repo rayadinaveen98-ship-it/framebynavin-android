@@ -552,6 +552,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onNew = { showReminders = false; openComposer() },
             onEdit = { id -> showReminders = false; openComposer(id) },
             onDeleteReminders = vm::cancelReminders,
+            onOpenReminderSettings = { showReminders = false; overlay = POverlay.SETTINGS },
         )
     }
 
