@@ -270,15 +270,59 @@ internal fun V09IdeaVaultScreen(
         )
     }
 
+    deletePending?.let { idea ->
+        AlertDialog(
+            onDismissRequest = { deletePending = null },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Move to Recently Deleted?", color = ProjectorIvory) },
+            text = { Text("You can restore this idea later. Its original recording and linked project are kept.", color = MutedText) },
+            confirmButton = {
+                Button(
+                    onClick = { onDelete(idea.id); deletePending = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                ) { Text("MOVE IDEA") }
+            },
+            dismissButton = { TextButton(onClick = { deletePending = null }) { Text("CANCEL") } },
+        )
+    }
+
     converting?.let { idea ->
         V09ConvertIdeaDialog(
             idea = idea,
-            onDismiss = { converting = null },
+            onDismiss = { converting = null; conversionFailed = false },
+            conversionFailed = conversionFailed,
             onConvert = { platform, format, due ->
-                onConvert(idea.id, platform, format, due)
-                converting = null
+                val projectId = onConvert(idea.id, platform, format, due)
+                if (projectId != null) { converting = null; conversionFailed = false }
+                else conversionFailed = true
             },
         )
+    }
+}
+
+@Composable
+private fun V162DeletedIdeaCard(idea: CreatorIdea, onRestore: () -> Unit) {
+    Surface(
+        color = CinemaSurfaceRaised,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, CinemaLine),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(idea.title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text(buildString {
+                append(IdeaVaultLabels.status(idea.status))
+                if (idea.hasOriginalRecording) append(" · Voice saved")
+                if (idea.projectTaskId.isNotBlank()) append(" · Project linked")
+            }, color = MutedText, fontSize = 11.sp)
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onRestore,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+            ) { Text("RESTORE IDEA") }
+        }
     }
 }
 
@@ -849,6 +893,7 @@ private fun V09IdeaEditor(
 private fun V09ConvertIdeaDialog(
     idea: CreatorIdea,
     onDismiss: () -> Unit,
+    conversionFailed: Boolean,
     onConvert: (String, String, Long) -> Unit,
 ) {
     val context = LocalContext.current
@@ -915,6 +960,10 @@ private fun V09ConvertIdeaDialog(
                 }
                 Spacer(Modifier.height(8.dp))
                 Text("We'll open your new project so you can start working.", color = MutedText, fontSize = 9.3.sp)
+                if (conversionFailed) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Conversion did not complete. Check the linked project or reload saved data before retrying.", color = RecRed, fontSize = 11.sp)
+                }
             }
         },
         confirmButton = {
