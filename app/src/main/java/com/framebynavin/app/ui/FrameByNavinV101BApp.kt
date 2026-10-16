@@ -595,13 +595,19 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         V14QuickCaptureDialog(
             onDismiss = { showQuickCapture = false },
             onSave = { idea ->
-                vm.saveIdea(idea)
-                showQuickCapture = false
-                routeJourney(V18CreatorJourney.afterCapture())
-                if (guidedTourStepName == CreatorGuidedTourStep.IDEAS.name) {
-                    externalStudioId = null
-                    tab = PTab.CREATE
-                    guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                val savedId = vm.saveIdea(idea)
+                if (savedId == null) {
+                    false // Quick Capture retains all text and any original audio.
+                } else {
+                    showQuickCapture = false
+                    routeJourney(V18CreatorJourney.afterCapture())
+                    Toast.makeText(context, "Saved to Idea Vault", Toast.LENGTH_SHORT).show()
+                    if (guidedTourStepName == CreatorGuidedTourStep.IDEAS.name) {
+                        externalStudioId = null
+                        tab = PTab.CREATE
+                        guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                    }
+                    true
                 }
             },
         )
