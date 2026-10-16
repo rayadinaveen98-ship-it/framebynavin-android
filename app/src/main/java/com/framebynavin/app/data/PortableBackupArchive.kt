@@ -60,6 +60,7 @@ internal object PortableBackupArchive {
                 val idHash = sha256(item.ideaId.toByteArray(Charsets.UTF_8)).take(16)
                 val entryName = "${MEDIA_PREFIX}media-$index-$idHash.m4a"
                 val digest = MessageDigest.getInstance("SHA-256")
+                val sizeBeforeCopy = item.file.length()
                 var byteCount = 0L
 
                 zip.putNextEntry(ZipEntry(entryName))
@@ -75,6 +76,9 @@ internal object PortableBackupArchive {
                         digest.update(buffer, 0, read)
                         zip.write(buffer, 0, read)
                     }
+                }
+                require(byteCount == sizeBeforeCopy) {
+                    "Voice recording changed while the backup was being written"
                 }
                 zip.closeEntry()
 
