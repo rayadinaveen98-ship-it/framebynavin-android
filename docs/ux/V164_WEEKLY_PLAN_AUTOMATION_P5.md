@@ -23,5 +23,5 @@ Base: V163 phase 4 (`7635ff3539d93f4df37df9fe440700b1a7d3287d`). Preview only, n
 
 ## Deliberate limits
 - Preview describes eligible future slots. Android WorkManager may not run immediately.
-- Existing WeeklyScheduleEngine's generator horizon is retained; the preview filters to exactly 14 local calendar days. This may differ for a boundary-day slot until later engine harmonization.
+- WeeklyScheduleEngine now interprets an N-day horizon as N local dates (today through N-1), aligning the generator with its read-only preview. Existing projects remain unchanged.
 - Preset titles for general creators are generic and are freely editable.
