@@ -257,8 +257,9 @@ internal fun V129GoogleCalendarSettings(tasks: List<CreatorTask>) {
                             else "Off · your existing calendar entries stay in place.",
                             color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
                     }
-                    if (granted && calendars.isNotEmpty()) {
-                        Switch(
+                    // Always allow turning sync OFF, even if permission was revoked
+                    // or the formerly selected calendar is no longer available.
+                    Switch(
                             checked = enabled,
                             enabled = !working,
                             onCheckedChange = { value ->
@@ -272,8 +273,7 @@ internal fun V129GoogleCalendarSettings(tasks: List<CreatorTask>) {
                                 }
                             },
                             colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
-                        )
-                    }
+                    )
                 }
                 Spacer(Modifier.height(10.dp))
                 Text("Only project titles, deadlines, platform and format are exported. Private notes and reminder details are never copied. Backlot reminders work separately.",
