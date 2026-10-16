@@ -141,6 +141,17 @@ internal fun V09IdeaVaultScreen(
                     Text("IDEAS", color = MutedGold, fontSize = 9.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
                     Text("Save it now. Make it later.", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
+                TextButton(onClick = {
+                    showDeleted = !showDeleted
+                    if (showDeleted) {
+                        statusFilter = null
+                        categoryFilter = null
+                        captureFilter = null
+                    }
+                }) {
+                    Text(if (showDeleted) "ALL IDEAS" else "DELETED (${deletedIdeas.size})",
+                        color = MutedGold, fontSize = 10.sp)
+                }
                 IconButton(onClick = { creating = true }) {
                     Icon(Icons.Outlined.Add, "New idea", tint = ProjectorIvory)
                 }
@@ -255,7 +266,7 @@ internal fun V09IdeaVaultScreen(
             onDismiss = { creating = false },
             onSave = { draft ->
                 val accepted = onSave(draft) != null
-                if (accepted) creating = false
+                if (accepted) { creating = false; showDeleted = false }
                 accepted
             },
             existingIdeas = ideas,
