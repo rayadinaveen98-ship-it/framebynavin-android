@@ -22,6 +22,26 @@ import org.junit.runner.RunWith
 class V160QuickActionsSafetyInstrumentedTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
+    @Test fun customizedLegacyWeeklySlotIsNeverSilentlyDropped(): Unit = runBlocking {
+        HardeningTestEnvironment.requireCiEmulator()
+        val store = WeeklyScheduleStore(context)
+        val original = store.exportJson()
+        val customLegacy = WeeklyScheduleSlot(
+            id = "sun_flagship", title = "My own legacy Sunday production",
+            dayOfWeek = java.time.DayOfWeek.SUNDAY,
+            hour = 14, minute = 15,
+            platform = "YouTube", contentType = "Long-form",
+            enabled = false, reminderMode = ReminderMode.NONE,
+        )
+        try {
+            store.save(listOf(customLegacy))
+            assertEquals(listOf(customLegacy), store.loadOrSeed())
+            assertEquals(listOf(customLegacy), store.loadOrSeed())
+        } finally {
+            store.importJson(original)
+        }
+    }
+
     @Test fun intentionallyEmptyWeeklyScheduleSurvivesReloadAndExport(): Unit = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val store = WeeklyScheduleStore(context)
