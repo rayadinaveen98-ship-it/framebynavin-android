@@ -296,10 +296,16 @@ internal fun V144SettingsHub(
                 Spacer(Modifier.height(9.dp))
                 V144ActionCard(
                     title = "Local Data & Backup",
-                    subtitle = "Projects, reminders, ideas, weekly plan and settings.",
+                    subtitle = "Export your work and recordings; see recovery copies.",
                     icon = Icons.Outlined.SaveAlt,
                     accent = MutedGold,
                     onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
+                )
+                Spacer(Modifier.height(12.dp))
+                V144SettingsNote(
+                    "A portable backup includes projects, ideas and supported voice recordings, reminder preferences and the weekly plan. " +
+                        "It does not export Google sign-in, cloud tokens, phone Calendar connection, app icon, launch sound or theme selection. " +
+                        "Exported backup files are not encrypted: keep them private."
                 )
             }
 
