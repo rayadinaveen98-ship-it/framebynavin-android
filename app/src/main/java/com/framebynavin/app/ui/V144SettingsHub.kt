@@ -107,7 +107,7 @@ internal fun V144SettingsHub(
             V167SettingsSection.GUIDE -> V144SettingsPage("SPARK", "Your creative companion", ::navigateBack) {
                 V144GuidePicker()
                 Spacer(Modifier.height(12.dp))
-                V144SettingsNote("Spark is your creative companion throughout Backlot. There's nothing to set up.")
+                V144SettingsNote("Choose the companion you want to see in Backlot. This changes your experience, not your saved work.")
             }
 
             V167SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", ::navigateBack) {
@@ -118,9 +118,8 @@ internal fun V144SettingsHub(
                 )
                 Spacer(Modifier.height(8.dp))
                 V144SettingsNote(
-                    "New projects use this voice; you can change it per project. " +
-                        "Speech uses your phone's language. If its speech data is unavailable, " +
-                        "Backlot attempts a normal notification instead."
+                    "This voice is the default for new project reminders. Existing projects keep their own voice choice. " +
+                        "Preview uses your phone's text-to-speech options; results vary by device and installed languages."
                 )
             }
 
