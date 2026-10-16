@@ -33,6 +33,7 @@ import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.reminders.ReminderActionSafety
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.reminders.ReminderScheduler
+import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -325,6 +326,8 @@ private fun V157ReminderGroup(
     onTurnOff: (String) -> Unit,
 ) {
     if (tasks.isEmpty()) return
+    val context = LocalContext.current
+    val smartConfig = remember(context) { SmartEscalationConfigStore(context.applicationContext) }
     Spacer(Modifier.height(22.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
@@ -338,8 +341,10 @@ private fun V157ReminderGroup(
         val chosen = task.id in selected
         val pulse = ProjectPulseEngine.snapshot(task, now)
         val actionable = ReminderActionSafety.isActionable(task)
-        val canSnooze = actionable && onSnooze != null &&
-            ReminderCenterPolicy.nextSnoozeAt(task, now, snoozeMinutes) != null
+        val snoozeAt = ReminderCenterPolicy.nextSnoozeAt(task, now, snoozeMinutes)
+        val smartWindowReady = snoozeAt != null &&
+            ReminderCenterPolicy.validTargetWindow(task, now, snoozeAt, smartConfig.get(task))
+        val canSnooze = actionable && onSnooze != null && smartWindowReady
         val canReschedule = actionable && onReschedule != null
         val canPause = onPause != null && ReminderCenterPolicy.canPause(task, now)
         var optionsOpen by remember(task.id) { mutableStateOf(false) }
@@ -458,10 +463,11 @@ private fun V157ReminderGroup(
                     if (task.reminderMode == ReminderMode.SMART) {
                         Spacer(Modifier.height(5.dp))
                         Text(
-                            "Snoozing moves the final Smart reminder time.",
+                            if (!smartWindowReady) "Smart escalation needs more time. Choose a later time."
+                            else "Snoozing moves the final Smart reminder time.",
                             color = MutedText,
-                            fontSize = 10.sp,
-                            lineHeight = 14.sp,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
                         )
                     }
                 }
