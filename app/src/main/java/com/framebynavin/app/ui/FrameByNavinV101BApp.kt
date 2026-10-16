@@ -106,6 +106,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
+    var quickCreateRequested by rememberSaveable { mutableStateOf(false) }
     var publicationTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -192,8 +193,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         runCatching { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
             .onFailure { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") }) }
     }
-    fun openComposer(id: String? = null) {
+    fun openComposer(id: String? = null, quick: Boolean = false) {
         editTaskId = id
+        quickCreateRequested = id == null && quick
         showComposer = true
     }
     fun openProject(id: String) {
@@ -339,6 +341,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     externalLaunchNonce = externalLaunch?.nonce ?: 0L,
                 )
                 PTab.CREATE -> V131StudioScreen(
+                    onQuickCreate = { openComposer(quick = true) },
                     tasks = vm.tasks,
                     postPublishCheckpoints = vm.postPublishCheckpoints,
                     onAdd = { openComposer() },
@@ -572,6 +575,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         val task = editTaskId?.let { id -> vm.tasks.firstOrNull { it.id == id } }
         PProjectComposer(
             task = task,
+            startWithQuickCreate = quickCreateRequested && task == null,
             reminderSetupReady = permissions.notifications && permissions.preciseTiming && permissions.fullScreen,
             onDismiss = { showComposer = false },
             onOpenSettings = { showComposer = false; overlay = POverlay.SETTINGS },
