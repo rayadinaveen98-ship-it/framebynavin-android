@@ -101,8 +101,8 @@ class PortableCreatorBackupManager(context: Context) {
 
     private fun rewritePortableVoicePaths(raw: String, installed: Map<String, File>): String {
         val root = JSONObject(raw)
-        require(root.optInt("schemaVersion", -1) == CreatorBackupManager.SCHEMA_VERSION) {
-            "Portable voice media requires the current Backlot backup schema"
+        require(root.optInt("schemaVersion", -1) in 8..CreatorBackupManager.SCHEMA_VERSION) {
+            "Portable voice media requires a supported Backlot backup schema"
         }
         val ideas = JSONArray(root.getString("ideas"))
         val consumed = mutableSetOf<String>()
@@ -126,7 +126,7 @@ class PortableCreatorBackupManager(context: Context) {
         }
         require(consumed == installed.keys) { "Not all restored Voice Idea media was referenced" }
         root.put("ideas", ideas.toString())
-        root.put("payloadSha256", sha256(fingerprintCurrentSchema(root)))
+        root.put("payloadSha256", sha256(fingerprintSupportedSchema(root)))
         return root.toString().also(creatorBackup::validate)
     }
 
@@ -138,9 +138,12 @@ class PortableCreatorBackupManager(context: Context) {
         error("Could not allocate Voice Idea recording path")
     }
 
-    /** Must stay byte-for-byte equivalent to CreatorBackupManager's current-schema fingerprint order. */
-    private fun fingerprintCurrentSchema(root: JSONObject): String = buildString {
-        CURRENT_FINGERPRINT_KEYS.forEach { key ->
+    /** Re-sign the imported schema *without* changing its version or legacy fields. */
+    private fun fingerprintSupportedSchema(root: JSONObject): String = buildString {
+        val schema = root.getInt("schemaVersion")
+        val keys = if (schema >= 9) CURRENT_FINGERPRINT_KEYS
+            else CURRENT_FINGERPRINT_KEYS.filterNot { it == "automationPreferences" }
+        keys.forEach { key ->
             val value = root.optString(key, "")
             append(key.length).append(':').append(key).append(value.length).append(':').append(value)
         }
