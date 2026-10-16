@@ -383,7 +383,7 @@ private fun V157ReminderGroup(
                         )
                         if (task.reminderAtMillis > 0L) {
                             Text(
-                                "Next alert: ${v131Format(task.reminderAtMillis)}",
+                                "Next alert: ${pFormatDateTime(task.reminderAtMillis)}",
                                 color = if (task.reminderAtMillis <= now) RecRed else MutedGold,
                                 fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(top = 5.dp),
@@ -405,7 +405,7 @@ private fun V157ReminderGroup(
                                     DropdownMenuItem(
                                         text = { Text("Pause for 2 hours") },
                                         onClick = { optionsOpen = false; onPause?.invoke(task) },
-                                        leadingIcon = { Icon(Icons.Outlined.PauseCircleOutline, null) },
+                                        leadingIcon = { Icon(Icons.Outlined.PauseCircle, null) },
                                     )
                                 }
                                 DropdownMenuItem(
