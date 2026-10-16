@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -88,6 +89,7 @@ internal fun V156ReminderPlanPicker(
         ) {
             ProjectAttentionPlan.entries.forEach { plan ->
                 FilterChip(
+                    modifier = Modifier.testTag("reminder-plan-compact-${plan.name}"),
                     selected = selected == plan,
                     onClick = { onSelected(plan) },
                     label = { Text(V156ReminderSetupCopy.shortTitle(plan), fontSize = 12.sp) },
@@ -109,7 +111,7 @@ internal fun V156ReminderPlanPicker(
             val chosen = selected == plan
             Surface(
                 onClick = { onSelected(plan) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("reminder-plan-full-${plan.name}"),
                 shape = RoundedCornerShape(14.dp),
                 color = if (chosen) RecRed.copy(alpha = .10f) else CinemaSurface,
                 border = BorderStroke(
