@@ -67,6 +67,7 @@ import com.framebynavin.app.cloud.DriveVaultLocalStore
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.ReminderActionSafety
 import com.framebynavin.app.reminders.ReminderScheduler
+import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.widget.CreatorWidgetContract
@@ -566,8 +567,13 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 val initial = task.reminderAtMillis.takeIf { it > System.currentTimeMillis() }
                     ?: (System.currentTimeMillis() + 15 * 60_000L)
                 pPickDateTime(context, initial) { picked ->
-                    if (!ReminderCenterPolicy.validRescheduleAt(task, picked, System.currentTimeMillis())) {
+                    val now = System.currentTimeMillis()
+                    if (!ReminderCenterPolicy.validRescheduleAt(task, picked, now)) {
                         Toast.makeText(context, "Choose a time after now and before your project deadline.", Toast.LENGTH_LONG).show()
+                    } else if (!ReminderCenterPolicy.validTargetWindow(
+                            task, now, picked, SmartEscalationConfigStore(context).get(task)
+                        )) {
+                        Toast.makeText(context, "Choose a later time so Smart reminders have enough time to escalate.", Toast.LENGTH_LONG).show()
                     } else {
                         vm.rescheduleReminderFromCenter(task.id, fingerprint, picked)
                     }
