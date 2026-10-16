@@ -54,11 +54,11 @@ import java.util.UUID
 @Composable
 internal fun V09IdeaVaultScreen(
     ideas: List<CreatorIdea>,
-    deletedIdeas: List<CreatorIdea>,
+    deletedIdeas: List<CreatorIdea> = emptyList(),
     onClose: (() -> Unit)?,
     onSave: (CreatorIdea) -> String?,
     onDelete: (String) -> Unit,
-    onRestore: (String) -> Unit,
+    onRestore: (String) -> Unit = {},
     onArchive: (String) -> Unit,
     onConvert: (String, String, String, Long) -> String?,
     externalIdeaId: String = "",
