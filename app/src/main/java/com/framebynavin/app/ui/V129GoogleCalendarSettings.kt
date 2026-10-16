@@ -64,7 +64,13 @@ internal object CreatorCalendarSync {
     }
     fun selectedCalendarId(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_CALENDAR_ID, -1L)
     fun lastSuccessAt(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_LAST_SUCCESS, 0L)
-    fun selectCalendar(context: Context, id: Long) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(KEY_CALENDAR_ID, id).apply()
+    fun selectCalendar(context: Context, id: Long) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getLong(KEY_CALENDAR_ID, -1L) == id) return
+        // A successful sync against a previous calendar is not evidence of
+        // anything having been exported to this newly selected destination.
+        prefs.edit().putLong(KEY_CALENDAR_ID, id).remove(KEY_LAST_SUCCESS).apply()
+    }
 
     fun googleCalendars(context: Context): List<V129CalendarOption> {
         if (!hasPermission(context)) return emptyList()
