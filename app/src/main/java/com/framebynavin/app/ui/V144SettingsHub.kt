@@ -111,7 +111,11 @@ internal fun V144SettingsHub(
                     onPreview = { v144PreviewVoice(context, it) },
                 )
                 Spacer(Modifier.height(8.dp))
-                V144SettingsNote("This voice is used for new projects. You can change each project later.")
+                V144SettingsNote(
+                    "New projects use this voice; you can change it per project. " +
+                        "Speech uses your phone's language. If its speech data is unavailable, " +
+                        "Backlot attempts a normal notification instead."
+                )
             }
 
             V144SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V144SettingsSection.HOME.name }) {
