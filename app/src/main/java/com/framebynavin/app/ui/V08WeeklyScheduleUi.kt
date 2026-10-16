@@ -50,9 +50,13 @@ internal fun V08WeeklyScheduleScreen(
     val primaryPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
     var editorSlot by remember { mutableStateOf<WeeklyScheduleSlot?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
+    var confirmGenerate by remember { mutableStateOf(false) }
+    var pendingDeleteSlot by remember { mutableStateOf<WeeklyScheduleSlot?>(null) }
     val activeCount = slots.count { it.enabled }
     val generated = tasks.count { it.scheduleSlotId.isNotBlank() && it.status != TaskStatus.SKIPPED }
     val next = remember(slots.toList()) { WeeklyScheduleEngine.nextOccurrence(slots) }
+    val preview = CreatorWeeklyPlanPreviewEngine.build(slots, tasks)
+    val resetPreview = CreatorWeeklyPresetPolicy.previewFor(creatorProfile)
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         LazyColumn(
@@ -93,6 +97,8 @@ internal fun V08WeeklyScheduleScreen(
                             V08Metric("ACTIVE SLOTS", activeCount.toString(), Modifier.weight(1f))
                             V08Metric("AUTO PROJECTS", generated.toString(), Modifier.weight(1f))
                         }
+                        Text(if (autoPlanEnabled) "Auto Plan is on. Templates may create future projects." else "Auto Plan is off. Templates are saved, but no new projects are created.",
+                            color = MutedGold, fontSize = 11.sp)
                         if (next != null) {
                             Spacer(Modifier.height(10.dp))
                             Surface(
@@ -115,15 +121,15 @@ internal fun V08WeeklyScheduleScreen(
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = onRefresh,
-                        enabled = autoPlanEnabled,
+                        onClick = { confirmGenerate = true },
+                        enabled = autoPlanEnabled && preview.missing.isNotEmpty(),
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(14.dp),
                     ) {
                         Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("CREATE MISSING PROJECTS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("PREVIEW ${preview.missing.size} PROJECTS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = {
@@ -148,6 +154,8 @@ internal fun V08WeeklyScheduleScreen(
                         Text("ADD WEEKLY POST", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                Text("${preview.alreadyCreated} upcoming slots already have projects. Existing projects won't be replaced.", color = MutedText, fontSize = 10.sp)
                 Spacer(Modifier.height(18.dp))
                 Text("YOUR WEEK", color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
                 Text("Edit a recurring template for future projects. Existing projects never change or disappear when you edit, disable or delete a slot.", color = MutedText, fontSize = 9.8.sp, lineHeight = 14.sp)
@@ -185,7 +193,45 @@ internal fun V08WeeklyScheduleScreen(
             slot = slot,
             onDismiss = { editorSlot = null },
             onSave = { onSave(it); editorSlot = null },
-            onDelete = if (slot.id.isBlank()) null else ({ onDelete(slot.id); editorSlot = null }),
+            onDelete = if (slot.id.isBlank()) null else ({ pendingDeleteSlot = slot; editorSlot = null }),
+        )
+    }
+
+    pendingDeleteSlot?.let { slot ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteSlot = null },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Remove this weekly template?", color = ProjectorIvory) },
+            text = { Text("Remove '${slot.title}' from future weekly plans? Any project already created from it will stay unchanged.", color = MutedText) },
+            confirmButton = {
+                Button(onClick = { onDelete(slot.id); pendingDeleteSlot = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("REMOVE TEMPLATE") }
+            },
+            dismissButton = { TextButton(onClick = { pendingDeleteSlot = null }) { Text("CANCEL") } },
+        )
+    }
+
+    if (confirmGenerate) {
+        AlertDialog(
+            onDismissRequest = { confirmGenerate = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Create upcoming projects?", color = ProjectorIvory) },
+            text = {
+                Column {
+                    Text("Auto Plan can add ${preview.missing.size} missing projects from the next 14 days. It won't edit or remove existing projects.", color = MutedText)
+                    Spacer(Modifier.height(9.dp))
+                    preview.missing.take(5).forEach { occurrence ->
+                        Text("• ${occurrence.slot.title} · ${WeeklyScheduleEngine.formatOccurrence(occurrence.publishAtMillis)}",
+                            color = ProjectorIvory, fontSize = 11.sp)
+                    }
+                    if (preview.missing.size > 5) Text("And ${preview.missing.size - 5} more…", color = MutedText)
+                }
+            },
+            confirmButton = {
+                Button(onClick = { confirmGenerate = false; onRefresh() },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("CREATE PROJECTS") }
+            },
+            dismissButton = { TextButton(onClick = { confirmGenerate = false }) { Text("CANCEL") } },
         )
     }
 
@@ -194,7 +240,7 @@ internal fun V08WeeklyScheduleScreen(
             onDismissRequest = { confirmReset = false },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Reset weekly schedule?", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
-            text = { Text("This restores your default weekly plan for future projects. All existing projects and your own project edits stay saved.", color = MutedText) },
+            text = { Text("Replace ${slots.size} saved weekly slots with ${resetPreview.size} starter slots for your creator profile? Your customized templates will be replaced, but existing projects and voice recordings stay saved.", color = MutedText) },
             confirmButton = {
                 Button(onClick = { confirmReset = false; onReset() }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("RESET") }
             },
