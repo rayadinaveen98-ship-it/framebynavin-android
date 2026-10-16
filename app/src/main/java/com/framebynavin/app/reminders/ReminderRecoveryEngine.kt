@@ -53,12 +53,23 @@ object ReminderRecoveryEngine {
         }
 
         if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) {
-            scheduler.cancel(task.id)
-            smart.recover(task)
+            // Do not use cancel(): it invalidates an active Smart action token and
+            // stops an already speaking/ringing surface on every app resume.
+            scheduler.cancelPendingOnly(task.id)
+            if (task.reminderAtMillis <= nowMillis) {
+                // After the final Smart target we must not restart escalation.
+                // Recover only as a single, bounded catch-up notification.
+                smart.cancel(task.id)
+                MissedReminderRecovery.deliverTaskIfNeeded(appContext, task, nowMillis)
+            } else {
+                smart.recover(task)
+            }
             return
         }
 
-        smart.cancel(task.id)
+        // Remove obsolete Smart alarm stages without invalidating a regular
+        // notification's current action token.
+        smart.cancelPendingOnly(task.id)
         if (task.reminderAtMillis > nowMillis) {
             // Reusing the same PendingIntent identity replaces/reasserts the existing alarm;
             // it does not create a second independently firing alarm.
