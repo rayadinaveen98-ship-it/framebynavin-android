@@ -446,6 +446,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val now = System.currentTimeMillis()
         if (!ReminderCenterPolicy.canChange(task, expectedFingerprint, now)) return@updateTask task
         val at = ReminderCenterPolicy.nextSnoozeAt(task, now, minutes) ?: return@updateTask task
+        if (!ReminderCenterPolicy.validTargetWindow(task, now, at, smartConfigStore.get(task)))
+            return@updateTask task
         val updated = ReminderActionSafety.snooze(task, at, now)
         if (updated != task) {
             cancelTaskAlerts(task.id)
@@ -459,6 +461,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         if (!ReminderCenterPolicy.canChange(task, expectedFingerprint, now) ||
             !ReminderCenterPolicy.canPause(task, now)) return@updateTask task
         val until = now + ReminderCenterPolicy.PAUSE_MINUTES * 60_000L
+        if (!ReminderCenterPolicy.validTargetWindow(task, now, until, smartConfigStore.get(task)))
+            return@updateTask task
         val updated = ReminderActionSafety.pause(task, until, now)
         if (updated != task) {
             cancelTaskAlerts(task.id)
@@ -470,7 +474,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun rescheduleReminderFromCenter(id: String, expectedFingerprint: String, atMillis: Long) = updateTask(id) { task ->
         val now = System.currentTimeMillis()
         if (!ReminderCenterPolicy.canChange(task, expectedFingerprint, now) ||
-            !ReminderCenterPolicy.validRescheduleAt(task, atMillis, now)) return@updateTask task
+            !ReminderCenterPolicy.validRescheduleAt(task, atMillis, now) ||
+            !ReminderCenterPolicy.validTargetWindow(task, now, atMillis, smartConfigStore.get(task)))
+            return@updateTask task
         val updated = if (ProjectPulseEngine.isStageCheckIn(task)) {
             ProjectPulseEngine.afterSnooze(ProjectPulseEngine.ensureStageManaged(task), atMillis, now)
                 .copy(snoozeCount = 0, workingUntilMillis = 0L, autoStageReminder = false)
