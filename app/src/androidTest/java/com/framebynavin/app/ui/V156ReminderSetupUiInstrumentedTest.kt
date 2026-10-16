@@ -1,6 +1,12 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,16 +28,23 @@ class V156ReminderSetupUiInstrumentedTest {
         var chosen = ProjectAttentionPlan.GUIDED
         rule.setContent {
             var current by remember { mutableStateOf(ProjectAttentionPlan.GUIDED) }
-            V156ReminderPlanPicker(
-                selected = current,
-                onSelected = { chosen = it; current = it },
-            )
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                V156ReminderPlanPicker(
+                    selected = current,
+                    onSelected = { chosen = it; current = it },
+                )
+            }
         }
-        rule.onNodeWithText("Important deadline").performClick()
+        // Address the clickable plan surface directly. Text nodes can overlap as
+        // the long choice list scrolls/recomposes on smaller emulator displays.
+        rule.onNodeWithTag("reminder-plan-full-URGENT").performScrollTo().performClick()
+        rule.waitForIdle()
         rule.runOnIdle { assertEquals(ProjectAttentionPlan.URGENT, chosen) }
-        rule.onNodeWithText("Choose my own time").performClick()
+        rule.onNodeWithTag("reminder-plan-full-CUSTOM").performScrollTo().performClick()
+        rule.waitForIdle()
         rule.runOnIdle { assertEquals(ProjectAttentionPlan.CUSTOM, chosen) }
-        rule.onNodeWithText("No reminders").performClick()
+        rule.onNodeWithTag("reminder-plan-full-OFF").performScrollTo().performClick()
+        rule.waitForIdle()
         rule.runOnIdle { assertEquals(ProjectAttentionPlan.OFF, chosen) }
     }
 
@@ -45,9 +58,11 @@ class V156ReminderSetupUiInstrumentedTest {
                 compact = true,
             )
         }
-        rule.onNodeWithText("My time").performClick()
+        rule.onNodeWithTag("reminder-plan-compact-CUSTOM").performClick()
+        rule.waitForIdle()
         rule.runOnIdle { assertEquals(ProjectAttentionPlan.CUSTOM, chosen) }
-        rule.onNodeWithText("Light").performClick()
+        rule.onNodeWithTag("reminder-plan-compact-LIGHT").performClick()
+        rule.waitForIdle()
         rule.runOnIdle { assertEquals(ProjectAttentionPlan.LIGHT, chosen) }
     }
 

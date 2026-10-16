@@ -1,0 +1,112 @@
+name: Backlot V159 — Reminder Acceptance R5
+
+on:
+  push:
+    branches:
+      - feature/backlot-v159-reminder-acceptance-r5
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v159-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-apk:
+    name: APK + core quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout V159
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Preserve V154–V158 and verify R5 acceptance tests
+        run: bash tools/check_v159_reminder_acceptance.sh
+      - name: Complete JVM unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Compile Android instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Assemble V159 preview
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Upload V159 preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlot-v159-reminder-acceptance-r5-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 90
+
+  android-emulator:
+    name: Android ${{ matrix.api }} reminder acceptance
+    needs: android-apk
+    runs-on: macos-15-intel
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 30
+            classes: >-
+              com.framebynavin.app.reminders.V159ReminderScheduleAcceptanceTest,
+              com.framebynavin.app.reminders.V159ReminderActionIsolationTest,
+              com.framebynavin.app.reminders.V155ReminderRecoveryIsolationInstrumentedTest,
+              com.framebynavin.app.ui.V156ReminderSetupUiInstrumentedTest,
+              com.framebynavin.app.ui.V157ReminderCenterUiTest,
+              com.framebynavin.app.reminders.V158ReminderCheckInUiTest,
+              com.framebynavin.app.reminders.V159ReminderAccessibilityAcceptanceTest
+          - api: 35
+            classes: >-
+              com.framebynavin.app.reminders.V159ReminderScheduleAcceptanceTest,
+              com.framebynavin.app.reminders.V159ReminderActionIsolationTest,
+              com.framebynavin.app.reminders.V159NotificationChannelAcceptanceTest,
+              com.framebynavin.app.reminders.V155ReminderRecoveryIsolationInstrumentedTest,
+              com.framebynavin.app.data.V158QuietHoursSettingsInstrumentedTest,
+              com.framebynavin.app.ui.V156ReminderSetupUiInstrumentedTest,
+              com.framebynavin.app.ui.V157ReminderCenterUiTest,
+              com.framebynavin.app.reminders.V158ReminderCheckInUiTest,
+              com.framebynavin.app.reminders.V159ReminderAccessibilityAcceptanceTest,
+              com.framebynavin.app.ui.V132ReleaseBlockerUiTest
+    steps:
+      - name: Checkout V159
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Test reminder runtime and UI at Android API ${{ matrix.api }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            CLASS_LIST="$(echo '${{ matrix.classes }}' | tr -d '[:space:]')"
+            gradle :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=$CLASS_LIST" --stacktrace
+      - name: Retain test result reports even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v159-android-${{ matrix.api }}-test-results
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+          if-no-files-found: warn
+          retention-days: 30
