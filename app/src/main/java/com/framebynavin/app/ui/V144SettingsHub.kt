@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -250,6 +251,7 @@ internal fun V144SettingsHub(
                             Text(if (weeklyAutoPlanEnabled) "On · new weekly projects can be added." else "Off · saved templates and projects stay unchanged.", color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
                         }
                         Switch(
+                            modifier = Modifier.testTag("s1-settings-auto-plan"),
                             checked = weeklyAutoPlanEnabled,
                             onCheckedChange = { enable ->
                                 if (enable) confirmAutoPlan = true else onWeeklyAutoPlan(false)
