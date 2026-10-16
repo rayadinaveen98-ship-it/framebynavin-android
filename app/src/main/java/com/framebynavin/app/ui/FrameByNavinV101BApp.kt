@@ -595,13 +595,19 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         V14QuickCaptureDialog(
             onDismiss = { showQuickCapture = false },
             onSave = { idea ->
-                vm.saveIdea(idea)
-                showQuickCapture = false
-                routeJourney(V18CreatorJourney.afterCapture())
-                if (guidedTourStepName == CreatorGuidedTourStep.IDEAS.name) {
-                    externalStudioId = null
-                    tab = PTab.CREATE
-                    guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                val savedId = vm.saveIdea(idea)
+                if (savedId == null) {
+                    false // Quick Capture retains all text and any original audio.
+                } else {
+                    showQuickCapture = false
+                    routeJourney(V18CreatorJourney.afterCapture())
+                    Toast.makeText(context, "Saved to Idea Vault", Toast.LENGTH_SHORT).show()
+                    if (guidedTourStepName == CreatorGuidedTourStep.IDEAS.name) {
+                        externalStudioId = null
+                        tab = PTab.CREATE
+                        guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                    }
+                    true
                 }
             },
         )
@@ -811,54 +817,26 @@ private fun PControlCenter(
     onReschedule: (String) -> Unit,
     onSkip: (String) -> Unit,
 ) {
-    val overdue = pActiveQueue(tasks).filter { it.dueAtMillis in 1 until System.currentTimeMillis() }
-    val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
-    Column(Modifier.fillMaxWidth().heightIn(max = 730.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
-        Text("BACKLOT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-        Text("Quick Actions", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-        Text("Create something or pick up where you left off.", color = MutedText, fontSize = 10.sp)
-        Spacer(Modifier.height(17.dp))
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            PBigAction("NEW PROJECT", "Start creating", Icons.Outlined.Add, RecRed, onNewProject, Modifier.weight(1f))
-            PBigAction("TRENDING MOMENT", "Plan a quick response", Icons.Outlined.Bolt, RecRed, onRelease, Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(12.dp))
-        PControlRow("Quick Capture", "Type or speak an idea", Icons.Outlined.Bolt, onQuickCapture)
-        PControlRow("Daily Brief", "What needs your attention today", Icons.Outlined.Today, onDailyBrief)
-        PControlRow("Content Calendar", "Upcoming projects and publishing", Icons.Outlined.CalendarMonth, onCalendar)
-        PControlRow("Idea Vault", if (readyIdeas > 0) "$readyIdeas ideas ready to make" else "Capture what you might make later", Icons.Outlined.Lightbulb, onIdeas)
-        PControlRow("Weekly Plan", if (weeklyAutoPlanEnabled) "Auto Plan on" else "Auto Plan off", Icons.Outlined.CalendarMonth, onWeek)
-        PControlRow("Reminders", "See and edit active reminders", Icons.Outlined.Alarm, onReminders)
-        PControlRow("Automation", "Recurring planning and reminders", Icons.Outlined.AutoAwesome, onAutomation)
-        PControlRow(
-            "Creator Progress",
-            "Your consistency and milestones",
-            Icons.Outlined.EmojiEvents,
-            onCreatorProgress,
-        )
-        PControlRow("Settings", "Profile, reminders, connections and defaults", Icons.Outlined.Settings, onSettings)
-
-        if (overdue.isNotEmpty()) {
-            Spacer(Modifier.height(18.dp))
-            Text("NEEDS A DECISION", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Spacer(Modifier.height(8.dp))
-            overdue.take(4).forEach { task ->
-                Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(17.dp), BacklotSurfaceSelected, border = BorderStroke(1.dp, RecRed.copy(alpha = .24f))) {
-                    Column(Modifier.padding(13.dp)) {
-                        Text(task.title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(task.dueLabel, color = RecRed, fontSize = 8.8.sp)
-                        Spacer(Modifier.height(7.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            AssistChip(onClick = { onPublishLate(task.id) }, label = { Text("+30 MIN", fontSize = 10.sp) })
-                            AssistChip(onClick = { onReschedule(task.id) }, label = { Text("NEW TIME", fontSize = 10.sp) })
-                            AssistChip(onClick = { onSkip(task.id) }, label = { Text("SKIP", fontSize = 10.sp) })
-                        }
-                    }
-                }
-            }
-        }
-    }
+    V161QuickActionsHub(
+        tasks = tasks,
+        ideas = ideas,
+        weeklyAutoPlanEnabled = weeklyAutoPlanEnabled,
+        creatorProgress = creatorProgress,
+        onNewProject = onNewProject,
+        onQuickCapture = onQuickCapture,
+        onDailyBrief = onDailyBrief,
+        onCalendar = onCalendar,
+        onRelease = onRelease,
+        onIdeas = onIdeas,
+        onWeek = onWeek,
+        onReminders = onReminders,
+        onAutomation = onAutomation,
+        onCreatorProgress = onCreatorProgress,
+        onSettings = onSettings,
+        onPublishLate = onPublishLate,
+        onReschedule = onReschedule,
+        onSkip = onSkip,
+    )
 }
 
 @Composable
