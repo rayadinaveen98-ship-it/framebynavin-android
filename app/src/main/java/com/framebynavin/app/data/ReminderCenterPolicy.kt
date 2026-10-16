@@ -1,6 +1,8 @@
 package com.framebynavin.app.data
 
 import com.framebynavin.app.reminders.ReminderActionSafety
+import com.framebynavin.app.reminders.SmartEscalationConfig
+import com.framebynavin.app.reminders.SmartEscalationPolicy
 
 /**
  * Presentation and safe-command eligibility for the creator's reminder inbox.
@@ -84,6 +86,15 @@ object ReminderCenterPolicy {
         val at = if (limit == null) candidate else minOf(candidate, limit)
         return at.takeIf { it > original }
     }
+
+    fun validTargetWindow(
+        task: CreatorTask,
+        nowMillis: Long,
+        requestedAtMillis: Long,
+        smartConfig: SmartEscalationConfig,
+    ): Boolean = if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) {
+        SmartEscalationPolicy.isWindowValid(task.priority, nowMillis, requestedAtMillis, smartConfig)
+    } else true
 
     fun canPause(task: CreatorTask, nowMillis: Long): Boolean =
         ReminderActionSafety.isActionable(task) &&
