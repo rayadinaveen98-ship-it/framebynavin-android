@@ -18,10 +18,11 @@ class V158QuietHoursSettingsInstrumentedTest {
         val original = store.exportJson()
         try {
             // New fields are optional so older valid Backlot backups keep their meaning.
-            val oldBackup = JSONObject(original)
-                .remove("quietHoursEnabled")
-                .remove("quietHoursStartMinute")
-                .remove("quietHoursEndMinute").toString()
+            val oldBackup = JSONObject(original).apply {
+                remove("quietHoursEnabled")
+                remove("quietHoursStartMinute")
+                remove("quietHoursEndMinute")
+            }.toString()
             val upgraded = store.importJson(oldBackup)
             assertFalse(upgraded.quietHoursEnabled)
             assertEquals(22 * 60, upgraded.quietHoursStartMinute)
