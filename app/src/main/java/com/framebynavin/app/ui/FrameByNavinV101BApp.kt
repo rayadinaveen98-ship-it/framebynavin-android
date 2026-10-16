@@ -14,6 +14,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -565,7 +566,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 val initial = task.reminderAtMillis.takeIf { it > System.currentTimeMillis() }
                     ?: (System.currentTimeMillis() + 15 * 60_000L)
                 pPickDateTime(context, initial) { picked ->
-                    vm.rescheduleReminderFromCenter(task.id, fingerprint, picked)
+                    if (!ReminderCenterPolicy.validRescheduleAt(task, picked, System.currentTimeMillis())) {
+                        Toast.makeText(context, "Choose a time after now and before your project deadline.", Toast.LENGTH_LONG).show()
+                    } else {
+                        vm.rescheduleReminderFromCenter(task.id, fingerprint, picked)
+                    }
                 }
             },
             snoozeMinutes = settings.snoozeMinutes,
