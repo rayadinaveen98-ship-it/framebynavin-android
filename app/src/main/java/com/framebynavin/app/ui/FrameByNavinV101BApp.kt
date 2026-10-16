@@ -75,6 +75,7 @@ import com.framebynavin.app.widget.CreatorWidgetLaunch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collectLatest
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -235,9 +236,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
-    LaunchedEffect(vm.tasks) {
-        if (CreatorCalendarSync.isEnabled(context)) {
-            withContext(Dispatchers.IO) { CreatorCalendarSync.syncIfEnabled(context.applicationContext, vm.tasks) }
+    LaunchedEffect(vm) {
+        snapshotFlow { vm.tasks.toList() }.collectLatest { currentTasks ->
+            if (CreatorCalendarSync.isEnabled(context)) {
+                // Observe actual list edits, not its stable Compose list identity.
+                // Calendar provider errors must not crash the creator workspace.
+                withContext(Dispatchers.IO) {
+                    runCatching { CreatorCalendarSync.syncIfEnabled(context.applicationContext, currentTasks) }
+                }
+            }
         }
     }
 
@@ -472,6 +479,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             POverlay.SETTINGS -> V144SettingsHub(
                 settings = settings,
                 tasks = vm.tasks,
+                weeklySlots = vm.weeklySlots,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 notificationsReady = permissions.notifications,
       preciseTimingReady = permissions.preciseTiming,

@@ -10,8 +10,8 @@ done
 grep -Fq 'PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Projects"' "$BASE/FrameByNavinV101BApp.kt"
 grep -Fq 'V144CategoryCard("Spark", "Your creative companion"' "$BASE/V144SettingsHub.kt"
 grep -Fq 'Text("VIDEO REVIEW"' "$BASE/V20VideoPostmortemUi.kt"
-grep -Eq 'versionCode = (161|162|163|164|165)' app/build.gradle.kts
-grep -Eq 'versionName = "(2.1.1-v161-quick-actions-hub-capture-p2-preview|2.1.2-v162-idea-vault-p3-preview|2.1.3-v163-daily-brief-calendar-p4-preview|2.1.4-v164-weekly-plan-automation-p5-preview|2.1.5-v165-creator-progress-p6-preview)"' app/build.gradle.kts
+grep -Eq 'versionCode = (161|162|163|164|165|166)' app/build.gradle.kts
+grep -Eq 'versionName = "(2.1.1-v161-quick-actions-hub-capture-p2-preview|2.1.2-v162-idea-vault-p3-preview|2.1.3-v163-daily-brief-calendar-p4-preview|2.1.4-v164-weekly-plan-automation-p5-preview|2.1.5-v165-creator-progress-p6-preview|2.1.6-v166-settings-s1-safety-preview)"' app/build.gradle.kts
 grep -Fq 'var showAdvancedSetup by rememberSaveable(startWithQuickCreate) { mutableStateOf(!startWithQuickCreate) }' "$BASE/V20NewProjectWizard.kt"
 grep -Fq 'onQuickCreate = { openComposer(quick = true) }' "$BASE/FrameByNavinV101BApp.kt"
 grep -Fq 'Text("QUICK CREATE"' "$BASE/V131PolishUi.kt"
