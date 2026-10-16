@@ -85,7 +85,7 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Launch sound", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text("Play Backlot's opening sound when you launch the app.", color = MutedText, fontSize = 8.2.sp)
+                    Text("Play the opening sound when Backlot starts.", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
                 }
                 Switch(
                     checked = VisualExperiencePrefs.launchSoundEnabled,
