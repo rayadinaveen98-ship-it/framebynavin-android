@@ -34,18 +34,6 @@ import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import java.util.Locale
 
-private enum class V144SettingsSection {
-    HOME,
-    APPEARANCE,
-    GUIDE,
-    VOICE,
-    REMINDERS,
-    PLANNING,
-    CONNECTIONS,
-    DATA,
-    ABOUT,
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun V144SettingsHub(
@@ -75,18 +63,19 @@ internal fun V144SettingsHub(
     onYouTube: () -> Unit,
 ) {
     val context = LocalContext.current
-    var sectionName by rememberSaveable { mutableStateOf(V144SettingsSection.HOME.name) }
-    val section = V144SettingsSection.entries.firstOrNull { it.name == sectionName } ?: V144SettingsSection.HOME
+    var sectionName by rememberSaveable { mutableStateOf(V167SettingsSection.HOME.name) }
+    val section = V167SettingsNavigationPolicy.fromSavedName(sectionName)
+    fun navigateBack() { sectionName = V167SettingsNavigationPolicy.parent(section).name }
     var confirmAutoPlan by remember { mutableStateOf(false) }
     val nextProjects = CreatorWeeklyPlanPreviewEngine.build(weeklySlots, tasks)
 
     BackHandler {
-        if (section == V144SettingsSection.HOME) onClose() else sectionName = V144SettingsSection.HOME.name
+        if (section == V167SettingsSection.HOME) onClose() else navigateBack()
     }
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         when (section) {
-            V144SettingsSection.HOME -> V144SettingsHome(
+            V167SettingsSection.HOME -> V144SettingsHome(
                 settings = settings,
                 weeklyAutoPlanEnabled = weeklyAutoPlanEnabled,
                 notificationsReady = notificationsReady,
@@ -98,17 +87,30 @@ internal fun V144SettingsHub(
                 onOpen = { sectionName = it.name },
             )
 
-            V144SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("PERSONALIZATION", "Make Backlot yours", ::navigateBack) {
+                V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) {
+                    sectionName = V167SettingsSection.APPEARANCE.name
+                }
+                V144CategoryCard("Spark", "Your creative companion", Icons.Outlined.Face, MutedGold) {
+                    sectionName = V167SettingsSection.GUIDE.name
+                }
+                V144CategoryCard("Voice", "Default voice for your projects", Icons.Outlined.RecordVoiceOver, RecRed) {
+                    sectionName = V167SettingsSection.VOICE.name
+                }
+                V144SettingsNote("These choices change how Backlot looks and sounds. Existing projects stay unchanged.")
+            }
+
+            V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
                 V127AppearanceSettings(showGuidePicker = false)
             }
 
-            V144SettingsSection.GUIDE -> V144SettingsPage("SPARK", "Your creative companion", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.GUIDE -> V144SettingsPage("SPARK", "Your creative companion", ::navigateBack) {
                 V144GuidePicker()
                 Spacer(Modifier.height(12.dp))
                 V144SettingsNote("Spark is your creative companion throughout Backlot. There's nothing to set up.")
             }
 
-            V144SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", ::navigateBack) {
                 V140VoiceStudioPicker(
                     selected = settings.defaultVoicePersona,
                     onSelected = onVoice,
@@ -122,7 +124,7 @@ internal fun V144SettingsHub(
                 )
             }
 
-            V144SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V167SettingsSection.HOME.name }) {
                 val setupReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
                 V144StatusCard(
                     title = "Project reminders",
@@ -239,7 +241,7 @@ internal fun V144SettingsHub(
                 }
             }
 
-            V144SettingsSection.PLANNING -> V144SettingsPage("PLANNING & CALENDAR", "Recurring planning and calendar sync", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.PLANNING -> V144SettingsPage("PLANNING & CALENDAR", "Recurring planning and calendar sync", { sectionName = V167SettingsSection.HOME.name }) {
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(36.dp).background(MutedGold.copy(alpha = .11f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
@@ -267,27 +269,7 @@ internal fun V144SettingsHub(
                 V129GoogleCalendarSettings(tasks)
             }
 
-            V144SettingsSection.CONNECTIONS -> V144SettingsPage("CONNECTIONS", "YouTube and Google services", { sectionName = V144SettingsSection.HOME.name }) {
-                V144ActionCard(
-                    title = "YouTube Analytics",
-                    subtitle = "Real channel performance, matched uploads and creator insights.",
-                    icon = Icons.Outlined.SmartDisplay,
-                    accent = RecRed,
-                    onClick = onYouTube,
-                )
-                Spacer(Modifier.height(9.dp))
-                V144ActionCard(
-                    title = "Google account & backup",
-                    subtitle = "Manage your account and backups.",
-                    icon = Icons.Outlined.CloudSync,
-                    accent = MutedGold,
-                    onClick = onCloudSync,
-                )
-                Spacer(Modifier.height(12.dp))
-                V144SettingsNote("Manage Google Calendar in Planning & Calendar.")
-            }
-
-            V144SettingsSection.DATA -> V144SettingsPage("DATA, BACKUP & SYNC", "Keep your Backlot data recoverable", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.DATA -> V144SettingsPage("DATA, BACKUP & SYNC", "Keep your Backlot data recoverable", { sectionName = V167SettingsSection.HOME.name }) {
                 V144ActionCard(
                     title = "Cloud Sync",
                     subtitle = "Google account · cloud backups",
@@ -311,7 +293,7 @@ internal fun V144SettingsHub(
                 )
             }
 
-            V144SettingsSection.ABOUT -> V144SettingsPage("ABOUT BACKLOT", "Version, help and guided setup", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.ABOUT -> V144SettingsPage("ABOUT BACKLOT", "Version, help and guided setup", { sectionName = V167SettingsSection.HOME.name }) {
                 V144ActionCard(
                     title = "Show app tour",
                     subtitle = "Home → Ideas → Projects → Insights → Quick Actions",
@@ -368,11 +350,11 @@ private fun V144SettingsHome(
     batteryReady: Boolean,
     onClose: () -> Unit,
     onProfile: () -> Unit,
-    onOpen: (V144SettingsSection) -> Unit,
+    onOpen: (V167SettingsSection) -> Unit,
 ) {
     val reminderReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 44.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader("SETTINGS", "Backlot, your way", onClose)
         Spacer(Modifier.height(10.dp))
@@ -385,37 +367,42 @@ private fun V144SettingsHome(
         Spacer(Modifier.height(18.dp))
 
         V144CategoryCard(
-            title = "Profile & Account",
-            subtitle = settings.creatorProfile.safeDisplayName + settings.creatorProfile.category.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty(),
+            title = "My Profile",
+            subtitle = settings.creatorProfile.safeDisplayName +
+                settings.creatorProfile.category.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty(),
             icon = Icons.Outlined.Person,
             accent = MutedGold,
             onClick = onProfile,
         )
-        V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) { onOpen(V144SettingsSection.APPEARANCE) }
-        V144CategoryCard("Spark", "Your creative companion", Icons.Outlined.Face, MutedGold) { onOpen(V144SettingsSection.GUIDE) }
-        V144CategoryCard("Voice", "Default project voice and preview", Icons.Outlined.RecordVoiceOver, RecRed) { onOpen(V144SettingsSection.VOICE) }
+        V144CategoryCard("Personalization", "Appearance, Spark and voice", Icons.Outlined.Palette, RecRed) {
+            onOpen(V167SettingsSection.PERSONALIZATION)
+        }
         V144CategoryCard(
-            "Notifications & Reminders",
-            if (reminderReady) "Ready · timing and reminder defaults" else "Needs setup · permissions and defaults",
+            "Reminders & Alerts",
+            if (reminderReady) "Permissions ready · snooze, alarms and quiet hours"
+            else "Check permissions · reminder defaults and quiet hours",
             Icons.Outlined.NotificationsActive,
             if (reminderReady) SuccessGreen else MutedGold,
-        ) { onOpen(V144SettingsSection.REMINDERS) }
+        ) { onOpen(V167SettingsSection.REMINDERS) }
         V144CategoryCard(
             "Planning & Calendar",
-            if (weeklyAutoPlanEnabled) "Weekly Auto Plan on · Google Calendar" else "Weekly Auto Plan off · Google Calendar",
+            if (weeklyAutoPlanEnabled) "Auto Plan on · Google Calendar" else "Auto Plan off · Google Calendar",
             Icons.Outlined.CalendarMonth,
             MutedGold,
-        ) { onOpen(V144SettingsSection.PLANNING) }
-        V144CategoryCard("Connections", "YouTube Analytics · Google account", Icons.Outlined.Link, RecRed) { onOpen(V144SettingsSection.CONNECTIONS) }
-        V144CategoryCard("Data, Backup & Sync", "Cloud sync and local recovery", Icons.Outlined.CloudSync, MutedGold) { onOpen(V144SettingsSection.DATA) }
-        V144CategoryCard("About Backlot", "Guided tour and app version", Icons.Outlined.Info, RecRed) { onOpen(V144SettingsSection.ABOUT) }
+        ) { onOpen(V167SettingsSection.PLANNING) }
+        V144CategoryCard("Backup & Data", "Cloud backup, local export and recovery", Icons.Outlined.CloudSync, MutedGold) {
+            onOpen(V167SettingsSection.DATA)
+        }
+        V144CategoryCard("About & Help", "App tour and version", Icons.Outlined.Info, RecRed) {
+            onOpen(V167SettingsSection.ABOUT)
+        }
     }
 }
 
 @Composable
 private fun V144SettingsPage(kicker: String, title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 44.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader(kicker, title, onBack)
         Spacer(Modifier.height(18.dp))
