@@ -145,7 +145,7 @@ class PortableCreatorBackupManager(context: Context) {
         error("Could not allocate Voice Idea recording path")
     }
 
-    /** Must stay byte-for-byte equivalent to CreatorBackupManager's schema-8 fingerprint order. */
+    /** Must stay byte-for-byte equivalent to CreatorBackupManager's current-schema fingerprint order. */
     private fun fingerprintCurrentSchema(root: JSONObject): String = buildString {
         CURRENT_FINGERPRINT_KEYS.forEach { key ->
             val value = root.optString(key, "")
@@ -179,6 +179,7 @@ class PortableCreatorBackupManager(context: Context) {
             "youtubePublishCheckpoints",
             "projectPulseHistory",
             "workflowStageTimeline",
+            "automationPreferences",
             "manifest",
         )
     }
