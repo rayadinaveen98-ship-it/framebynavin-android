@@ -1,5 +1,6 @@
 package com.framebynavin.app.reminders
 
+import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.ProjectAttentionPlan
 import com.framebynavin.app.data.ProjectPulseResponse
 import org.junit.Assert.assertEquals
@@ -49,6 +50,17 @@ class QuietHoursPolicyV158Test {
         assertEquals("8:00 AM", QuietHoursPolicy.label(8 * 60))
         assertEquals("12:00 AM", QuietHoursPolicy.label(0))
         assertEquals("12:00 PM", QuietHoursPolicy.label(12 * 60))
+    }
+
+    @Test fun quietHoursNeverMuteExplicitVoiceAlarmOrSmartRingingEscalation() {
+        assertTrue(QuietHoursPolicy.eligible(ReminderMode.SIMPLE, null))
+        assertTrue(QuietHoursPolicy.eligible(ReminderMode.SMART, "Smart · Gentle"))
+        assertFalse(QuietHoursPolicy.eligible(ReminderMode.VOICE, "Voice unavailable"))
+        assertFalse(QuietHoursPolicy.eligible(ReminderMode.ALARM, "Alarm reminder fallback"))
+        assertFalse(QuietHoursPolicy.eligible(ReminderMode.SMART, "Smart · Voice fallback"))
+        assertFalse(QuietHoursPolicy.eligible(ReminderMode.SMART, "Smart · Alarm fallback"))
+        assertFalse(QuietHoursPolicy.eligible(ReminderMode.SMART, "Smart · Critical fallback"))
+        assertFalse(QuietHoursPolicy.eligible(ReminderMode.NONE, null))
     }
 
     @Test fun followUpCopyExplainsInsteadOfGuaranteeingDelivery() {
