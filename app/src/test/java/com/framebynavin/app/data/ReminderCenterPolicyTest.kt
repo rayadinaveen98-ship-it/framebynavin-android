@@ -1,6 +1,7 @@
 package com.framebynavin.app.data
 
 import com.framebynavin.app.reminders.ReminderActionSafety
+import com.framebynavin.app.reminders.SmartEscalationConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -90,6 +91,24 @@ class ReminderCenterPolicyTest {
         assertFalse(ReminderCenterPolicy.validRescheduleAt(current, now - 1L, now))
         assertFalse(ReminderCenterPolicy.validRescheduleAt(current, now + 2 * hour, now))
         assertTrue(ReminderCenterPolicy.validRescheduleAt(current.copy(dueAtMillis = now - hour), now + hour, now))
+    }
+
+    @Test fun invalidShortSmartEscalationTargetIsRejectedBeforeWriting() {
+        val critical = task().copy(
+            reminderMode = ReminderMode.SMART,
+            smartEscalationEnabled = true,
+            priority = TaskPriority.CRITICAL,
+        )
+        assertFalse(ReminderCenterPolicy.validTargetWindow(
+            critical, now, now + 15 * 60_000L, SmartEscalationConfig(),
+        ))
+        assertTrue(ReminderCenterPolicy.validTargetWindow(
+            critical, now, now + 50 * 60_000L, SmartEscalationConfig(),
+        ))
+        assertTrue(ReminderCenterPolicy.validTargetWindow(
+            critical.copy(reminderMode = ReminderMode.SIMPLE, smartEscalationEnabled = false),
+            now, now + 10 * 60_000L, SmartEscalationConfig(),
+        ))
     }
 
     @Test fun snoozeNeverMarksProjectDoneOrPublishesVideo() {
