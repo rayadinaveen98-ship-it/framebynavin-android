@@ -862,11 +862,13 @@ private fun PWeekScreen(
     onReset: () -> Unit,
 ) {
     var editSchedule by rememberSaveable { mutableStateOf(false) }
+    var confirmAutoPlan by remember { mutableStateOf(false) }
+    val preview = CreatorWeeklyPlanPreviewEngine.build(slots, tasks)
     if (editSchedule) {
         V08WeeklyScheduleScreen(slots, tasks, { editSchedule = false }, onToggle, onSave, onDelete, onRefresh, onReset, autoPlanEnabled = autoPlanEnabled)
         return
     }
-    val next = remember(slots.toList(), autoPlanEnabled) { if (autoPlanEnabled) WeeklyScheduleEngine.nextOccurrence(slots) else null }
+    val next = remember(slots.toList()) { WeeklyScheduleEngine.nextOccurrence(slots) }
     val enabledSlots = slots.filter { it.enabled }
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 42.dp)) {
@@ -880,7 +882,9 @@ private fun PWeekScreen(
                         Text("Weekly Auto Plan", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Text(if (autoPlanEnabled) "Your schedule can create upcoming projects." else "Auto Plan off · future projects are not added. Your existing projects stay saved.", color = MutedText, fontSize = 9.3.sp, lineHeight = 13.sp)
                     }
-                    Switch(checked = autoPlanEnabled, onCheckedChange = onAutoPlanChange, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
+                    Switch(checked = autoPlanEnabled, onCheckedChange = { enabled ->
+                        if (enabled) confirmAutoPlan = true else onAutoPlanChange(false)
+                    }, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
                 }
             }
 
@@ -888,7 +892,7 @@ private fun PWeekScreen(
                 Spacer(Modifier.height(13.dp))
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
                     Column(Modifier.padding(15.dp)) {
-                        Text("NEXT UP", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text(if (autoPlanEnabled) "NEXT UP" else "NEXT TEMPLATE · AUTO PLAN OFF", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                         Spacer(Modifier.height(5.dp))
                         Text(it.slot.title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         Text(WeeklyScheduleEngine.formatOccurrence(it.publishAtMillis), color = MutedGold, fontSize = 9.5.sp)
@@ -896,6 +900,8 @@ private fun PWeekScreen(
                 }
             }
 
+            Spacer(Modifier.height(7.dp))
+            Text("${preview.missing.size} missing future project(s) · ${preview.alreadyCreated} already planned", color = MutedText, fontSize = 10.sp)
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("YOUR WEEK", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -922,6 +928,20 @@ private fun PWeekScreen(
             }
         }
     }
+    if (confirmAutoPlan) {
+        AlertDialog(
+            onDismissRequest = { confirmAutoPlan = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Turn on automatic planning?", color = ProjectorIvory) },
+            text = { Text("Backlot may create ${preview.missing.size} missing projects over the next 14 days from your active templates. It never publishes posts or rewrites existing projects.", color = MutedText) },
+            confirmButton = {
+                Button(onClick = { confirmAutoPlan = false; onAutoPlanChange(true) },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("TURN ON AUTO PLAN") }
+            },
+            dismissButton = { TextButton(onClick = { confirmAutoPlan = false }) { Text("CANCEL") } },
+        )
+    }
+
 }
 
 @OptIn(ExperimentalLayoutApi::class)
