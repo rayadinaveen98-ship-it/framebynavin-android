@@ -14,6 +14,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -64,7 +65,9 @@ import com.framebynavin.app.cloud.CloudSyncActivity
 import com.framebynavin.app.cloud.CloudSyncManager
 import com.framebynavin.app.cloud.DriveVaultLocalStore
 import com.framebynavin.app.data.*
+import com.framebynavin.app.reminders.ReminderActionSafety
 import com.framebynavin.app.reminders.ReminderScheduler
+import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.widget.CreatorWidgetContract
@@ -553,6 +556,30 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onEdit = { id -> showReminders = false; openComposer(id) },
             onDeleteReminders = vm::cancelReminders,
             onOpenReminderSettings = { showReminders = false; overlay = POverlay.SETTINGS },
+            onSnoozeReminder = { task, minutes ->
+                vm.snoozeReminderFromCenter(task.id, ReminderActionSafety.fingerprint(task), minutes)
+            },
+            onPauseReminder = { task ->
+                vm.pauseReminderFromCenter(task.id, ReminderActionSafety.fingerprint(task))
+            },
+            onRescheduleReminder = { task ->
+                val fingerprint = ReminderActionSafety.fingerprint(task)
+                val initial = task.reminderAtMillis.takeIf { it > System.currentTimeMillis() }
+                    ?: (System.currentTimeMillis() + 15 * 60_000L)
+                pPickDateTime(context, initial) { picked ->
+                    val now = System.currentTimeMillis()
+                    if (!ReminderCenterPolicy.validRescheduleAt(task, picked, now)) {
+                        Toast.makeText(context, "Choose a time after now and before your project deadline.", Toast.LENGTH_LONG).show()
+                    } else if (!ReminderCenterPolicy.validTargetWindow(
+                            task, now, picked, SmartEscalationConfigStore(context).get(task)
+                        )) {
+                        Toast.makeText(context, "Choose a later time so Smart reminders have enough time to escalate.", Toast.LENGTH_LONG).show()
+                    } else {
+                        vm.rescheduleReminderFromCenter(task.id, fingerprint, picked)
+                    }
+                }
+            },
+            snoozeMinutes = settings.snoozeMinutes,
         )
     }
 
