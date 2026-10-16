@@ -31,8 +31,9 @@ import java.util.Locale
 internal fun V23ProfileAccountScreen(
     creatorProfile: CreatorProfile,
     onClose: () -> Unit,
-    onEditCreatorSetup: () -> Unit,
+    onEditCreatorSetup: () -> Unit, // retained only for older call-site compatibility
     onOpenYouTube: () -> Unit,
+    onSaveCreatorProfile: (CreatorProfile) -> Boolean = { false },
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -42,6 +43,7 @@ internal fun V23ProfileAccountScreen(
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var showIdentityEditor by remember { mutableStateOf(false) }
+    var showCreatorEditor by remember { mutableStateOf(false) }
     var identityName by remember { mutableStateOf("") }
     var identityUsername by remember { mutableStateOf("") }
 
@@ -55,6 +57,19 @@ internal fun V23ProfileAccountScreen(
             manager.refreshCreatorProfile()
             reload()
         }
+    }
+
+    if (showCreatorEditor) {
+        V168CreatorProfileEditor(
+            profile = creatorProfile,
+            onCancel = { showCreatorEditor = false },
+            onSave = { updated ->
+                val saved = onSaveCreatorProfile(updated)
+                if (saved) showCreatorEditor = false
+                saved
+            },
+        )
+        return
     }
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -124,13 +139,13 @@ internal fun V23ProfileAccountScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            V23SectionTitle("CREATOR SETUP", "These choices help Backlot set up your projects.")
+            V23SectionTitle("MY CREATOR DETAILS", "Edit these whenever your goals change. Existing work stays saved.")
             Spacer(Modifier.height(9.dp))
-            V23InfoRow("Creator type", creatorProfile.category.ifBlank { "Not set" }, Icons.Outlined.AutoAwesome)
+            V23InfoRow("Creator type", creatorProfile.resolvedPrimaryCreatorMode.ifBlank { "Not set" }, Icons.Outlined.AutoAwesome)
             V23InfoRow("Platforms", creatorProfile.platforms.sorted().joinToString().ifBlank { "Not set" }, Icons.Outlined.Hub)
             V23InfoRow("Primary goal", creatorProfile.primaryGoal.ifBlank { "Not set" }, Icons.Outlined.TrackChanges)
             V23InfoRow("Publishing target", "${creatorProfile.weeklyPublishingTarget} / week", Icons.Outlined.CalendarMonth)
-            OutlinedButton(onClick = onEditCreatorSetup, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, CinemaLine)) {
+            OutlinedButton(onClick = { showCreatorEditor = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, CinemaLine)) {
                 Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("EDIT CREATOR DETAILS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
