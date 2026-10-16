@@ -39,6 +39,14 @@ class EscalationReceiver : BroadcastReceiver() {
                             SmartEscalationScheduler(appContext).recover(task)
                         }
                     }
+                    SmartDeliveryDecision.RECOVER_LATE -> {
+                        if (ledger.consumeIfCurrent(ledgerKey, scheduledAt) && task != null) {
+                            // The final target passed: stop the escalation chain, then
+                            // offer one actionable notification instead of dropping the alert.
+                            SmartEscalationScheduler(appContext).finishSession(task.id)
+                            MissedReminderRecovery.deliverTaskIfNeeded(appContext, task, now)
+                        }
+                    }
                     SmartDeliveryDecision.DELIVER -> {
                         if (ledger.consumeIfCurrent(ledgerKey, scheduledAt) && task != null) {
                             deliverStage(appContext, intent, task, stage, now)
