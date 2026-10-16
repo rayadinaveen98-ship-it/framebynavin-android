@@ -163,7 +163,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             }
             weeklyLoaded = true
             if (tasksLoaded) {
-                if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
+                if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal()
             }
         }
 
@@ -218,7 +218,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 reconcileSnapshot(cleaned)
                 tasksLoaded = true
                 if (weeklyLoaded && pendingWrites == 0 && writeError == null) {
-                    if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
+                    if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal()
                 }
             }
         }
