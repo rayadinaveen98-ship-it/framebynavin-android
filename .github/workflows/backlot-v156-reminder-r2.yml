@@ -1,0 +1,87 @@
+name: Backlot V156 — Simplified Reminder Setup R2
+
+on:
+  push:
+    branches:
+      - feature/backlot-v156-simple-reminder-setup-r2
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/backlot-v156-reminder-reliability-r1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v156-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V156
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: V154/V155 preservation and V156 reminder UI checks
+        run: bash tools/check_v156_reminder_setup.sh
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Assemble APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload V156 Reminder Setup Preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlot-v156-simplified-reminder-setup-r2-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 90
+
+  reminder-emulator:
+    name: Reminder setup and recovery device tests
+    needs: android-apk
+    runs-on: macos-15-intel
+    timeout-minutes: 40
+    steps:
+      - name: Checkout V156
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Run reminder UI and recovery tests on Android 35 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V156ReminderSetupUiInstrumentedTest,com.framebynavin.app.reminders.V155ReminderRecoveryIsolationInstrumentedTest --stacktrace
