@@ -78,8 +78,7 @@ object ReminderNotifications {
         // Only an ordinary notification, or Smart's gentle notification stage,
         // can be quieted. Explicit Voice, Alarm, and Smart ringing stages are
         // never silently downgraded; those are opt-in high-attention alerts.
-        val quietEligible = task.reminderMode == com.framebynavin.app.data.ReminderMode.SIMPLE ||
-            (task.reminderMode == com.framebynavin.app.data.ReminderMode.SMART && stageLabel == "Smart · Gentle")
+        val quietEligible = QuietHoursPolicy.eligible(task.reminderMode, stageLabel)
         val quiet = quietEligible && QuietHoursPolicy.active(
             prefs.quietHoursEnabled, prefs.quietHoursStartMinute,
             prefs.quietHoursEndMinute, System.currentTimeMillis(),
