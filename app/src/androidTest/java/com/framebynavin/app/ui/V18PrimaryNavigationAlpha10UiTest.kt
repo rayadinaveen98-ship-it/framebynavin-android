@@ -67,6 +67,7 @@ class V18PrimaryNavigationAlpha10UiTest {
             V131StudioScreen(
                 tasks = emptyList(),
                 onAdd = {},
+                onQuickCreate = {},
                 onAdvance = {},
                 onBack = {},
                 onFocus = {},
