@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -123,7 +124,7 @@ internal fun V08WeeklyScheduleScreen(
                     Button(
                         onClick = { confirmGenerate = true },
                         enabled = autoPlanEnabled && preview.missing.isNotEmpty(),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag("v164-create-preview"),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(14.dp),
                     ) {
