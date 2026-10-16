@@ -43,6 +43,7 @@ internal fun V08WeeklyScheduleScreen(
     onDelete: (String) -> Unit,
     onRefresh: () -> Unit,
     onReset: () -> Unit,
+    autoPlanEnabled: Boolean = true,
 ) {
     val context = LocalContext.current
     val creatorProfile = remember(context) { CreatorOsSettingsStore(context).snapshot().creatorProfile }
@@ -82,7 +83,7 @@ internal fun V08WeeklyScheduleScreen(
                         Text("PLAN MY WEEK", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(5.dp))
                         Text(
-                            "Turn on a weekly slot to create upcoming projects automatically.",
+                            "Weekly slots describe future posts. Auto Plan must be on to create projects. Existing projects always stay yours.",
                             color = MutedText,
                             fontSize = 10.5.sp,
                             lineHeight = 15.sp,
@@ -115,13 +116,14 @@ internal fun V08WeeklyScheduleScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = onRefresh,
+                        enabled = autoPlanEnabled,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(14.dp),
                     ) {
                         Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("UPDATE UPCOMING PROJECTS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("CREATE MISSING PROJECTS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = {
@@ -148,7 +150,7 @@ internal fun V08WeeklyScheduleScreen(
                 }
                 Spacer(Modifier.height(18.dp))
                 Text("YOUR WEEK", color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
-                Text("Tap a plan to edit it. Turning it off won't delete existing projects.", color = MutedText, fontSize = 9.8.sp, lineHeight = 14.sp)
+                Text("Edit a recurring template for future projects. Existing projects never change or disappear when you edit, disable or delete a slot.", color = MutedText, fontSize = 9.8.sp, lineHeight = 14.sp)
                 Spacer(Modifier.height(12.dp))
             }
 
@@ -192,7 +194,7 @@ internal fun V08WeeklyScheduleScreen(
             onDismissRequest = { confirmReset = false },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Reset weekly schedule?", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
-            text = { Text("This restores your default weekly plan. Existing projects stay saved.", color = MutedText) },
+            text = { Text("This restores your default weekly plan for future projects. All existing projects and your own project edits stay saved.", color = MutedText) },
             confirmButton = {
                 Button(onClick = { confirmReset = false; onReset() }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("RESET") }
             },
