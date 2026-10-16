@@ -115,7 +115,16 @@ class VoiceReminderService : Service() {
                 return@TextToSpeech
             }
             val engine = tts ?: return@TextToSpeech
-            engine.language = Locale.getDefault()
+            val languageResult = runCatching { engine.setLanguage(Locale.getDefault()) }.getOrDefault(TextToSpeech.LANG_NOT_SUPPORTED)
+            if (languageResult == TextToSpeech.LANG_MISSING_DATA ||
+                languageResult == TextToSpeech.LANG_NOT_SUPPORTED
+            ) {
+                // An installed voice engine does not imply the device language is available.
+                // Never pretend the reminder was spoken when the voice package is missing.
+                fallbackToNotification(task, token, "Speech language unavailable · notification reminder")
+                stopVoiceService(task.id, token)
+                return@TextToSpeech
+            }
             VoicePersonaEngine.apply(engine, task.voicePersona)
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) = Unit

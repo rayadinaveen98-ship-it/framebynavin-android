@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.data.*
+import com.framebynavin.app.reminders.QuietHoursPolicy
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import java.util.Locale
@@ -61,6 +62,8 @@ internal fun V144SettingsHub(
     onSnooze: (Int) -> Unit,
     onWeeklyAutoPlan: (Boolean) -> Unit,
     onContextNudges: (Boolean) -> Unit,
+    onQuietHoursEnabled: (Boolean) -> Unit = {},
+    onQuietHoursWindow: (Int, Int) -> Unit = { _, _ -> },
     onNotifications: () -> Unit,
     onPreciseTiming: () -> Unit,
     onFullScreen: () -> Unit,
@@ -108,7 +111,11 @@ internal fun V144SettingsHub(
                     onPreview = { v144PreviewVoice(context, it) },
                 )
                 Spacer(Modifier.height(8.dp))
-                V144SettingsNote("This voice is used for new projects. You can change each project later.")
+                V144SettingsNote(
+                    "New projects use this voice; you can change it per project. " +
+                        "Speech uses your phone's language. If its speech data is unavailable, " +
+                        "Backlot attempts a normal notification instead."
+                )
             }
 
             V144SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V144SettingsSection.HOME.name }) {
@@ -139,6 +146,66 @@ internal fun V144SettingsHub(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
                     listOf(30 to "30s", 60 to "1m", 120 to "2m", 300 to "5m").forEach { (value, label) ->
                         FilterChip(settings.defaultAlarmTimeoutSeconds == value, { onAlarmTimeout(value) }, { Text(label, fontSize = 10.sp) })
+                    }
+                }
+
+                Spacer(Modifier.height(21.dp))
+                V144SectionTitle("QUIET HOURS", "Reduce distractions without missing check-ins.")
+                Spacer(Modifier.height(9.dp))
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine)) {
+                    Column(Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Discreet notifications", color = ProjectorIvory,
+                                    fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    if (settings.quietHoursEnabled)
+                                        "On · ${QuietHoursPolicy.label(settings.quietHoursStartMinute)} – ${QuietHoursPolicy.label(settings.quietHoursEndMinute)}"
+                                    else "Off · normal notifications at their scheduled times",
+                                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                                )
+                            }
+                            Switch(
+                                checked = settings.quietHoursEnabled,
+                                onCheckedChange = onQuietHoursEnabled,
+                                colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                            )
+                        }
+                        if (settings.quietHoursEnabled) {
+                            Spacer(Modifier.height(12.dp))
+                            Text("From", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                listOf(20 * 60, 21 * 60, 22 * 60, 23 * 60).forEach { time ->
+                                    FilterChip(
+                                        selected = settings.quietHoursStartMinute == time,
+                                        onClick = { if (time != settings.quietHoursEndMinute)
+                                            onQuietHoursWindow(time, settings.quietHoursEndMinute) },
+                                        label = { Text(QuietHoursPolicy.label(time), fontSize = 11.sp) },
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text("Until", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                listOf(6 * 60, 7 * 60, 8 * 60, 9 * 60).forEach { time ->
+                                    FilterChip(
+                                        selected = settings.quietHoursEndMinute == time,
+                                        onClick = { if (time != settings.quietHoursStartMinute)
+                                            onQuietHoursWindow(settings.quietHoursStartMinute, time) },
+                                        label = { Text(QuietHoursPolicy.label(time), fontSize = 11.sp) },
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "Only ordinary reminder notifications and gentle Smart check-ins become silent. " +
+                                "They still appear at their scheduled time. Voice, ringing alarms and later Smart escalation stages can still interrupt you.",
+                            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                        )
                     }
                 }
 

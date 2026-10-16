@@ -476,6 +476,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     settingsStore.setContextNudgesEnabled(it)
                     settings = settingsStore.snapshot()
                 },
+                onQuietHoursEnabled = {
+                    settingsStore.setQuietHoursEnabled(it)
+                    settings = settingsStore.snapshot()
+                },
+                onQuietHoursWindow = { from, until ->
+                    settingsStore.setQuietHoursWindow(from, until)
+                    settings = settingsStore.snapshot()
+                },
                 onNotifications = ::requestNotifications,
                 onPreciseTiming = ::requestPreciseTiming,
                 onFullScreen = ::requestFullScreen,

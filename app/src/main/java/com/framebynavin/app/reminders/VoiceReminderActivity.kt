@@ -76,6 +76,7 @@ class VoiceReminderActivity : ComponentActivity() {
                     notes = task.notes,
                     snoozeMinutes = snoozeMinutes,
                     stageCheckIn = ProjectPulseEngine.isStageCheckIn(task),
+                    attentionPlan = task.attentionPlan,
                     onStageDone = { dispatchReminderAction(ReminderConstants.ACTION_STAGE_DONE, task.id) },
                     onWorking = { dispatchReminderAction(ReminderConstants.ACTION_STARTED, task.id) },
                     onSnooze = { dispatchReminderAction(ReminderConstants.ACTION_SNOOZE, task.id) },
