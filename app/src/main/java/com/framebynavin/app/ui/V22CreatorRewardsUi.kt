@@ -15,6 +15,8 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.data.CreatorAchievementSnapshot
+import com.framebynavin.app.data.CreatorProgressV165Policy
+import com.framebynavin.app.data.CreatorProgressDestination
 import com.framebynavin.app.data.CreatorRewardLedgerEntry
 import com.framebynavin.app.data.CreatorRewardProgressSnapshot
 import com.framebynavin.app.ui.theme.*
@@ -256,7 +260,13 @@ private fun V22Metric(label: String, value: String, accent: androidx.compose.ui.
 internal fun V23CreatorProgressScreen(
     snapshot: CreatorRewardProgressSnapshot,
     onClose: () -> Unit,
+    onOpenIdeas: () -> Unit = {},
+    onOpenProjects: () -> Unit = {},
 ) {
+    var showAchievements by rememberSaveable { mutableStateOf(false) }
+    var showTraits by rememberSaveable { mutableStateOf(false) }
+    var showHistory by rememberSaveable { mutableStateOf(false) }
+    val guidance = CreatorProgressV165Policy.nextStep(snapshot)
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
             Modifier.fillMaxSize()
@@ -270,10 +280,12 @@ internal fun V23CreatorProgressScreen(
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory) }
                 Column(Modifier.weight(1f)) {
                     Text("PROGRESS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                    Text("Creator Progress", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("Your creative work", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
                 }
             }
 
+            Spacer(Modifier.height(8.dp))
+            Text(CreatorProgressV165Policy.progressMeaning(), color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
             Spacer(Modifier.height(18.dp))
             Surface(
                 Modifier.fillMaxWidth(),
@@ -284,7 +296,7 @@ internal fun V23CreatorProgressScreen(
                 Column(Modifier.padding(17.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("CREATOR LEVEL", color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
+                            Text("YOUR LEVEL", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
                             Text("Level ${snapshot.level}", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
                         }
                         Text("${snapshot.totalXp} XP", color = MutedGold, fontSize = 22.sp, fontWeight = FontWeight.Black)
@@ -303,10 +315,11 @@ internal fun V23CreatorProgressScreen(
 
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                V22Metric("THIS WEEK", snapshot.weeklyMomentum.toString(), SuccessGreen, Modifier.weight(1f))
-                V22Metric("REWARDED ACTIONS", snapshot.weeklyEventCount.toString(), MutedGold, Modifier.weight(1f))
+                V22Metric("WEEKLY POINTS", snapshot.weeklyMomentum.toString(), SuccessGreen, Modifier.weight(1f))
+                V22Metric("WEEKLY ACTIONS", snapshot.weeklyEventCount.toString(), MutedGold, Modifier.weight(1f))
             }
 
+            Text(CreatorProgressV165Policy.weeklySummary(snapshot), color = MutedText, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
             snapshot.nextAchievement?.let { next ->
                 Spacer(Modifier.height(18.dp))
                 Text("NEXT MILESTONE", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
@@ -320,11 +333,26 @@ internal fun V23CreatorProgressScreen(
                             Text("${next.current}/${next.target}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.height(4.dp))
-                        Text(next.description, color = MutedText, fontSize = 8.6.sp, lineHeight = 12.sp)
+                        Text(next.description, color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
+                        guidance?.let { guide ->
+                            Spacer(Modifier.height(9.dp))
+                            Text(guide.explanation, color = MutedText, fontSize = 11.sp)
+                            TextButton(onClick = {
+                                when (guide.destination) {
+                                    CreatorProgressDestination.IDEAS -> onOpenIdeas()
+                                    CreatorProgressDestination.PROJECTS -> onOpenProjects()
+                                }
+                            }) { Text(guide.actionLabel, color = RecRed, fontSize = 11.sp) }
+                        }
                     }
                 }
             }
 
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { showAchievements = !showAchievements }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showAchievements) "HIDE ACHIEVEMENTS" else "VIEW ACHIEVEMENTS", color = MutedGold, fontSize = 11.sp)
+            }
+            if (showAchievements) {
             Spacer(Modifier.height(20.dp))
             Text("ACHIEVEMENTS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
             Text("${snapshot.unlockedAchievementCount}/${snapshot.achievements.size} unlocked", color = MutedText, fontSize = 8.4.sp)
@@ -334,6 +362,13 @@ internal fun V23CreatorProgressScreen(
                 Spacer(Modifier.height(7.dp))
             }
 
+
+            }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { showTraits = !showTraits }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showTraits) "HIDE CREATOR TRAITS" else "VIEW CREATOR TRAITS", color = MutedGold, fontSize = 11.sp)
+            }
+            if (showTraits) {
             Spacer(Modifier.height(13.dp))
             Text("CREATOR TRAITS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
             Text("Earned from recorded creator behavior, never from opening the app.", color = MutedText, fontSize = 8.3.sp)
@@ -361,6 +396,13 @@ internal fun V23CreatorProgressScreen(
                 }
             }
 
+
+            }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { showHistory = !showHistory }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showHistory) "HIDE RECENT REWARDS" else "VIEW RECENT REWARDS", color = MutedGold, fontSize = 11.sp)
+            }
+            if (showHistory) {
             Spacer(Modifier.height(13.dp))
             Text("RECENT REWARDS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
             Text("Every XP change stays explainable.", color = MutedText, fontSize = 8.3.sp)
@@ -378,6 +420,8 @@ internal fun V23CreatorProgressScreen(
                         }
                     }
                 }
+            }
+
             }
         }
     }

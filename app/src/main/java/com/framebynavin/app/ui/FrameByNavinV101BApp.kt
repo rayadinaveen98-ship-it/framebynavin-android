@@ -466,6 +466,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             POverlay.CREATOR_PROGRESS -> V23CreatorProgressScreen(
                 snapshot = CreatorRewardsV22Engine.snapshot(vm.rewardLedger),
                 onClose = { overlay = POverlay.NONE },
+                onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
+                onOpenProjects = { overlay = POverlay.NONE; tab = PTab.CREATE },
             )
             POverlay.SETTINGS -> V144SettingsHub(
                 settings = settings,
