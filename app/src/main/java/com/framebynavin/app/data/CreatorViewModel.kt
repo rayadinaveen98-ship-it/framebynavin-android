@@ -910,7 +910,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun setWeeklyAutoPlanEnabled(enabled: Boolean) {
         weeklyAutoPlanState = enabled
         settingsStore.setWeeklyAutoPlanEnabled(enabled)
-        if (enabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
+        // Disabling automatic generation is never consent to delete already-created work.
+        // Generated projects remain independent snapshots; new slots are created only when enabled.
+        if (enabled) syncWeeklyScheduleInternal()
     }
 
     fun saveWeeklySlot(slot: WeeklyScheduleSlot) {
@@ -985,13 +987,6 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         if (index >= 0) rewardFeedbackQueue.removeAt(index)
     }
 
-    private fun removeUnstartedWeeklyProjects() {
-        val removed = tasks.filter { it.origin == CreatorTaskOrigin.WEEKLY && it.status == TaskStatus.PLANNED }
-        if (removed.isEmpty()) return
-        tasks.removeAll { it.origin == CreatorTaskOrigin.WEEKLY && it.status == TaskStatus.PLANNED }
-        persist()
-    }
-
     private fun syncWeeklyScheduleInternal() {
         if (!weeklyAutoPlanEnabled || !tasksLoaded || !weeklyLoaded || pendingWrites > 0) return
         val occurrences = WeeklyScheduleEngine.upcomingOccurrences(weeklySlots, daysAhead = CreatorAutoPlanEngine.DEFAULT_HORIZON_DAYS)
@@ -1005,17 +1000,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 tasks.add(0, created)
                 toSchedule += created
                 changed = true
-            } else {
-                val current = tasks[existingIndex]
-                if (current.status != TaskStatus.DONE && current.status != TaskStatus.SKIPPED && current.autoStageReminder) {
-                    val updated = syncScheduledTask(current, occurrence)
-                    if (updated != current) {
-                        tasks[existingIndex] = updated
-                        toSchedule += updated
-                        changed = true
-                    }
-                }
             }
+            // Once a weekly occurrence becomes a project, it belongs to the creator.
+            // Template edits (title, day, format, priority, reminder) affect only
+            // *new* occurrences, never rewrite previously generated projects.
         }
 
         if (changed) persist()
@@ -1063,39 +1051,6 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         if (enabled) task = task.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(task, stageIndex))
         if (task.reminderMode == ReminderMode.SMART) putSmartConfig(task)
         return task
-    }
-
-    private fun syncScheduledTask(task: CreatorTask, occurrence: ScheduleOccurrence): CreatorTask {
-        val slot = occurrence.slot
-        val formatChanged = task.platform != slot.platform || task.contentType != slot.contentType
-        val template = CreatorWorkflowEngine.templateFor(slot.platform, slot.contentType)
-        val stageIndex = if (formatChanged) {
-            CreatorWorkflowEngine.stageIndexFromProgress(task.progress, template.stages.size)
-        } else CreatorWorkflowEngine.stageIndex(task).coerceIn(0, template.stages.lastIndex)
-        val mode = slot.reminderMode
-        val enabled = mode != ReminderMode.NONE
-        var updated = task.copy(
-            title = slot.title,
-            platform = slot.platform,
-            contentType = slot.contentType,
-            dueLabel = WeeklyScheduleEngine.dueLabel(occurrence.publishAtMillis),
-            dueAtMillis = occurrence.publishAtMillis,
-            workflowStageIndex = stageIndex,
-            progress = CreatorWorkflowEngine.progressForStage(stageIndex, template.stages.size),
-            priority = slot.priority,
-            reminderMode = mode,
-            reminderEnabled = enabled,
-            alertType = if (mode == ReminderMode.ALARM || mode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION,
-            voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,
-            smartEscalationEnabled = mode == ReminderMode.SMART,
-            autoStageReminder = enabled,
-            origin = CreatorTaskOrigin.WEEKLY,
-            sourceRefId = occurrence.key,
-        )
-        updated = if (enabled) updated.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(updated, stageIndex))
-        else updated.copy(reminderAtMillis = 0L)
-        if (updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
-        return updated
     }
 
     private fun applyAutoStageReminder(task: CreatorTask, stageIndex: Int): CreatorTask {
