@@ -1,0 +1,86 @@
+name: Backlot V160 — Quick Actions Phase 1 Safety
+
+on:
+  push:
+    branches:
+      - feature/backlot-v160-quick-actions-data-safety-p1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v160-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-apk:
+    name: V160 safety + APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout V160
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Protect creator data and preserve V154–V159
+        run: bash tools/check_v160_quick_actions_safety.sh
+      - name: Unit tests — preservation and regression
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Compile Android device tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Build V160 APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Upload V160 Preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlot-v160-quick-actions-phase1-safety-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 90
+
+  android-emulator:
+    name: Android 35 creator data safety
+    needs: android-apk
+    runs-on: macos-15-intel
+    timeout-minutes: 50
+    steps:
+      - name: Checkout V160
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Test empty plans, voice backups, legacy restore, and automation preferences on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            gradle :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.data.V160QuickActionsSafetyInstrumentedTest,com.framebynavin.app.data.CreatorBackupV183Test" --stacktrace
+      - name: Keep device reports on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v160-creator-data-safety-android35-results
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+          if-no-files-found: warn
+          retention-days: 30
