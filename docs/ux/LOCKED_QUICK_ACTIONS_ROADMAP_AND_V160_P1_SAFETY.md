@@ -26,6 +26,7 @@
 ### Preserve a deliberately empty plan
 - Only on first-ever install, with no stored weekly schedule, may Backlot seed the legacy starter slots.
 - Stored `[]` survives reload, export and restore unchanged.
+- Legacy slot IDs are not proof of an unmodified preset. Preserve saved slots, including customized older templates, until the creator explicitly removes them.
 - Explicit Restore Default Week is the only intentional reset to the default template.
 
 ### Media portability and backup safety
