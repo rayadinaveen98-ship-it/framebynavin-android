@@ -12,13 +12,15 @@ internal data class YouTubeAnalyticsQueryWindow(
 )
 
 /**
- * YouTube Analytics dates are Pacific-time dates and the targeted-query data typically trails
- * real time by 48–72 hours. Use a conservative four-day safety gap so current and previous
- * comparison windows contain the same number of fully processed days instead of comparing a
- * truncated current period with a complete previous period.
+ * YouTube Analytics uses Pacific calendar dates. V153 always stopped four days before
+ * Pacific today, even when fresher analytics reports were available.
+ *
+ * V154 requests a more recent rolling window. YouTube may still be processing recent days,
+ * so the UI must show the requested coverage and checked-at time separately, and must not
+ * describe this period as finalized or realtime Studio data.
  */
 internal object YouTubeAnalyticsQueryPolicy {
-    const val PROCESSING_SAFETY_DAYS = 4L
+    const val PROCESSING_SAFETY_DAYS = 2L
     private val PACIFIC_ZONE: ZoneId = ZoneId.of("America/Los_Angeles")
 
     fun window(windowDays: Int, now: Instant = Instant.now()): YouTubeAnalyticsQueryWindow {
@@ -31,14 +33,27 @@ internal object YouTubeAnalyticsQueryPolicy {
         return YouTubeAnalyticsQueryWindow(start, end, previousStart, previousEnd)
     }
 
-    /** UI copy must never imply that a finalized Analytics window is Studio real-time data. */
+    /** Existing callers keep this name; the displayed report is explicitly NOT finalized. */
     fun finalizedWindowLabel(windowDays: Int): String {
         require(windowDays in setOf(7, 28, 90))
-        return "FINALIZED ${windowDays}D"
+        return "RECENT ${windowDays}D · PROCESSING"
     }
 
     fun freshnessNote(): String =
-        "YouTube Analytics may trail Studio by 48–72h"
+        "YouTube Analytics can lag 2–3 days. Recent figures may change."
+
+    /** Refresh when the expected reporting date advances, even if cache was checked recently. */
+    fun shouldRefresh(
+        cachedEndDate: String,
+        fetchedAtMillis: Long,
+        windowDays: Int,
+        now: Instant = Instant.now(),
+    ): Boolean {
+        val expectedEnd = window(windowDays, now).end.toString()
+        if (cachedEndDate != expectedEnd) return true
+        val age = now.toEpochMilli() - fetchedAtMillis
+        return fetchedAtMillis <= 0L || age >= 15L * 60_000L
+    }
 
     fun periodCount(row: Map<String, Any?>, key: String): Long {
         val value = row[key] ?: return 0L

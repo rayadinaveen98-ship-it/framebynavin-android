@@ -432,6 +432,7 @@ internal fun V131StudioScreen(
     tasks: List<CreatorTask>,
     postPublishCheckpoints: List<PostPublishCheckpoint> = emptyList(),
     onAdd: () -> Unit,
+    onQuickCreate: () -> Unit,
     onAdvance: (String) -> Unit,
     onBack: (String) -> Unit,
     onFocus: (String) -> Unit,
@@ -517,6 +518,24 @@ internal fun V131StudioScreen(
                     }
                 }
                 Text("Tap a project to open it. Long-press to select one or more.", color = MutedText, fontSize = 9.sp)
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onAdd,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Text("NEW PROJECT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = onQuickCreate,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Text("QUICK CREATE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
                 Spacer(Modifier.height(18.dp))
             }
         }

@@ -186,6 +186,7 @@ internal fun PProjectComposer(
     onOpenSettings: () -> Unit,
     onSave: (PProjectDraft) -> Unit,
     onRemoveReminder: () -> Unit,
+    startWithQuickCreate: Boolean = false,
 ) {
     val context = LocalContext.current
     val defaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
@@ -299,6 +300,7 @@ internal fun PProjectComposer(
 
     if (task == null) {
         V20NewProjectWizard(
+            startWithQuickCreate = startWithQuickCreate,
             profile = defaults.creatorProfile,
             title = title,
             onTitleChange = { title = it },

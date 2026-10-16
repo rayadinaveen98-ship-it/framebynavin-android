@@ -96,6 +96,7 @@ internal fun V20NewProjectWizard(
     onOpenSettings: () -> Unit,
     onDismiss: () -> Unit,
     onCreate: () -> Unit,
+    startWithQuickCreate: Boolean = false,
 ) {
     var revealedStage by rememberSaveable { mutableIntStateOf(0) }
     var activeStage by rememberSaveable { mutableIntStateOf(0) }
@@ -103,8 +104,8 @@ internal fun V20NewProjectWizard(
     var showAllTypes by rememberSaveable { mutableStateOf(false) }
     var showAllPlatforms by rememberSaveable { mutableStateOf(false) }
     var customizeStyles by rememberSaveable { mutableStateOf(false) }
-    // V153: the default path is quick create; the original complete wizard remains available.
-    var showAdvancedSetup by rememberSaveable { mutableStateOf(false) }
+    // V154: the original seven-step experience is the default. Quick Create is an explicit shortcut.
+    var showAdvancedSetup by rememberSaveable(startWithQuickCreate) { mutableStateOf(!startWithQuickCreate) }
     val scrollState = rememberScrollState()
     val now = System.currentTimeMillis()
 
@@ -376,19 +377,21 @@ internal fun V20NewProjectWizard(
                             Text("MORE OPTIONS", fontSize = 13.sp)
                         }
                     } else {
-                        TextButton(
-                            onClick = {
-                                showAdvancedSetup = false
-                                activeStage = 0
-                                revealedStage = 0
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Icon(Icons.Outlined.ArrowBack, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(7.dp))
-                            Text("BACK TO QUICK CREATE", fontSize = 12.sp)
+                        if (startWithQuickCreate) {
+                            TextButton(
+                                onClick = {
+                                    showAdvancedSetup = false
+                                    activeStage = 0
+                                    revealedStage = 0
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Icon(Icons.Outlined.ArrowBack, null, modifier = Modifier.size(17.dp))
+                                Spacer(Modifier.width(7.dp))
+                                Text("BACK TO QUICK CREATE", fontSize = 12.sp)
+                            }
+                            Spacer(Modifier.height(12.dp))
                         }
-                        Spacer(Modifier.height(12.dp))
                         V20ProgressiveSection(
                         index = 0,
                         label = "NAME",
