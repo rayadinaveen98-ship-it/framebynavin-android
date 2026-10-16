@@ -104,6 +104,7 @@ internal fun V20NewProjectWizard(
     var showAllTypes by rememberSaveable { mutableStateOf(false) }
     var showAllPlatforms by rememberSaveable { mutableStateOf(false) }
     var customizeStyles by rememberSaveable { mutableStateOf(false) }
+    var showReminderAdvanced by rememberSaveable { mutableStateOf(false) }
     // V154: the original seven-step experience is the default. Quick Create is an explicit shortcut.
     var showAdvancedSetup by rememberSaveable(startWithQuickCreate) { mutableStateOf(!startWithQuickCreate) }
     val scrollState = rememberScrollState()
@@ -151,13 +152,7 @@ internal fun V20NewProjectWizard(
         supportReady = supportReady,
     )
     val progress = ((revealedStage + 1).coerceIn(1, 7)) / 7f
-    val supportSummary = buildString {
-        append(ProjectPulseEngine.planLabel(attentionPlan))
-        if (attentionPlan != ProjectAttentionPlan.OFF) {
-            append(" · ")
-            append(pDeliveryPreferenceLabel(deliveryPreference))
-        }
-    }
+    val supportSummary = V156ReminderSetupCopy.summary(attentionPlan, deliveryPreference)
 
 
     if (showAllTypes) {
@@ -326,23 +321,60 @@ internal fun V20NewProjectWizard(
                             fontSize = 12.sp,
                         )
                         Spacer(Modifier.height(6.dp))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            FilterChip(
-                                selected = attentionPlan == ProjectAttentionPlan.OFF,
-                                onClick = { onAttentionPlanChange(ProjectAttentionPlan.OFF) },
-                                label = { Text("No reminders", fontSize = 12.sp) },
-                            )
-                            FilterChip(
-                                selected = attentionPlan == ProjectAttentionPlan.GUIDED,
-                                onClick = { onAttentionPlanChange(ProjectAttentionPlan.GUIDED) },
-                                label = { Text("Help me stay on track", fontSize = 12.sp) },
-                            )
+                        V156ReminderPlanPicker(
+                            selected = attentionPlan,
+                            onSelected = onAttentionPlanChange,
+                            compact = true,
+                        )
+                        if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                            Spacer(Modifier.height(11.dp))
+                            V20FieldLabel("REMIND ME AT")
+                            V20DateTimeButton(v20WizardDateTime(customReminderAt), onPickCustomReminder)
+                            if (!customReady) {
+                                Text("Pick a time before the project deadline.", color = RecRed, fontSize = 12.sp)
+                            }
                         }
-                        if (attentionPlan == ProjectAttentionPlan.CUSTOM && !customReady) {
-                            Text("Change your reminder time in More Options.", color = RecRed, fontSize = 12.sp)
+                        if (attentionPlan != ProjectAttentionPlan.OFF) {
+                            Spacer(Modifier.height(12.dp))
+                            V156AdvancedReminderSettings(
+                                expanded = showReminderAdvanced,
+                                onToggle = { showReminderAdvanced = !showReminderAdvanced },
+                                preference = deliveryPreference,
+                            ) {
+                                V20FieldLabel("HOW SHOULD BACKLOT ALERT YOU?")
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                                ) {
+                                    V20NewProjectReminderStyles.forEach { value ->
+                                        FilterChip(
+                                            selected = deliveryPreference == value,
+                                            onClick = { onDeliveryPreferenceChange(value) },
+                                            label = { Text(pDeliveryPreferenceLabel(value), fontSize = 11.sp) },
+                                        )
+                                    }
+                                }
+                                Text(V156ReminderSetupCopy.alertExplanation(deliveryPreference), color = MutedText, fontSize = 11.sp)
+                                Spacer(Modifier.height(12.dp))
+                                V141InheritedVoiceCard(
+                                    voice = voicePersona,
+                                    onPreview = onPreviewVoice,
+                                    onOpenSettings = onOpenSettings,
+                                )
+                                if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                                    Spacer(Modifier.height(12.dp))
+                                    V20FieldLabel("IMPORTANCE")
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                        TaskPriority.entries.forEach { value ->
+                                            FilterChip(
+                                                selected = priority == value,
+                                                onClick = { onPriorityChange(value) },
+                                                label = { Text(pPriorityLabel(value), fontSize = 11.sp) },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                         if (requiresAdvancedPermissions && !reminderSetupReady && attentionPlan != ProjectAttentionPlan.OFF) {
                             TextButton(onClick = onOpenSettings) {
@@ -574,55 +606,67 @@ internal fun V20NewProjectWizard(
                         revealed = revealedStage >= 5,
                         onEdit = { activeStage = 5 },
                     ) {
-                        V20NewProjectSupportPlans.forEach { plan ->
-                            V20WizardAttentionCard(plan, selected = attentionPlan == plan) { onAttentionPlanChange(plan) }
-                            Spacer(Modifier.height(8.dp))
-                        }
-
-                        if (attentionPlan != ProjectAttentionPlan.OFF) {
-                            Spacer(Modifier.height(4.dp))
-                            V20FieldLabel("REMINDER STYLE")
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                V20NewProjectReminderStyles.forEach { value ->
-                                    FilterChip(
-                                        selected = deliveryPreference == value,
-                                        onClick = { onDeliveryPreferenceChange(value) },
-                                        label = { Text(pDeliveryPreferenceLabel(value), fontSize = 9.sp) },
-                                    )
-                                }
-                            }
-                        }
-
-                        if (attentionPlan != ProjectAttentionPlan.OFF) {
-                            Spacer(Modifier.height(14.dp))
-                            V141InheritedVoiceCard(
-                                voice = voicePersona,
-                                onPreview = onPreviewVoice,
-                                onOpenSettings = onOpenSettings,
-                            )
-                        }
-
+                        V156ReminderPlanPicker(
+                            selected = attentionPlan,
+                            onSelected = onAttentionPlanChange,
+                        )
                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
-                            Spacer(Modifier.height(14.dp))
-                            V20FieldLabel("REMINDER TIME")
+                            Spacer(Modifier.height(8.dp))
+                            V20FieldLabel("REMIND ME AT")
                             V20DateTimeButton(v20WizardDateTime(customReminderAt), onPickCustomReminder)
-                            Spacer(Modifier.height(12.dp))
-                            V20FieldLabel("IMPORTANCE")
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                TaskPriority.entries.forEach { value ->
-                                    FilterChip(
-                                        selected = priority == value,
-                                        onClick = { onPriorityChange(value) },
-                                        label = { Text(pPriorityLabel(value), fontSize = 9.sp) },
-                                    )
-                                }
-                            }
                             if (!customReady) {
-                                Spacer(Modifier.height(6.dp))
-                                Text("Pick a reminder time before your due date.", color = RecRed, fontSize = 8.5.sp)
+                                Spacer(Modifier.height(5.dp))
+                                Text("Pick a reminder before your deadline.", color = RecRed, fontSize = 12.sp)
                             }
                         }
-
+                        if (attentionPlan != ProjectAttentionPlan.OFF) {
+                            Spacer(Modifier.height(12.dp))
+                            V156AdvancedReminderSettings(
+                                expanded = showReminderAdvanced,
+                                onToggle = { showReminderAdvanced = !showReminderAdvanced },
+                                preference = deliveryPreference,
+                            ) {
+                                V20FieldLabel("HOW SHOULD BACKLOT ALERT YOU?")
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                                ) {
+                                    V20NewProjectReminderStyles.forEach { value ->
+                                        FilterChip(
+                                            selected = deliveryPreference == value,
+                                            onClick = { onDeliveryPreferenceChange(value) },
+                                            label = { Text(pDeliveryPreferenceLabel(value), fontSize = 11.sp) },
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(5.dp))
+                                Text(
+                                    V156ReminderSetupCopy.alertExplanation(deliveryPreference),
+                                    color = MutedText,
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp,
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                V141InheritedVoiceCard(
+                                    voice = voicePersona,
+                                    onPreview = onPreviewVoice,
+                                    onOpenSettings = onOpenSettings,
+                                )
+                                if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                                    Spacer(Modifier.height(12.dp))
+                                    V20FieldLabel("IMPORTANCE")
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                        TaskPriority.entries.forEach { value ->
+                                            FilterChip(
+                                                selected = priority == value,
+                                                onClick = { onPriorityChange(value) },
+                                                label = { Text(pPriorityLabel(value), fontSize = 11.sp) },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         if (requiresAdvancedPermissions && !reminderSetupReady) {
                             Spacer(Modifier.height(12.dp))
                             Surface(
@@ -819,38 +863,6 @@ private fun V20WizardReviewRow(label: String, value: String, onClick: () -> Unit
                 Text(value, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Outlined.Edit, "Change $label", tint = MutedGold, modifier = Modifier.size(16.dp))
-        }
-    }
-}
-
-@Composable
-private fun V20WizardAttentionCard(plan: ProjectAttentionPlan, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) RecRed.copy(alpha = .10f) else CinemaSurface,
-        border = BorderStroke(1.dp, if (selected) RecRed.copy(alpha = .75f) else CinemaLine),
-    ) {
-        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                when (plan) {
-                    ProjectAttentionPlan.OFF -> Icons.Outlined.NotificationsOff
-                    ProjectAttentionPlan.LIGHT -> Icons.Outlined.NotificationsNone
-                    ProjectAttentionPlan.GUIDED -> Icons.Outlined.NotificationsActive
-                    ProjectAttentionPlan.URGENT -> Icons.Outlined.Alarm
-                    ProjectAttentionPlan.CUSTOM -> Icons.Outlined.Tune
-                },
-                null,
-                tint = if (selected) RecRed else MutedGold,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(ProjectPulseEngine.planLabel(plan), color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(ProjectPulseEngine.planDescription(plan), color = MutedText, fontSize = 8.7.sp, lineHeight = 12.sp)
-            }
-            if (selected) Icon(Icons.Outlined.CheckCircle, null, tint = RecRed, modifier = Modifier.size(18.dp))
         }
     }
 }
