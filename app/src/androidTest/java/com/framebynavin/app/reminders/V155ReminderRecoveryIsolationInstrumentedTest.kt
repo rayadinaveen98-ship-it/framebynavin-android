@@ -44,6 +44,44 @@ class V155ReminderRecoveryIsolationInstrumentedTest {
         }
     }
 
+    @Test
+    fun resumingAppPreservesAlreadyDeliveredRegularNotificationActions() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val task = task(ReminderMode.SIMPLE).copy(
+            reminderAtMillis = System.currentTimeMillis() - 30_000L,
+        )
+        val occurrences = ReminderOccurrenceStore(context)
+        val ledger = AlarmLedger(context)
+        try {
+            val token = occurrences.issue(task)
+            ledger.markDelivered(task.id, task.reminderAtMillis)
+            ReminderRecoveryEngine.reconcileTask(context, task)
+            assertTrue("Already delivered regular action token must survive resume", occurrences.matches(task, token))
+        } finally {
+            occurrences.invalidate(task.id)
+            ledger.clearDelivered(task.id)
+        }
+    }
+
+    @Test
+    fun resumingAppPreservesRecoveredSmartNotificationActions() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val task = task(ReminderMode.SMART).copy(
+            reminderAtMillis = System.currentTimeMillis() - 30_000L,
+        )
+        val occurrences = ReminderOccurrenceStore(context)
+        val ledger = AlarmLedger(context)
+        try {
+            val token = occurrences.issue(task)
+            ledger.markDelivered(task.id, task.reminderAtMillis)
+            ReminderRecoveryEngine.reconcileTask(context, task)
+            assertTrue("Recovered Smart action token must survive resume", occurrences.matches(task, token))
+        } finally {
+            occurrences.invalidate(task.id)
+            ledger.clearDelivered(task.id)
+        }
+    }
+
     private fun task(mode: ReminderMode): CreatorTask {
         val now = System.currentTimeMillis()
         return CreatorTask(
