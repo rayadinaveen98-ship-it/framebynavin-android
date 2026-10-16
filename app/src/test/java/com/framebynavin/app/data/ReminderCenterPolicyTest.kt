@@ -64,8 +64,14 @@ class ReminderCenterPolicyTest {
 
     @Test fun onlyRelevantSnoozeTimesCanBeScheduledBeforeFutureDeadline() {
         val nearDue = task(dueAt = now + 7 * 60_000L)
-        assertEquals(now + 7 * 60_000L, ReminderCenterPolicy.nextSnoozeAt(nearDue, now, 10))
-        assertEquals(now + 10 * 60_000L, ReminderCenterPolicy.nextSnoozeAt(task(), now, 10))
+        // Future reminders move later than their originally planned alert.
+        assertEquals(now + 2 * hour + 10 * 60_000L,
+            ReminderCenterPolicy.nextSnoozeAt(task(), now, 10))
+        // A late/already-fired reminder moves forward from the present.
+        assertEquals(now + 7 * 60_000L, ReminderCenterPolicy.nextSnoozeAt(
+            nearDue.copy(reminderAtMillis = now - 60_000L), now, 10))
+        assertEquals(null, ReminderCenterPolicy.nextSnoozeAt(
+            nearDue.copy(reminderAtMillis = now + 7 * 60_000L), now, 10))
         assertEquals(null, ReminderCenterPolicy.nextSnoozeAt(task(), now, 0))
         assertEquals(null, ReminderCenterPolicy.nextSnoozeAt(task(), now, 121))
     }
