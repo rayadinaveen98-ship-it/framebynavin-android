@@ -197,7 +197,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 if (pendingWrites > 0 || writeError != null) return@collectLatest
                 val cleaned = saved.filterNot {
                     it.id == "starter-frame-breakdown" ||
-                        (it.origin == CreatorTaskOrigin.WEEKLY && WeeklyScheduleEngine.isLegacySeedSlot(it.scheduleSlotId)) ||
+                        // Legacy weekly template IDs may still belong to genuine creator projects.
+                        // Keep those projects; only retire the old template definitions.
                         CreatorPostPublishEngine.isLegacyTask(it)
                 }.map(ProjectPulseEngine::repairFalseSurfaceCompletion)
                 if (cleaned != saved) {
@@ -205,7 +206,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                     store.mutate { current ->
                         current.filterNot {
                             it.id == "starter-frame-breakdown" ||
-                                (it.origin == CreatorTaskOrigin.WEEKLY && WeeklyScheduleEngine.isLegacySeedSlot(it.scheduleSlotId)) ||
+                                // Legacy weekly template IDs may still belong to genuine creator projects.
+                        // Keep those projects; only retire the old template definitions.
                                 CreatorPostPublishEngine.isLegacyTask(it)
                         }.map(ProjectPulseEngine::repairFalseSurfaceCompletion)
                     }
