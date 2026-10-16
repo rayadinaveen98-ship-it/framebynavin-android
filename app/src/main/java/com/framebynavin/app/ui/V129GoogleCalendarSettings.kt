@@ -74,39 +74,101 @@ internal object CreatorCalendarSync {
     fun syncIfEnabled(context: Context, tasks: List<CreatorTask>): Int {
         if (!isEnabled(context) || !hasPermission(context)) return 0
         val calendarId = selectedCalendarId(context)
-        if (calendarId <= 0L) return 0
-        return sync(context, tasks, calendarId)
+        if (calendarId <= 0L || googleCalendars(context).none { it.id == calendarId }) return 0
+        return syncDetailed(context, tasks, calendarId).changed
     }
 
-    fun sync(context: Context, tasks: List<CreatorTask>, calendarId: Long): Int {
-        if (!hasPermission(context) || calendarId <= 0L) return 0
+    /** Kept for existing callers. A zero count does not mean initial sync failed. */
+    fun sync(context: Context, tasks: List<CreatorTask>, calendarId: Long): Int =
+        syncDetailed(context, tasks, calendarId).changed
+
+    private enum class ManagedEvent { MISSING, OWNED, OTHER_CALENDAR, NOT_BACKLOT }
+
+    private fun managedEvent(context: Context, eventId: Long, calendarId: Long): ManagedEvent {
+        val projection = arrayOf(CalendarContract.Events.CALENDAR_ID, CalendarContract.Events.TITLE)
+        context.contentResolver.query(
+            CalendarContract.Events.CONTENT_URI,
+            projection,
+            "${CalendarContract.Events._ID}=?",
+            arrayOf(eventId.toString()),
+            null,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return ManagedEvent.MISSING
+            val existingCalendar = cursor.getLong(0)
+            val existingTitle = cursor.getString(1)
+            if (!CreatorCalendarSyncS1Policy.ownedTitle(existingTitle)) return ManagedEvent.NOT_BACKLOT
+            return if (existingCalendar == calendarId) ManagedEvent.OWNED
+                else ManagedEvent.OTHER_CALENDAR
+        }
+        // Don't assume a failed provider lookup means it is safe to overwrite an unknown event.
+        error("Could not verify the existing calendar entry.")
+    }
+
+    /** S1: never edit/delete a stored event ID unless it still identifies a Backlot
+     * event in the selected calendar. Calendar changes do not delete old-calendar events. */
+    fun syncDetailed(context: Context, tasks: List<CreatorTask>, calendarId: Long): CreatorCalendarSyncReport {
+        require(hasPermission(context)) { "Calendar permission is needed to sync." }
+        require(calendarId > 0L && googleCalendars(context).any { it.id == calendarId }) {
+            "Choose an available Google calendar before syncing."
+        }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        var count = 0
-        tasks.filter { it.dueAtMillis > 0L && it.status != TaskStatus.SKIPPED }.forEach { task ->
+        val active = CreatorCalendarSyncS1Policy.exportable(tasks)
+        val activeKeys = active.map { EVENT_PREFIX + it.id }.toSet()
+        var created = 0
+        var updated = 0
+        var removed = 0
+        var blocked = 0
+
+        active.forEach { task ->
+            val key = EVENT_PREFIX + task.id
             val values = ContentValues().apply {
                 put(CalendarContract.Events.CALENDAR_ID, calendarId)
-                put(CalendarContract.Events.TITLE, "Creator project · ${task.title}")
-                put(CalendarContract.Events.DESCRIPTION, listOf(task.platform, task.contentType, task.notes).filter { it.isNotBlank() }.joinToString(" · "))
+                put(CalendarContract.Events.TITLE, CreatorCalendarSyncS1Policy.title(task))
+                put(CalendarContract.Events.DESCRIPTION, CreatorCalendarSyncS1Policy.description(task))
                 put(CalendarContract.Events.DTSTART, task.dueAtMillis)
                 put(CalendarContract.Events.DTEND, task.dueAtMillis + 30L * 60_000L)
                 put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
                 put(CalendarContract.Events.HAS_ALARM, 0)
             }
-            val key = EVENT_PREFIX + task.id
             val existing = prefs.getLong(key, -1L)
-            if (existing > 0L) {
-                val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, existing)
-                if (context.contentResolver.update(uri, values, null, null) > 0) count++
-            } else {
-                val created = context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
-                val id = created?.let(ContentUris::parseId) ?: -1L
-                if (id > 0L) {
-                    prefs.edit().putLong(key, id).apply()
-                    count++
+            val kind = if (existing > 0L) managedEvent(context, existing, calendarId)
+                else ManagedEvent.MISSING
+            when (kind) {
+                ManagedEvent.OWNED -> {
+                    val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, existing)
+                    if (context.contentResolver.update(uri, values, null, null) > 0) updated++ else blocked++
+                }
+                ManagedEvent.NOT_BACKLOT -> blocked++ // creator may have renamed it
+                ManagedEvent.MISSING, ManagedEvent.OTHER_CALENDAR -> {
+                    val uri = context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
+                        ?: error("Could not create a calendar entry.")
+                    val id = ContentUris.parseId(uri)
+                    require(id > 0L) { "Could not save the calendar entry." }
+                    check(prefs.edit().putLong(key, id).commit()) { "Could not save calendar sync state." }
+                    created++
                 }
             }
         }
-        return count
+
+        // Cleanup only entries that Backlot created in the *currently selected* calendar.
+        // Never delete a manually renamed entry or an entry in another calendar.
+        prefs.all.filterKeys { it.startsWith(EVENT_PREFIX) && it !in activeKeys }
+            .forEach { (key, raw) ->
+                val id = raw as? Long ?: return@forEach
+                when (managedEvent(context, id, calendarId)) {
+                    ManagedEvent.OWNED -> {
+                        val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, id)
+                        if (context.contentResolver.delete(uri, null, null) > 0) {
+                            check(prefs.edit().remove(key).commit()) { "Could not update calendar sync state." }
+                            removed++
+                        } else blocked++
+                    }
+                    ManagedEvent.MISSING -> prefs.edit().remove(key).apply()
+                    ManagedEvent.OTHER_CALENDAR -> Unit // old calendar preserved
+                    ManagedEvent.NOT_BACKLOT -> blocked++ // never touch user-edited entry
+                }
+            }
+        return CreatorCalendarSyncReport(created, updated, removed, blocked)
     }
 }
 
