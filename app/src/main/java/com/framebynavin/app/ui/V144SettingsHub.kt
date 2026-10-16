@@ -50,6 +50,7 @@ private enum class V144SettingsSection {
 internal fun V144SettingsHub(
     settings: CreatorOsSettings,
     tasks: List<CreatorTask>,
+    weeklySlots: List<WeeklyScheduleSlot> = emptyList(),
     weeklyAutoPlanEnabled: Boolean,
     notificationsReady: Boolean,
     preciseTimingReady: Boolean,
@@ -75,6 +76,8 @@ internal fun V144SettingsHub(
     val context = LocalContext.current
     var sectionName by rememberSaveable { mutableStateOf(V144SettingsSection.HOME.name) }
     val section = V144SettingsSection.entries.firstOrNull { it.name == sectionName } ?: V144SettingsSection.HOME
+    var confirmAutoPlan by remember { mutableStateOf(false) }
+    val nextProjects = CreatorWeeklyPlanPreviewEngine.build(weeklySlots, tasks)
 
     BackHandler {
         if (section == V144SettingsSection.HOME) onClose() else sectionName = V144SettingsSection.HOME.name
@@ -244,11 +247,20 @@ internal fun V144SettingsHub(
                         Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Weekly Auto Plan", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                            Text(if (weeklyAutoPlanEnabled) "Recurring projects may be added automatically." else "Nothing is added automatically.", color = MutedText, fontSize = 8.8.sp)
+                            Text(if (weeklyAutoPlanEnabled) "On · new weekly projects can be added." else "Off · saved templates and projects stay unchanged.", color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
                         }
-                        Switch(weeklyAutoPlanEnabled, onWeeklyAutoPlan, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
+                        Switch(
+                            checked = weeklyAutoPlanEnabled,
+                            onCheckedChange = { enable ->
+                                if (enable) confirmAutoPlan = true else onWeeklyAutoPlan(false)
+                            },
+                            colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                        )
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                Text("${nextProjects.missing.size} eligible upcoming project(s) in the next 14 days. Existing projects won't be replaced.",
+                    color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
                 Spacer(Modifier.height(18.dp))
                 V129GoogleCalendarSettings(tasks)
             }
@@ -309,6 +321,32 @@ internal fun V144SettingsHub(
                 }
             }
         }
+    }
+    if (confirmAutoPlan) {
+        AlertDialog(
+            onDismissRequest = { confirmAutoPlan = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Turn on automatic planning?", color = ProjectorIvory) },
+            text = {
+                Column {
+                    Text(
+                        "Backlot may add ${nextProjects.missing.size} missing projects from your saved weekly templates in the next 14 days. Existing projects and edits stay untouched.",
+                        color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("Auto Plan will not publish videos or delete your work.", color = MutedGold, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    confirmAutoPlan = false
+                    onWeeklyAutoPlan(true)
+                }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("TURN ON AUTO PLAN") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmAutoPlan = false }) { Text("CANCEL") }
+            },
+        )
     }
 }
 
