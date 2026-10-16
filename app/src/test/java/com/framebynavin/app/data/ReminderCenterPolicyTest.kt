@@ -71,7 +71,7 @@ class ReminderCenterPolicyTest {
     }
 
     @Test fun pauseDoesNotPromiseTwoHoursWhenFutureDeadlineIsEarlier() {
-        val current = task(plan = ProjectAttentionPlan.GUIDED)
+        val current = task(plan = ProjectAttentionPlan.GUIDED).copy(pulseManagedReminder = true)
         assertTrue(ReminderCenterPolicy.canPause(current, now))
         assertFalse(ReminderCenterPolicy.canPause(current.copy(dueAtMillis = now + hour), now))
         assertTrue(ReminderCenterPolicy.canPause(current.copy(dueAtMillis = now - hour), now))
