@@ -53,6 +53,8 @@ internal fun V17AutomationCenterScreen(
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     var prefs by remember { mutableStateOf(prefStore.snapshot()) }
     var runRequested by remember { mutableStateOf(false) }
+    var requestedAfterMillis by remember { mutableLongStateOf(0L) }
+    var statusRevision by remember { mutableIntStateOf(0) }
     var confirmAutoEnable by remember { mutableStateOf(false) }
     var confirmRefresh by remember { mutableStateOf(false) }
     var helpRunRequested by remember { mutableStateOf(false) }
@@ -71,8 +73,9 @@ internal fun V17AutomationCenterScreen(
     val enabledSlots = weeklySlots.count { it.enabled }
     val preview = CreatorWeeklyPlanPreviewEngine.build(weeklySlots, tasks)
     val postPublish = postPublishCheckpoints.count { it.status == PostPublishCheckpointStatus.PENDING }
-    val lastPlannerAt = stateStore.lastPlannerAtMillis()
-    val lastCreated = stateStore.lastPlannerCreatedCount()
+    val lastPlannerAt = remember(statusRevision) { stateStore.lastPlannerAtMillis() }
+    val lastCreated = remember(statusRevision) { stateStore.lastPlannerCreatedCount() }
+    val plannerRequestCompleted = runRequested && lastPlannerAt > requestedAfterMillis
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -128,8 +131,8 @@ internal fun V17AutomationCenterScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 when {
-                                    runRequested -> "Requested, not yet confirmed · last successful check: " +
-                                        if (lastPlannerAt > 0L) v17Time(lastPlannerAt) else "none recorded"
+                                    plannerRequestCompleted -> "Recorded run · ${v17Time(lastPlannerAt)} · $lastCreated created"
+                                    runRequested -> "Requested; Android may delay it. No completion verified yet."
                                     lastPlannerAt > 0L -> "Last recorded run · ${v17Time(lastPlannerAt)} · $lastCreated created"
                                     else -> "No completed background run recorded yet"
                                 },
@@ -137,8 +140,12 @@ internal fun V17AutomationCenterScreen(
                                 fontSize = 8.5.sp,
                                 modifier = Modifier.weight(1f),
                             )
-                            TextButton(onClick = { confirmRefresh = true }) {
-                                Text("PREVIEW & UPDATE", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            TextButton(onClick = {
+                                if (runRequested && !plannerRequestCompleted) statusRevision++
+                                else { runRequested = false; confirmRefresh = true }
+                            }) {
+                                Text(if (runRequested && !plannerRequestCompleted) "CHECK STATUS" else "PREVIEW & UPDATE",
+                                    color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
                             }
                         }
                     }
@@ -242,7 +249,9 @@ internal fun V17AutomationCenterScreen(
                 Button(onClick = {
                     confirmAutoEnable = false
                     onWeeklyAutoPlanChange(true)
+                    requestedAfterMillis = stateStore.lastPlannerAtMillis()
                     CreatorAutoPlanWorker.enqueueNow(context)
+                    statusRevision++
                     runRequested = true
                 }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("ENABLE AUTO PLAN") }
             },
@@ -266,7 +275,9 @@ internal fun V17AutomationCenterScreen(
             confirmButton = {
                 Button(onClick = {
                     confirmRefresh = false
+                    requestedAfterMillis = stateStore.lastPlannerAtMillis()
                     CreatorAutoPlanWorker.enqueueNow(context)
+                    statusRevision++
                     runRequested = true
                 }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("REQUEST UPDATE") }
             },
