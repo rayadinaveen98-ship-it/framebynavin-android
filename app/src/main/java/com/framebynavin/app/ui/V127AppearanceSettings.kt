@@ -43,14 +43,14 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
             Spacer(Modifier.height(18.dp))
         }
 
-        Text("APPEARANCE", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("APPEARANCE", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Make Backlot yours", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("Choose your look", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
         Text(
-            "Pick the look you prefer.",
+            "Pick a theme. Your existing projects and recordings will not change.",
             color = MutedText,
-            fontSize = 9.sp,
-            lineHeight = 13.sp,
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
         )
         Spacer(Modifier.height(12.dp))
 
@@ -84,7 +84,7 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Launch sound", color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                    Text("Launch sound", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text("Play Backlot's opening sound when you launch the app.", color = MutedText, fontSize = 8.2.sp)
                 }
                 Switch(
@@ -119,8 +119,8 @@ private fun V148AppearanceCard(
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(theme.displayName, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Black)
-                    Text(theme.tagline, color = MutedText, fontSize = 8.2.sp, lineHeight = 11.5.sp)
+                    Text(theme.displayName, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Black)
+                    Text(theme.tagline, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
                 }
                 if (active) {
                     Surface(shape = RoundedCornerShape(99.dp), color = RecRed.copy(alpha = .12f)) {
