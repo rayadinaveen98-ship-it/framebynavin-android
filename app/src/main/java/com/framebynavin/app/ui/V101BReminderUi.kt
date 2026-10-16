@@ -246,6 +246,10 @@ internal fun PProjectComposer(
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 10) }
     var alarmTimeout by rememberSaveable(task?.id) { mutableIntStateOf(task?.alarmTimeoutSeconds ?: defaults.defaultAlarmTimeoutSeconds) }
     var showCreativeSetup by rememberSaveable(task?.id) { mutableStateOf(false) }
+    // Editing an existing custom delivery choice reveals the controls that created it.
+    var showReminderAdvanced by rememberSaveable(task?.id) {
+        mutableStateOf(task?.deliveryPreference != null && task.deliveryPreference != ReminderDeliveryPreference.AUTO)
+    }
 
     val modeOptions = CreatorModeRegistry.definitions
     val archetypeOptions = remember(creatorModeId, archetypeId) {
@@ -486,68 +490,86 @@ internal fun PProjectComposer(
                     Spacer(Modifier.height(24.dp))
                     Text("PROJECT REMINDERS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.height(10.dp))
-                    ProjectAttentionPlan.entries.forEach { plan ->
-                        PAttentionPlanCard(plan, selected = attentionPlan == plan) { attentionPlan = plan }
-                        Spacer(Modifier.height(7.dp))
+                    V156ReminderPlanPicker(
+                        selected = attentionPlan,
+                        onSelected = { attentionPlan = it },
+                    )
+
+                    if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                        Spacer(Modifier.height(9.dp))
+                        PComposerLabel("REMIND ME AT")
+                        PDateTimeButton(pFormatDateTime(customReminderAt)) {
+                            pickDateTime(customReminderAt) { customReminderAt = it }
+                        }
+                        if (!customReady) {
+                            Spacer(Modifier.height(6.dp))
+                            Text("Choose a reminder before your deadline.", color = RecRed, fontSize = 12.sp)
+                        }
+                    }
+
+                    pulsePreview?.let { pulse ->
+                        Spacer(Modifier.height(10.dp))
+                        Surface(
+                            Modifier.fillMaxWidth(),
+                            RoundedCornerShape(16.dp),
+                            CinemaSurfaceRaised,
+                            border = BorderStroke(1.dp, CinemaLine),
+                        ) {
+                            Column(Modifier.padding(13.dp)) {
+                                Text("NEXT CHECK-IN", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(4.dp))
+                                Text(pFormatDateTime(pulse.nextCheckpointAtMillis), color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("${pulse.currentStage.label} · ${pModeLabel(pulse.recommendedMode)}", color = MutedText, fontSize = 11.sp)
+                            }
+                        }
                     }
 
                     if (attentionPlan != ProjectAttentionPlan.OFF) {
                         Spacer(Modifier.height(12.dp))
-                        PComposerLabel("REMINDER STYLE")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            ReminderDeliveryPreference.entries.forEach { value ->
-                                FilterChip(
-                                    selected = deliveryPreference == value,
-                                    onClick = { deliveryPreference = value },
-                                    label = { Text(pDeliveryPreferenceLabel(value), fontSize = 9.sp) },
-                                )
+                        V156AdvancedReminderSettings(
+                            expanded = showReminderAdvanced,
+                            onToggle = { showReminderAdvanced = !showReminderAdvanced },
+                            preference = deliveryPreference,
+                        ) {
+                            PComposerLabel("HOW SHOULD BACKLOT ALERT YOU?")
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                verticalArrangement = Arrangement.spacedBy(7.dp),
+                            ) {
+                                ReminderDeliveryPreference.entries.forEach { value ->
+                                    FilterChip(
+                                        selected = deliveryPreference == value,
+                                        onClick = { deliveryPreference = value },
+                                        label = { Text(pDeliveryPreferenceLabel(value), fontSize = 11.sp) },
+                                    )
+                                }
                             }
-                        }
-                        Spacer(Modifier.height(5.dp))
-                        Text(
-                            if (deliveryPreference == ReminderDeliveryPreference.AUTO) "Auto adjusts reminders as your deadline gets closer."
-                            else "${pDeliveryPreferenceLabel(deliveryPreference)} will stay selected as this project moves through stages.",
-                            color = MutedText,
-                            fontSize = 8.5.sp,
-                            lineHeight = 12.sp,
-                        )
-                    }
-
-                    if (attentionPlan != ProjectAttentionPlan.OFF) {
-                        Spacer(Modifier.height(16.dp))
-                        V140VoiceStudioPicker(
-                            selected = voice,
-                            onSelected = { voice = it },
-                            onPreview = { pComposerPreviewVoice(context, it) },
-                        )
-                    }
-
-                    pulsePreview?.let { pulse ->
-                        Spacer(Modifier.height(8.dp))
-                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-                            Column(Modifier.padding(13.dp)) {
-                                Text("NEXT REMINDER", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                                Spacer(Modifier.height(4.dp))
-                                Text(pFormatDateTime(pulse.nextCheckpointAtMillis), color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Text("${pulse.currentStage.label} · ${pModeLabel(pulse.recommendedMode)}", color = MutedText, fontSize = 9.sp)
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                V156ReminderSetupCopy.alertExplanation(deliveryPreference),
+                                color = MutedText,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            V140VoiceStudioPicker(
+                                selected = voice,
+                                onSelected = { voice = it },
+                                onPreview = { pComposerPreviewVoice(context, it) },
+                            )
+                            if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                                Spacer(Modifier.height(12.dp))
+                                PComposerLabel("IMPORTANCE")
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    TaskPriority.entries.forEach { value ->
+                                        FilterChip(
+                                            selected = priority == value,
+                                            onClick = { priority = value },
+                                            label = { Text(pPriorityLabel(value), fontSize = 11.sp) },
+                                        )
+                                    }
+                                }
                             }
-                        }
-                    }
-
-                    if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
-                        Spacer(Modifier.height(18.dp))
-                        PComposerLabel("REMINDER TIME")
-                        PDateTimeButton(pFormatDateTime(customReminderAt)) { pickDateTime(customReminderAt) { customReminderAt = it } }
-                        Spacer(Modifier.height(14.dp))
-                        PComposerLabel("IMPORTANCE")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            TaskPriority.entries.forEach { value ->
-                                FilterChip(selected = priority == value, onClick = { priority = value }, label = { Text(pPriorityLabel(value), fontSize = 9.sp) })
-                            }
-                        }
-                        if (!customReady) {
-                            Spacer(Modifier.height(7.dp))
-                            Text("Choose a reminder before your deadline.", color = RecRed, fontSize = 8.5.sp)
                         }
                     }
 
@@ -615,38 +637,6 @@ internal fun PProjectComposer(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PAttentionPlanCard(plan: ProjectAttentionPlan, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) RecRed.copy(alpha = .10f) else CinemaSurface,
-        border = BorderStroke(1.dp, if (selected) RecRed.copy(alpha = .75f) else CinemaLine),
-    ) {
-        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                when (plan) {
-                    ProjectAttentionPlan.OFF -> Icons.Outlined.NotificationsOff
-                    ProjectAttentionPlan.LIGHT -> Icons.Outlined.NotificationsNone
-                    ProjectAttentionPlan.GUIDED -> Icons.Outlined.NotificationsActive
-                    ProjectAttentionPlan.URGENT -> Icons.Outlined.Alarm
-                    ProjectAttentionPlan.CUSTOM -> Icons.Outlined.Tune
-                },
-                null,
-                tint = if (selected) RecRed else MutedGold,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(ProjectPulseEngine.planLabel(plan), color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(ProjectPulseEngine.planDescription(plan), color = MutedText, fontSize = 8.7.sp, lineHeight = 12.sp)
-            }
-            if (selected) Icon(Icons.Outlined.CheckCircle, null, tint = RecRed, modifier = Modifier.size(18.dp))
         }
     }
 }
