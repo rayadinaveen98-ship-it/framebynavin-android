@@ -58,8 +58,13 @@ object ReminderRecoveryEngine {
             scheduler.cancelPendingOnly(task.id)
             if (task.reminderAtMillis <= nowMillis) {
                 // After the final Smart target we must not restart escalation.
-                // Recover only as a single, bounded catch-up notification.
-                smart.cancel(task.id)
+                // On first catch-up, retire an old live Smart stage; after a
+                // recovered notification is shown, preserve its action token
+                // on every subsequent app resume/reboot reconciliation.
+                val alreadyRecovered = AlarmLedger(appContext)
+                    .wasDelivered(task.id, task.reminderAtMillis)
+                if (alreadyRecovered) smart.cancelPendingOnly(task.id)
+                else smart.cancel(task.id)
                 MissedReminderRecovery.deliverTaskIfNeeded(appContext, task, nowMillis)
             } else {
                 smart.recover(task)
@@ -75,7 +80,9 @@ object ReminderRecoveryEngine {
             // it does not create a second independently firing alarm.
             scheduler.schedule(task)
         } else {
-            scheduler.cancel(task.id)
+            // A one-shot alert may already be on screen. Clearing its entire
+            // task occurrence here makes visible Snooze/Dismiss buttons stale.
+            scheduler.cancelPendingOnly(task.id)
             MissedReminderRecovery.deliverTaskIfNeeded(appContext, task, nowMillis)
         }
     }
