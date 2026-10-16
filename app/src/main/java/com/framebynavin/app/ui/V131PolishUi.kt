@@ -310,7 +310,7 @@ internal fun V131ReminderCenter(
     onNew: () -> Unit,
     onEdit: (String) -> Unit,
     onDeleteReminders: (Set<String>) -> Unit,
-    onOpenReminderSettings: () -> Unit,
+    onOpenReminderSettings: () -> Unit = onDismiss,
 ) {
     val context = LocalContext.current
     val notificationsReady = ReminderNotifications.canPost(context)
