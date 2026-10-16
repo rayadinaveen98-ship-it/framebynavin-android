@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.framebynavin.app.cloud.CreatorCloudSyncWorker
 import com.framebynavin.app.reminders.IdeaReminderScheduler
 import com.framebynavin.app.reminders.ReminderConstants
+import com.framebynavin.app.reminders.ReminderActionSafety
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.reminders.ReminderRecoveryEngine
 import com.framebynavin.app.reminders.ReminderScheduler
@@ -434,6 +435,58 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val managed = ProjectPulseEngine.applyAttentionPlan(updated, ProjectAttentionPlan.CUSTOM)
         scheduleTask(managed)
         managed
+    }
+
+    /**
+     * All Reminder Center actions mutate only the reminder schedule, never project
+     * progress, publication evidence, or completion state. A stale UI card is
+     * rejected inside the serialized write after reading the authoritative task.
+     */
+    fun snoozeReminderFromCenter(id: String, expectedFingerprint: String, minutes: Int) = updateTask(id) { task ->
+        val now = System.currentTimeMillis()
+        if (!ReminderCenterPolicy.canChange(task, expectedFingerprint, now)) return@updateTask task
+        val at = ReminderCenterPolicy.nextSnoozeAt(task, now, minutes) ?: return@updateTask task
+        val updated = ReminderActionSafety.snooze(task, at, now)
+        if (updated != task) {
+            cancelTaskAlerts(task.id)
+            scheduleTask(updated)
+        }
+        updated
+    }
+
+    fun pauseReminderFromCenter(id: String, expectedFingerprint: String) = updateTask(id) { task ->
+        val now = System.currentTimeMillis()
+        if (!ReminderCenterPolicy.canChange(task, expectedFingerprint, now) ||
+            !ReminderCenterPolicy.canPause(task, now)) return@updateTask task
+        val until = now + ReminderCenterPolicy.PAUSE_MINUTES * 60_000L
+        val updated = ReminderActionSafety.pause(task, until, now)
+        if (updated != task) {
+            cancelTaskAlerts(task.id)
+            scheduleTask(updated)
+        }
+        updated
+    }
+
+    fun rescheduleReminderFromCenter(id: String, expectedFingerprint: String, atMillis: Long) = updateTask(id) { task ->
+        val now = System.currentTimeMillis()
+        if (!ReminderCenterPolicy.canChange(task, expectedFingerprint, now) ||
+            !ReminderCenterPolicy.validRescheduleAt(task, atMillis, now)) return@updateTask task
+        val updated = if (ProjectPulseEngine.isStageCheckIn(task)) {
+            ProjectPulseEngine.afterSnooze(ProjectPulseEngine.ensureStageManaged(task), atMillis, now)
+                .copy(snoozeCount = 0, workingUntilMillis = 0L, autoStageReminder = false)
+        } else task.copy(
+            reminderEnabled = true,
+            reminderAtMillis = atMillis,
+            checkpointAtMillis = if (task.pulseManagedReminder) atMillis else task.checkpointAtMillis,
+            snoozeCount = 0,
+            workingUntilMillis = 0L,
+            autoStageReminder = false,
+        )
+        if (updated != task) {
+            cancelTaskAlerts(task.id)
+            scheduleTask(updated)
+        }
+        updated
     }
 
     fun cancelReminder(id: String) = updateTask(id) { task ->
