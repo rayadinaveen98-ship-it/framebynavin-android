@@ -463,12 +463,13 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             POverlay.PROFILE -> V23ProfileAccountScreen(
                 creatorProfile = settings.creatorProfile,
                 onClose = { overlay = POverlay.SETTINGS },
-                onEditCreatorSetup = {
-                    settingsStore.setOnboardingComplete(false)
-                    settings = settingsStore.snapshot()
-                    overlay = POverlay.NONE
-                },
+                onEditCreatorSetup = {}, // profile changes no longer re-enter onboarding
                 onOpenYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
+                onSaveCreatorProfile = { revised ->
+                    val saved = settingsStore.saveCreatorProfileEdits(revised)
+                    if (saved) settings = settingsStore.snapshot()
+                    saved
+                },
             )
             POverlay.CREATOR_PROGRESS -> V23CreatorProgressScreen(
                 snapshot = CreatorRewardsV22Engine.snapshot(vm.rewardLedger),

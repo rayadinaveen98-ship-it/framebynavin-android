@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -41,15 +42,15 @@ internal fun V140VoiceStudioPicker(
     Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("REMINDER VOICE", color = MutedGold, fontSize = 8.4.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Choose a voice", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("DEFAULT REMINDER VOICE", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Choose a voice", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
             Surface(
                 shape = RoundedCornerShape(100.dp),
                 color = MutedGold.copy(alpha = .10f),
                 border = BorderStroke(1.dp, MutedGold.copy(alpha = .24f)),
             ) {
-                Text("VOICE OPTIONS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
+                Text("TAP TO SELECT", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -68,18 +69,18 @@ internal fun V140VoiceStudioPicker(
                             Text(
                                 VoicePersonaEngine.category(persona),
                                 color = if (isSelected) RecRed else MutedGold,
-                                fontSize = 7.2.sp,
+                                fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = .7.sp,
                             )
                             Spacer(Modifier.height(3.dp))
-                            Text(VoicePersonaEngine.label(persona), color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                            Text(VoicePersonaEngine.label(persona), color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 VoicePersonaEngine.description(persona),
                                 color = MutedText,
-                                fontSize = 7.8.sp,
-                                lineHeight = 10.5.sp,
+                                fontSize = 10.5.sp,
+                                lineHeight = 14.sp,
                                 minLines = 2,
                             )
                             Spacer(Modifier.height(8.dp))
@@ -90,17 +91,17 @@ internal fun V140VoiceStudioPicker(
                                 border = BorderStroke(1.dp, if (isSelected) RecRed.copy(alpha = .32f) else CinemaLine),
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    modifier = Modifier.defaultMinSize(minHeight = 40.dp).padding(horizontal = 9.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Icon(
                                         Icons.Outlined.PlayArrow,
                                         contentDescription = "Preview ${VoicePersonaEngine.label(persona)}",
                                         tint = if (isSelected) RecRed else MutedGold,
-                                        modifier = Modifier.size(13.dp),
+                                        modifier = Modifier.size(17.dp),
                                     )
                                     Spacer(Modifier.width(3.dp))
-                                    Text("PREVIEW", color = if (isSelected) RecRed else MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                                    Text("PREVIEW", color = if (isSelected) RecRed else MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
                                 }
                             }
                         }
@@ -113,8 +114,8 @@ internal fun V140VoiceStudioPicker(
         Text(
             "Voice options depend on your phone. Tap Preview to listen.",
             color = MutedText,
-            fontSize = 7.8.sp,
-            lineHeight = 11.sp,
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
         )
     }
 }
