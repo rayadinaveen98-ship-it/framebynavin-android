@@ -25,6 +25,9 @@ import androidx.core.content.ContextCompat
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.TimeZone
 
 data class V129CalendarOption(val id: Long, val name: String, val account: String)
@@ -34,6 +37,7 @@ internal object CreatorCalendarSync {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_CALENDAR_ID = "calendar_id"
     private const val EVENT_PREFIX = "event_"
+    private const val KEY_LAST_SUCCESS = "last_success_at"
 
     fun hasPermission(context: Context): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED &&
@@ -42,6 +46,7 @@ internal object CreatorCalendarSync {
     fun isEnabled(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
     fun setEnabled(context: Context, enabled: Boolean) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, enabled).apply()
     fun selectedCalendarId(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_CALENDAR_ID, -1L)
+    fun lastSuccessAt(context: Context): Long = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_LAST_SUCCESS, 0L)
     fun selectCalendar(context: Context, id: Long) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(KEY_CALENDAR_ID, id).apply()
 
     fun googleCalendars(context: Context): List<V129CalendarOption> {
@@ -168,6 +173,7 @@ internal object CreatorCalendarSync {
                     ManagedEvent.NOT_BACKLOT -> blocked++ // never touch user-edited entry
                 }
             }
+        if (blocked == 0) prefs.edit().putLong(KEY_LAST_SUCCESS, System.currentTimeMillis()).apply()
         return CreatorCalendarSyncReport(created, updated, removed, blocked)
     }
 }
@@ -176,84 +182,166 @@ internal object CreatorCalendarSync {
 @Composable
 internal fun V129GoogleCalendarSettings(tasks: List<CreatorTask>) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var revision by remember { mutableIntStateOf(0) }
     var enabled by remember { mutableStateOf(CreatorCalendarSync.isEnabled(context)) }
     var selectedId by remember { mutableLongStateOf(CreatorCalendarSync.selectedCalendarId(context)) }
     var message by remember { mutableStateOf<String?>(null) }
+    var working by remember { mutableStateOf(false) }
+    var confirmEnable by remember { mutableStateOf(false) }
     val granted = remember(revision) { CreatorCalendarSync.hasPermission(context) }
     val calendars = remember(revision, granted) { CreatorCalendarSync.googleCalendars(context) }
+    val validCalendar = granted && calendars.any { it.id == selectedId }
+    val eligibleCount = CreatorCalendarSyncS1Policy.exportable(tasks).size
 
-    val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        revision++
-        message = if (result.values.all { it }) "Calendar access ready." else "Calendar access was not granted."
-    }
-
-    LaunchedEffect(calendars, selectedId) {
-        if (granted && calendars.isNotEmpty() && calendars.none { it.id == selectedId }) {
-            selectedId = calendars.first().id
-            CreatorCalendarSync.selectCalendar(context, selectedId)
+    fun startSync() {
+        if (!validCalendar || working || !enabled) return
+        val targetId = selectedId
+        val taskSnapshot = tasks.toList()
+        working = true
+        message = null
+        scope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    CreatorCalendarSync.syncDetailed(context.applicationContext, taskSnapshot, targetId)
+                }
+            }
+            working = false
+            message = result.fold(
+                onSuccess = { it.message() },
+                onFailure = { "Sync could not finish: ${it.message ?: "Check your calendar and try again."}" },
+            )
+            revision++
         }
     }
 
+    val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        revision++
+        message = if (result.isNotEmpty() && result.values.all { it }) "Calendar access granted. Choose where to send project deadlines."
+            else "Calendar permission was not granted."
+    }
+
     Column(Modifier.fillMaxWidth()) {
-        Text("GOOGLE CALENDAR", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("GOOGLE CALENDAR", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(5.dp))
         Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
             Column(Modifier.padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(Modifier.size(38.dp), RoundedCornerShape(12.dp), RecRed.copy(alpha=.12f)) {
-                        Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.CalendarMonth, null, tint=RecRed, modifier=Modifier.size(20.dp)) }
+                    Surface(Modifier.size(38.dp), RoundedCornerShape(12.dp), RecRed.copy(alpha = .12f)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.CalendarMonth, null, tint = RecRed, modifier = Modifier.size(20.dp))
+                        }
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Show deadlines in Google Calendar", color=ProjectorIvory, fontSize=11.5.sp, fontWeight=FontWeight.Bold)
-                        Text("Backlot reminders still work separately.", color=MutedText, fontSize=8.5.sp)
+                        Text("Export project deadlines", color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                        Text(if (enabled && validCalendar) "Enabled · calendar events are updated when sync runs."
+                            else if (enabled) "Needs attention · your saved calendar is unavailable."
+                            else "Off · your existing calendar entries stay in place.",
+                            color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
                     }
                     if (granted && calendars.isNotEmpty()) {
                         Switch(
-                            checked=enabled,
-                            onCheckedChange={ value -> enabled=value; CreatorCalendarSync.setEnabled(context,value); if (value) message="Sync is on." },
-                            colors=SwitchDefaults.colors(checkedTrackColor=RecRed),
+                            checked = enabled,
+                            enabled = !working,
+                            onCheckedChange = { value ->
+                                if (value) {
+                                    if (!validCalendar) message = "Choose a Google calendar first."
+                                    else confirmEnable = true
+                                } else {
+                                    CreatorCalendarSync.setEnabled(context, false)
+                                    enabled = false
+                                    message = "Sync paused. Existing Google Calendar entries have not been removed."
+                                }
+                            },
+                            colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
                         )
                     }
                 }
-
+                Spacer(Modifier.height(10.dp))
+                Text("Only project titles, deadlines, platform and format are exported. Private notes and reminder details are never copied. Backlot reminders work separately.",
+                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
                 Spacer(Modifier.height(10.dp))
                 if (!granted) {
                     Button(
-                        onClick={ permissions.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)) },
-                        modifier=Modifier.fillMaxWidth(),
-                        colors=ButtonDefaults.buttonColors(containerColor=RecRed),
-                        shape=RoundedCornerShape(13.dp),
-                    ) { Text("CONNECT GOOGLE CALENDAR", fontSize=9.sp, fontWeight=FontWeight.Black) }
+                        onClick = { permissions.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(13.dp),
+                    ) { Text("ALLOW CALENDAR ACCESS", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                 } else if (calendars.isEmpty()) {
-                    Text("No calendar is available. Add a Google Calendar on your phone, then try again.", color=MutedText, fontSize=8.8.sp, lineHeight=13.sp)
+                    Text("No writable Google Calendar found on this phone. Add one in Android Calendar, then refresh.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
                 } else {
-                    Text("Calendar", color=ProjectorIvory, fontSize=9.5.sp, fontWeight=FontWeight.Bold)
+                    Text("Choose a calendar", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(5.dp))
-                    FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp), verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         calendars.forEach { option ->
                             FilterChip(
-                                selected=selectedId==option.id,
-                                onClick={ selectedId=option.id; CreatorCalendarSync.selectCalendar(context, option.id); message=null },
-                                label={ Text(option.name.ifBlank { option.account }, fontSize=8.sp, maxLines=1) },
+                                selected = selectedId == option.id,
+                                enabled = !working,
+                                onClick = {
+                                    if (selectedId != option.id) {
+                                        if (enabled) {
+                                            CreatorCalendarSync.setEnabled(context, false)
+                                            enabled = false
+                                            message = "Sync paused. Confirm the new calendar before exporting; entries in the old calendar stay there."
+                                        } else message = null
+                                        selectedId = option.id
+                                        CreatorCalendarSync.selectCalendar(context, option.id)
+                                    }
+                                },
+                                label = { Text(option.name.ifBlank { option.account } + " · " + option.account, fontSize = 10.sp) },
                             )
                         }
                     }
                     Spacer(Modifier.height(9.dp))
                     OutlinedButton(
-                        onClick={
-                            CreatorCalendarSync.selectCalendar(context, selectedId)
-                            val count=CreatorCalendarSync.sync(context, tasks, selectedId)
-                            message = if (count > 0) "$count project deadline${if (count==1) "" else "s"} synced." else "Nothing new to sync."
-                        },
-                        modifier=Modifier.fillMaxWidth(),
-                        shape=RoundedCornerShape(13.dp),
-                        border=BorderStroke(1.dp, CinemaLine),
-                    ) { Text("SYNC NOW", color=ProjectorIvory, fontSize=9.sp, fontWeight=FontWeight.Black) }
+                        onClick = ::startSync,
+                        enabled = enabled && validCalendar && !working,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(13.dp),
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) { Text(if (working) "SYNCING…" else "SYNC NOW", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                 }
-                message?.let { Spacer(Modifier.height(7.dp)); Text(it, color=if (it.contains("not granted")) RecRed else MutedGold, fontSize=8.4.sp) }
+                TextButton(onClick = { revision++ }, enabled = !working) {
+                    Text("REFRESH CALENDAR STATUS", color = MutedGold, fontSize = 10.sp)
+                }
+                if (working) LinearProgressIndicator(Modifier.fillMaxWidth(), color = RecRed)
+                message?.let {
+                    Spacer(Modifier.height(7.dp))
+                    Text(it, color = if (it.startsWith("Sync could not") || it.contains("could not be safely")) RecRed else MutedGold,
+                        fontSize = 11.sp, lineHeight = 16.sp)
+                }
+                val last = CreatorCalendarSync.lastSuccessAt(context)
+                if (last > 0L) {
+                    Text("Last fully checked: " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(last)),
+                        color = MutedText, fontSize = 10.sp)
+                }
             }
         }
+    }
+
+    if (confirmEnable) {
+        AlertDialog(
+            onDismissRequest = { if (!working) confirmEnable = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Share deadlines with Google Calendar?", color = ProjectorIvory) },
+            text = {
+                Text("Backlot will add or update up to ${eligibleCount} project deadlines in the calendar you chose. It shares project titles, due dates, platform and format, not notes. If projects are skipped, archived or deleted, Backlot may remove only its own entries in this calendar. Turning sync off leaves existing entries there.",
+                    color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
+            },
+            confirmButton = {
+                Button(onClick = {
+                    confirmEnable = false
+                    CreatorCalendarSync.setEnabled(context, true)
+                    enabled = true
+                    startSync()
+                }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("ENABLE & SYNC") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmEnable = false }) { Text("CANCEL") }
+            },
+        )
     }
 }
