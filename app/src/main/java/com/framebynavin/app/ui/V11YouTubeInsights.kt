@@ -269,9 +269,14 @@ internal fun V11InsightsScreen(
     LaunchedEffect(snapshot?.fetchedAtMillis, windowDays, syncing, revoking) {
         val cached = snapshot ?: return@LaunchedEffect
         if (cached.windowDays != windowDays || syncing || revoking) return@LaunchedEffect
-        val ageMillis = System.currentTimeMillis() - cached.fetchedAtMillis
-        val refreshKey = "${cached.channel.channelId}:$windowDays:${cached.fetchedAtMillis}"
-        if (ageMillis >= 15L * 60L * 1000L && autoRefreshKey != refreshKey) {
+        val expectedEnd = YouTubeAnalyticsQueryPolicy.window(windowDays).end
+        val refreshKey = "${cached.channel.channelId}:$windowDays:${cached.fetchedAtMillis}:$expectedEnd"
+        if (YouTubeAnalyticsQueryPolicy.shouldRefresh(
+                cachedEndDate = cached.endDate,
+                fetchedAtMillis = cached.fetchedAtMillis,
+                windowDays = windowDays,
+            ) && autoRefreshKey != refreshKey
+        ) {
             autoRefreshKey = refreshKey
             authorize(selectAccount = false, days = windowDays, allowResolution = false)
         }
@@ -547,12 +552,18 @@ private fun YTChannelHeader(
             Text(
                 "${YouTubeAnalyticsQueryPolicy.finalizedWindowLabel(data.windowDays)} · ${data.startDate} → ${data.endDate}",
                 color = MutedText,
-                fontSize = 8.sp,
+                fontSize = 10.sp,
             )
             Text(
-                "${YouTubeAnalyticsQueryPolicy.freshnessNote()} · updated ${ytSyncTime(data.fetchedAtMillis)}",
-                color = MutedText.copy(alpha = .78f),
-                fontSize = 7.5.sp,
+                "Channel totals checked ${ytSyncTime(data.fetchedAtMillis)} · ${ytCompact(data.channel.lifetimeViews)} lifetime views",
+                color = MutedText,
+                fontSize = 10.sp,
+            )
+            Text(
+                "Analytics through ${data.endDate} (Pacific). ${YouTubeAnalyticsQueryPolicy.freshnessNote()}",
+                color = MutedText.copy(alpha = .88f),
+                fontSize = 10.sp,
+                lineHeight = 14.sp,
             )
         }
     }
