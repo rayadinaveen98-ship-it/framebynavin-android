@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import android.app.TimePickerDialog
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -50,9 +52,13 @@ internal fun V08WeeklyScheduleScreen(
     val primaryPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
     var editorSlot by remember { mutableStateOf<WeeklyScheduleSlot?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
+    var confirmGenerate by remember { mutableStateOf(false) }
+    var pendingDeleteSlot by remember { mutableStateOf<WeeklyScheduleSlot?>(null) }
     val activeCount = slots.count { it.enabled }
     val generated = tasks.count { it.scheduleSlotId.isNotBlank() && it.status != TaskStatus.SKIPPED }
     val next = remember(slots.toList()) { WeeklyScheduleEngine.nextOccurrence(slots) }
+    val preview = CreatorWeeklyPlanPreviewEngine.build(slots, tasks)
+    val resetPreview = CreatorWeeklyPresetPolicy.previewFor(creatorProfile)
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         LazyColumn(
@@ -93,6 +99,8 @@ internal fun V08WeeklyScheduleScreen(
                             V08Metric("ACTIVE SLOTS", activeCount.toString(), Modifier.weight(1f))
                             V08Metric("AUTO PROJECTS", generated.toString(), Modifier.weight(1f))
                         }
+                        Text(if (autoPlanEnabled) "Auto Plan is on. Templates may create future projects." else "Auto Plan is off. Templates are saved, but no new projects are created.",
+                            color = MutedGold, fontSize = 11.sp)
                         if (next != null) {
                             Spacer(Modifier.height(10.dp))
                             Surface(
@@ -115,15 +123,15 @@ internal fun V08WeeklyScheduleScreen(
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = onRefresh,
-                        enabled = autoPlanEnabled,
-                        modifier = Modifier.weight(1f),
+                        onClick = { confirmGenerate = true },
+                        enabled = autoPlanEnabled && preview.missing.isNotEmpty(),
+                        modifier = Modifier.weight(1f).testTag("v164-create-preview"),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(14.dp),
                     ) {
                         Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("CREATE MISSING PROJECTS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("PREVIEW ${preview.missing.size} PROJECTS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = {
@@ -148,6 +156,8 @@ internal fun V08WeeklyScheduleScreen(
                         Text("ADD WEEKLY POST", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                Text("${preview.alreadyCreated} upcoming slots already have projects. Existing projects won't be replaced.", color = MutedText, fontSize = 10.sp)
                 Spacer(Modifier.height(18.dp))
                 Text("YOUR WEEK", color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
                 Text("Edit a recurring template for future projects. Existing projects never change or disappear when you edit, disable or delete a slot.", color = MutedText, fontSize = 9.8.sp, lineHeight = 14.sp)
@@ -185,7 +195,45 @@ internal fun V08WeeklyScheduleScreen(
             slot = slot,
             onDismiss = { editorSlot = null },
             onSave = { onSave(it); editorSlot = null },
-            onDelete = if (slot.id.isBlank()) null else ({ onDelete(slot.id); editorSlot = null }),
+            onDelete = if (slot.id.isBlank()) null else ({ pendingDeleteSlot = slot; editorSlot = null }),
+        )
+    }
+
+    pendingDeleteSlot?.let { slot ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteSlot = null },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Remove this weekly template?", color = ProjectorIvory) },
+            text = { Text("Remove '${slot.title}' from future weekly plans? Any project already created from it will stay unchanged.", color = MutedText) },
+            confirmButton = {
+                Button(onClick = { onDelete(slot.id); pendingDeleteSlot = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("REMOVE TEMPLATE") }
+            },
+            dismissButton = { TextButton(onClick = { pendingDeleteSlot = null }) { Text("CANCEL") } },
+        )
+    }
+
+    if (confirmGenerate) {
+        AlertDialog(
+            onDismissRequest = { confirmGenerate = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Create upcoming projects?", color = ProjectorIvory) },
+            text = {
+                Column {
+                    Text("Auto Plan can add ${preview.missing.size} missing projects from the next 14 days. It won't edit or remove existing projects.", color = MutedText)
+                    Spacer(Modifier.height(9.dp))
+                    preview.missing.take(5).forEach { occurrence ->
+                        Text("• ${occurrence.slot.title} · ${WeeklyScheduleEngine.formatOccurrence(occurrence.publishAtMillis)}",
+                            color = ProjectorIvory, fontSize = 11.sp)
+                    }
+                    if (preview.missing.size > 5) Text("And ${preview.missing.size - 5} more…", color = MutedText)
+                }
+            },
+            confirmButton = {
+                Button(onClick = { confirmGenerate = false; onRefresh() },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("CREATE PROJECTS") }
+            },
+            dismissButton = { TextButton(onClick = { confirmGenerate = false }) { Text("CANCEL") } },
         )
     }
 
@@ -194,7 +242,7 @@ internal fun V08WeeklyScheduleScreen(
             onDismissRequest = { confirmReset = false },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Reset weekly schedule?", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
-            text = { Text("This restores your default weekly plan for future projects. All existing projects and your own project edits stay saved.", color = MutedText) },
+            text = { Text("Replace ${slots.size} saved weekly slots with ${resetPreview.size} starter slots for your creator profile? Your customized templates will be replaced, but existing projects and voice recordings stay saved.", color = MutedText) },
             confirmButton = {
                 Button(onClick = { confirmReset = false; onReset() }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("RESET") }
             },
@@ -272,6 +320,7 @@ private fun V08SlotEditor(
     var cadence by remember(slot.id) { mutableStateOf(slot.cadence) }
     var reminderMode by remember(slot.id) { mutableStateOf(slot.reminderMode) }
     var priority by remember(slot.id) { mutableStateOf(slot.priority) }
+    var showAdvanced by remember(slot.id) { mutableStateOf(false) }
     val creatorProfile = remember(context) { CreatorOsSettingsStore(context).snapshot().creatorProfile }
     val platformOptions = remember(creatorProfile, platform) { CreatorPlatformRegistry.orderedSelected(creatorProfile, platform) }
     val formats = v08Formats(platform)
@@ -312,6 +361,26 @@ private fun V08SlotEditor(
                             FilterChip(cadence == ScheduleCadence.EVERY_WEEK, { cadence = ScheduleCadence.EVERY_WEEK }, { Text("Every week", fontSize = 10.sp) })
                             FilterChip(cadence == ScheduleCadence.WEEKS_1_3, { cadence = ScheduleCadence.WEEKS_1_3 }, { Text("Weeks 1 + 3", fontSize = 10.sp) })
                         }
+                        Spacer(Modifier.height(11.dp))
+                        val nextTimes = WeeklyScheduleEngine.upcomingOccurrences(
+                            listOf(slot.copy(title = title.trim(), dayOfWeek = day,
+                                hour = hour, minute = minute, cadence = cadence, platform = platform,
+                                contentType = contentType)), daysAhead = 14
+                        ).take(2)
+                        Text("NEXT POSTS · PREVIEW ONLY", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        if (nextTimes.isEmpty()) Text("No future date in this 14-day preview.", color = MutedText, fontSize = 10.sp)
+                        nextTimes.forEach {
+                            Text(WeeklyScheduleEngine.formatOccurrence(it.publishAtMillis),
+                                color = ProjectorIvory, fontSize = 11.sp)
+                        }
+                        Text("Saving this template never rewrites an existing project.", color = MutedText, fontSize = 10.sp)
+                        Spacer(Modifier.height(11.dp))
+                        TextButton(onClick = { showAdvanced = !showAdvanced }, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (showAdvanced) "HIDE EXTRA OPTIONS" else "MORE OPTIONS · REMINDERS & PRIORITY",
+                                color = MutedGold, fontSize = 10.sp)
+                        }
+                        AnimatedVisibility(visible = showAdvanced) {
+                            Column {
                         Spacer(Modifier.height(12.dp)); V08Label("AUTO STAGE REMINDER")
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(ReminderMode.NONE, ReminderMode.SIMPLE, ReminderMode.SMART).forEach { value ->
@@ -338,6 +407,8 @@ private fun V08SlotEditor(
                                 Text("PRODUCTION RUNWAY", color = MutedText, fontSize = 8.sp, letterSpacing = 1.sp)
                                 Spacer(Modifier.height(4.dp))
                                 Text(template.stages.joinToString("  →  ") { it.label }, color = ProjectorIvory, fontSize = 9.5.sp, lineHeight = 14.sp)
+                            }
+                        }
                             }
                         }
                         if (onDelete != null) {

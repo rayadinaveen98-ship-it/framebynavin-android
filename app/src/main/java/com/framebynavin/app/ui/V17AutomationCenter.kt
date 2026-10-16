@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorAutomationPreferencesStore
+import com.framebynavin.app.data.CreatorWeeklyPlanPreviewEngine
 import com.framebynavin.app.data.CreatorAutomationStateStore
 import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorRoutine
@@ -52,6 +53,10 @@ internal fun V17AutomationCenterScreen(
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     var prefs by remember { mutableStateOf(prefStore.snapshot()) }
     var runRequested by remember { mutableStateOf(false) }
+    var requestedAfterMillis by remember { mutableLongStateOf(0L) }
+    var statusRevision by remember { mutableIntStateOf(0) }
+    var confirmAutoEnable by remember { mutableStateOf(false) }
+    var confirmRefresh by remember { mutableStateOf(false) }
     var helpRunRequested by remember { mutableStateOf(false) }
     var nudgesEnabled by remember(contextNudgesEnabled) {
         mutableStateOf(settingsStore.snapshot().contextNudgesEnabled)
@@ -66,9 +71,11 @@ internal fun V17AutomationCenterScreen(
             it.dueAtMillis in (now + 1)..horizon
     }
     val enabledSlots = weeklySlots.count { it.enabled }
+    val preview = CreatorWeeklyPlanPreviewEngine.build(weeklySlots, tasks)
     val postPublish = postPublishCheckpoints.count { it.status == PostPublishCheckpointStatus.PENDING }
-    val lastPlannerAt = stateStore.lastPlannerAtMillis()
-    val lastCreated = stateStore.lastPlannerCreatedCount()
+    val lastPlannerAt = remember(statusRevision) { stateStore.lastPlannerAtMillis() }
+    val lastCreated = remember(statusRevision) { stateStore.lastPlannerCreatedCount() }
+    val plannerRequestCompleted = runRequested && lastPlannerAt > requestedAfterMillis
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -104,8 +111,8 @@ internal fun V17AutomationCenterScreen(
                         Column(Modifier.weight(1f)) {
                             Text("Plan the next 14 days", color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                             Text(
-                                if (weeklyAutoPlanEnabled) "$enabledSlots weekly plans · $generated upcoming projects ready"
-                                else "Off · your weekly plan stays saved",
+                                if (weeklyAutoPlanEnabled) "$enabledSlots active templates · $generated future projects saved"
+                                else "Off · your templates and existing projects stay saved",
                                 color = MutedText,
                                 fontSize = 8.8.sp,
                             )
@@ -113,11 +120,8 @@ internal fun V17AutomationCenterScreen(
                         Switch(
                             checked = weeklyAutoPlanEnabled,
                             onCheckedChange = { enabled ->
-                                onWeeklyAutoPlanChange(enabled)
-                                if (enabled) {
-                                    CreatorAutoPlanWorker.enqueueNow(context)
-                                    runRequested = true
-                                }
+                                if (enabled) confirmAutoEnable = true
+                                else { onWeeklyAutoPlanChange(false); runRequested = false }
                             },
                             colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
                         )
@@ -127,19 +131,21 @@ internal fun V17AutomationCenterScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 when {
-                                    runRequested -> "Updating your plan…"
-                                    lastPlannerAt > 0L -> "Last updated · ${v17Time(lastPlannerAt)} · $lastCreated added"
-                                    else -> "Your plan updates automatically"
+                                    plannerRequestCompleted -> "Recorded run · ${v17Time(lastPlannerAt)} · $lastCreated created"
+                                    runRequested -> "Requested; Android may delay it. No completion verified yet."
+                                    lastPlannerAt > 0L -> "Last recorded run · ${v17Time(lastPlannerAt)} · $lastCreated created"
+                                    else -> "No completed background run recorded yet"
                                 },
                                 color = MutedText,
                                 fontSize = 8.5.sp,
                                 modifier = Modifier.weight(1f),
                             )
                             TextButton(onClick = {
-                                CreatorAutoPlanWorker.enqueueNow(context)
-                                runRequested = true
+                                if (runRequested && !plannerRequestCompleted) statusRevision++
+                                else { runRequested = false; confirmRefresh = true }
                             }) {
-                                Text("UPDATE PLAN", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Text(if (runRequested && !plannerRequestCompleted) "CHECK STATUS" else "PREVIEW & UPDATE",
+                                    color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
                             }
                         }
                     }
@@ -180,7 +186,11 @@ internal fun V17AutomationCenterScreen(
 
             Spacer(Modifier.height(20.dp))
             Text("REGULAR REMINDERS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text("Choose when Backlot reminds you.", color = MutedText, fontSize = 9.sp)
+            Text("These are optional notification routines, checked periodically by Android. Times are approximate, not guaranteed alarms.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+            if (!notificationsReady) {
+                Text("Notifications are currently unavailable on this device. Enabled routines may run without showing alerts.",
+                    color = RecRed, fontSize = 10.sp)
+            }
             Spacer(Modifier.height(9.dp))
             V17RoutineRow(
                 title = "Daily Brief",
@@ -228,6 +238,53 @@ internal fun V17AutomationCenterScreen(
             }
         }
     }
+
+    if (confirmAutoEnable) {
+        AlertDialog(
+            onDismissRequest = { confirmAutoEnable = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Enable automatic planning?", color = ProjectorIvory) },
+            text = { Text("This can add ${preview.missing.size} missing projects over the next 14 days. It will not modify existing projects or post content. Android chooses when the background worker executes.", color = MutedText) },
+            confirmButton = {
+                Button(onClick = {
+                    confirmAutoEnable = false
+                    onWeeklyAutoPlanChange(true)
+                    requestedAfterMillis = stateStore.lastPlannerAtMillis()
+                    CreatorAutoPlanWorker.enqueueNow(context)
+                    statusRevision++
+                    runRequested = true
+                }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("ENABLE AUTO PLAN") }
+            },
+            dismissButton = { TextButton(onClick = { confirmAutoEnable = false }) { Text("CANCEL") } },
+        )
+    }
+
+    if (confirmRefresh) {
+        AlertDialog(
+            onDismissRequest = { confirmRefresh = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Request a plan update?", color = ProjectorIvory) },
+            text = {
+                Column {
+                    Text("Up to ${preview.missing.size} missing projects may be added. Existing projects and creator edits stay unchanged.", color = MutedText)
+                    preview.missing.take(4).forEach { occurrence ->
+                        Text("• ${occurrence.slot.title}", color = ProjectorIvory, fontSize = 11.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    confirmRefresh = false
+                    requestedAfterMillis = stateStore.lastPlannerAtMillis()
+                    CreatorAutoPlanWorker.enqueueNow(context)
+                    statusRevision++
+                    runRequested = true
+                }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("REQUEST UPDATE") }
+            },
+            dismissButton = { TextButton(onClick = { confirmRefresh = false }) { Text("CANCEL") } },
+        )
+    }
+
 }
 
 @Composable
@@ -286,7 +343,7 @@ private fun V17AutomaticHelpRow(
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        if (checkRequested) "Project check queued" else "Background check runs automatically",
+                        if (checkRequested) "Check requested · delivery unconfirmed" else "Android checks in the background when available",
                         color = if (checkRequested) SuccessGreen else MutedText,
                         fontSize = 8.3.sp,
                         modifier = Modifier.weight(1f),

@@ -268,7 +268,8 @@ object WeeklyScheduleEngine {
     ): List<ScheduleOccurrence> {
         val from = Instant.ofEpochMilli(fromMillis).atZone(zone)
         val start = from.toLocalDate()
-        val end = start.plusDays(daysAhead)
+        // An N-day horizon includes today plus N-1 additional local dates.
+        val end = start.plusDays(daysAhead.coerceAtLeast(1L) - 1L)
         return buildList {
             var date = start
             while (!date.isAfter(end)) {
