@@ -160,6 +160,16 @@ class SmartEscalationScheduler(private val context: Context) {
         cancelPending(taskId, clearSession = true)
     }
 
+    /**
+     * Reconciliation-only cleanup after switching away from Smart mode.
+     * Never revoke an active regular reminder occurrence or stop its service.
+     * An explicit project edit/cancel still uses cancel().
+     */
+    fun cancelPendingOnly(taskId: String) {
+        cancelPending(taskId, clearSession = false)
+        sessions.clear(taskId)
+    }
+
     fun isWindowValid(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): Boolean {
         if (!isTargetBeforePublish(task)) return false
         return SmartEscalationPolicy.isWindowValid(
