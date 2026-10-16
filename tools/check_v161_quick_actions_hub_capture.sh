@@ -10,8 +10,8 @@ done
 grep -Fq 'PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Projects"' "$BASE/FrameByNavinV101BApp.kt"
 grep -Fq 'V144CategoryCard("Spark", "Your creative companion"' "$BASE/V144SettingsHub.kt"
 grep -Fq 'Text("VIDEO REVIEW"' "$BASE/V20VideoPostmortemUi.kt"
-grep -Fq 'versionCode = 161' app/build.gradle.kts
-grep -Fq 'versionName = "2.1.1-v161-quick-actions-hub-capture-p2-preview"' app/build.gradle.kts
+grep -Eq 'versionCode = (161|162)' app/build.gradle.kts
+grep -Eq 'versionName = "(2.1.1-v161-quick-actions-hub-capture-p2-preview|2.1.2-v162-idea-vault-p3-preview)"' app/build.gradle.kts
 grep -Fq 'var showAdvancedSetup by rememberSaveable(startWithQuickCreate) { mutableStateOf(!startWithQuickCreate) }' "$BASE/V20NewProjectWizard.kt"
 grep -Fq 'onQuickCreate = { openComposer(quick = true) }' "$BASE/FrameByNavinV101BApp.kt"
 grep -Fq 'Text("QUICK CREATE"' "$BASE/V131PolishUi.kt"
