@@ -56,7 +56,11 @@ class PortableCreatorBackupManager(context: Context) {
             val ideaId = idea.optString("id", "").trim()
             val path = idea.optString("audioLocalPath", "").trim()
             if (ideaId.isBlank() || path.isBlank()) continue
-            val file = ownedFinalVoiceRecording(path) ?: continue
+            // Refuse an apparently successful backup if it would silently omit a
+            // referenced, but missing or corrupt, original voice recording.
+            val file = PortableVoiceExportPolicy.requireReadableOwnedRecording(
+                File(appContext.filesDir, VOICE_IDEA_DIRECTORY), path,
+            )
             require(seenIdeaIds.add(ideaId)) { "Duplicate Voice Idea id in backup" }
             result += PortableBackupMedia(ideaId, file)
         }
@@ -126,17 +130,6 @@ class PortableCreatorBackupManager(context: Context) {
         return root.toString().also(creatorBackup::validate)
     }
 
-    private fun ownedFinalVoiceRecording(path: String): File? = runCatching {
-        val root = File(appContext.filesDir, VOICE_IDEA_DIRECTORY).canonicalFile
-        val target = File(path).canonicalFile
-        val owned = target.parentFile == root &&
-            target.isFile &&
-            target.name.startsWith(VOICE_IDEA_FILE_PREFIX) &&
-            target.name.endsWith(VOICE_IDEA_FINAL_SUFFIX, ignoreCase = true) &&
-            !target.name.endsWith(VOICE_IDEA_WORKING_SUFFIX, ignoreCase = true)
-        target.takeIf { owned }
-    }.getOrNull()
-
     private fun uniqueVoiceDestination(root: File): File {
         repeat(20) {
             val candidate = File(root, "$VOICE_IDEA_FILE_PREFIX${UUID.randomUUID()}$VOICE_IDEA_FINAL_SUFFIX")
@@ -182,6 +175,31 @@ class PortableCreatorBackupManager(context: Context) {
             "automationPreferences",
             "manifest",
         )
+    }
+}
+
+/**
+ * Fail closed during export: neither foreign paths nor missing/empty original
+ * recordings may be silently omitted from a successful portable backup.
+ */
+internal object PortableVoiceExportPolicy {
+    fun requireReadableOwnedRecording(root: File, rawPath: String): File {
+        val target = runCatching { File(rawPath).canonicalFile }.getOrNull()
+        val safeRoot = runCatching { root.canonicalFile }.getOrNull()
+        require(
+            target != null &&
+                safeRoot != null &&
+                target.parentFile == safeRoot &&
+                target.isFile &&
+                target.canRead() &&
+                target.length() > 0L &&
+                target.name.startsWith("voice_idea_") &&
+                target.name.endsWith(".m4a", ignoreCase = true) &&
+                !target.name.endsWith(".recording.m4a", ignoreCase = true)
+        ) {
+            "A saved Voice Idea recording is missing or unavailable. The backup was not marked complete."
+        }
+        return target
     }
 }
 
