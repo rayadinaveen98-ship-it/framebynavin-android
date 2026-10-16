@@ -41,6 +41,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     val tasks = mutableStateListOf<CreatorTask>()
     val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
     val ideas = mutableStateListOf<CreatorIdea>()
+    /** Deleted ideas remain in the same backed-up store, but are never counted as active work. */
+    val deletedIdeas = mutableStateListOf<CreatorIdea>()
     val postPublishCheckpoints = mutableStateListOf<PostPublishCheckpoint>()
     val rewardLedger = mutableStateListOf<CreatorRewardLedgerEntry>()
     private val rewardFeedbackQueue = mutableStateListOf<CreatorRewardLedgerEntry>()
@@ -64,6 +66,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     val canRecoverWrites: Boolean get() = pendingWrites == 0
     private var optimisticTasks = emptyList<CreatorTask>()
     private var optimisticIdeas = emptyList<CreatorIdea>()
+
+    private fun applyIdeaSnapshot(snapshot: List<CreatorIdea>) {
+        optimisticIdeas = snapshot
+        ideas.clear()
+        ideas.addAll(snapshot.filterNot { it.isTrashed }.sortedByDescending { it.updatedAtMillis })
+        deletedIdeas.clear()
+        deletedIdeas.addAll(snapshot.filter { it.isTrashed }.sortedByDescending { it.trashedAtMillis })
+    }
     private var optimisticWeekly = emptyList<WeeklyScheduleSlot>()
     var writeError by mutableStateOf<String?>(null)
         private set
@@ -92,10 +102,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             Triple(store.load(), ideaStore.load(), weeklyStore.loadOrSeed())
         }
         optimisticTasks = latest.first
-        optimisticIdeas = latest.second
         optimisticWeekly = latest.third
         tasks.clear(); tasks.addAll(latest.first)
-        ideas.clear(); ideas.addAll(latest.second.sortedByDescending { it.updatedAtMillis })
+        applyIdeaSnapshot(latest.second)
         weeklySlots.clear(); weeklySlots.addAll(latest.third)
         tasksLoaded = true
         weeklyLoaded = true
@@ -170,9 +179,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             ideaStore.ideasFlow.collectLatest { saved ->
                 if (pendingWrites == 0) {
-                    optimisticIdeas = saved
-                    ideas.clear()
-                    ideas.addAll(saved.sortedByDescending { it.updatedAtMillis })
+                    applyIdeaSnapshot(saved)
                 }
             }
         }
@@ -735,8 +742,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun deleteTask(id: String) = deleteTasks(setOf(id))
 
     fun saveIdea(idea: CreatorIdea): String? {
-        if (idea.title.isBlank()) return null
+        if (writeError != null || idea.title.isBlank()) return null
         val now = System.currentTimeMillis()
+        // A stale editor must not silently resurrect an item in Recently Deleted.
+        if (idea.isTrashed || deletedIdeas.any { it.id == idea.id }) return null
         val isNewIdea = idea.id.isBlank() || ideas.none { it.id == idea.id }
         val normalized = IdeaReminderPolicy.normalize(
             idea.copy(
@@ -758,8 +767,28 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         return normalized.id
     }
 
+    /** Move to Recently Deleted; never delete an original recording or linked project. */
     fun deleteIdea(id: String) {
+        if (writeError != null) return
+        val record = ideas.firstOrNull { it.id == id } ?: return
+        val now = System.currentTimeMillis().coerceAtLeast(1L)
         ideas.removeAll { it.id == id }
+        deletedIdeas.add(0, record.copy(
+            trashedAtMillis = now,
+            reminderAtMillis = 0L,
+            reminderCadence = IdeaReminderCadence.ONCE,
+            updatedAtMillis = now,
+        ))
+        persistIdeas()
+    }
+
+    /** Restores the exact idea, original voice path and prior project link. */
+    fun restoreIdea(id: String) {
+        if (writeError != null) return
+        val record = deletedIdeas.firstOrNull { it.id == id } ?: return
+        if (ideas.any { it.id == id }) return
+        deletedIdeas.removeAll { it.id == id }
+        ideas.add(0, record.copy(trashedAtMillis = 0L, updatedAtMillis = System.currentTimeMillis()))
         persistIdeas()
     }
 
@@ -776,12 +805,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun convertIdeaToProject(id: String, platform: String, contentType: String, dueAtMillis: Long): String? {
+        if (writeError != null) return null
         val ideaIndex = ideas.indexOfFirst { it.id == id }
         if (ideaIndex == -1) return null
         val idea = ideas[ideaIndex]
-        if (idea.projectTaskId.isNotBlank()) {
-            tasks.firstOrNull { it.id == idea.projectTaskId }?.let { return it.id }
-        }
+        if (idea.isTrashed || idea.status == IdeaStatus.ARCHIVED) return null
+        // Do not generate a second project when a linked task is temporarily missing.
+        if (idea.projectTaskId.isNotBlank()) return tasks.firstOrNull { it.id == idea.projectTaskId }?.id
+        if (idea.status == IdeaStatus.CONVERTED) return null
 
         val now = System.currentTimeMillis()
         val due = dueAtMillis.coerceAtLeast(now + 5 * 60_000L)
@@ -1172,7 +1203,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     private fun persistIdeas() {
         val base = optimisticIdeas
-        val desired = ideas.toList()
+        val desired = ideas.toList() + deletedIdeas.toList()
         optimisticIdeas = desired
         enqueueWrite { epoch ->
             ideaStore.applyDelta(base, desired, epoch)
