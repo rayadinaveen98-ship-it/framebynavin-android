@@ -20,7 +20,7 @@ grep -Fq 'if (enabled) confirmAutoPlan = true' "$APP"
 grep -Fq 'val template = CreatorWeeklyPresetPolicy.previewFor' "$VM"
 grep -Fq 'if (enabled) confirmAutoEnable = true' "$AUTO"
 grep -Fq 'No completed background run recorded yet' "$AUTO"
-grep -Fq 'Requested, not yet confirmed' "$AUTO"
+grep -Fq 'No completion verified yet' "$AUTO"
 test -f app/src/test/java/com/framebynavin/app/data/CreatorWeeklyPlanPreviewV164Test.kt
 test -f app/src/androidTest/java/com/framebynavin/app/ui/V164WeeklyPlanPreviewUiTest.kt
 echo 'V164 weekly plan and automation safety checks passed'
