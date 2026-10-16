@@ -472,6 +472,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             POverlay.SETTINGS -> V144SettingsHub(
                 settings = settings,
                 tasks = vm.tasks,
+                weeklySlots = vm.weeklySlots,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 notificationsReady = permissions.notifications,
       preciseTimingReady = permissions.preciseTiming,
