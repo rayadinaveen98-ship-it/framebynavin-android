@@ -39,6 +39,7 @@ internal object CreatorCalendarSync {
     private const val EVENT_PREFIX = "event_"
     private const val KEY_LAST_SUCCESS = "last_success_at"
     private const val KEY_S1_CONSENT = "export_consent_s1"
+    private val syncLock = Any()
 
     fun hasPermission(context: Context): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED &&
@@ -134,7 +135,7 @@ internal object CreatorCalendarSync {
 
     /** S1: never edit/delete a stored event ID unless it still identifies a Backlot
      * event in the selected calendar. Calendar changes do not delete old-calendar events. */
-    fun syncDetailed(context: Context, tasks: List<CreatorTask>, calendarId: Long): CreatorCalendarSyncReport {
+    fun syncDetailed(context: Context, tasks: List<CreatorTask>, calendarId: Long): CreatorCalendarSyncReport = synchronized(syncLock) {
         require(hasPermission(context)) { "Calendar permission is needed to sync." }
         require(calendarId > 0L && googleCalendars(context).any { it.id == calendarId }) {
             "Choose an available Google calendar before syncing."
@@ -197,7 +198,7 @@ internal object CreatorCalendarSync {
                 }
             }
         if (blocked == 0) prefs.edit().putLong(KEY_LAST_SUCCESS, System.currentTimeMillis()).apply()
-        return CreatorCalendarSyncReport(created, updated, removed, blocked)
+        CreatorCalendarSyncReport(created, updated, removed, blocked)
     }
 }
 
