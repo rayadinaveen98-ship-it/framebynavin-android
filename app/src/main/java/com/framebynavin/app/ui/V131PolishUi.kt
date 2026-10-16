@@ -311,121 +311,23 @@ internal fun V131ReminderCenter(
     onEdit: (String) -> Unit,
     onDeleteReminders: (Set<String>) -> Unit,
     onOpenReminderSettings: () -> Unit = onDismiss,
+    onSnoozeReminder: ((CreatorTask, Int) -> Unit)? = null,
+    onPauseReminder: ((CreatorTask) -> Unit)? = null,
+    onRescheduleReminder: ((CreatorTask) -> Unit)? = null,
+    snoozeMinutes: Int = 10,
 ) {
-    val context = LocalContext.current
-    val notificationsReady = ReminderNotifications.canPost(context)
-    val preciseTimingReady = ReminderScheduler(context).canScheduleExact()
-    val now = System.currentTimeMillis()
-    val active = tasks.filter {
-        (it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING) &&
-            it.archivedAtMillis <= 0L &&
-            (it.attentionPlan != ProjectAttentionPlan.OFF || it.reminderEnabled)
-    }.sortedBy {
-        ProjectPulseEngine.snapshot(it, now).nextCheckpointAtMillis.takeIf { time -> time > 0L } ?: Long.MAX_VALUE
-    }
-    val nowProjects = active.filter { ProjectPulseEngine.snapshot(it, now).state in setOf(ProjectPulseState.OVERDUE, ProjectPulseState.NEEDS_ATTENTION, ProjectPulseState.AT_RISK) }
-    val next = active.filter { task ->
-        task !in nowProjects && ProjectPulseEngine.snapshot(task, now).nextCheckpointAtMillis in now..(now + 24 * 60 * 60_000L)
-    }
-    val later = active.filter { it !in nowProjects && it !in next }
-    val hasTimeCriticalAlerts = active.any {
-        it.reminderEnabled && (it.reminderMode == ReminderMode.VOICE ||
-            it.reminderMode == ReminderMode.ALARM || it.reminderMode == ReminderMode.SMART)
-    }
-
-    var selected by remember { mutableStateOf(setOf<String>()) }
-    var confirmDelete by remember { mutableStateOf(false) }
-    val selectionMode = selected.isNotEmpty()
-    val allIds = active.map { it.id }.toSet()
-    val haptics = LocalHapticFeedback.current
-
-    Dialog(onDismissRequest = { if (selectionMode) selected = emptySet() else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-                V131SelectionTopBar(
-                    title = "ATTENTION",
-                    selectionMode = selectionMode,
-                    selectedCount = selected.size,
-                    onExitSelection = { selected = emptySet() },
-                    onSelectAll = { selected = if (selected.size == allIds.size) emptySet() else allIds },
-                    onDelete = { if (selected.isNotEmpty()) confirmDelete = true },
-                    onAdd = onNew,
-                    onBack = onDismiss,
-                )
-                Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
-                    Text("What needs attention?", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.height(10.dp))
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = onOpenReminderSettings,
-                        color = CinemaSurface,
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (!notificationsReady || (hasTimeCriticalAlerts && !preciseTimingReady))
-                                RecRed.copy(alpha = .5f) else CinemaLine,
-                        ),
-                    ) {
-                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                if (notificationsReady && (!hasTimeCriticalAlerts || preciseTimingReady))
-                                    Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber,
-                                null,
-                                tint = if (!notificationsReady || (hasTimeCriticalAlerts && !preciseTimingReady))
-                                    RecRed else MutedGold,
-                                modifier = Modifier.size(22.dp),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                when {
-                                    !notificationsReady -> "Notifications are off. Backlot cannot show reminder alerts."
-                                    hasTimeCriticalAlerts && !preciseTimingReady ->
-                                        "Precise timing is off. Voice and alarm reminders may arrive late or as notifications."
-                                    else -> "Reminder permissions checked. Android may still delay some alerts."
-                                },
-                                color = ProjectorIvory,
-                                fontSize = 12.sp,
-                                lineHeight = 17.sp,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Outlined.ChevronRight, "Reminder settings", tint = MutedGold)
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    if (active.isEmpty()) {
-                        V131Empty("Nothing needs attention", "Your active projects will surface here when a checkpoint matters.", onNew)
-                    } else {
-                        V131PulseGroup("NOW", nowProjects, RecRed, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-                        }, onEdit)
-                        V131PulseGroup("NEXT", next, MutedGold, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-                        }, onEdit)
-                        V131PulseGroup("LATER", later, MutedText, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-                        }, onEdit)
-                    }
-                }
-            }
-        }
-    }
-
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Turn off attention for ${selected.size} project${if (selected.size == 1) "" else "s"}?") },
-            text = { Text("The projects remain. Only automatic check-ins and scheduled alerts are removed.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDeleteReminders(selected)
-                    selected = emptySet()
-                    confirmDelete = false
-                }) { Text("TURN OFF", color = RecRed) }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("CANCEL") } },
-        )
-    }
+    V157ReminderCenterUi(
+        tasks = tasks,
+        onDismiss = onDismiss,
+        onNew = onNew,
+        onEdit = onEdit,
+        onDeleteReminders = onDeleteReminders,
+        onOpenReminderSettings = onOpenReminderSettings,
+        onSnooze = onSnoozeReminder,
+        onPause = onPauseReminder,
+        onReschedule = onRescheduleReminder,
+        snoozeMinutes = snoozeMinutes,
+    )
 }
 
 @Composable
