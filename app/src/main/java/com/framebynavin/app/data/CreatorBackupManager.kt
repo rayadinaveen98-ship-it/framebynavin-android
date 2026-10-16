@@ -58,6 +58,7 @@ class CreatorBackupManager(private val context: Context) {
         val youtubePublishCheckpointsJson: String? = null,
         val projectPulseHistoryJson: String? = null,
         val workflowTimelineJson: String? = null,
+        val automationPrefsJson: String? = null,
     )
 
     private val appContext = context.applicationContext
@@ -68,6 +69,7 @@ class CreatorBackupManager(private val context: Context) {
     private val smartConfigStore = SmartEscalationConfigStore(appContext)
     private val postPublishStore = CreatorPostPublishStore(appContext)
     private val rewardStore = CreatorRewardStore(appContext)
+    private val automationPreferencesStore = CreatorAutomationPreferencesStore(appContext)
     private val projectPulseHistoryStore = ProjectPulseHistoryStore(appContext)
     private val workflowTimelineStore = CreatorWorkflowTimelineStore(appContext)
     private val regularScheduler = ReminderScheduler(appContext)
@@ -118,6 +120,10 @@ class CreatorBackupManager(private val context: Context) {
             require(root.has("workflowStageTimeline")) { "Backup is missing workflow stage timeline" }
         }
         optionalSection(root, "workflowStageTimeline")?.let(workflowTimelineStore::validateJson)
+        if (schema >= 9) {
+            require(root.has("automationPreferences")) { "Backup is missing creator automation preferences" }
+            automationPreferencesStore.validateJson(root.getString("automationPreferences"))
+        }
 
         val projectCount = taskStore.validateJson(tasksRaw)
         val ideaCount = ideaStore.validateJson(ideasRaw)
@@ -252,6 +258,7 @@ class CreatorBackupManager(private val context: Context) {
         youtubePublishCheckpointsJson = youtubePublishCheckpointsRaw(),
         projectPulseHistoryJson = projectPulseHistoryStore.exportJson(),
         workflowTimelineJson = workflowTimelineStore.exportJson(),
+        automationPrefsJson = automationPreferencesStore.exportJson(),
     )
 
     private fun encode(snapshot: Snapshot, createdAtMillis: Long): String {
@@ -272,6 +279,7 @@ class CreatorBackupManager(private val context: Context) {
             .put("youtubePublishCheckpoints", requireNotNull(snapshot.youtubePublishCheckpointsJson))
             .put("projectPulseHistory", requireNotNull(snapshot.projectPulseHistoryJson))
             .put("workflowStageTimeline", requireNotNull(snapshot.workflowTimelineJson))
+            .put("automationPreferences", requireNotNull(snapshot.automationPrefsJson))
             .put("manifest", backupManifest())
         return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
     }
@@ -281,6 +289,7 @@ class CreatorBackupManager(private val context: Context) {
         val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
             "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
         val allKeys = when {
+            schema >= 9 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory", "workflowStageTimeline", "automationPreferences")
             schema >= 8 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory", "workflowStageTimeline")
             schema >= 7 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory")
             schema >= 6 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints")
@@ -346,6 +355,7 @@ class CreatorBackupManager(private val context: Context) {
             youtubePublishCheckpointsJson = optionalSection(root, "youtubePublishCheckpoints"),
             projectPulseHistoryJson = optionalSection(root, "projectPulseHistory"),
             workflowTimelineJson = optionalSection(root, "workflowStageTimeline"),
+            automationPrefsJson = optionalSection(root, "automationPreferences"),
         )
     }
 
@@ -356,6 +366,7 @@ class CreatorBackupManager(private val context: Context) {
         weeklyStore.importJson(snapshot.weeklyJson)
         settingsStore.importJson(snapshot.settingsJson)
         snapshot.smartConfigJson?.let { smartConfigStore.importJson(it) }
+        snapshot.automationPrefsJson?.let { automationPreferencesStore.importJson(it) }
         snapshot.postPublishJson?.let { postPublishStore.importJson(it) }
         snapshot.rewardsJson?.let { rewardStore.importJson(it) }
         snapshot.heroJson?.let { CreatorHeroArchive.import(appContext, it) }
@@ -458,18 +469,20 @@ class CreatorBackupManager(private val context: Context) {
 
     companion object {
         const val FORMAT = "FrameByNavinBackup"
-        const val SCHEMA_VERSION = 8
+        const val SCHEMA_VERSION = 9
         private val INCLUDED_SECTIONS_V5 = listOf(
             "tasks", "ideas", "weeklySchedule", "settings", "smartEscalationConfig",
             "postPublish", "rewards", "personalFrames", "youtubeProjectLinks", "youtubeMilestones",
         )
         private val INCLUDED_SECTIONS_V6 = INCLUDED_SECTIONS_V5 + "youtubePublishCheckpoints"
         private val INCLUDED_SECTIONS_V7 = INCLUDED_SECTIONS_V6 + "projectPulseHistory"
-        private val INCLUDED_SECTIONS = INCLUDED_SECTIONS_V7 + "workflowStageTimeline"
+        private val INCLUDED_SECTIONS_V8 = INCLUDED_SECTIONS_V7 + "workflowStageTimeline"
+        private val INCLUDED_SECTIONS = INCLUDED_SECTIONS_V8 + "automationPreferences"
         private val ROOT_KEYS = setOf("format", "schemaVersion", "createdAtMillis", "manifest",
             "payloadSha256") + INCLUDED_SECTIONS
         private fun includedSectionsFor(schema: Int): List<String> = when {
-            schema >= 8 -> INCLUDED_SECTIONS
+            schema >= 9 -> INCLUDED_SECTIONS
+            schema >= 8 -> INCLUDED_SECTIONS_V8
             schema >= 7 -> INCLUDED_SECTIONS_V7
             schema >= 6 -> INCLUDED_SECTIONS_V6
             else -> INCLUDED_SECTIONS_V5

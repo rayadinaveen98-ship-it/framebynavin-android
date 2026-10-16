@@ -876,7 +876,7 @@ private fun PWeekScreen(
 ) {
     var editSchedule by rememberSaveable { mutableStateOf(false) }
     if (editSchedule) {
-        V08WeeklyScheduleScreen(slots, tasks, { editSchedule = false }, onToggle, onSave, onDelete, onRefresh, onReset)
+        V08WeeklyScheduleScreen(slots, tasks, { editSchedule = false }, onToggle, onSave, onDelete, onRefresh, onReset, autoPlanEnabled = autoPlanEnabled)
         return
     }
     val next = remember(slots.toList(), autoPlanEnabled) { if (autoPlanEnabled) WeeklyScheduleEngine.nextOccurrence(slots) else null }
@@ -891,7 +891,7 @@ private fun PWeekScreen(
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Weekly Auto Plan", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(if (autoPlanEnabled) "Your schedule can create upcoming projects." else "Your schedule stays saved. Nothing is added automatically.", color = MutedText, fontSize = 9.3.sp, lineHeight = 13.sp)
+                        Text(if (autoPlanEnabled) "Your schedule can create upcoming projects." else "Auto Plan off · future projects are not added. Your existing projects stay saved.", color = MutedText, fontSize = 9.3.sp, lineHeight = 13.sp)
                     }
                     Switch(checked = autoPlanEnabled, onCheckedChange = onAutoPlanChange, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
                 }

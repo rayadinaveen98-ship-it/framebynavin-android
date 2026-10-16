@@ -1,6 +1,7 @@
 package com.framebynavin.app.data
 
 import android.content.Context
+import org.json.JSONObject
 import java.time.DayOfWeek
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -117,6 +118,42 @@ class CreatorAutomationPreferencesStore(context: Context) {
 
     fun setIdeaReviewRoutineEnabled(value: Boolean) {
         prefs.edit().putBoolean(KEY_IDEA_REVIEW, value).apply()
+    }
+
+    /** The routine choices are user-authored state, not disposable WorkManager cache. */
+    fun exportJson(): String = snapshot().let { current ->
+        JSONObject()
+            .put("dailyBriefRoutineEnabled", current.dailyBriefRoutineEnabled)
+            .put("weeklyReviewRoutineEnabled", current.weeklyReviewRoutineEnabled)
+            .put("ideaReviewRoutineEnabled", current.ideaReviewRoutineEnabled)
+            .toString()
+    }
+
+    fun validateJson(raw: String): CreatorAutomationPreferences {
+        val json = JSONObject(raw)
+        require(json.keys().asSequence().toSet() == setOf(
+            "dailyBriefRoutineEnabled", "weeklyReviewRoutineEnabled", "ideaReviewRoutineEnabled",
+        )) { "Unexpected creator routine backup fields" }
+        fun readBoolean(key: String): Boolean {
+            val value = json.get(key)
+            require(value is Boolean) { "Creator routine preference '$key' must be true or false" }
+            return value
+        }
+        return CreatorAutomationPreferences(
+            dailyBriefRoutineEnabled = readBoolean("dailyBriefRoutineEnabled"),
+            weeklyReviewRoutineEnabled = readBoolean("weeklyReviewRoutineEnabled"),
+            ideaReviewRoutineEnabled = readBoolean("ideaReviewRoutineEnabled"),
+        )
+    }
+
+    fun importJson(raw: String) {
+        val value = validateJson(raw)
+        check(prefs.edit()
+            .putBoolean(KEY_DAILY_BRIEF, value.dailyBriefRoutineEnabled)
+            .putBoolean(KEY_WEEKLY_REVIEW, value.weeklyReviewRoutineEnabled)
+            .putBoolean(KEY_IDEA_REVIEW, value.ideaReviewRoutineEnabled)
+            .commit()
+        ) { "Could not restore automation routine choices" }
     }
 
     companion object {
