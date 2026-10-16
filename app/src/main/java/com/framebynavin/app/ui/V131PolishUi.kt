@@ -64,6 +64,8 @@ import com.framebynavin.app.data.ProjectPulseState
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
 import com.framebynavin.app.data.TaskStatus
+import com.framebynavin.app.reminders.ReminderNotifications
+import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.SmartSessionStore
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.delay
@@ -308,7 +310,11 @@ internal fun V131ReminderCenter(
     onNew: () -> Unit,
     onEdit: (String) -> Unit,
     onDeleteReminders: (Set<String>) -> Unit,
+    onOpenReminderSettings: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val notificationsReady = ReminderNotifications.canPost(context)
+    val preciseTimingReady = ReminderScheduler(context).canScheduleExact()
     val now = System.currentTimeMillis()
     val active = tasks.filter {
         (it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING) &&
@@ -322,6 +328,10 @@ internal fun V131ReminderCenter(
         task !in nowProjects && ProjectPulseEngine.snapshot(task, now).nextCheckpointAtMillis in now..(now + 24 * 60 * 60_000L)
     }
     val later = active.filter { it !in nowProjects && it !in next }
+    val hasTimeCriticalAlerts = active.any {
+        it.reminderEnabled && (it.reminderMode == ReminderMode.VOICE ||
+            it.reminderMode == ReminderMode.ALARM || it.reminderMode == ReminderMode.SMART)
+    }
 
     var selected by remember { mutableStateOf(setOf<String>()) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -344,6 +354,44 @@ internal fun V131ReminderCenter(
                 )
                 Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
                     Text("What needs attention?", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.height(10.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onOpenReminderSettings,
+                        color = CinemaSurface,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (!notificationsReady || (hasTimeCriticalAlerts && !preciseTimingReady))
+                                RecRed.copy(alpha = .5f) else CinemaLine,
+                        ),
+                    ) {
+                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                if (notificationsReady && (!hasTimeCriticalAlerts || preciseTimingReady))
+                                    Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber,
+                                null,
+                                tint = if (!notificationsReady || (hasTimeCriticalAlerts && !preciseTimingReady))
+                                    RecRed else MutedGold,
+                                modifier = Modifier.size(22.dp),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                when {
+                                    !notificationsReady -> "Notifications are off. Backlot cannot show reminder alerts."
+                                    hasTimeCriticalAlerts && !preciseTimingReady ->
+                                        "Precise timing is off. Voice and alarm reminders may arrive late or as notifications."
+                                    else -> "Reminder permissions checked. Android may still delay some alerts."
+                                },
+                                color = ProjectorIvory,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Outlined.ChevronRight, "Reminder settings", tint = MutedGold)
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
                     if (active.isEmpty()) {
                         V131Empty("Nothing needs attention", "Your active projects will surface here when a checkpoint matters.", onNew)
