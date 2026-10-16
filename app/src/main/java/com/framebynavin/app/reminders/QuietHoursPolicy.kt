@@ -1,7 +1,7 @@
 package com.framebynavin.app.reminders
 
+import com.framebynavin.app.data.ReminderMode
 import java.time.Instant
-import java.time.LocalTime
 import java.time.ZoneId
 
 /**
@@ -13,6 +13,14 @@ import java.time.ZoneId
 object QuietHoursPolicy {
     const val DEFAULT_START_MINUTE = 22 * 60
     const val DEFAULT_END_MINUTE = 8 * 60
+
+    /**
+     * Quiet only regular reminders and Smart's gentle notification stage. Never
+     * silence explicit Voice/Alarm fallback or any ringing Smart escalation.
+     */
+    fun eligible(mode: ReminderMode, stageLabel: String?): Boolean =
+        mode == ReminderMode.SIMPLE ||
+            (mode == ReminderMode.SMART && stageLabel == "Smart · Gentle")
 
     fun validMinute(minuteOfDay: Int): Boolean = minuteOfDay in 0..1439
 
