@@ -137,7 +137,7 @@ internal fun V23ProfileAccountScreen(
             }
 
             Spacer(Modifier.height(24.dp))
-            V23SectionTitle("CONNECTED SERVICES", "Connect accounts for backup and video results.")
+            V23SectionTitle("YOUR CONNECTIONS", "Manage your Google account and YouTube results.")
             Spacer(Modifier.height(9.dp))
             V23ActionRow(
                 title = if (session == null) "Google account" else "Google account connected",
@@ -152,12 +152,11 @@ internal fun V23ProfileAccountScreen(
                 onClick = onOpenYouTube,
             )
 
-            Spacer(Modifier.height(24.dp))
-            V23SectionTitle("ACCOUNT & DATA", "You can keep working without internet.")
-            Spacer(Modifier.height(9.dp))
-            V23ActionRow("Google Drive Vault", "Private backups and recovery", Icons.Outlined.CloudSync) {
-                context.startActivity(Intent(context, CloudSyncActivity::class.java))
-            }
+            Spacer(Modifier.height(15.dp))
+            Text(
+                "For backup, recovery and saved Google Drive copies, open Settings → Backup & Data.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+            )
 
             if (session != null) {
                 Spacer(Modifier.height(4.dp))
