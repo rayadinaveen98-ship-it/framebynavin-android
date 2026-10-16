@@ -253,7 +253,12 @@ internal fun V09IdeaVaultScreen(
         V09IdeaEditor(
             idea = CreatorIdea(id = "", title = ""),
             onDismiss = { creating = false },
-            onSave = { onSave(it); creating = false },
+            onSave = { draft ->
+                val accepted = onSave(draft) != null
+                if (accepted) creating = false
+                accepted
+            },
+            existingIdeas = ideas,
             onDelete = null,
         )
     }
@@ -262,7 +267,12 @@ internal fun V09IdeaVaultScreen(
         V09IdeaEditor(
             idea = idea,
             onDismiss = { editing = null },
-            onSave = { onSave(it); editing = null },
+            onSave = { draft ->
+                val accepted = onSave(draft) != null
+                if (accepted) editing = null
+                accepted
+            },
+            existingIdeas = ideas,
             onDelete = {
                 editing = null
                 deletePending = idea
@@ -386,7 +396,8 @@ private fun V09IdeaCard(
 @Composable
 private fun V09NewIdeaCleanEditor(
     onDismiss: () -> Unit,
-    onSave: (CreatorIdea) -> Unit,
+    onSave: (CreatorIdea) -> Boolean,
+    existingIdeas: List<CreatorIdea>,
 ) {
     val context = LocalContext.current
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
@@ -478,6 +489,9 @@ private fun V09NewIdeaCleanEditor(
                                 maxLines = 6,
                                 shape = RoundedCornerShape(16.dp),
                             )
+                            IdeaVaultGuidance.similarTitles(title, existingIdeas).firstOrNull()?.let { duplicate ->
+                                Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
+                            }
                         }
                     }
 
@@ -672,7 +686,7 @@ private fun V09NewIdeaCleanEditor(
                             val now = System.currentTimeMillis()
                             val finalizedRecording = voiceRecording
                             val newVoiceIdea = finalizedRecording != null
-                            onSave(
+                            val accepted = onSave(
                                 CreatorIdea(
                                     id = UUID.randomUUID().toString(),
                                     title = title.trim().ifBlank { if (newVoiceIdea) v09DefaultVoiceIdeaTitle() else "" },
@@ -694,7 +708,7 @@ private fun V09NewIdeaCleanEditor(
                                     updatedAtMillis = now,
                                 )
                             )
-                            voiceRecording = null
+                            if (accepted) voiceRecording = null
                         },
                         enabled = title.isNotBlank() || voiceRecording != null,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(52.dp),
@@ -713,7 +727,8 @@ private fun V09NewIdeaCleanEditor(
 private fun V09IdeaEditor(
     idea: CreatorIdea,
     onDismiss: () -> Unit,
-    onSave: (CreatorIdea) -> Unit,
+    onSave: (CreatorIdea) -> Boolean,
+    existingIdeas: List<CreatorIdea>,
     onDelete: (() -> Unit)?,
 ) {
     val context = LocalContext.current
@@ -721,6 +736,7 @@ private fun V09IdeaEditor(
         V09NewIdeaCleanEditor(
             onDismiss = onDismiss,
             onSave = onSave,
+            existingIdeas = existingIdeas,
         )
         return
     }
@@ -762,6 +778,9 @@ private fun V09IdeaEditor(
         text = {
             Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
                 OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Idea title") })
+                IdeaVaultGuidance.similarTitles(title, existingIdeas, excludingId = idea.id).firstOrNull()?.let { duplicate ->
+                    Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
+                }
 
                 if (idea.id.isBlank()) {
                     Spacer(Modifier.height(10.dp))
@@ -855,7 +874,7 @@ private fun V09IdeaEditor(
                     val now = System.currentTimeMillis()
                     val finalizedRecording = voiceRecording
                     val newVoiceIdea = idea.id.isBlank() && finalizedRecording != null
-                    onSave(
+                    val accepted = onSave(
                         idea.copy(
                             id = idea.id.ifBlank { UUID.randomUUID().toString() },
                             title = title.trim().ifBlank { if (newVoiceIdea) v09DefaultVoiceIdeaTitle() else "" },
@@ -877,8 +896,8 @@ private fun V09IdeaEditor(
                             updatedAtMillis = now,
                         )
                     )
-                    // The saved idea now owns this file; do not delete it when the editor leaves composition.
-                    voiceRecording = null
+                    // If rejected, retain the unsaved original recording and editor draft.
+                    if (accepted) voiceRecording = null
                 },
                 enabled = title.isNotBlank() || voiceRecording != null,
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
