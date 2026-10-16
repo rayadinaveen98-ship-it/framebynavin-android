@@ -54,9 +54,11 @@ import java.util.UUID
 @Composable
 internal fun V09IdeaVaultScreen(
     ideas: List<CreatorIdea>,
+    deletedIdeas: List<CreatorIdea>,
     onClose: (() -> Unit)?,
     onSave: (CreatorIdea) -> String?,
     onDelete: (String) -> Unit,
+    onRestore: (String) -> Unit,
     onArchive: (String) -> Unit,
     onConvert: (String, String, String, Long) -> String?,
     externalIdeaId: String = "",
@@ -71,6 +73,9 @@ internal fun V09IdeaVaultScreen(
     var categoryFilter by rememberSaveable { mutableStateOf<IdeaCategory?>(null) }
     var captureFilter by rememberSaveable { mutableStateOf<IdeaCaptureType?>(null) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
+    var showDeleted by rememberSaveable { mutableStateOf(false) }
+    var deletePending by remember { mutableStateOf<CreatorIdea?>(null) }
+    var conversionFailed by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<CreatorIdea?>(null) }
     var creating by remember { mutableStateOf(false) }
     var converting by remember { mutableStateOf<CreatorIdea?>(null) }
@@ -108,15 +113,17 @@ internal fun V09IdeaVaultScreen(
 
     val filtered by remember {
         derivedStateOf {
-            ideas.filter { idea ->
+            (if (showDeleted) deletedIdeas else ideas).filter { idea ->
                 val textMatch = query.isBlank() || listOf(idea.title, idea.topic, idea.notes, idea.transcript)
                     .any { it.contains(query, ignoreCase = true) }
                 val statusMatch = statusFilter == null || idea.status == statusFilter
                 val categoryMatch = categoryFilter == null || idea.category == categoryFilter
                 val captureMatch = captureFilter == null || idea.captureType == captureFilter
-                textMatch && statusMatch && categoryMatch && captureMatch
+                textMatch && (showDeleted || (statusMatch && categoryMatch && captureMatch))
             }.sortedWith(
-                compareByDescending<CreatorIdea> { it.id in opportunityIdeaIds }
+                compareByDescending<CreatorIdea> { showDeleted && it.isTrashed }
+                    .thenByDescending { if (showDeleted) it.trashedAtMillis else 0L }
+                    .thenByDescending { !showDeleted && it.id in opportunityIdeaIds }
                     .thenBy { it.status == IdeaStatus.ARCHIVED }
                     .thenByDescending { it.updatedAtMillis }
             )
@@ -172,11 +179,12 @@ internal fun V09IdeaVaultScreen(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                FilterChip(selected = statusFilter == null, onClick = { statusFilter = null }, label = { Text("All", fontSize = 10.sp) })
-                FilterChip(selected = statusFilter == IdeaStatus.INBOX, onClick = { statusFilter = IdeaStatus.INBOX }, label = { Text("Inbox", fontSize = 10.sp) })
-                FilterChip(selected = statusFilter == IdeaStatus.READY_TO_PRODUCE, onClick = { statusFilter = IdeaStatus.READY_TO_PRODUCE }, label = { Text("Ready", fontSize = 10.sp) })
-                FilterChip(selected = statusFilter == IdeaStatus.CONVERTED, onClick = { statusFilter = IdeaStatus.CONVERTED }, label = { Text("Converted", fontSize = 10.sp) })
-                FilterChip(
+                FilterChip(selected = !showDeleted && statusFilter == null, onClick = { showDeleted = false; statusFilter = null }, label = { Text("All", fontSize = 10.sp) })
+                FilterChip(selected = !showDeleted && statusFilter == IdeaStatus.INBOX, onClick = { showDeleted = false; statusFilter = IdeaStatus.INBOX }, label = { Text("Inbox", fontSize = 10.sp) })
+                FilterChip(selected = !showDeleted && statusFilter == IdeaStatus.READY_TO_PRODUCE, onClick = { showDeleted = false; statusFilter = IdeaStatus.READY_TO_PRODUCE }, label = { Text("Ready", fontSize = 10.sp) })
+                FilterChip(selected = !showDeleted && statusFilter == IdeaStatus.CONVERTED, onClick = { showDeleted = false; statusFilter = IdeaStatus.CONVERTED }, label = { Text("Converted", fontSize = 10.sp) })
+                FilterChip(selected = showDeleted, onClick = { showDeleted = true; statusFilter = null; categoryFilter = null; captureFilter = null }, label = { Text("Recently Deleted (${deletedIdeas.size})", fontSize = 10.sp) })
+                if (!showDeleted) FilterChip(
                     selected = activeFilterCount > 0,
                     onClick = { showFilters = true },
                     label = { Text(if (activeFilterCount > 0) "Filters ($activeFilterCount)" else "Filters", fontSize = 10.sp) },
@@ -187,7 +195,7 @@ internal fun V09IdeaVaultScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${filtered.size} IDEA${if (filtered.size == 1) "" else "S"}", color = MutedText, fontSize = 8.5.sp, letterSpacing = 1.sp)
                 Spacer(Modifier.weight(1f))
-                Text("$readyCount READY", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                if (!showDeleted) Text("$readyCount READY", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
             }
 
             if (filtered.isEmpty()) {
@@ -198,9 +206,9 @@ internal fun V09IdeaVaultScreen(
                 ) {
                     Icon(Icons.Outlined.Lightbulb, null, tint = MutedGold, modifier = Modifier.size(34.dp))
                     Spacer(Modifier.height(9.dp))
-                    Text(if (ideas.isEmpty()) "Your vault is empty" else "No ideas match this filter", color = ProjectorIvory, fontWeight = FontWeight.Bold)
+                    Text(if (showDeleted) "No deleted ideas" else if (ideas.isEmpty()) "Your vault is empty" else "No ideas match this filter", color = ProjectorIvory, fontWeight = FontWeight.Bold)
                     Text("Keep ideas here until you're ready to use them.", color = MutedText, fontSize = 10.sp)
-                    if (ideas.isEmpty()) {
+                    if (!showDeleted && ideas.isEmpty()) {
                         Spacer(Modifier.height(12.dp))
                         Button(onClick = { creating = true }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("SAVE YOUR FIRST IDEA") }
                     }
@@ -212,7 +220,9 @@ internal fun V09IdeaVaultScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filtered, key = { it.id }) { idea ->
-                        V09IdeaCard(
+                        if (showDeleted) {
+                            V162DeletedIdeaCard(idea) { onRestore(idea.id) }
+                        } else V09IdeaCard(
                             idea = idea,
                             isOpportunity = idea.id in opportunityIdeaIds,
                             onEdit = { editing = idea },
@@ -254,8 +264,8 @@ internal fun V09IdeaVaultScreen(
             onDismiss = { editing = null },
             onSave = { onSave(it); editing = null },
             onDelete = {
-                onDelete(idea.id)
                 editing = null
+                deletePending = idea
             },
         )
     }
@@ -791,7 +801,7 @@ private fun V09IdeaEditor(
                 }
                 if (onDelete != null) {
                     Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("DELETE IDEA", color = RecRed) }
+                    TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("MOVE TO RECENTLY DELETED", color = RecRed) }
                 }
             }
         },
