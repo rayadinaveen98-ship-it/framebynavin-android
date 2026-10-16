@@ -110,6 +110,7 @@ class VoiceReminderService : Service() {
         tts = TextToSpeech(this) { status ->
             if (!isCurrent(task.id, token) || generation != speechGeneration) return@TextToSpeech
             if (status != TextToSpeech.SUCCESS) {
+                fallbackToNotification(task, token, "Voice unavailable · notification reminder")
                 stopVoiceService(task.id, token)
                 return@TextToSpeech
             }
@@ -141,6 +142,7 @@ class VoiceReminderService : Service() {
                 override fun onError(utteranceId: String?) {
                     handler.post {
                         if (isCurrent(task.id, token) && generation == speechGeneration) {
+                            fallbackToNotification(task, token, "Voice playback failed · notification reminder")
                             stopVoiceService(task.id, token)
                         }
                     }
@@ -183,7 +185,21 @@ class VoiceReminderService : Service() {
         val result = engine.speak(frozenSpeechText, queueMode, null, utteranceId)
         if (result == TextToSpeech.ERROR) {
             currentUtteranceId = null
+            fallbackToNotification(task, token, "Voice playback failed · notification reminder")
             stopVoiceService(task.id, token)
+        }
+    }
+
+    /** Text-to-speech initialization/playback can fail after Android accepts the service start. */
+    private fun fallbackToNotification(task: CreatorTask, token: String, reason: String) {
+        if (!isCurrent(task.id, token)) return
+        runCatching {
+            ReminderNotifications.show(
+                context = applicationContext,
+                task = task,
+                stageLabel = reason,
+                occurrenceId = token,
+            )
         }
     }
 
