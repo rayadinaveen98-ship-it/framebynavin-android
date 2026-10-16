@@ -30,6 +30,10 @@ class CreatorBackupV183Test {
     /** Mirrors CreatorBackupManager.fingerprint() so current-schema mutation tests remain valid. */
     private fun checksum(root: JSONObject, schema: Int): String = sha(buildString {
         val keys = when {
+            schema >= 9 -> legacyKeys + listOf(
+                "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
+                "projectPulseHistory", "workflowStageTimeline", "automationPreferences",
+            )
             schema >= 8 -> legacyKeys + listOf(
                 "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
                 "projectPulseHistory", "workflowStageTimeline",
