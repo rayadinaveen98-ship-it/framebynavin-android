@@ -61,12 +61,18 @@ internal fun V144SettingsHub(
     onReplayTour: () -> Unit,
     onCloudSync: () -> Unit,
     onYouTube: () -> Unit,
+    onOpenWeeklyPlan: () -> Unit = {},
+    onOpenAutomation: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var sectionName by rememberSaveable { mutableStateOf(V167SettingsSection.HOME.name) }
     val section = V167SettingsNavigationPolicy.fromSavedName(sectionName)
     fun navigateBack() { sectionName = V167SettingsNavigationPolicy.parent(section).name }
     var confirmAutoPlan by remember { mutableStateOf(false) }
+    var showExtraPermissions by rememberSaveable { mutableStateOf(false) }
+    val permissionSummary = V169SettingsClarityPolicy.permissions(
+        notificationsReady, preciseTimingReady, fullScreenReady, batteryReady,
+    )
     val nextProjects = CreatorWeeklyPlanPreviewEngine.build(weeklySlots, tasks)
 
     BackHandler {
@@ -124,45 +130,61 @@ internal fun V144SettingsHub(
             }
 
             V167SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V167SettingsSection.HOME.name }) {
-                val setupReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
                 V144StatusCard(
-                    title = "Project reminders",
-                    subtitle = if (setupReady) "Everything is ready." else "One or more Android permissions still need setup.",
-                    icon = if (setupReady) Icons.Outlined.CheckCircle else Icons.Outlined.NotificationsActive,
-                    accent = if (setupReady) SuccessGreen else MutedGold,
+                    title = permissionSummary.title,
+                    subtitle = permissionSummary.explanation,
+                    icon = if (notificationsReady) Icons.Outlined.CheckCircle else Icons.Outlined.NotificationsActive,
+                    accent = if (notificationsReady) SuccessGreen else MutedGold,
                 )
                 Spacer(Modifier.height(10.dp))
-                V144PermissionRow("Notifications", notificationsReady, onNotifications)
-                V144PermissionRow("Exact reminder timing", preciseTimingReady, onPreciseTiming)
-                V144PermissionRow("Full-screen alerts", fullScreenReady, onFullScreen)
-                V144PermissionRow("Allow background reminders", batteryReady, onBattery)
+                V144PermissionRow("Allow notifications", notificationsReady, onNotifications)
+                TextButton(
+                    onClick = { showExtraPermissions = !showExtraPermissions },
+                    modifier = Modifier.fillMaxWidth().testTag("v169-advanced-permissions"),
+                ) {
+                    Text(
+                        if (showExtraPermissions) "HIDE ANDROID ALARM OPTIONS"
+                        else "MORE ANDROID OPTIONS · ${permissionSummary.advancedMissing} NEED ATTENTION",
+                        color = MutedGold, fontSize = 11.sp,
+                    )
+                }
+                if (showExtraPermissions) {
+                    V144PermissionRow("Exact alarm timing", preciseTimingReady, onPreciseTiming)
+                    V144PermissionRow("Full-screen alarm alerts", fullScreenReady, onFullScreen)
+                    V144PermissionRow("Battery access for background reminders", batteryReady, onBattery)
+                    Text(
+                        "These affect some advanced reminder delivery modes. Android may still delay or restrict alerts.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                    )
+                }
 
                 Spacer(Modifier.height(18.dp))
-                V144SectionTitle("REMINDER DEFAULTS", "These choices are reused automatically.")
+                V144SectionTitle("REMINDER DEFAULTS", "Used for new reminders. Existing project choices stay saved.")
                 Spacer(Modifier.height(10.dp))
                 Text("Snooze", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
-                    listOf(5, 10, 15, 20, 30).forEach { value ->
+                    V169SettingsClarityPolicy.snoozeChoices(settings.snoozeMinutes).forEach { value ->
                         FilterChip(settings.snoozeMinutes == value, { onSnooze(value) }, { Text("${value}m", fontSize = 10.sp) })
                     }
                 }
                 Spacer(Modifier.height(14.dp))
                 Text("Alarm auto-stop", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
-                    listOf(30 to "30s", 60 to "1m", 120 to "2m", 300 to "5m").forEach { (value, label) ->
+                    V169SettingsClarityPolicy.alarmTimeoutChoices(settings.defaultAlarmTimeoutSeconds).forEach { value ->
+                        val label = if (value < 60) "${value}s" else if (value % 60 == 0) "${value / 60}m" else "${value / 60}m ${value % 60}s"
                         FilterChip(settings.defaultAlarmTimeoutSeconds == value, { onAlarmTimeout(value) }, { Text(label, fontSize = 10.sp) })
                     }
                 }
 
                 Spacer(Modifier.height(21.dp))
-                V144SectionTitle("QUIET HOURS", "Reduce distractions without missing check-ins.")
+                V144SectionTitle("QUIET HOURS", "Quiet standard notifications during your rest time.")
                 Spacer(Modifier.height(9.dp))
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface,
                     border = BorderStroke(1.dp, CinemaLine)) {
                     Column(Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("Discreet notifications", color = ProjectorIvory,
+                                Text("Quiet hours", color = ProjectorIvory,
                                     fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 Text(
                                     if (settings.quietHoursEnabled)
@@ -207,8 +229,8 @@ internal fun V144SettingsHub(
                         }
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            "Only ordinary reminder notifications and gentle Smart check-ins become silent. " +
-                                "They still appear at their scheduled time. Voice, ringing alarms and later Smart escalation stages can still interrupt you.",
+                            V169SettingsClarityPolicy.quietHoursDescription(settings) +
+                                " Notifications remain scheduled but Android can delay delivery.",
                             color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
                         )
                     }
@@ -222,12 +244,12 @@ internal fun V144SettingsHub(
                             Text(
                                 when {
                                     !notificationsReady -> "Enable notifications first."
-                                    settings.contextNudgesEnabled -> "On · Backlot can warn you when active work may need attention."
-                                    else -> "Off · normal project reminders still work."
+                                    settings.contextNudgesEnabled -> "On · optional check-ins when work may need attention."
+                                    else -> "Off · your scheduled project reminders still work."
                                 },
                                 color = MutedText,
-                                fontSize = 8.8.sp,
-                                lineHeight = 12.sp,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
                             )
                         }
                         Switch(
@@ -261,10 +283,34 @@ internal fun V144SettingsHub(
                         )
                     }
                 }
+                Spacer(Modifier.height(9.dp))
+                Text(
+                    V169SettingsClarityPolicy.autoPlanExplanation(
+                        weeklyAutoPlanEnabled, nextProjects.missing.size, weeklySlots
+                    ),
+                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                )
                 Spacer(Modifier.height(8.dp))
-                Text("${nextProjects.missing.size} eligible upcoming project(s) in the next 14 days. Existing projects won't be replaced.",
-                    color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
-                Spacer(Modifier.height(18.dp))
+                V144ActionCard(
+                    title = "Edit weekly plan",
+                    subtitle = "Change post days, times and templates without editing existing projects.",
+                    icon = Icons.Outlined.CalendarMonth,
+                    accent = MutedGold,
+                    onClick = onOpenWeeklyPlan,
+                )
+                Spacer(Modifier.height(8.dp))
+                V144ActionCard(
+                    title = "Automation",
+                    subtitle = "See planning checks and optional notification routines.",
+                    icon = Icons.Outlined.AutoAwesome,
+                    accent = RecRed,
+                    onClick = onOpenAutomation,
+                )
+                Spacer(Modifier.height(16.dp))
+                V144SettingsNote(
+                    "Auto Plan creates project drafts from your active weekly templates; it never posts videos. Google Calendar below is separate and only exports deadlines after you approve."
+                )
+                Spacer(Modifier.height(12.dp))
                 V129GoogleCalendarSettings(tasks)
             }
 
