@@ -78,7 +78,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
                 }
                 busy = false
                 isError = result.isFailure
-                message = if (result.isSuccess) "Recovery copy exported." else "Could not export this recovery copy."
+                message = if (result.isSuccess) "Recovery copy exported. This file is not encrypted; keep it private. App appearance and Google account connections are not included." else "Could not export this recovery copy."
             }
         }
     }
@@ -99,7 +99,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
 
             Spacer(Modifier.height(12.dp))
             Text(
-                "Backlot keeps a copy on this phone before a restore. These copies aren't uploaded.",
+                "Backlot keeps these copies on this phone before a restore. They are not uploaded or encrypted. Export a copy to another safe location before deleting one.",
                 color = MutedText,
                 fontSize = 11.sp,
                 lineHeight = 15.sp,
@@ -118,7 +118,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
             Spacer(Modifier.height(18.dp))
             if (files.isEmpty()) {
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-                    Text("No recovery copies saved on this phone.", color = MutedText, modifier = Modifier.padding(16.dp), fontSize = 11.sp)
+                    Text("No retained pre-restore recovery files are currently saved on this phone.", color = MutedText, modifier = Modifier.padding(16.dp), fontSize = 11.sp)
                 }
             } else {
                 files.forEach { file ->
@@ -143,7 +143,7 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
             onDismissRequest = { if (!busy) restoreFile = null },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Restore this recovery copy?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("Your current data will be replaced. Backlot will save a recovery copy first.", color = MutedText) },
+            text = { Text("Restoring replaces supported current creator data on this phone. Backlot makes another recovery copy first. Check that you selected the right date.", color = MutedText) },
             confirmButton = {
                 Button(
                     enabled = !busy,
@@ -188,14 +188,14 @@ private fun RecoveryCopiesScreen(onClose: () -> Unit) {
             onDismissRequest = { deleteFile = null },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Delete recovery copy?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("This deletes only the selected recovery copy. Your current work stays safe.", color = MutedText) },
+            text = { Text("This permanently deletes the selected recovery file, not your current projects. It cannot be undone and may remove your only older recovery point.", color = MutedText) },
             confirmButton = {
                 TextButton(onClick = {
                     val deleted = runCatching { file.delete() }.getOrDefault(false)
                     deleteFile = null
                     refresh()
                     isError = !deleted
-                    message = if (deleted) "Recovery copy deleted." else "Could not delete the recovery copy."
+                    message = if (deleted) "Selected recovery file deleted. Your current creator work was not changed." else "Could not delete the recovery copy."
                 }) { Text("DELETE", color = RecRed, fontWeight = FontWeight.Bold) }
             },
             dismissButton = { TextButton(onClick = { deleteFile = null }) { Text("CANCEL") } },
