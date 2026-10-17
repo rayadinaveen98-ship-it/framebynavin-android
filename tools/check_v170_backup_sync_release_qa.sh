@@ -24,4 +24,5 @@ grep -Fq 'creatorBackup.validate(original)' "$PORTABLE"
 grep -Fq 'fun recoveryCopies()' "$BACKUP_CORE"
 test -f app/src/test/java/com/framebynavin/app/cloud/CreatorCloudBackupStatusV170Test.kt
 test -f app/src/androidTest/java/com/framebynavin/app/ui/V170BackupSettingsUiTest.kt
+test -f app/src/androidTest/java/com/framebynavin/app/ui/V170LocalBackupScreenUiTest.kt
 echo 'V170 backup, status and recovery preservation checks passed'
