@@ -70,6 +70,8 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     var driveToken by remember(session?.email) { mutableStateOf(session?.email?.let(DriveVaultTokenMemory::get)) }
     var drivePoints by remember { mutableStateOf<List<DriveVaultRestorePoint>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
+    var cloudChecking by remember { mutableStateOf(false) }
+    var driveListAvailable by remember(session?.email) { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var restoreTarget by remember { mutableStateOf<DriveVaultRestorePoint?>(null) }
 
@@ -87,36 +89,53 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     }
 
     fun runCloudSync() {
-        if (session == null || busy) return
+        if (session == null || busy || cloudChecking) return
         busy = true
+        cloudChecking = true
         message = null
         scope.launch {
-            val result = cloud.syncNow()
-            syncResult = result
-            syncStatus = cloud.status()
-            message = describe(result)
-            busy = false
+            try {
+                val result = cloud.syncNow()
+                syncResult = result
+                syncStatus = cloud.status()
+                message = describe(result)
+            } catch (error: Exception) {
+                syncStatus = cloud.status()
+                message = error.message ?: "Could not complete the cloud backup."
+            } finally {
+                cloudChecking = false
+                busy = false
+            }
         }
     }
 
     fun resolveCloud(restore: Boolean) {
-        if (busy) return
+        if (busy || cloudChecking) return
         busy = true
+        cloudChecking = true
         message = null
         scope.launch {
-            val result = if (restore) cloud.restoreCloud() else cloud.keepThisPhone()
-            syncResult = result
-            syncStatus = cloud.status()
-            message = describe(result)
-            busy = false
+            try {
+                val result = if (restore) cloud.restoreCloud() else cloud.keepThisPhone()
+                syncResult = result
+                syncStatus = cloud.status()
+                message = describe(result)
+            } catch (error: Exception) {
+                syncStatus = cloud.status()
+                message = error.message ?: "Could not resolve the two cloud copies."
+            } finally {
+                cloudChecking = false
+                busy = false
+            }
         }
     }
 
     fun loadDrivePoints(accessToken: String) {
         busy = true
+        driveListAvailable = false
         scope.launch {
             runCatching { drive.list(accessToken) }
-                .onSuccess { drivePoints = it; message = null }
+                .onSuccess { drivePoints = it; driveListAvailable = true; message = null }
                 .onFailure { message = it.message ?: "Could not read the optional Google Drive copies." }
             busy = false
         }
@@ -205,15 +224,26 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     }
 
     LaunchedEffect(session?.userId) {
-        if (session != null) {
-            val result = cloud.syncNow()
-            syncResult = result
-            syncStatus = cloud.status()
+        // A new sign-in already runs its own sync; do not race another request.
+        if (session != null && !busy && !cloudChecking) {
+            cloudChecking = true
+            try {
+                val result = cloud.syncNow()
+                syncResult = result
+                syncStatus = cloud.status()
+                message = describe(result)
+            } catch (error: Exception) {
+                syncStatus = cloud.status()
+                message = error.message ?: "Could not check the cloud backup."
+            } finally {
+                cloudChecking = false
+            }
         }
     }
     LaunchedEffect(session?.email, driveToken) { driveToken?.let(::loadDrivePoints) }
 
     val conflict = syncResult as? CreatorCloudSyncResult.Conflict
+    val backupView = CreatorCloudBackupStatusV170.resolve(syncStatus, syncResult, cloudChecking)
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -255,18 +285,23 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                     Text("ACCOUNT", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
                     Text(session?.email.orEmpty(), color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(10.dp))
-                    val last = syncStatus.lastSuccessMillis
                     Text(
-                        when {
-                            conflict != null || syncStatus.needsResolution -> "Sync needs your choice"
-                            last > 0L -> "Last backed up · ${cloudTime(last)}"
-                            else -> "Automatic sync will start when the account is ready"
-                        },
-                        color = if (conflict != null || syncStatus.needsResolution) MutedGold else Color(0xFF86C995),
+                        backupView.headline,
+                        color = if (backupView.state == CreatorBackupBadgeStatus.COMPLETE) Color(0xFF86C995) else MutedGold,
                         fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
                     )
+                    Text(backupView.explanation, color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    if (syncStatus.lastSuccessMillis > 0L) {
+                        Text("Last confirmed · ${cloudTime(syncStatus.lastSuccessMillis)}",
+                            color = MutedText, fontSize = 11.sp)
+                    }
+                    if (!syncStatus.lastError.isNullOrBlank() &&
+                        backupView.state == CreatorBackupBadgeStatus.ERROR) {
+                        Text("Latest error · ${syncStatus.lastError}", color = RecRed, fontSize = 11.sp)
+                    }
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = ::runCloudSync, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = ::runCloudSync, enabled = !busy && !cloudChecking, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Outlined.Sync, null); Spacer(Modifier.width(7.dp)); Text(if (busy) "SYNCING…" else "SYNC NOW")
                     }
                 }
