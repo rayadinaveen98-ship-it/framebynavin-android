@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -42,6 +43,7 @@ class V170BackupSettingsUiTest {
         show()
         rule.onNodeWithText("Backup & Data").performClick()
         rule.onNodeWithText("Cloud Sync").assertExists()
-        rule.onNodeWithText("Back", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithContentDescription("Back").performClick()
+        rule.onNodeWithText("My Profile").assertExists()
     }
 }
