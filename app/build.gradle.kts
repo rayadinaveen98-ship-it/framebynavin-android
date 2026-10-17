@@ -54,8 +54,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Backlot V150 Pilot & Product Focus candidate.
-        versionCode = 168
-        versionName = "2.1.8-v168-settings-s3-profile-preview"
+        versionCode = 169
+        versionName = "2.1.9-v169-settings-s4-reminders-planning-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

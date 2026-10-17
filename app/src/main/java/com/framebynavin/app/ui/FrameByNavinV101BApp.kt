@@ -523,6 +523,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 },
                 onCloudSync = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
                 onYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
+                onOpenWeeklyPlan = { overlay = POverlay.WEEK },
+                onOpenAutomation = { overlay = POverlay.AUTOMATION },
             )
         }
 
