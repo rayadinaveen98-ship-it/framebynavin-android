@@ -73,7 +73,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            gradle :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V170BackupSettingsUiTest,com.framebynavin.app.ui.V169SettingsRemindersPlanningUiTest,com.framebynavin.app.ui.V168ProfileEditorUiTest,com.framebynavin.app.ui.V167SettingsNavigationUiTest,com.framebynavin.app.ui.V166SettingsSafetyUiTest" --stacktrace
+            gradle :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V170LocalBackupScreenUiTest,com.framebynavin.app.ui.V170BackupSettingsUiTest,com.framebynavin.app.ui.V169SettingsRemindersPlanningUiTest,com.framebynavin.app.ui.V168ProfileEditorUiTest,com.framebynavin.app.ui.V167SettingsNavigationUiTest,com.framebynavin.app.ui.V166SettingsSafetyUiTest" --stacktrace
       - name: Keep device reports on success or failure
         if: always()
         uses: actions/upload-artifact@v4
