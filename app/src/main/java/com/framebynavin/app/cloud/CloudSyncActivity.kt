@@ -345,10 +345,17 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                                 val access = driveToken ?: return@Button
                                 busy = true
                                 scope.launch {
-                                    runCatching { drive.backupNow(access) }
-                                        .onSuccess { message = "Manual Drive copy exported."; drivePoints = drive.list(access) }
-                                        .onFailure { message = it.message ?: "Drive export failed." }
-                                    busy = false
+                                    try {
+                                        val saved = runCatching { drive.backupNow(access) }
+                                        if (saved.isSuccess) {
+                                            message = "Manual Drive copy saved. Checking the list of copies…"
+                                            runCatching { drive.list(access) }
+                                                .onSuccess { drivePoints = it; driveListAvailable = true; message = "Manual Drive copy saved and list refreshed." }
+                                                .onFailure { driveListAvailable = false; message = "Drive copy saved, but the list could not be refreshed. Try again." }
+                                        } else message = saved.exceptionOrNull()?.message ?: "Drive export failed."
+                                    } finally {
+                                        busy = false
+                                    }
                                 }
                             },
                             enabled = !busy,
@@ -360,9 +367,16 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                 if (driveToken != null) {
                     Spacer(Modifier.height(12.dp))
                     Text("SAVED DRIVE COPIES", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                    if (!busy && drivePoints.isEmpty()) {
-                        Text("No manual Drive copies found.", color = MutedText, fontSize = 12.sp)
-                    } else {
+                    if (!driveListAvailable && !busy) {
+                        Text("Drive copies could not be confirmed. Refresh the list before restoring.",
+                            color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp)
+                        TextButton(onClick = { driveToken?.let(::loadDrivePoints) }) {
+                            Text("RETRY DRIVE LIST", color = RecRed, fontSize = 11.sp)
+                        }
+                    } else if (driveListAvailable && drivePoints.isEmpty()) {
+                        Text("No manual Drive copies found in the latest successful check.",
+                            color = MutedText, fontSize = 11.sp)
+                    } else if (driveListAvailable) {
                         drivePoints.forEach { point ->
                             Surface(
                                 onClick = { restoreTarget = point },
