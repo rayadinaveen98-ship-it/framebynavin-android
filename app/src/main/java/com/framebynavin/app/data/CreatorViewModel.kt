@@ -17,6 +17,7 @@ import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.SmartEscalationPolicy
 import com.framebynavin.app.reminders.SmartEscalationScheduler
+import com.framebynavin.app.ui.V171ProjectEditSafety
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
@@ -303,7 +304,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
         deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO,
     ): String? {
-        if (title.isBlank()) return null
+        if (writeError != null || title.isBlank()) return null
         val normalizedDna = contentDna.normalized()
         val projectPlatform = normalizedDna.platform.ifBlank { platform }
         val projectFormat = normalizedDna.deliveryFormat.ifBlank { contentType }
@@ -366,15 +367,18 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         } else {
             CreatorWorkflowEngine.stageIndex(current).coerceIn(0, newTemplate.stages.lastIndex)
         }
-        val nextProgress = if (current.status == TaskStatus.DONE) 100
+        val nextProgress = if (!formatChanged) current.progress
+        else if (current.status == TaskStatus.DONE) 100
         else CreatorWorkflowEngine.progressForStage(nextStageIndex, newTemplate.stages.size)
 
-        val configured = current.copy(
+        // Evaluate the creator's intent before touching live reminder state. In particular,
+        // title/notes edits must not clear a snooze, working pause or acknowledged checkpoint.
+        val requested = current.copy(
             title = title.trim(),
             platform = projectPlatform,
             contentType = projectFormat,
             contentDna = storedDna,
-            dueLabel = dueLabel.ifBlank { current.dueLabel },
+            dueLabel = if (dueAtMillis == current.dueAtMillis) current.dueLabel else dueLabel.ifBlank { current.dueLabel },
             dueAtMillis = dueAtMillis,
             progress = nextProgress,
             workflowStageIndex = nextStageIndex,
@@ -386,24 +390,36 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             alarmSoundUri = alarmSoundUri,
             voiceEnabled = internalVoice,
             smartEscalationEnabled = internalSmart,
-            snoozeCount = 0,
-            workingUntilMillis = 0L,
             reminderMode = reminderMode,
             deliveryPreference = deliveryPreference,
             voicePersona = voicePersona,
             voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
             voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
             alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
-            autoStageReminder = false,
-            attentionPlan = if (enabled) ProjectAttentionPlan.CUSTOM else ProjectAttentionPlan.OFF,
-            pulseManagedReminder = false,
-            acknowledgedCheckpointStageId = "",
-            acknowledgedCheckpointDueAtMillis = 0L,
-            checkpointStageId = "",
-            checkpointAtMillis = 0L,
+            attentionPlan = attentionPlan,
         )
-        val updated = ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan)
-        if (updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
+        val refreshReminders = V171ProjectEditSafety.remindersNeedRefresh(current, requested, formatChanged)
+        val configured = requested.copy(
+            reminderEnabled = if (refreshReminders) enabled else current.reminderEnabled,
+            reminderAtMillis = if (refreshReminders) normalizedReminderAt else current.reminderAtMillis,
+            alertType = if (refreshReminders) internalAlertType else current.alertType,
+            voiceEnabled = if (refreshReminders) internalVoice else current.voiceEnabled,
+            smartEscalationEnabled = if (refreshReminders) internalSmart else current.smartEscalationEnabled,
+            reminderMode = if (refreshReminders) reminderMode else current.reminderMode,
+            snoozeCount = if (refreshReminders) 0 else current.snoozeCount,
+            workingUntilMillis = if (refreshReminders) 0L else current.workingUntilMillis,
+            autoStageReminder = if (refreshReminders) false else current.autoStageReminder,
+            attentionPlan = if (refreshReminders) {
+                if (enabled) ProjectAttentionPlan.CUSTOM else ProjectAttentionPlan.OFF
+            } else current.attentionPlan,
+            pulseManagedReminder = if (refreshReminders) false else current.pulseManagedReminder,
+            acknowledgedCheckpointStageId = if (refreshReminders) "" else current.acknowledgedCheckpointStageId,
+            acknowledgedCheckpointDueAtMillis = if (refreshReminders) 0L else current.acknowledgedCheckpointDueAtMillis,
+            checkpointStageId = if (refreshReminders) "" else current.checkpointStageId,
+            checkpointAtMillis = if (refreshReminders) 0L else current.checkpointAtMillis,
+        )
+        val updated = if (refreshReminders) ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan) else configured
+        if (refreshReminders && updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
         tasks[index] = updated
         persist()
         return updated.id
