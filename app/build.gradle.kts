@@ -53,9 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V150 Pilot & Product Focus candidate.
-        versionCode = 182
-        versionName = "2.3.2-v182-reminder-reliability-p6-preview"
+        // Backlot V183 stable personal-install release (V182 feature parity).
+        // Higher versionCode permits a data-preserving upgrade from the V182 preview.
+        versionCode = 183
+        versionName = "2.3.3-stable"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -74,6 +75,15 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
             productionReleaseSigning?.let { signingConfig = it }
+        }
+        // Personal sideload only: same signing certificate as previous Backlot
+        // previews, but a non-debuggable APK. This key is PUBLIC and is not
+        // a suitable production/Play signing identity.
+        create("personalStable") {
+            initWith(getByName("release"))
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("prototypeStable")
+            matchingFallbacks += listOf("release")
         }
     }
 
