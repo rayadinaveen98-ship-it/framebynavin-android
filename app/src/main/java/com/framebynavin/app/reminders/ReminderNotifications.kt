@@ -71,12 +71,6 @@ object ReminderNotifications {
         isFollowUp: Boolean = false,
     ): Boolean {
         ensureChannel(context)
-        val occurrences = ReminderOccurrenceStore(context)
-        val token = occurrenceId ?: occurrences.issue(task)
-        if (!occurrences.matches(task, token)) return false
-        // Posting is only an Android notification hand-off, never a read receipt.
-        runCatching { ReminderAcknowledgementStore(context).begin(task, token, "NOTIFICATION") }
-        val manager = context.getSystemService(NotificationManager::class.java)
         val prefs = CreatorOsSettingsStore(context.applicationContext).snapshot()
         val snoozeMinutes = prefs.snoozeMinutes
         val stageCheckIn = ProjectPulseEngine.isStageCheckIn(task)
@@ -93,6 +87,14 @@ object ReminderNotifications {
         // A disabled loud channel must not suppress the separately opted-in quiet
         // channel. Conversely a disabled quiet channel may not be bypassed.
         if (!canPost(context, discreet = quiet)) return false
+        // Do not create/replace an occurrence token when Android blocks the selected
+        // notification channel; failed delivery is not an actionable user response.
+        val occurrences = ReminderOccurrenceStore(context)
+        val token = occurrenceId ?: occurrences.issue(task)
+        if (!occurrences.matches(task, token)) return false
+        // Posting is only an Android notification hand-off, never a read receipt.
+        runCatching { ReminderAcknowledgementStore(context).begin(task, token, "NOTIFICATION") }
+        val manager = context.getSystemService(NotificationManager::class.java)
         val builder = NotificationCompat.Builder(context, if (quiet) QUIET_CHANNEL_ID else ReminderConstants.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(task.title)
