@@ -656,6 +656,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 }
             },
             snoozeMinutes = settings.snoozeMinutes,
+            onAcknowledgeReminder = { task, token, action ->
+                // The receiver revalidates current task, generation and one-use occurrence.
+                // No direct task writes or inferred acknowledgements from the UI.
+                context.sendBroadcast(
+                    Intent(context, com.framebynavin.app.reminders.ReminderActionReceiver::class.java)
+                        .setAction(action)
+                        .putExtra(com.framebynavin.app.reminders.ReminderConstants.EXTRA_TASK_ID, task.id)
+                        .putExtra(com.framebynavin.app.reminders.ReminderConstants.EXTRA_OCCURRENCE_ID, token)
+                )
+            },
         )
     }
 
