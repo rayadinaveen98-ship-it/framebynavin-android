@@ -2,6 +2,9 @@ package com.framebynavin.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -133,13 +137,6 @@ internal fun V20NewProjectWizard(
         activeStage = next
     }
 
-    LaunchedEffect(activeStage, revealedStage) {
-        if (activeStage > 0) {
-            delay(120L)
-            scrollState.animateScrollTo(scrollState.maxValue)
-        }
-    }
-
     val customReady = v20NewProjectSupportReady(attentionPlan, customReminderAt, dueAt, now)
     val supportReady = customReady
     val allReady = V153QuickCreatePolicy.canCreate(
@@ -151,7 +148,7 @@ internal fun V20NewProjectWizard(
         nowMillis = now,
         supportReady = supportReady,
     )
-    val progress = ((revealedStage + 1).coerceIn(1, 7)) / 7f
+    val progress = ((activeStage + 1).coerceIn(1, 7)) / 7f
     val supportSummary = V156ReminderSetupCopy.summary(attentionPlan, deliveryPreference)
 
 
@@ -231,7 +228,7 @@ internal fun V20NewProjectWizard(
                         border = BorderStroke(1.dp, MutedGold.copy(alpha = .20f)),
                     ) {
                         Text(
-                            if (showAdvancedSetup) "${(revealedStage + 1).coerceAtMost(7)}/7" else "QUICK",
+                            if (showAdvancedSetup) "${(activeStage + 1).coerceIn(1, 7)}/7" else "QUICK",
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                             color = MutedGold,
                             fontSize = 11.sp,
@@ -427,6 +424,7 @@ internal fun V20NewProjectWizard(
                         V20ProgressiveSection(
                         index = 0,
                         label = "NAME",
+                        valid = title.isNotBlank(),
                         title = "What are you making?",
                         summary = title.ifBlank { "Add a project name" },
                         active = activeStage == 0,
@@ -448,6 +446,7 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 1,
                         label = "TYPE",
+                        valid = archetypeId.isNotBlank(),
                         title = "What kind of content?",
                         summary = chosenTypeLabel,
                         active = activeStage == 1,
@@ -535,6 +534,7 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 2,
                         label = "PLATFORM",
+                        valid = platform.isNotBlank(),
                         title = "Where will you publish it?",
                         summary = platform.ifBlank { "Choose a platform" },
                         active = activeStage == 2,
@@ -555,6 +555,7 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 3,
                         label = "FORMAT",
+                        valid = contentType.isNotBlank(),
                         title = "What format?",
                         summary = contentType.ifBlank { "Choose a format" },
                         active = activeStage == 3,
@@ -573,6 +574,7 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 4,
                         label = "DUE DATE",
+                        valid = dueAt > now,
                         title = "When is it due?",
                         summary = v20WizardDateTime(dueAt),
                         active = activeStage == 4,
@@ -593,6 +595,9 @@ internal fun V20NewProjectWizard(
                                 Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
                             }
                         }
+                        if (dueAt <= now) {
+                            Text("Choose a future deadline to continue.", color = RecRed, fontSize = 12.sp)
+                        }
                         Spacer(Modifier.height(12.dp))
                         V20InlineContinue("CHOOSE SUPPORT", dueAt > now) { revealNext(4) }
                     }
@@ -600,6 +605,7 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 5,
                         label = "REMINDERS",
+                        valid = supportReady,
                         title = "Would you like reminders?",
                         summary = supportSummary,
                         active = activeStage == 5,
@@ -702,6 +708,7 @@ internal fun V20NewProjectWizard(
                     V20ProgressiveSection(
                         index = 6,
                         label = "REVIEW",
+                        valid = allReady,
                         title = "Check your details",
                         summary = "Review and create",
                         active = activeStage == 6,
@@ -725,6 +732,10 @@ internal fun V20NewProjectWizard(
                             Spacer(Modifier.height(4.dp))
                             Text("Style · ${productionStyles.joinToString()}", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
                         }
+                        if (!allReady) {
+                            Text("Check the highlighted steps before creating this project.", color = RecRed, fontSize = 12.sp)
+                            Spacer(Modifier.height(12.dp))
+                        }
                         Spacer(Modifier.height(14.dp))
                         Button(
                             onClick = onCreate,
@@ -745,10 +756,12 @@ internal fun V20NewProjectWizard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun V20ProgressiveSection(
     index: Int,
     label: String,
+    valid: Boolean,
     title: String,
     summary: String,
     active: Boolean,
@@ -756,8 +769,15 @@ private fun V20ProgressiveSection(
     onEdit: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val bringToStep = remember { BringIntoViewRequester() }
+    LaunchedEffect(active, revealed) {
+        if (active && revealed) {
+            delay(160L)
+            bringToStep.bringIntoView()
+        }
+    }
     AnimatedVisibility(visible = revealed) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("project-step-$index")) {
             if (active) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -766,7 +786,7 @@ private fun V20ProgressiveSection(
                     border = BorderStroke(1.dp, RecRed.copy(alpha = .38f)),
                 ) {
                     Column(Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.bringIntoViewRequester(bringToStep), verticalAlignment = Alignment.CenterVertically) {
                             Surface(shape = RoundedCornerShape(100.dp), color = RecRed.copy(alpha = .12f)) {
                                 Text(
                                     "${index + 1}",
@@ -794,13 +814,18 @@ private fun V20ProgressiveSection(
                     border = BorderStroke(1.dp, CinemaLine),
                 ) {
                     Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(17.dp))
+                        Icon(
+                            if (valid) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
+                            null,
+                            tint = if (valid) SuccessGreen else RecRed,
+                            modifier = Modifier.size(17.dp),
+                        )
                         Spacer(Modifier.width(9.dp))
                         Column(Modifier.weight(1f)) {
                             Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                             Text(summary, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text("CHANGE", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        Text(if (valid) "CHANGE" else "REVIEW", color = if (valid) MutedGold else RecRed, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
                 }
             }
