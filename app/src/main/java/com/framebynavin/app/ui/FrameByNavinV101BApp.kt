@@ -637,6 +637,18 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
 
     if (showComposer) {
         val task = editTaskId?.let { id -> vm.tasks.firstOrNull { it.id == id } }
+        if (editTaskId != null && task == null) {
+            AlertDialog(
+                onDismissRequest = { showComposer = false; editTaskId = null },
+                title = { Text("Project unavailable") },
+                text = { Text("This project is no longer available. No new project was created.") },
+                confirmButton = {
+                    TextButton(onClick = { showComposer = false; editTaskId = null }) {
+                        Text("CLOSE")
+                    }
+                },
+            )
+        } else {
         PProjectComposer(
             task = task,
             startWithQuickCreate = quickCreateRequested && task == null,
@@ -664,7 +676,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     attentionPlan = draft.attentionPlan,
                     deliveryPreference = draft.deliveryPreference,
                 )
+                if (savedTaskId == null) {
+                    Toast.makeText(context, "Could not save the project. Your form is still open.", Toast.LENGTH_LONG).show()
+                } else {
+                // saveTaskConfiguration queues a disk write; do not claim completion here.
                 showComposer = false
+                Toast.makeText(context, "Saving project…", Toast.LENGTH_SHORT).show()
                 if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
                     guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
                 }
@@ -673,12 +690,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     externalStudioNonce += 1L
                     routeJourney(V18JourneyDestination.CREATE)
                 }
+                }
             },
             onRemoveReminder = {
                 task?.let { vm.cancelReminder(it.id) }
                 showComposer = false
             },
         )
+        }
     }
 
     if (!settings.accountOnboardingComplete) {
