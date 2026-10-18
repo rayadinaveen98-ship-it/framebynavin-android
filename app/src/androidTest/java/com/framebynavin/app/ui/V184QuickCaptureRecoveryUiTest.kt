@@ -1,6 +1,10 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -33,6 +37,7 @@ class V184QuickCaptureRecoveryUiTest {
     @Test fun keepCloseAndReopenRecoversTextWhileDiscardClearsIt() {
         var visible by mutableStateOf(true)
         rule.setContent {
+            Button(onClick = { visible = true }, modifier = Modifier.testTag("reopen-capture")) { Text("Reopen capture") }
             if (visible) V14QuickCaptureDialog(onDismiss = { visible = false }, onSave = { false })
         }
         waitForCaptureReady()
@@ -45,7 +50,7 @@ class V184QuickCaptureRecoveryUiTest {
         rule.waitUntil(30_000) { !visible }
         rule.onAllNodesWithTag("quick-capture-title").assertCountEquals(0)
         rule.waitForIdle()
-        rule.runOnIdle { visible = true }
+        rule.onNodeWithTag("reopen-capture").performClick()
         waitForCaptureReady()
         rule.onNodeWithText("Your unfinished idea was recovered.").assertIsDisplayed()
         rule.onNodeWithTag("quick-capture-title").assertTextContains("Camera movement idea")
