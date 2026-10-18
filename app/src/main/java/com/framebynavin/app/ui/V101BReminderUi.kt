@@ -433,7 +433,7 @@ internal fun PProjectComposer(
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(if (task == null) "NEW PROJECT" else "EDIT PROJECT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        Text(if (task == null) "NEW PROJECT" else "EDIT PROJECT", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                         Text(if (task == null) "What are you making?" else "Update your project", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                 }
@@ -450,10 +450,10 @@ internal fun PProjectComposer(
                         color = CinemaSurface,
                         border = BorderStroke(1.dp, CinemaLine),
                     ) {
-                        Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.touchTarget).padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("MORE OPTIONS · OPTIONAL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                                Text("Type and style", color = MutedText, fontSize = 8.5.sp)
+                                Text("MORE OPTIONS · OPTIONAL", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                                Text("Type and style", color = MutedText, fontSize = V173ProjectUiMetrics.bodyText)
                             }
                             Icon(
                                 if (showCreativeSetup) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
@@ -467,13 +467,13 @@ internal fun PProjectComposer(
                             Spacer(Modifier.height(8.dp))
                     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                                     Column(Modifier.padding(14.dp)) {
-                                        Text("MORE OPTIONS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                                        Text("Add more details if you like.", color = MutedText, fontSize = 8.5.sp)
+                                        Text("MORE OPTIONS", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                                        Text("Add more details if you like.", color = MutedText, fontSize = V173ProjectUiMetrics.bodyText)
                                         Spacer(Modifier.height(14.dp))
                                         PComposerLabel("CREATOR MODE")
                                         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                             modeOptions.forEach { mode ->
-                                                FilterChip(selected = creatorModeId == mode.id, onClick = { creatorModeId = mode.id }, label = { Text(mode.label, fontSize = 8.8.sp) })
+                                                FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = creatorModeId == mode.id, onClick = { creatorModeId = mode.id }, label = { Text(mode.label, fontSize = V173ProjectUiMetrics.supportingText) })
                                             }
                                         }
                                         Spacer(Modifier.height(14.dp))
@@ -481,7 +481,7 @@ internal fun PProjectComposer(
                                         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                             archetypeOptions.forEach { archetype ->
                                                 val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
-                                                FilterChip(selected = archetypeId == archetype.id, onClick = { archetypeId = archetype.id }, label = { Text(label, fontSize = 8.6.sp) })
+                                                FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = archetypeId == archetype.id, onClick = { archetypeId = archetype.id }, label = { Text(label, fontSize = V173ProjectUiMetrics.supportingText) })
                                             }
                                         }
                                         Spacer(Modifier.height(14.dp))
@@ -490,6 +490,7 @@ internal fun PProjectComposer(
                                             productionStyleOptions.forEach { style ->
                                                 val selected = style in productionStyles
                                                 FilterChip(
+                                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                                     selected = selected,
                                                     onClick = {
                                                         savedStyleList = ArrayList((
@@ -498,7 +499,7 @@ internal fun PProjectComposer(
                                                             else productionStyles
                                                         ).sorted())
                                                     },
-                                                    label = { Text(style, fontSize = 8.6.sp) },
+                                                    label = { Text(style, fontSize = V173ProjectUiMetrics.supportingText) },
                                                 )
                                             }
                                         }
@@ -511,13 +512,13 @@ internal fun PProjectComposer(
                     PComposerLabel("PUBLISH ON")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         platformOptions.forEach { value ->
-                            FilterChip(selected = platform == value, onClick = { platform = value }, label = { Text(value, fontSize = 9.5.sp) })
+                            FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = platform == value, onClick = { platform = value }, label = { Text(value, fontSize = V173ProjectUiMetrics.supportingText) })
                         }
                     }
                     Spacer(Modifier.height(18.dp))
                     PComposerLabel("FORMAT")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        formats.forEach { value -> FilterChip(selected = contentType == value, onClick = { contentType = value }, label = { Text(value, fontSize = 9.sp) }) }
+                        formats.forEach { value -> FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = contentType == value, onClick = { contentType = value }, label = { Text(value, fontSize = V173ProjectUiMetrics.supportingText) }) }
                     }
                     Spacer(Modifier.height(20.dp))
                     PComposerLabel("PUBLISH BY")
@@ -557,10 +558,10 @@ internal fun PProjectComposer(
                             border = BorderStroke(1.dp, CinemaLine),
                         ) {
                             Column(Modifier.padding(13.dp)) {
-                                Text("NEXT CHECK-IN", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("NEXT CHECK-IN", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.height(4.dp))
                                 Text(pFormatDateTime(pulse.nextCheckpointAtMillis), color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Text("${pulse.currentStage.label} · ${pModeLabel(pulse.recommendedMode)}", color = MutedText, fontSize = 11.sp)
+                                Text("${pulse.currentStage.label} · ${pModeLabel(pulse.recommendedMode)}", color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
                             }
                         }
                     }
@@ -579,9 +580,10 @@ internal fun PProjectComposer(
                             ) {
                                 ReminderDeliveryPreference.entries.forEach { value ->
                                     FilterChip(
+                                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                         selected = deliveryPreference == value,
                                         onClick = { deliveryPreference = value },
-                                        label = { Text(pDeliveryPreferenceLabel(value), fontSize = 11.sp) },
+                                        label = { Text(pDeliveryPreferenceLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
                                     )
                                 }
                             }
@@ -589,7 +591,7 @@ internal fun PProjectComposer(
                             Text(
                                 V156ReminderSetupCopy.alertExplanation(deliveryPreference),
                                 color = MutedText,
-                                fontSize = 11.sp,
+                                fontSize = V173ProjectUiMetrics.supportingText,
                                 lineHeight = 16.sp,
                             )
                             Spacer(Modifier.height(12.dp))
@@ -604,9 +606,10 @@ internal fun PProjectComposer(
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                     TaskPriority.entries.forEach { value ->
                                         FilterChip(
+                                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                             selected = priority == value,
                                             onClick = { priority = value },
-                                            label = { Text(pPriorityLabel(value), fontSize = 11.sp) },
+                                            label = { Text(pPriorityLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
                                         )
                                     }
                                 }
@@ -620,7 +623,7 @@ internal fun PProjectComposer(
                             Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Outlined.Settings, null, tint = MutedGold, modifier = Modifier.size(17.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Set up reminders", color = ProjectorIvory, fontSize = 9.5.sp, modifier = Modifier.weight(1f))
+                                Text("Set up reminders", color = ProjectorIvory, fontSize = V173ProjectUiMetrics.supportingText, modifier = Modifier.weight(1f))
                                 Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -633,7 +636,7 @@ internal fun PProjectComposer(
                     if (task != null && (task.reminderEnabled || task.attentionPlan != ProjectAttentionPlan.OFF)) {
                         Spacer(Modifier.height(12.dp))
                         TextButton(onClick = onRemoveReminder, modifier = Modifier.fillMaxWidth()) {
-                            Text("NO REMINDERS", color = MutedText, fontSize = 8.5.sp)
+                            Text("NO REMINDERS", color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
                         }
                     }
                 }
@@ -670,11 +673,11 @@ internal fun PProjectComposer(
                             )
                         },
                         enabled = title.isNotBlank() && deadlineReady && customReady,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp).height(52.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp).heightIn(min = V173ProjectUiMetrics.actionMinHeight),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     ) {
-                        Text(if (task == null) "CREATE PROJECT" else "SAVE PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text(if (task == null) "CREATE PROJECT" else "SAVE PROJECT", fontSize = V173ProjectUiMetrics.actionText, fontWeight = FontWeight.Black)
                     }
                 }
             }
@@ -702,7 +705,7 @@ internal fun V172ConfirmDiscardDialog(onKeep: () -> Unit, onDiscard: () -> Unit)
 
 @Composable
 private fun PSmartGapPicker(label: String, selectedMinutes: Int, onSelected: (Int) -> Unit) {
-    Text(label, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+    Text(label, color = ProjectorIvory, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -710,9 +713,10 @@ private fun PSmartGapPicker(label: String, selectedMinutes: Int, onSelected: (In
     ) {
         SmartEscalationPolicy.allowedGapMinutes.forEach { minutes ->
             FilterChip(
+                                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                 selected = selectedMinutes == minutes,
                 onClick = { onSelected(minutes) },
-                label = { Text("${minutes}m", fontSize = 8.8.sp) },
+                label = { Text("${minutes}m", fontSize = V173ProjectUiMetrics.supportingText) },
             )
         }
     }
@@ -730,9 +734,9 @@ private fun PSmartWindowCard(valid: Boolean, requiredMinutes: Int, availableMinu
             Icon(if (valid) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (valid) SuccessGreen else RecRed, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(9.dp))
             Column(Modifier.weight(1f)) {
-                Text(detail, color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(detail, color = ProjectorIvory, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
                 if (requiredMinutes > 0) {
-                    Text("Needs ${requiredMinutes}m · ${availableMinutes}m available", color = if (valid) MutedText else RecRed, fontSize = 8.6.sp)
+                    Text("Needs ${requiredMinutes}m · ${availableMinutes}m available", color = if (valid) MutedText else RecRed, fontSize = V173ProjectUiMetrics.supportingText)
                 }
             }
         }
@@ -760,8 +764,8 @@ private fun PModeCard(mode: ReminderMode, selected: Boolean, enabled: Boolean, o
             }
             Spacer(Modifier.width(7.dp))
             Column(Modifier.weight(1f)) {
-                Text(pModeLabel(mode), color = if (enabled) ProjectorIvory else MutedText.copy(alpha = .65f), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(description, color = if (enabled) MutedText else MutedText.copy(alpha = .50f), fontSize = 8.7.sp, lineHeight = 12.sp)
+                Text(pModeLabel(mode), color = if (enabled) ProjectorIvory else MutedText.copy(alpha = .65f), fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
+                Text(description, color = if (enabled) MutedText else MutedText.copy(alpha = .50f), fontSize = V173ProjectUiMetrics.supportingText, lineHeight = 18.sp)
             }
             RadioButton(selected = selected, onClick = if (enabled) onClick else null, enabled = enabled, colors = RadioButtonDefaults.colors(selectedColor = RecRed))
         }
@@ -770,16 +774,16 @@ private fun PModeCard(mode: ReminderMode, selected: Boolean, enabled: Boolean, o
 
 @Composable
 private fun PComposerLabel(text: String) {
-    Text(text, color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp, modifier = Modifier.padding(bottom = 7.dp))
+    Text(text, color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = .6.sp, modifier = Modifier.padding(bottom = 7.dp))
 }
 
 @Composable
 private fun PDateTimeButton(label: String, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(14.dp)) {
+    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(14.dp)) {
         Icon(Icons.Outlined.Schedule, null, tint = MutedGold, modifier = Modifier.size(17.dp))
         Spacer(Modifier.width(8.dp))
         Text(label, color = ProjectorIvory, modifier = Modifier.weight(1f))
-        Text("CHANGE", color = RecRed, fontSize = 8.sp)
+        Text("CHANGE", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText)
     }
 }
 
