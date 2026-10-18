@@ -212,6 +212,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     runCatching {
                         ReminderAcknowledgementStore(app).markResponded(taskId, token, action, now)
                     }.onFailure { android.util.Log.w("BacklotReminderAck", "Could not journal reminder response") }
+                    runCatching { V179ReminderFollowUps.cancel(app, taskId) }
 
                     // History is useful audit context, never a prerequisite for the authoritative project write.
                     before?.let { old -> response?.let { runCatching { history.append(old, it, now, updated) } } }
