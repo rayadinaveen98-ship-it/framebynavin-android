@@ -33,3 +33,12 @@
 - Android WorkManager schedules are deferrable and subject to Doze, permission, and OEM battery restrictions.
 - User data cannot be transparently migrated across unrelated Android package signatures.
 - A public key cannot be considered a secure long-term commercial/production signing identity.
+
+## Main history reconciliation
+
+The release branch contains a merge commit whose parents include both the complete
+V182 development lineage and the three latest V150 main commits. The historical
+`.github/workflows/v150-final-candidate.yml` is retained without rewriting its
+history. `app/build.gradle.kts` deliberately uses the newer V183 package version,
+signing and release build-type configuration instead of the obsolete V150 settings.
+No forced updates were used to resolve the main branch divergence.
