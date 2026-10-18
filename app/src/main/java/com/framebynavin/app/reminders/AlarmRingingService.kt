@@ -103,16 +103,29 @@ class AlarmRingingService : Service() {
             // Do not treat stopping hardware as a dismissal or another snooze.
             // A single normal notification keeps the *same* occurrence actionable.
             if (ReminderOccurrenceStore(applicationContext).matches(task, token)) {
-                runCatching {
+                val posted = runCatching {
                     ReminderNotifications.show(
                         applicationContext,
                         task,
                         stageLabel = "Alarm ended · response still needed",
                         occurrenceId = token,
                     )
-                }
+                }.getOrDefault(false)
                 runCatching {
                     ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, "alarm_timeout")
+                }
+                val terminalSmart = endingTask != null &&
+                    endingTask.reminderMode == ReminderMode.SMART &&
+                    (endingStage == SmartEscalationScheduler.Stage.CRITICAL ||
+                        (endingStage == SmartEscalationScheduler.Stage.ALARM &&
+                         endingTask.priority != TaskPriority.CRITICAL))
+                if (posted && (endingTask?.reminderMode != ReminderMode.SMART || terminalSmart)) {
+                    runCatching {
+                        V179ReminderFollowUps.armAfterUnanswered(
+                            applicationContext, task, token,
+                            finalSmartStage = terminalSmart,
+                        )
+                    }
                 }
             }
             ReminderSurfaceRegistry.close(task.id, token)
@@ -123,7 +136,7 @@ class AlarmRingingService : Service() {
                     CreatorDataGate.readyTransaction(applicationContext) {
                         val current = TaskStore(applicationContext).load().firstOrNull { it.id == endingTask.id }
                         if (current != null && ReminderOccurrenceStore(applicationContext).matches(current, token))
-                            SmartEscalationScheduler(applicationContext).finishSession(endingTask.id)
+                            SmartEscalationScheduler(applicationContext).finishSessionPreservingUnanswered(endingTask.id)
                     }
                 }
             }
