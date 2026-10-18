@@ -92,6 +92,7 @@ internal fun V20NewProjectWizard(
     priority: TaskPriority,
     onPriorityChange: (TaskPriority) -> Unit,
     voicePersona: VoicePersona,
+    onVoicePersonaChange: (VoicePersona) -> Unit,
     onPreviewVoice: (VoicePersona) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
@@ -162,6 +163,10 @@ internal fun V20NewProjectWizard(
     )
     val progress = ((activeStage + 1).coerceIn(1, 7)) / 7f
     val supportSummary = V156ReminderSetupCopy.summary(attentionPlan, deliveryPreference)
+    val permissionWarning = V175ProjectDetailsCopy.permissionsWarning(
+        needsAdvancedPermissions = requiresAdvancedPermissions && attentionPlan != ProjectAttentionPlan.OFF,
+        ready = reminderSetupReady,
+    )
 
 
     if (showAllTypes) {
@@ -342,6 +347,7 @@ internal fun V20NewProjectWizard(
                                     onSelected = onAttentionPlanChange,
                                     compact = true,
                                 )
+                                V175ReminderMeaning(attentionPlan, deliveryPreference, permissionWarning)
                                 if (attentionPlan != ProjectAttentionPlan.OFF) {
                                     Spacer(Modifier.height(12.dp))
                                     V156AdvancedReminderSettings(
@@ -369,10 +375,10 @@ internal fun V20NewProjectWizard(
                                             fontSize = V173ProjectUiMetrics.supportingText,
                                         )
                                         Spacer(Modifier.height(12.dp))
-                                        V141InheritedVoiceCard(
-                                            voice = voicePersona,
+                                        V140VoiceStudioPicker(
+                                            selected = voicePersona,
+                                            onSelected = onVoicePersonaChange,
                                             onPreview = onPreviewVoice,
-                                            onOpenSettings = onOpenSettings,
                                         )
                                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                             Spacer(Modifier.height(12.dp))
@@ -441,6 +447,8 @@ internal fun V20NewProjectWizard(
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                         )
+                        Spacer(Modifier.height(12.dp))
+                        V175ProjectNotesField(notes = notes, onNotesChange = onNotesChange)
                         Spacer(Modifier.height(12.dp))
                         V20InlineContinue("CHOOSE PROJECT TYPE", title.isNotBlank()) { revealNext(0) }
                     }
@@ -621,6 +629,7 @@ internal fun V20NewProjectWizard(
                             selected = attentionPlan,
                             onSelected = onAttentionPlanChange,
                         )
+                        V175ReminderMeaning(attentionPlan, deliveryPreference, permissionWarning)
                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                             Spacer(Modifier.height(8.dp))
                             V20FieldLabel("REMIND ME AT")
@@ -659,10 +668,10 @@ internal fun V20NewProjectWizard(
                                     lineHeight = 16.sp,
                                 )
                                 Spacer(Modifier.height(12.dp))
-                                V141InheritedVoiceCard(
-                                    voice = voicePersona,
+                                V140VoiceStudioPicker(
+                                    selected = voicePersona,
+                                    onSelected = onVoicePersonaChange,
                                     onPreview = onPreviewVoice,
-                                    onOpenSettings = onOpenSettings,
                                 )
                                 if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                     Spacer(Modifier.height(12.dp))
@@ -698,16 +707,6 @@ internal fun V20NewProjectWizard(
                             }
                         }
 
-                        Spacer(Modifier.height(14.dp))
-                        V20FieldLabel("NOTES · OPTIONAL")
-                        OutlinedTextField(
-                            value = notes,
-                            onValueChange = onNotesChange,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 82.dp),
-                            placeholder = { Text("Angle, reference, anything worth remembering…") },
-                            shape = RoundedCornerShape(16.dp),
-                        )
-
                         Spacer(Modifier.height(12.dp))
                         V20InlineContinue("REVIEW PROJECT", supportReady) { revealNext(5) }
                     }
@@ -733,8 +732,9 @@ internal fun V20NewProjectWizard(
                             V20WizardReviewRow("IMPORTANCE", pPriorityLabel(priority)) { activeStage = 5 }
                         }
                         if (notes.isNotBlank()) {
-                            V20WizardReviewRow("NOTES", notes) { activeStage = 5 }
+                            V20WizardReviewRow("NOTES", notes) { activeStage = 0 }
                         }
+                        Text("You can edit these details later in your project workspace.", color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
                         if (productionStyles.isNotEmpty()) {
                             Spacer(Modifier.height(4.dp))
                             Text("Style · ${productionStyles.joinToString()}", color = MutedText, fontSize = V173ProjectUiMetrics.bodyText, lineHeight = 19.sp)

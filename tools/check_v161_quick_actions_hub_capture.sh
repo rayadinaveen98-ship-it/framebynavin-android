@@ -10,8 +10,8 @@ done
 grep -Fq 'PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Projects"' "$BASE/FrameByNavinV101BApp.kt"
 grep -Fq 'V144CategoryCard("Spark", "Your creative companion"' "$BASE/V144SettingsHub.kt"
 grep -Fq 'Text("VIDEO REVIEW"' "$BASE/V20VideoPostmortemUi.kt"
-grep -Eq 'versionCode = (161|162|163|164|165|166|167|168|169|170|171|172|173|174)' app/build.gradle.kts
-grep -Eq 'versionName = "(2.1.1-v161-quick-actions-hub-capture-p2-preview|2.1.2-v162-idea-vault-p3-preview|2.1.3-v163-daily-brief-calendar-p4-preview|2.1.4-v164-weekly-plan-automation-p5-preview|2.1.5-v165-creator-progress-p6-preview|2.1.6-v166-settings-s1-safety-preview|2.1.7-v167-settings-s2-navigation-preview|2.1.8-v168-settings-s3-profile-preview|2.1.9-v169-settings-s4-reminders-planning-preview|2.2.0-v170-settings-s5-backup-sync-qa-preview|2.2.1-v171-new-project-safety-p1-preview|2.2.2-v172-new-project-draft-ux-p2-preview|2.2.3-v173-new-project-visual-p3-preview|2.2.4-v174-new-project-quick-p4-preview)"' app/build.gradle.kts
+grep -Eq 'versionCode = (161|162|163|164|165|166|167|168|169|170|171|172|173|174|175)' app/build.gradle.kts
+grep -Eq 'versionName = "(2.1.1-v161-quick-actions-hub-capture-p2-preview|2.1.2-v162-idea-vault-p3-preview|2.1.3-v163-daily-brief-calendar-p4-preview|2.1.4-v164-weekly-plan-automation-p5-preview|2.1.5-v165-creator-progress-p6-preview|2.1.6-v166-settings-s1-safety-preview|2.1.7-v167-settings-s2-navigation-preview|2.1.8-v168-settings-s3-profile-preview|2.1.9-v169-settings-s4-reminders-planning-preview|2.2.0-v170-settings-s5-backup-sync-qa-preview|2.2.1-v171-new-project-safety-p1-preview|2.2.2-v172-new-project-draft-ux-p2-preview|2.2.3-v173-new-project-visual-p3-preview|2.2.4-v174-new-project-quick-p4-preview|2.2.5-v175-new-project-details-p5-preview)"' app/build.gradle.kts
 grep -Fq 'var showAdvancedSetup by rememberSaveable(startWithQuickCreate) { mutableStateOf(!startWithQuickCreate) }' "$BASE/V20NewProjectWizard.kt"
 grep -Fq 'onQuickCreate = { openComposer(quick = true) }' "$BASE/FrameByNavinV101BApp.kt"
 grep -Fq 'Text("QUICK CREATE"' "$BASE/V131PolishUi.kt"

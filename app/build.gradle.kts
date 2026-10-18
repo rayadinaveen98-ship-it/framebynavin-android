@@ -54,8 +54,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Backlot V150 Pilot & Product Focus candidate.
-        versionCode = 174
-        versionName = "2.2.4-v174-new-project-quick-p4-preview"
+        versionCode = 175
+        versionName = "2.2.5-v175-new-project-details-p5-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
