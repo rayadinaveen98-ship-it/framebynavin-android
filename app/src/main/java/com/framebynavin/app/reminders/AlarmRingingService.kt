@@ -109,6 +109,7 @@ class AlarmRingingService : Service() {
                         task,
                         stageLabel = "Alarm ended · response still needed",
                         occurrenceId = token,
+                        discreet = true,
                     )
                 }.getOrDefault(false)
                 runCatching {
