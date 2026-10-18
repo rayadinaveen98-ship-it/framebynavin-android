@@ -370,10 +370,10 @@ internal fun V20NewProjectWizard(
                                             fontSize = V173ProjectUiMetrics.supportingText,
                                         )
                                         Spacer(Modifier.height(12.dp))
-                                        V141InheritedVoiceCard(
-                                            voice = voicePersona,
+                                        V140VoiceStudioPicker(
+                                            selected = voicePersona,
+                                            onSelected = onVoicePersonaChange,
                                             onPreview = onPreviewVoice,
-                                            onOpenSettings = onOpenSettings,
                                         )
                                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                             Spacer(Modifier.height(12.dp))
@@ -660,10 +660,10 @@ internal fun V20NewProjectWizard(
                                     lineHeight = 16.sp,
                                 )
                                 Spacer(Modifier.height(12.dp))
-                                V141InheritedVoiceCard(
-                                    voice = voicePersona,
+                                V140VoiceStudioPicker(
+                                    selected = voicePersona,
+                                    onSelected = onVoicePersonaChange,
                                     onPreview = onPreviewVoice,
-                                    onOpenSettings = onOpenSettings,
                                 )
                                 if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                     Spacer(Modifier.height(12.dp))
