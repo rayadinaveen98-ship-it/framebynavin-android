@@ -163,9 +163,9 @@ internal fun V20NewProjectWizard(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("TYPES", color = RecRed, fontSize = 8.4.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                            Text("TYPES", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                             Text("Choose a content type", color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
-                            Text(CreatorModeRegistry.definition(creatorModeId).label, color = MutedGold, fontSize = 9.sp)
+                            Text(CreatorModeRegistry.definition(creatorModeId).label, color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText)
                         }
                         IconButton(onClick = { showAllTypes = false }) {
                             Icon(Icons.Outlined.Close, "Close content types", tint = ProjectorIvory)
@@ -179,10 +179,11 @@ internal fun V20NewProjectWizard(
                             recommendedTypes.forEach { archetype ->
                                 val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
                                 FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                     selected = archetypeId == archetype.id,
                                     onClick = { onArchetypeChange(archetype.id); showAllTypes = false },
                                     leadingIcon = if (archetypeId == archetype.id) { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(15.dp)) } } else null,
-                                    label = { Text(label, fontSize = 9.sp) },
+                                    label = { Text(label, fontSize = V173ProjectUiMetrics.supportingText) },
                                 )
                             }
                         }
@@ -193,10 +194,11 @@ internal fun V20NewProjectWizard(
                             ContentArchetypeRegistry.definitions.filter { option -> recommendedTypes.none { it.id == option.id } }.forEach { archetype ->
                                 val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
                                 FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                     selected = archetypeId == archetype.id,
                                     onClick = { onArchetypeChange(archetype.id); showAllTypes = false },
                                     leadingIcon = if (archetypeId == archetype.id) { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(15.dp)) } } else null,
-                                    label = { Text(label, fontSize = 9.sp) },
+                                    label = { Text(label, fontSize = V173ProjectUiMetrics.supportingText) },
                                 )
                             }
                         }
@@ -219,7 +221,7 @@ internal fun V20NewProjectWizard(
                     }
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("NEW PROJECT", color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text("NEW PROJECT", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                         Text("New project", color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
                     }
                     Surface(
@@ -231,7 +233,7 @@ internal fun V20NewProjectWizard(
                             if (showAdvancedSetup) "${(activeStage + 1).coerceIn(1, 7)}/7" else "QUICK",
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                             color = MutedGold,
-                            fontSize = 11.sp,
+                            fontSize = V173ProjectUiMetrics.supportingText,
                             fontWeight = FontWeight.Black,
                         )
                     }
@@ -239,7 +241,7 @@ internal fun V20NewProjectWizard(
                 if (showAdvancedSetup) {
                     LinearProgressIndicator(
                         progress = { progress },
-                        modifier = Modifier.fillMaxWidth().height(2.dp),
+                        modifier = Modifier.fillMaxWidth().height(3.dp),
                         color = RecRed,
                         trackColor = CinemaLine,
                     )
@@ -275,6 +277,7 @@ internal fun V20NewProjectWizard(
                         ) {
                             platformOptions.forEach { value ->
                                 FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                     selected = platform == value,
                                     onClick = { onPlatformChange(value) },
                                     label = { Text(value, fontSize = 12.sp) },
@@ -301,6 +304,7 @@ internal fun V20NewProjectWizard(
                         ) {
                             formatOptions.forEach { value ->
                                 FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                     selected = contentType == value,
                                     onClick = { onContentTypeChange(value) },
                                     label = { Text(value, fontSize = 12.sp) },
@@ -345,13 +349,14 @@ internal fun V20NewProjectWizard(
                                 ) {
                                     V20NewProjectReminderStyles.forEach { value ->
                                         FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                             selected = deliveryPreference == value,
                                             onClick = { onDeliveryPreferenceChange(value) },
-                                            label = { Text(pDeliveryPreferenceLabel(value), fontSize = 11.sp) },
+                                            label = { Text(pDeliveryPreferenceLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
                                         )
                                     }
                                 }
-                                Text(V156ReminderSetupCopy.alertExplanation(deliveryPreference), color = MutedText, fontSize = 11.sp)
+                                Text(V156ReminderSetupCopy.alertExplanation(deliveryPreference), color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
                                 Spacer(Modifier.height(12.dp))
                                 V141InheritedVoiceCard(
                                     voice = voicePersona,
@@ -364,9 +369,10 @@ internal fun V20NewProjectWizard(
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                         TaskPriority.entries.forEach { value ->
                                             FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                                 selected = priority == value,
                                                 onClick = { onPriorityChange(value) },
-                                                label = { Text(pPriorityLabel(value), fontSize = 11.sp) },
+                                                label = { Text(pPriorityLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
                                             )
                                         }
                                     }
@@ -459,18 +465,19 @@ internal fun V20NewProjectWizard(
                             typeOptions.forEach { archetype ->
                                 val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
                                 FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                     selected = archetypeId == archetype.id,
                                     onClick = { onArchetypeChange(archetype.id) },
-                                    label = { Text(label, fontSize = 9.sp) },
+                                    label = { Text(label, fontSize = V173ProjectUiMetrics.supportingText) },
                                 )
                             }
                         }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             TextButton(onClick = { showAllTypes = true }) {
-                                Text("BROWSE ALL TYPES", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                Text("BROWSE ALL TYPES", fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black)
                             }
                             TextButton(onClick = { showAllModes = !showAllModes }) {
-                                Text(if (showAllModes) "HIDE MODES" else "CHANGE MODE", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                                Text(if (showAllModes) "HIDE MODES" else "CHANGE MODE", fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black)
                             }
                         }
                         AnimatedVisibility(showAllModes) {
@@ -478,9 +485,10 @@ internal fun V20NewProjectWizard(
                                 modeOptions.forEach { modeId ->
                                     val mode = CreatorModeRegistry.definition(modeId)
                                     FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                         selected = CreatorModeRegistry.definition(creatorModeId).id == mode.id,
                                         onClick = { onCreatorModeChange(mode.id); showAllTypes = false },
-                                        label = { Text(mode.label, fontSize = 8.3.sp) },
+                                        label = { Text(mode.label, fontSize = V173ProjectUiMetrics.supportingText) },
                                     )
                                 }
                             }
@@ -493,14 +501,14 @@ internal fun V20NewProjectWizard(
                             color = CinemaSurface,
                             border = BorderStroke(1.dp, CinemaLine),
                         ) {
-                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.touchTarget).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text("YOUR STYLE", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text("YOUR STYLE", color = ProjectorIvory, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
                                     Text(
                                         productionStyles.takeIf { it.isNotEmpty() }?.joinToString() ?: "Using setup default",
                                         color = MutedText,
-                                        fontSize = 8.sp,
-                                        maxLines = 2,
+                                        fontSize = V173ProjectUiMetrics.bodyText,
+                                        maxLines = 3,
                                     )
                                 }
                                 Icon(if (customizeStyles) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = MutedText)
@@ -515,6 +523,7 @@ internal fun V20NewProjectWizard(
                                 styleOptions.forEach { style ->
                                     val selected = style in productionStyles
                                     FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                         selected = selected,
                                         onClick = {
                                             val next = if (selected) productionStyles - style
@@ -522,7 +531,7 @@ internal fun V20NewProjectWizard(
                                             else productionStyles
                                             onProductionStylesChange(next)
                                         },
-                                        label = { Text(style, fontSize = 8.2.sp) },
+                                        label = { Text(style, fontSize = V173ProjectUiMetrics.supportingText) },
                                     )
                                 }
                             }
@@ -543,11 +552,11 @@ internal fun V20NewProjectWizard(
                     ) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             platformOptions.forEach { value ->
-                                FilterChip(selected = platform == value, onClick = { onPlatformChange(value) }, label = { Text(value, fontSize = 9.3.sp) })
+                                FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = platform == value, onClick = { onPlatformChange(value) }, label = { Text(value, fontSize = V173ProjectUiMetrics.supportingText) })
                             }
                         }
                         TextButton(onClick = { showAllPlatforms = !showAllPlatforms }) {
-                            Text(if (showAllPlatforms) "SHOW MY PLATFORMS" else "OTHER PLATFORMS", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                            Text(if (showAllPlatforms) "SHOW MY PLATFORMS" else "OTHER PLATFORMS", fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black)
                         }
                         V20InlineContinue("CHOOSE FORMAT", platform.isNotBlank()) { revealNext(2) }
                     }
@@ -564,7 +573,7 @@ internal fun V20NewProjectWizard(
                     ) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             formatOptions.forEach { value ->
-                                FilterChip(selected = contentType == value, onClick = { onContentTypeChange(value) }, label = { Text(value, fontSize = 9.3.sp) })
+                                FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = contentType == value, onClick = { onContentTypeChange(value) }, label = { Text(value, fontSize = V173ProjectUiMetrics.supportingText) })
                             }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -591,7 +600,7 @@ internal fun V20NewProjectWizard(
                             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(10.dp))
-                                Text(v20WizardDateTime(dueAt), color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Text(v20WizardDateTime(dueAt), color = ProjectorIvory, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                                 Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
                             }
                         }
@@ -639,9 +648,10 @@ internal fun V20NewProjectWizard(
                                 ) {
                                     V20NewProjectReminderStyles.forEach { value ->
                                         FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                             selected = deliveryPreference == value,
                                             onClick = { onDeliveryPreferenceChange(value) },
-                                            label = { Text(pDeliveryPreferenceLabel(value), fontSize = 11.sp) },
+                                            label = { Text(pDeliveryPreferenceLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
                                         )
                                     }
                                 }
@@ -649,7 +659,7 @@ internal fun V20NewProjectWizard(
                                 Text(
                                     V156ReminderSetupCopy.alertExplanation(deliveryPreference),
                                     color = MutedText,
-                                    fontSize = 11.sp,
+                                    fontSize = V173ProjectUiMetrics.supportingText,
                                     lineHeight = 16.sp,
                                 )
                                 Spacer(Modifier.height(12.dp))
@@ -664,9 +674,10 @@ internal fun V20NewProjectWizard(
                                     FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                         TaskPriority.entries.forEach { value ->
                                             FilterChip(
+                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                                 selected = priority == value,
                                                 onClick = { onPriorityChange(value) },
-                                                label = { Text(pPriorityLabel(value), fontSize = 11.sp) },
+                                                label = { Text(pPriorityLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
                                             )
                                         }
                                     }
@@ -685,7 +696,7 @@ internal fun V20NewProjectWizard(
                                 Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Outlined.Settings, null, tint = MutedGold, modifier = Modifier.size(17.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Set up reminders", color = ProjectorIvory, fontSize = 9.5.sp, modifier = Modifier.weight(1f))
+                                    Text("Set up reminders", color = ProjectorIvory, fontSize = V173ProjectUiMetrics.bodyText, modifier = Modifier.weight(1f))
                                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(16.dp))
                                 }
                             }
@@ -730,7 +741,7 @@ internal fun V20NewProjectWizard(
                         }
                         if (productionStyles.isNotEmpty()) {
                             Spacer(Modifier.height(4.dp))
-                            Text("Style · ${productionStyles.joinToString()}", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
+                            Text("Style · ${productionStyles.joinToString()}", color = MutedText, fontSize = V173ProjectUiMetrics.bodyText, lineHeight = 19.sp)
                         }
                         if (!allReady) {
                             Text("Check the highlighted steps before creating this project.", color = RecRed, fontSize = 12.sp)
@@ -740,7 +751,7 @@ internal fun V20NewProjectWizard(
                         Button(
                             onClick = onCreate,
                             enabled = allReady,
-                            modifier = Modifier.fillMaxWidth().height(54.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight),
                             shape = RoundedCornerShape(17.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         ) {
@@ -792,15 +803,15 @@ private fun V20ProgressiveSection(
                                     "${index + 1}",
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                     color = RecRed,
-                                    fontSize = 11.sp,
+                                    fontSize = V173ProjectUiMetrics.supportingText,
                                     fontWeight = FontWeight.Black,
                                 )
                             }
                             Spacer(Modifier.width(8.dp))
-                            Text(label, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+                            Text(label, color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
                         }
                         Spacer(Modifier.height(6.dp))
-                        Text(title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, lineHeight = 22.sp)
+                        Text(title, color = ProjectorIvory, fontSize = V173ProjectUiMetrics.sectionHeadingText, fontWeight = FontWeight.Black, lineHeight = 23.sp)
                         Spacer(Modifier.height(12.dp))
                         content()
                     }
@@ -813,7 +824,7 @@ private fun V20ProgressiveSection(
                     color = CinemaSurface.copy(alpha = .82f),
                     border = BorderStroke(1.dp, CinemaLine),
                 ) {
-                    Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.reviewRowMinHeight).padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             if (valid) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
                             null,
@@ -822,10 +833,10 @@ private fun V20ProgressiveSection(
                         )
                         Spacer(Modifier.width(9.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                            Text(summary, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(label, color = MutedText, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Text(summary, color = ProjectorIvory, fontSize = V173ProjectUiMetrics.reviewValueText, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
                         }
-                        Text(if (valid) "CHANGE" else "REVIEW", color = if (valid) MutedGold else RecRed, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        Text(if (valid) "CHANGE" else "REVIEW", color = if (valid) MutedGold else RecRed, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black)
                     }
                 }
             }
@@ -838,11 +849,11 @@ private fun V20InlineContinue(label: String, enabled: Boolean, onClick: () -> Un
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.fillMaxWidth().height(47.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight),
         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
         shape = RoundedCornerShape(14.dp),
     ) {
-        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Text(label, fontSize = V173ProjectUiMetrics.actionText, fontWeight = FontWeight.Black)
         Spacer(Modifier.width(5.dp))
         Icon(Icons.Outlined.ArrowDownward, null, modifier = Modifier.size(15.dp))
     }
@@ -857,23 +868,23 @@ private fun V20FieldLabel(text: String) {
 private fun V20DateTimeButton(label: String, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(50.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight),
         border = BorderStroke(1.dp, CinemaLine),
         shape = RoundedCornerShape(14.dp),
     ) {
         Icon(Icons.Outlined.Schedule, null, tint = MutedGold, modifier = Modifier.size(17.dp))
         Spacer(Modifier.width(8.dp))
-        Text(label, color = ProjectorIvory, modifier = Modifier.weight(1f))
-        Text("CHANGE", color = RecRed, fontSize = 8.sp)
+        Text(label, color = ProjectorIvory, fontSize = V173ProjectUiMetrics.bodyText, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text("CHANGE", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText)
     }
 }
 
 @Composable
 private fun V20WizardSummaryChip(label: String, value: String) {
     Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .10f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .22f))) {
-        Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("$label · ", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold)
-            Text(value, color = MutedGold, fontSize = 8.2.sp, fontWeight = FontWeight.Black)
+        FlowRow(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalArrangement = Arrangement.Center) {
+            Text("$label · ", color = MutedText, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
+            Text(value, color = MutedGold, fontSize = V173ProjectUiMetrics.reviewValueText, fontWeight = FontWeight.Black)
         }
     }
 }
@@ -881,11 +892,11 @@ private fun V20WizardSummaryChip(label: String, value: String) {
 @Composable
 private fun V20WizardReviewRow(label: String, value: String, onClick: () -> Unit) {
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(15.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.reviewRowMinHeight).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(label, color = MutedText, fontSize = 7.2.sp, fontWeight = FontWeight.Bold, letterSpacing = .6.sp)
+                Text(label, color = MutedText, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold, letterSpacing = .6.sp)
                 Spacer(Modifier.height(2.dp))
-                Text(value, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(value, color = ProjectorIvory, fontSize = V173ProjectUiMetrics.reviewValueText, fontWeight = FontWeight.Bold, maxLines = 4, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Outlined.Edit, "Change $label", tint = MutedGold, modifier = Modifier.size(16.dp))
         }
