@@ -52,12 +52,27 @@ class AlarmActivity : ComponentActivity() {
         val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
         lifecycleScope.launch {
-            delay(task.alarmTimeoutSeconds.coerceIn(30, 300) * 1000L + 750L)
+            delay(V178PlaybackLifecyclePolicy.alarmDurationMillis(task) +
+                V178PlaybackLifecyclePolicy.ACTIVITY_WATCHDOG_EXTRA_MILLIS)
             if (!isFinishing && !isDestroyed) {
                 AlarmRingingService.stop(applicationContext, taskId, occurrenceId)
                 if (!ReminderOccurrenceStore(applicationContext).matches(task, occurrenceId)) {
                     finishAndRemoveTask()
                     return@launch
+                }
+                // Only a safety fallback: normally the ringing service stops promptly.
+                // Preserve the original occurrence's buttons if the service was interrupted.
+                runCatching {
+                    ReminderNotifications.show(
+                        applicationContext, task,
+                        stageLabel = "Alarm screen timed out · response still needed",
+                        occurrenceId = occurrenceId,
+                    )
+                }
+                runCatching {
+                    ReminderAcknowledgementStore(applicationContext).markUnanswered(
+                        task.id, occurrenceId, "alarm_screen_watchdog",
+                    )
                 }
                 getSystemService(NotificationManager::class.java).cancel(AlarmRingingService.notificationId(task.id))
                 finishAndRemoveTask()
