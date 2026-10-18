@@ -8,6 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.TaskStore
 import java.util.concurrent.TimeUnit
@@ -24,7 +25,7 @@ internal object V179ReminderFollowUps {
     private const val SMART_TERMINAL = "smart_terminal"
 
     fun armForPostedNotification(context: Context, task: CreatorTask, token: String) {
-        if (!V179FollowUpPolicy.eligible(task, finalSmartStage = false)) return
+        if (!enabled(context) || !V179FollowUpPolicy.eligible(task, finalSmartStage = false)) return
         enqueue(context, task, token, attempt = 1, terminalSmart = false, postedGrace = true)
     }
 
@@ -35,7 +36,7 @@ internal object V179ReminderFollowUps {
         token: String,
         finalSmartStage: Boolean = false,
     ) {
-        if (!V179FollowUpPolicy.eligible(task, finalSmartStage)) return
+        if (!enabled(context) || !V179FollowUpPolicy.eligible(task, finalSmartStage)) return
         enqueue(context, task, token, attempt = 1, terminalSmart = finalSmartStage, postedGrace = false)
     }
 
@@ -68,6 +69,13 @@ internal object V179ReminderFollowUps {
         )
     }
 
+    fun cancelAll(context: Context) {
+        WorkManager.getInstance(context.applicationContext).cancelAllWorkByTag(PREFIX)
+    }
+
+    private fun enabled(context: Context): Boolean =
+        CreatorOsSettingsStore(context.applicationContext).snapshot().unansweredFollowUpsEnabled
+
     fun cancel(context: Context, taskId: String) {
         WorkManager.getInstance(context.applicationContext).cancelAllWorkByTag(taskTag(taskId))
     }
@@ -88,11 +96,15 @@ internal object V179ReminderFollowUps {
             val finalSmartStage = inputData.getBoolean(SMART_TERMINAL, false)
             if (taskId.isBlank() || token.isBlank() ||
                 attempt !in 1..V179FollowUpPolicy.MAX_FOLLOW_UPS) return Result.success()
+            if (!enabled(applicationContext)) return Result.success()
 
             // A failed worker may be rerun by WorkManager. No retry() is requested here:
             // "at most two" matters more than guaranteeing delivery under OS restrictions.
             return runCatching {
                 CreatorDataGate.readyTransaction(applicationContext) {
+                    // Race with the Settings switch: check again while inside the
+                    // serialized creator-data gate before attempting any notification.
+                    if (!enabled(applicationContext)) return@readyTransaction
                     val task = TaskStore(applicationContext).load()
                         .firstOrNull { it.id == taskId } ?: return@readyTransaction
                     val occurrences = ReminderOccurrenceStore(applicationContext)
