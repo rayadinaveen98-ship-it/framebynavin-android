@@ -38,7 +38,7 @@ test -f app/src/androidTest/java/com/framebynavin/app/ui/V176ProjectJourneyUiTes
 test -f app/src/test/java/com/framebynavin/app/ui/V176NewProjectReleaseContractTest.kt
 test -f docs/qa/V176_NEW_PROJECT_RELEASE_ACCEPTANCE.md
 
-grep -Eq 'versionCode = (176|177)' app/build.gradle.kts
-grep -Eq '2.2.6-v176-new-project-acceptance-preview|2.2.7-v177-reminder-ack-p1-preview' app/build.gradle.kts
+grep -Eq 'versionCode = (176|177|178)' app/build.gradle.kts
+grep -Eq '2.2.6-v176-new-project-acceptance-preview|2.2.7-v177-reminder-ack-p1-preview|2.2.8-v178-reminder-voice-alarm-p2-preview' app/build.gradle.kts
 
 echo "V176 code-preservation, emulator and manual sign-off gates are defined"
