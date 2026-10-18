@@ -18,7 +18,7 @@ internal class V179FollowUpClaimStore(context: Context) {
             return@synchronized false
         val generation = CreatorDataGate.generation(app)
         val old = runCatching { JSONObject(prefs.getString(taskId, "{}") ?: "{}") }.getOrNull()
-        val mask = if (old?.optString("token") == token &&
+        val mask = if (old != null && old.optString("token") == token &&
             old.optLong("generation", -1L) == generation) old.optInt("mask", 0) else 0
         val bit = 1 shl (attempt - 1)
         if (mask and bit != 0) return@synchronized false
