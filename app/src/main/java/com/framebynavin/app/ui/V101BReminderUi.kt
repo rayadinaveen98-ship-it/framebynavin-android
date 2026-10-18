@@ -187,6 +187,7 @@ internal fun PProjectComposer(
     onSave: (PProjectDraft) -> Unit,
     onRemoveReminder: () -> Unit,
     startWithQuickCreate: Boolean = false,
+    dismissRequestToken: Int = 0,
 ) {
     val context = LocalContext.current
     val defaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
@@ -217,7 +218,9 @@ internal fun PProjectComposer(
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title.orEmpty()) }
     var creatorModeId by rememberSaveable(task?.id) { mutableStateOf(initialDna.creatorModeId) }
     var archetypeId by rememberSaveable(task?.id) { mutableStateOf(initialDna.archetypeId) }
-    var productionStyles by remember(task?.id) { mutableStateOf(initialDna.productionStyles) }
+    // ArrayList is Bundle-saveable; using plain remember lost style choices on recreation.
+    var savedStyleList by rememberSaveable(task?.id) { mutableStateOf(ArrayList(initialDna.productionStyles.sorted())) }
+    val productionStyles = savedStyleList.toSet()
     var platform by rememberSaveable(task?.id) { mutableStateOf(initialDna.platform.ifBlank { task?.platform ?: defaultPlatform }) }
     var contentType by rememberSaveable(task?.id) {
         mutableStateOf(initialDna.deliveryFormat.ifBlank {
@@ -310,6 +313,31 @@ internal fun PProjectComposer(
     }
     val requiresAdvancedPermissions = effectiveReminderMode in setOf(ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART)
 
+    val draftSignature = V172ProjectDraftPolicy.signature(
+        listOf(
+            title, creatorModeId, archetypeId, productionStyles.sorted().joinToString("\\u001f"),
+            platform, contentType, dueAt.toString(), attentionPlan.name,
+            deliveryPreference.name, customReminderAt.toString(), priority.name, notes,
+            soundUri, voice.name, repeatCount.toString(), repeatGap.toString(), alarmTimeout.toString(),
+        )
+    )
+    val originalDraftSignature = rememberSaveable(task?.id) { draftSignature }
+    var confirmDiscard by rememberSaveable(task?.id) { mutableStateOf(false) }
+    var handledDismissToken by rememberSaveable(task?.id) { mutableIntStateOf(dismissRequestToken) }
+    fun requestExit() {
+        if (V172ProjectDraftPolicy.changed(originalDraftSignature, draftSignature)) {
+            confirmDiscard = true
+        } else {
+            onDismiss()
+        }
+    }
+    LaunchedEffect(dismissRequestToken) {
+        if (dismissRequestToken > handledDismissToken) {
+            handledDismissToken = dismissRequestToken
+            requestExit()
+        }
+    }
+
     if (task == null) {
         V20NewProjectWizard(
             startWithQuickCreate = startWithQuickCreate,
@@ -321,15 +349,15 @@ internal fun PProjectComposer(
                 creatorModeId = selectedMode
                 archetypeId = ContentArchetypeRegistry.suggestedForMode(selectedMode).firstOrNull()?.id ?: archetypeId
                 if (productionStyles.isEmpty()) {
-                    productionStyles = defaults.creatorProfile.productionStyles.ifEmpty {
+                    savedStyleList = ArrayList(defaults.creatorProfile.productionStyles.ifEmpty {
                         ProductionStyleRegistry.orderedForMode(selectedMode).take(1).toSet()
-                    }
+                    }.sorted())
                 }
             },
             archetypeId = archetypeId,
             onArchetypeChange = { archetypeId = it },
             productionStyles = productionStyles,
-            onProductionStylesChange = { productionStyles = it },
+            onProductionStylesChange = { savedStyleList = ArrayList(it.sorted()) },
             platform = platform,
             onPlatformChange = { selectedPlatform ->
                 platform = selectedPlatform
@@ -361,7 +389,7 @@ internal fun PProjectComposer(
             reminderSetupReady = reminderSetupReady,
             requiresAdvancedPermissions = requiresAdvancedPermissions,
             onOpenSettings = onOpenSettings,
-            onDismiss = onDismiss,
+            onDismiss = { requestExit() },
             onCreate = {
                 onSave(
                     PProjectDraft(
@@ -392,10 +420,13 @@ internal fun PProjectComposer(
                 )
             },
         )
+        if (confirmDiscard) {
+            V172ConfirmDiscardDialog(onKeep = { confirmDiscard = false }, onDiscard = onDismiss)
+        }
         return
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = { requestExit() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -461,9 +492,11 @@ internal fun PProjectComposer(
                                                 FilterChip(
                                                     selected = selected,
                                                     onClick = {
-                                                        productionStyles = if (selected) productionStyles - style
-                                                        else if (productionStyles.size < CreatorProfile.MAX_PRODUCTION_STYLES) productionStyles + style
-                                                        else productionStyles
+                                                        savedStyleList = ArrayList((
+                                                            if (selected) productionStyles - style
+                                                            else if (productionStyles.size < CreatorProfile.MAX_PRODUCTION_STYLES) productionStyles + style
+                                                            else productionStyles
+                                                        ).sorted())
                                                     },
                                                     label = { Text(style, fontSize = 8.6.sp) },
                                                 )
@@ -647,6 +680,24 @@ internal fun PProjectComposer(
             }
         }
     }
+    if (confirmDiscard) {
+        V172ConfirmDiscardDialog(onKeep = { confirmDiscard = false }, onDiscard = onDismiss)
+    }
+}
+
+@Composable
+internal fun V172ConfirmDiscardDialog(onKeep: () -> Unit, onDiscard: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onKeep,
+        title = { Text("Discard project changes?") },
+        text = { Text("Your unfinished changes have not been saved. Keep editing or discard this draft.") },
+        confirmButton = {
+            TextButton(onClick = onKeep) { Text("KEEP EDITING") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDiscard) { Text("DISCARD", color = RecRed) }
+        },
+    )
 }
 
 @Composable
