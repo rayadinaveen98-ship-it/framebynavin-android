@@ -34,6 +34,13 @@
 - User data cannot be transparently migrated across unrelated Android package signatures.
 - A public key cannot be considered a secure long-term commercial/production signing identity.
 
+## Historical workflow scope
+
+The archived V152/V153 GitHub Actions suites run only for their original feature
+branches. Their 2026 version-specific smoke assertions are not valid checks for
+V183. The V183 stable workflow includes current end-to-end creator and reminder
+safety gates and is the authoritative release test matrix.
+
 ## Main history reconciliation
 
 The release branch contains a merge commit whose parents include both the complete
