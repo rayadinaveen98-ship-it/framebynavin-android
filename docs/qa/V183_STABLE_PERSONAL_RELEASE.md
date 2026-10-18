@@ -54,3 +54,11 @@ V182 development lineage and the three latest V150 main commits. The historical
 history. `app/build.gradle.kts` deliberately uses the newer V183 package version,
 signing and release build-type configuration instead of the obsolete V150 settings.
 No forced updates were used to resolve the main branch divergence.
+
+## Legacy APK workflow retirement
+
+The old V175 public APK workflow is now manually dispatched only; the old V149
+Android APK workflow no longer runs on `main`. This prevents obsolete APK
+names and source-rewriting integration steps from competing with the V183
+stable personal release pipeline. Historical source and workflow files are
+retained for audit; the release build is the only automated stable APK source.
