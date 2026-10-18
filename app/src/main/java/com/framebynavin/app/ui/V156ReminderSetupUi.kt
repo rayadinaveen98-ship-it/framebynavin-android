@@ -89,7 +89,7 @@ internal fun V156ReminderPlanPicker(
         ) {
             ProjectAttentionPlan.entries.forEach { plan ->
                 FilterChip(
-                    modifier = Modifier.testTag("reminder-plan-compact-${plan.name}"),
+                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget).testTag("reminder-plan-compact-${plan.name}"),
                     selected = selected == plan,
                     onClick = { onSelected(plan) },
                     label = { Text(V156ReminderSetupCopy.shortTitle(plan), fontSize = 12.sp) },
@@ -111,7 +111,7 @@ internal fun V156ReminderPlanPicker(
             val chosen = selected == plan
             Surface(
                 onClick = { onSelected(plan) },
-                modifier = Modifier.fillMaxWidth().testTag("reminder-plan-full-${plan.name}"),
+                modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.touchTarget).testTag("reminder-plan-full-${plan.name}"),
                 shape = RoundedCornerShape(14.dp),
                 color = if (chosen) RecRed.copy(alpha = .10f) else CinemaSurface,
                 border = BorderStroke(
@@ -137,24 +137,24 @@ internal fun V156ReminderPlanPicker(
                     )
                     Spacer(Modifier.width(11.dp))
                     Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(
                                 V156ReminderSetupCopy.title(plan),
                                 color = ProjectorIvory,
-                                fontSize = 13.sp,
+                                fontSize = V173ProjectUiMetrics.bodyText,
                                 fontWeight = FontWeight.Bold,
                             )
                             if (plan == ProjectAttentionPlan.GUIDED) {
                                 Spacer(Modifier.width(7.dp))
-                                Text("SUGGESTED", color = MutedGold, fontSize = 9.sp)
+                                Text("SUGGESTED", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText)
                             }
                         }
                         Spacer(Modifier.height(3.dp))
                         Text(
                             V156ReminderSetupCopy.description(plan),
                             color = MutedText,
-                            fontSize = 11.sp,
-                            lineHeight = 16.sp,
+                            fontSize = V173ProjectUiMetrics.supportingText,
+                            lineHeight = 18.sp,
                         )
                     }
                     if (chosen) {
@@ -190,7 +190,7 @@ internal fun V156AdvancedReminderSettings(
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text("Advanced reminder settings", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(V156ReminderSetupCopy.alertLabel(preference), color = MutedText, fontSize = 11.sp)
+                Text(V156ReminderSetupCopy.alertLabel(preference), color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
             }
             Icon(
                 if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
