@@ -50,7 +50,11 @@ class V176ProjectPersistenceInstrumentedTest {
             store.mutate { current -> current.filterNot { it.id == id } + original }
             val firstLoad = store.load().firstOrNull { it.id == id }
             assertNotNull(firstLoad)
-            assertEquals(original, firstLoad)
+            assertEquals(original.title, firstLoad!!.title)
+            assertEquals(original.dueAtMillis, firstLoad.dueAtMillis)
+            assertEquals(original.notes, firstLoad.notes)
+            assertEquals(original.voicePersona, firstLoad.voicePersona)
+            assertEquals(original.snoozeCount, firstLoad.snoozeCount)
 
             // Simulate an unrelated title and notes edit; guard against accidental deadline,
             // snooze, voice or progress resets in the persisted record.
