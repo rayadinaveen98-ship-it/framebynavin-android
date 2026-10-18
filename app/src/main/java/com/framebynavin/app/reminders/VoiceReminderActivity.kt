@@ -69,6 +69,7 @@ class VoiceReminderActivity : ComponentActivity() {
                         applicationContext, task,
                         stageLabel = "Voice screen timed out · response still needed",
                         occurrenceId = occurrenceId,
+                        discreet = true,
                     )
                 }
                 runCatching {
