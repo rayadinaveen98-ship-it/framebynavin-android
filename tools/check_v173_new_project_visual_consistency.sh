@@ -34,7 +34,7 @@ test -f app/src/test/java/com/framebynavin/app/ui/V173ProjectUiMetricsTest.kt
 test -f app/src/androidTest/java/com/framebynavin/app/ui/V173ProjectVisualUiTest.kt
 
 # No hard-coded tiny font sizes left in the primary New Project wizard.
-if grep -En 'fontSize = (\d|10|11)(\.[0-9]+)?\.sp' "$WIZARD"; then
+if grep -En 'fontSize = ([0-9]|10|11)(\.[0-9]+)?\.sp' "$WIZARD"; then
   echo "New Project wizard contains undersized literal typography" >&2
   exit 1
 fi
