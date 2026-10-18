@@ -232,6 +232,9 @@ class VoiceReminderService : Service() {
                 occurrenceId = token,
             )
         }.getOrDefault(false)
+        if (posted) runCatching {
+            V179ReminderFollowUps.armForPostedNotification(applicationContext, task, token)
+        }
         if (!posted) runCatching {
             ReminderAcknowledgementStore(applicationContext).markDeliveryFailed(task.id, token, "voice_fallback_failed")
         }
@@ -246,16 +249,19 @@ class VoiceReminderService : Service() {
         if (!isCurrent(task.id, token)) return
         val stillCurrent = ReminderOccurrenceStore(applicationContext).matches(task, token)
         if (V178PlaybackLifecyclePolicy.shouldPreserveActionableNotification(stillCurrent)) {
-            runCatching {
+            val posted = runCatching {
                 ReminderNotifications.show(
                     applicationContext,
                     task,
                     stageLabel = "Voice finished · response still needed",
                     occurrenceId = token,
                 )
-            }
+            }.getOrDefault(false)
             runCatching {
                 ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, reason)
+            }
+            if (posted) runCatching {
+                V179ReminderFollowUps.armAfterUnanswered(applicationContext, task, token)
             }
         }
         ReminderSurfaceRegistry.close(task.id, token)
