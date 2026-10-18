@@ -41,6 +41,9 @@ object ReminderRecoveryEngine {
         val appContext = context.applicationContext
         val scheduler = ReminderScheduler(appContext)
         val smart = SmartEscalationScheduler(appContext)
+        // Observation only: classify old posted notifications with no action. Never repeat
+        // or dismiss an alarm as part of the acknowledgement journal reconciliation.
+        runCatching { ReminderAcknowledgementStore(appContext).observeUnansweredNotification(task, nowMillis) }
         val active = task.reminderEnabled &&
             task.reminderMode != ReminderMode.NONE &&
             task.status != TaskStatus.DONE &&
