@@ -54,10 +54,7 @@ object ReminderDeliveryPolicy {
     }
 
     private fun isActive(task: CreatorTask): Boolean =
-        task.reminderEnabled &&
-            task.reminderMode != ReminderMode.NONE &&
-            task.status != TaskStatus.DONE &&
-            task.status != TaskStatus.SKIPPED
+        ReminderActionSafety.isActionable(task)
 
     private fun stageAllowed(priority: TaskPriority, stage: SmartEscalationScheduler.Stage): Boolean = when (priority) {
         TaskPriority.NORMAL -> stage == SmartEscalationScheduler.Stage.SOFT
