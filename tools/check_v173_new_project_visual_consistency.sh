@@ -20,8 +20,8 @@ grep -Fq 'V171ProjectEditSafety.deadlineReady(' "$EDITOR"
 
 # 48dp minimum touch surfaces, readable type, adaptable review and expanding actions.
 grep -Fq 'val touchTarget: Dp = 48.dp' "$METRICS"
-grep -Fq 'val supportingText: Sp = 12.sp' "$METRICS"
-grep -Fq 'val reviewValueText: Sp = 13.sp' "$METRICS"
+grep -Fq 'val supportingText: TextUnit = 12.sp' "$METRICS"
+grep -Fq 'val reviewValueText: TextUnit = 13.sp' "$METRICS"
 grep -Fq 'heightIn(min = V173ProjectUiMetrics.touchTarget)' "$WIZARD"
 grep -Fq 'heightIn(min = V173ProjectUiMetrics.touchTarget)' "$EDITOR"
 grep -Fq 'heightIn(min = V173ProjectUiMetrics.touchTarget)' "$PICKER"
