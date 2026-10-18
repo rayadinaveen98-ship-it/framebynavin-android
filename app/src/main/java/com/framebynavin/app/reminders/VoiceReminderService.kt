@@ -92,6 +92,12 @@ class VoiceReminderService : Service() {
             getSystemService(NotificationManager::class.java).cancel(notificationId(previous.id))
         }
         runCatching { ReminderAcknowledgementStore(applicationContext).markVoiceActive(task.id, token) }
+        // Arm this before TTS initializes: a speech-engine initialization hang must not
+        // strand an ongoing foreground service forever. This is a maximum safety window.
+        handler.postDelayed(
+            { finishUnansweredVoice(task, token, "voice_watchdog_timeout") },
+            V178PlaybackLifecyclePolicy.voiceWatchdogMillis(task),
+        )
         beginSpeechCycle(task)
         return START_NOT_STICKY
     }
@@ -112,6 +118,7 @@ class VoiceReminderService : Service() {
             if (!isCurrent(task.id, token) || generation != speechGeneration) return@TextToSpeech
             if (status != TextToSpeech.SUCCESS) {
                 fallbackToNotification(task, token, "Voice unavailable · notification reminder")
+                ReminderSurfaceRegistry.close(task.id, token)
                 stopVoiceService(task.id, token)
                 return@TextToSpeech
             }
@@ -123,6 +130,7 @@ class VoiceReminderService : Service() {
                 // An installed voice engine does not imply the device language is available.
                 // Never pretend the reminder was spoken when the voice package is missing.
                 fallbackToNotification(task, token, "Speech language unavailable · notification reminder")
+                ReminderSurfaceRegistry.close(task.id, token)
                 stopVoiceService(task.id, token)
                 return@TextToSpeech
             }
@@ -142,7 +150,15 @@ class VoiceReminderService : Service() {
                         val completedIndex = utteranceIndex(utteranceId)
                         val nextIndex = completedIndex + 1
                         if (nextIndex >= repeatCount) {
-                            runCatching { ReminderAcknowledgementStore(applicationContext).markVoiceCompleted(task.id, token) }
+                            runCatching {
+                                ReminderAcknowledgementStore(applicationContext).markVoiceCompleted(task.id, token)
+                            }
+                            // A completed final utterance is the end of audible playback.
+                            // Never keep the voice service open until the worst-case TTS window.
+                            handler.postDelayed(
+                                { finishUnansweredVoice(task, token, "voice_playback_finished_no_response") },
+                                V178PlaybackLifecyclePolicy.VOICE_FINISH_GRACE_MILLIS,
+                            )
                         }
                         if (nextIndex < repeatCount) {
                             // Repeat timing starts only after the complete previous sentence has
@@ -160,6 +176,7 @@ class VoiceReminderService : Service() {
                     handler.post {
                         if (isCurrent(task.id, token) && generation == speechGeneration) {
                             fallbackToNotification(task, token, "Voice playback failed · notification reminder")
+                            ReminderSurfaceRegistry.close(task.id, token)
                             stopVoiceService(task.id, token)
                         }
                     }
@@ -167,17 +184,6 @@ class VoiceReminderService : Service() {
             })
 
             speakFrozen(task, token, generation, 0)
-            handler.postDelayed(
-                {
-                    if (isCurrent(task.id, token)) {
-                        runCatching {
-                            ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, "voice_timeout")
-                        }
-                        stopVoiceService(task.id, token)
-                    }
-                },
-                totalWindowMillis(task),
-            )
         }
     }
 
@@ -210,6 +216,7 @@ class VoiceReminderService : Service() {
         if (result == TextToSpeech.ERROR) {
             currentUtteranceId = null
             fallbackToNotification(task, token, "Voice playback failed · notification reminder")
+            ReminderSurfaceRegistry.close(task.id, token)
             stopVoiceService(task.id, token)
         }
     }
@@ -228,6 +235,31 @@ class VoiceReminderService : Service() {
         if (!posted) runCatching {
             ReminderAcknowledgementStore(applicationContext).markDeliveryFailed(task.id, token, "voice_fallback_failed")
         }
+    }
+
+    /**
+     * A finished voice cycle is not a user response. Hand the same occurrence to an ordinary
+     * actionable notification before closing the speaking screen. Do not generate a new
+     * occurrence, auto-snooze, or schedule another audible reminder here.
+     */
+    private fun finishUnansweredVoice(task: CreatorTask, token: String, reason: String) {
+        if (!isCurrent(task.id, token)) return
+        val stillCurrent = ReminderOccurrenceStore(applicationContext).matches(task, token)
+        if (V178PlaybackLifecyclePolicy.shouldPreserveActionableNotification(stillCurrent)) {
+            runCatching {
+                ReminderNotifications.show(
+                    applicationContext,
+                    task,
+                    stageLabel = "Voice finished · response still needed",
+                    occurrenceId = token,
+                )
+            }
+            runCatching {
+                ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, reason)
+            }
+        }
+        ReminderSurfaceRegistry.close(task.id, token)
+        stopVoiceService(task.id, token)
     }
 
     private fun utteranceIndex(utteranceId: String): Int =
