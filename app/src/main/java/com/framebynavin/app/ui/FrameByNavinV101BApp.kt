@@ -532,6 +532,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onVoice = { settingsStore.setDefaultVoicePersona(it); settings = settingsStore.snapshot() },
                 onAlarmTimeout = { settingsStore.setDefaultAlarmTimeoutSeconds(it); settings = settingsStore.snapshot() },
                 onSnooze = { settingsStore.setSnoozeMinutes(it); settings = settingsStore.snapshot() },
+                onUnansweredFollowUps = { enabled ->
+                    settingsStore.setUnansweredFollowUpsEnabled(enabled)
+                    settings = settingsStore.snapshot()
+                    if (!enabled) com.framebynavin.app.reminders.V179ReminderFollowUps.cancelAll(context)
+                },
                 onWeeklyAutoPlan = vm::setWeeklyAutoPlanEnabled,
                 onContextNudges = {
                     settingsStore.setContextNudgesEnabled(it)
