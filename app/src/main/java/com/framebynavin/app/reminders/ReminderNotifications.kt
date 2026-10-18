@@ -35,10 +35,10 @@ object ReminderNotifications {
             }
             val quiet = NotificationChannel(
                 QUIET_CHANNEL_ID,
-                "Quiet-hour reminders",
+                "Quiet reminders & follow-ups",
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
-                description = "Discreet project check-ins during your chosen quiet hours"
+                description = "Silent check-ins during quiet hours and unanswered-reminder follow-ups"
                 setSound(null, null)
                 enableVibration(false)
                 enableLights(false)
