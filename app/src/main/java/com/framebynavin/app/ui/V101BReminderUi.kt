@@ -389,6 +389,12 @@ internal fun PProjectComposer(
             voicePersona = voice,
             onVoicePersonaChange = { voice = it },
             onPreviewVoice = { pComposerPreviewVoice(context, it) },
+            voiceRepeatCount = repeatCount,
+            onVoiceRepeatCount = { repeatCount = it },
+            voiceRepeatGapSeconds = repeatGap,
+            onVoiceRepeatGapSeconds = { repeatGap = it },
+            alarmTimeoutSeconds = alarmTimeout,
+            onAlarmTimeoutSeconds = { alarmTimeout = it },
             notes = notes,
             onNotesChange = { notes = it },
             reminderSetupReady = reminderSetupReady,
@@ -606,6 +612,15 @@ internal fun PProjectComposer(
                                 selected = voice,
                                 onSelected = { voice = it },
                                 onPreview = { pComposerPreviewVoice(context, it) },
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            V180ReminderTimingControls(
+                                repeatCount = repeatCount,
+                                onRepeatCount = { repeatCount = it },
+                                repeatGapSeconds = repeatGap,
+                                onRepeatGapSeconds = { repeatGap = it },
+                                alarmTimeoutSeconds = alarmTimeout,
+                                onAlarmTimeoutSeconds = { alarmTimeout = it },
                             )
                             if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                 Spacer(Modifier.height(12.dp))
