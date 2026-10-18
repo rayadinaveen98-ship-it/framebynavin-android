@@ -2,11 +2,9 @@ package com.framebynavin.app.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -33,11 +31,11 @@ class V180ReminderTimingUiTest {
         }
         rule.onNodeWithTag("v180-reminder-timing-controls").assertExists()
         rule.onNodeWithText("Once").performClick()
-        rule.onAllNodesWithText("30s").onFirst().performClick()
+        rule.onNodeWithText("60s").performClick()
         rule.onNodeWithText("45s").performClick()
         rule.runOnIdle {
             assertEquals(1, count.intValue)
-            assertEquals(30, gap.intValue)
+            assertEquals(60, gap.intValue)
             assertEquals(45, duration.intValue)
         }
     }
