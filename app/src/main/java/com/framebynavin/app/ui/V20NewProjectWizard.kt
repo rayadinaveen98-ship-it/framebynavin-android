@@ -109,6 +109,8 @@ internal fun V20NewProjectWizard(
     var showAllPlatforms by rememberSaveable { mutableStateOf(false) }
     var customizeStyles by rememberSaveable { mutableStateOf(false) }
     var showReminderAdvanced by rememberSaveable { mutableStateOf(false) }
+    // Quick Create initially shows one meaningful reminder summary, not five competing controls.
+    var showQuickReminderChoices by rememberSaveable { mutableStateOf(false) }
     // V154: the original seven-step experience is the default. Quick Create is an explicit shortcut.
     var showAdvancedSetup by rememberSaveable(startWithQuickCreate) { mutableStateOf(!startWithQuickCreate) }
     val scrollState = rememberScrollState()
@@ -147,6 +149,16 @@ internal fun V20NewProjectWizard(
         dueAtMillis = dueAt,
         nowMillis = now,
         supportReady = supportReady,
+    )
+    val quickReady = V174QuickCreatePolicy.valid(
+        title = title,
+        archetypeId = archetypeId,
+        platform = platform,
+        format = contentType,
+        dueAtMillis = dueAt,
+        reminderAtMillis = customReminderAt,
+        attentionPlan = attentionPlan,
+        nowMillis = now,
     )
     val progress = ((activeStage + 1).coerceIn(1, 7)) / 7f
     val supportSummary = V156ReminderSetupCopy.summary(attentionPlan, deliveryPreference)
@@ -254,23 +266,23 @@ internal fun V20NewProjectWizard(
                 ) {
                     if (!showAdvancedSetup) {
                         Text(
-                            "Name your project, then check where, when and how you'll post.",
+                            "Just the essentials. You can fine-tune everything later.",
                             color = MutedText,
-                            fontSize = 13.sp,
+                            fontSize = V173ProjectUiMetrics.bodyText,
                             lineHeight = 19.sp,
                         )
-                        Spacer(Modifier.height(18.dp))
+                        Spacer(Modifier.height(16.dp))
                         V20FieldLabel("PROJECT NAME")
                         OutlinedTextField(
                             value = title,
                             onValueChange = onTitleChange,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().testTag("quick-create-title"),
                             placeholder = { Text("What are you making?") },
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                         )
-                        Spacer(Modifier.height(20.dp))
-                        V20FieldLabel("WHERE WILL YOU POST?")
+                        Spacer(Modifier.height(16.dp))
+                        V20FieldLabel("PUBLISH TO")
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -280,24 +292,15 @@ internal fun V20NewProjectWizard(
                                     modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                     selected = platform == value,
                                     onClick = { onPlatformChange(value) },
-                                    label = { Text(value, fontSize = 12.sp) },
+                                    label = { Text(value, fontSize = V173ProjectUiMetrics.choiceText) },
                                 )
                             }
                         }
                         TextButton(onClick = { showAllPlatforms = !showAllPlatforms }) {
-                            Text(if (showAllPlatforms) "SHOW MY PLATFORMS" else "OTHER PLATFORMS", fontSize = 12.sp)
+                            Text(if (showAllPlatforms) "SHOW MY PLATFORMS" else "OTHER PLATFORMS", fontSize = V173ProjectUiMetrics.supportingText)
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Type: $chosenTypeLabel", color = MutedText, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                            TextButton(onClick = {
-                                showAdvancedSetup = true
-                                activeStage = 1
-                                revealedStage = 1
-                            }) { Text("CHANGE TYPE", fontSize = 12.sp) }
-                        }
-                        Spacer(Modifier.height(14.dp))
-                        V20FieldLabel("POST FORMAT")
+                        Spacer(Modifier.height(8.dp))
+                        V20FieldLabel("FORMAT")
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -307,73 +310,83 @@ internal fun V20NewProjectWizard(
                                     modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                     selected = contentType == value,
                                     onClick = { onContentTypeChange(value) },
-                                    label = { Text(value, fontSize = 12.sp) },
+                                    label = { Text(value, fontSize = V173ProjectUiMetrics.choiceText) },
                                 )
                             }
                         }
-                        Spacer(Modifier.height(20.dp))
-                        V20FieldLabel("WHEN IS IT DUE?")
+                        Spacer(Modifier.height(16.dp))
+                        V20FieldLabel("DEADLINE")
                         V20DateTimeButton(v20WizardDateTime(dueAt), onPickDue)
-                        Spacer(Modifier.height(20.dp))
-                        V20FieldLabel("REMINDERS")
-                        Text(
-                            "Current setting: $supportSummary",
-                            color = MutedText,
-                            fontSize = 12.sp,
+                        if (dueAt <= now) {
+                            Text("Choose a future deadline to create this project.", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText)
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        V174QuickReminderSummary(
+                            summary = supportSummary,
+                            expanded = showQuickReminderChoices,
+                            onToggle = { showQuickReminderChoices = !showQuickReminderChoices },
                         )
-                        Spacer(Modifier.height(6.dp))
-                        V156ReminderPlanPicker(
-                            selected = attentionPlan,
-                            onSelected = onAttentionPlanChange,
-                            compact = true,
-                        )
-                        if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
-                            Spacer(Modifier.height(11.dp))
+                        // A selected custom plan must never become an unfixable hidden form error.
+                        if (V174QuickCreatePolicy.needsCustomReminderTime(attentionPlan)) {
+                            Spacer(Modifier.height(10.dp))
                             V20FieldLabel("REMIND ME AT")
                             V20DateTimeButton(v20WizardDateTime(customReminderAt), onPickCustomReminder)
                             if (!customReady) {
-                                Text("Pick a time before the project deadline.", color = RecRed, fontSize = 12.sp)
+                                Text("Choose a reminder after now and no later than the deadline.", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText)
                             }
                         }
-                        if (attentionPlan != ProjectAttentionPlan.OFF) {
-                            Spacer(Modifier.height(12.dp))
-                            V156AdvancedReminderSettings(
-                                expanded = showReminderAdvanced,
-                                onToggle = { showReminderAdvanced = !showReminderAdvanced },
-                                preference = deliveryPreference,
-                            ) {
-                                V20FieldLabel("HOW SHOULD BACKLOT ALERT YOU?")
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(7.dp),
-                                    verticalArrangement = Arrangement.spacedBy(7.dp),
-                                ) {
-                                    V20NewProjectReminderStyles.forEach { value ->
-                                        FilterChip(
-                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
-                                            selected = deliveryPreference == value,
-                                            onClick = { onDeliveryPreferenceChange(value) },
-                                            label = { Text(pDeliveryPreferenceLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
-                                        )
-                                    }
-                                }
-                                Text(V156ReminderSetupCopy.alertExplanation(deliveryPreference), color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
-                                Spacer(Modifier.height(12.dp))
-                                V141InheritedVoiceCard(
-                                    voice = voicePersona,
-                                    onPreview = onPreviewVoice,
-                                    onOpenSettings = onOpenSettings,
+                        AnimatedVisibility(visible = showQuickReminderChoices) {
+                            Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                                V156ReminderPlanPicker(
+                                    selected = attentionPlan,
+                                    onSelected = onAttentionPlanChange,
+                                    compact = true,
                                 )
-                                if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                                if (attentionPlan != ProjectAttentionPlan.OFF) {
                                     Spacer(Modifier.height(12.dp))
-                                    V20FieldLabel("IMPORTANCE")
-                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                                        TaskPriority.entries.forEach { value ->
-                                            FilterChip(
-                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
-                                                selected = priority == value,
-                                                onClick = { onPriorityChange(value) },
-                                                label = { Text(pPriorityLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
-                                            )
+                                    V156AdvancedReminderSettings(
+                                        expanded = showReminderAdvanced,
+                                        onToggle = { showReminderAdvanced = !showReminderAdvanced },
+                                        preference = deliveryPreference,
+                                    ) {
+                                        V20FieldLabel("HOW SHOULD BACKLOT ALERT YOU?")
+                                        FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                            verticalArrangement = Arrangement.spacedBy(7.dp),
+                                        ) {
+                                            V20NewProjectReminderStyles.forEach { value ->
+                                                FilterChip(
+                                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
+                                                    selected = deliveryPreference == value,
+                                                    onClick = { onDeliveryPreferenceChange(value) },
+                                                    label = { Text(pDeliveryPreferenceLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            V156ReminderSetupCopy.alertExplanation(deliveryPreference),
+                                            color = MutedText,
+                                            fontSize = V173ProjectUiMetrics.supportingText,
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+                                        V141InheritedVoiceCard(
+                                            voice = voicePersona,
+                                            onPreview = onPreviewVoice,
+                                            onOpenSettings = onOpenSettings,
+                                        )
+                                        if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                                            Spacer(Modifier.height(12.dp))
+                                            V20FieldLabel("IMPORTANCE")
+                                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                TaskPriority.entries.forEach { value ->
+                                                    FilterChip(
+                                                        modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
+                                                        selected = priority == value,
+                                                        onClick = { onPriorityChange(value) },
+                                                        label = { Text(pPriorityLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -383,34 +396,17 @@ internal fun V20NewProjectWizard(
                             TextButton(onClick = onOpenSettings) {
                                 Icon(Icons.Outlined.NotificationsActive, null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("SET UP REMINDER PERMISSIONS", fontSize = 12.sp)
+                                Text("SET UP REMINDER PERMISSIONS", fontSize = V173ProjectUiMetrics.supportingText)
                             }
                         }
-                        Spacer(Modifier.height(20.dp))
-                        Button(
-                            onClick = onCreate,
-                            enabled = allReady,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        ) {
-                            Text("CREATE PROJECT", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.width(6.dp))
-                            Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
-                        }
                         Spacer(Modifier.height(12.dp))
-                        TextButton(
-                            onClick = {
-                                showAdvancedSetup = true
-                                activeStage = 0
-                                revealedStage = 0
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Icon(Icons.Outlined.Tune, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("MORE OPTIONS", fontSize = 13.sp)
-                        }
+                        Text(
+                            "Content type: $chosenTypeLabel · Edit in More options",
+                            color = MutedText,
+                            fontSize = V173ProjectUiMetrics.supportingText,
+                            lineHeight = 18.sp,
+                        )
+                        Spacer(Modifier.height(8.dp))
                     } else {
                         if (startWithQuickCreate) {
                             TextButton(
@@ -762,7 +758,84 @@ internal fun V20NewProjectWizard(
                     }
                     }
                 }
+                if (!showAdvancedSetup) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().testTag("quick-create-footer"),
+                        color = CinemaSurfaceRaised,
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                            Text(
+                                "$platform · $contentType · ${v20WizardDateTime(dueAt)}",
+                                color = MutedText,
+                                fontSize = V173ProjectUiMetrics.supportingText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (!quickReady) {
+                                Text(
+                                    "Add a project name and check the deadline and reminder time.",
+                                    color = RecRed,
+                                    fontSize = V173ProjectUiMetrics.supportingText,
+                                    maxLines = 2,
+                                )
+                            }
+                            Spacer(Modifier.height(7.dp))
+                            Button(
+                                onClick = onCreate,
+                                enabled = quickReady,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight).testTag("quick-create-submit"),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                            ) {
+                                Text("CREATE PROJECT", fontSize = V173ProjectUiMetrics.actionText, fontWeight = FontWeight.Black)
+                                Spacer(Modifier.width(6.dp))
+                                Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
+                            }
+                            TextButton(
+                                onClick = {
+                                    showAdvancedSetup = true
+                                    activeStage = 0
+                                    revealedStage = 0
+                                },
+                                modifier = Modifier.fillMaxWidth().testTag("quick-create-more-options"),
+                            ) {
+                                Icon(Icons.Outlined.Tune, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("MORE OPTIONS · TYPE & STYLE", fontSize = V173ProjectUiMetrics.supportingText)
+                            }
+                        }
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+internal fun V174QuickReminderSummary(
+    summary: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    Surface(
+        onClick = onToggle,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 62.dp).testTag("quick-create-reminder-summary"),
+        shape = RoundedCornerShape(16.dp),
+        color = CinemaSurface,
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.NotificationsNone, null, tint = MutedGold, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("REMINDERS", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black)
+                Text(summary, color = ProjectorIvory, fontSize = V173ProjectUiMetrics.bodyText, fontWeight = FontWeight.Bold, maxLines = 3)
+            }
+            Spacer(Modifier.width(7.dp))
+            Text(if (expanded) "CLOSE" else "CHANGE", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black)
         }
     }
 }
