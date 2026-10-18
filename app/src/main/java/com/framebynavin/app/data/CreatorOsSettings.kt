@@ -14,6 +14,8 @@ data class CreatorOsSettings(
     val defaultVoicePersona: VoicePersona = VoicePersona.WARM,
     val defaultAlarmTimeoutSeconds: Int = 120,
     val snoozeMinutes: Int = 10,
+    /** Creator can opt out of V179's two quiet unanswered follow-ups. */
+    val unansweredFollowUpsEnabled: Boolean = true,
     val weeklyAutoPlanEnabled: Boolean = false,
     val contextNudgesEnabled: Boolean = false,
     /** Only standard, non-ringing reminder notifications obey this local quiet window. */
@@ -84,6 +86,7 @@ class CreatorOsSettingsStore(context: Context) {
             }.getOrDefault(VoicePersona.WARM),
             defaultAlarmTimeoutSeconds = prefs.getInt(KEY_ALARM_TIMEOUT, 120).coerceIn(30, 300),
             snoozeMinutes = prefs.getInt(KEY_SNOOZE_MINUTES, 10).coerceIn(5, 30),
+            unansweredFollowUpsEnabled = prefs.getBoolean(KEY_NO_RESPONSE_FOLLOWUPS, true),
             weeklyAutoPlanEnabled = prefs.getBoolean(KEY_WEEKLY_AUTO_PLAN, false),
             contextNudgesEnabled = prefs.getBoolean(KEY_CONTEXT_NUDGES, false),
             quietHoursEnabled = prefs.getBoolean(KEY_QUIET_HOURS_ENABLED, false),
@@ -117,6 +120,7 @@ class CreatorOsSettingsStore(context: Context) {
             .put("defaultVoicePersona", value.defaultVoicePersona.name)
             .put("defaultAlarmTimeoutSeconds", value.defaultAlarmTimeoutSeconds)
             .put("snoozeMinutes", value.snoozeMinutes)
+            .put("unansweredFollowUpsEnabled", value.unansweredFollowUpsEnabled)
             .put("weeklyAutoPlanEnabled", value.weeklyAutoPlanEnabled)
             .put("contextNudgesEnabled", value.contextNudgesEnabled)
             .put("quietHoursEnabled", value.quietHoursEnabled)
@@ -159,6 +163,7 @@ class CreatorOsSettingsStore(context: Context) {
             }.getOrDefault(VoicePersona.WARM),
             defaultAlarmTimeoutSeconds = obj.optInt("defaultAlarmTimeoutSeconds", 120).coerceIn(30, 300),
             snoozeMinutes = obj.optInt("snoozeMinutes", 10).coerceIn(5, 30),
+            unansweredFollowUpsEnabled = obj.optBoolean("unansweredFollowUpsEnabled", true),
             weeklyAutoPlanEnabled = obj.optBoolean("weeklyAutoPlanEnabled", false),
             contextNudgesEnabled = obj.optBoolean("contextNudgesEnabled", false),
             quietHoursEnabled = obj.optBoolean("quietHoursEnabled", false),
@@ -173,6 +178,7 @@ class CreatorOsSettingsStore(context: Context) {
             .putString(KEY_DEFAULT_VOICE, value.defaultVoicePersona.name)
             .putInt(KEY_ALARM_TIMEOUT, value.defaultAlarmTimeoutSeconds)
             .putInt(KEY_SNOOZE_MINUTES, value.snoozeMinutes)
+            .putBoolean(KEY_NO_RESPONSE_FOLLOWUPS, value.unansweredFollowUpsEnabled)
             .putBoolean(KEY_WEEKLY_AUTO_PLAN, value.weeklyAutoPlanEnabled)
             .putBoolean(KEY_CONTEXT_NUDGES, value.contextNudgesEnabled)
             .putBoolean(KEY_QUIET_HOURS_ENABLED, value.quietHoursEnabled)
@@ -280,6 +286,12 @@ class CreatorOsSettingsStore(context: Context) {
         prefs.edit().putInt(KEY_SNOOZE_MINUTES, value.coerceIn(5, 30)).apply()
     }
 
+    fun setUnansweredFollowUpsEnabled(value: Boolean) {
+        check(prefs.edit().putBoolean(KEY_NO_RESPONSE_FOLLOWUPS, value).commit()) {
+            "Could not save unanswered-reminder preference"
+        }
+    }
+
     fun setWeeklyAutoPlanEnabled(value: Boolean) {
         prefs.edit().putBoolean(KEY_WEEKLY_AUTO_PLAN, value).apply()
     }
@@ -342,6 +354,7 @@ class CreatorOsSettingsStore(context: Context) {
         private const val KEY_DEFAULT_VOICE = "default_voice_persona"
         private const val KEY_ALARM_TIMEOUT = "default_alarm_timeout_seconds"
         private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
+        private const val KEY_NO_RESPONSE_FOLLOWUPS = "unanswered_followups_enabled_v180"
         private const val KEY_WEEKLY_AUTO_PLAN = "weekly_auto_plan_enabled"
         private const val KEY_CONTEXT_NUDGES = "context_nudges_enabled"
         private const val KEY_QUIET_HOURS_ENABLED = "quiet_hours_enabled_v158"
