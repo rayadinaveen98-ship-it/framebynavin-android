@@ -54,6 +54,7 @@ internal fun V157ReminderCenterUi(
     onPause: ((CreatorTask) -> Unit)?,
     onReschedule: ((CreatorTask) -> Unit)?,
     snoozeMinutes: Int,
+    onAcknowledge: ((CreatorTask, String, String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -138,6 +139,14 @@ internal fun V157ReminderCenterUi(
                         V157InboxCount("POSTPONED", postponedCount, ProjectorIvory, Modifier.weight(1f))
                     }
 
+                    Spacer(Modifier.height(13.dp))
+                    V181ReminderResponseSection(
+                        tasks = tasks,
+                        nowMillis = now,
+                        snoozeMinutes = snoozeMinutes,
+                        onOpenProject = onEdit,
+                        onAcknowledge = onAcknowledge,
+                    )
                     Spacer(Modifier.height(13.dp))
                     Surface(
                         onClick = onOpenReminderSettings,
