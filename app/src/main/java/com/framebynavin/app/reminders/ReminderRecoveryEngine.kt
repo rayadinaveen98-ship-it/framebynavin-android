@@ -44,10 +44,7 @@ object ReminderRecoveryEngine {
         // Observation only: classify old posted notifications with no action. Never repeat
         // or dismiss an alarm as part of the acknowledgement journal reconciliation.
         runCatching { ReminderAcknowledgementStore(appContext).observeUnansweredNotification(task, nowMillis) }
-        val active = task.reminderEnabled &&
-            task.reminderMode != ReminderMode.NONE &&
-            task.status != TaskStatus.DONE &&
-            task.status != TaskStatus.SKIPPED
+        val active = ReminderActionSafety.isActionable(task)
 
         if (!active) {
             scheduler.cancel(task.id)
