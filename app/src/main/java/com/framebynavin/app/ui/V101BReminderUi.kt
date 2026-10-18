@@ -226,7 +226,7 @@ internal fun PProjectComposer(
             else CreatorPlatformRegistry.defaultFormat(initialDna.platform.ifBlank { task?.platform ?: defaultPlatform })
         })
     }
-    var dueAt by rememberSaveable(task?.id) { mutableLongStateOf(task?.dueAtMillis?.takeIf { it > now } ?: fallbackDue) }
+    var dueAt by rememberSaveable(task?.id) { mutableLongStateOf(V171ProjectEditSafety.initialDeadline(task?.dueAtMillis, fallbackDue)) }
     var attentionPlan by rememberSaveable(task?.id) {
         mutableStateOf(task?.attentionPlan ?: ProjectAttentionPlan.GUIDED)
     }
@@ -234,7 +234,7 @@ internal fun PProjectComposer(
         mutableStateOf(task?.deliveryPreference ?: ReminderDeliveryPreference.AUTO)
     }
     var customReminderAt by rememberSaveable(task?.id) {
-        mutableLongStateOf(task?.reminderAtMillis?.takeIf { it > now } ?: (dueAt - 30 * 60_000L).coerceAtLeast(now + 5 * 60_000L))
+        mutableLongStateOf(task?.reminderAtMillis?.takeIf { it > 0L } ?: (dueAt - 30 * 60_000L).coerceAtLeast(now + 5 * 60_000L))
     }
     var priority by rememberSaveable(task?.id) { mutableStateOf(task?.priority ?: TaskPriority.IMPORTANT) }
     var notes by rememberSaveable(task?.id) { mutableStateOf(task?.notes.orEmpty()) }
@@ -292,8 +292,16 @@ internal fun PProjectComposer(
         if (attentionPlan == ProjectAttentionPlan.OFF || attentionPlan == ProjectAttentionPlan.CUSTOM) null
         else ProjectPulseEngine.applyAttentionPlan(previewTask, attentionPlan, now).let { ProjectPulseEngine.snapshot(it, now) }
     }
-    val customReady = attentionPlan != ProjectAttentionPlan.CUSTOM ||
-        (customReminderAt > now && customReminderAt <= dueAt)
+    val deadlineReady = V171ProjectEditSafety.deadlineReady(dueAt, now, task?.dueAtMillis)
+    val customReady = V171ProjectEditSafety.customReminderReady(
+        plan = attentionPlan,
+        selectedMillis = customReminderAt,
+        deadlineMillis = dueAt,
+        nowMillis = now,
+        existingPlan = task?.attentionPlan,
+        existingReminderMillis = task?.reminderAtMillis,
+        existingDeadlineMillis = task?.dueAtMillis,
+    )
     val effectiveReminderMode = when {
         attentionPlan == ProjectAttentionPlan.OFF -> ReminderMode.NONE
         deliveryPreference != ReminderDeliveryPreference.AUTO -> pDeliveryMode(deliveryPreference)
@@ -628,7 +636,7 @@ internal fun PProjectComposer(
                                 )
                             )
                         },
-                        enabled = title.isNotBlank() && dueAt > now && customReady,
+                        enabled = title.isNotBlank() && deadlineReady && customReady,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp).height(52.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
