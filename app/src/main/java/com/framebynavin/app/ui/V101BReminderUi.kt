@@ -214,7 +214,11 @@ internal fun PProjectComposer(
             now = System.currentTimeMillis()
         }
     }
-    val fallbackDue = now + 60 * 60_000L
+    // A fresh Quick Create draft has a full-day buffer; existing projects and
+    // the original seven-step setup retain their established due-date behavior.
+    val fallbackDue = if (task == null && startWithQuickCreate) {
+        V174QuickCreatePolicy.defaultDueAt(now)
+    } else now + 60 * 60_000L
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title.orEmpty()) }
     var creatorModeId by rememberSaveable(task?.id) { mutableStateOf(initialDna.creatorModeId) }
     var archetypeId by rememberSaveable(task?.id) { mutableStateOf(initialDna.archetypeId) }
