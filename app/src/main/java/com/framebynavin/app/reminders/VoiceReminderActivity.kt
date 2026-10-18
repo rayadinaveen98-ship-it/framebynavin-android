@@ -53,12 +53,28 @@ class VoiceReminderActivity : ComponentActivity() {
         val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
         lifecycleScope.launch {
-            delay(VoiceReminderService.totalWindowMillis(task) + 750L)
+            // Service owns normal speech completion. This is only a later safety watchdog.
+            delay(V178PlaybackLifecyclePolicy.voiceWatchdogMillis(task) +
+                V178PlaybackLifecyclePolicy.ACTIVITY_WATCHDOG_EXTRA_MILLIS)
             if (!isFinishing && !isDestroyed) {
                 VoiceReminderService.stop(applicationContext, taskId, occurrenceId)
                 if (!ReminderOccurrenceStore(applicationContext).matches(task, occurrenceId)) {
                     finishAndRemoveTask()
                     return@launch
+                }
+                // If Android did not run the service callback, keep its original action
+                // token accessible in one quiet notification rather than discarding it.
+                runCatching {
+                    ReminderNotifications.show(
+                        applicationContext, task,
+                        stageLabel = "Voice screen timed out · response still needed",
+                        occurrenceId = occurrenceId,
+                    )
+                }
+                runCatching {
+                    ReminderAcknowledgementStore(applicationContext).markUnanswered(
+                        task.id, occurrenceId, "voice_screen_watchdog",
+                    )
                 }
                 getSystemService(NotificationManager::class.java).cancel(VoiceReminderService.notificationId(task.id))
                 finishAndRemoveTask()
