@@ -1138,6 +1138,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private fun scheduleTaskNow(task: CreatorTask) {
         scheduler.cancel(task.id)
         smartScheduler.cancel(task.id)
+        com.framebynavin.app.reminders.V179ReminderFollowUps.cancel(getApplication<Application>(), task.id)
         if (!ReminderActionSafety.isActionable(task) || task.reminderAtMillis <= System.currentTimeMillis()) return
         if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) {
             smartScheduler.schedule(task.copy(
