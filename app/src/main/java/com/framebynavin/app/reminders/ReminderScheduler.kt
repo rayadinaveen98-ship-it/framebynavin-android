@@ -18,7 +18,7 @@ class ReminderScheduler(private val context: Context) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
     fun schedule(task: CreatorTask) {
-        if (!task.reminderEnabled || task.reminderMode == ReminderMode.NONE || task.reminderAtMillis <= System.currentTimeMillis()) {
+        if (!ReminderActionSafety.isActionable(task) || task.reminderAtMillis <= System.currentTimeMillis()) {
             cancel(task.id)
             return
         }
@@ -87,6 +87,16 @@ class ReminderScheduler(private val context: Context) {
         }.onFailure {
             ledger.clear(task.id)
         }
+    }
+
+    /**
+     * Reconciliation-only cleanup of an obsolete regular PendingIntent.
+     * Do not invalidate an active Smart occurrence or stop a voice/alarm surface:
+     * recovery is not a creator-requested cancellation.
+     */
+    fun cancelPendingOnly(taskId: String) {
+        existingPendingIntent(taskId)?.let { alarmManager.cancel(it) }
+        ledger.clear(taskId)
     }
 
     fun cancel(taskId: String) {

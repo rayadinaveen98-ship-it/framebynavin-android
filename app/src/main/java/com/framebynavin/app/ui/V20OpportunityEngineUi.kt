@@ -237,7 +237,7 @@ private fun V20OpportunitySurface(
             if (!showDetails) {
                 Spacer(Modifier.height(7.dp))
                 Text(
-                    "Tap to understand why ›",
+                    "Why this suggestion? ›",
                     color = MutedGold,
                     fontSize = 8.2.sp,
                     fontWeight = FontWeight.Bold,
@@ -270,7 +270,7 @@ private fun V20OpportunitySurface(
                     }
 
                     Spacer(Modifier.height(10.dp))
-                    Text("WHY THIS RANKED", color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    Text("WHY YOU'RE SEEING THIS", color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Spacer(Modifier.height(5.dp))
                     V20DecisionScorecard(primary.scorecard)
 
@@ -306,7 +306,7 @@ private fun V20OpportunitySurface(
                         Spacer(Modifier.height(14.dp))
                         HorizontalDivider(color = MutedText.copy(alpha = .16f))
                         Spacer(Modifier.height(10.dp))
-                        Text("RECOMMENDATION LEARNING", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        Text("LEARNING FROM RESULTS", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                         Spacer(Modifier.height(5.dp))
                         Text(
                             "${learningSummary.acted} acted · ${learningSummary.projectsCreated} projects · ${learningSummary.published} published · ${learningSummary.evaluated} evaluated",
@@ -319,7 +319,7 @@ private fun V20OpportunitySurface(
                             if (learningSummary.evaluated > 0) {
                                 "${learningSummary.positiveRatePercent}% of evaluated recommendations are positive so far. Backlot keeps the evidence rather than assuming every recommendation worked."
                             } else {
-                                "The app is following acted recommendations through project creation, publication and YouTube performance before judging the result."
+                                "Backlot checks what happened after you try a suggestion."
                             },
                             color = MutedText,
                             fontSize = 7.sp,
@@ -329,14 +329,14 @@ private fun V20OpportunitySurface(
 
                     if (playbook.patterns.isNotEmpty()) {
                         Spacer(Modifier.height(12.dp))
-                        Text("CREATOR PLAYBOOK", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        Text("WHAT WORKS FOR YOU", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                         Spacer(Modifier.height(5.dp))
                         playbook.patterns.take(3).forEach { pattern ->
                             V20PlaybookPatternRow(pattern)
                         }
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            "Playbook history can gently adjust ranking only after repeated evaluated outcomes. It never changes NOW/NEXT/LATER by itself and one result never becomes a rule.",
+                            "Past results help refine suggestions. One video never sets a rule.",
                             color = MutedText.copy(alpha = .78f),
                             fontSize = 6.8.sp,
                             lineHeight = 10.sp,
@@ -347,14 +347,14 @@ private fun V20OpportunitySurface(
                         Spacer(Modifier.height(14.dp))
                         HorizontalDivider(color = MutedGold.copy(alpha = .14f))
                         Spacer(Modifier.height(10.dp))
-                        Text("CREATOR BRAIN · GUIDANCE", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        Text("SUGGESTED NEXT STEPS", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                         Spacer(Modifier.height(5.dp))
                         brainGuidance.take(3).forEach { recommendation ->
                             V20CreatorBrainRecommendationRow(recommendation, onBrainProject)
                         }
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            "Guidance comes only from repeated evaluated creator outcomes. It can suggest a tailwind, a controlled retest, a warning or a rework — never a guaranteed result.",
+                            "Suggestions use repeated results, not predictions or guarantees.",
                             color = MutedText.copy(alpha = .78f),
                             fontSize = 6.8.sp,
                             lineHeight = 10.sp,
@@ -365,7 +365,7 @@ private fun V20OpportunitySurface(
                         Spacer(Modifier.height(14.dp))
                         HorizontalDivider(color = MutedGold.copy(alpha = .14f))
                         Spacer(Modifier.height(10.dp))
-                        Text("CREATOR BRAIN · EXPLAINABILITY", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        Text("WHY THIS SUGGESTION?", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "${brainExplainability.activeCount} active · ${brainExplainability.pausedCount} paused · ${brainExplainability.retiredCount} retired",
@@ -378,7 +378,7 @@ private fun V20OpportunitySurface(
                         }
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            "Pause or retire changes Brain influence only. Historical outcomes stay intact, and RESTORE re-enables the original time-aware evidence.",
+                            "Pausing a pattern stops it affecting suggestions. Your history stays saved.",
                             color = MutedText.copy(alpha = .78f),
                             fontSize = 6.8.sp,
                             lineHeight = 10.sp,
@@ -387,14 +387,14 @@ private fun V20OpportunitySurface(
 
                     if (brain.patterns.isNotEmpty()) {
                         Spacer(Modifier.height(12.dp))
-                        Text("CREATOR BRAIN · MEMORY", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        Text("WHAT BACKLOT HAS LEARNED", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                         Spacer(Modifier.height(5.dp))
                         brain.patterns.take(4).forEach { pattern ->
                             V20CreatorBrainPatternRow(pattern)
                         }
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            "Memory is time-aware: fresh patterns can guide, aging patterns are discounted, and stale patterns stay visible without changing ranking until new evidence refreshes them.",
+                            "Recent results matter more. Older patterns need new evidence.",
                             color = MutedText.copy(alpha = .78f),
                             fontSize = 6.8.sp,
                             lineHeight = 10.sp,
@@ -404,10 +404,10 @@ private fun V20OpportunitySurface(
                     Spacer(Modifier.height(10.dp))
                     Text(
                         when {
-                            snapshot.creatorBrainEvidenceUsed -> "Current evidence stays dominant. Repeated Creator Brain patterns add only a small, capped adjustment when a recommendation matches a real project."
+                            snapshot.creatorBrainEvidenceUsed -> "Your latest results matter most. Past patterns add context."
                             snapshot.playbookEvidenceUsed && snapshot.aiEvidenceUsed -> "Ranking is led by current creator + YouTube evidence, then lightly informed by repeated outcome history and optional Gemini evidence."
-                            snapshot.playbookEvidenceUsed -> "Current evidence stays dominant. Repeated Creator Playbook outcomes only add a small outcome-weighted adjustment."
-                            snapshot.aiEvidenceUsed -> "Ranking is led by your data + YouTube evidence. Saved Gemini analysis can strengthen evidence, but never creates an opportunity by itself."
+                            snapshot.playbookEvidenceUsed -> "Current results come first. Past patterns help a little."
+                            snapshot.aiEvidenceUsed -> "Suggestions use your projects and YouTube data. AI adds context when available."
                             else -> "Ranking uses urgency, momentum, readiness, evidence strength and strategic value. Gemini remains optional."
                         },
                         color = MutedText.copy(alpha = .72f),
@@ -416,7 +416,7 @@ private fun V20OpportunitySurface(
                     )
 
                     TextButton(onClick = { showDetails = false }, modifier = Modifier.padding(top = 4.dp)) {
-                        Text("HIDE DETAILS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        Text("HIDE WHY", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

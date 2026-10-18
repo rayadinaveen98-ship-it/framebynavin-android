@@ -1,0 +1,58 @@
+name: Backlot V173 New Project P3 — Visual Consistency Preview
+
+on:
+  push:
+    branches:
+      - feature/backlot-v173-new-project-p3-visual-consistency
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v173-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-apk:
+    name: V173 Project visual consistency tests and APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Confirm V173 identity
+        run: |
+          grep -q 'versionCode = 173' app/build.gradle.kts
+          grep -q '2.2.3-v173-new-project-visual-p3-preview' app/build.gradle.kts
+      - name: Preserve V161–V172 and verify P3 safeguards
+        run: |
+          for version in 161 162 163 164 165 166 167 168 169 170; do
+            script=$(find tools -maxdepth 1 -name "check_v${version}_*.sh" | head -n 1)
+            test -n "$script"
+            bash "$script"
+          done
+          bash tools/check_v171_project_safety.sh
+          bash tools/check_v172_new_project_draft_ux.sh
+          bash tools/check_v173_new_project_visual_consistency.sh
+      - name: JVM unit regression tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Android instrumentation-test compilation
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Build debug preview APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Upload V173 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlot-v173-new-project-visual-p3-preview-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 90

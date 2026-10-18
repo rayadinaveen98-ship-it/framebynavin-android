@@ -206,6 +206,15 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     // between the task write and this reward reconciliation.
                     stageRecovery?.finish(generation)
 
+                    // Only the authoritative committed action is an acknowledgement.
+                    // This is intentionally after TaskStore.save/claim success; a rejected,
+                    // stale or failed action must never be counted as a creator response.
+                    runCatching {
+                        ReminderAcknowledgementStore(app).markResponded(taskId, token, action, now)
+                    }.onFailure { android.util.Log.w("BacklotReminderAck", "Could not journal reminder response") }
+                    runCatching { V179ReminderFollowUps.cancel(app, taskId) }
+                    runCatching { V179FollowUpClaimStore(app).clearTask(taskId) }
+
                     // History is useful audit context, never a prerequisite for the authoritative project write.
                     before?.let { old -> response?.let { runCatching { history.append(old, it, now, updated) } } }
                     scheduler.cancel(taskId)

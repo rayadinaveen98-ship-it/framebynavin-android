@@ -31,8 +31,9 @@ import java.util.Locale
 internal fun V23ProfileAccountScreen(
     creatorProfile: CreatorProfile,
     onClose: () -> Unit,
-    onEditCreatorSetup: () -> Unit,
+    onEditCreatorSetup: () -> Unit, // retained only for older call-site compatibility
     onOpenYouTube: () -> Unit,
+    onSaveCreatorProfile: (CreatorProfile) -> Boolean = { false },
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -42,6 +43,7 @@ internal fun V23ProfileAccountScreen(
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var showIdentityEditor by remember { mutableStateOf(false) }
+    var showCreatorEditor by remember { mutableStateOf(false) }
     var identityName by remember { mutableStateOf("") }
     var identityUsername by remember { mutableStateOf("") }
 
@@ -57,6 +59,19 @@ internal fun V23ProfileAccountScreen(
         }
     }
 
+    if (showCreatorEditor) {
+        V168CreatorProfileEditor(
+            profile = creatorProfile,
+            onCancel = { showCreatorEditor = false },
+            onSave = { updated ->
+                val saved = onSaveCreatorProfile(updated)
+                if (saved) showCreatorEditor = false
+                saved
+            },
+        )
+        return
+    }
+
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
             Modifier.fillMaxSize()
@@ -70,7 +85,7 @@ internal fun V23ProfileAccountScreen(
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column(Modifier.weight(1f)) {
                     Text("IDENTITY", color = RecRed, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                    Text("Profile & Account", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("Your account", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
                 }
             }
 
@@ -124,40 +139,39 @@ internal fun V23ProfileAccountScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            V23SectionTitle("CREATOR SETUP", "These choices drive project formats, workflows and planning defaults.")
+            V23SectionTitle("MY CREATOR DETAILS", "Edit these whenever your goals change. Existing work stays saved.")
             Spacer(Modifier.height(9.dp))
-            V23InfoRow("Creator type", creatorProfile.category.ifBlank { "Not set" }, Icons.Outlined.AutoAwesome)
+            V23InfoRow("Creator type", creatorProfile.resolvedPrimaryCreatorMode.ifBlank { "Not set" }, Icons.Outlined.AutoAwesome)
             V23InfoRow("Platforms", creatorProfile.platforms.sorted().joinToString().ifBlank { "Not set" }, Icons.Outlined.Hub)
             V23InfoRow("Primary goal", creatorProfile.primaryGoal.ifBlank { "Not set" }, Icons.Outlined.TrackChanges)
             V23InfoRow("Publishing target", "${creatorProfile.weeklyPublishingTarget} / week", Icons.Outlined.CalendarMonth)
-            OutlinedButton(onClick = onEditCreatorSetup, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, CinemaLine)) {
+            OutlinedButton(onClick = { showCreatorEditor = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, CinemaLine)) {
                 Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("EDIT CREATOR SETUP", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("EDIT CREATOR DETAILS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
 
             Spacer(Modifier.height(24.dp))
-            V23SectionTitle("CONNECTED SERVICES", "Accounts that add backup or creator performance data.")
+            V23SectionTitle("YOUR CONNECTIONS", "Manage your Google account and YouTube results.")
             Spacer(Modifier.height(9.dp))
             V23ActionRow(
                 title = if (session == null) "Google account" else "Google account connected",
-                subtitle = if (session == null) "Sign in, claim a Creator ID and connect your private Drive vault" else session?.email.orEmpty(),
+                subtitle = if (session == null) "Sign in and back up your work" else session?.email.orEmpty(),
                 icon = Icons.Outlined.AccountCircle,
                 onClick = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
             )
             V23ActionRow(
                 title = "YouTube",
-                subtitle = "Channel analytics and performance intelligence",
+                subtitle = "See your YouTube results",
                 icon = Icons.Outlined.SmartDisplay,
                 onClick = onOpenYouTube,
             )
 
-            Spacer(Modifier.height(24.dp))
-            V23SectionTitle("ACCOUNT & DATA", "Backlot stays offline-first even when an account is connected.")
-            Spacer(Modifier.height(9.dp))
-            V23ActionRow("Google Drive Vault", "Private account-owned snapshots and safe recovery", Icons.Outlined.CloudSync) {
-                context.startActivity(Intent(context, CloudSyncActivity::class.java))
-            }
+            Spacer(Modifier.height(15.dp))
+            Text(
+                "For backup, recovery and saved Google Drive copies, open Settings → Backup & Data.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+            )
 
             if (session != null) {
                 Spacer(Modifier.height(4.dp))
@@ -202,7 +216,7 @@ internal fun V23ProfileAccountScreen(
             title = { Text("Creator identity", color = ProjectorIvory, fontWeight = FontWeight.Black) },
             text = {
                 Column {
-                    Text("Your username is unique. Changing it does not make your projects public.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+                    Text("Your username is unique. Your projects stay private.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = identityName,

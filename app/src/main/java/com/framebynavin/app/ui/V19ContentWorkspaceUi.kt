@@ -78,7 +78,7 @@ internal fun V19ContentWorkspaceDialog(
                 ) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close workspace", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("CONTENT PROJECT 2.0 · ALPHA 2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text("PROJECT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
@@ -175,7 +175,7 @@ internal fun V19ContentWorkspaceDialog(
 
                     Spacer(Modifier.height(24.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        V19SectionTitle("ASSETS + REFERENCES", "Store locations only — large media stays outside the project database", Modifier.weight(1f))
+                        V19SectionTitle("ASSETS + REFERENCES", "Add links to your files; Backlot won't copy large media files.", Modifier.weight(1f))
                         TextButton(onClick = {
                             assets = assets + CreatorProjectAsset(id = UUID.randomUUID().toString())
                         }) {
@@ -268,7 +268,7 @@ internal fun V19ContentWorkspaceDialog(
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     ) {
-                        Text("SAVE CONTENT PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text("SAVE PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Black)
                     }
                 }
             }
@@ -367,7 +367,7 @@ private fun V19AssetCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.AttachFile, null, tint = MutedGold, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("ASSET REFERENCE", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Text("FILE OR LINK", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
                 TextButton(onClick = {
                     val kinds = CreatorAssetKind.entries
                     onChange(asset.copy(kind = kinds[(asset.kind.ordinal + 1) % kinds.size]))
@@ -390,7 +390,7 @@ private fun V19AssetCard(
                 value = asset.location,
                 onValueChange = { onChange(asset.copy(location = it)) },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Content URI / path / web link") },
+                label = { Text("File or web link") },
                 singleLine = true,
             )
             Spacer(Modifier.height(7.dp))
@@ -401,7 +401,7 @@ private fun V19AssetCard(
                 label = { Text("Notes") },
                 minLines = 2,
             )
-            Text("Only the reference is saved here — not the media file itself.", color = MutedText, fontSize = 7.5.sp, modifier = Modifier.padding(top = 7.dp))
+            Text("Backlot saves a link to the file, not a second copy.", color = MutedText, fontSize = 7.5.sp, modifier = Modifier.padding(top = 7.dp))
         }
     }
 }

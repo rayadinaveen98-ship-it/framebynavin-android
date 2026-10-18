@@ -156,8 +156,24 @@ class SmartEscalationScheduler(private val context: Context) {
         cancelPending(taskId, clearSession = true)
     }
 
+    /** Terminal Smart alarm: no more stages, but its unanswered notification must stay actionable. */
+    fun finishSessionPreservingUnanswered(taskId: String) {
+        cancelPending(taskId, clearSession = false)
+        sessions.clear(taskId)
+    }
+
     fun cancel(taskId: String) {
         cancelPending(taskId, clearSession = true)
+    }
+
+    /**
+     * Reconciliation-only cleanup after switching away from Smart mode.
+     * Never revoke an active regular reminder occurrence or stop its service.
+     * An explicit project edit/cancel still uses cancel().
+     */
+    fun cancelPendingOnly(taskId: String) {
+        cancelPending(taskId, clearSession = false)
+        sessions.clear(taskId)
     }
 
     fun isWindowValid(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): Boolean {
@@ -171,7 +187,8 @@ class SmartEscalationScheduler(private val context: Context) {
     }
 
     private fun isSmartEnabled(task: CreatorTask): Boolean =
-        (task.smartEscalationEnabled || task.reminderMode == ReminderMode.SMART) && task.reminderEnabled
+        (task.smartEscalationEnabled || task.reminderMode == ReminderMode.SMART) &&
+            ReminderActionSafety.isActionable(task)
 
     private fun isTargetBeforePublish(task: CreatorTask): Boolean =
         task.dueAtMillis <= 0L || task.reminderAtMillis <= task.dueAtMillis

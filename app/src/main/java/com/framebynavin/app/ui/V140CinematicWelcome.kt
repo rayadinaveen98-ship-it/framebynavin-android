@@ -43,9 +43,12 @@ internal fun V140CinematicWelcome(onFinished: () -> Unit) {
     val isLight = VisualExperiencePrefs.isLight
 
     LaunchedEffect(Unit) {
-        WelcomeSonicIdent.play(context.applicationContext)
+        val track = WelcomeSonicIdent.prepare(context.applicationContext)
+        runCatching { track?.play() }
         timeline.snapTo(0f)
         timeline.animateTo(1f, animationSpec = tween(V140_IDENT_DURATION_MS, easing = LinearEasing))
+        runCatching { track?.stop() }
+        runCatching { track?.release() }
         onFinished()
     }
 

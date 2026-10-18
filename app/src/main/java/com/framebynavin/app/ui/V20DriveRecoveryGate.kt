@@ -128,9 +128,9 @@ internal fun V20DriveRecoveryGate(
             Text(session.email, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Text(
                 if (conflict == null)
-                    "Backlot checks your private creator cloud automatically. Your phone stays the working copy; cloud recovery only replaces it when that is provably safe."
+                    "We'll check for saved work without changing anything on this phone."
                 else
-                    "This phone and your creator cloud both contain different work. Nothing will be overwritten automatically.",
+                    "Your phone and cloud contain different work. Choose which copy to keep.",
                 color = MutedText,
                 fontSize = 13.sp,
                 lineHeight = 19.sp,
@@ -140,7 +140,7 @@ internal fun V20DriveRecoveryGate(
             if (busy) {
                 LinearProgressIndicator(Modifier.fillMaxWidth(), color = RecRed)
                 Spacer(Modifier.height(8.dp))
-                Text("Checking creator cloud…", color = MutedText)
+                Text("Checking saved backups…", color = MutedText)
             } else if (conflict != null) {
                 Surface(
                     Modifier.fillMaxWidth(),
@@ -162,13 +162,13 @@ internal fun V20DriveRecoveryGate(
                     enabled = conflict.cloudRevision > 0L,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                ) { Text("RESTORE CLOUD WORKSPACE", fontWeight = FontWeight.Black) }
+                ) { Text("USE CLOUD COPY", fontWeight = FontWeight.Black) }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = ::resolveKeepPhone,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     border = BorderStroke(1.dp, CinemaLine),
-                ) { Text("KEEP THIS PHONE'S WORK", color = ProjectorIvory, fontWeight = FontWeight.Bold) }
+                ) { Text("KEEP PHONE COPY", color = ProjectorIvory, fontWeight = FontWeight.Bold) }
             } else {
                 error?.let {
                     Surface(
@@ -178,7 +178,7 @@ internal fun V20DriveRecoveryGate(
                         border = BorderStroke(1.dp, CinemaLine),
                     ) {
                         Column(Modifier.padding(16.dp)) {
-                            Text("Creator cloud needs attention", color = ProjectorIvory, fontWeight = FontWeight.Black)
+                            Text("Couldn't check your backup", color = ProjectorIvory, fontWeight = FontWeight.Black)
                             Spacer(Modifier.height(5.dp))
                             Text(it, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
                         }
@@ -189,7 +189,7 @@ internal fun V20DriveRecoveryGate(
                     onClick = ::runSync,
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                ) { Text("RETRY CLOUD CHECK", fontWeight = FontWeight.Black) }
+                ) { Text("TRY AGAIN", fontWeight = FontWeight.Black) }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = {
@@ -198,7 +198,7 @@ internal fun V20DriveRecoveryGate(
                     },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     border = BorderStroke(1.dp, CinemaLine),
-                ) { Text("CONTINUE LOCALLY FOR NOW", color = MutedText) }
+                ) { Text("KEEP USING THIS PHONE", color = MutedText) }
             }
         }
     }

@@ -10,12 +10,14 @@ import androidx.lifecycle.viewModelScope
 import com.framebynavin.app.cloud.CreatorCloudSyncWorker
 import com.framebynavin.app.reminders.IdeaReminderScheduler
 import com.framebynavin.app.reminders.ReminderConstants
+import com.framebynavin.app.reminders.ReminderActionSafety
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.reminders.ReminderRecoveryEngine
 import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.SmartEscalationPolicy
 import com.framebynavin.app.reminders.SmartEscalationScheduler
+import com.framebynavin.app.ui.V171ProjectEditSafety
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
@@ -40,6 +42,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     val tasks = mutableStateListOf<CreatorTask>()
     val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
     val ideas = mutableStateListOf<CreatorIdea>()
+    /** Deleted ideas remain in the same backed-up store, but are never counted as active work. */
+    val deletedIdeas = mutableStateListOf<CreatorIdea>()
     val postPublishCheckpoints = mutableStateListOf<PostPublishCheckpoint>()
     val rewardLedger = mutableStateListOf<CreatorRewardLedgerEntry>()
     private val rewardFeedbackQueue = mutableStateListOf<CreatorRewardLedgerEntry>()
@@ -63,6 +67,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     val canRecoverWrites: Boolean get() = pendingWrites == 0
     private var optimisticTasks = emptyList<CreatorTask>()
     private var optimisticIdeas = emptyList<CreatorIdea>()
+
+    private fun applyIdeaSnapshot(snapshot: List<CreatorIdea>) {
+        optimisticIdeas = snapshot
+        ideas.clear()
+        ideas.addAll(snapshot.filterNot { it.isTrashed }.sortedByDescending { it.updatedAtMillis })
+        deletedIdeas.clear()
+        deletedIdeas.addAll(snapshot.filter { it.isTrashed }.sortedByDescending { it.trashedAtMillis })
+    }
     private var optimisticWeekly = emptyList<WeeklyScheduleSlot>()
     var writeError by mutableStateOf<String?>(null)
         private set
@@ -91,10 +103,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             Triple(store.load(), ideaStore.load(), weeklyStore.loadOrSeed())
         }
         optimisticTasks = latest.first
-        optimisticIdeas = latest.second
         optimisticWeekly = latest.third
         tasks.clear(); tasks.addAll(latest.first)
-        ideas.clear(); ideas.addAll(latest.second.sortedByDescending { it.updatedAtMillis })
+        applyIdeaSnapshot(latest.second)
         weeklySlots.clear(); weeklySlots.addAll(latest.third)
         tasksLoaded = true
         weeklyLoaded = true
@@ -162,16 +173,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             }
             weeklyLoaded = true
             if (tasksLoaded) {
-                if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
+                if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal()
             }
         }
 
         viewModelScope.launch {
             ideaStore.ideasFlow.collectLatest { saved ->
                 if (pendingWrites == 0) {
-                    optimisticIdeas = saved
-                    ideas.clear()
-                    ideas.addAll(saved.sortedByDescending { it.updatedAtMillis })
+                    applyIdeaSnapshot(saved)
                 }
             }
         }
@@ -196,7 +205,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 if (pendingWrites > 0 || writeError != null) return@collectLatest
                 val cleaned = saved.filterNot {
                     it.id == "starter-frame-breakdown" ||
-                        (it.origin == CreatorTaskOrigin.WEEKLY && WeeklyScheduleEngine.isLegacySeedSlot(it.scheduleSlotId)) ||
+                        // Legacy weekly template IDs may still belong to genuine creator projects.
+                        // Keep those projects; only retire the old template definitions.
                         CreatorPostPublishEngine.isLegacyTask(it)
                 }.map(ProjectPulseEngine::repairFalseSurfaceCompletion)
                 if (cleaned != saved) {
@@ -204,7 +214,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                     store.mutate { current ->
                         current.filterNot {
                             it.id == "starter-frame-breakdown" ||
-                                (it.origin == CreatorTaskOrigin.WEEKLY && WeeklyScheduleEngine.isLegacySeedSlot(it.scheduleSlotId)) ||
+                                // Legacy weekly template IDs may still belong to genuine creator projects.
+                        // Keep those projects; only retire the old template definitions.
                                 CreatorPostPublishEngine.isLegacyTask(it)
                         }.map(ProjectPulseEngine::repairFalseSurfaceCompletion)
                     }
@@ -217,7 +228,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 reconcileSnapshot(cleaned)
                 tasksLoaded = true
                 if (weeklyLoaded && pendingWrites == 0 && writeError == null) {
-                    if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
+                    if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal()
                 }
             }
         }
@@ -293,7 +304,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
         deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO,
     ): String? {
-        if (title.isBlank()) return null
+        if (writeError != null || title.isBlank()) return null
         val normalizedDna = contentDna.normalized()
         val projectPlatform = normalizedDna.platform.ifBlank { platform }
         val projectFormat = normalizedDna.deliveryFormat.ifBlank { contentType }
@@ -356,15 +367,18 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         } else {
             CreatorWorkflowEngine.stageIndex(current).coerceIn(0, newTemplate.stages.lastIndex)
         }
-        val nextProgress = if (current.status == TaskStatus.DONE) 100
+        val nextProgress = if (!formatChanged) current.progress
+        else if (current.status == TaskStatus.DONE) 100
         else CreatorWorkflowEngine.progressForStage(nextStageIndex, newTemplate.stages.size)
 
-        val configured = current.copy(
+        // Evaluate the creator's intent before touching live reminder state. In particular,
+        // title/notes edits must not clear a snooze, working pause or acknowledged checkpoint.
+        val requested = current.copy(
             title = title.trim(),
             platform = projectPlatform,
             contentType = projectFormat,
             contentDna = storedDna,
-            dueLabel = dueLabel.ifBlank { current.dueLabel },
+            dueLabel = if (dueAtMillis == current.dueAtMillis) current.dueLabel else dueLabel.ifBlank { current.dueLabel },
             dueAtMillis = dueAtMillis,
             progress = nextProgress,
             workflowStageIndex = nextStageIndex,
@@ -376,24 +390,36 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             alarmSoundUri = alarmSoundUri,
             voiceEnabled = internalVoice,
             smartEscalationEnabled = internalSmart,
-            snoozeCount = 0,
-            workingUntilMillis = 0L,
             reminderMode = reminderMode,
             deliveryPreference = deliveryPreference,
             voicePersona = voicePersona,
             voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
             voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
             alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
-            autoStageReminder = false,
-            attentionPlan = if (enabled) ProjectAttentionPlan.CUSTOM else ProjectAttentionPlan.OFF,
-            pulseManagedReminder = false,
-            acknowledgedCheckpointStageId = "",
-            acknowledgedCheckpointDueAtMillis = 0L,
-            checkpointStageId = "",
-            checkpointAtMillis = 0L,
+            attentionPlan = attentionPlan,
         )
-        val updated = ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan)
-        if (updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
+        val refreshReminders = V171ProjectEditSafety.remindersNeedRefresh(current, requested, formatChanged)
+        val configured = requested.copy(
+            reminderEnabled = if (refreshReminders) enabled else current.reminderEnabled,
+            reminderAtMillis = if (refreshReminders) normalizedReminderAt else current.reminderAtMillis,
+            alertType = if (refreshReminders) internalAlertType else current.alertType,
+            voiceEnabled = if (refreshReminders) internalVoice else current.voiceEnabled,
+            smartEscalationEnabled = if (refreshReminders) internalSmart else current.smartEscalationEnabled,
+            reminderMode = if (refreshReminders) reminderMode else current.reminderMode,
+            snoozeCount = if (refreshReminders) 0 else current.snoozeCount,
+            workingUntilMillis = if (refreshReminders) 0L else current.workingUntilMillis,
+            autoStageReminder = if (refreshReminders) false else current.autoStageReminder,
+            attentionPlan = if (refreshReminders) {
+                if (enabled) ProjectAttentionPlan.CUSTOM else ProjectAttentionPlan.OFF
+            } else current.attentionPlan,
+            pulseManagedReminder = if (refreshReminders) false else current.pulseManagedReminder,
+            acknowledgedCheckpointStageId = if (refreshReminders) "" else current.acknowledgedCheckpointStageId,
+            acknowledgedCheckpointDueAtMillis = if (refreshReminders) 0L else current.acknowledgedCheckpointDueAtMillis,
+            checkpointStageId = if (refreshReminders) "" else current.checkpointStageId,
+            checkpointAtMillis = if (refreshReminders) 0L else current.checkpointAtMillis,
+        )
+        val updated = if (refreshReminders) ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan) else configured
+        if (refreshReminders && updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
         tasks[index] = updated
         persist()
         return updated.id
@@ -434,6 +460,64 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val managed = ProjectPulseEngine.applyAttentionPlan(updated, ProjectAttentionPlan.CUSTOM)
         scheduleTask(managed)
         managed
+    }
+
+    /**
+     * All Reminder Center actions mutate only the reminder schedule, never project
+     * progress, publication evidence, or completion state. A stale UI card is
+     * rejected inside the serialized write after reading the authoritative task.
+     */
+    fun snoozeReminderFromCenter(id: String, expectedFingerprint: String, minutes: Int) = updateTask(id) { task ->
+        val now = System.currentTimeMillis()
+        if (!ReminderCenterPolicy.canChange(task, expectedFingerprint, now)) return@updateTask task
+        val at = ReminderCenterPolicy.nextSnoozeAt(task, now, minutes) ?: return@updateTask task
+        if (!ReminderCenterPolicy.validTargetWindow(task, now, at, smartConfigStore.get(task)))
+            return@updateTask task
+        val updated = ReminderActionSafety.snooze(task, at, now)
+        if (updated != task) {
+            cancelTaskAlerts(task.id)
+            scheduleTask(updated)
+        }
+        updated
+    }
+
+    fun pauseReminderFromCenter(id: String, expectedFingerprint: String) = updateTask(id) { task ->
+        val now = System.currentTimeMillis()
+        if (!ReminderCenterPolicy.canChange(task, expectedFingerprint, now) ||
+            !ReminderCenterPolicy.canPause(task, now)) return@updateTask task
+        val until = now + ReminderCenterPolicy.PAUSE_MINUTES * 60_000L
+        if (!ReminderCenterPolicy.validTargetWindow(task, now, until, smartConfigStore.get(task)))
+            return@updateTask task
+        val updated = ReminderActionSafety.pause(task, until, now)
+        if (updated != task) {
+            cancelTaskAlerts(task.id)
+            scheduleTask(updated)
+        }
+        updated
+    }
+
+    fun rescheduleReminderFromCenter(id: String, expectedFingerprint: String, atMillis: Long) = updateTask(id) { task ->
+        val now = System.currentTimeMillis()
+        if (!ReminderCenterPolicy.canChange(task, expectedFingerprint, now) ||
+            !ReminderCenterPolicy.validRescheduleAt(task, atMillis, now) ||
+            !ReminderCenterPolicy.validTargetWindow(task, now, atMillis, smartConfigStore.get(task)))
+            return@updateTask task
+        val updated = if (ProjectPulseEngine.isStageCheckIn(task)) {
+            ProjectPulseEngine.afterSnooze(ProjectPulseEngine.ensureStageManaged(task), atMillis, now)
+                .copy(snoozeCount = 0, workingUntilMillis = 0L, autoStageReminder = false)
+        } else task.copy(
+            reminderEnabled = true,
+            reminderAtMillis = atMillis,
+            checkpointAtMillis = if (task.pulseManagedReminder) atMillis else task.checkpointAtMillis,
+            snoozeCount = 0,
+            workingUntilMillis = 0L,
+            autoStageReminder = false,
+        )
+        if (updated != task) {
+            cancelTaskAlerts(task.id)
+            scheduleTask(updated)
+        }
+        updated
     }
 
     fun cancelReminder(id: String) = updateTask(id) { task ->
@@ -674,8 +758,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun deleteTask(id: String) = deleteTasks(setOf(id))
 
     fun saveIdea(idea: CreatorIdea): String? {
-        if (idea.title.isBlank()) return null
+        if (writeError != null || idea.title.isBlank()) return null
         val now = System.currentTimeMillis()
+        // A stale editor must not silently resurrect an item in Recently Deleted.
+        if (idea.isTrashed || deletedIdeas.any { it.id == idea.id }) return null
         val isNewIdea = idea.id.isBlank() || ideas.none { it.id == idea.id }
         val normalized = IdeaReminderPolicy.normalize(
             idea.copy(
@@ -697,8 +783,28 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         return normalized.id
     }
 
+    /** Move to Recently Deleted; never delete an original recording or linked project. */
     fun deleteIdea(id: String) {
+        if (writeError != null) return
+        val record = ideas.firstOrNull { it.id == id } ?: return
+        val now = System.currentTimeMillis().coerceAtLeast(1L)
         ideas.removeAll { it.id == id }
+        deletedIdeas.add(0, record.copy(
+            trashedAtMillis = now,
+            reminderAtMillis = 0L,
+            reminderCadence = IdeaReminderCadence.ONCE,
+            updatedAtMillis = now,
+        ))
+        persistIdeas()
+    }
+
+    /** Restores the exact idea, original voice path and prior project link. */
+    fun restoreIdea(id: String) {
+        if (writeError != null) return
+        val record = deletedIdeas.firstOrNull { it.id == id } ?: return
+        if (ideas.any { it.id == id }) return
+        deletedIdeas.removeAll { it.id == id }
+        ideas.add(0, record.copy(trashedAtMillis = 0L, updatedAtMillis = System.currentTimeMillis()))
         persistIdeas()
     }
 
@@ -715,12 +821,14 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun convertIdeaToProject(id: String, platform: String, contentType: String, dueAtMillis: Long): String? {
+        if (writeError != null) return null
         val ideaIndex = ideas.indexOfFirst { it.id == id }
         if (ideaIndex == -1) return null
         val idea = ideas[ideaIndex]
-        if (idea.projectTaskId.isNotBlank()) {
-            tasks.firstOrNull { it.id == idea.projectTaskId }?.let { return it.id }
-        }
+        if (idea.isTrashed || idea.status == IdeaStatus.ARCHIVED) return null
+        // Do not generate a second project when a linked task is temporarily missing.
+        if (idea.projectTaskId.isNotBlank()) return tasks.firstOrNull { it.id == idea.projectTaskId }?.id
+        if (idea.status == IdeaStatus.CONVERTED) return null
 
         val now = System.currentTimeMillis()
         val due = dueAtMillis.coerceAtLeast(now + 5 * 60_000L)
@@ -851,7 +959,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     fun setWeeklyAutoPlanEnabled(enabled: Boolean) {
         weeklyAutoPlanState = enabled
         settingsStore.setWeeklyAutoPlanEnabled(enabled)
-        if (enabled) syncWeeklyScheduleInternal() else removeUnstartedWeeklyProjects()
+        // Disabling automatic generation is never consent to delete already-created work.
+        // Generated projects remain independent snapshots; new slots are created only when enabled.
+        if (enabled) syncWeeklyScheduleInternal()
     }
 
     fun saveWeeklySlot(slot: WeeklyScheduleSlot) {
@@ -881,8 +991,11 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun resetWeeklySchedule() {
+        // Only reached after an explicit UI confirmation; existing creator-owned
+        // projects are never edited or deleted by a template reset.
+        val template = CreatorWeeklyPresetPolicy.previewFor(settingsStore.snapshot().creatorProfile)
         weeklySlots.clear()
-        weeklySlots.addAll(WeeklyScheduleEngine.defaultSlots())
+        weeklySlots.addAll(template)
         persistWeeklySlots()
         if (weeklyAutoPlanEnabled) syncWeeklyScheduleInternal()
     }
@@ -926,13 +1039,6 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         if (index >= 0) rewardFeedbackQueue.removeAt(index)
     }
 
-    private fun removeUnstartedWeeklyProjects() {
-        val removed = tasks.filter { it.origin == CreatorTaskOrigin.WEEKLY && it.status == TaskStatus.PLANNED }
-        if (removed.isEmpty()) return
-        tasks.removeAll { it.origin == CreatorTaskOrigin.WEEKLY && it.status == TaskStatus.PLANNED }
-        persist()
-    }
-
     private fun syncWeeklyScheduleInternal() {
         if (!weeklyAutoPlanEnabled || !tasksLoaded || !weeklyLoaded || pendingWrites > 0) return
         val occurrences = WeeklyScheduleEngine.upcomingOccurrences(weeklySlots, daysAhead = CreatorAutoPlanEngine.DEFAULT_HORIZON_DAYS)
@@ -946,17 +1052,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 tasks.add(0, created)
                 toSchedule += created
                 changed = true
-            } else {
-                val current = tasks[existingIndex]
-                if (current.status != TaskStatus.DONE && current.status != TaskStatus.SKIPPED && current.autoStageReminder) {
-                    val updated = syncScheduledTask(current, occurrence)
-                    if (updated != current) {
-                        tasks[existingIndex] = updated
-                        toSchedule += updated
-                        changed = true
-                    }
-                }
             }
+            // Once a weekly occurrence becomes a project, it belongs to the creator.
+            // Template edits (title, day, format, priority, reminder) affect only
+            // *new* occurrences, never rewrite previously generated projects.
         }
 
         if (changed) persist()
@@ -1006,39 +1105,6 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         return task
     }
 
-    private fun syncScheduledTask(task: CreatorTask, occurrence: ScheduleOccurrence): CreatorTask {
-        val slot = occurrence.slot
-        val formatChanged = task.platform != slot.platform || task.contentType != slot.contentType
-        val template = CreatorWorkflowEngine.templateFor(slot.platform, slot.contentType)
-        val stageIndex = if (formatChanged) {
-            CreatorWorkflowEngine.stageIndexFromProgress(task.progress, template.stages.size)
-        } else CreatorWorkflowEngine.stageIndex(task).coerceIn(0, template.stages.lastIndex)
-        val mode = slot.reminderMode
-        val enabled = mode != ReminderMode.NONE
-        var updated = task.copy(
-            title = slot.title,
-            platform = slot.platform,
-            contentType = slot.contentType,
-            dueLabel = WeeklyScheduleEngine.dueLabel(occurrence.publishAtMillis),
-            dueAtMillis = occurrence.publishAtMillis,
-            workflowStageIndex = stageIndex,
-            progress = CreatorWorkflowEngine.progressForStage(stageIndex, template.stages.size),
-            priority = slot.priority,
-            reminderMode = mode,
-            reminderEnabled = enabled,
-            alertType = if (mode == ReminderMode.ALARM || mode == ReminderMode.SMART) ReminderAlertType.ALARM else ReminderAlertType.NOTIFICATION,
-            voiceEnabled = mode == ReminderMode.VOICE || mode == ReminderMode.SMART,
-            smartEscalationEnabled = mode == ReminderMode.SMART,
-            autoStageReminder = enabled,
-            origin = CreatorTaskOrigin.WEEKLY,
-            sourceRefId = occurrence.key,
-        )
-        updated = if (enabled) updated.copy(reminderAtMillis = WeeklyScheduleEngine.reminderTargetForStage(updated, stageIndex))
-        else updated.copy(reminderAtMillis = 0L)
-        if (updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
-        return updated
-    }
-
     private fun applyAutoStageReminder(task: CreatorTask, stageIndex: Int): CreatorTask {
         if (!task.autoStageReminder || task.scheduleSlotId.isBlank() || task.reminderMode == ReminderMode.NONE) return task
         return task.copy(
@@ -1072,7 +1138,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private fun scheduleTaskNow(task: CreatorTask) {
         scheduler.cancel(task.id)
         smartScheduler.cancel(task.id)
-        if (!task.reminderEnabled || task.reminderMode == ReminderMode.NONE || task.reminderAtMillis <= System.currentTimeMillis()) return
+        com.framebynavin.app.reminders.V179ReminderFollowUps.cancel(getApplication<Application>(), task.id)
+        if (!ReminderActionSafety.isActionable(task) || task.reminderAtMillis <= System.currentTimeMillis()) return
         if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) {
             smartScheduler.schedule(task.copy(
                 smartEscalationEnabled = true,
@@ -1089,6 +1156,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private fun cancelTaskAlertsNow(taskId: String) {
         scheduler.cancel(taskId)
         smartScheduler.cancel(taskId)
+        com.framebynavin.app.reminders.V179ReminderFollowUps.cancel(getApplication<Application>(), taskId)
         ReminderNotifications.cancel(getApplication<Application>(), taskId)
     }
 
@@ -1156,7 +1224,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     private fun persistIdeas() {
         val base = optimisticIdeas
-        val desired = ideas.toList()
+        val desired = ideas.toList() + deletedIdeas.toList()
         optimisticIdeas = desired
         enqueueWrite { epoch ->
             ideaStore.applyDelta(base, desired, epoch)

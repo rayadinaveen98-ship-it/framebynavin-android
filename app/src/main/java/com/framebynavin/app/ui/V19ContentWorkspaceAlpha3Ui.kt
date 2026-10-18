@@ -162,7 +162,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 ) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("CONTENT PROJECT 2.0 · RC2", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text("PLAN", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
                     Text("R$originalRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -170,7 +170,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
 
                 if (recovered != null) {
                     Surface(Modifier.fillMaxWidth(), color = MutedGold.copy(alpha = .08f)) {
-                        Text("Recovered unsaved Plan & Produce draft", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
+                        Text("Your unsaved plan was recovered", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
                     }
                 }
 
@@ -210,10 +210,10 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             A3Field("ANGLE", angle, { angle = it }, "Why is your take different?")
                         }
                         Alpha3Section.SCRIPT -> {
-                            A3Title("SCRIPT", "Script Studio is the single writing source of truth. Edit hooks, beats and narration there so structured and compiled script versions never diverge.")
+                            A3Title("SCRIPT", "Write your hook, script and narration in Script.")
                             A3ReadOnly("CURRENT HOOK", hook.ifBlank { "No hook saved yet." })
                             Spacer(Modifier.height(10.dp))
-                            A3ReadOnly("COMPILED SCRIPT", script.ifBlank { "No structured script saved yet. Open Script Studio from the workspace hub." })
+                            A3ReadOnly("COMPILED SCRIPT", script.ifBlank { "No script yet. Open Script to get started." })
                         }
                         Alpha3Section.RESEARCH -> {
                             A3Title("RESEARCH", "Sources stay attached to the project.")
@@ -230,7 +230,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             if (references.isEmpty()) A3Empty("No research sources yet.")
                         }
                         Alpha3Section.ASSETS -> {
-                            A3Title("ASSETS", "Pick real files from Android. Only durable content URI references are stored; media bytes are never copied into the project JSON.")
+                            A3Title("ASSETS", "Attach a file from your phone. Backlot saves a link to it, not another copy.")
                             Button(onClick = { assetPicker.launch(arrayOf("image/*", "video/*", "audio/*", "application/pdf", "text/*")) }) {
                                 Icon(Icons.Outlined.AttachFile, null); Spacer(Modifier.width(5.dp)); Text("PICK FROM DEVICE")
                             }
@@ -248,7 +248,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             if (assets.isEmpty()) A3Empty("No assets linked yet.")
                         }
                         Alpha3Section.PRODUCTION -> {
-                            A3Title("PRODUCTION CHECKLIST", "Flexible supporting steps for this content project. The main project workflow remains authoritative for stage progress, Project Pulse and reminders.")
+                            A3Title("PRODUCTION CHECKLIST", "Add optional tasks. Your main project progress stays unchanged.")
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(onClick = { checklist = checklist + CreatorChecklistItem(id = UUID.randomUUID().toString(), title = "New step") }) { Text("ADD STEP") }
                                 OutlinedButton(onClick = {
@@ -270,10 +270,10 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                                 )
                                 Spacer(Modifier.height(7.dp))
                             }
-                            if (checklist.isEmpty()) A3Empty("No supporting production checklist yet. Apply a template from Overview.")
+                            if (checklist.isEmpty()) A3Empty("No checklist yet. Start with a template if you like.")
                         }
                         Alpha3Section.DELIVERABLES -> {
-                            A3Title("DELIVERABLES", "Plan outputs and derivatives here. Readiness, publication, live links and publication history are controlled only in Publish Studio.")
+                            A3Title("DELIVERABLES", "Plan your posts here. Track what goes live in Prepare to Publish.")
                             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                 OutlinedButton(onClick = { addDeliverable("YouTube", "Long video") }) { Text("+ YT") }
                                 OutlinedButton(onClick = { addDeliverable("Instagram", "Reel") }) { Text("+ IG") }
@@ -313,7 +313,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp).height(50.dp),
                         shape = RoundedCornerShape(15.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                    ) { Text("SAVE CONTENT PROJECT", fontWeight = FontWeight.Black) }
+                    ) { Text("SAVE PLAN", fontWeight = FontWeight.Black) }
                 }
             }
         }

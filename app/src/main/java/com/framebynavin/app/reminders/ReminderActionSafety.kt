@@ -10,7 +10,7 @@ import com.framebynavin.app.data.TaskStatus
 object ReminderActionSafety {
     fun isActionable(task: CreatorTask): Boolean = task.reminderEnabled &&
         task.reminderMode != ReminderMode.NONE && task.status != TaskStatus.DONE &&
-        task.status != TaskStatus.SKIPPED
+        task.status != TaskStatus.SKIPPED && task.archivedAtMillis == 0L
 
     /** Only identity/intent fields, not presentation text, are bound to an occurrence. */
     fun fingerprint(task: CreatorTask): String = listOf(

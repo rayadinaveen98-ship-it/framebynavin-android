@@ -194,7 +194,7 @@ private fun V133BrandHeader(attentionCount: Int) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("BACKLOT", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.9.sp)
-            Text("CREATOR CONTROL ROOM", color = MutedGold, fontSize = 7.6.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
+            Text("YOUR SPACE", color = MutedGold, fontSize = 7.6.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
@@ -230,10 +230,10 @@ private fun V133TodayFrame(
     ) {
         if (task == null) {
             Column(Modifier.padding(22.dp)) {
-                Text("TODAY'S FRAME", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                 Spacer(Modifier.height(12.dp))
-                Text("The room is clear.", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                Text("Capture the next story when you're ready.", color = MutedText, fontSize = 10.sp)
+                Text("You're all caught up.", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                Text("Save an idea when inspiration strikes.", color = MutedText, fontSize = 10.sp)
                 Spacer(Modifier.height(18.dp))
                 Button(
                     onClick = onNewProject,
@@ -251,7 +251,7 @@ private fun V133TodayFrame(
             val overdue = task.dueAtMillis in 1 until System.currentTimeMillis()
             Column(Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("TODAY'S FRAME", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                    Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                     Spacer(Modifier.weight(1f))
                     Surface(
                         shape = RoundedCornerShape(100.dp),
@@ -306,7 +306,7 @@ private fun V133TodayFrame(
                     border = BorderStroke(1.dp, CinemaLine),
                 ) {
                     Column(Modifier.padding(14.dp)) {
-                        Text("NEXT MOVE", color = RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text("UP NEXT", color = RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                         Spacer(Modifier.height(4.dp))
                         Text(stage.action, color = ProjectorIvory, fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold)
                     }
@@ -340,7 +340,7 @@ private fun V133TodayFrame(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Row(Modifier.padding(vertical = 9.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                        Text("MARK STAGE DONE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("MARK STEP DONE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.width(5.dp))
                         Icon(Icons.Outlined.ArrowForward, null, tint = MutedGold, modifier = Modifier.size(15.dp))
                     }

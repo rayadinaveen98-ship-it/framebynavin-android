@@ -1,8 +1,10 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 package com.framebynavin.app.ui
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -18,6 +20,11 @@ import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.RocketLaunch
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
@@ -31,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.voice.VoiceIdeaRecording
@@ -46,9 +54,11 @@ import java.util.UUID
 @Composable
 internal fun V09IdeaVaultScreen(
     ideas: List<CreatorIdea>,
+    deletedIdeas: List<CreatorIdea> = emptyList(),
     onClose: (() -> Unit)?,
     onSave: (CreatorIdea) -> String?,
     onDelete: (String) -> Unit,
+    onRestore: (String) -> Unit = {},
     onArchive: (String) -> Unit,
     onConvert: (String, String, String, Long) -> String?,
     externalIdeaId: String = "",
@@ -63,6 +73,9 @@ internal fun V09IdeaVaultScreen(
     var categoryFilter by rememberSaveable { mutableStateOf<IdeaCategory?>(null) }
     var captureFilter by rememberSaveable { mutableStateOf<IdeaCaptureType?>(null) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
+    var showDeleted by rememberSaveable { mutableStateOf(false) }
+    var deletePending by remember { mutableStateOf<CreatorIdea?>(null) }
+    var conversionFailed by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<CreatorIdea?>(null) }
     var creating by remember { mutableStateOf(false) }
     var converting by remember { mutableStateOf<CreatorIdea?>(null) }
@@ -100,15 +113,17 @@ internal fun V09IdeaVaultScreen(
 
     val filtered by remember {
         derivedStateOf {
-            ideas.filter { idea ->
+            (if (showDeleted) deletedIdeas else ideas).filter { idea ->
                 val textMatch = query.isBlank() || listOf(idea.title, idea.topic, idea.notes, idea.transcript)
                     .any { it.contains(query, ignoreCase = true) }
                 val statusMatch = statusFilter == null || idea.status == statusFilter
                 val categoryMatch = categoryFilter == null || idea.category == categoryFilter
                 val captureMatch = captureFilter == null || idea.captureType == captureFilter
-                textMatch && statusMatch && categoryMatch && captureMatch
+                textMatch && (showDeleted || (statusMatch && categoryMatch && captureMatch))
             }.sortedWith(
-                compareByDescending<CreatorIdea> { it.id in opportunityIdeaIds }
+                compareByDescending<CreatorIdea> { showDeleted && it.isTrashed }
+                    .thenByDescending { if (showDeleted) it.trashedAtMillis else 0L }
+                    .thenByDescending { !showDeleted && it.id in opportunityIdeaIds }
                     .thenBy { it.status == IdeaStatus.ARCHIVED }
                     .thenByDescending { it.updatedAtMillis }
             )
@@ -123,8 +138,19 @@ internal fun V09IdeaVaultScreen(
             ) {
                 if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column(Modifier.weight(1f)) {
-                    Text("IDEA VAULT", color = MutedGold, fontSize = 9.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
-                    Text("Capture now. Produce later.", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    Text("IDEAS", color = MutedGold, fontSize = 9.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
+                    Text("Save it now. Make it later.", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                }
+                TextButton(onClick = {
+                    showDeleted = !showDeleted
+                    if (showDeleted) {
+                        statusFilter = null
+                        categoryFilter = null
+                        captureFilter = null
+                    }
+                }) {
+                    Text(if (showDeleted) "ALL IDEAS" else "DELETED (${deletedIdeas.size})",
+                        color = MutedGold, fontSize = 10.sp)
                 }
                 IconButton(onClick = { creating = true }) {
                     Icon(Icons.Outlined.Add, "New idea", tint = ProjectorIvory)
@@ -142,7 +168,7 @@ internal fun V09IdeaVaultScreen(
                         Text("⚡", fontSize = 14.sp)
                         Spacer(Modifier.width(8.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("MATCHED TO YOUR CHANNEL MOMENTUM", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Text("RELATED TO YOUR CHANNEL", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                             Text(match.ideaTitle ?: match.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -156,7 +182,7 @@ internal fun V09IdeaVaultScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                placeholder = { Text("Search ideas, topics, notes or transcripts…") },
+                placeholder = { Text("Search your ideas…") },
             )
 
             Spacer(Modifier.height(9.dp))
@@ -164,11 +190,12 @@ internal fun V09IdeaVaultScreen(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                FilterChip(selected = statusFilter == null, onClick = { statusFilter = null }, label = { Text("All", fontSize = 10.sp) })
-                FilterChip(selected = statusFilter == IdeaStatus.INBOX, onClick = { statusFilter = IdeaStatus.INBOX }, label = { Text("Inbox", fontSize = 10.sp) })
-                FilterChip(selected = statusFilter == IdeaStatus.READY_TO_PRODUCE, onClick = { statusFilter = IdeaStatus.READY_TO_PRODUCE }, label = { Text("Ready", fontSize = 10.sp) })
-                FilterChip(selected = statusFilter == IdeaStatus.CONVERTED, onClick = { statusFilter = IdeaStatus.CONVERTED }, label = { Text("Converted", fontSize = 10.sp) })
-                FilterChip(
+                FilterChip(selected = !showDeleted && statusFilter == null, onClick = { showDeleted = false; statusFilter = null }, label = { Text("All", fontSize = 10.sp) })
+                FilterChip(selected = !showDeleted && statusFilter == IdeaStatus.INBOX, onClick = { showDeleted = false; statusFilter = IdeaStatus.INBOX }, label = { Text("Inbox", fontSize = 10.sp) })
+                FilterChip(selected = !showDeleted && statusFilter == IdeaStatus.READY_TO_PRODUCE, onClick = { showDeleted = false; statusFilter = IdeaStatus.READY_TO_PRODUCE }, label = { Text("Ready", fontSize = 10.sp) })
+                FilterChip(selected = !showDeleted && statusFilter == IdeaStatus.CONVERTED, onClick = { showDeleted = false; statusFilter = IdeaStatus.CONVERTED }, label = { Text("Converted", fontSize = 10.sp) })
+                FilterChip(selected = showDeleted, onClick = { showDeleted = true; statusFilter = null; categoryFilter = null; captureFilter = null }, label = { Text("Recently Deleted (${deletedIdeas.size})", fontSize = 10.sp) })
+                if (!showDeleted) FilterChip(
                     selected = activeFilterCount > 0,
                     onClick = { showFilters = true },
                     label = { Text(if (activeFilterCount > 0) "Filters ($activeFilterCount)" else "Filters", fontSize = 10.sp) },
@@ -179,7 +206,7 @@ internal fun V09IdeaVaultScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${filtered.size} IDEA${if (filtered.size == 1) "" else "S"}", color = MutedText, fontSize = 8.5.sp, letterSpacing = 1.sp)
                 Spacer(Modifier.weight(1f))
-                Text("$readyCount READY", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                if (!showDeleted) Text("$readyCount READY", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
             }
 
             if (filtered.isEmpty()) {
@@ -190,11 +217,11 @@ internal fun V09IdeaVaultScreen(
                 ) {
                     Icon(Icons.Outlined.Lightbulb, null, tint = MutedGold, modifier = Modifier.size(34.dp))
                     Spacer(Modifier.height(9.dp))
-                    Text(if (ideas.isEmpty()) "Your vault is empty" else "No ideas match this filter", color = ProjectorIvory, fontWeight = FontWeight.Bold)
-                    Text("Save rough thoughts without turning everything into a deadline.", color = MutedText, fontSize = 10.sp)
-                    if (ideas.isEmpty()) {
+                    Text(if (showDeleted) "No deleted ideas" else if (ideas.isEmpty()) "Your vault is empty" else "No ideas match this filter", color = ProjectorIvory, fontWeight = FontWeight.Bold)
+                    Text("Keep ideas here until you're ready to use them.", color = MutedText, fontSize = 10.sp)
+                    if (!showDeleted && ideas.isEmpty()) {
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = { creating = true }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("ADD FIRST IDEA") }
+                        Button(onClick = { creating = true }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("SAVE YOUR FIRST IDEA") }
                     }
                 }
             } else {
@@ -204,7 +231,9 @@ internal fun V09IdeaVaultScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filtered, key = { it.id }) { idea ->
-                        V09IdeaCard(
+                        if (showDeleted) {
+                            V162DeletedIdeaCard(idea) { onRestore(idea.id) }
+                        } else V09IdeaCard(
                             idea = idea,
                             isOpportunity = idea.id in opportunityIdeaIds,
                             onEdit = { editing = idea },
@@ -235,7 +264,12 @@ internal fun V09IdeaVaultScreen(
         V09IdeaEditor(
             idea = CreatorIdea(id = "", title = ""),
             onDismiss = { creating = false },
-            onSave = { onSave(it); creating = false },
+            onSave = { draft ->
+                val accepted = onSave(draft) != null
+                if (accepted) { creating = false; showDeleted = false }
+                accepted
+            },
+            existingIdeas = ideas,
             onDelete = null,
         )
     }
@@ -244,23 +278,72 @@ internal fun V09IdeaVaultScreen(
         V09IdeaEditor(
             idea = idea,
             onDismiss = { editing = null },
-            onSave = { onSave(it); editing = null },
-            onDelete = {
-                onDelete(idea.id)
-                editing = null
+            onSave = { draft ->
+                val accepted = onSave(draft) != null
+                if (accepted) editing = null
+                accepted
             },
+            existingIdeas = ideas,
+            onDelete = {
+                editing = null
+                deletePending = idea
+            },
+        )
+    }
+
+    deletePending?.let { idea ->
+        AlertDialog(
+            onDismissRequest = { deletePending = null },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Move to Recently Deleted?", color = ProjectorIvory) },
+            text = { Text("You can restore this idea later. Its original recording and linked project are kept.", color = MutedText) },
+            confirmButton = {
+                Button(
+                    onClick = { onDelete(idea.id); deletePending = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                ) { Text("MOVE IDEA") }
+            },
+            dismissButton = { TextButton(onClick = { deletePending = null }) { Text("CANCEL") } },
         )
     }
 
     converting?.let { idea ->
         V09ConvertIdeaDialog(
             idea = idea,
-            onDismiss = { converting = null },
+            onDismiss = { converting = null; conversionFailed = false },
+            conversionFailed = conversionFailed,
             onConvert = { platform, format, due ->
-                onConvert(idea.id, platform, format, due)
-                converting = null
+                val projectId = onConvert(idea.id, platform, format, due)
+                if (projectId != null) { converting = null; conversionFailed = false }
+                else conversionFailed = true
             },
         )
+    }
+}
+
+@Composable
+private fun V162DeletedIdeaCard(idea: CreatorIdea, onRestore: () -> Unit) {
+    Surface(
+        color = CinemaSurfaceRaised,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, CinemaLine),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(idea.title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text(buildString {
+                append(IdeaVaultLabels.status(idea.status))
+                if (idea.hasOriginalRecording) append(" · Voice saved")
+                if (idea.projectTaskId.isNotBlank()) append(" · Project linked")
+            }, color = MutedText, fontSize = 11.sp)
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onRestore,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+            ) { Text("RESTORE IDEA") }
+        }
     }
 }
 
@@ -309,7 +392,7 @@ private fun V09IdeaCard(
                     TextButton(onClick = onConvert) {
                         Icon(Icons.Outlined.RocketLaunch, null, tint = RecRed, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("TURN INTO PROJECT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("MAKE A PROJECT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 if (idea.status != IdeaStatus.ARCHIVED) {
@@ -320,15 +403,354 @@ private fun V09IdeaCard(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun V09NewIdeaCleanEditor(
+    onDismiss: () -> Unit,
+    onSave: (CreatorIdea) -> Boolean,
+    existingIdeas: List<CreatorIdea>,
+) {
+    val context = LocalContext.current
+    val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
+    val visibleCategories = remember(creatorProfile) { IdeaVaultLabels.categoriesFor(creatorProfile) }
+    val defaultPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
+
+    var title by rememberSaveable { mutableStateOf("") }
+    var topic by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf(visibleCategories.firstOrNull() ?: IdeaCategory.CINEMATIC_ANALYSIS) }
+    var status by rememberSaveable { mutableStateOf(IdeaStatus.INBOX) }
+    var potential by rememberSaveable { mutableStateOf(IdeaPotential.MEDIUM) }
+    var platform by rememberSaveable { mutableStateOf(defaultPlatform) }
+    var format by rememberSaveable { mutableStateOf(CreatorPlatformRegistry.defaultFormat(defaultPlatform)) }
+    var notes by rememberSaveable { mutableStateOf("") }
+    var reminderAtMillis by rememberSaveable { mutableLongStateOf(0L) }
+    var reminderCadence by rememberSaveable { mutableStateOf(IdeaReminderCadence.ONCE) }
+    var voiceRecording by remember { mutableStateOf<VoiceIdeaRecording?>(null) }
+    var showRecorder by rememberSaveable { mutableStateOf(false) }
+    var showDictation by rememberSaveable { mutableStateOf(false) }
+    var showNotes by rememberSaveable { mutableStateOf(false) }
+    var showReminder by rememberSaveable { mutableStateOf(false) }
+    var showOrganize by rememberSaveable { mutableStateOf(false) }
+
+    val platformOptions = remember(creatorProfile) {
+        CreatorPlatformRegistry.orderedSelected(creatorProfile)
+    }
+    val formats = v09Formats(platform)
+    LaunchedEffect(platform) {
+        if (format !in formats) format = formats.firstOrNull().orEmpty()
+    }
+
+    fun discardRecording() {
+        voiceRecording?.localPath?.takeIf { it.isNotBlank() }?.let { path -> runCatching { File(path).delete() } }
+        voiceRecording = null
+    }
+
+    fun dismiss() {
+        discardRecording()
+        onDismiss()
+    }
+
+    Dialog(
+        onDismissRequest = ::dismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .imePadding(),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("NEW IDEA", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
+                        Text("Save your idea", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                        Text("Write or record an idea. Add details if you like.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+                    }
+                    IconButton(onClick = ::dismiss) {
+                        Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory)
+                    }
+                }
+
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                ) {
+                    Surface(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(22.dp),
+                        color = CinemaSurfaceRaised,
+                        border = BorderStroke(1.dp, RecRed.copy(alpha = .45f)),
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("YOUR IDEA", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
+                            Spacer(Modifier.height(7.dp))
+                            OutlinedTextField(
+                                title,
+                                { title = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("What's your idea?") },
+                                minLines = 3,
+                                maxLines = 6,
+                                shape = RoundedCornerShape(16.dp),
+                            )
+                            IdeaVaultGuidance.similarTitles(title, existingIdeas).firstOrNull()?.let { duplicate ->
+                                Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            onClick = { showRecorder = !showRecorder; if (showRecorder) showDictation = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(17.dp),
+                            color = if (showRecorder || voiceRecording != null) RecRed.copy(alpha = .13f) else CinemaSurface,
+                            border = BorderStroke(1.dp, if (showRecorder || voiceRecording != null) RecRed.copy(alpha = .5f) else CinemaLine),
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Mic, null, tint = RecRed, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(7.dp))
+                                Column {
+                                    Text("RECORD", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                    Text(if (voiceRecording != null) "Recording ready" else "Original audio", color = MutedText, fontSize = 7.8.sp)
+                                }
+                            }
+                        }
+                        Surface(
+                            onClick = { showDictation = !showDictation; if (showDictation) showRecorder = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(17.dp),
+                            color = if (showDictation) MutedGold.copy(alpha = .10f) else CinemaSurface,
+                            border = BorderStroke(1.dp, if (showDictation) MutedGold.copy(alpha = .45f) else CinemaLine),
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Mic, null, tint = MutedGold, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(7.dp))
+                                Column {
+                                    Text("DICTATE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                    Text("Speak to write an idea", color = MutedText, fontSize = 7.8.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    AnimatedVisibility(showRecorder) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            VoiceIdeaRecorderInput(
+                                recording = voiceRecording,
+                                onRecordingChanged = { voiceRecording = it },
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(showDictation) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            V117VoiceIdeaInput(
+                                onTranscript = { transcript ->
+                                    val clean = transcript.trim()
+                                    if (clean.isNotBlank()) {
+                                        title = if (title.isBlank()) clean else title.trimEnd() + " " + clean
+                                    }
+                                },
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Surface(
+                        onClick = { showNotes = !showNotes },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = CinemaSurface,
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Notes, null, tint = MutedGold, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("NOTES", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text(if (notes.isBlank()) "Optional context, references or details" else "Notes added", color = MutedText, fontSize = 7.8.sp)
+                            }
+                            Icon(if (showNotes) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
+                        }
+                    }
+                    AnimatedVisibility(showNotes) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                notes,
+                                { notes = it },
+                                Modifier.fillMaxWidth().heightIn(min = 105.dp),
+                                label = { Text("Notes") },
+                                placeholder = { Text("Add any notes you want to keep…") },
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        onClick = { showReminder = !showReminder },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = CinemaSurface,
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Alarm, null, tint = MutedGold, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("REMINDER", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text(if (reminderAtMillis > 0L) "Reminder configured" else "Optional — decide later when to revisit", color = MutedText, fontSize = 7.8.sp)
+                            }
+                            Icon(if (showReminder) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
+                        }
+                    }
+                    AnimatedVisibility(showReminder) {
+                        Column {
+                            Spacer(Modifier.height(8.dp))
+                            V144IdeaReminderPicker(
+                                reminderAtMillis = reminderAtMillis,
+                                cadence = reminderCadence,
+                                enabled = status != IdeaStatus.CONVERTED && status != IdeaStatus.ARCHIVED,
+                                onChange = { at, cadence ->
+                                    reminderAtMillis = at
+                                    reminderCadence = cadence
+                                },
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        onClick = { showOrganize = !showOrganize },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = CinemaSurface,
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Tune, null, tint = MutedGold, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("ORGANIZE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text("Topic, status and where to post", color = MutedText, fontSize = 7.8.sp)
+                            }
+                            Icon(if (showOrganize) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
+                        }
+                    }
+
+                    AnimatedVisibility(showOrganize) {
+                        Column(Modifier.padding(top = 8.dp, bottom = 8.dp)) {
+                            OutlinedTextField(topic, { topic = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Topic · optional") })
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("CATEGORY")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                visibleCategories.forEach { value ->
+                                    FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = 9.sp) })
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("STATUS")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                listOf(IdeaStatus.INBOX, IdeaStatus.WORTH_EXPLORING, IdeaStatus.RESEARCHING, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.ARCHIVED).forEach { value ->
+                                    FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = 9.sp) })
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("POTENTIAL")
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                IdeaPotential.entries.forEach { value ->
+                                    FilterChip(potential == value, { potential = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 9.sp) })
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("LIKELY PLATFORM")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 9.sp) }) }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            V09VaultLabel("LIKELY FORMAT")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 9.sp) }) }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+                }
+
+                Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
+                    Button(
+                        onClick = {
+                            val now = System.currentTimeMillis()
+                            val finalizedRecording = voiceRecording
+                            val newVoiceIdea = finalizedRecording != null
+                            val accepted = onSave(
+                                CreatorIdea(
+                                    id = UUID.randomUUID().toString(),
+                                    title = title.trim().ifBlank { if (newVoiceIdea) v09DefaultVoiceIdeaTitle() else "" },
+                                    topic = topic.trim(),
+                                    category = category,
+                                    status = status,
+                                    potential = potential,
+                                    platformHint = platform,
+                                    formatHint = format,
+                                    notes = notes.trim(),
+                                    reminderAtMillis = reminderAtMillis,
+                                    reminderCadence = reminderCadence,
+                                    captureType = if (newVoiceIdea) IdeaCaptureType.VOICE else IdeaCaptureType.TEXT,
+                                    audioLocalPath = finalizedRecording?.localPath.orEmpty(),
+                                    audioDurationMillis = finalizedRecording?.durationMillis ?: 0L,
+                                    audioMimeType = finalizedRecording?.mimeType.orEmpty(),
+                                    audioSyncState = if (newVoiceIdea) IdeaAudioSyncState.LOCAL_ONLY else IdeaAudioSyncState.NONE,
+                                    createdAtMillis = now,
+                                    updatedAtMillis = now,
+                                )
+                            )
+                            if (accepted) voiceRecording = null
+                        },
+                        enabled = title.isNotBlank() || voiceRecording != null,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(15.dp),
+                    ) {
+                        Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE IDEA", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun V09IdeaEditor(
     idea: CreatorIdea,
     onDismiss: () -> Unit,
-    onSave: (CreatorIdea) -> Unit,
+    onSave: (CreatorIdea) -> Boolean,
+    existingIdeas: List<CreatorIdea>,
     onDelete: (() -> Unit)?,
 ) {
     val context = LocalContext.current
+    if (idea.id.isBlank()) {
+        V09NewIdeaCleanEditor(
+            onDismiss = onDismiss,
+            onSave = onSave,
+            existingIdeas = existingIdeas,
+        )
+        return
+    }
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
     val visibleCategories = remember(creatorProfile) { IdeaVaultLabels.categoriesFor(creatorProfile) }
     val defaultPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
@@ -367,6 +789,9 @@ private fun V09IdeaEditor(
         text = {
             Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
                 OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Idea title") })
+                IdeaVaultGuidance.similarTitles(title, existingIdeas, excludingId = idea.id).firstOrNull()?.let { duplicate ->
+                    Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
+                }
 
                 if (idea.id.isBlank()) {
                     Spacer(Modifier.height(10.dp))
@@ -450,7 +875,7 @@ private fun V09IdeaEditor(
                 }
                 if (onDelete != null) {
                     Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("DELETE IDEA", color = RecRed) }
+                    TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("MOVE TO RECENTLY DELETED", color = RecRed) }
                 }
             }
         },
@@ -460,7 +885,7 @@ private fun V09IdeaEditor(
                     val now = System.currentTimeMillis()
                     val finalizedRecording = voiceRecording
                     val newVoiceIdea = idea.id.isBlank() && finalizedRecording != null
-                    onSave(
+                    val accepted = onSave(
                         idea.copy(
                             id = idea.id.ifBlank { UUID.randomUUID().toString() },
                             title = title.trim().ifBlank { if (newVoiceIdea) v09DefaultVoiceIdeaTitle() else "" },
@@ -482,8 +907,8 @@ private fun V09IdeaEditor(
                             updatedAtMillis = now,
                         )
                     )
-                    // The saved idea now owns this file; do not delete it when the editor leaves composition.
-                    voiceRecording = null
+                    // If rejected, retain the unsaved original recording and editor draft.
+                    if (accepted) voiceRecording = null
                 },
                 enabled = title.isNotBlank() || voiceRecording != null,
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
@@ -498,6 +923,7 @@ private fun V09IdeaEditor(
 private fun V09ConvertIdeaDialog(
     idea: CreatorIdea,
     onDismiss: () -> Unit,
+    conversionFailed: Boolean,
     onConvert: (String, String, Long) -> Unit,
 ) {
     val context = LocalContext.current
@@ -563,7 +989,11 @@ private fun V09ConvertIdeaDialog(
                     OutlinedButton(onClick = { pickTime() }, modifier = Modifier.weight(1f)) { Text("TIME", fontSize = 10.sp) }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("The project will open in Create with the right workflow and reminder timing for its format.", color = MutedText, fontSize = 9.3.sp)
+                Text("We'll open your new project so you can start working.", color = MutedText, fontSize = 9.3.sp)
+                if (conversionFailed) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Conversion did not complete. Check the linked project or reload saved data before retrying.", color = RecRed, fontSize = 11.sp)
+                }
             }
         },
         confirmButton = {

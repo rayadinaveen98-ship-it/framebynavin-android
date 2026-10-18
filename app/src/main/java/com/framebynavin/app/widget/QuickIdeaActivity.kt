@@ -90,7 +90,7 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("BACKLOT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                    Text("Quick Idea", color = ProjectorIvory, style = MaterialTheme.typography.headlineLarge)
+                    Text("New Idea", color = ProjectorIvory, style = MaterialTheme.typography.headlineLarge)
                 }
                 IconButton(onClick = ::closeDiscardingDraft, enabled = !saving) {
                     Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory)
@@ -105,10 +105,10 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
             ) {
-                Text("Catch it before it disappears.", color = ProjectorIvory, style = MaterialTheme.typography.headlineMedium)
+                Text("Save a thought", color = ProjectorIvory, style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Type it, dictate it, or keep the original audio. Everything lands in Idea Vault so you can shape it later.",
+                    "Type or record your idea. Find it in Ideas whenever you're ready.",
                     color = MutedText,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -139,7 +139,7 @@ private fun QuickIdeaScreen(onClose: () -> Unit) {
 
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "DICTATE TEXT (OPTIONAL)",
+                    "SPEAK TO WRITE",
                     color = MutedText,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,

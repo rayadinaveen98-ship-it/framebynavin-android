@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
@@ -41,9 +42,11 @@ internal fun V18CreatorOnboarding(
     onPreciseTiming: () -> Unit,
     onFullScreen: () -> Unit,
     onBattery: () -> Unit,
-    onFinish: (CreatorProfile) -> Unit,
+    onFinish: (CreatorProfile) -> Boolean,
 ) {
     var page by rememberSaveable { mutableIntStateOf(0) }
+    var isSaving by remember { mutableStateOf(false) }
+    var saveFailed by remember { mutableStateOf(false) }
     var primaryMode by rememberSaveable(profile.resolvedPrimaryCreatorMode) {
         mutableStateOf(profile.resolvedPrimaryCreatorMode)
     }
@@ -91,7 +94,7 @@ internal fun V18CreatorOnboarding(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("BACKLOT", color = RecRed, fontSize = 9.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Black)
-                    Text("Creator setup", color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text("Tell us what you make", color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
                 Text("${page + 1}/5", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
@@ -130,7 +133,7 @@ internal fun V18CreatorOnboarding(
                             Spacer(Modifier.height(22.dp))
                             V18OnboardingLabel("SECONDARY MODES · OPTIONAL")
                             Spacer(Modifier.height(5.dp))
-                            Text("Add up to ${CreatorProfile.MAX_SECONDARY_MODES}.", color = MutedText, fontSize = 10.sp)
+                            Text("You can choose more than one.", color = MutedText, fontSize = 10.sp)
                             Spacer(Modifier.height(9.dp))
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 CreatorModeRegistry.labels.filter { it != primaryMode }.forEach { item ->
@@ -174,7 +177,7 @@ internal fun V18CreatorOnboarding(
                         Spacer(Modifier.height(14.dp))
                         Text("How do you usually create?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(5.dp))
-                        Text("Optional — recommended styles for ${selectedModeDefinition.label} appear first. You can refine this later.", color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
+                        Text("Optional. You can change this later.", color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
                         Spacer(Modifier.height(20.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             orderedProductionStyles.forEach { item ->
@@ -229,7 +232,7 @@ internal fun V18CreatorOnboarding(
                             Spacer(Modifier.height(18.dp))
                             V18OnboardingLabel("PRIMARY FOCUS")
                             Spacer(Modifier.height(7.dp))
-                            Text("Choose which selected goal should lead when priorities conflict.", color = MutedText, fontSize = 10.5.sp)
+                            Text("Choose your most important goal.", color = MutedText, fontSize = 10.5.sp)
                             Spacer(Modifier.height(8.dp))
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 selectedGoals.sorted().forEach { item ->
@@ -259,14 +262,14 @@ internal fun V18CreatorOnboarding(
                     }
 
                     else -> {
-                        Icon(Icons.Outlined.SettingsSuggest, "System setup", tint = MutedGold, modifier = Modifier.size(36.dp))
+                        Icon(Icons.Outlined.SettingsSuggest, "Reminders & alerts", tint = MutedGold, modifier = Modifier.size(36.dp))
                         Spacer(Modifier.height(14.dp))
-                        Text("System setup", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
+                        Text("Reminders & alerts", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(18.dp))
                         V18OnboardingPermissionRow("Notifications", notificationsReady, onNotifications)
-                        V18OnboardingPermissionRow("Exact reminder timing", preciseTimingReady, onPreciseTiming)
-                        V18OnboardingPermissionRow("Full-screen alerts", fullScreenReady, onFullScreen)
-                        V18OnboardingPermissionRow("Allow background reminders", batteryReady, onBattery)
+                        V18OnboardingPermissionRow("On-time reminders", preciseTimingReady, onPreciseTiming)
+                        V18OnboardingPermissionRow("Show alerts on screen", fullScreenReady, onFullScreen)
+                        V18OnboardingPermissionRow("Remind me when the app is closed", batteryReady, onBattery)
                         Spacer(Modifier.height(14.dp))
                         Surface(
                             Modifier.fillMaxWidth(),
@@ -275,7 +278,7 @@ internal fun V18CreatorOnboarding(
                             border = BorderStroke(1.dp, CinemaLine),
                         ) {
                             Column(Modifier.padding(14.dp)) {
-                                Text("YOUR CREATOR PROFILE", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                                Text("YOUR CHOICES", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                                 Spacer(Modifier.height(5.dp))
                                 Text(primaryMode, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 if (secondaryModes.isNotEmpty()) Text("Also: ${secondaryModes.sorted().joinToString()}", color = MutedText, fontSize = 9.5.sp)
@@ -306,24 +309,32 @@ internal fun V18CreatorOnboarding(
                     onClick = {
                         if (page < 4) {
                             page++
-                        } else {
-                            onFinish(
-                                CreatorProfile(
-                                    displayName = profile.displayName,
-                                    category = primaryMode,
-                                    primaryCreatorMode = primaryMode,
-                                    secondaryCreatorModes = secondaryModes,
-                                    platforms = platforms,
-                                    productionStyles = styles,
-                                    primaryGoal = primaryGoal,
-                                    secondaryGoals = selectedGoals - primaryGoal,
-                                    weeklyPublishingTarget = weeklyTarget,
-                                    setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
-                                ).normalized(),
-                            )
+                        } else if (!isSaving) {
+                            isSaving = true
+                            saveFailed = false
+                            val completed = runCatching {
+                                onFinish(
+                                    CreatorProfile(
+                                        displayName = profile.displayName,
+                                        category = primaryMode,
+                                        primaryCreatorMode = primaryMode,
+                                        secondaryCreatorModes = secondaryModes,
+                                        platforms = platforms,
+                                        productionStyles = styles,
+                                        primaryGoal = primaryGoal,
+                                        secondaryGoals = selectedGoals - primaryGoal,
+                                        weeklyPublishingTarget = weeklyTarget,
+                                        setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
+                                    ).normalized(),
+                                )
+                            }.getOrDefault(false)
+                            if (!completed) {
+                                isSaving = false
+                                saveFailed = true
+                            }
                         }
                     },
-                    enabled = canContinue,
+                    enabled = canContinue && !isSaving,
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     shape = RoundedCornerShape(15.dp),
                     modifier = Modifier.height(50.dp),
@@ -335,6 +346,14 @@ internal fun V18CreatorOnboarding(
                     Spacer(Modifier.width(5.dp))
                     Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(17.dp))
                 }
+            }
+            if (saveFailed) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Could not save creator setup. Please try again.",
+                    color = RecRed,
+                    fontSize = 11.sp,
+                )
             }
         }
     }

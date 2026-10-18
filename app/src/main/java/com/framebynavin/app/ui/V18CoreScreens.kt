@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.framebynavin.app.ui
 
 import android.Manifest
@@ -184,8 +185,8 @@ internal fun PStudioScreen(
         item { PTopBar("STUDIO", onAdd) }
         item {
             Column(Modifier.padding(top = 18.dp, bottom = 18.dp)) {
-                Text("Your work, in motion.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
-                Text("Open a project when you want to see all its steps.", color = MutedText, fontSize = 10.5.sp)
+                Text("Your projects", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
+                Text("Open a project to see what's next.", color = MutedText, fontSize = 10.5.sp)
             }
         }
         if (projects.isEmpty()) {
@@ -289,7 +290,7 @@ internal fun PStudioProject(
                     }
                     if (!done) {
                         Spacer(Modifier.height(9.dp))
-                        Text("NEXT · ${pulse.nextAction}", color = ProjectorIvory, fontSize = 9.3.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("UP NEXT · ${pulse.nextAction}", color = ProjectorIvory, fontSize = 9.3.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         if (pulse.nextCheckpointAtMillis > 0L) {
                             Spacer(Modifier.height(3.dp))
                             Text("${pulse.checkpointLabel} · ${pFormatDateTime(pulse.nextCheckpointAtMillis)}", color = MutedText, fontSize = 8.3.sp)
@@ -349,10 +350,10 @@ private fun V21PostPublishSection(
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("POST-PUBLISH", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("AFTER PUBLISHING", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(4.dp))
-            Text("Publish is not the end.", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text("Review the response and carry the lesson into the next project.", color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
+            Text("Review your result", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("See what worked and what you'd change next time.", color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
             Spacer(Modifier.height(12.dp))
             ordered.forEachIndexed { index, checkpoint ->
                 val pending = checkpoint.status == PostPublishCheckpointStatus.PENDING

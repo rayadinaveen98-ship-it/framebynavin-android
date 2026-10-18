@@ -53,12 +53,32 @@ class VoiceReminderActivity : ComponentActivity() {
         val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
         lifecycleScope.launch {
-            delay(VoiceReminderService.totalWindowMillis(task) + 750L)
+            // Service owns normal speech completion. This is only a later safety watchdog.
+            delay(V178PlaybackLifecyclePolicy.voiceWatchdogMillis(task) +
+                V178PlaybackLifecyclePolicy.ACTIVITY_WATCHDOG_EXTRA_MILLIS)
             if (!isFinishing && !isDestroyed) {
                 VoiceReminderService.stop(applicationContext, taskId, occurrenceId)
                 if (!ReminderOccurrenceStore(applicationContext).matches(task, occurrenceId)) {
                     finishAndRemoveTask()
                     return@launch
+                }
+                // If Android did not run the service callback, keep its original action
+                // token accessible in one quiet notification rather than discarding it.
+                runCatching {
+                    ReminderNotifications.show(
+                        applicationContext, task,
+                        stageLabel = "Voice screen timed out · response still needed",
+                        occurrenceId = occurrenceId,
+                        discreet = true,
+                    )
+                }
+                runCatching {
+                    ReminderAcknowledgementStore(applicationContext).markUnanswered(
+                        task.id, occurrenceId, "voice_screen_watchdog",
+                    )
+                    V179ReminderFollowUps.armAfterUnanswered(
+                        applicationContext, task, occurrenceId,
+                    )
                 }
                 getSystemService(NotificationManager::class.java).cancel(VoiceReminderService.notificationId(task.id))
                 finishAndRemoveTask()
@@ -76,6 +96,7 @@ class VoiceReminderActivity : ComponentActivity() {
                     notes = task.notes,
                     snoozeMinutes = snoozeMinutes,
                     stageCheckIn = ProjectPulseEngine.isStageCheckIn(task),
+                    attentionPlan = task.attentionPlan,
                     onStageDone = { dispatchReminderAction(ReminderConstants.ACTION_STAGE_DONE, task.id) },
                     onWorking = { dispatchReminderAction(ReminderConstants.ACTION_STARTED, task.id) },
                     onSnooze = { dispatchReminderAction(ReminderConstants.ACTION_SNOOZE, task.id) },

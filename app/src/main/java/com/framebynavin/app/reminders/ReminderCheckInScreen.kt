@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,7 +34,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +43,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.data.ProjectAttentionPlan
+import com.framebynavin.app.data.ProjectPulseResponse
 import com.framebynavin.app.ui.theme.BacklotAccent
 import com.framebynavin.app.ui.theme.BacklotBackground
 import com.framebynavin.app.ui.theme.BacklotBorder
@@ -75,6 +79,7 @@ internal fun ReminderCheckInScreen(
     onReschedule: () -> Unit,
     onDismiss: () -> Unit,
     onReplay: (() -> Unit)? = null,
+    attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
 ) {
     BackHandler(enabled = true) { }
     val accent = if (kind == ReminderCheckInKind.VOICE) BacklotSecondaryAccent else BacklotAccent
@@ -84,6 +89,7 @@ internal fun ReminderCheckInScreen(
         .filter { it.isNotBlank() }
         .joinToString(" · ")
     val nextAction = suggestedAction.trim().ifBlank { "Continue the current stage" }
+    var moreOpen by rememberSaveable { mutableStateOf(false) }
 
     Box(
         Modifier
@@ -161,7 +167,7 @@ internal fun ReminderCheckInScreen(
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
                     Text(
-                        text = "SUGGESTED ACTION",
+                        text = "UP NEXT",
                         color = accent,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Black,
@@ -210,81 +216,106 @@ internal fun ReminderCheckInScreen(
                 ) {
                     Icon(Icons.Outlined.Check, null)
                     Spacer(Modifier.size(7.dp))
-                    Text("STAGE DONE", fontWeight = FontWeight.Black)
+                    Text("STEP DONE", fontWeight = FontWeight.Black)
                 }
                 Spacer(Modifier.height(7.dp))
             }
 
             OutlinedButton(
                 onClick = onWorking,
-                modifier = Modifier.fillMaxWidth().height(46.dp),
+                modifier = Modifier.fillMaxWidth().height(49.dp),
                 border = BorderStroke(1.dp, accent),
                 colors = ButtonDefaults.outlinedButtonColors(containerColor = BacklotSurfaceRaised),
                 shape = RoundedCornerShape(14.dp),
             ) {
                 Icon(Icons.Outlined.Work, null, tint = accent)
-                Spacer(Modifier.size(7.dp))
-                Text("I'M WORKING ON IT", color = BacklotPrimaryText, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.size(8.dp))
+                Text("I'M WORKING", color = BacklotPrimaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(Modifier.height(7.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onSnooze,
-                    modifier = Modifier.weight(1f).height(44.dp),
-                    border = BorderStroke(1.dp, BacklotBorder),
-                    shape = RoundedCornerShape(13.dp),
-                ) {
-                    Icon(Icons.Outlined.Snooze, null, tint = BacklotPrimaryText, modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.size(5.dp))
-                    Text("SNOOZE ${snoozeMinutes}m", color = BacklotPrimaryText, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                }
-                if (stageCheckIn) {
-                    OutlinedButton(
-                        onClick = onPause,
-                        modifier = Modifier.weight(1f).height(44.dp),
-                        border = BorderStroke(1.dp, BacklotBorder),
-                        shape = RoundedCornerShape(13.dp),
-                    ) {
-                        Icon(Icons.Outlined.PauseCircle, null, tint = BacklotPrimaryText, modifier = Modifier.size(17.dp))
-                        Spacer(Modifier.size(5.dp))
-                        Text("PAUSE 2H", color = BacklotPrimaryText, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = onReschedule,
-                        modifier = Modifier.weight(1f).height(44.dp),
-                        border = BorderStroke(1.dp, BacklotBorder),
-                        shape = RoundedCornerShape(13.dp),
-                    ) {
-                        Icon(Icons.Outlined.Schedule, null, tint = BacklotPrimaryText, modifier = Modifier.size(17.dp))
-                        Spacer(Modifier.size(5.dp))
-                        Text("CHOOSE TIME", color = BacklotPrimaryText, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
-                }
-            }
-
-            if (onReplay != null) {
-                Spacer(Modifier.height(2.dp))
-                TextButton(onClick = onReplay) {
-                    Icon(Icons.Outlined.Replay, null, tint = BacklotSecondaryAccent, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.size(5.dp))
-                    Text("REPLAY VOICE", color = BacklotSecondaryAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onSnooze,
+                modifier = Modifier.fillMaxWidth().height(49.dp),
+                border = BorderStroke(1.dp, BacklotBorder),
+                shape = RoundedCornerShape(14.dp),
             ) {
-                if (stageCheckIn) {
-                    TextButton(onClick = onReschedule) {
-                        Text("CHOOSE TIME", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.Outlined.Snooze, null, tint = BacklotPrimaryText, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.size(8.dp))
+                Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
+                    fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(Modifier.height(9.dp))
+            OutlinedButton(
+                onClick = { moreOpen = !moreOpen },
+                modifier = Modifier.fillMaxWidth().height(47.dp),
+                border = BorderStroke(1.dp, BacklotBorder),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text(if (moreOpen) "HIDE OPTIONS" else "MORE OPTIONS",
+                    color = BacklotSecondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+
+            if (moreOpen) {
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = BacklotSurface,
+                    border = BorderStroke(1.dp, BacklotBorder),
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("WHAT HAPPENS NEXT", color = accent,
+                            fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            "I'm working: " + ReminderResponseCopy.followUp(
+                                attentionPlan, ProjectPulseResponse.WORKING, stageCheckIn,
+                            ),
+                            color = BacklotSecondaryText, fontSize = 12.sp, lineHeight = 18.sp,
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            "Dismiss: " + ReminderResponseCopy.followUp(
+                                attentionPlan, ProjectPulseResponse.DISMISSED, stageCheckIn,
+                            ),
+                            color = BacklotSecondaryText, fontSize = 12.sp, lineHeight = 18.sp,
+                        )
+                        Spacer(Modifier.height(9.dp))
+                        if (stageCheckIn) {
+                            OutlinedButton(
+                                onClick = onPause,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                                border = BorderStroke(1.dp, BacklotBorder),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Icon(Icons.Outlined.PauseCircle, null)
+                                Spacer(Modifier.size(7.dp))
+                                Text("PAUSE CHECK-INS · UP TO 2H", fontSize = 12.sp)
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = onReschedule,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                            border = BorderStroke(1.dp, BacklotBorder),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Icon(Icons.Outlined.Schedule, null)
+                            Spacer(Modifier.size(7.dp))
+                            Text("CHOOSE ANOTHER TIME", fontSize = 12.sp)
+                        }
+                        if (onReplay != null) {
+                            TextButton(onClick = onReplay, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Outlined.Replay, null, tint = BacklotSecondaryAccent)
+                                Spacer(Modifier.size(7.dp))
+                                Text("REPLAY VOICE", color = BacklotSecondaryAccent, fontSize = 12.sp)
+                            }
+                        }
+                        TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                            Text("DISMISS FOR NOW", color = BacklotSecondaryText, fontSize = 12.sp)
+                        }
                     }
-                }
-                TextButton(onClick = onDismiss) {
-                    Text("DISMISS FOR NOW", color = BacklotSecondaryText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

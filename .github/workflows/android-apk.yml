@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - "main"
       - "feature/v149-supabase-voice-reminder-fix"
       - "stable/backlot-v149"
     paths:
@@ -69,7 +68,7 @@ jobs:
   device-regression:
     name: RC26 device regression
     needs: build
-    if: github.ref == 'refs/heads/feature/v149-supabase-voice-reminder-fix' || github.ref == 'refs/heads/stable/backlot-v149' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/feature/v149-supabase-voice-reminder-fix' || github.ref == 'refs/heads/stable/backlot-v149'
     runs-on: macos-15-intel
     timeout-minutes: 35
     steps:

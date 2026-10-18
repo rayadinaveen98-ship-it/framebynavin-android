@@ -40,9 +40,12 @@ class WeeklyScheduleStore(private val context: Context) {
             val backup = prefs[backupKey] ?: throw IllegalStateException("Weekly plan is unreadable. The original has been retained.", cause)
             runCatching { decode(backup) }.getOrElse { throw IllegalStateException("Both weekly plan copies are unreadable.", it) }
         }
-        val cleaned = decoded.filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
-        val migrated = cleaned.map(WeeklyScheduleEngine::migratePresetSlot)
-        val resolved = if (migrated.isEmpty()) WeeklyScheduleEngine.defaultSlots() else migrated
+        // A legacy slot ID is not proof that a creator hasn't customized that slot.
+        // Preserve it; retire or migrate old templates only with explicit user control.
+        val migrated = decoded.map(WeeklyScheduleEngine::migratePresetSlot)
+        // Only a genuinely new install (raw == null above) receives starter slots.
+        // An existing empty list is intentional and must survive restarts and restores.
+        val resolved = migrated
         if (resolved != decoded) {
             mutationMutex.withLock { saveUnlocked(resolved) }
         }
@@ -57,9 +60,7 @@ class WeeklyScheduleStore(private val context: Context) {
 
     private suspend fun loadRaw(): List<WeeklyScheduleSlot> {
         val raw = context.weeklyScheduleDataStore.data.first()[slotsKey] ?: return emptyList()
-        return decode(raw)
-            .filterNot { WeeklyScheduleEngine.isLegacySeedSlot(it.id) }
-            .map(WeeklyScheduleEngine::migratePresetSlot)
+        return decode(raw).map(WeeklyScheduleEngine::migratePresetSlot)
     }
 
     suspend fun applyDelta(base: List<WeeklyScheduleSlot>, desired: List<WeeklyScheduleSlot>, expectedGeneration: Long): List<WeeklyScheduleSlot> = CreatorDataGate.transaction {

@@ -92,10 +92,10 @@ internal fun V133AppIconPicker() {
     var selected by remember { mutableStateOf(BacklotAppIconManager.current(context)) }
 
     Column(Modifier.fillMaxWidth()) {
-        Text("APP ICON", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("APP ICON", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
         Text("Choose how Backlot appears on your home screen.", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text("Your launcher may take a moment to refresh after switching.", color = MutedText, fontSize = 8.3.sp)
+        Text("Choose an icon for your home screen. The launcher may take a moment to update.", color = MutedText, fontSize = 11.sp)
         Spacer(Modifier.height(10.dp))
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -123,8 +123,8 @@ internal fun V133AppIconPicker() {
                                     Image(painterResource(icon.previewRes), contentDescription = "${icon.displayName} Backlot icon", modifier = Modifier.size(54.dp))
                                 }
                                 Spacer(Modifier.height(7.dp))
-                                Text(icon.displayName, color = ProjectorIvory, fontSize = 9.7.sp, fontWeight = FontWeight.Bold)
-                                Text(icon.description, color = MutedText, fontSize = 7.2.sp, lineHeight = 9.2.sp, maxLines = 2)
+                                Text(icon.displayName, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(icon.description, color = MutedText, fontSize = 10.5.sp, lineHeight = 14.sp, maxLines = 2)
                             }
                         }
                     }

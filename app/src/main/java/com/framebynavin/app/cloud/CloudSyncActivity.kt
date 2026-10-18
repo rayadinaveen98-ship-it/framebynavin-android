@@ -70,6 +70,8 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     var driveToken by remember(session?.email) { mutableStateOf(session?.email?.let(DriveVaultTokenMemory::get)) }
     var drivePoints by remember { mutableStateOf<List<DriveVaultRestorePoint>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
+    var cloudChecking by remember { mutableStateOf(false) }
+    var driveListAvailable by remember(session?.email) { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var restoreTarget by remember { mutableStateOf<DriveVaultRestorePoint?>(null) }
 
@@ -81,42 +83,59 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     fun describe(result: CreatorCloudSyncResult): String = when (result) {
         is CreatorCloudSyncResult.Synced -> result.message
         is CreatorCloudSyncResult.Restored -> "Cloud workspace restored: ${result.projectCount} projects and ${result.ideaCount} ideas."
-        is CreatorCloudSyncResult.Conflict -> "This phone and cloud both changed. Choose which workspace to keep; nothing was overwritten."
+        is CreatorCloudSyncResult.Conflict -> "Your phone and cloud have different work. Choose which copy to keep; nothing was replaced."
         is CreatorCloudSyncResult.Skipped -> result.message
         is CreatorCloudSyncResult.Failure -> result.message
     }
 
     fun runCloudSync() {
-        if (session == null || busy) return
+        if (session == null || busy || cloudChecking) return
         busy = true
+        cloudChecking = true
         message = null
         scope.launch {
-            val result = cloud.syncNow()
-            syncResult = result
-            syncStatus = cloud.status()
-            message = describe(result)
-            busy = false
+            try {
+                val result = cloud.syncNow()
+                syncResult = result
+                syncStatus = cloud.status()
+                message = describe(result)
+            } catch (error: Exception) {
+                syncStatus = cloud.status()
+                message = error.message ?: "Could not complete the cloud backup."
+            } finally {
+                cloudChecking = false
+                busy = false
+            }
         }
     }
 
     fun resolveCloud(restore: Boolean) {
-        if (busy) return
+        if (busy || cloudChecking) return
         busy = true
+        cloudChecking = true
         message = null
         scope.launch {
-            val result = if (restore) cloud.restoreCloud() else cloud.keepThisPhone()
-            syncResult = result
-            syncStatus = cloud.status()
-            message = describe(result)
-            busy = false
+            try {
+                val result = if (restore) cloud.restoreCloud() else cloud.keepThisPhone()
+                syncResult = result
+                syncStatus = cloud.status()
+                message = describe(result)
+            } catch (error: Exception) {
+                syncStatus = cloud.status()
+                message = error.message ?: "Could not resolve the two cloud copies."
+            } finally {
+                cloudChecking = false
+                busy = false
+            }
         }
     }
 
     fun loadDrivePoints(accessToken: String) {
         busy = true
+        driveListAvailable = false
         scope.launch {
             runCatching { drive.list(accessToken) }
-                .onSuccess { drivePoints = it; message = null }
+                .onSuccess { drivePoints = it; driveListAvailable = true; message = null }
                 .onFailure { message = it.message ?: "Could not read the optional Google Drive copies." }
             busy = false
         }
@@ -205,15 +224,26 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     }
 
     LaunchedEffect(session?.userId) {
-        if (session != null) {
-            val result = cloud.syncNow()
-            syncResult = result
-            syncStatus = cloud.status()
+        // A new sign-in already runs its own sync; do not race another request.
+        if (session != null && !busy && !cloudChecking) {
+            cloudChecking = true
+            try {
+                val result = cloud.syncNow()
+                syncResult = result
+                syncStatus = cloud.status()
+                message = describe(result)
+            } catch (error: Exception) {
+                syncStatus = cloud.status()
+                message = error.message ?: "Could not check the cloud backup."
+            } finally {
+                cloudChecking = false
+            }
         }
     }
     LaunchedEffect(session?.email, driveToken) { driveToken?.let(::loadDrivePoints) }
 
     val conflict = syncResult as? CreatorCloudSyncResult.Conflict
+    val backupView = CreatorCloudBackupStatusV170.resolve(syncStatus, syncResult, cloudChecking)
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -223,7 +253,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column {
-                    Text("CREATOR CLOUD", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    Text("BACKUP & SYNC", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                     Text("Backup & Recovery", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
                 }
             }
@@ -235,7 +265,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                 Text("Automatic creator backup", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    "Your phone remains the working copy. When you connect Google, Backlot privately syncs portable creator snapshots to your Supabase account and restores cloud changes only when it is safe.",
+                    "Your work stays on this phone. Sign in to back up supported data privately. Restoring another copy needs your approval.",
                     color = MutedText,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
@@ -246,7 +276,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
             if (session == null) {
                 CloudCard {
                     Text("Connect your creator account", color = ProjectorIvory, fontWeight = FontWeight.Bold)
-                    Text("Google is your identity. Supabase keeps the private automatic backup for that identity.", color = MutedText, fontSize = 12.sp)
+                    Text("Sign in with Google to back up your work privately.", color = MutedText, fontSize = 12.sp)
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = ::startGoogleSignIn, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("CONTINUE WITH GOOGLE") }
                 }
@@ -255,18 +285,23 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                     Text("ACCOUNT", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
                     Text(session?.email.orEmpty(), color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(10.dp))
-                    val last = syncStatus.lastSuccessMillis
                     Text(
-                        when {
-                            conflict != null || syncStatus.needsResolution -> "Sync needs your choice"
-                            last > 0L -> "Last automatic sync · ${cloudTime(last)} · revision ${syncStatus.revision}"
-                            else -> "Automatic sync will start when the account is ready"
-                        },
-                        color = if (conflict != null || syncStatus.needsResolution) MutedGold else Color(0xFF86C995),
+                        backupView.headline,
+                        color = if (backupView.state == CreatorBackupBadgeStatus.COMPLETE) Color(0xFF86C995) else MutedGold,
                         fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
                     )
+                    Text(backupView.explanation, color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    if (syncStatus.lastSuccessMillis > 0L) {
+                        Text("Last confirmed · ${cloudTime(syncStatus.lastSuccessMillis)}",
+                            color = MutedText, fontSize = 11.sp)
+                    }
+                    if (!syncStatus.lastError.isNullOrBlank() &&
+                        backupView.state == CreatorBackupBadgeStatus.ERROR) {
+                        Text("Latest error · ${syncStatus.lastError}", color = RecRed, fontSize = 11.sp)
+                    }
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = ::runCloudSync, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = ::runCloudSync, enabled = !busy && !cloudChecking, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Outlined.Sync, null); Spacer(Modifier.width(7.dp)); Text(if (busy) "SYNCING…" else "SYNC NOW")
                     }
                 }
@@ -274,29 +309,29 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                 if (conflict != null) {
                     Spacer(Modifier.height(12.dp))
                     CloudCard {
-                        Text("SYNC CONFLICT", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                        Text("Nothing was overwritten", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                        Text("TWO DIFFERENT COPIES FOUND", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text("Your work is safe", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                         Text("Phone: ${conflict.localProjectCount} projects · ${conflict.localIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
                         Text("Cloud: ${conflict.cloudProjectCount} projects · ${conflict.cloudIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
                         Spacer(Modifier.height(12.dp))
                         Button(onClick = { resolveCloud(true) }, enabled = !busy && conflict.cloudRevision > 0L, modifier = Modifier.fillMaxWidth()) {
-                            Text("RESTORE CLOUD WORKSPACE")
+                            Text("USE CLOUD COPY")
                         }
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(onClick = { resolveCloud(false) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                            Text("KEEP THIS PHONE'S WORK", color = ProjectorIvory)
+                            Text("KEEP PHONE COPY", color = ProjectorIvory)
                         }
                     }
                 }
 
                 Spacer(Modifier.height(20.dp))
-                Text("OPTIONAL MANUAL COPY", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                Text("Google Drive is no longer the automatic backup system. Use it only when you want an extra manual export/import restore point.", color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                Text("MANUAL BACKUP", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text("Google Drive is optional for saving or loading a manual backup.", color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
                 Spacer(Modifier.height(8.dp))
                 CloudCard {
                     if (driveToken == null) {
                         OutlinedButton(onClick = ::authorizeDrive, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                            Icon(Icons.Outlined.AddToDrive, null); Spacer(Modifier.width(7.dp)); Text("CONNECT DRIVE FOR IMPORT / EXPORT")
+                            Icon(Icons.Outlined.AddToDrive, null); Spacer(Modifier.width(7.dp)); Text("CONNECT GOOGLE DRIVE")
                         }
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -310,24 +345,38 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                                 val access = driveToken ?: return@Button
                                 busy = true
                                 scope.launch {
-                                    runCatching { drive.backupNow(access) }
-                                        .onSuccess { message = "Manual Drive copy exported."; drivePoints = drive.list(access) }
-                                        .onFailure { message = it.message ?: "Drive export failed." }
-                                    busy = false
+                                    try {
+                                        val saved = runCatching { drive.backupNow(access) }
+                                        if (saved.isSuccess) {
+                                            message = "Manual Drive copy saved. Checking the list of copies…"
+                                            runCatching { drive.list(access) }
+                                                .onSuccess { drivePoints = it; driveListAvailable = true; message = "Manual Drive copy saved and list refreshed." }
+                                                .onFailure { driveListAvailable = false; message = "Drive copy saved, but the list could not be refreshed. Try again." }
+                                        } else message = saved.exceptionOrNull()?.message ?: "Drive export failed."
+                                    } finally {
+                                        busy = false
+                                    }
                                 }
                             },
                             enabled = !busy,
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text("EXPORT MANUAL DRIVE COPY") }
+                        ) { Text("SAVE COPY TO DRIVE") }
                     }
                 }
 
                 if (driveToken != null) {
                     Spacer(Modifier.height(12.dp))
-                    Text("DRIVE IMPORT POINTS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                    if (!busy && drivePoints.isEmpty()) {
-                        Text("No manual Drive copies found.", color = MutedText, fontSize = 12.sp)
-                    } else {
+                    Text("SAVED DRIVE COPIES", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    if (!driveListAvailable && !busy) {
+                        Text("Drive copies could not be confirmed. Refresh the list before restoring.",
+                            color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp)
+                        TextButton(onClick = { driveToken?.let(::loadDrivePoints) }) {
+                            Text("RETRY DRIVE LIST", color = RecRed, fontSize = 11.sp)
+                        }
+                    } else if (driveListAvailable && drivePoints.isEmpty()) {
+                        Text("No manual Drive copies found in the latest successful check.",
+                            color = MutedText, fontSize = 11.sp)
+                    } else if (driveListAvailable) {
                         drivePoints.forEach { point ->
                             Surface(
                                 onClick = { restoreTarget = point },
@@ -360,7 +409,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
             onDismissRequest = { if (!busy) restoreTarget = null },
             containerColor = CinemaSurfaceRaised,
             title = { Text("Import this Drive copy?", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-            text = { Text("This is a manual import. Backlot validates the copy and keeps a local recovery journal before replacing covered creator data. Automatic creator cloud will reconcile afterward.", color = MutedText) },
+            text = { Text("Importing replaces supported data on this phone. Backlot makes a recovery copy first.", color = MutedText) },
             confirmButton = {
                 TextButton(onClick = {
                     val access = driveToken ?: return@TextButton

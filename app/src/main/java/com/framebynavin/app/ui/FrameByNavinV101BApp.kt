@@ -14,6 +14,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -64,7 +66,9 @@ import com.framebynavin.app.cloud.CloudSyncActivity
 import com.framebynavin.app.cloud.CloudSyncManager
 import com.framebynavin.app.cloud.DriveVaultLocalStore
 import com.framebynavin.app.data.*
+import com.framebynavin.app.reminders.ReminderActionSafety
 import com.framebynavin.app.reminders.ReminderScheduler
+import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.widget.CreatorWidgetContract
@@ -72,6 +76,7 @@ import com.framebynavin.app.widget.CreatorWidgetLaunch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collectLatest
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -106,6 +111,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
+    var quickCreateRequested by rememberSaveable { mutableStateOf(false) }
+    var composerSession by rememberSaveable { mutableIntStateOf(0) }
+    var composerDismissRequest by rememberSaveable { mutableIntStateOf(0) }
+    var returnToComposerFromSettings by rememberSaveable { mutableStateOf(false) }
+    var composerCleanupKey by remember { mutableStateOf<String?>(null) }
+    val composerStateHolder = rememberSaveableStateHolder()
     var publicationTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -113,16 +124,48 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var guidedTourStepName by rememberSaveable { mutableStateOf<String?>(null) }
     var stageCompletionEvent by rememberSaveable { mutableLongStateOf(0L) }
 
+    fun finishComposerSession() {
+        composerCleanupKey = "project-composer-$composerSession"
+        showComposer = false
+        editTaskId = null
+        quickCreateRequested = false
+        returnToComposerFromSettings = false
+    }
+    fun leaveOverlay() {
+        when (overlay) {
+            POverlay.PROFILE -> overlay = POverlay.SETTINGS
+            POverlay.SETTINGS -> {
+                overlay = POverlay.NONE
+                if (returnToComposerFromSettings) {
+                    returnToComposerFromSettings = false
+                    showComposer = true
+                }
+            }
+            POverlay.WEEK, POverlay.AUTOMATION -> {
+                overlay = if (returnToComposerFromSettings) POverlay.SETTINGS else POverlay.NONE
+            }
+            else -> overlay = POverlay.NONE
+        }
+    }
+    // A disposed editor keeps its saveable fields only during the explicit Settings detour.
+    LaunchedEffect(showComposer, composerCleanupKey) {
+        val key = composerCleanupKey
+        if (key != null && (!showComposer || key != "project-composer-$composerSession")) {
+            composerStateHolder.removeState(key)
+            composerCleanupKey = null
+        }
+    }
+
     BackHandler(enabled = guidedTourStepName != null || focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
         when {
             // Real surfaces always get first chance to close. A Back press inside Quick Capture or
             // New Project must not silently count as skipping the entire guided journey.
             focusTaskId != null -> focusTaskId = null
-            showComposer -> showComposer = false
+            showComposer -> composerDismissRequest += 1
             showQuickCapture -> showQuickCapture = false
             showReminders -> showReminders = false
             showControl -> { showControl = false; controlExpanded = false }
-            overlay != POverlay.NONE -> overlay = POverlay.NONE
+            overlay != POverlay.NONE -> leaveOverlay()
             guidedTourStepName != null -> {
                 settingsStore.markGuidedTourComplete()
                 settings = settingsStore.snapshot()
@@ -192,8 +235,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         runCatching { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
             .onFailure { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") }) }
     }
-    fun openComposer(id: String? = null) {
+    fun openComposer(id: String? = null, quick: Boolean = false) {
+        composerSession += 1
+        composerDismissRequest = 0
+        returnToComposerFromSettings = false
         editTaskId = id
+        quickCreateRequested = id == null && quick
         showComposer = true
     }
     fun openProject(id: String) {
@@ -230,9 +277,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
-    LaunchedEffect(vm.tasks) {
-        if (CreatorCalendarSync.isEnabled(context)) {
-            withContext(Dispatchers.IO) { CreatorCalendarSync.syncIfEnabled(context.applicationContext, vm.tasks) }
+    LaunchedEffect(vm) {
+        snapshotFlow { vm.tasks.toList() }.collectLatest { currentTasks ->
+            if (CreatorCalendarSync.isEnabled(context)) {
+                // Observe actual list edits, not its stable Compose list identity.
+                // Calendar provider errors must not crash the creator workspace.
+                withContext(Dispatchers.IO) {
+                    runCatching { CreatorCalendarSync.syncIfEnabled(context.applicationContext, currentTasks) }
+                }
+            }
         }
     }
 
@@ -321,9 +374,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 )
                 PTab.IDEAS -> V09IdeaVaultScreen(
                     ideas = vm.ideas,
+                    deletedIdeas = vm.deletedIdeas,
                     onClose = null,
                     onSave = vm::saveIdea,
                     onDelete = vm::deleteIdea,
+                    onRestore = vm::restoreIdea,
                     onArchive = vm::archiveIdea,
                     onConvert = { ideaId, platform, format, dueAtMillis ->
                         val projectId = vm.convertIdeaToProject(ideaId, platform, format, dueAtMillis)
@@ -339,6 +394,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     externalLaunchNonce = externalLaunch?.nonce ?: 0L,
                 )
                 PTab.CREATE -> V131StudioScreen(
+                    onQuickCreate = { openComposer(quick = true) },
                     tasks = vm.tasks,
                     postPublishCheckpoints = vm.postPublishCheckpoints,
                     onAdd = { openComposer() },
@@ -361,6 +417,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     tasks = vm.tasks,
                     weeklySlots = vm.weeklySlots,
                     onClose = null,
+                    onOpenProject = ::openProject,
+                    onOpenWeeklyPlan = { overlay = POverlay.WEEK },
                 )
                 PTab.INSIGHTS -> V11InsightsScreen(
                     creatorProfile = settings.creatorProfile,
@@ -389,11 +447,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     shadowElevation = 10.dp,
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.GridView, "Control", tint = ProjectorIvory, modifier = Modifier.size(19.dp))
+                        Icon(Icons.Outlined.GridView, "Quick Actions", tint = ProjectorIvory, modifier = Modifier.size(19.dp))
                         AnimatedVisibility(visible = controlExpanded) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Spacer(Modifier.width(7.dp))
-                                Text("CONTROL", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Text("QUICK ACTIONS", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
                             }
                         }
                     }
@@ -408,7 +466,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 slots = vm.weeklySlots,
                 tasks = vm.tasks,
                 onAutoPlanChange = vm::setWeeklyAutoPlanEnabled,
-                onClose = { overlay = POverlay.NONE },
+                onClose = ::leaveOverlay,
                 onToggle = vm::setWeeklySlotEnabled,
                 onSave = vm::saveWeeklySlot,
                 onDelete = vm::deleteWeeklySlot,
@@ -423,11 +481,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 tasks = vm.tasks,
                 weeklySlots = vm.weeklySlots,
                 onClose = { overlay = POverlay.NONE },
+                onOpenProject = ::openProject,
+                onOpenWeeklyPlan = { overlay = POverlay.WEEK },
+                onOpenCalendar = { overlay = POverlay.CALENDAR },
             )
             POverlay.CALENDAR -> V15ContentCalendarScreen(
                 tasks = vm.tasks,
                 weeklySlots = vm.weeklySlots,
                 onClose = { overlay = POverlay.NONE },
+                onOpenProject = ::openProject,
+                onOpenWeeklyPlan = { overlay = POverlay.WEEK },
             )
             POverlay.AUTOMATION -> V17AutomationCenterScreen(
                 tasks = vm.tasks,
@@ -435,39 +498,56 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 weeklySlots = vm.weeklySlots,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 contextNudgesEnabled = settings.contextNudgesEnabled,
-                onClose = { overlay = POverlay.NONE },
+                onClose = ::leaveOverlay,
                 onWeeklyAutoPlanChange = vm::setWeeklyAutoPlanEnabled,
             )
             POverlay.PROFILE -> V23ProfileAccountScreen(
                 creatorProfile = settings.creatorProfile,
                 onClose = { overlay = POverlay.SETTINGS },
-                onEditCreatorSetup = {
-                    settingsStore.setOnboardingComplete(false)
-                    settings = settingsStore.snapshot()
-                    overlay = POverlay.NONE
-                },
+                onEditCreatorSetup = {}, // profile changes no longer re-enter onboarding
                 onOpenYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
+                onSaveCreatorProfile = { revised ->
+                    val saved = settingsStore.saveCreatorProfileEdits(revised)
+                    if (saved) settings = settingsStore.snapshot()
+                    saved
+                },
             )
             POverlay.CREATOR_PROGRESS -> V23CreatorProgressScreen(
                 snapshot = CreatorRewardsV22Engine.snapshot(vm.rewardLedger),
                 onClose = { overlay = POverlay.NONE },
+                onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
+                onOpenProjects = { overlay = POverlay.NONE; tab = PTab.CREATE },
             )
             POverlay.SETTINGS -> V144SettingsHub(
                 settings = settings,
                 tasks = vm.tasks,
+                weeklySlots = vm.weeklySlots,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 notificationsReady = permissions.notifications,
       preciseTimingReady = permissions.preciseTiming,
       fullScreenReady = permissions.fullScreen,
       batteryReady = permissions.batteryAccess,
-                onClose = { overlay = POverlay.NONE },
+                onClose = ::leaveOverlay,
                 onProfile = { overlay = POverlay.PROFILE },
                 onVoice = { settingsStore.setDefaultVoicePersona(it); settings = settingsStore.snapshot() },
                 onAlarmTimeout = { settingsStore.setDefaultAlarmTimeoutSeconds(it); settings = settingsStore.snapshot() },
                 onSnooze = { settingsStore.setSnoozeMinutes(it); settings = settingsStore.snapshot() },
+                onUnansweredFollowUps = { enabled ->
+                    settingsStore.setUnansweredFollowUpsEnabled(enabled)
+                    settings = settingsStore.snapshot()
+                    if (!enabled) com.framebynavin.app.reminders.V179ReminderFollowUps.cancelAll(context)
+                },
                 onWeeklyAutoPlan = vm::setWeeklyAutoPlanEnabled,
                 onContextNudges = {
                     settingsStore.setContextNudgesEnabled(it)
+                    settings = settingsStore.snapshot()
+                },
+                onQuietHoursEnabled = {
+                    settingsStore.setQuietHoursEnabled(it)
+                    settings = settingsStore.snapshot()
+                },
+                onQuietHoursWindow = { from, until ->
+                    settingsStore.setQuietHoursWindow(from, until)
                     settings = settingsStore.snapshot()
                 },
                 onNotifications = ::requestNotifications,
@@ -481,7 +561,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     showControl = false
                     showQuickCapture = false
                     showReminders = false
-                    showComposer = false
+                    if (showComposer || returnToComposerFromSettings) finishComposerSession()
                     focusTaskId = null
                     externalStudioId = null
                     tab = PTab.TODAY
@@ -489,6 +569,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 },
                 onCloudSync = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
                 onYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
+                onOpenWeeklyPlan = { overlay = POverlay.WEEK },
+                onOpenAutomation = { overlay = POverlay.AUTOMATION },
             )
         }
 
@@ -549,6 +631,41 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onNew = { showReminders = false; openComposer() },
             onEdit = { id -> showReminders = false; openComposer(id) },
             onDeleteReminders = vm::cancelReminders,
+            onOpenReminderSettings = { showReminders = false; overlay = POverlay.SETTINGS },
+            onSnoozeReminder = { task, minutes ->
+                vm.snoozeReminderFromCenter(task.id, ReminderActionSafety.fingerprint(task), minutes)
+            },
+            onPauseReminder = { task ->
+                vm.pauseReminderFromCenter(task.id, ReminderActionSafety.fingerprint(task))
+            },
+            onRescheduleReminder = { task ->
+                val fingerprint = ReminderActionSafety.fingerprint(task)
+                val initial = task.reminderAtMillis.takeIf { it > System.currentTimeMillis() }
+                    ?: (System.currentTimeMillis() + 15 * 60_000L)
+                pPickDateTime(context, initial) { picked ->
+                    val now = System.currentTimeMillis()
+                    if (!ReminderCenterPolicy.validRescheduleAt(task, picked, now)) {
+                        Toast.makeText(context, "Choose a time after now and before your project deadline.", Toast.LENGTH_LONG).show()
+                    } else if (!ReminderCenterPolicy.validTargetWindow(
+                            task, now, picked, SmartEscalationConfigStore(context).get(task)
+                        )) {
+                        Toast.makeText(context, "Choose a later time so Smart reminders have enough time to escalate.", Toast.LENGTH_LONG).show()
+                    } else {
+                        vm.rescheduleReminderFromCenter(task.id, fingerprint, picked)
+                    }
+                }
+            },
+            snoozeMinutes = settings.snoozeMinutes,
+            onAcknowledgeReminder = { task, token, action ->
+                // The receiver revalidates current task, generation and one-use occurrence.
+                // No direct task writes or inferred acknowledgements from the UI.
+                context.sendBroadcast(
+                    Intent(context, com.framebynavin.app.reminders.ReminderActionReceiver::class.java)
+                        .setAction(action)
+                        .putExtra(com.framebynavin.app.reminders.ReminderConstants.EXTRA_TASK_ID, task.id)
+                        .putExtra(com.framebynavin.app.reminders.ReminderConstants.EXTRA_OCCURRENCE_ID, token)
+                )
+            },
         )
     }
 
@@ -556,25 +673,50 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         V14QuickCaptureDialog(
             onDismiss = { showQuickCapture = false },
             onSave = { idea ->
-                vm.saveIdea(idea)
-                showQuickCapture = false
-                routeJourney(V18CreatorJourney.afterCapture())
-                if (guidedTourStepName == CreatorGuidedTourStep.IDEAS.name) {
-                    externalStudioId = null
-                    tab = PTab.CREATE
-                    guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                val savedId = vm.saveIdea(idea)
+                if (savedId == null) {
+                    false // Quick Capture retains all text and any original audio.
+                } else {
+                    showQuickCapture = false
+                    routeJourney(V18CreatorJourney.afterCapture())
+                    Toast.makeText(context, "Saved to Idea Vault", Toast.LENGTH_SHORT).show()
+                    if (guidedTourStepName == CreatorGuidedTourStep.IDEAS.name) {
+                        externalStudioId = null
+                        tab = PTab.CREATE
+                        guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
+                    }
+                    true
                 }
             },
         )
     }
 
     if (showComposer) {
+        composerStateHolder.SaveableStateProvider("project-composer-$composerSession") {
         val task = editTaskId?.let { id -> vm.tasks.firstOrNull { it.id == id } }
+        if (editTaskId != null && task == null) {
+            AlertDialog(
+                onDismissRequest = ::finishComposerSession,
+                title = { Text("Project unavailable") },
+                text = { Text("This project is no longer available. No new project was created.") },
+                confirmButton = {
+                    TextButton(onClick = ::finishComposerSession) {
+                        Text("CLOSE")
+                    }
+                },
+            )
+        } else {
         PProjectComposer(
             task = task,
+            startWithQuickCreate = quickCreateRequested && task == null,
+            dismissRequestToken = composerDismissRequest,
             reminderSetupReady = permissions.notifications && permissions.preciseTiming && permissions.fullScreen,
-            onDismiss = { showComposer = false },
-            onOpenSettings = { showComposer = false; overlay = POverlay.SETTINGS },
+            onDismiss = ::finishComposerSession,
+            onOpenSettings = {
+                returnToComposerFromSettings = true
+                showComposer = false
+                overlay = POverlay.SETTINGS
+            },
             onSave = { draft ->
                 val savedTaskId = vm.saveTaskConfiguration(
                     id = task?.id,
@@ -596,7 +738,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     attentionPlan = draft.attentionPlan,
                     deliveryPreference = draft.deliveryPreference,
                 )
-                showComposer = false
+                if (savedTaskId == null) {
+                    Toast.makeText(context, "Could not save the project. Your form is still open.", Toast.LENGTH_LONG).show()
+                } else {
+                // saveTaskConfiguration queues a disk write; do not claim completion here.
+                finishComposerSession()
+                Toast.makeText(context, "Saving project…", Toast.LENGTH_SHORT).show()
                 if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
                     guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
                 }
@@ -605,12 +752,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     externalStudioNonce += 1L
                     routeJourney(V18JourneyDestination.CREATE)
                 }
+                }
             },
             onRemoveReminder = {
                 task?.let { vm.cancelReminder(it.id) }
-                showComposer = false
+                finishComposerSession()
             },
         )
+        }
+        }
     }
 
     if (!settings.accountOnboardingComplete) {
@@ -646,7 +796,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 settings = settingsStore.snapshot()
             },
         )
-    } else if (!settings.onboardingComplete || !settings.creatorProfile.isComplete) {
+    } else if (V151SetupPolicy.needsCreatorSetup(
+        onboardingComplete = settings.onboardingComplete,
+        profileComplete = settings.creatorProfile.isComplete,
+    )) {
         V18CreatorOnboarding(
             profile = settings.creatorProfile,
             notificationsReady = permissions.notifications,
@@ -658,9 +811,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onFullScreen = ::requestFullScreen,
             onBattery = ::openBatterySettings,
             onFinish = { profile ->
-                settingsStore.setCreatorProfile(profile)
-                settingsStore.setOnboardingComplete(true)
+                val saved = settingsStore.completeCreatorSetup(profile)
                 settings = settingsStore.snapshot()
+                saved && settings.onboardingComplete && settings.creatorProfile.isComplete
             },
         )
     }
@@ -768,54 +921,26 @@ private fun PControlCenter(
     onReschedule: (String) -> Unit,
     onSkip: (String) -> Unit,
 ) {
-    val overdue = pActiveQueue(tasks).filter { it.dueAtMillis in 1 until System.currentTimeMillis() }
-    val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
-    Column(Modifier.fillMaxWidth().heightIn(max = 730.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
-        Text("BACKLOT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-        Text("Control", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-        Text("Start, capture or adjust your creator day.", color = MutedText, fontSize = 10.sp)
-        Spacer(Modifier.height(17.dp))
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            PBigAction("NEW PROJECT", "Plan something", Icons.Outlined.Add, RecRed, onNewProject, Modifier.weight(1f))
-            PBigAction("RELEASE DAY", "Move fast", Icons.Outlined.Bolt, RecRed, onRelease, Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(12.dp))
-        PControlRow("Quick Capture", "Type or speak an idea", Icons.Outlined.Bolt, onQuickCapture)
-        PControlRow("Daily Brief", "What needs your attention today", Icons.Outlined.Today, onDailyBrief)
-        PControlRow("Content Calendar", "Upcoming projects and publishing", Icons.Outlined.CalendarMonth, onCalendar)
-        PControlRow("Idea Vault", if (readyIdeas > 0) "$readyIdeas ideas ready to make" else "Capture what you might make later", Icons.Outlined.Lightbulb, onIdeas)
-        PControlRow("Weekly Plan", if (weeklyAutoPlanEnabled) "Auto Plan on" else "Auto Plan off", Icons.Outlined.CalendarMonth, onWeek)
-        PControlRow("Reminders", "See and edit active reminders", Icons.Outlined.Alarm, onReminders)
-        PControlRow("Automation", "Recurring planning and reminders", Icons.Outlined.AutoAwesome, onAutomation)
-        PControlRow(
-            "Creator Progress",
-            "Your consistency and milestones",
-            Icons.Outlined.EmojiEvents,
-            onCreatorProgress,
-        )
-        PControlRow("Settings", "Profile, reminders, connections and defaults", Icons.Outlined.Settings, onSettings)
-
-        if (overdue.isNotEmpty()) {
-            Spacer(Modifier.height(18.dp))
-            Text("NEEDS A DECISION", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Spacer(Modifier.height(8.dp))
-            overdue.take(4).forEach { task ->
-                Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(17.dp), BacklotSurfaceSelected, border = BorderStroke(1.dp, RecRed.copy(alpha = .24f))) {
-                    Column(Modifier.padding(13.dp)) {
-                        Text(task.title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(task.dueLabel, color = RecRed, fontSize = 8.8.sp)
-                        Spacer(Modifier.height(7.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            AssistChip(onClick = { onPublishLate(task.id) }, label = { Text("+30 MIN", fontSize = 10.sp) })
-                            AssistChip(onClick = { onReschedule(task.id) }, label = { Text("NEW TIME", fontSize = 10.sp) })
-                            AssistChip(onClick = { onSkip(task.id) }, label = { Text("SKIP", fontSize = 10.sp) })
-                        }
-                    }
-                }
-            }
-        }
-    }
+    V161QuickActionsHub(
+        tasks = tasks,
+        ideas = ideas,
+        weeklyAutoPlanEnabled = weeklyAutoPlanEnabled,
+        creatorProgress = creatorProgress,
+        onNewProject = onNewProject,
+        onQuickCapture = onQuickCapture,
+        onDailyBrief = onDailyBrief,
+        onCalendar = onCalendar,
+        onRelease = onRelease,
+        onIdeas = onIdeas,
+        onWeek = onWeek,
+        onReminders = onReminders,
+        onAutomation = onAutomation,
+        onCreatorProgress = onCreatorProgress,
+        onSettings = onSettings,
+        onPublishLate = onPublishLate,
+        onReschedule = onReschedule,
+        onSkip = onSkip,
+    )
 }
 
 @Composable
@@ -832,11 +957,13 @@ private fun PWeekScreen(
     onReset: () -> Unit,
 ) {
     var editSchedule by rememberSaveable { mutableStateOf(false) }
+    var confirmAutoPlan by remember { mutableStateOf(false) }
+    val preview = CreatorWeeklyPlanPreviewEngine.build(slots, tasks)
     if (editSchedule) {
-        V08WeeklyScheduleScreen(slots, tasks, { editSchedule = false }, onToggle, onSave, onDelete, onRefresh, onReset)
+        V08WeeklyScheduleScreen(slots, tasks, { editSchedule = false }, onToggle, onSave, onDelete, onRefresh, onReset, autoPlanEnabled = autoPlanEnabled)
         return
     }
-    val next = remember(slots.toList(), autoPlanEnabled) { if (autoPlanEnabled) WeeklyScheduleEngine.nextOccurrence(slots) else null }
+    val next = remember(slots.toList()) { WeeklyScheduleEngine.nextOccurrence(slots) }
     val enabledSlots = slots.filter { it.enabled }
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 42.dp)) {
@@ -848,9 +975,11 @@ private fun PWeekScreen(
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Weekly Auto Plan", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(if (autoPlanEnabled) "Your schedule can create upcoming projects." else "Your schedule stays saved. Nothing is added automatically.", color = MutedText, fontSize = 9.3.sp, lineHeight = 13.sp)
+                        Text(if (autoPlanEnabled) "Your schedule can create upcoming projects." else "Auto Plan off · future projects are not added. Your existing projects stay saved.", color = MutedText, fontSize = 9.3.sp, lineHeight = 13.sp)
                     }
-                    Switch(checked = autoPlanEnabled, onCheckedChange = onAutoPlanChange, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
+                    Switch(checked = autoPlanEnabled, onCheckedChange = { enabled ->
+                        if (enabled) confirmAutoPlan = true else onAutoPlanChange(false)
+                    }, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
                 }
             }
 
@@ -858,7 +987,7 @@ private fun PWeekScreen(
                 Spacer(Modifier.height(13.dp))
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
                     Column(Modifier.padding(15.dp)) {
-                        Text("NEXT UP", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text(if (autoPlanEnabled) "NEXT UP" else "NEXT TEMPLATE · AUTO PLAN OFF", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                         Spacer(Modifier.height(5.dp))
                         Text(it.slot.title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         Text(WeeklyScheduleEngine.formatOccurrence(it.publishAtMillis), color = MutedGold, fontSize = 9.5.sp)
@@ -866,6 +995,8 @@ private fun PWeekScreen(
                 }
             }
 
+            Spacer(Modifier.height(7.dp))
+            Text("${preview.missing.size} missing future project(s) · ${preview.alreadyCreated} already planned", color = MutedText, fontSize = 10.sp)
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("YOUR WEEK", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -892,6 +1023,20 @@ private fun PWeekScreen(
             }
         }
     }
+    if (confirmAutoPlan) {
+        AlertDialog(
+            onDismissRequest = { confirmAutoPlan = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Turn on automatic planning?", color = ProjectorIvory) },
+            text = { Text("Backlot may create ${preview.missing.size} missing projects over the next 14 days from your active templates. It never publishes posts or rewrites existing projects.", color = MutedText) },
+            confirmButton = {
+                Button(onClick = { confirmAutoPlan = false; onAutoPlanChange(true) },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("TURN ON AUTO PLAN") }
+            },
+            dismissButton = { TextButton(onClick = { confirmAutoPlan = false }) { Text("CANCEL") } },
+        )
+    }
+
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -995,12 +1140,12 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("HELPFUL REMINDERS", "Extra reminders when a project may need attention.")
+            PSettingsHeading("HELPFUL REMINDERS", "Get alerts when a project needs attention.")
             Spacer(Modifier.height(8.dp))
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Helpful project reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("Extra project reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                         Text(
                             when {
                                 !permissions.notifications -> "Enable notification permission above first."
@@ -1029,7 +1174,7 @@ private fun PSettingsScreen(
                 onPreview = { pPreviewVoice(context, it) },
             )
             Text(
-                "New projects inherit this voice automatically. Existing projects keep their saved voice unless you edit them.",
+                "New projects use this voice. You can change it per project.",
                 color = MutedText,
                 fontSize = 8.2.sp,
                 lineHeight = 11.5.sp,
@@ -1101,7 +1246,7 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("YOUTUBE CONNECTION", "See your real channel performance inside Insights.")
+            PSettingsHeading("YOUTUBE CONNECTION", "See how your YouTube videos are doing.")
             Spacer(Modifier.height(8.dp))
             Surface(
                 onClick = onYouTube,
@@ -1233,7 +1378,7 @@ internal fun PBottomNav(
                     }
                 }
             }
-            PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Create", selected == PTab.CREATE, onSelect, Modifier.weight(1f))
+            PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Projects", selected == PTab.CREATE, onSelect, Modifier.weight(1f))
             PBottomNavItem(PTab.INSIGHTS, Icons.Outlined.Insights, "Insights", selected == PTab.INSIGHTS, onSelect, Modifier.weight(1f))
         }
     }
@@ -1268,7 +1413,7 @@ private fun PBottomNavItem(
             Text(
                 label,
                 color = if (active) ProjectorIvory else MutedText,
-                fontSize = 9.5.sp,
+                fontSize = 11.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1357,14 +1502,14 @@ internal fun PQueueDots(index: Int, size: Int) {
 @Composable
 internal fun PMetric(label: String, value: String, accent: Color, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(14.dp)) { Text(label, color = MutedText, fontSize = 7.8.sp, letterSpacing = .7.sp); Spacer(Modifier.height(4.dp)); Text(value, color = accent, fontSize = 25.sp, fontWeight = FontWeight.Black) }
+        Column(Modifier.padding(14.dp)) { Text(label, color = MutedText, fontSize = 12.sp, letterSpacing = .3.sp); Spacer(Modifier.height(4.dp)); Text(value, color = accent, fontSize = 25.sp, fontWeight = FontWeight.Black) }
     }
 }
 
 @Composable
 internal fun PSmallStat(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(11.dp)) { Text(value, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black); Text(label, color = MutedText, fontSize = 7.sp, lineHeight = 9.sp) }
+        Column(Modifier.padding(11.dp)) { Text(value, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black); Text(label, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp) }
     }
 }
 
@@ -1383,7 +1528,7 @@ private fun PControlRow(title: String, subtitle: String, icon: ImageVector, onCl
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(17.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(34.dp).background(CinemaSurfaceRaised, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = MutedGold, modifier = Modifier.size(18.dp)) }
-            Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = MutedText, fontSize = 8.7.sp) }
+            Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = MutedText, fontSize = 12.sp) }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
     }
@@ -1394,7 +1539,7 @@ private fun PPermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
     Surface(onClick = if (ready) ({}) else onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(15.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (ready) SuccessGreen else MutedGold, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(9.dp)); Text(label, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f)); Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(9.dp)); Text(label, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f)); Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -1402,7 +1547,7 @@ private fun PPermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
 @Composable
 private fun PSettingsHeading(title: String, subtitle: String) {
     Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text(subtitle, color = MutedText, fontSize = 8.8.sp)
+    Text(subtitle, color = MutedText, fontSize = 12.sp)
 }
 
 internal fun pActiveQueue(tasks: List<CreatorTask>): List<CreatorTask> =

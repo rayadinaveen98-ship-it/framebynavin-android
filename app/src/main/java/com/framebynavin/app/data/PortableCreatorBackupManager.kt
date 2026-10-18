@@ -56,7 +56,11 @@ class PortableCreatorBackupManager(context: Context) {
             val ideaId = idea.optString("id", "").trim()
             val path = idea.optString("audioLocalPath", "").trim()
             if (ideaId.isBlank() || path.isBlank()) continue
-            val file = ownedFinalVoiceRecording(path) ?: continue
+            // Refuse an apparently successful backup if it would silently omit a
+            // referenced, but missing or corrupt, original voice recording.
+            val file = PortableVoiceExportPolicy.requireReadableOwnedRecording(
+                File(appContext.filesDir, VOICE_IDEA_DIRECTORY), path,
+            )
             require(seenIdeaIds.add(ideaId)) { "Duplicate Voice Idea id in backup" }
             result += PortableBackupMedia(ideaId, file)
         }
@@ -97,8 +101,8 @@ class PortableCreatorBackupManager(context: Context) {
 
     private fun rewritePortableVoicePaths(raw: String, installed: Map<String, File>): String {
         val root = JSONObject(raw)
-        require(root.optInt("schemaVersion", -1) == CreatorBackupManager.SCHEMA_VERSION) {
-            "Portable voice media requires the current Backlot backup schema"
+        require(root.optInt("schemaVersion", -1) in 8..CreatorBackupManager.SCHEMA_VERSION) {
+            "Portable voice media requires a supported Backlot backup schema"
         }
         val ideas = JSONArray(root.getString("ideas"))
         val consumed = mutableSetOf<String>()
@@ -122,20 +126,9 @@ class PortableCreatorBackupManager(context: Context) {
         }
         require(consumed == installed.keys) { "Not all restored Voice Idea media was referenced" }
         root.put("ideas", ideas.toString())
-        root.put("payloadSha256", sha256(fingerprintCurrentSchema(root)))
+        root.put("payloadSha256", sha256(fingerprintSupportedSchema(root)))
         return root.toString().also(creatorBackup::validate)
     }
-
-    private fun ownedFinalVoiceRecording(path: String): File? = runCatching {
-        val root = File(appContext.filesDir, VOICE_IDEA_DIRECTORY).canonicalFile
-        val target = File(path).canonicalFile
-        val owned = target.parentFile == root &&
-            target.isFile &&
-            target.name.startsWith(VOICE_IDEA_FILE_PREFIX) &&
-            target.name.endsWith(VOICE_IDEA_FINAL_SUFFIX, ignoreCase = true) &&
-            !target.name.endsWith(VOICE_IDEA_WORKING_SUFFIX, ignoreCase = true)
-        target.takeIf { owned }
-    }.getOrNull()
 
     private fun uniqueVoiceDestination(root: File): File {
         repeat(20) {
@@ -145,9 +138,12 @@ class PortableCreatorBackupManager(context: Context) {
         error("Could not allocate Voice Idea recording path")
     }
 
-    /** Must stay byte-for-byte equivalent to CreatorBackupManager's schema-8 fingerprint order. */
-    private fun fingerprintCurrentSchema(root: JSONObject): String = buildString {
-        CURRENT_FINGERPRINT_KEYS.forEach { key ->
+    /** Re-sign the imported schema *without* changing its version or legacy fields. */
+    private fun fingerprintSupportedSchema(root: JSONObject): String = buildString {
+        val schema = root.getInt("schemaVersion")
+        val keys = if (schema >= 9) CURRENT_FINGERPRINT_KEYS
+            else CURRENT_FINGERPRINT_KEYS.filterNot { it == "automationPreferences" }
+        keys.forEach { key ->
             val value = root.optString(key, "")
             append(key.length).append(':').append(key).append(value.length).append(':').append(value)
         }
@@ -179,8 +175,34 @@ class PortableCreatorBackupManager(context: Context) {
             "youtubePublishCheckpoints",
             "projectPulseHistory",
             "workflowStageTimeline",
+            "automationPreferences",
             "manifest",
         )
+    }
+}
+
+/**
+ * Fail closed during export: neither foreign paths nor missing/empty original
+ * recordings may be silently omitted from a successful portable backup.
+ */
+internal object PortableVoiceExportPolicy {
+    fun requireReadableOwnedRecording(root: File, rawPath: String): File {
+        val target = runCatching { File(rawPath).canonicalFile }.getOrNull()
+        val safeRoot = runCatching { root.canonicalFile }.getOrNull()
+        require(
+            target != null &&
+                safeRoot != null &&
+                target.parentFile == safeRoot &&
+                target.isFile &&
+                target.canRead() &&
+                target.length() > 0L &&
+                target.name.startsWith("voice_idea_") &&
+                target.name.endsWith(".m4a", ignoreCase = true) &&
+                !target.name.endsWith(".recording.m4a", ignoreCase = true)
+        ) {
+            "A saved Voice Idea recording is missing or unavailable. The backup was not marked complete."
+        }
+        return target
     }
 }
 

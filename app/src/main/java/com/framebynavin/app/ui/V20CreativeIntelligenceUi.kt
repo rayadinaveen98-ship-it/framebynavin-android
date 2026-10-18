@@ -55,11 +55,11 @@ internal fun V20CreativeIntelligenceCard(
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f)),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("CREATIVE INTELLIGENCE", color = MutedGold, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+            Text("CREATIVE PATTERNS", color = MutedGold, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(4.dp))
-            Text("What your own creative choices are teaching you", color = ProjectorIvory, fontSize = 13.5.sp, fontWeight = FontWeight.Black)
+            Text("See what works in your videos", color = ProjectorIvory, fontSize = 13.5.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(3.dp))
-            Text("Tap for deeper creator patterns", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+            Text("See more patterns", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(3.dp))
             Text(
                 "${intelligence.connectedProjects} connected project${if (intelligence.connectedProjects == 1) "" else "s"} in this analytics window · patterns require repeated samples",
@@ -72,8 +72,8 @@ internal fun V20CreativeIntelligenceCard(
             if (intelligence.patterns.isEmpty()) {
                 Text(
                     when {
-                        intelligence.connectedProjects < 2 -> "Connect more published projects. One upload is evidence, not a pattern."
-                        else -> "Backlot has multiple projects, but not enough repeated CTR, retention or subscriber-conversion evidence across comparable creative choices yet."
+                        intelligence.connectedProjects < 2 -> "Link more published videos to see reliable patterns."
+                        else -> "More comparable videos are needed before drawing conclusions."
                     },
                     color = MutedText,
                     fontSize = 8.7.sp,
@@ -88,7 +88,7 @@ internal fun V20CreativeIntelligenceCard(
 
             Spacer(Modifier.height(9.dp))
             Text(
-                "Hook/title labels are transparent structural rules (question, quote, length). Thumbnail visual style is not inferred here; that belongs to the optional vision layer later.",
+                "These patterns compare title and hook structure, not thumbnail design.",
                 color = MutedText.copy(alpha = .75f),
                 fontSize = 7.3.sp,
                 lineHeight = 10.5.sp,

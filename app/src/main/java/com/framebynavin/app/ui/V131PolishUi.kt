@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.framebynavin.app.ui
 
 import androidx.activity.compose.BackHandler
@@ -63,6 +64,8 @@ import com.framebynavin.app.data.ProjectPulseState
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
 import com.framebynavin.app.data.TaskStatus
+import com.framebynavin.app.reminders.ReminderNotifications
+import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.SmartSessionStore
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.delay
@@ -144,7 +147,7 @@ internal fun V131CinematicWelcome() {
                 Text("FRAME", color = ProjectorIvory, fontSize = 31.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
                 Text("BY NAVIN", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
                 Spacer(Modifier.height(14.dp))
-                Text("CREATOR OS", color = MutedText, fontSize = 8.sp, letterSpacing = 2.2.sp)
+                Text("YOUR CREATOR SPACE", color = MutedText, fontSize = 8.sp, letterSpacing = 2.2.sp)
             }
         }
 
@@ -201,7 +204,7 @@ internal fun V131PlanScreen(
         )
         Spacer(Modifier.height(18.dp))
         Text("See the week clearly.", color = ProjectorIvory, fontSize = 29.sp, fontWeight = FontWeight.Black)
-        Text("Tap a project to edit it. Long-press to select one or more.", color = MutedText, fontSize = 9.4.sp)
+        Text("Tap to open a project. Hold to select several.", color = MutedText, fontSize = 9.4.sp)
         Spacer(Modifier.height(18.dp))
 
         if (active.isEmpty() && completed.isEmpty()) {
@@ -307,76 +310,26 @@ internal fun V131ReminderCenter(
     onNew: () -> Unit,
     onEdit: (String) -> Unit,
     onDeleteReminders: (Set<String>) -> Unit,
+    onOpenReminderSettings: () -> Unit = onDismiss,
+    onSnoozeReminder: ((CreatorTask, Int) -> Unit)? = null,
+    onPauseReminder: ((CreatorTask) -> Unit)? = null,
+    onRescheduleReminder: ((CreatorTask) -> Unit)? = null,
+    snoozeMinutes: Int = 10,
+    onAcknowledgeReminder: ((CreatorTask, String, String) -> Unit)? = null,
 ) {
-    val now = System.currentTimeMillis()
-    val active = tasks.filter {
-        (it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING) &&
-            it.archivedAtMillis <= 0L &&
-            (it.attentionPlan != ProjectAttentionPlan.OFF || it.reminderEnabled)
-    }.sortedBy {
-        ProjectPulseEngine.snapshot(it, now).nextCheckpointAtMillis.takeIf { time -> time > 0L } ?: Long.MAX_VALUE
-    }
-    val nowProjects = active.filter { ProjectPulseEngine.snapshot(it, now).state in setOf(ProjectPulseState.OVERDUE, ProjectPulseState.NEEDS_ATTENTION, ProjectPulseState.AT_RISK) }
-    val next = active.filter { task ->
-        task !in nowProjects && ProjectPulseEngine.snapshot(task, now).nextCheckpointAtMillis in now..(now + 24 * 60 * 60_000L)
-    }
-    val later = active.filter { it !in nowProjects && it !in next }
-
-    var selected by remember { mutableStateOf(setOf<String>()) }
-    var confirmDelete by remember { mutableStateOf(false) }
-    val selectionMode = selected.isNotEmpty()
-    val allIds = active.map { it.id }.toSet()
-    val haptics = LocalHapticFeedback.current
-
-    Dialog(onDismissRequest = { if (selectionMode) selected = emptySet() else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-                V131SelectionTopBar(
-                    title = "ATTENTION",
-                    selectionMode = selectionMode,
-                    selectedCount = selected.size,
-                    onExitSelection = { selected = emptySet() },
-                    onSelectAll = { selected = if (selected.size == allIds.size) emptySet() else allIds },
-                    onDelete = { if (selected.isNotEmpty()) confirmDelete = true },
-                    onAdd = onNew,
-                    onBack = onDismiss,
-                )
-                Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
-                    Text("What needs you next.", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.height(16.dp))
-                    if (active.isEmpty()) {
-                        V131Empty("Nothing needs attention", "Your active projects will surface here when a checkpoint matters.", onNew)
-                    } else {
-                        V131PulseGroup("NOW", nowProjects, RecRed, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-                        }, onEdit)
-                        V131PulseGroup("NEXT", next, MutedGold, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-                        }, onEdit)
-                        V131PulseGroup("LATER", later, MutedText, selectionMode, selected, { id -> selected = v131Toggle(selected, id) }, {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress); selected = selected + it
-                        }, onEdit)
-                    }
-                }
-            }
-        }
-    }
-
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Turn off attention for ${selected.size} project${if (selected.size == 1) "" else "s"}?") },
-            text = { Text("The projects remain. Only automatic check-ins and scheduled alerts are removed.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDeleteReminders(selected)
-                    selected = emptySet()
-                    confirmDelete = false
-                }) { Text("TURN OFF", color = RecRed) }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("CANCEL") } },
-        )
-    }
+    V157ReminderCenterUi(
+        tasks = tasks,
+        onDismiss = onDismiss,
+        onNew = onNew,
+        onEdit = onEdit,
+        onDeleteReminders = onDeleteReminders,
+        onOpenReminderSettings = onOpenReminderSettings,
+        onSnooze = onSnoozeReminder,
+        onPause = onPauseReminder,
+        onReschedule = onRescheduleReminder,
+        snoozeMinutes = snoozeMinutes,
+        onAcknowledge = onAcknowledgeReminder,
+    )
 }
 
 @Composable
@@ -431,6 +384,7 @@ internal fun V131StudioScreen(
     tasks: List<CreatorTask>,
     postPublishCheckpoints: List<PostPublishCheckpoint> = emptyList(),
     onAdd: () -> Unit,
+    onQuickCreate: () -> Unit,
     onAdvance: (String) -> Unit,
     onBack: (String) -> Unit,
     onFocus: (String) -> Unit,
@@ -516,6 +470,24 @@ internal fun V131StudioScreen(
                     }
                 }
                 Text("Tap a project to open it. Long-press to select one or more.", color = MutedText, fontSize = 9.sp)
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onAdd,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Text("NEW PROJECT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = onQuickCreate,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Text("QUICK CREATE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
                 Spacer(Modifier.height(18.dp))
             }
         }

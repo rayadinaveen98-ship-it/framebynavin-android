@@ -5,7 +5,7 @@ import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskPriority
 import com.framebynavin.app.data.TaskStatus
 
-enum class SmartDeliveryDecision { DELIVER, DEFER, DROP }
+enum class SmartDeliveryDecision { DELIVER, DEFER, RECOVER_LATE, DROP }
 
 /** Pure reliability rules shared by AlarmManager delivery and recovery paths. */
 object ReminderDeliveryPolicy {
@@ -29,8 +29,14 @@ object ReminderDeliveryPolicy {
         if (task.reminderAtMillis != targetAtMillis) return SmartDeliveryDecision.DROP
         if (task.dueAtMillis > 0L && task.reminderAtMillis > task.dueAtMillis) return SmartDeliveryDecision.DROP
         if (!stageAllowed(task.priority, stage)) return SmartDeliveryDecision.DROP
-        // reminderAtMillis is the creator's hard FINAL Smart target, not a soft anchor.
-        if (nowMillis > targetAtMillis) return SmartDeliveryDecision.DROP
+        // The selected Smart time is the hard stop for *escalation*, not a reason to
+        // silently lose a valid reminder when Android delivers a broadcast late.
+        // Late stages become one catch-up notification, never a late ringing alarm.
+        if (nowMillis > targetAtMillis) {
+            if (task.workingUntilMillis > nowMillis) return SmartDeliveryDecision.DROP
+            return if (MissedReminderRecovery.shouldCatchUp(targetAtMillis, task.dueAtMillis, nowMillis))
+                SmartDeliveryDecision.RECOVER_LATE else SmartDeliveryDecision.DROP
+        }
         if (task.workingUntilMillis > nowMillis) {
             return if (task.workingUntilMillis <= targetAtMillis) SmartDeliveryDecision.DEFER else SmartDeliveryDecision.DROP
         }
@@ -48,10 +54,7 @@ object ReminderDeliveryPolicy {
     }
 
     private fun isActive(task: CreatorTask): Boolean =
-        task.reminderEnabled &&
-            task.reminderMode != ReminderMode.NONE &&
-            task.status != TaskStatus.DONE &&
-            task.status != TaskStatus.SKIPPED
+        ReminderActionSafety.isActionable(task)
 
     private fun stageAllowed(priority: TaskPriority, stage: SmartEscalationScheduler.Stage): Boolean = when (priority) {
         TaskPriority.NORMAL -> stage == SmartEscalationScheduler.Stage.SOFT

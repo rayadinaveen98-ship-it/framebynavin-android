@@ -52,12 +52,34 @@ class AlarmActivity : ComponentActivity() {
         val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
         lifecycleScope.launch {
-            delay(task.alarmTimeoutSeconds.coerceIn(30, 300) * 1000L + 750L)
+            delay(V178PlaybackLifecyclePolicy.alarmDurationMillis(task) +
+                V178PlaybackLifecyclePolicy.ACTIVITY_WATCHDOG_EXTRA_MILLIS)
             if (!isFinishing && !isDestroyed) {
                 AlarmRingingService.stop(applicationContext, taskId, occurrenceId)
                 if (!ReminderOccurrenceStore(applicationContext).matches(task, occurrenceId)) {
                     finishAndRemoveTask()
                     return@launch
+                }
+                // Only a safety fallback: normally the ringing service stops promptly.
+                // Preserve the original occurrence's buttons if the service was interrupted.
+                runCatching {
+                    ReminderNotifications.show(
+                        applicationContext, task,
+                        stageLabel = "Alarm screen timed out · response still needed",
+                        occurrenceId = occurrenceId,
+                        discreet = true,
+                    )
+                }
+                runCatching {
+                    ReminderAcknowledgementStore(applicationContext).markUnanswered(
+                        task.id, occurrenceId, "alarm_screen_watchdog",
+                    )
+                    V179ReminderFollowUps.armAfterUnanswered(
+                        applicationContext, task, occurrenceId,
+                        // An activity watchdog does not know whether this was the terminal
+                        // Smart stage. Only the alarm service can authorize Smart follow-ups.
+                        finalSmartStage = false,
+                    )
                 }
                 getSystemService(NotificationManager::class.java).cancel(AlarmRingingService.notificationId(task.id))
                 finishAndRemoveTask()
@@ -75,6 +97,7 @@ class AlarmActivity : ComponentActivity() {
                     notes = task.notes,
                     snoozeMinutes = snoozeMinutes,
                     stageCheckIn = ProjectPulseEngine.isStageCheckIn(task),
+                    attentionPlan = task.attentionPlan,
                     onStageDone = { dispatchReminderAction(ReminderConstants.ACTION_STAGE_DONE, task.id) },
                     onWorking = { dispatchReminderAction(ReminderConstants.ACTION_STARTED, task.id) },
                     onSnooze = { dispatchReminderAction(ReminderConstants.ACTION_SNOOZE, task.id) },

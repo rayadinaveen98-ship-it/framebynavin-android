@@ -298,7 +298,7 @@ private fun V20WeeklyFocusDialog(
                 Spacer(Modifier.height(12.dp))
                 Surface(shape = RoundedCornerShape(18.dp), color = MutedGold.copy(alpha = .07f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
                     Column(Modifier.padding(14.dp)) {
-                        Text("WEEKLY OUTPUT", color = MutedText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                        Text("POSTS THIS WEEK", color = MutedText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(4.dp))
                         Text("${personalization.publishedThisWeek} / ${personalization.weeklyTarget}", color = if (personalization.publishedThisWeek >= personalization.weeklyTarget) SuccessGreen else MutedGold, fontSize = 28.sp, fontWeight = FontWeight.Black)
                         Text(
@@ -314,10 +314,10 @@ private fun V20WeeklyFocusDialog(
                 }
 
                 Spacer(Modifier.height(18.dp))
-                Text("COMPLETED THIS WEEK", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text("FINISHED THIS WEEK", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 if (published.isEmpty()) {
-                    Text("Nothing published yet this week.", color = MutedText, fontSize = 9.5.sp)
+                    Text("No posts yet this week.", color = MutedText, fontSize = 9.5.sp)
                 } else published.forEach { task ->
                     Surface(
                         onClick = { if (task.archivedAtMillis <= 0L) onOpenProject(task.id) },
@@ -341,7 +341,7 @@ private fun V20WeeklyFocusDialog(
 
                 if (active.isNotEmpty()) {
                     Spacer(Modifier.height(11.dp))
-                    Text("ACTIVE WORK", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("YOUR PROJECTS", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
                     active.forEach { task ->
                         val pulse = ProjectPulseEngine.snapshot(task)
@@ -426,7 +426,7 @@ private fun PNextMoveCard(
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("NEXT MOVE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                Text("UP NEXT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.weight(1f))
                 Text(recommendation.urgencyLabel, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                 Spacer(Modifier.width(5.dp))
@@ -457,7 +457,7 @@ private fun PNextMoveCard(
             if (!expanded) {
                 Spacer(Modifier.height(9.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Tap to understand why", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Why this suggestion?", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.width(2.dp))
                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(14.dp))
                 }

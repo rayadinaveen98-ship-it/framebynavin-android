@@ -1,0 +1,136 @@
+name: Backlot V183 — Stable Personal Install Release
+
+on:
+  push:
+    branches:
+      - release/backlot-v183-stable-personal
+      - main
+    paths:
+      - "app/**"
+      - "tools/check_v*.sh"
+      - "docs/qa/V183_STABLE_PERSONAL_RELEASE.md"
+      - ".github/workflows/backlot-v183-stable-personal.yml"
+      - "*.gradle.kts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v183-stable-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stable-apk:
+    name: Stable personal signing, full regressions and APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Stable signing, version and data-safety contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/check_v183_stable_personal.sh
+          for version in 161 162 163 164 165 166 167 168 169 170; do
+            script=$(find tools -maxdepth 1 -name "check_v${version}_*.sh" | head -n 1)
+            test -n "$script"
+            bash "$script"
+          done
+          for script in \
+            tools/check_v171_project_safety.sh \
+            tools/check_v172_new_project_draft_ux.sh \
+            tools/check_v173_new_project_visual_consistency.sh \
+            tools/check_v174_quick_create.sh \
+            tools/check_v175_project_details.sh \
+            tools/check_v176_release_acceptance.sh \
+            tools/check_v177_reminder_acknowledgements.sh \
+            tools/check_v178_reminder_playback_lifecycle.sh \
+            tools/check_v179_bounded_followups.sh \
+            tools/check_v180_reminder_controls.sh \
+            tools/check_v181_reminder_inbox.sh \
+            tools/check_v182_reminder_reliability.sh; do
+            bash "$script"
+          done
+      - name: JVM regression tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Android instrumentation-test compilation
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Assemble update-compatible debug and non-debuggable stable APKs
+        run: gradle :app:assembleDebug :app:assemblePersonalStable --stacktrace
+      - name: Verify APK signatures match and stable is non-debuggable
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEBUG_APK="app/build/outputs/apk/debug/app-debug.apk"
+          STABLE_APK="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$DEBUG_APK"
+          test -s "$STABLE_APK"
+          APKSIGNER="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --print-certs "$DEBUG_APK" > /tmp/backlot-debug-signing.txt
+          "$APKSIGNER" verify --print-certs "$STABLE_APK" > /tmp/backlot-stable-signing.txt
+          DEBUG_CERT="$(grep -m1 'certificate SHA-256 digest' /tmp/backlot-debug-signing.txt | sed 's/.*: //')"
+          STABLE_CERT="$(grep -m1 'certificate SHA-256 digest' /tmp/backlot-stable-signing.txt | sed 's/.*: //')"
+          test -n "$DEBUG_CERT"
+          test "$DEBUG_CERT" = "$STABLE_CERT"
+          echo "Matching APK signing certificate digest: $STABLE_CERT"
+          AAPT="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$STABLE_APK" | grep -Fq "package: name='com.framebynavin.app' versionCode='183' versionName='2.3.3-stable'"
+          if "$AAPT" dump xmltree "$STABLE_APK" AndroidManifest.xml | grep -q 'android:debuggable'; then
+            echo "Stable manifest unexpectedly contains android:debuggable" >&2
+            exit 1
+          fi
+          sha256sum "$DEBUG_APK" "$STABLE_APK"
+      - name: Upload Backlot stable personal APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v183-2.3.3-Stable-Personal-APK
+          path: app/build/outputs/apk/personalStable/app-personalStable.apk
+          if-no-files-found: error
+          retention-days: 90
+
+  android-emulator:
+    name: Android 11 reminder and project upgrade regressions
+    needs: stable-apk
+    runs-on: macos-15-intel
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Verify core reminder and project safety on Android 11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            gradle :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.reminders.V182ReminderChannelIsolationInstrumentedTest,com.framebynavin.app.ui.V181ReminderInboxUiTest,com.framebynavin.app.ui.V180ReminderTimingUiTest,com.framebynavin.app.reminders.V179FollowUpClaimInstrumentedTest,com.framebynavin.app.reminders.V178UnansweredHandoffInstrumentedTest,com.framebynavin.app.reminders.V177ReminderAcknowledgementInstrumentedTest,com.framebynavin.app.reminders.V159ReminderActionIsolationTest,com.framebynavin.app.reminders.V155ReminderRecoveryIsolationInstrumentedTest,com.framebynavin.app.data.V176ProjectPersistenceInstrumentedTest" "-Pandroid.testInstrumentationRunnerArguments.hardeningTestEnvironment=ci-emulator" --stacktrace
+      - name: Upload Android 11 acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v183-Android11-Stable-Acceptance-Results
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+          if-no-files-found: warn
+          retention-days: 30

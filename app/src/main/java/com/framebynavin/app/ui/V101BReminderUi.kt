@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 package com.framebynavin.app.ui
 
 import android.app.DatePickerDialog
@@ -185,6 +186,8 @@ internal fun PProjectComposer(
     onOpenSettings: () -> Unit,
     onSave: (PProjectDraft) -> Unit,
     onRemoveReminder: () -> Unit,
+    startWithQuickCreate: Boolean = false,
+    dismissRequestToken: Int = 0,
 ) {
     val context = LocalContext.current
     val defaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
@@ -211,11 +214,17 @@ internal fun PProjectComposer(
             now = System.currentTimeMillis()
         }
     }
-    val fallbackDue = now + 60 * 60_000L
+    // A fresh Quick Create draft has a full-day buffer; existing projects and
+    // the original seven-step setup retain their established due-date behavior.
+    val fallbackDue = if (task == null && startWithQuickCreate) {
+        V174QuickCreatePolicy.defaultDueAt(now)
+    } else now + 60 * 60_000L
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title.orEmpty()) }
     var creatorModeId by rememberSaveable(task?.id) { mutableStateOf(initialDna.creatorModeId) }
     var archetypeId by rememberSaveable(task?.id) { mutableStateOf(initialDna.archetypeId) }
-    var productionStyles by remember(task?.id) { mutableStateOf(initialDna.productionStyles) }
+    // ArrayList is Bundle-saveable; using plain remember lost style choices on recreation.
+    var savedStyleList by rememberSaveable(task?.id) { mutableStateOf(ArrayList(initialDna.productionStyles.sorted())) }
+    val productionStyles = savedStyleList.toSet()
     var platform by rememberSaveable(task?.id) { mutableStateOf(initialDna.platform.ifBlank { task?.platform ?: defaultPlatform }) }
     var contentType by rememberSaveable(task?.id) {
         mutableStateOf(initialDna.deliveryFormat.ifBlank {
@@ -224,7 +233,7 @@ internal fun PProjectComposer(
             else CreatorPlatformRegistry.defaultFormat(initialDna.platform.ifBlank { task?.platform ?: defaultPlatform })
         })
     }
-    var dueAt by rememberSaveable(task?.id) { mutableLongStateOf(task?.dueAtMillis?.takeIf { it > now } ?: fallbackDue) }
+    var dueAt by rememberSaveable(task?.id) { mutableLongStateOf(V171ProjectEditSafety.initialDeadline(task?.dueAtMillis, fallbackDue)) }
     var attentionPlan by rememberSaveable(task?.id) {
         mutableStateOf(task?.attentionPlan ?: ProjectAttentionPlan.GUIDED)
     }
@@ -232,18 +241,22 @@ internal fun PProjectComposer(
         mutableStateOf(task?.deliveryPreference ?: ReminderDeliveryPreference.AUTO)
     }
     var customReminderAt by rememberSaveable(task?.id) {
-        mutableLongStateOf(task?.reminderAtMillis?.takeIf { it > now } ?: (dueAt - 30 * 60_000L).coerceAtLeast(now + 5 * 60_000L))
+        mutableLongStateOf(task?.reminderAtMillis?.takeIf { it > 0L } ?: (dueAt - 30 * 60_000L).coerceAtLeast(now + 5 * 60_000L))
     }
     var priority by rememberSaveable(task?.id) { mutableStateOf(task?.priority ?: TaskPriority.IMPORTANT) }
     var notes by rememberSaveable(task?.id) { mutableStateOf(task?.notes.orEmpty()) }
     var soundUri by rememberSaveable(task?.id) {
-        mutableStateOf(task?.alarmSoundUri?.takeIf { it.isNotBlank() } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString())
+        mutableStateOf(task?.alarmSoundUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString())
     }
     var voice by rememberSaveable(task?.id) { mutableStateOf(task?.voicePersona ?: defaults.defaultVoicePersona) }
     var repeatCount by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatCount ?: 3) }
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 10) }
     var alarmTimeout by rememberSaveable(task?.id) { mutableIntStateOf(task?.alarmTimeoutSeconds ?: defaults.defaultAlarmTimeoutSeconds) }
     var showCreativeSetup by rememberSaveable(task?.id) { mutableStateOf(false) }
+    // Editing an existing custom delivery choice reveals the controls that created it.
+    var showReminderAdvanced by rememberSaveable(task?.id) {
+        mutableStateOf(task?.deliveryPreference != null && task.deliveryPreference != ReminderDeliveryPreference.AUTO)
+    }
 
     val modeOptions = CreatorModeRegistry.definitions
     val archetypeOptions = remember(creatorModeId, archetypeId) {
@@ -286,8 +299,16 @@ internal fun PProjectComposer(
         if (attentionPlan == ProjectAttentionPlan.OFF || attentionPlan == ProjectAttentionPlan.CUSTOM) null
         else ProjectPulseEngine.applyAttentionPlan(previewTask, attentionPlan, now).let { ProjectPulseEngine.snapshot(it, now) }
     }
-    val customReady = attentionPlan != ProjectAttentionPlan.CUSTOM ||
-        (customReminderAt > now && customReminderAt <= dueAt)
+    val deadlineReady = V171ProjectEditSafety.deadlineReady(dueAt, now, task?.dueAtMillis)
+    val customReady = V171ProjectEditSafety.customReminderReady(
+        plan = attentionPlan,
+        selectedMillis = customReminderAt,
+        deadlineMillis = dueAt,
+        nowMillis = now,
+        existingPlan = task?.attentionPlan,
+        existingReminderMillis = task?.reminderAtMillis,
+        existingDeadlineMillis = task?.dueAtMillis,
+    )
     val effectiveReminderMode = when {
         attentionPlan == ProjectAttentionPlan.OFF -> ReminderMode.NONE
         deliveryPreference != ReminderDeliveryPreference.AUTO -> pDeliveryMode(deliveryPreference)
@@ -296,8 +317,34 @@ internal fun PProjectComposer(
     }
     val requiresAdvancedPermissions = effectiveReminderMode in setOf(ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART)
 
+    val draftSignature = V172ProjectDraftPolicy.signature(
+        listOf(
+            title, creatorModeId, archetypeId, productionStyles.sorted().joinToString("\\u001f"),
+            platform, contentType, dueAt.toString(), attentionPlan.name,
+            deliveryPreference.name, customReminderAt.toString(), priority.name, notes,
+            soundUri, voice.name, repeatCount.toString(), repeatGap.toString(), alarmTimeout.toString(),
+        )
+    )
+    val originalDraftSignature = rememberSaveable(task?.id) { draftSignature }
+    var confirmDiscard by rememberSaveable(task?.id) { mutableStateOf(false) }
+    var handledDismissToken by rememberSaveable(task?.id) { mutableIntStateOf(dismissRequestToken) }
+    fun requestExit() {
+        if (V172ProjectDraftPolicy.changed(originalDraftSignature, draftSignature)) {
+            confirmDiscard = true
+        } else {
+            onDismiss()
+        }
+    }
+    LaunchedEffect(dismissRequestToken) {
+        if (dismissRequestToken > handledDismissToken) {
+            handledDismissToken = dismissRequestToken
+            requestExit()
+        }
+    }
+
     if (task == null) {
         V20NewProjectWizard(
+            startWithQuickCreate = startWithQuickCreate,
             profile = defaults.creatorProfile,
             title = title,
             onTitleChange = { title = it },
@@ -306,15 +353,15 @@ internal fun PProjectComposer(
                 creatorModeId = selectedMode
                 archetypeId = ContentArchetypeRegistry.suggestedForMode(selectedMode).firstOrNull()?.id ?: archetypeId
                 if (productionStyles.isEmpty()) {
-                    productionStyles = defaults.creatorProfile.productionStyles.ifEmpty {
+                    savedStyleList = ArrayList(defaults.creatorProfile.productionStyles.ifEmpty {
                         ProductionStyleRegistry.orderedForMode(selectedMode).take(1).toSet()
-                    }
+                    }.sorted())
                 }
             },
             archetypeId = archetypeId,
             onArchetypeChange = { archetypeId = it },
             productionStyles = productionStyles,
-            onProductionStylesChange = { productionStyles = it },
+            onProductionStylesChange = { savedStyleList = ArrayList(it.sorted()) },
             platform = platform,
             onPlatformChange = { selectedPlatform ->
                 platform = selectedPlatform
@@ -340,13 +387,20 @@ internal fun PProjectComposer(
             priority = priority,
             onPriorityChange = { priority = it },
             voicePersona = voice,
+            onVoicePersonaChange = { voice = it },
             onPreviewVoice = { pComposerPreviewVoice(context, it) },
+            voiceRepeatCount = repeatCount,
+            onVoiceRepeatCount = { repeatCount = it },
+            voiceRepeatGapSeconds = repeatGap,
+            onVoiceRepeatGapSeconds = { repeatGap = it },
+            alarmTimeoutSeconds = alarmTimeout,
+            onAlarmTimeoutSeconds = { alarmTimeout = it },
             notes = notes,
             onNotesChange = { notes = it },
             reminderSetupReady = reminderSetupReady,
             requiresAdvancedPermissions = requiresAdvancedPermissions,
             onOpenSettings = onOpenSettings,
-            onDismiss = onDismiss,
+            onDismiss = { requestExit() },
             onCreate = {
                 onSave(
                     PProjectDraft(
@@ -377,17 +431,20 @@ internal fun PProjectComposer(
                 )
             },
         )
+        if (confirmDiscard) {
+            V172ConfirmDiscardDialog(onKeep = { confirmDiscard = false }, onDiscard = onDismiss)
+        }
         return
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = { requestExit() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(if (task == null) "NEW PROJECT" else "EDIT PROJECT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        Text(if (task == null) "NEW PROJECT" else "EDIT PROJECT", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                         Text(if (task == null) "What are you making?" else "Update your project", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                 }
@@ -396,6 +453,8 @@ internal fun PProjectComposer(
                     Spacer(Modifier.height(10.dp))
                     PComposerLabel("PROJECT")
                     OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Project title") }, singleLine = true, shape = RoundedCornerShape(16.dp))
+                    Spacer(Modifier.height(12.dp))
+                    V175ProjectNotesField(notes = notes, onNotesChange = { notes = it })
                     Spacer(Modifier.height(22.dp))
                     Surface(
                         onClick = { showCreativeSetup = !showCreativeSetup },
@@ -404,10 +463,10 @@ internal fun PProjectComposer(
                         color = CinemaSurface,
                         border = BorderStroke(1.dp, CinemaLine),
                     ) {
-                        Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.touchTarget).padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("CREATIVE OPTIONS · OPTIONAL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                                Text("Mode, content type and production style", color = MutedText, fontSize = 8.5.sp)
+                                Text("MORE OPTIONS · OPTIONAL", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                                Text("Type and style", color = MutedText, fontSize = V173ProjectUiMetrics.bodyText)
                             }
                             Icon(
                                 if (showCreativeSetup) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
@@ -421,13 +480,13 @@ internal fun PProjectComposer(
                             Spacer(Modifier.height(8.dp))
                     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                                     Column(Modifier.padding(14.dp)) {
-                                        Text("CREATIVE OPTIONS", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                                        Text("Optional details that help Backlot learn what works for you.", color = MutedText, fontSize = 8.5.sp)
+                                        Text("MORE OPTIONS", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                                        Text("Add more details if you like.", color = MutedText, fontSize = V173ProjectUiMetrics.bodyText)
                                         Spacer(Modifier.height(14.dp))
                                         PComposerLabel("CREATOR MODE")
                                         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                             modeOptions.forEach { mode ->
-                                                FilterChip(selected = creatorModeId == mode.id, onClick = { creatorModeId = mode.id }, label = { Text(mode.label, fontSize = 8.8.sp) })
+                                                FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = creatorModeId == mode.id, onClick = { creatorModeId = mode.id }, label = { Text(mode.label, fontSize = V173ProjectUiMetrics.supportingText) })
                                             }
                                         }
                                         Spacer(Modifier.height(14.dp))
@@ -435,7 +494,7 @@ internal fun PProjectComposer(
                                         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                             archetypeOptions.forEach { archetype ->
                                                 val label = runCatching { ContentArchetypeRegistry.labelForMode(archetype.id, creatorModeId) }.getOrDefault(archetype.label)
-                                                FilterChip(selected = archetypeId == archetype.id, onClick = { archetypeId = archetype.id }, label = { Text(label, fontSize = 8.6.sp) })
+                                                FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = archetypeId == archetype.id, onClick = { archetypeId = archetype.id }, label = { Text(label, fontSize = V173ProjectUiMetrics.supportingText) })
                                             }
                                         }
                                         Spacer(Modifier.height(14.dp))
@@ -444,13 +503,16 @@ internal fun PProjectComposer(
                                             productionStyleOptions.forEach { style ->
                                                 val selected = style in productionStyles
                                                 FilterChip(
+                                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                                                     selected = selected,
                                                     onClick = {
-                                                        productionStyles = if (selected) productionStyles - style
-                                                        else if (productionStyles.size < CreatorProfile.MAX_PRODUCTION_STYLES) productionStyles + style
-                                                        else productionStyles
+                                                        savedStyleList = ArrayList((
+                                                            if (selected) productionStyles - style
+                                                            else if (productionStyles.size < CreatorProfile.MAX_PRODUCTION_STYLES) productionStyles + style
+                                                            else productionStyles
+                                                        ).sorted())
                                                     },
-                                                    label = { Text(style, fontSize = 8.6.sp) },
+                                                    label = { Text(style, fontSize = V173ProjectUiMetrics.supportingText) },
                                                 )
                                             }
                                         }
@@ -463,13 +525,13 @@ internal fun PProjectComposer(
                     PComposerLabel("PUBLISH ON")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         platformOptions.forEach { value ->
-                            FilterChip(selected = platform == value, onClick = { platform = value }, label = { Text(value, fontSize = 9.5.sp) })
+                            FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = platform == value, onClick = { platform = value }, label = { Text(value, fontSize = V173ProjectUiMetrics.supportingText) })
                         }
                     }
                     Spacer(Modifier.height(18.dp))
                     PComposerLabel("FORMAT")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        formats.forEach { value -> FilterChip(selected = contentType == value, onClick = { contentType = value }, label = { Text(value, fontSize = 9.sp) }) }
+                        formats.forEach { value -> FilterChip(modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget), selected = contentType == value, onClick = { contentType = value }, label = { Text(value, fontSize = V173ProjectUiMetrics.supportingText) }) }
                     }
                     Spacer(Modifier.height(20.dp))
                     PComposerLabel("PUBLISH BY")
@@ -481,70 +543,99 @@ internal fun PProjectComposer(
                     }
 
                     Spacer(Modifier.height(24.dp))
-                    Text("KEEP THIS PROJECT ON TRACK", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                    Text("PROJECT REMINDERS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.height(10.dp))
-                    ProjectAttentionPlan.entries.forEach { plan ->
-                        PAttentionPlanCard(plan, selected = attentionPlan == plan) { attentionPlan = plan }
-                        Spacer(Modifier.height(7.dp))
+                    V156ReminderPlanPicker(
+                        selected = attentionPlan,
+                        onSelected = { attentionPlan = it },
+                    )
+
+                    if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                        Spacer(Modifier.height(9.dp))
+                        PComposerLabel("REMIND ME AT")
+                        PDateTimeButton(pFormatDateTime(customReminderAt)) {
+                            pickDateTime(customReminderAt) { customReminderAt = it }
+                        }
+                        if (!customReady) {
+                            Spacer(Modifier.height(6.dp))
+                            Text("Choose a reminder before your deadline.", color = RecRed, fontSize = 12.sp)
+                        }
+                    }
+
+                    pulsePreview?.let { pulse ->
+                        Spacer(Modifier.height(10.dp))
+                        Surface(
+                            Modifier.fillMaxWidth(),
+                            RoundedCornerShape(16.dp),
+                            CinemaSurfaceRaised,
+                            border = BorderStroke(1.dp, CinemaLine),
+                        ) {
+                            Column(Modifier.padding(13.dp)) {
+                                Text("NEXT CHECK-IN", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(4.dp))
+                                Text(pFormatDateTime(pulse.nextCheckpointAtMillis), color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("${pulse.currentStage.label} · ${pModeLabel(pulse.recommendedMode)}", color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
+                            }
+                        }
                     }
 
                     if (attentionPlan != ProjectAttentionPlan.OFF) {
                         Spacer(Modifier.height(12.dp))
-                        PComposerLabel("REMINDER STYLE")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            ReminderDeliveryPreference.entries.forEach { value ->
-                                FilterChip(
-                                    selected = deliveryPreference == value,
-                                    onClick = { deliveryPreference = value },
-                                    label = { Text(pDeliveryPreferenceLabel(value), fontSize = 9.sp) },
-                                )
+                        V156AdvancedReminderSettings(
+                            expanded = showReminderAdvanced,
+                            onToggle = { showReminderAdvanced = !showReminderAdvanced },
+                            preference = deliveryPreference,
+                        ) {
+                            PComposerLabel("HOW SHOULD BACKLOT ALERT YOU?")
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                verticalArrangement = Arrangement.spacedBy(7.dp),
+                            ) {
+                                ReminderDeliveryPreference.entries.forEach { value ->
+                                    FilterChip(
+                                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
+                                        selected = deliveryPreference == value,
+                                        onClick = { deliveryPreference = value },
+                                        label = { Text(pDeliveryPreferenceLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
+                                    )
+                                }
                             }
-                        }
-                        Spacer(Modifier.height(5.dp))
-                        Text(
-                            if (deliveryPreference == ReminderDeliveryPreference.AUTO) "Auto adapts delivery to project urgency. Choose another style to keep it for every stage."
-                            else "${pDeliveryPreferenceLabel(deliveryPreference)} will stay selected as this project moves through stages.",
-                            color = MutedText,
-                            fontSize = 8.5.sp,
-                            lineHeight = 12.sp,
-                        )
-                    }
-
-                    if (attentionPlan != ProjectAttentionPlan.OFF) {
-                        Spacer(Modifier.height(16.dp))
-                        V140VoiceStudioPicker(
-                            selected = voice,
-                            onSelected = { voice = it },
-                            onPreview = { pComposerPreviewVoice(context, it) },
-                        )
-                    }
-
-                    pulsePreview?.let { pulse ->
-                        Spacer(Modifier.height(8.dp))
-                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-                            Column(Modifier.padding(13.dp)) {
-                                Text("NEXT CHECK-IN", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                                Spacer(Modifier.height(4.dp))
-                                Text(pFormatDateTime(pulse.nextCheckpointAtMillis), color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Text("${pulse.currentStage.label} · ${pModeLabel(pulse.recommendedMode)}", color = MutedText, fontSize = 9.sp)
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                V156ReminderSetupCopy.alertExplanation(deliveryPreference),
+                                color = MutedText,
+                                fontSize = V173ProjectUiMetrics.supportingText,
+                                lineHeight = 16.sp,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            V140VoiceStudioPicker(
+                                selected = voice,
+                                onSelected = { voice = it },
+                                onPreview = { pComposerPreviewVoice(context, it) },
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            V180ReminderTimingControls(
+                                repeatCount = repeatCount,
+                                onRepeatCount = { repeatCount = it },
+                                repeatGapSeconds = repeatGap,
+                                onRepeatGapSeconds = { repeatGap = it },
+                                alarmTimeoutSeconds = alarmTimeout,
+                                onAlarmTimeoutSeconds = { alarmTimeout = it },
+                            )
+                            if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
+                                Spacer(Modifier.height(12.dp))
+                                PComposerLabel("IMPORTANCE")
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    TaskPriority.entries.forEach { value ->
+                                        FilterChip(
+                                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
+                                            selected = priority == value,
+                                            onClick = { priority = value },
+                                            label = { Text(pPriorityLabel(value), fontSize = V173ProjectUiMetrics.supportingText) },
+                                        )
+                                    }
+                                }
                             }
-                        }
-                    }
-
-                    if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
-                        Spacer(Modifier.height(18.dp))
-                        PComposerLabel("REMINDER TIME")
-                        PDateTimeButton(pFormatDateTime(customReminderAt)) { pickDateTime(customReminderAt) { customReminderAt = it } }
-                        Spacer(Modifier.height(14.dp))
-                        PComposerLabel("IMPORTANCE")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            TaskPriority.entries.forEach { value ->
-                                FilterChip(selected = priority == value, onClick = { priority = value }, label = { Text(pPriorityLabel(value), fontSize = 9.sp) })
-                            }
-                        }
-                        if (!customReady) {
-                            Spacer(Modifier.height(7.dp))
-                            Text("Choose a reminder between now and publish time.", color = RecRed, fontSize = 8.5.sp)
                         }
                     }
 
@@ -554,20 +645,18 @@ internal fun PProjectComposer(
                             Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Outlined.Settings, null, tint = MutedGold, modifier = Modifier.size(17.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Finish reminder setup", color = ProjectorIvory, fontSize = 9.5.sp, modifier = Modifier.weight(1f))
+                                Text("Set up reminders", color = ProjectorIvory, fontSize = V173ProjectUiMetrics.supportingText, modifier = Modifier.weight(1f))
                                 Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(22.dp))
-                    PComposerLabel("NOTES · OPTIONAL")
-                    OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 88.dp), placeholder = { Text("Angle, reference, anything worth remembering…") }, shape = RoundedCornerShape(16.dp))
+                    Spacer(Modifier.height(16.dp))
 
                     if (task != null && (task.reminderEnabled || task.attentionPlan != ProjectAttentionPlan.OFF)) {
                         Spacer(Modifier.height(12.dp))
                         TextButton(onClick = onRemoveReminder, modifier = Modifier.fillMaxWidth()) {
-                            Text("TURN OFF REMINDERS", color = MutedText, fontSize = 8.5.sp)
+                            Text("NO REMINDERS", color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
                         }
                     }
                 }
@@ -603,54 +692,40 @@ internal fun PProjectComposer(
                                 )
                             )
                         },
-                        enabled = title.isNotBlank() && dueAt > now && customReady,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp).height(52.dp),
+                        enabled = title.isNotBlank() && deadlineReady && customReady,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp).heightIn(min = V173ProjectUiMetrics.actionMinHeight),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     ) {
-                        Text(if (task == null) "CREATE PROJECT" else "SAVE PROJECT", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text(if (task == null) "CREATE PROJECT" else "SAVE PROJECT", fontSize = V173ProjectUiMetrics.actionText, fontWeight = FontWeight.Black)
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun PAttentionPlanCard(plan: ProjectAttentionPlan, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) RecRed.copy(alpha = .10f) else CinemaSurface,
-        border = BorderStroke(1.dp, if (selected) RecRed.copy(alpha = .75f) else CinemaLine),
-    ) {
-        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                when (plan) {
-                    ProjectAttentionPlan.OFF -> Icons.Outlined.NotificationsOff
-                    ProjectAttentionPlan.LIGHT -> Icons.Outlined.NotificationsNone
-                    ProjectAttentionPlan.GUIDED -> Icons.Outlined.NotificationsActive
-                    ProjectAttentionPlan.URGENT -> Icons.Outlined.Alarm
-                    ProjectAttentionPlan.CUSTOM -> Icons.Outlined.Tune
-                },
-                null,
-                tint = if (selected) RecRed else MutedGold,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(ProjectPulseEngine.planLabel(plan), color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(ProjectPulseEngine.planDescription(plan), color = MutedText, fontSize = 8.7.sp, lineHeight = 12.sp)
-            }
-            if (selected) Icon(Icons.Outlined.CheckCircle, null, tint = RecRed, modifier = Modifier.size(18.dp))
-        }
+    if (confirmDiscard) {
+        V172ConfirmDiscardDialog(onKeep = { confirmDiscard = false }, onDiscard = onDismiss)
     }
 }
 
 @Composable
+internal fun V172ConfirmDiscardDialog(onKeep: () -> Unit, onDiscard: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onKeep,
+        title = { Text("Discard project changes?") },
+        text = { Text("Your unfinished changes have not been saved. Keep editing or discard this draft.") },
+        confirmButton = {
+            TextButton(onClick = onKeep) { Text("KEEP EDITING") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDiscard) { Text("DISCARD", color = RecRed) }
+        },
+    )
+}
+
+@Composable
 private fun PSmartGapPicker(label: String, selectedMinutes: Int, onSelected: (Int) -> Unit) {
-    Text(label, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+    Text(label, color = ProjectorIvory, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -658,9 +733,10 @@ private fun PSmartGapPicker(label: String, selectedMinutes: Int, onSelected: (In
     ) {
         SmartEscalationPolicy.allowedGapMinutes.forEach { minutes ->
             FilterChip(
+                                                    modifier = Modifier.heightIn(min = V173ProjectUiMetrics.touchTarget),
                 selected = selectedMinutes == minutes,
                 onClick = { onSelected(minutes) },
-                label = { Text("${minutes}m", fontSize = 8.8.sp) },
+                label = { Text("${minutes}m", fontSize = V173ProjectUiMetrics.supportingText) },
             )
         }
     }
@@ -678,9 +754,9 @@ private fun PSmartWindowCard(valid: Boolean, requiredMinutes: Int, availableMinu
             Icon(if (valid) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (valid) SuccessGreen else RecRed, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(9.dp))
             Column(Modifier.weight(1f)) {
-                Text(detail, color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(detail, color = ProjectorIvory, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
                 if (requiredMinutes > 0) {
-                    Text("Needs ${requiredMinutes}m · ${availableMinutes}m available", color = if (valid) MutedText else RecRed, fontSize = 8.6.sp)
+                    Text("Needs ${requiredMinutes}m · ${availableMinutes}m available", color = if (valid) MutedText else RecRed, fontSize = V173ProjectUiMetrics.supportingText)
                 }
             }
         }
@@ -708,8 +784,8 @@ private fun PModeCard(mode: ReminderMode, selected: Boolean, enabled: Boolean, o
             }
             Spacer(Modifier.width(7.dp))
             Column(Modifier.weight(1f)) {
-                Text(pModeLabel(mode), color = if (enabled) ProjectorIvory else MutedText.copy(alpha = .65f), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(description, color = if (enabled) MutedText else MutedText.copy(alpha = .50f), fontSize = 8.7.sp, lineHeight = 12.sp)
+                Text(pModeLabel(mode), color = if (enabled) ProjectorIvory else MutedText.copy(alpha = .65f), fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
+                Text(description, color = if (enabled) MutedText else MutedText.copy(alpha = .50f), fontSize = V173ProjectUiMetrics.supportingText, lineHeight = 18.sp)
             }
             RadioButton(selected = selected, onClick = if (enabled) onClick else null, enabled = enabled, colors = RadioButtonDefaults.colors(selectedColor = RecRed))
         }
@@ -718,16 +794,16 @@ private fun PModeCard(mode: ReminderMode, selected: Boolean, enabled: Boolean, o
 
 @Composable
 private fun PComposerLabel(text: String) {
-    Text(text, color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp, modifier = Modifier.padding(bottom = 7.dp))
+    Text(text, color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = .6.sp, modifier = Modifier.padding(bottom = 7.dp))
 }
 
 @Composable
 private fun PDateTimeButton(label: String, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().height(50.dp), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(14.dp)) {
+    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(14.dp)) {
         Icon(Icons.Outlined.Schedule, null, tint = MutedGold, modifier = Modifier.size(17.dp))
         Spacer(Modifier.width(8.dp))
         Text(label, color = ProjectorIvory, modifier = Modifier.weight(1f))
-        Text("CHANGE", color = RecRed, fontSize = 8.sp)
+        Text("CHANGE", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText)
     }
 }
 

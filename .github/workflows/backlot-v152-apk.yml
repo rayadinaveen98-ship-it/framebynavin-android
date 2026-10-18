@@ -1,0 +1,57 @@
+name: Backlot V152 — Onboarding and Launch Stability
+
+on:
+  push:
+    branches:
+      - fix/backlot-v152-onboarding-stability
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v152-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-apk:
+    # Archived phase-specific workflow. New stable releases use the V183 test matrix.
+    if: ${{ github.event_name != 'pull_request' || github.head_ref == 'fix/backlot-v152-onboarding-stability' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V152
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Assemble APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload Backlot V152 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlot-v152-onboarding-stability-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 90

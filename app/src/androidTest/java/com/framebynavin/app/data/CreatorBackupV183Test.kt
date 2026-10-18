@@ -30,6 +30,10 @@ class CreatorBackupV183Test {
     /** Mirrors CreatorBackupManager.fingerprint() so current-schema mutation tests remain valid. */
     private fun checksum(root: JSONObject, schema: Int): String = sha(buildString {
         val keys = when {
+            schema >= 9 -> legacyKeys + listOf(
+                "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
+                "projectPulseHistory", "workflowStageTimeline", "automationPreferences",
+            )
             schema >= 8 -> legacyKeys + listOf(
                 "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
                 "projectPulseHistory", "workflowStageTimeline",
@@ -119,7 +123,7 @@ class CreatorBackupV183Test {
             // must not leak into the legacy test payload even though v3 validation ignores unknown keys.
             listOf(
                 "personalFrames", "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
-                "projectPulseHistory", "workflowStageTimeline", "postPublish", "rewards", "smartEscalationConfig",
+                "projectPulseHistory", "workflowStageTimeline", "automationPreferences", "postPublish", "rewards", "smartEscalationConfig",
             ).forEach(root::remove)
             val legacy = resign(root)
             assertEquals(3, manager.validate(legacy).schemaVersion)

@@ -1,0 +1,81 @@
+name: Backlot V157 — Reminder Center R3
+
+on:
+  push:
+    branches:
+      - feature/backlot-v157-reminder-center-r3
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v157-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V157
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: V154–V157 source and reminder-action checks
+        run: bash tools/check_v157_reminder_center.sh
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: Compile instrumentation tests
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+
+      - name: Assemble APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload Backlot V157 Preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlot-v157-reminder-center-r3-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 90
+
+  reminder-emulator:
+    name: Reminder Center interaction and recovery tests
+    needs: android-apk
+    runs-on: macos-15-intel
+    timeout-minutes: 40
+    steps:
+      - name: Checkout V157
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Test reminder management on Android 35 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V157ReminderCenterUiTest,com.framebynavin.app.ui.V132ReleaseBlockerUiTest,com.framebynavin.app.ui.V156ReminderSetupUiInstrumentedTest,com.framebynavin.app.reminders.V155ReminderRecoveryIsolationInstrumentedTest --stacktrace

@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -28,27 +29,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.data.*
+import com.framebynavin.app.reminders.QuietHoursPolicy
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import java.util.Locale
-
-private enum class V144SettingsSection {
-    HOME,
-    APPEARANCE,
-    GUIDE,
-    VOICE,
-    REMINDERS,
-    PLANNING,
-    CONNECTIONS,
-    DATA,
-    ABOUT,
-}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun V144SettingsHub(
     settings: CreatorOsSettings,
     tasks: List<CreatorTask>,
+    weeklySlots: List<WeeklyScheduleSlot> = emptyList(),
     weeklyAutoPlanEnabled: Boolean,
     notificationsReady: Boolean,
     preciseTimingReady: Boolean,
@@ -59,8 +50,11 @@ internal fun V144SettingsHub(
     onVoice: (VoicePersona) -> Unit,
     onAlarmTimeout: (Int) -> Unit,
     onSnooze: (Int) -> Unit,
+    onUnansweredFollowUps: (Boolean) -> Unit = {},
     onWeeklyAutoPlan: (Boolean) -> Unit,
     onContextNudges: (Boolean) -> Unit,
+    onQuietHoursEnabled: (Boolean) -> Unit = {},
+    onQuietHoursWindow: (Int, Int) -> Unit = { _, _ -> },
     onNotifications: () -> Unit,
     onPreciseTiming: () -> Unit,
     onFullScreen: () -> Unit,
@@ -68,18 +62,27 @@ internal fun V144SettingsHub(
     onReplayTour: () -> Unit,
     onCloudSync: () -> Unit,
     onYouTube: () -> Unit,
+    onOpenWeeklyPlan: () -> Unit = {},
+    onOpenAutomation: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    var sectionName by rememberSaveable { mutableStateOf(V144SettingsSection.HOME.name) }
-    val section = V144SettingsSection.entries.firstOrNull { it.name == sectionName } ?: V144SettingsSection.HOME
+    var sectionName by rememberSaveable { mutableStateOf(V167SettingsSection.HOME.name) }
+    val section = V167SettingsNavigationPolicy.fromSavedName(sectionName)
+    fun navigateBack() { sectionName = V167SettingsNavigationPolicy.parent(section).name }
+    var confirmAutoPlan by remember { mutableStateOf(false) }
+    var showExtraPermissions by rememberSaveable { mutableStateOf(false) }
+    val permissionSummary = V169SettingsClarityPolicy.permissions(
+        notificationsReady, preciseTimingReady, fullScreenReady, batteryReady,
+    )
+    val nextProjects = CreatorWeeklyPlanPreviewEngine.build(weeklySlots, tasks)
 
     BackHandler {
-        if (section == V144SettingsSection.HOME) onClose() else sectionName = V144SettingsSection.HOME.name
+        if (section == V167SettingsSection.HOME) onClose() else navigateBack()
     }
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         when (section) {
-            V144SettingsSection.HOME -> V144SettingsHome(
+            V167SettingsSection.HOME -> V144SettingsHome(
                 settings = settings,
                 weeklyAutoPlanEnabled = weeklyAutoPlanEnabled,
                 notificationsReady = notificationsReady,
@@ -91,54 +94,182 @@ internal fun V144SettingsHub(
                 onOpen = { sectionName = it.name },
             )
 
-            V144SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("PERSONALIZATION", "Make Backlot yours", ::navigateBack) {
+                V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) {
+                    sectionName = V167SettingsSection.APPEARANCE.name
+                }
+                V144CategoryCard("Spark", "Your creative companion", Icons.Outlined.Face, MutedGold) {
+                    sectionName = V167SettingsSection.GUIDE.name
+                }
+                V144CategoryCard("Voice", "Reminder voice and previews", Icons.Outlined.RecordVoiceOver, RecRed) {
+                    sectionName = V167SettingsSection.VOICE.name
+                }
+                V144SettingsNote("These choices change how Backlot looks and sounds. Existing projects stay unchanged.")
+            }
+
+            V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
                 V127AppearanceSettings(showGuidePicker = false)
             }
 
-            V144SettingsSection.GUIDE -> V144SettingsPage("GUIDE CHARACTER", "Choose who guides your creator journey", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.GUIDE -> V144SettingsPage("SPARK", "Your creative companion", ::navigateBack) {
                 V144GuidePicker()
                 Spacer(Modifier.height(12.dp))
-                V144SettingsNote("Your guide choice is used across setup, guided tours and helper moments. Funny and Cute are the active Backlot guides.")
+                V144SettingsNote("Choose the companion you want to see in Backlot. This changes your experience, not your saved work.")
             }
 
-            V144SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", ::navigateBack) {
                 V140VoiceStudioPicker(
                     selected = settings.defaultVoicePersona,
                     onSelected = onVoice,
                     onPreview = { v144PreviewVoice(context, it) },
                 )
                 Spacer(Modifier.height(8.dp))
-                V144SettingsNote("New projects inherit this voice automatically. Existing projects keep their saved voice unless you edit them.")
+                V144SettingsNote(
+                    "This voice is the default for new project reminders. Existing projects keep their own voice choice. " +
+                        "Preview uses your phone's text-to-speech options; results vary by device and installed languages."
+                )
             }
 
-            V144SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V144SettingsSection.HOME.name }) {
-                val setupReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
+            V167SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V167SettingsSection.HOME.name }) {
                 V144StatusCard(
-                    title = "Project reminders",
-                    subtitle = if (setupReady) "Everything is ready." else "One or more Android permissions still need setup.",
-                    icon = if (setupReady) Icons.Outlined.CheckCircle else Icons.Outlined.NotificationsActive,
-                    accent = if (setupReady) SuccessGreen else MutedGold,
+                    title = permissionSummary.title,
+                    subtitle = permissionSummary.explanation,
+                    icon = if (notificationsReady) Icons.Outlined.CheckCircle else Icons.Outlined.NotificationsActive,
+                    accent = if (notificationsReady) SuccessGreen else MutedGold,
                 )
                 Spacer(Modifier.height(10.dp))
-                V144PermissionRow("Notifications", notificationsReady, onNotifications)
-                V144PermissionRow("Exact reminder timing", preciseTimingReady, onPreciseTiming)
-                V144PermissionRow("Full-screen alerts", fullScreenReady, onFullScreen)
-                V144PermissionRow("Allow background reminders", batteryReady, onBattery)
+                V144PermissionRow("Allow notifications", notificationsReady, onNotifications)
+                TextButton(
+                    onClick = { showExtraPermissions = !showExtraPermissions },
+                    modifier = Modifier.fillMaxWidth().testTag("v169-advanced-permissions"),
+                ) {
+                    Text(
+                        if (showExtraPermissions) "HIDE ANDROID ALARM OPTIONS"
+                        else "MORE ANDROID OPTIONS · ${permissionSummary.advancedMissing} NEED ATTENTION",
+                        color = MutedGold, fontSize = 11.sp,
+                    )
+                }
+                if (showExtraPermissions) {
+                    V144PermissionRow("Exact alarm timing", preciseTimingReady, onPreciseTiming)
+                    V144PermissionRow("Full-screen alarm alerts", fullScreenReady, onFullScreen)
+                    V144PermissionRow("Battery access for background reminders", batteryReady, onBattery)
+                    Text(
+                        "These affect some advanced reminder delivery modes. Android may still delay or restrict alerts.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                    )
+                }
 
                 Spacer(Modifier.height(18.dp))
-                V144SectionTitle("REMINDER DEFAULTS", "These choices are reused automatically.")
+                V144SectionTitle("REMINDER DEFAULTS", "Used for new reminders. Existing project choices stay saved.")
                 Spacer(Modifier.height(10.dp))
                 Text("Snooze", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
-                    listOf(5, 10, 15, 20, 30).forEach { value ->
+                    V169SettingsClarityPolicy.snoozeChoices(settings.snoozeMinutes).forEach { value ->
                         FilterChip(settings.snoozeMinutes == value, { onSnooze(value) }, { Text("${value}m", fontSize = 10.sp) })
                     }
                 }
                 Spacer(Modifier.height(14.dp))
                 Text("Alarm auto-stop", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
-                    listOf(30 to "30s", 60 to "1m", 120 to "2m", 300 to "5m").forEach { (value, label) ->
+                    V169SettingsClarityPolicy.alarmTimeoutChoices(settings.defaultAlarmTimeoutSeconds).forEach { value ->
+                        val label = if (value < 60) "${value}s" else if (value % 60 == 0) "${value / 60}m" else "${value / 60}m ${value % 60}s"
                         FilterChip(settings.defaultAlarmTimeoutSeconds == value, { onAlarmTimeout(value) }, { Text(label, fontSize = 10.sp) })
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("IF YOU DON'T RESPOND", "Gentle follow-ups, not extra ringing.")
+                Spacer(Modifier.height(9.dp))
+                Surface(
+                    Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Follow up when unanswered", color = ProjectorIvory,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (settings.unansweredFollowUpsEnabled)
+                                    "On · up to 2 quiet notifications. No extra voice or alarm."
+                                else "Off · reminders stay unanswered without automatic follow-ups.",
+                                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                            )
+                            Spacer(Modifier.height(5.dp))
+                            Text(
+                                "Follow-up times depend on importance and Android background scheduling. " +
+                                    "This never marks your project done.",
+                                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                            )
+                        }
+                        Switch(
+                            modifier = Modifier.testTag("v180-unanswered-followups-toggle"),
+                            checked = settings.unansweredFollowUpsEnabled,
+                            onCheckedChange = onUnansweredFollowUps,
+                            colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(21.dp))
+                V144SectionTitle("QUIET HOURS", "Quiet standard notifications during your rest time.")
+                Spacer(Modifier.height(9.dp))
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine)) {
+                    Column(Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Quiet hours", color = ProjectorIvory,
+                                    fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    if (settings.quietHoursEnabled)
+                                        "On · ${QuietHoursPolicy.label(settings.quietHoursStartMinute)} – ${QuietHoursPolicy.label(settings.quietHoursEndMinute)}"
+                                    else "Off · normal notifications at their scheduled times",
+                                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                                )
+                            }
+                            Switch(
+                                checked = settings.quietHoursEnabled,
+                                onCheckedChange = onQuietHoursEnabled,
+                                colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                            )
+                        }
+                        if (settings.quietHoursEnabled) {
+                            Spacer(Modifier.height(12.dp))
+                            Text("From", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                listOf(20 * 60, 21 * 60, 22 * 60, 23 * 60).forEach { time ->
+                                    FilterChip(
+                                        selected = settings.quietHoursStartMinute == time,
+                                        onClick = { if (time != settings.quietHoursEndMinute)
+                                            onQuietHoursWindow(time, settings.quietHoursEndMinute) },
+                                        label = { Text(QuietHoursPolicy.label(time), fontSize = 11.sp) },
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text("Until", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                listOf(6 * 60, 7 * 60, 8 * 60, 9 * 60).forEach { time ->
+                                    FilterChip(
+                                        selected = settings.quietHoursEndMinute == time,
+                                        onClick = { if (time != settings.quietHoursStartMinute)
+                                            onQuietHoursWindow(settings.quietHoursStartMinute, time) },
+                                        label = { Text(QuietHoursPolicy.label(time), fontSize = 11.sp) },
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            V169SettingsClarityPolicy.quietHoursDescription(settings) +
+                                " Notifications remain scheduled but Android can delay delivery.",
+                            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                        )
                     }
                 }
 
@@ -150,12 +281,12 @@ internal fun V144SettingsHub(
                             Text(
                                 when {
                                     !notificationsReady -> "Enable notifications first."
-                                    settings.contextNudgesEnabled -> "On · Backlot can warn you when active work may need attention."
-                                    else -> "Off · normal project reminders still work."
+                                    settings.contextNudgesEnabled -> "On · optional check-ins when work may need attention."
+                                    else -> "Off · your scheduled project reminders still work."
                                 },
                                 color = MutedText,
-                                fontSize = 8.8.sp,
-                                lineHeight = 12.sp,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
                             )
                         }
                         Switch(
@@ -168,7 +299,7 @@ internal fun V144SettingsHub(
                 }
             }
 
-            V144SettingsSection.PLANNING -> V144SettingsPage("PLANNING & CALENDAR", "Recurring planning and calendar sync", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.PLANNING -> V144SettingsPage("PLANNING & CALENDAR", "Recurring planning and calendar sync", { sectionName = V167SettingsSection.HOME.name }) {
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(36.dp).background(MutedGold.copy(alpha = .11f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
@@ -177,36 +308,50 @@ internal fun V144SettingsHub(
                         Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Weekly Auto Plan", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                            Text(if (weeklyAutoPlanEnabled) "Recurring projects may be added automatically." else "Nothing is added automatically.", color = MutedText, fontSize = 8.8.sp)
+                            Text(if (weeklyAutoPlanEnabled) "On · new weekly projects can be added." else "Off · saved templates and projects stay unchanged.", color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
                         }
-                        Switch(weeklyAutoPlanEnabled, onWeeklyAutoPlan, colors = SwitchDefaults.colors(checkedTrackColor = RecRed))
+                        Switch(
+                            modifier = Modifier.testTag("s1-settings-auto-plan"),
+                            checked = weeklyAutoPlanEnabled,
+                            onCheckedChange = { enable ->
+                                if (enable) confirmAutoPlan = true else onWeeklyAutoPlan(false)
+                            },
+                            colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                        )
                     }
                 }
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(9.dp))
+                Text(
+                    V169SettingsClarityPolicy.autoPlanExplanation(
+                        weeklyAutoPlanEnabled, nextProjects.missing.size, weeklySlots
+                    ),
+                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                )
+                Spacer(Modifier.height(8.dp))
+                V144ActionCard(
+                    title = "Edit weekly plan",
+                    subtitle = "Change post days, times and templates without editing existing projects.",
+                    icon = Icons.Outlined.CalendarMonth,
+                    accent = MutedGold,
+                    onClick = onOpenWeeklyPlan,
+                )
+                Spacer(Modifier.height(8.dp))
+                V144ActionCard(
+                    title = "Automation",
+                    subtitle = "See planning checks and optional notification routines.",
+                    icon = Icons.Outlined.AutoAwesome,
+                    accent = RecRed,
+                    onClick = onOpenAutomation,
+                )
+                Spacer(Modifier.height(16.dp))
+                V144SettingsNote(
+                    "Auto Plan creates project drafts from your active weekly templates; it never posts videos. Google Calendar below is separate and only exports deadlines after you approve."
+                )
+                Spacer(Modifier.height(12.dp))
                 V129GoogleCalendarSettings(tasks)
             }
 
-            V144SettingsSection.CONNECTIONS -> V144SettingsPage("CONNECTIONS", "YouTube and Google services", { sectionName = V144SettingsSection.HOME.name }) {
-                V144ActionCard(
-                    title = "YouTube Analytics",
-                    subtitle = "Real channel performance, matched uploads and creator insights.",
-                    icon = Icons.Outlined.SmartDisplay,
-                    accent = RecRed,
-                    onClick = onYouTube,
-                )
-                Spacer(Modifier.height(9.dp))
-                V144ActionCard(
-                    title = "Google account & Cloud Sync",
-                    subtitle = "Connected account, cloud backups and restore state.",
-                    icon = Icons.Outlined.CloudSync,
-                    accent = MutedGold,
-                    onClick = onCloudSync,
-                )
-                Spacer(Modifier.height(12.dp))
-                V144SettingsNote("Google Calendar controls live under Planning & Calendar because they affect your publishing workflow rather than account identity.")
-            }
-
-            V144SettingsSection.DATA -> V144SettingsPage("DATA, BACKUP & SYNC", "Keep your Backlot data recoverable", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.DATA -> V144SettingsPage("DATA, BACKUP & SYNC", "Keep your Backlot data recoverable", { sectionName = V167SettingsSection.HOME.name }) {
                 V144ActionCard(
                     title = "Cloud Sync",
                     subtitle = "Google account · cloud backups",
@@ -217,17 +362,23 @@ internal fun V144SettingsHub(
                 Spacer(Modifier.height(9.dp))
                 V144ActionCard(
                     title = "Local Data & Backup",
-                    subtitle = "Projects, reminders, ideas, weekly plan and settings.",
+                    subtitle = "Export your work and recordings; see recovery copies.",
                     icon = Icons.Outlined.SaveAlt,
                     accent = MutedGold,
                     onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
                 )
+                Spacer(Modifier.height(12.dp))
+                V144SettingsNote(
+                    "A portable backup includes projects, ideas and supported voice recordings, reminder preferences and the weekly plan. " +
+                        "It does not export Google sign-in, cloud tokens, phone Calendar connection, app icon, launch sound or theme selection. " +
+                        "Exported backup files are not encrypted: keep them private."
+                )
             }
 
-            V144SettingsSection.ABOUT -> V144SettingsPage("ABOUT BACKLOT", "Version, help and guided setup", { sectionName = V144SettingsSection.HOME.name }) {
+            V167SettingsSection.ABOUT -> V144SettingsPage("ABOUT BACKLOT", "Version, help and guided setup", { sectionName = V167SettingsSection.HOME.name }) {
                 V144ActionCard(
-                    title = "Replay guided first run",
-                    subtitle = "Today → Ideas → Project → Workspace → Insights → Control",
+                    title = "Show app tour",
+                    subtitle = "Home → Ideas → Projects → Insights → Quick Actions",
                     icon = Icons.Outlined.School,
                     accent = MutedGold,
                     onClick = onReplayTour,
@@ -243,6 +394,32 @@ internal fun V144SettingsHub(
             }
         }
     }
+    if (confirmAutoPlan) {
+        AlertDialog(
+            onDismissRequest = { confirmAutoPlan = false },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text("Turn on automatic planning?", color = ProjectorIvory) },
+            text = {
+                Column {
+                    Text(
+                        "Backlot may add ${nextProjects.missing.size} missing projects from your saved weekly templates in the next 14 days. Existing projects and edits stay untouched.",
+                        color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("Auto Plan will not publish videos or delete your work.", color = MutedGold, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    confirmAutoPlan = false
+                    onWeeklyAutoPlan(true)
+                }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("TURN ON AUTO PLAN") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmAutoPlan = false }) { Text("CANCEL") }
+            },
+        )
+    }
 }
 
 @Composable
@@ -255,54 +432,59 @@ private fun V144SettingsHome(
     batteryReady: Boolean,
     onClose: () -> Unit,
     onProfile: () -> Unit,
-    onOpen: (V144SettingsSection) -> Unit,
+    onOpen: (V167SettingsSection) -> Unit,
 ) {
     val reminderReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 44.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader("SETTINGS", "Backlot, your way", onClose)
         Spacer(Modifier.height(10.dp))
         Text(
-            "Everything is grouped by purpose now — open only what you want to change.",
+            "Choose what you'd like to change.",
             color = MutedText,
-            fontSize = 9.5.sp,
-            lineHeight = 14.sp,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
         )
         Spacer(Modifier.height(18.dp))
 
         V144CategoryCard(
-            title = "Profile & Account",
-            subtitle = settings.creatorProfile.safeDisplayName + settings.creatorProfile.category.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty(),
+            title = "My Profile",
+            subtitle = settings.creatorProfile.safeDisplayName +
+                settings.creatorProfile.category.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty(),
             icon = Icons.Outlined.Person,
             accent = MutedGold,
             onClick = onProfile,
         )
-        V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) { onOpen(V144SettingsSection.APPEARANCE) }
-        V144CategoryCard("Guide Character", V145SelectableGuides.joinToString(" or ") { it.displayName }, Icons.Outlined.Face, MutedGold) { onOpen(V144SettingsSection.GUIDE) }
-        V144CategoryCard("Voice", "Default project voice and preview", Icons.Outlined.RecordVoiceOver, RecRed) { onOpen(V144SettingsSection.VOICE) }
+        V144CategoryCard("Personalization", "Appearance, Spark and voice", Icons.Outlined.Palette, RecRed) {
+            onOpen(V167SettingsSection.PERSONALIZATION)
+        }
         V144CategoryCard(
-            "Notifications & Reminders",
-            if (reminderReady) "Ready · timing and reminder defaults" else "Needs setup · permissions and defaults",
+            "Reminders & Alerts",
+            if (reminderReady) "Permissions ready · snooze, alarms and quiet hours"
+            else "Check permissions · reminder defaults and quiet hours",
             Icons.Outlined.NotificationsActive,
             if (reminderReady) SuccessGreen else MutedGold,
-        ) { onOpen(V144SettingsSection.REMINDERS) }
+        ) { onOpen(V167SettingsSection.REMINDERS) }
         V144CategoryCard(
             "Planning & Calendar",
-            if (weeklyAutoPlanEnabled) "Weekly Auto Plan on · Google Calendar" else "Weekly Auto Plan off · Google Calendar",
+            if (weeklyAutoPlanEnabled) "Auto Plan on · Google Calendar" else "Auto Plan off · Google Calendar",
             Icons.Outlined.CalendarMonth,
             MutedGold,
-        ) { onOpen(V144SettingsSection.PLANNING) }
-        V144CategoryCard("Connections", "YouTube Analytics · Google account", Icons.Outlined.Link, RecRed) { onOpen(V144SettingsSection.CONNECTIONS) }
-        V144CategoryCard("Data, Backup & Sync", "Cloud sync and local recovery", Icons.Outlined.CloudSync, MutedGold) { onOpen(V144SettingsSection.DATA) }
-        V144CategoryCard("About Backlot", "Guided tour and app version", Icons.Outlined.Info, RecRed) { onOpen(V144SettingsSection.ABOUT) }
+        ) { onOpen(V167SettingsSection.PLANNING) }
+        V144CategoryCard("Backup & Data", "Cloud backup, local export and recovery", Icons.Outlined.CloudSync, MutedGold) {
+            onOpen(V167SettingsSection.DATA)
+        }
+        V144CategoryCard("About & Help", "App tour and version", Icons.Outlined.Info, RecRed) {
+            onOpen(V167SettingsSection.ABOUT)
+        }
     }
 }
 
 @Composable
 private fun V144SettingsPage(kicker: String, title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 44.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader(kicker, title, onBack)
         Spacer(Modifier.height(18.dp))
@@ -337,8 +519,8 @@ private fun V144CategoryCard(title: String, subtitle: String, icon: ImageVector,
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MutedText, fontSize = 8.8.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
         }
@@ -360,7 +542,7 @@ private fun V144StatusCard(title: String, subtitle: String, icon: ImageVector, a
             Spacer(Modifier.width(11.dp))
             Column {
                 Text(title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MutedText, fontSize = 8.8.sp, lineHeight = 12.sp)
+                Text(subtitle, color = MutedText, fontSize = 12.sp, lineHeight = 16.sp)
             }
         }
     }
@@ -378,8 +560,8 @@ private fun V144PermissionRow(label: String, ready: Boolean, onClick: () -> Unit
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (ready) SuccessGreen else MutedGold, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(9.dp))
-            Text(label, color = ProjectorIvory, fontSize = 10.5.sp, modifier = Modifier.weight(1f))
-            Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = ProjectorIvory, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -387,13 +569,13 @@ private fun V144PermissionRow(label: String, ready: Boolean, onClick: () -> Unit
 @Composable
 private fun V144SectionTitle(title: String, subtitle: String) {
     Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text(subtitle, color = MutedText, fontSize = 8.8.sp)
+    Text(subtitle, color = MutedText, fontSize = 12.sp)
 }
 
 @Composable
 private fun V144SettingsNote(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp, modifier = Modifier.padding(12.dp))
+        Text(text, color = MutedText, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(12.dp))
     }
 }
 

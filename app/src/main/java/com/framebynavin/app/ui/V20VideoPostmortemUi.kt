@@ -64,9 +64,9 @@ internal fun V20VideoPostmortemCard(
         border = BorderStroke(1.dp, MutedGold.copy(alpha = .30f)),
     ) {
         Column(Modifier.padding(13.dp)) {
-            Text("QUICK AUTOPSY", color = MutedGold, fontSize = 7.7.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+            Text("VIDEO REVIEW", color = MutedGold, fontSize = 7.7.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(3.dp))
-            Text("Evidence-based read · no AI quota required", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text("Review your video without AI", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
             Text(
                 "${postmortem.evidence.capturedCount}/${postmortem.evidence.totalCount} evidence layers connected · missing data stays missing",
                 color = MutedText,
@@ -94,13 +94,13 @@ internal fun V20VideoPostmortemCard(
             Spacer(Modifier.height(8.dp))
             PostmortemSection(
                 "CREATOR LEARNING",
-                postmortem.creatorLearning.ifBlank { "No learning note captured yet. This stays blank rather than being guessed." },
+                postmortem.creatorLearning.ifBlank { "No notes yet. Add what you learned from this video." },
                 muted = postmortem.creatorLearning.isBlank(),
             )
 
             Spacer(Modifier.height(8.dp))
             Text(
-                "Project/stage duration is elapsed residence time, not active editing or research time.",
+                "Time between project steps includes breaks, not just work time.",
                 color = MutedText.copy(alpha = .72f),
                 fontSize = 7.2.sp,
                 lineHeight = 10.sp,
@@ -188,7 +188,7 @@ private fun resultLine(value: CreatorVideoPostmortem): String {
         }
     }
     return details.joinToString(" · ").ifBlank {
-        "Views/watch/subscriber results are connected above; reach, retention and release-curve evidence are not available yet."
+        "Views and subscribers are available. Reach and retention data aren't ready yet."
     }
 }
 

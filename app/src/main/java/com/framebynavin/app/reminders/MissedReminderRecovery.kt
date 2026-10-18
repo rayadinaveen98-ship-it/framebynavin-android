@@ -47,12 +47,7 @@ object MissedReminderRecovery {
         task: CreatorTask,
         nowMillis: Long = System.currentTimeMillis(),
     ): Boolean {
-        val active = task.reminderEnabled &&
-            task.reminderMode != ReminderMode.NONE &&
-            task.reminderMode != ReminderMode.SMART &&
-            !task.smartEscalationEnabled &&
-            task.status != TaskStatus.DONE &&
-            task.status != TaskStatus.SKIPPED
+        val active = ReminderActionSafety.isActionable(task)
         if (!active) return false
         if (!shouldCatchUp(task.reminderAtMillis, task.dueAtMillis, nowMillis)) return false
 
@@ -65,6 +60,7 @@ object MissedReminderRecovery {
         val recoveredMode = when (task.reminderMode) {
             ReminderMode.ALARM -> "alarm"
             ReminderMode.VOICE -> "voice reminder"
+            ReminderMode.SMART -> "Smart reminder"
             else -> "reminder"
         }
         val shown = runCatching {

@@ -42,15 +42,13 @@ enum class V144GuideIdentity(val displayName: String, val description: String) {
     // Kept only as compatibility values for older persisted installs. They are no longer selectable.
     FRAME("Frame", "Simple. Expressive. Always with you."),
     NAVI("Navi", "Curious. Calm. Creative."),
-    FUNNY("Funny", "Witty. Expressive. Never too serious."),
+    // Keep the persisted enum key FUNNY to migrate V151 installations without erasing preferences.
+    FUNNY("Spark", "Lively. Creative. Always moving forward."),
     CUTE("Cute", "Warm. Gentle. Always encouraging."),
 }
 
 /** Active roster until the next two approved raster guides are designed. */
-internal val V145SelectableGuides = listOf(
-    V144GuideIdentity.FUNNY,
-    V144GuideIdentity.CUTE,
-)
+internal val V145SelectableGuides = listOf(V144GuideIdentity.FUNNY)
 
 internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? {
     val parsed = value?.let { saved ->
@@ -58,7 +56,7 @@ internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? {
     } ?: return null
     return when (parsed) {
         V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
-        V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> parsed
+        V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> V144GuideIdentity.FUNNY
     }
 }
 
@@ -67,14 +65,14 @@ internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? {
  * Legacy Frame/Navi selections are normalized to Funny and are not exposed in V145 UI.
  */
 object V144GuidePrefs {
-    private const val PREFS = "backlot_character_identity"
+    private const val PREFS = "backlot_character_identity_v151"
     private const val KEY_CHARACTER = "selected_character"
     private var appContext: Context? = null
 
     var selectedGuide by mutableStateOf<V144GuideIdentity?>(null)
         private set
 
-    val hasSelection: Boolean get() = selectedGuide != null
+    val hasSelection: Boolean get() = true // Spark is automatic; no first-run character gate.
     val currentGuide: V144GuideIdentity get() = selectedGuide ?: V144GuideIdentity.FUNNY
 
     fun initialize(context: Context) {
@@ -92,12 +90,17 @@ object V144GuidePrefs {
     fun select(guide: V144GuideIdentity) {
         val normalized = when (guide) {
             V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
-            V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> guide
+            V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> V144GuideIdentity.FUNNY
         }
         selectedGuide = normalized
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             ?.edit()?.putString(KEY_CHARACTER, normalized.name)?.apply()
     }
+}
+
+@Composable
+internal fun V144GuideChoiceGate() {
+    V144GuideChoiceGate(content = {})
 }
 
 @Composable
@@ -206,8 +209,8 @@ internal fun V144GuidePicker() {
     Column(Modifier.fillMaxWidth()) {
         Text("GUIDE CHARACTER", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Choose who stays with you.", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("Every guide keeps its own visual identity in every Backlot theme.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("Spark, your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("One lively guide, ready whenever you create.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(10.dp))
 
         V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
@@ -216,7 +219,7 @@ internal fun V144GuidePicker() {
                     val active = guide == selected
                     val identity = v144GuideIdentityColor(guide)
                     Surface(
-                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) },
+                        modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(18.dp),
                         color = if (active) CinemaSurfaceRaised else CinemaSurface,
                         border = BorderStroke(1.2.dp, if (active) identity else CinemaLine),

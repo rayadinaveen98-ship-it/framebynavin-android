@@ -160,6 +160,7 @@ class IdeaVaultStore(private val context: Context) {
                     .put("transcriptionState", idea.transcriptionState.name)
                     .put("transcriptionError", idea.transcriptionError)
                     .put("tags", JSONArray().apply { idea.tags.forEach { put(it) } })
+                    .put("trashedAtMillis", idea.trashedAtMillis)
             )
         }
         return array.toString()
@@ -226,6 +227,7 @@ class IdeaVaultStore(private val context: Context) {
                         transcript = transcript,
                         transcriptionState = transcriptionState,
                         transcriptionError = item.optString("transcriptionError", ""),
+                        trashedAtMillis = item.optLong("trashedAtMillis", 0L).coerceAtLeast(0L),
                         tags = item.optJSONArray("tags")?.let { tags ->
                             buildList {
                                 for (index in 0 until tags.length()) {

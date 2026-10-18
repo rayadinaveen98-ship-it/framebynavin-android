@@ -90,21 +90,57 @@ class AlarmRingingService : Service() {
         startAlarmSound(task)
         startVibration()
         if (task.voiceEnabled) startVoice(task)
+        // ACTIVE means the alarm service ran, not that its sound was audible.
+        runCatching { ReminderAcknowledgementStore(applicationContext).markAlarmActive(task.id, token) }
 
-        val timeoutMillis = task.alarmTimeoutSeconds.coerceIn(30, 300) * 1000L
+        val timeoutMillis = V178PlaybackLifecyclePolicy.alarmDurationMillis(task)
         handler.postDelayed({
             if (!isCurrent(task.id, token)) return@postDelayed
             val endingTask = currentTask
             val endingStage = currentSmartStage
             stopCurrent()
-            if (endingTask != null && endingTask.reminderMode == ReminderMode.SMART) {
+            // At most the selected ring duration: stop sound/vibration first.
+            // Do not treat stopping hardware as a dismissal or another snooze.
+            // A single normal notification keeps the *same* occurrence actionable.
+            if (ReminderOccurrenceStore(applicationContext).matches(task, token)) {
+                val posted = runCatching {
+                    ReminderNotifications.show(
+                        applicationContext,
+                        task,
+                        stageLabel = "Alarm ended · response still needed",
+                        occurrenceId = token,
+                        discreet = true,
+                    )
+                }.getOrDefault(false)
+                runCatching {
+                    ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, "alarm_timeout")
+                }
+                val terminalSmart = endingTask != null &&
+                    (endingTask.reminderMode == ReminderMode.SMART || endingTask.smartEscalationEnabled) &&
+                    (endingStage == SmartEscalationScheduler.Stage.CRITICAL ||
+                        (endingStage == SmartEscalationScheduler.Stage.ALARM &&
+                         endingTask.priority != TaskPriority.CRITICAL))
+                val isSmart = endingTask != null &&
+                    (endingTask.reminderMode == ReminderMode.SMART || endingTask.smartEscalationEnabled)
+                if (posted && (!isSmart || terminalSmart)) {
+                    runCatching {
+                        V179ReminderFollowUps.armAfterUnanswered(
+                            applicationContext, task, token,
+                            finalSmartStage = terminalSmart,
+                        )
+                    }
+                }
+            }
+            ReminderSurfaceRegistry.close(task.id, token)
+            if (endingTask != null &&
+                (endingTask.reminderMode == ReminderMode.SMART || endingTask.smartEscalationEnabled)) {
                 val terminal = endingStage == SmartEscalationScheduler.Stage.CRITICAL ||
                     (endingStage == SmartEscalationScheduler.Stage.ALARM && endingTask.priority != TaskPriority.CRITICAL)
                 if (terminal) CoroutineScope(Dispatchers.IO).launch {
                     CreatorDataGate.readyTransaction(applicationContext) {
                         val current = TaskStore(applicationContext).load().firstOrNull { it.id == endingTask.id }
                         if (current != null && ReminderOccurrenceStore(applicationContext).matches(current, token))
-                            SmartEscalationScheduler(applicationContext).finishSession(endingTask.id)
+                            SmartEscalationScheduler(applicationContext).finishSessionPreservingUnanswered(endingTask.id)
                     }
                 }
             }

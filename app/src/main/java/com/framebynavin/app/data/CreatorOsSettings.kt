@@ -2,6 +2,7 @@ package com.framebynavin.app.data
 
 import android.content.Context
 import com.framebynavin.app.cloud.CloudLocalStore
+import com.framebynavin.app.reminders.QuietHoursPolicy
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -13,8 +14,14 @@ data class CreatorOsSettings(
     val defaultVoicePersona: VoicePersona = VoicePersona.WARM,
     val defaultAlarmTimeoutSeconds: Int = 120,
     val snoozeMinutes: Int = 10,
+    /** Creator can opt out of V179's two quiet unanswered follow-ups. */
+    val unansweredFollowUpsEnabled: Boolean = true,
     val weeklyAutoPlanEnabled: Boolean = false,
     val contextNudgesEnabled: Boolean = false,
+    /** Only standard, non-ringing reminder notifications obey this local quiet window. */
+    val quietHoursEnabled: Boolean = false,
+    val quietHoursStartMinute: Int = QuietHoursPolicy.DEFAULT_START_MINUTE,
+    val quietHoursEndMinute: Int = QuietHoursPolicy.DEFAULT_END_MINUTE,
 )
 
 class CreatorOsSettingsStore(context: Context) {
@@ -79,8 +86,12 @@ class CreatorOsSettingsStore(context: Context) {
             }.getOrDefault(VoicePersona.WARM),
             defaultAlarmTimeoutSeconds = prefs.getInt(KEY_ALARM_TIMEOUT, 120).coerceIn(30, 300),
             snoozeMinutes = prefs.getInt(KEY_SNOOZE_MINUTES, 10).coerceIn(5, 30),
+            unansweredFollowUpsEnabled = prefs.getBoolean(KEY_NO_RESPONSE_FOLLOWUPS, true),
             weeklyAutoPlanEnabled = prefs.getBoolean(KEY_WEEKLY_AUTO_PLAN, false),
             contextNudgesEnabled = prefs.getBoolean(KEY_CONTEXT_NUDGES, false),
+            quietHoursEnabled = prefs.getBoolean(KEY_QUIET_HOURS_ENABLED, false),
+            quietHoursStartMinute = prefs.getInt(KEY_QUIET_START_MINUTE, QuietHoursPolicy.DEFAULT_START_MINUTE).coerceIn(0, 1439),
+            quietHoursEndMinute = prefs.getInt(KEY_QUIET_END_MINUTE, QuietHoursPolicy.DEFAULT_END_MINUTE).coerceIn(0, 1439),
         )
     }
 
@@ -109,8 +120,12 @@ class CreatorOsSettingsStore(context: Context) {
             .put("defaultVoicePersona", value.defaultVoicePersona.name)
             .put("defaultAlarmTimeoutSeconds", value.defaultAlarmTimeoutSeconds)
             .put("snoozeMinutes", value.snoozeMinutes)
+            .put("unansweredFollowUpsEnabled", value.unansweredFollowUpsEnabled)
             .put("weeklyAutoPlanEnabled", value.weeklyAutoPlanEnabled)
             .put("contextNudgesEnabled", value.contextNudgesEnabled)
+            .put("quietHoursEnabled", value.quietHoursEnabled)
+            .put("quietHoursStartMinute", value.quietHoursStartMinute)
+            .put("quietHoursEndMinute", value.quietHoursEndMinute)
             .toString()
     }
 
@@ -148,8 +163,12 @@ class CreatorOsSettingsStore(context: Context) {
             }.getOrDefault(VoicePersona.WARM),
             defaultAlarmTimeoutSeconds = obj.optInt("defaultAlarmTimeoutSeconds", 120).coerceIn(30, 300),
             snoozeMinutes = obj.optInt("snoozeMinutes", 10).coerceIn(5, 30),
+            unansweredFollowUpsEnabled = obj.optBoolean("unansweredFollowUpsEnabled", true),
             weeklyAutoPlanEnabled = obj.optBoolean("weeklyAutoPlanEnabled", false),
             contextNudgesEnabled = obj.optBoolean("contextNudgesEnabled", false),
+            quietHoursEnabled = obj.optBoolean("quietHoursEnabled", false),
+            quietHoursStartMinute = obj.optInt("quietHoursStartMinute", QuietHoursPolicy.DEFAULT_START_MINUTE).coerceIn(0, 1439),
+            quietHoursEndMinute = obj.optInt("quietHoursEndMinute", QuietHoursPolicy.DEFAULT_END_MINUTE).coerceIn(0, 1439),
         )
         prefs.edit()
             .putBoolean(KEY_ACCOUNT_ONBOARDING_COMPLETE, value.accountOnboardingComplete)
@@ -159,8 +178,12 @@ class CreatorOsSettingsStore(context: Context) {
             .putString(KEY_DEFAULT_VOICE, value.defaultVoicePersona.name)
             .putInt(KEY_ALARM_TIMEOUT, value.defaultAlarmTimeoutSeconds)
             .putInt(KEY_SNOOZE_MINUTES, value.snoozeMinutes)
+            .putBoolean(KEY_NO_RESPONSE_FOLLOWUPS, value.unansweredFollowUpsEnabled)
             .putBoolean(KEY_WEEKLY_AUTO_PLAN, value.weeklyAutoPlanEnabled)
             .putBoolean(KEY_CONTEXT_NUDGES, value.contextNudgesEnabled)
+            .putBoolean(KEY_QUIET_HOURS_ENABLED, value.quietHoursEnabled)
+            .putInt(KEY_QUIET_START_MINUTE, value.quietHoursStartMinute)
+            .putInt(KEY_QUIET_END_MINUTE, value.quietHoursEndMinute)
             .commit().also { check(it) { "Could not restore creator settings" } }
         return value
     }
@@ -191,11 +214,33 @@ class CreatorOsSettingsStore(context: Context) {
     }
 
     fun setAccountOnboardingComplete(value: Boolean) {
-        prefs.edit().putBoolean(KEY_ACCOUNT_ONBOARDING_COMPLETE, value).apply()
+        // Completion gates must survive an immediate process death / relaunch.
+        check(prefs.edit().putBoolean(KEY_ACCOUNT_ONBOARDING_COMPLETE, value).commit()) {
+            "Could not save account onboarding completion"
+        }
     }
 
     fun setOnboardingComplete(value: Boolean) {
-        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).apply()
+        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).commit()
+    }
+
+    /**
+     * Finish the full creator profile and setup gate as ONE durable transaction.
+     * Never publish onboardingComplete=true if required fields are missing or the write fails.
+     */
+    fun completeCreatorSetup(value: CreatorProfile): Boolean {
+        val profile = value.normalized()
+        if (!profile.isComplete) return false
+        val saved = prefs.edit()
+            .putProfile(profile)
+            .putBoolean(KEY_ONBOARDING_COMPLETE, true)
+            .commit()
+        if (!saved) return false
+        val verified = snapshot()
+        return verified.onboardingComplete && verified.creatorProfile.isComplete &&
+            verified.creatorProfile.resolvedPrimaryCreatorMode == profile.resolvedPrimaryCreatorMode &&
+            verified.creatorProfile.platforms == profile.platforms &&
+            verified.creatorProfile.primaryGoal == profile.primaryGoal
     }
 
     fun markGuidedTourComplete() {
@@ -211,6 +256,24 @@ class CreatorOsSettingsStore(context: Context) {
         prefs.edit().putProfile(profile).apply()
     }
 
+    /**
+     * Settings editor is not onboarding. Save only the profile fields, synchronously
+     * and verifiably, leaving account/onboarding gates and all project data untouched.
+     */
+    fun saveCreatorProfileEdits(value: CreatorProfile): Boolean {
+        val profile = value.normalized()
+        if (!profile.isComplete) return false
+        if (!prefs.edit().putProfile(profile).commit()) return false
+        val confirmed = snapshot().creatorProfile
+        return confirmed.resolvedPrimaryCreatorMode == profile.resolvedPrimaryCreatorMode &&
+            confirmed.platforms == profile.platforms &&
+            confirmed.primaryGoal == profile.primaryGoal &&
+            confirmed.secondaryCreatorModes == profile.secondaryCreatorModes &&
+            confirmed.secondaryGoals == profile.secondaryGoals &&
+            confirmed.productionStyles == profile.productionStyles &&
+            confirmed.weeklyPublishingTarget == profile.weeklyPublishingTarget
+    }
+
     fun setDefaultVoicePersona(value: VoicePersona) {
         prefs.edit().putString(KEY_DEFAULT_VOICE, value.name).apply()
     }
@@ -223,12 +286,32 @@ class CreatorOsSettingsStore(context: Context) {
         prefs.edit().putInt(KEY_SNOOZE_MINUTES, value.coerceIn(5, 30)).apply()
     }
 
+    fun setUnansweredFollowUpsEnabled(value: Boolean) {
+        check(prefs.edit().putBoolean(KEY_NO_RESPONSE_FOLLOWUPS, value).commit()) {
+            "Could not save unanswered-reminder preference"
+        }
+    }
+
     fun setWeeklyAutoPlanEnabled(value: Boolean) {
         prefs.edit().putBoolean(KEY_WEEKLY_AUTO_PLAN, value).apply()
     }
 
     fun setContextNudgesEnabled(value: Boolean) {
         prefs.edit().putBoolean(KEY_CONTEXT_NUDGES, value).apply()
+    }
+
+    fun setQuietHoursEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_QUIET_HOURS_ENABLED, enabled).apply()
+    }
+
+    fun setQuietHoursWindow(startMinuteOfDay: Int, endMinuteOfDay: Int) {
+        require(QuietHoursPolicy.validMinute(startMinuteOfDay))
+        require(QuietHoursPolicy.validMinute(endMinuteOfDay))
+        require(startMinuteOfDay != endMinuteOfDay) { "Quiet hours start and end must differ" }
+        prefs.edit()
+            .putInt(KEY_QUIET_START_MINUTE, startMinuteOfDay)
+            .putInt(KEY_QUIET_END_MINUTE, endMinuteOfDay)
+            .apply()
     }
 
     private fun stringSet(key: String): Set<String> =
@@ -271,7 +354,11 @@ class CreatorOsSettingsStore(context: Context) {
         private const val KEY_DEFAULT_VOICE = "default_voice_persona"
         private const val KEY_ALARM_TIMEOUT = "default_alarm_timeout_seconds"
         private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
+        private const val KEY_NO_RESPONSE_FOLLOWUPS = "unanswered_followups_enabled_v180"
         private const val KEY_WEEKLY_AUTO_PLAN = "weekly_auto_plan_enabled"
         private const val KEY_CONTEXT_NUDGES = "context_nudges_enabled"
+        private const val KEY_QUIET_HOURS_ENABLED = "quiet_hours_enabled_v158"
+        private const val KEY_QUIET_START_MINUTE = "quiet_hours_start_minute_v158"
+        private const val KEY_QUIET_END_MINUTE = "quiet_hours_end_minute_v158"
     }
 }

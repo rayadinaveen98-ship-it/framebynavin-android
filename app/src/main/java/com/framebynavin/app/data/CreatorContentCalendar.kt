@@ -30,11 +30,12 @@ object CreatorContentCalendarEngine {
     ): List<CreatorCalendarItem> {
         val zone = ZoneId.systemDefault()
         val start = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
-        val end = start.plusDays(daysAhead.coerceAtLeast(1))
+        val end = start.plusDays(daysAhead.coerceAtLeast(1) - 1)
         val representedWeeklyKeys = tasks.mapNotNull { it.scheduleOccurrenceKey.takeIf(String::isNotBlank) }.toSet()
 
         val projectItems = tasks.asSequence()
             .filter { it.status != TaskStatus.SKIPPED && it.archivedAtMillis <= 0L && it.dueAtMillis > 0L }
+            .filter { it.dueAtMillis >= nowMillis || it.status == TaskStatus.DONE }
             .filter { millis ->
                 val date = Instant.ofEpochMilli(millis.dueAtMillis).atZone(zone).toLocalDate()
                 !date.isBefore(start) && !date.isAfter(end)
@@ -55,6 +56,7 @@ object CreatorContentCalendarEngine {
             .toList()
 
         val weeklyItems = WeeklyScheduleEngine.upcomingOccurrences(weeklySlots, nowMillis, daysAhead)
+            .filter { it.publishAtMillis >= nowMillis && !Instant.ofEpochMilli(it.publishAtMillis).atZone(zone).toLocalDate().isAfter(end) }
             .filterNot { it.key in representedWeeklyKeys }
             .map { occurrence ->
                 CreatorCalendarItem(

@@ -21,6 +21,8 @@ import com.framebynavin.app.data.TaskPriority
 import java.util.Locale
 
 object ReminderNotifications {
+    private const val QUIET_CHANNEL_ID = "backlot_discreet_reminders_v158"
+
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -31,16 +33,29 @@ object ReminderNotifications {
                 description = "Backlot task and stage check-in reminders"
                 enableVibration(true)
             }
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            val quiet = NotificationChannel(
+                QUIET_CHANNEL_ID,
+                "Quiet reminders & follow-ups",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "Silent check-ins during quiet hours and unanswered-reminder follow-ups"
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
+            }
+            context.getSystemService(NotificationManager::class.java)
+                .createNotificationChannels(listOf(channel, quiet))
         }
     }
 
-    fun canPost(context: Context): Boolean {
+    fun canPost(context: Context, discreet: Boolean = false): Boolean {
         val runtimeGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!runtimeGranted || !NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(ReminderConstants.CHANNEL_ID)
+            val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(
+                if (discreet) QUIET_CHANNEL_ID else ReminderConstants.CHANNEL_ID
+            )
             if (channel?.importance == NotificationManager.IMPORTANCE_NONE) return false
         }
         return true
@@ -52,16 +67,35 @@ object ReminderNotifications {
         deliveryDelayMillis: Long? = null,
         stageLabel: String? = null,
         occurrenceId: String? = null,
+        discreet: Boolean = false,
+        isFollowUp: Boolean = false,
     ): Boolean {
         ensureChannel(context)
-        if (!canPost(context)) return false
+        val prefs = CreatorOsSettingsStore(context.applicationContext).snapshot()
+        val snoozeMinutes = prefs.snoozeMinutes
+        val stageCheckIn = ProjectPulseEngine.isStageCheckIn(task)
+        // Only an ordinary notification, or Smart's gentle notification stage,
+        // can be quieted. Explicit Voice, Alarm, and Smart ringing stages are
+        // never silently downgraded; those are opt-in high-attention alerts.
+        val quietEligible = QuietHoursPolicy.eligible(task.reminderMode, stageLabel)
+        // Follow-ups are *always* discreet, including when the original reminder
+        // used Voice or Alarm. Never turn no response into an unsolicited loud alert.
+        val quiet = discreet || (quietEligible && QuietHoursPolicy.active(
+            prefs.quietHoursEnabled, prefs.quietHoursStartMinute,
+            prefs.quietHoursEndMinute, System.currentTimeMillis(),
+        ))
+        // A disabled loud channel must not suppress the separately opted-in quiet
+        // channel. Conversely a disabled quiet channel may not be bypassed.
+        if (!canPost(context, discreet = quiet)) return false
+        // Do not create/replace an occurrence token when Android blocks the selected
+        // notification channel; failed delivery is not an actionable user response.
         val occurrences = ReminderOccurrenceStore(context)
         val token = occurrenceId ?: occurrences.issue(task)
         if (!occurrences.matches(task, token)) return false
+        // Posting is only an Android notification hand-off, never a read receipt.
+        runCatching { ReminderAcknowledgementStore(context).begin(task, token, "NOTIFICATION") }
         val manager = context.getSystemService(NotificationManager::class.java)
-        val snoozeMinutes = CreatorOsSettingsStore(context.applicationContext).snapshot().snoozeMinutes
-        val stageCheckIn = ProjectPulseEngine.isStageCheckIn(task)
-        val builder = NotificationCompat.Builder(context, ReminderConstants.CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, if (quiet) QUIET_CHANNEL_ID else ReminderConstants.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(task.title)
             .setContentText(notificationText(task))
@@ -73,7 +107,9 @@ object ReminderNotifications {
                     }
                 )
             )
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(if (quiet) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
+            .setSilent(quiet)
+            .setOnlyAlertOnce(isFollowUp)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent(context, task.id))
@@ -92,6 +128,8 @@ object ReminderNotifications {
         }
 
         when {
+            isFollowUp -> builder.setSubText(stageLabel ?: "Gentle follow-up")
+            quiet -> builder.setSubText("Quiet hours · discreet notification")
             stageLabel != null -> builder.setSubText(stageLabel)
             deliveryDelayMillis != null -> builder.setSubText(
                 "Timing +${String.format(Locale.US, "%.1fs", deliveryDelayMillis / 1000.0)}"
@@ -99,6 +137,14 @@ object ReminderNotifications {
         }
 
         manager.notify(task.id.hashCode(), builder.build())
+        runCatching { ReminderAcknowledgementStore(context).markPosted(task.id, token) }
+        // Only a first ordinary notification starts the 20-minute observation window.
+        // Voice/alarm finish paths and Smart terminal stage arm their own follow-up.
+        if (!isFollowUp && task.reminderMode == com.framebynavin.app.data.ReminderMode.SIMPLE &&
+            !task.smartEscalationEnabled
+        ) {
+            runCatching { V179ReminderFollowUps.armForPostedNotification(context, task, token) }
+        }
         return true
     }
 

@@ -39,6 +39,14 @@ class EscalationReceiver : BroadcastReceiver() {
                             SmartEscalationScheduler(appContext).recover(task)
                         }
                     }
+                    SmartDeliveryDecision.RECOVER_LATE -> {
+                        if (ledger.consumeIfCurrent(ledgerKey, scheduledAt) && task != null) {
+                            // The final target passed: stop the escalation chain, then
+                            // offer one actionable notification instead of dropping the alert.
+                            SmartEscalationScheduler(appContext).finishSession(task.id)
+                            MissedReminderRecovery.deliverTaskIfNeeded(appContext, task, now)
+                        }
+                    }
                     SmartDeliveryDecision.DELIVER -> {
                         if (ledger.consumeIfCurrent(ledgerKey, scheduledAt) && task != null) {
                             deliverStage(appContext, intent, task, stage, now)
@@ -67,6 +75,8 @@ class EscalationReceiver : BroadcastReceiver() {
         val smart = SmartEscalationScheduler(appContext)
         smart.markStageActive(task.id, stage, firedAt)
         val token = ReminderOccurrenceStore(appContext).issue(task)
+        val acknowledgements = ReminderAcknowledgementStore(appContext)
+        runCatching { acknowledgements.begin(task, token, "SMART_${stage.name}") }
         ReminderSurfaceRegistry.closeTask(task.id)
         val exactDelivery = intent.getBooleanExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, false)
 
@@ -74,7 +84,7 @@ class EscalationReceiver : BroadcastReceiver() {
             ReminderNotifications.show(appContext, task, stageLabel = label, occurrenceId = token)
         }.getOrDefault(false)
 
-        when (stage) {
+        val delivered = when (stage) {
             SmartEscalationScheduler.Stage.SOFT -> {
                 AlarmRingingService.stop(appContext, task.id)
                 VoiceReminderService.stop(appContext, task.id)
@@ -86,7 +96,7 @@ class EscalationReceiver : BroadcastReceiver() {
                 ReminderNotifications.cancel(appContext, task.id)
                 if (!exactDelivery || !runCatching { VoiceReminderService.start(appContext, task, token) }.isSuccess) {
                     fallback("Smart · Voice fallback")
-                }
+                } else true
             }
             SmartEscalationScheduler.Stage.ALARM -> {
                 ReminderSurfaceRegistry.closeTask(task.id)
@@ -96,7 +106,7 @@ class EscalationReceiver : BroadcastReceiver() {
                         AlarmRingingService.start(appContext, task.copy(voiceEnabled = false), stage, token)
                     }.isSuccess) {
                     fallback("Smart · Alarm fallback")
-                }
+                } else true
             }
             SmartEscalationScheduler.Stage.CRITICAL -> {
                 ReminderSurfaceRegistry.closeTask(task.id)
@@ -107,10 +117,17 @@ class EscalationReceiver : BroadcastReceiver() {
                         AlarmRingingService.start(appContext, task.copy(priority = TaskPriority.CRITICAL, voiceEnabled = true), stage, token)
                     }.isSuccess) {
                     fallback("Smart · Critical fallback")
-                }
+                } else true
             }
         }
 
+        // A terminal Smart alert which was delivered on time must remain usable
+        // after app resume. Without this marker recovery treats it as missed,
+        // stops the ringing service and replaces it with a catch-up notification.
+        if (delivered && SmartEscalationPolicy.nextStage(task.priority, stage) == null) {
+            AlarmLedger(appContext).markDelivered(task.id, task.reminderAtMillis)
+        }
+        if (!delivered) runCatching { acknowledgements.markDeliveryFailed(task.id, token) }
         smart.scheduleNextIfUnanswered(task, stage, firedAt)
     }
 }
