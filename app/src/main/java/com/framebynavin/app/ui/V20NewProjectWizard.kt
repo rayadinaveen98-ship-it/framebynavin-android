@@ -890,7 +890,7 @@ private fun V20WizardSummaryChip(label: String, value: String) {
 }
 
 @Composable
-private fun V20WizardReviewRow(label: String, value: String, onClick: () -> Unit) {
+internal fun V20WizardReviewRow(label: String, value: String, onClick: () -> Unit) {
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(15.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.reviewRowMinHeight).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
