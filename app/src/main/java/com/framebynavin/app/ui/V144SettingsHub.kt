@@ -50,6 +50,7 @@ internal fun V144SettingsHub(
     onVoice: (VoicePersona) -> Unit,
     onAlarmTimeout: (Int) -> Unit,
     onSnooze: (Int) -> Unit,
+    onUnansweredFollowUps: (Boolean) -> Unit,
     onWeeklyAutoPlan: (Boolean) -> Unit,
     onContextNudges: (Boolean) -> Unit,
     onQuietHoursEnabled: (Boolean) -> Unit = {},
@@ -173,6 +174,42 @@ internal fun V144SettingsHub(
                     V169SettingsClarityPolicy.alarmTimeoutChoices(settings.defaultAlarmTimeoutSeconds).forEach { value ->
                         val label = if (value < 60) "${value}s" else if (value % 60 == 0) "${value / 60}m" else "${value / 60}m ${value % 60}s"
                         FilterChip(settings.defaultAlarmTimeoutSeconds == value, { onAlarmTimeout(value) }, { Text(label, fontSize = 10.sp) })
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("IF YOU DON'T RESPOND", "Gentle follow-ups, not extra ringing.")
+                Spacer(Modifier.height(9.dp))
+                Surface(
+                    Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Follow up when unanswered", color = ProjectorIvory,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (settings.unansweredFollowUpsEnabled)
+                                    "On · up to 2 quiet notifications. No extra voice or alarm."
+                                else "Off · reminders stay unanswered without automatic follow-ups.",
+                                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                            )
+                            Spacer(Modifier.height(5.dp))
+                            Text(
+                                "Follow-up times depend on importance and Android background scheduling. " +
+                                    "This never marks your project done.",
+                                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                            )
+                        }
+                        Switch(
+                            modifier = Modifier.testTag("v180-unanswered-followups-toggle"),
+                            checked = settings.unansweredFollowUpsEnabled,
+                            onCheckedChange = onUnansweredFollowUps,
+                            colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                        )
                     }
                 }
 
