@@ -48,12 +48,14 @@ object ReminderNotifications {
         }
     }
 
-    fun canPost(context: Context): Boolean {
+    fun canPost(context: Context, discreet: Boolean = false): Boolean {
         val runtimeGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!runtimeGranted || !NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(ReminderConstants.CHANNEL_ID)
+            val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(
+                if (discreet) QUIET_CHANNEL_ID else ReminderConstants.CHANNEL_ID
+            )
             if (channel?.importance == NotificationManager.IMPORTANCE_NONE) return false
         }
         return true
@@ -69,7 +71,6 @@ object ReminderNotifications {
         isFollowUp: Boolean = false,
     ): Boolean {
         ensureChannel(context)
-        if (!canPost(context)) return false
         val occurrences = ReminderOccurrenceStore(context)
         val token = occurrenceId ?: occurrences.issue(task)
         if (!occurrences.matches(task, token)) return false
@@ -89,10 +90,9 @@ object ReminderNotifications {
             prefs.quietHoursEnabled, prefs.quietHoursStartMinute,
             prefs.quietHoursEndMinute, System.currentTimeMillis(),
         ))
-        if (quiet && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            context.getSystemService(NotificationManager::class.java)
-                .getNotificationChannel(QUIET_CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE
-        ) return false
+        // A disabled loud channel must not suppress the separately opted-in quiet
+        // channel. Conversely a disabled quiet channel may not be bypassed.
+        if (!canPost(context, discreet = quiet)) return false
         val builder = NotificationCompat.Builder(context, if (quiet) QUIET_CHANNEL_ID else ReminderConstants.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(task.title)
