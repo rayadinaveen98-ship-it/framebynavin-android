@@ -68,6 +68,7 @@ object CreatorDataGate {
 
     suspend fun <T> readyTransaction(context: Context, block: suspend () -> T): T = transaction {
         CreatorBackupManager(context).recoverPendingRestore()
+        IdeaProjectConversion(context).recoverPendingUnlocked()
         block()
     }
 

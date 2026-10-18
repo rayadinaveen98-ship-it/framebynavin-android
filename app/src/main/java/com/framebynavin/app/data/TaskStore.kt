@@ -133,6 +133,9 @@ class TaskStore(private val context: Context) {
         }
     }
 
+    internal fun encodeRecoveryTask(task: CreatorTask): String = encode(listOf(task))
+    internal fun decodeRecoveryTask(raw: String): CreatorTask = decode(raw).single()
+
     private fun encode(tasks: List<CreatorTask>): String {
         val array = JSONArray()
         tasks.forEach { task ->

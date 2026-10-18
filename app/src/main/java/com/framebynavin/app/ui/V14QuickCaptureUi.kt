@@ -68,7 +68,7 @@ internal fun V14QuickCaptureDialog(
     var draftError by remember { mutableStateOf<String?>(null) }
     var confirmClose by remember { mutableStateOf(false) }
     var recorderActive by remember { mutableStateOf(false) }
-    var checkingRecovery by remember { mutableStateOf(true) }
+    var checkingRecovery by remember { mutableStateOf(recovered != null) }
     var showDictation by rememberSaveable { mutableStateOf(false) }
     var showRecording by rememberSaveable { mutableStateOf(recovered?.recording != null) }
     var showNotes by rememberSaveable { mutableStateOf(recovered?.notes?.isNotBlank() == true) }
@@ -85,6 +85,7 @@ internal fun V14QuickCaptureDialog(
 
     // Recover a crash after the vault commit but before the draft was cleared without a second save.
     LaunchedEffect(Unit) {
+        if (recovered == null) return@LaunchedEffect
         try {
             val alreadySaved = withContext(Dispatchers.IO) {
                 CreatorDataGate.readyTransaction(context) {

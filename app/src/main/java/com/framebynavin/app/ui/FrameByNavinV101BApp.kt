@@ -380,8 +380,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onDelete = vm::deleteIdea,
                     onRestore = vm::restoreIdea,
                     onArchive = vm::archiveIdea,
-                    onConvert = { ideaId, platform, format, dueAtMillis ->
-                        val projectId = vm.convertIdeaToProject(ideaId, platform, format, dueAtMillis)
+                    onConvert = { _, _, _, _ -> null },
+                    onConvertDurably = { request ->
+                        val projectId = vm.convertIdeaToProject(request)
                         if (V18CreatorJourney.afterProjectCreated(projectId) == V18JourneyDestination.CREATE) {
                             externalStudioId = projectId
                             externalStudioNonce += 1L

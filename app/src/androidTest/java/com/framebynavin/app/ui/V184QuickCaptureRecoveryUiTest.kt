@@ -1,6 +1,10 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -21,14 +25,19 @@ class V184QuickCaptureRecoveryUiTest {
     }
 
     private fun waitForCaptureReady() {
-        rule.waitUntil(30_000) {
-            !rule.onNodeWithTag("quick-capture-title").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+        try {
+            rule.waitUntil(30_000) {
+                !rule.onNodeWithTag("quick-capture-title").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+            }
+        } catch (error: Throwable) {
+            throw AssertionError("Capture stayed disabled. UI state:\n" + rule.onAllNodes(isRoot(), useUnmergedTree = true).printToString(), error)
         }
     }
 
     @Test fun keepCloseAndReopenRecoversTextWhileDiscardClearsIt() {
         var visible by mutableStateOf(true)
         rule.setContent {
+            Button(onClick = { visible = true }, modifier = Modifier.testTag("reopen-capture")) { Text("Reopen capture") }
             if (visible) V14QuickCaptureDialog(onDismiss = { visible = false }, onSave = { false })
         }
         waitForCaptureReady()
@@ -38,7 +47,11 @@ class V184QuickCaptureRecoveryUiTest {
         }
         rule.onNodeWithTag("quick-capture-close").performClick()
         rule.onNodeWithTag("quick-capture-keep-draft").performClick()
-        rule.runOnIdle { assertFalse(visible); visible = true }
+        rule.waitUntil(30_000) { !visible }
+        rule.onAllNodesWithTag("quick-capture-title").assertCountEquals(0)
+        rule.waitForIdle()
+        rule.onNodeWithTag("reopen-capture").performClick()
+        waitForCaptureReady()
         rule.onNodeWithText("Your unfinished idea was recovered.").assertIsDisplayed()
         rule.onNodeWithTag("quick-capture-title").assertTextContains("Camera movement idea")
         try {
@@ -46,7 +59,7 @@ class V184QuickCaptureRecoveryUiTest {
                 !rule.onNodeWithTag("quick-capture-save").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
             }
         } catch (error: Throwable) {
-            throw AssertionError("Recovered capture stayed disabled. UI state:\n" + rule.onRoot(useUnmergedTree = true).printToString(), error)
+            throw AssertionError("Recovered capture stayed disabled. UI state:\n" + rule.onAllNodes(isRoot(), useUnmergedTree = true).printToString(), error)
         }
         rule.onNodeWithTag("quick-capture-close").performClick()
         rule.onNodeWithTag("quick-capture-discard-draft").performClick()

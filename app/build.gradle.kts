@@ -55,8 +55,8 @@ android {
         targetSdk = 36
         // Backlot V184 Phase 0 / first Phase 1A capture-safety preview.
         // Same application and signing identity; no destructive creator-data migration.
-        versionCode = 184
-        versionName = "2.3.4-v184-capture-safety-preview"
+        versionCode = 185
+        versionName = "2.3.5-v185-idea-conversion-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
