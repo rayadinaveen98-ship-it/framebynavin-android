@@ -53,10 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V183 stable personal-install release (V182 feature parity).
-        // Higher versionCode permits a data-preserving upgrade from the V182 preview.
-        versionCode = 183
-        versionName = "2.3.3-stable"
+        // Backlot V184 Phase 0 / first Phase 1A capture-safety preview.
+        // Same application and signing identity; no destructive creator-data migration.
+        versionCode = 184
+        versionName = "2.3.4-v184-capture-safety-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

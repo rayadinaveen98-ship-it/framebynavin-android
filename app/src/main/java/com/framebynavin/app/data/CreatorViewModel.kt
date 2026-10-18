@@ -757,6 +757,30 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteTask(id: String) = deleteTasks(setOf(id))
 
+    /** Quick Capture closes only after the vault has accepted the original text/audio. */
+    suspend fun captureQuickIdea(idea: CreatorIdea, generation: Long): String? {
+        publicationRecoveryReady.await()
+        if (writeError != null || pendingWrites != 0 || idea.title.isBlank()) return null
+        val saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            CreatorDataGate.readyTransaction(getApplication()) {
+                CreatorDataGate.checkGeneration(getApplication(), generation)
+                val existing = ideaStore.load().firstOrNull { it.id == idea.id }
+                if (existing != null) {
+                    check(!existing.isTrashed && existing.title == idea.title.trim() &&
+                        existing.notes == idea.notes.trim() && existing.audioLocalPath == idea.audioLocalPath) {
+                        "This idea was already saved with different details. Open Idea Vault to review it."
+                    }
+                    existing
+                } else ideaStore.capture(idea, generation)
+            }
+        }
+        CreatorDataGate.checkGeneration(getApplication(), generation)
+        if (pendingWrites == 0) refreshCanonicalState()
+        if (saved.title.length >= 3) recordReward(CreatorRewardEngine.ideaDailyCapture(saved.id, saved.createdAtMillis))
+        CreatorCloudSyncWorker.enqueueSoon(getApplication())
+        return saved.id
+    }
+
     fun saveIdea(idea: CreatorIdea): String? {
         if (writeError != null || idea.title.isBlank()) return null
         val now = System.currentTimeMillis()

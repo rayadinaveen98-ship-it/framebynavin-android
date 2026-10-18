@@ -63,7 +63,12 @@ private fun BackupScreen(onClose: () -> Unit) {
     val recoveryManager = remember { CreatorBackupManager(context.applicationContext) }
     val ideaStore = remember { IdeaVaultStore(context.applicationContext) }
     val voiceStorage = remember {
-        VoiceIdeaStorage(File(context.applicationContext.filesDir, VoiceIdeaStorage.DIRECTORY_NAME))
+        VoiceIdeaStorage(
+            File(context.applicationContext.filesDir, VoiceIdeaStorage.DIRECTORY_NAME),
+            protectedPaths = {
+                setOfNotNull(com.framebynavin.app.data.QuickCaptureDraftStore(context).load()?.recording?.localPath)
+            },
+        )
     }
     val scope = rememberCoroutineScope()
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
