@@ -21,7 +21,7 @@ class V184QuickCaptureDraftTest {
                 title = "సీన్ analysis", notes = "lighting", recording = VoiceIdeaRecording(audio.path, 1234))
             QuickCaptureDraftStore(context).save(draft)
             val recovered = QuickCaptureDraftStore(context).load()!!
-            assertEquals(draft, recovered)
+            assertEquals(draft.copy(recording = draft.recording!!.copy(localPath = audio.canonicalPath)), recovered)
             val storage = VoiceIdeaStorage(audio.parentFile!!, orphanGraceMillis = 0,
                 protectedPaths = { setOfNotNull(QuickCaptureDraftStore(context).load()?.recording?.localPath) })
             assertTrue(storage.snapshot(emptyList()).referencedCount >= 1)

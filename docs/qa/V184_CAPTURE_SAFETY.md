@@ -43,5 +43,8 @@ No connected Android device/emulator or local Android/Gradle toolchain was avail
 - Diff whitespace validation: passed.
 - New automated tests prepared: store recreation/audio preservation, stale restore generation, protected audio cleanup, explicit keep/discard and save retry/recovery.
 - Android/JVM build, lint and emulator execution for V184: not executed locally; no toolchain available.
-- Remote push: blocked by automatic approval review requiring explicit permission to export this change to the existing public GitHub repository. No V184 CI run or verified APK is claimed.
+- Repository push authorized explicitly by the creator; candidate source is `6064285a3655fda51a6e62307dc039fa8d06e36a`, PR #40.
+- GitHub Actions run 39135871904: clean build, 542 JVM tests (zero failures), lint, instrumentation compilation and non-debuggable personalStable APK assembly passed. First emulator execution completed 14 tests with two failures: canonical path equality and recovered-screen readiness timeout. Neither is treated as passed. Follow-up normalizes the path assertion and adds a 30-second readiness bound with a semantic-tree diagnostic; all 14 tests must pass on rerun.
+- Downloaded artifact ZIP digest matches GitHub. APK v2 signature and signed-content digest verified; signing certificate matches the existing prototype identity. Manifest package/version/non-debuggable status verified.
+- Candidate APK SHA-256: `ebbc2f372b98f6718352c07eeff38b4659b9febcb723026ede8c888c14a88c9a`.
 - Phase 0 visual/device baseline and all physical-device acceptance remain open.

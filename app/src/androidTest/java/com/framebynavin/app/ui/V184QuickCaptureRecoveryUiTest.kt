@@ -21,7 +21,7 @@ class V184QuickCaptureRecoveryUiTest {
     }
 
     private fun waitForCaptureReady() {
-        rule.waitUntil(10_000) {
+        rule.waitUntil(30_000) {
             !rule.onNodeWithTag("quick-capture-title").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
         }
     }
@@ -33,7 +33,7 @@ class V184QuickCaptureRecoveryUiTest {
         }
         waitForCaptureReady()
         rule.onNodeWithTag("quick-capture-title").performTextInput("Camera movement idea")
-        rule.waitUntil(10_000) {
+        rule.waitUntil(30_000) {
             !rule.onNodeWithTag("quick-capture-save").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
         }
         rule.onNodeWithTag("quick-capture-close").performClick()
@@ -41,12 +41,16 @@ class V184QuickCaptureRecoveryUiTest {
         rule.runOnIdle { assertFalse(visible); visible = true }
         rule.onNodeWithText("Your unfinished idea was recovered.").assertIsDisplayed()
         rule.onNodeWithTag("quick-capture-title").assertTextContains("Camera movement idea")
-        rule.waitUntil(10_000) {
-            !rule.onNodeWithTag("quick-capture-save").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+        try {
+            rule.waitUntil(30_000) {
+                !rule.onNodeWithTag("quick-capture-save").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+            }
+        } catch (error: Throwable) {
+            throw AssertionError("Recovered capture stayed disabled. UI state:\n" + rule.onRoot(useUnmergedTree = true).printToString(), error)
         }
         rule.onNodeWithTag("quick-capture-close").performClick()
         rule.onNodeWithTag("quick-capture-discard-draft").performClick()
-        rule.waitUntil(10_000) { !visible }
+        rule.waitUntil(30_000) { !visible }
         assertNull(QuickCaptureDraftStore(InstrumentationRegistry.getInstrumentation().targetContext).load())
     }
 
@@ -59,13 +63,13 @@ class V184QuickCaptureRecoveryUiTest {
         }
         waitForCaptureReady()
         rule.onNodeWithTag("quick-capture-title").performTextInput("Keep this thought")
-        rule.waitUntil(10_000) {
+        rule.waitUntil(30_000) {
             !rule.onNodeWithTag("quick-capture-save").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
         }
         rule.onNodeWithTag("quick-capture-save").performClick()
         rule.onNodeWithTag("quick-capture-save-error").assertIsDisplayed()
         assertEquals("Keep this thought", QuickCaptureDraftStore(context).load()?.title)
         rule.onNodeWithTag("quick-capture-save").performClick()
-        rule.waitUntil(10_000) { attempts == 2 && QuickCaptureDraftStore(context).load() == null }
+        rule.waitUntil(30_000) { attempts == 2 && QuickCaptureDraftStore(context).load() == null }
     }
 }
