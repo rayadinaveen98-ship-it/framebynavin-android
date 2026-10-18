@@ -94,6 +94,12 @@ internal fun V20NewProjectWizard(
     voicePersona: VoicePersona,
     onVoicePersonaChange: (VoicePersona) -> Unit,
     onPreviewVoice: (VoicePersona) -> Unit,
+    voiceRepeatCount: Int,
+    onVoiceRepeatCount: (Int) -> Unit,
+    voiceRepeatGapSeconds: Int,
+    onVoiceRepeatGapSeconds: (Int) -> Unit,
+    alarmTimeoutSeconds: Int,
+    onAlarmTimeoutSeconds: (Int) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
     reminderSetupReady: Boolean,
@@ -379,6 +385,15 @@ internal fun V20NewProjectWizard(
                                             selected = voicePersona,
                                             onSelected = onVoicePersonaChange,
                                             onPreview = onPreviewVoice,
+                                        )
+                                        Spacer(Modifier.height(14.dp))
+                                        V180ReminderTimingControls(
+                                            repeatCount = voiceRepeatCount,
+                                            onRepeatCount = onVoiceRepeatCount,
+                                            repeatGapSeconds = voiceRepeatGapSeconds,
+                                            onRepeatGapSeconds = onVoiceRepeatGapSeconds,
+                                            alarmTimeoutSeconds = alarmTimeoutSeconds,
+                                            onAlarmTimeoutSeconds = onAlarmTimeoutSeconds,
                                         )
                                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                             Spacer(Modifier.height(12.dp))
@@ -672,6 +687,15 @@ internal fun V20NewProjectWizard(
                                     selected = voicePersona,
                                     onSelected = onVoicePersonaChange,
                                     onPreview = onPreviewVoice,
+                                )
+                                Spacer(Modifier.height(14.dp))
+                                V180ReminderTimingControls(
+                                    repeatCount = voiceRepeatCount,
+                                    onRepeatCount = onVoiceRepeatCount,
+                                    repeatGapSeconds = voiceRepeatGapSeconds,
+                                    onRepeatGapSeconds = onVoiceRepeatGapSeconds,
+                                    alarmTimeoutSeconds = alarmTimeoutSeconds,
+                                    onAlarmTimeoutSeconds = onAlarmTimeoutSeconds,
                                 )
                                 if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                     Spacer(Modifier.height(12.dp))
