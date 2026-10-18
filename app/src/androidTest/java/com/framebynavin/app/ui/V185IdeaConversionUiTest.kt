@@ -4,6 +4,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.*
+import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.*
 import org.junit.Before
@@ -24,10 +25,12 @@ class V185IdeaConversionUiTest {
         var accepted = 0
         var request: IdeaProjectConversionRequest? = null
         rule.setContent {
+            FrameByNavinTheme {
             V09ConvertIdeaDialog(CreatorIdea(id = "idea", title = "తెలుగు camera idea"), onDismiss = {}, conversionFailed = false,
                 onConvert = { _, _, _ -> error("Must use durable writer") },
                 onConvertDurably = { request = it; attempts++; if (attempts == 1) release.await() else "project" },
                 onConverted = { accepted++ })
+            }
         }
         rule.onNodeWithTag("conversion-plan-OFF").performScrollTo().assertIsSelected()
         rule.onNodeWithTag("conversion-plan-LIGHT").performScrollTo().performClick()
@@ -47,9 +50,11 @@ class V185IdeaConversionUiTest {
     @Test fun thrownSaveFailureDoesNotAnnounceSuccessAndLeavesDialogUsable() {
         var accepted = false
         rule.setContent {
+            FrameByNavinTheme {
             V09ConvertIdeaDialog(CreatorIdea(id = "idea", title = "Camera movement idea"), onDismiss = {}, conversionFailed = false,
                 onConvert = { _, _, _ -> null }, onConvertDurably = { error("Could not save. Your idea was kept.") },
                 onConverted = { accepted = true })
+            }
         }
         rule.onNodeWithTag("conversion-plan-description").performScrollTo().assertTextContains("No automatic reminders", substring = true)
         val context = InstrumentationRegistry.getInstrumentation().targetContext

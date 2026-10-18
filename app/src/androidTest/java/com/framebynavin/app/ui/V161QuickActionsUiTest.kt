@@ -1,5 +1,8 @@
 package com.framebynavin.app.ui
 
+import androidx.compose.ui.test.onAllNodes
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -29,8 +32,12 @@ class V161QuickActionsUiTest {
     }
 
     private fun waitForCaptureReady() {
-        rule.waitUntil(10_000) {
-            !rule.onNodeWithTag("quick-capture-title").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+        try {
+            rule.waitUntil(10_000) {
+                !rule.onNodeWithTag("quick-capture-title").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+            }
+        } catch (failure: Throwable) {
+            throw AssertionError("Fresh capture stayed disabled:\n" + rule.onAllNodes(isRoot(), useUnmergedTree = true).printToString(), failure)
         }
     }
 
