@@ -443,6 +443,8 @@ internal fun V20NewProjectWizard(
                             shape = RoundedCornerShape(16.dp),
                         )
                         Spacer(Modifier.height(12.dp))
+                        V175ProjectNotesField(notes = notes, onNotesChange = onNotesChange)
+                        Spacer(Modifier.height(12.dp))
                         V20InlineContinue("CHOOSE PROJECT TYPE", title.isNotBlank()) { revealNext(0) }
                     }
 
