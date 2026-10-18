@@ -163,6 +163,10 @@ internal fun V20NewProjectWizard(
     )
     val progress = ((activeStage + 1).coerceIn(1, 7)) / 7f
     val supportSummary = V156ReminderSetupCopy.summary(attentionPlan, deliveryPreference)
+    val permissionWarning = V175ProjectDetailsCopy.permissionsWarning(
+        needsAdvancedPermissions = requiresAdvancedPermissions && attentionPlan != ProjectAttentionPlan.OFF,
+        ready = reminderSetupReady,
+    )
 
 
     if (showAllTypes) {
@@ -343,6 +347,7 @@ internal fun V20NewProjectWizard(
                                     onSelected = onAttentionPlanChange,
                                     compact = true,
                                 )
+                                V175ReminderMeaning(attentionPlan, deliveryPreference, permissionWarning)
                                 if (attentionPlan != ProjectAttentionPlan.OFF) {
                                     Spacer(Modifier.height(12.dp))
                                     V156AdvancedReminderSettings(
@@ -624,6 +629,7 @@ internal fun V20NewProjectWizard(
                             selected = attentionPlan,
                             onSelected = onAttentionPlanChange,
                         )
+                        V175ReminderMeaning(attentionPlan, deliveryPreference, permissionWarning)
                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                             Spacer(Modifier.height(8.dp))
                             V20FieldLabel("REMIND ME AT")
