@@ -115,12 +115,31 @@ class ReminderAcknowledgementStore(context: Context) {
         readTask(taskId).filter { it.generation == CreatorDataGate.generation(app) }
     }
 
+    /**
+     * A posted notification without an explicit response becomes observed-unanswered after
+     * a grace period, during the existing non-exact health/startup reconciliation only.
+     * This does NOT schedule a retry, imply it was read or modify the project reminder.
+     */
+    fun observeUnansweredNotification(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): Boolean =
+        synchronized(lock) {
+            val current = awaitingResponse(task) ?: return@synchronized false
+            if (current.state != ReminderAckState.NOTIFICATION_POSTED) return@synchronized false
+            if (nowMillis - current.changedAtMillis < NOTIFICATION_GRACE_MILLIS) return@synchronized false
+            advance(task.id, current.occurrenceId, ReminderAckState.UNANSWERED,
+                "posted_no_explicit_response", nowMillis)
+        }
+
     /** This is a pending response, not proof a notification was seen. */
     fun awaitingResponse(task: CreatorTask): ReminderAckRecord? = synchronized(lock) {
         val last = recent(task.id).lastOrNull() ?: return@synchronized null
         if (last.state in setOf(ReminderAckState.RESPONDED, ReminderAckState.DELIVERY_FAILED)) return@synchronized null
         if (!ReminderOccurrenceStore(app).matches(task, last.occurrenceId)) return@synchronized null
         last
+    }
+
+    /** Remove just one task's metadata, e.g. after the project is deleted. */
+    fun clearTask(taskId: String): Boolean = synchronized(lock) {
+        prefs.edit().remove(taskId).commit()
     }
 
     /** Restores/cross-account resets may explicitly purge acknowledgement metadata. */
@@ -181,6 +200,7 @@ class ReminderAcknowledgementStore(context: Context) {
 
     private companion object {
         const val MAX_PER_TASK = 12
+        const val NOTIFICATION_GRACE_MILLIS = 20L * 60 * 1000
         val lock = Any()
     }
 }
