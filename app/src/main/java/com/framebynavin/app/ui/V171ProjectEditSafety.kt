@@ -2,7 +2,6 @@ package com.framebynavin.app.ui
 
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ProjectAttentionPlan
-import com.framebynavin.app.data.ReminderMode
 
 /**
  * V171 Project editor guardrails. An unrelated project edit must not silently reschedule
@@ -51,7 +50,8 @@ internal object V171ProjectEditSafety {
             current.voiceRepeatCount != requested.voiceRepeatCount ||
             current.voiceRepeatIntervalSeconds != requested.voiceRepeatIntervalSeconds ||
             current.alarmTimeoutSeconds != requested.alarmTimeoutSeconds ||
+            // The form's computed mode can differ from a legacy or snoozed runtime mode.
+            // Only an actual manual reminder-time change requires a refresh here.
             (requested.attentionPlan == ProjectAttentionPlan.CUSTOM &&
-                (current.reminderMode != requested.reminderMode ||
-                    current.reminderAtMillis != if (requested.reminderMode == ReminderMode.NONE) 0L else requested.reminderAtMillis))
+                current.reminderAtMillis != requested.reminderAtMillis)
 }
