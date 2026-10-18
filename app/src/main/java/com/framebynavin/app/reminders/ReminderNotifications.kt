@@ -71,6 +71,8 @@ object ReminderNotifications {
         val occurrences = ReminderOccurrenceStore(context)
         val token = occurrenceId ?: occurrences.issue(task)
         if (!occurrences.matches(task, token)) return false
+        // Posting is only an Android notification hand-off, never a read receipt.
+        runCatching { ReminderAcknowledgementStore(context).begin(task, token, "NOTIFICATION") }
         val manager = context.getSystemService(NotificationManager::class.java)
         val prefs = CreatorOsSettingsStore(context.applicationContext).snapshot()
         val snoozeMinutes = prefs.snoozeMinutes
@@ -127,6 +129,7 @@ object ReminderNotifications {
         }
 
         manager.notify(task.id.hashCode(), builder.build())
+        runCatching { ReminderAcknowledgementStore(context).markPosted(task.id, token) }
         return true
     }
 
