@@ -75,6 +75,8 @@ class EscalationReceiver : BroadcastReceiver() {
         val smart = SmartEscalationScheduler(appContext)
         smart.markStageActive(task.id, stage, firedAt)
         val token = ReminderOccurrenceStore(appContext).issue(task)
+        val acknowledgements = ReminderAcknowledgementStore(appContext)
+        runCatching { acknowledgements.begin(task, token, "SMART_${stage.name}") }
         ReminderSurfaceRegistry.closeTask(task.id)
         val exactDelivery = intent.getBooleanExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, false)
 
@@ -125,6 +127,7 @@ class EscalationReceiver : BroadcastReceiver() {
         if (delivered && SmartEscalationPolicy.nextStage(task.priority, stage) == null) {
             AlarmLedger(appContext).markDelivered(task.id, task.reminderAtMillis)
         }
+        if (!delivered) runCatching { acknowledgements.markDeliveryFailed(task.id, token) }
         smart.scheduleNextIfUnanswered(task, stage, firedAt)
     }
 }

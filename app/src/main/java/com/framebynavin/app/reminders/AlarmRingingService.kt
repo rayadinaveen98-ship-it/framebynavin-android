@@ -90,12 +90,17 @@ class AlarmRingingService : Service() {
         startAlarmSound(task)
         startVibration()
         if (task.voiceEnabled) startVoice(task)
+        // ACTIVE means the alarm service ran, not that its sound was audible.
+        runCatching { ReminderAcknowledgementStore(applicationContext).markAlarmActive(task.id, token) }
 
         val timeoutMillis = task.alarmTimeoutSeconds.coerceIn(30, 300) * 1000L
         handler.postDelayed({
             if (!isCurrent(task.id, token)) return@postDelayed
             val endingTask = currentTask
             val endingStage = currentSmartStage
+            runCatching {
+                ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, "alarm_timeout")
+            }
             stopCurrent()
             if (endingTask != null && endingTask.reminderMode == ReminderMode.SMART) {
                 val terminal = endingStage == SmartEscalationScheduler.Stage.CRITICAL ||

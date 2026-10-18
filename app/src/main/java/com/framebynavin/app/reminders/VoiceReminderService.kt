@@ -91,6 +91,7 @@ class VoiceReminderService : Service() {
         if (previous != null && previous.id != task.id) {
             getSystemService(NotificationManager::class.java).cancel(notificationId(previous.id))
         }
+        runCatching { ReminderAcknowledgementStore(applicationContext).markVoiceActive(task.id, token) }
         beginSpeechCycle(task)
         return START_NOT_STICKY
     }
@@ -127,7 +128,11 @@ class VoiceReminderService : Service() {
             }
             VoicePersonaEngine.apply(engine, task.voicePersona)
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) = Unit
+                override fun onStart(utteranceId: String?) {
+                    if (isCurrent(task.id, token) && generation == speechGeneration) {
+                        runCatching { ReminderAcknowledgementStore(applicationContext).markVoiceSpeaking(task.id, token) }
+                    }
+                }
 
                 override fun onDone(utteranceId: String?) {
                     handler.post {
@@ -136,6 +141,9 @@ class VoiceReminderService : Service() {
                         currentUtteranceId = null
                         val completedIndex = utteranceIndex(utteranceId)
                         val nextIndex = completedIndex + 1
+                        if (nextIndex >= repeatCount) {
+                            runCatching { ReminderAcknowledgementStore(applicationContext).markVoiceCompleted(task.id, token) }
+                        }
                         if (nextIndex < repeatCount) {
                             // Repeat timing starts only after the complete previous sentence has
                             // finished. This prevents QUEUE_FLUSH from cutting long reminders.
@@ -160,7 +168,14 @@ class VoiceReminderService : Service() {
 
             speakFrozen(task, token, generation, 0)
             handler.postDelayed(
-                { stopVoiceService(task.id, token) },
+                {
+                    if (isCurrent(task.id, token)) {
+                        runCatching {
+                            ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, "voice_timeout")
+                        }
+                        stopVoiceService(task.id, token)
+                    }
+                },
                 totalWindowMillis(task),
             )
         }
@@ -202,13 +217,16 @@ class VoiceReminderService : Service() {
     /** Text-to-speech initialization/playback can fail after Android accepts the service start. */
     private fun fallbackToNotification(task: CreatorTask, token: String, reason: String) {
         if (!isCurrent(task.id, token)) return
-        runCatching {
+        val posted = runCatching {
             ReminderNotifications.show(
                 context = applicationContext,
                 task = task,
                 stageLabel = reason,
                 occurrenceId = token,
             )
+        }.getOrDefault(false)
+        if (!posted) runCatching {
+            ReminderAcknowledgementStore(applicationContext).markDeliveryFailed(task.id, token, "voice_fallback_failed")
         }
     }
 
