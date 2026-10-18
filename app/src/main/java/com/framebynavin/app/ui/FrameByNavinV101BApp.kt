@@ -672,8 +672,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     if (showQuickCapture) {
         V14QuickCaptureDialog(
             onDismiss = { showQuickCapture = false },
-            onSave = { idea ->
-                val savedId = vm.saveIdea(idea)
+            onSave = { false },
+            onSaveDurably = { idea, generation ->
+                val savedId = vm.captureQuickIdea(idea, generation)
                 if (savedId == null) {
                     false // Quick Capture retains all text and any original audio.
                 } else {

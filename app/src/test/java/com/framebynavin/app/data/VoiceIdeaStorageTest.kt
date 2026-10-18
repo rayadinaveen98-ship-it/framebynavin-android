@@ -13,6 +13,15 @@ class VoiceIdeaStorageTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()
 
+    @Test fun `draft protected recording is never an orphan cleanup target`() {
+        val root = temporaryFolder.newFolder("draft_protected")
+        val take = File(root, "voice_idea_pending.m4a").apply { writeBytes(byteArrayOf(1)); setLastModified(1L) }
+        val storage = VoiceIdeaStorage(root, nowMillis = { 100_000L }, orphanGraceMillis = 0L,
+            protectedPaths = { setOf(take.canonicalPath) })
+        assertEquals(0, storage.cleanupOrphans(emptyList()).deletedCount)
+        assertTrue(take.exists())
+    }
+
     @Test
     fun `snapshot separates referenced old orphan and recent unreferenced recordings`() {
         val root = temporaryFolder.newFolder("voice_ideas")

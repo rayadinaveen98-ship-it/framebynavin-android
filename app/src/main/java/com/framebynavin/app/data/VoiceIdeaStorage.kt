@@ -35,6 +35,7 @@ class VoiceIdeaStorage(
     private val rootDirectory: File,
     private val nowMillis: () -> Long = System::currentTimeMillis,
     private val orphanGraceMillis: Long = DEFAULT_ORPHAN_GRACE_MILLIS,
+    private val protectedPaths: () -> Set<String> = { emptySet() },
 ) {
     fun snapshot(ideas: List<CreatorIdea>): VoiceIdeaStorageSnapshot {
         val classification = classify(ideas)
@@ -89,8 +90,9 @@ class VoiceIdeaStorage(
         val orphans = mutableListOf<File>()
         val recent = mutableListOf<File>()
 
+        val draftPaths = protectedPaths()
         ownedFiles.forEach { file ->
-            if (file.path in referencedPaths) {
+            if (file.path in referencedPaths || file.path in draftPaths) {
                 referenced += file
             } else {
                 val modifiedAt = file.lastModified()

@@ -1,0 +1,71 @@
+name: Backlot V184 — Capture safety preview
+on:
+  push:
+    branches: [feature/backlot-v184-capture-safety]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backlot-v184-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Preserve existing source contracts
+        run: |
+          set -euo pipefail
+          for version in $(seq 161 182); do
+            script=$(find tools -maxdepth 1 -name "check_v${version}_*.sh" | head -n 1)
+            test -n "$script"
+            bash "$script"
+          done
+          grep -Fq 'versionCode = 184' app/build.gradle.kts
+          grep -Fq 'versionName = "2.3.4-v184-capture-safety-preview"' app/build.gradle.kts
+      - name: Clean build, regressions, lint and instrumentation compilation
+        run: gradle :app:clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - name: Upload candidate and verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V184-Capture-Safety-Candidate
+          path: |
+            app/build/outputs/apk/personalStable/*.apk
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.html
+          if-no-files-found: warn
+          retention-days: 30
+  emulator:
+    needs: build
+    runs-on: macos-15-intel
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:clean :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.data.V184QuickCaptureDraftTest,com.framebynavin.app.ui.V184QuickCaptureRecoveryUiTest,com.framebynavin.app.ui.V161QuickActionsUiTest,com.framebynavin.app.data.CreatorQuickCaptureWriterV183Test,com.framebynavin.app.reminders.V182ReminderChannelIsolationInstrumentedTest" "-Pandroid.testInstrumentationRunnerArguments.hardeningTestEnvironment=ci-emulator" --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V184-Emulator-Results
+          path: app/build/reports/androidTests/connected/
