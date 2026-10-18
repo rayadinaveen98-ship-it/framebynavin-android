@@ -447,6 +447,8 @@ internal fun PProjectComposer(
                     Spacer(Modifier.height(10.dp))
                     PComposerLabel("PROJECT")
                     OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Project title") }, singleLine = true, shape = RoundedCornerShape(16.dp))
+                    Spacer(Modifier.height(12.dp))
+                    V175ProjectNotesField(notes = notes, onNotesChange = { notes = it })
                     Spacer(Modifier.height(22.dp))
                     Surface(
                         onClick = { showCreativeSetup = !showCreativeSetup },
@@ -634,9 +636,7 @@ internal fun PProjectComposer(
                         }
                     }
 
-                    Spacer(Modifier.height(22.dp))
-                    PComposerLabel("NOTES · OPTIONAL")
-                    OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 88.dp), placeholder = { Text("Angle, reference, anything worth remembering…") }, shape = RoundedCornerShape(16.dp))
+                    Spacer(Modifier.height(16.dp))
 
                     if (task != null && (task.reminderEnabled || task.attentionPlan != ProjectAttentionPlan.OFF)) {
                         Spacer(Modifier.height(12.dp))
