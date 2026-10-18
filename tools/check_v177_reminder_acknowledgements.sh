@@ -36,7 +36,7 @@ grep -Fq 'if (!accepted || updated == null)' "$ACTIONS"
 grep -Fq 'stageRecovery?.finish(generation)' "$ACTIONS"
 grep -Fq 'observeUnansweredNotification(task, nowMillis)' "$RECOVERY"
 # Existing modes and timings must remain unchanged in Phase 1.
-grep -Fq 'task.alarmTimeoutSeconds.coerceIn(30, 300)' "$ALARM"
+grep -Fq 'task.alarmTimeoutSeconds.coerceIn(30, 300)' "$ROOT/V178PlaybackLifecyclePolicy.kt"
 grep -Fq 'task.voiceRepeatCount.coerceIn(1, 3)' "$VOICE"
 grep -Fq 'scheduleNextIfUnanswered(task, stage, firedAt)' "$SMART"
 grep -Fq 'val snoozeMinutes = CreatorOsSettingsStore(app).snapshot().snoozeMinutes' "$ACTIONS"
