@@ -67,6 +67,7 @@ class AlarmActivity : ComponentActivity() {
                         applicationContext, task,
                         stageLabel = "Alarm screen timed out · response still needed",
                         occurrenceId = occurrenceId,
+                        discreet = true,
                     )
                 }
                 runCatching {
