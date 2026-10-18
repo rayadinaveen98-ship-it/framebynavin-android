@@ -239,7 +239,7 @@ internal fun PProjectComposer(
     var priority by rememberSaveable(task?.id) { mutableStateOf(task?.priority ?: TaskPriority.IMPORTANT) }
     var notes by rememberSaveable(task?.id) { mutableStateOf(task?.notes.orEmpty()) }
     var soundUri by rememberSaveable(task?.id) {
-        mutableStateOf(task?.alarmSoundUri?.takeIf { it.isNotBlank() } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString())
+        mutableStateOf(task?.alarmSoundUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString())
     }
     var voice by rememberSaveable(task?.id) { mutableStateOf(task?.voicePersona ?: defaults.defaultVoicePersona) }
     var repeatCount by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatCount ?: 3) }
