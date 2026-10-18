@@ -18,6 +18,8 @@ concurrency:
 
 jobs:
   android-apk:
+    # Archived phase-specific workflow. New stable releases use the V183 test matrix.
+    if: ${{ github.event_name != 'pull_request' || github.head_ref == 'fix/backlot-v152-onboarding-stability' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout V152
