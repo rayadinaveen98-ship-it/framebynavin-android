@@ -6,6 +6,8 @@ import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -32,7 +34,7 @@ class V180ReminderTimingUiTest {
         }
         rule.onNodeWithTag("v180-reminder-timing-controls").assertExists()
         rule.onNodeWithText("Once").performClick()
-        rule.onNodeWithText("30s").performClick()
+        rule.onAllNodesWithText("30s").onFirst().performClick()
         rule.onNodeWithText("45s").performClick()
         rule.runOnIdle {
             assertEquals(1, count.intValue)
