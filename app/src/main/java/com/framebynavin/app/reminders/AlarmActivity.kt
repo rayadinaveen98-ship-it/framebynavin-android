@@ -73,6 +73,10 @@ class AlarmActivity : ComponentActivity() {
                     ReminderAcknowledgementStore(applicationContext).markUnanswered(
                         task.id, occurrenceId, "alarm_screen_watchdog",
                     )
+                    V179ReminderFollowUps.armAfterUnanswered(
+                        applicationContext, task, occurrenceId,
+                        finalSmartStage = task.reminderMode == com.framebynavin.app.data.ReminderMode.SMART,
+                    )
                 }
                 getSystemService(NotificationManager::class.java).cancel(AlarmRingingService.notificationId(task.id))
                 finishAndRemoveTask()
