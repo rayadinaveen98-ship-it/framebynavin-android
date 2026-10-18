@@ -34,8 +34,8 @@ internal object V180ReminderTimingPolicy {
         else if (seconds % 60 == 0) "${seconds / 60}m"
         else "${seconds / 60}m ${seconds % 60}s"
 
-    fun summary(attempts: Int, gapSeconds: Int, alarmSeconds: Int): String =
-        "Voice up to ${attempts(attempts)} ${if (attempts(attempts) == 1) "time" else "times"}" +
+    fun summary(count: Int, gapSeconds: Int, alarmSeconds: Int): String =
+        "Voice up to ${attempts(count)} ${if (attempts(count) == 1) "time" else "times"}" +
             " · ${gap(gapSeconds)}s gap · Alarm up to ${durationLabel(alarm(alarmSeconds))}"
 }
 
