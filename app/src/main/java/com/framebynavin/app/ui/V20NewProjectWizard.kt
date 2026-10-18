@@ -701,16 +701,6 @@ internal fun V20NewProjectWizard(
                             }
                         }
 
-                        Spacer(Modifier.height(14.dp))
-                        V20FieldLabel("NOTES · OPTIONAL")
-                        OutlinedTextField(
-                            value = notes,
-                            onValueChange = onNotesChange,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 82.dp),
-                            placeholder = { Text("Angle, reference, anything worth remembering…") },
-                            shape = RoundedCornerShape(16.dp),
-                        )
-
                         Spacer(Modifier.height(12.dp))
                         V20InlineContinue("REVIEW PROJECT", supportReady) { revealNext(5) }
                     }
@@ -736,8 +726,9 @@ internal fun V20NewProjectWizard(
                             V20WizardReviewRow("IMPORTANCE", pPriorityLabel(priority)) { activeStage = 5 }
                         }
                         if (notes.isNotBlank()) {
-                            V20WizardReviewRow("NOTES", notes) { activeStage = 5 }
+                            V20WizardReviewRow("NOTES", notes) { activeStage = 0 }
                         }
+                        Text("You can edit these details later in your project workspace.", color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
                         if (productionStyles.isNotEmpty()) {
                             Spacer(Modifier.height(4.dp))
                             Text("Style · ${productionStyles.joinToString()}", color = MutedText, fontSize = V173ProjectUiMetrics.bodyText, lineHeight = 19.sp)
