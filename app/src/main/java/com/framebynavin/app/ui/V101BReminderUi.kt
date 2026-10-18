@@ -686,7 +686,7 @@ internal fun PProjectComposer(
 }
 
 @Composable
-private fun V172ConfirmDiscardDialog(onKeep: () -> Unit, onDiscard: () -> Unit) {
+internal fun V172ConfirmDiscardDialog(onKeep: () -> Unit, onDiscard: () -> Unit) {
     AlertDialog(
         onDismissRequest = onKeep,
         title = { Text("Discard project changes?") },
