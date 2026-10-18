@@ -11,6 +11,9 @@ grep -Fq 'isDebuggable = false' app/build.gradle.kts
 grep -Fq 'signingConfig = signingConfigs.getByName("prototypeStable")' app/build.gradle.kts
 grep -Fq 'matchingFallbacks += listOf("release")' app/build.gradle.kts
 test -s dev-signing/framebynavin-public-debug.jks
+test -s app/src/personalStable/java/com/framebynavin/app/CreatorAppCheck.kt
+grep -Fq 'DebugAppCheckProviderFactory.getInstance()' app/src/personalStable/java/com/framebynavin/app/CreatorAppCheck.kt
+grep -Fq 'PlayIntegrityAppCheckProviderFactory.getInstance()' app/src/release/java/com/framebynavin/app/CreatorAppCheck.kt
 test -f docs/qa/V183_STABLE_PERSONAL_RELEASE.md
 
 # Avoid public-repo disclosure of a private production key.
