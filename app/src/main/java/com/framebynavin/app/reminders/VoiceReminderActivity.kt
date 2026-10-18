@@ -75,6 +75,9 @@ class VoiceReminderActivity : ComponentActivity() {
                     ReminderAcknowledgementStore(applicationContext).markUnanswered(
                         task.id, occurrenceId, "voice_screen_watchdog",
                     )
+                    V179ReminderFollowUps.armAfterUnanswered(
+                        applicationContext, task, occurrenceId,
+                    )
                 }
                 getSystemService(NotificationManager::class.java).cancel(VoiceReminderService.notificationId(task.id))
                 finishAndRemoveTask()

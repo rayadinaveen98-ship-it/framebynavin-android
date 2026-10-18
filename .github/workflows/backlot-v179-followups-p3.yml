@@ -1,0 +1,99 @@
+name: Backlot V179 Reminder P3 — Bounded No-Response Follow-Ups
+
+on:
+  push:
+    branches:
+      - feature/backlot-v179-reminder-p3-bounded-followups
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v179-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-apk:
+    name: V179 bounded no-response regression tests and APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Confirm V179 identity
+        run: |
+          grep -q 'versionCode = 179' app/build.gradle.kts
+          grep -q '2.2.9-v179-reminder-followups-p3-preview' app/build.gradle.kts
+      - name: Preserve V161–V178 and verify V179 quiet follow-up safeguards
+        run: |
+          for version in 161 162 163 164 165 166 167 168 169 170; do
+            script=$(find tools -maxdepth 1 -name "check_v${version}_*.sh" | head -n 1)
+            test -n "$script"
+            bash "$script"
+          done
+          bash tools/check_v171_project_safety.sh
+          bash tools/check_v172_new_project_draft_ux.sh
+          bash tools/check_v173_new_project_visual_consistency.sh
+          bash tools/check_v174_quick_create.sh
+          bash tools/check_v175_project_details.sh
+          bash tools/check_v176_release_acceptance.sh
+          bash tools/check_v177_reminder_acknowledgements.sh
+          bash tools/check_v178_reminder_playback_lifecycle.sh
+          bash tools/check_v179_bounded_followups.sh
+      - name: JVM unit regression tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Android lint
+        run: gradle :app:lintDebug --stacktrace
+      - name: Android instrumentation-test compilation
+        run: gradle :app:assembleDebugAndroidTest --stacktrace
+      - name: Build debug preview APK
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Upload V179 preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlot-v179-bounded-followups-p3-preview-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 90
+
+  android-emulator:
+    name: Android 11 bounded follow-up claims and response safety
+    needs: android-apk
+    runs-on: macos-15-intel
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Run no-response attempt claims and original token protection on Android 11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            gradle :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.reminders.V179FollowUpClaimInstrumentedTest,com.framebynavin.app.reminders.V178UnansweredHandoffInstrumentedTest,com.framebynavin.app.reminders.V177ReminderAcknowledgementInstrumentedTest,com.framebynavin.app.reminders.V159ReminderActionIsolationTest,com.framebynavin.app.reminders.V155ReminderRecoveryIsolationInstrumentedTest" "-Pandroid.testInstrumentationRunnerArguments.hardeningTestEnvironment=ci-emulator" --stacktrace
+      - name: Upload Android 11 acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlot-v179-android11-noresponse-followup-results
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+          if-no-files-found: warn
+          retention-days: 30

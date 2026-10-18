@@ -65,6 +65,8 @@ object ReminderNotifications {
         deliveryDelayMillis: Long? = null,
         stageLabel: String? = null,
         occurrenceId: String? = null,
+        discreet: Boolean = false,
+        isFollowUp: Boolean = false,
     ): Boolean {
         ensureChannel(context)
         if (!canPost(context)) return false
@@ -81,10 +83,12 @@ object ReminderNotifications {
         // can be quieted. Explicit Voice, Alarm, and Smart ringing stages are
         // never silently downgraded; those are opt-in high-attention alerts.
         val quietEligible = QuietHoursPolicy.eligible(task.reminderMode, stageLabel)
-        val quiet = quietEligible && QuietHoursPolicy.active(
+        // Follow-ups are *always* discreet, including when the original reminder
+        // used Voice or Alarm. Never turn no response into an unsolicited loud alert.
+        val quiet = discreet || (quietEligible && QuietHoursPolicy.active(
             prefs.quietHoursEnabled, prefs.quietHoursStartMinute,
             prefs.quietHoursEndMinute, System.currentTimeMillis(),
-        )
+        ))
         if (quiet && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             context.getSystemService(NotificationManager::class.java)
                 .getNotificationChannel(QUIET_CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE
@@ -103,6 +107,7 @@ object ReminderNotifications {
             )
             .setPriority(if (quiet) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             .setSilent(quiet)
+            .setOnlyAlertOnce(isFollowUp)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent(context, task.id))
@@ -121,6 +126,7 @@ object ReminderNotifications {
         }
 
         when {
+            isFollowUp -> builder.setSubText(stageLabel ?: "Gentle follow-up")
             quiet -> builder.setSubText("Quiet hours · discreet notification")
             stageLabel != null -> builder.setSubText(stageLabel)
             deliveryDelayMillis != null -> builder.setSubText(
@@ -130,6 +136,13 @@ object ReminderNotifications {
 
         manager.notify(task.id.hashCode(), builder.build())
         runCatching { ReminderAcknowledgementStore(context).markPosted(task.id, token) }
+        // Only a first ordinary notification starts the 20-minute observation window.
+        // Voice/alarm finish paths and Smart terminal stage arm their own follow-up.
+        if (!isFollowUp && task.reminderMode == com.framebynavin.app.data.ReminderMode.SIMPLE &&
+            !task.smartEscalationEnabled
+        ) {
+            runCatching { V179ReminderFollowUps.armForPostedNotification(context, task, token) }
+        }
         return true
     }
 

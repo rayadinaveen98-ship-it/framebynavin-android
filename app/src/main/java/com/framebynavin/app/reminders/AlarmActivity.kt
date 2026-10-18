@@ -73,6 +73,12 @@ class AlarmActivity : ComponentActivity() {
                     ReminderAcknowledgementStore(applicationContext).markUnanswered(
                         task.id, occurrenceId, "alarm_screen_watchdog",
                     )
+                    V179ReminderFollowUps.armAfterUnanswered(
+                        applicationContext, task, occurrenceId,
+                        // An activity watchdog does not know whether this was the terminal
+                        // Smart stage. Only the alarm service can authorize Smart follow-ups.
+                        finalSmartStage = false,
+                    )
                 }
                 getSystemService(NotificationManager::class.java).cancel(AlarmRingingService.notificationId(task.id))
                 finishAndRemoveTask()
