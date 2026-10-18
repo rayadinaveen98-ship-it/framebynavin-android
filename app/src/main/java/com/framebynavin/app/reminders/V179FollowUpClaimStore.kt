@@ -29,6 +29,15 @@ internal class V179FollowUpClaimStore(context: Context) {
         prefs.edit().putString(taskId, record.toString()).commit()
     }
 
+    /** Attempts claimed, not proof Android displayed or the creator saw a notification. */
+    fun attemptedCount(taskId: String, token: String): Int = synchronized(lock) {
+        val obj = runCatching { JSONObject(prefs.getString(taskId, "{}") ?: "{}") }.getOrNull()
+            ?: return@synchronized 0
+        if (token.isBlank() || obj.optString("token") != token ||
+            obj.optLong("generation", -1L) != CreatorDataGate.generation(app)) return@synchronized 0
+        Integer.bitCount(obj.optInt("mask", 0) and 3).coerceIn(0, 2)
+    }
+
     fun clearTask(taskId: String): Boolean = synchronized(lock) {
         prefs.edit().remove(taskId).commit()
     }
