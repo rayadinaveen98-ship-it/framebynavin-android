@@ -14,7 +14,7 @@ Built on V184 capture safety, accepted by the creator on Samsung A54 in this ses
 
 ## Verification
 
-Required: V161–V182 source gates, full JVM regressions, lint, debug/test compilation and personalStable APK; 22 Android acceptance tests, including eight new conversion/UI tests and the existing 14 capture/reminder checks. Interruption simulation throws after intent, project, link and reward writes, then recreates the service and replays twice. Concurrency, old-generation replay, missing/deleted source, legacy partial creation, invalid deadlines, pending UI, null/throw failure and retry are covered.
+Required: V161–V182 source gates, full JVM regressions, lint, debug/test compilation and personalStable APK; 23 Android acceptance tests, including nine new conversion/UI tests and the existing 14 capture/reminder checks. Interruption simulation throws after intent, project, link and reward writes, then recreates the service and replays twice. Concurrency, old-generation replay, missing/deleted source, legacy partial creation, invalid deadlines, consistent backup export after interruption, pending UI, null/throw failure and retry are covered.
 
 Results must be recorded on PR and CI after execution. No local Android/Gradle runtime is available. A screenshot from the instrumented dialog is captured for visual review. Debug variant is exercised on emulator; physical-device upgrade, reminder delivery and the non-debuggable APK still require acceptance.
 

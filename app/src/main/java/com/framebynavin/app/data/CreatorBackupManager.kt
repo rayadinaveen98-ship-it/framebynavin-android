@@ -78,6 +78,7 @@ class CreatorBackupManager(private val context: Context) {
 
     suspend fun createBackup(): String = CreatorDataGate.transaction {
         recoverPendingRestoreUnlocked()
+        IdeaProjectConversion(appContext).recoverPendingUnlocked()
         encode(snapshot(), System.currentTimeMillis())
     }
 
@@ -160,6 +161,7 @@ class CreatorBackupManager(private val context: Context) {
     suspend fun restore(raw: String): BackupPreview = CreatorDataGate.transaction {
         val preview = validate(raw)
         recoverPendingRestoreUnlocked()
+        IdeaProjectConversion(appContext).recoverPendingUnlocked()
         val before = encode(snapshot(), System.currentTimeMillis())
         val recovery = retainRecovery(before)
         val marker = JSONObject().put("file", recovery.name).put("sha256", sha256(before))

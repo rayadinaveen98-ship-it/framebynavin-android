@@ -115,4 +115,17 @@ class V185IdeaProjectConversionTest {
         assertEquals("", IdeaVaultStore(context).load().single().projectTaskId)
         assertEquals(ProjectAttentionPlan.OFF, IdeaProjectConversion(context).rememberedPlan())
     }
+    @Test fun backupFinishesInterruptedConversionBeforeExportingIndependentStores() = runBlocking {
+        seed()
+        assertTrue(runCatching { IdeaProjectConversion(context) { if (it == "project") error("interrupted") }.convert(request()) }.isFailure)
+        val raw = CreatorBackupManager(context).createBackup()
+        val root = org.json.JSONObject(raw)
+        val project = org.json.JSONArray(root.getString("tasks")).getJSONObject(0)
+        val idea = org.json.JSONArray(root.getString("ideas")).getJSONObject(0)
+        assertEquals(project.getString("id"), idea.getString("projectTaskId"))
+        assertEquals(IdeaStatus.CONVERTED.name, idea.getString("status"))
+        assertEquals(1, CreatorRewardStore(context).load().size)
+        assertFalse(prefs.contains("pending"))
+    }
+
 }

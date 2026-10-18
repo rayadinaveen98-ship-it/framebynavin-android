@@ -8,4 +8,4 @@ adb pull /sdcard/Android/data/com.framebynavin.app/files/v185-conversion-dialog.
 if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v185-instrumentation.log; then
   exit 1
 fi
-grep -Eq 'OK \(22 tests\)' v185-instrumentation.log
+grep -Eq 'OK \(23 tests\)' v185-instrumentation.log
