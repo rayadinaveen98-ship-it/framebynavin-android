@@ -255,6 +255,7 @@ class VoiceReminderService : Service() {
                     task,
                     stageLabel = "Voice finished · response still needed",
                     occurrenceId = token,
+                    discreet = true,
                 )
             }.getOrDefault(false)
             runCatching {

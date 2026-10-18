@@ -187,7 +187,8 @@ class SmartEscalationScheduler(private val context: Context) {
     }
 
     private fun isSmartEnabled(task: CreatorTask): Boolean =
-        (task.smartEscalationEnabled || task.reminderMode == ReminderMode.SMART) && task.reminderEnabled
+        (task.smartEscalationEnabled || task.reminderMode == ReminderMode.SMART) &&
+            ReminderActionSafety.isActionable(task)
 
     private fun isTargetBeforePublish(task: CreatorTask): Boolean =
         task.dueAtMillis <= 0L || task.reminderAtMillis <= task.dueAtMillis

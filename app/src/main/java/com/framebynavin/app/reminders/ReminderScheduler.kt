@@ -18,7 +18,7 @@ class ReminderScheduler(private val context: Context) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
     fun schedule(task: CreatorTask) {
-        if (!task.reminderEnabled || task.reminderMode == ReminderMode.NONE || task.reminderAtMillis <= System.currentTimeMillis()) {
+        if (!ReminderActionSafety.isActionable(task) || task.reminderAtMillis <= System.currentTimeMillis()) {
             cancel(task.id)
             return
         }
