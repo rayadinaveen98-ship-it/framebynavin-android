@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -111,6 +112,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
     var quickCreateRequested by rememberSaveable { mutableStateOf(false) }
+    var composerSession by rememberSaveable { mutableIntStateOf(0) }
+    var composerDismissRequest by rememberSaveable { mutableIntStateOf(0) }
+    var returnToComposerFromSettings by rememberSaveable { mutableStateOf(false) }
+    var composerCleanupKey by remember { mutableStateOf<String?>(null) }
+    val composerStateHolder = rememberSaveableStateHolder()
     var publicationTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -118,16 +124,48 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var guidedTourStepName by rememberSaveable { mutableStateOf<String?>(null) }
     var stageCompletionEvent by rememberSaveable { mutableLongStateOf(0L) }
 
+    fun finishComposerSession() {
+        composerCleanupKey = "project-composer-$composerSession"
+        showComposer = false
+        editTaskId = null
+        quickCreateRequested = false
+        returnToComposerFromSettings = false
+    }
+    fun leaveOverlay() {
+        when (overlay) {
+            POverlay.PROFILE -> overlay = POverlay.SETTINGS
+            POverlay.SETTINGS -> {
+                overlay = POverlay.NONE
+                if (returnToComposerFromSettings) {
+                    returnToComposerFromSettings = false
+                    showComposer = true
+                }
+            }
+            POverlay.WEEK, POverlay.AUTOMATION -> {
+                overlay = if (returnToComposerFromSettings) POverlay.SETTINGS else POverlay.NONE
+            }
+            else -> overlay = POverlay.NONE
+        }
+    }
+    // A disposed editor keeps its saveable fields only during the explicit Settings detour.
+    LaunchedEffect(showComposer, composerCleanupKey) {
+        val key = composerCleanupKey
+        if (key != null && (!showComposer || key != "project-composer-$composerSession")) {
+            composerStateHolder.removeState(key)
+            composerCleanupKey = null
+        }
+    }
+
     BackHandler(enabled = guidedTourStepName != null || focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
         when {
             // Real surfaces always get first chance to close. A Back press inside Quick Capture or
             // New Project must not silently count as skipping the entire guided journey.
             focusTaskId != null -> focusTaskId = null
-            showComposer -> showComposer = false
+            showComposer -> composerDismissRequest += 1
             showQuickCapture -> showQuickCapture = false
             showReminders -> showReminders = false
             showControl -> { showControl = false; controlExpanded = false }
-            overlay != POverlay.NONE -> overlay = POverlay.NONE
+            overlay != POverlay.NONE -> leaveOverlay()
             guidedTourStepName != null -> {
                 settingsStore.markGuidedTourComplete()
                 settings = settingsStore.snapshot()
@@ -198,6 +236,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             .onFailure { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") }) }
     }
     fun openComposer(id: String? = null, quick: Boolean = false) {
+        composerSession += 1
+        composerDismissRequest = 0
+        returnToComposerFromSettings = false
         editTaskId = id
         quickCreateRequested = id == null && quick
         showComposer = true
@@ -425,7 +466,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 slots = vm.weeklySlots,
                 tasks = vm.tasks,
                 onAutoPlanChange = vm::setWeeklyAutoPlanEnabled,
-                onClose = { overlay = POverlay.NONE },
+                onClose = ::leaveOverlay,
                 onToggle = vm::setWeeklySlotEnabled,
                 onSave = vm::saveWeeklySlot,
                 onDelete = vm::deleteWeeklySlot,
@@ -457,7 +498,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 weeklySlots = vm.weeklySlots,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 contextNudgesEnabled = settings.contextNudgesEnabled,
-                onClose = { overlay = POverlay.NONE },
+                onClose = ::leaveOverlay,
                 onWeeklyAutoPlanChange = vm::setWeeklyAutoPlanEnabled,
             )
             POverlay.PROFILE -> V23ProfileAccountScreen(
@@ -486,7 +527,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
       preciseTimingReady = permissions.preciseTiming,
       fullScreenReady = permissions.fullScreen,
       batteryReady = permissions.batteryAccess,
-                onClose = { overlay = POverlay.NONE },
+                onClose = ::leaveOverlay,
                 onProfile = { overlay = POverlay.PROFILE },
                 onVoice = { settingsStore.setDefaultVoicePersona(it); settings = settingsStore.snapshot() },
                 onAlarmTimeout = { settingsStore.setDefaultAlarmTimeoutSeconds(it); settings = settingsStore.snapshot() },
@@ -515,7 +556,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     showControl = false
                     showQuickCapture = false
                     showReminders = false
-                    showComposer = false
+                    if (showComposer || returnToComposerFromSettings) finishComposerSession()
                     focusTaskId = null
                     externalStudioId = null
                     tab = PTab.TODAY
@@ -636,14 +677,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     if (showComposer) {
+        composerStateHolder.SaveableStateProvider("project-composer-$composerSession") {
         val task = editTaskId?.let { id -> vm.tasks.firstOrNull { it.id == id } }
         if (editTaskId != null && task == null) {
             AlertDialog(
-                onDismissRequest = { showComposer = false; editTaskId = null },
+                onDismissRequest = ::finishComposerSession,
                 title = { Text("Project unavailable") },
                 text = { Text("This project is no longer available. No new project was created.") },
                 confirmButton = {
-                    TextButton(onClick = { showComposer = false; editTaskId = null }) {
+                    TextButton(onClick = ::finishComposerSession) {
                         Text("CLOSE")
                     }
                 },
@@ -652,9 +694,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         PProjectComposer(
             task = task,
             startWithQuickCreate = quickCreateRequested && task == null,
+            dismissRequestToken = composerDismissRequest,
             reminderSetupReady = permissions.notifications && permissions.preciseTiming && permissions.fullScreen,
-            onDismiss = { showComposer = false },
-            onOpenSettings = { showComposer = false; overlay = POverlay.SETTINGS },
+            onDismiss = ::finishComposerSession,
+            onOpenSettings = {
+                returnToComposerFromSettings = true
+                showComposer = false
+                overlay = POverlay.SETTINGS
+            },
             onSave = { draft ->
                 val savedTaskId = vm.saveTaskConfiguration(
                     id = task?.id,
@@ -680,7 +727,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     Toast.makeText(context, "Could not save the project. Your form is still open.", Toast.LENGTH_LONG).show()
                 } else {
                 // saveTaskConfiguration queues a disk write; do not claim completion here.
-                showComposer = false
+                finishComposerSession()
                 Toast.makeText(context, "Saving project…", Toast.LENGTH_SHORT).show()
                 if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
                     guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
@@ -694,9 +741,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             },
             onRemoveReminder = {
                 task?.let { vm.cancelReminder(it.id) }
-                showComposer = false
+                finishComposerSession()
             },
         )
+        }
         }
     }
 
