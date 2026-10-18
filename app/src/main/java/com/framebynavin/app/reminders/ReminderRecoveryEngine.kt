@@ -49,6 +49,7 @@ object ReminderRecoveryEngine {
         if (!active) {
             scheduler.cancel(task.id)
             smart.cancel(task.id)
+            runCatching { V179ReminderFollowUps.cancel(appContext, task.id) }
             return
         }
 
