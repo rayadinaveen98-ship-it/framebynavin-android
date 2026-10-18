@@ -1,6 +1,6 @@
 # V185 — Recoverable idea-to-project conversion
 
-Built on V184 capture safety, accepted by the creator on Samsung A54 in this session. Version 185 / 2.3.5-v185-idea-conversion-preview is the next bounded Phase 1A candidate, not a stable promotion or completion of the full master plan.
+Built on V184 capture safety, accepted by the creator in this session. Version 185 / 2.3.5-v185-idea-conversion-preview is the next bounded Phase 1A candidate, not a stable promotion or completion of the full master plan.
 
 ## Behavior
 
@@ -21,3 +21,5 @@ Results must be recorded on PR and CI after execution. No local Android/Gradle r
 ## Device checklist
 
 Upgrade V184 without uninstalling. Capture a throwaway Telugu/English idea with notes/voice, convert with Off, confirm the project opens once and the original idea/audio remain. Repeat with Light and confirm its visible setting. Confirm the next conversion remembers the last successful plan; Cancel must not change that preference. Reopen the linked idea/project and verify no duplicate project/reward. Check date/time pickers, long titles, keyboard, Back and large text. Actual process-kill recovery and restore should be tested on an isolated fixture install; avoid destructive tests against personal work.
+
+First CI run 39140768947: 542 JVM tests, lint/build and all nine new Android tests passed. The 23-test emulator suite had one failure in the inherited V184 draft-reopen readiness check; its single-root diagnostic also failed on the dialog's two roots. Follow-up explicitly waits for the closed dialog to leave composition before reopening, retains readiness/save assertions and prints all roots on failure. Screenshot export uses run-as with internal test storage. Emulator runs on Ubuntu/KVM following the runner's documented setup. Full 23-test rerun remains required.

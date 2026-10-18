@@ -54,7 +54,7 @@ class V185IdeaConversionUiTest {
         rule.onNodeWithTag("conversion-plan-description").performScrollTo().assertTextContains("No automatic reminders", substring = true)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-        File(context.getExternalFilesDir(null), "v185-conversion-dialog.png").outputStream().use {
+        File(context.filesDir, "v185-conversion-dialog.png").outputStream().use {
             screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)
         }
         screenshot.recycle()
