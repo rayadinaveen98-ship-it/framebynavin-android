@@ -156,6 +156,12 @@ class SmartEscalationScheduler(private val context: Context) {
         cancelPending(taskId, clearSession = true)
     }
 
+    /** Terminal Smart alarm: no more stages, but its unanswered notification must stay actionable. */
+    fun finishSessionPreservingUnanswered(taskId: String) {
+        cancelPending(taskId, clearSession = false)
+        sessions.clear(taskId)
+    }
+
     fun cancel(taskId: String) {
         cancelPending(taskId, clearSession = true)
     }
