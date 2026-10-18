@@ -879,6 +879,7 @@ private fun V20DateTimeButton(label: String, onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun V20WizardSummaryChip(label: String, value: String) {
     Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .10f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .22f))) {
