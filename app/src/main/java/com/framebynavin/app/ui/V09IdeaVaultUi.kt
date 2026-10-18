@@ -50,6 +50,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import androidx.compose.ui.platform.testTag
 
 @Composable
 internal fun V09IdeaVaultScreen(
@@ -61,6 +64,7 @@ internal fun V09IdeaVaultScreen(
     onRestore: (String) -> Unit = {},
     onArchive: (String) -> Unit,
     onConvert: (String, String, String, Long) -> String?,
+    onConvertDurably: (suspend (IdeaProjectConversionRequest) -> String?)? = null,
     externalIdeaId: String = "",
     externalIdeaMode: String = "",
     externalLaunchNonce: Long = 0L,
@@ -312,11 +316,9 @@ internal fun V09IdeaVaultScreen(
             idea = idea,
             onDismiss = { converting = null; conversionFailed = false },
             conversionFailed = conversionFailed,
-            onConvert = { platform, format, due ->
-                val projectId = onConvert(idea.id, platform, format, due)
-                if (projectId != null) { converting = null; conversionFailed = false }
-                else conversionFailed = true
-            },
+            onConvert = { platform, format, due -> onConvert(idea.id, platform, format, due) },
+            onConvertDurably = onConvertDurably,
+            onConverted = { converting = null; conversionFailed = false },
         )
     }
 }
@@ -920,13 +922,20 @@ private fun V09IdeaEditor(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun V09ConvertIdeaDialog(
+internal fun V09ConvertIdeaDialog(
     idea: CreatorIdea,
     onDismiss: () -> Unit,
     conversionFailed: Boolean,
-    onConvert: (String, String, Long) -> Unit,
+    onConvert: (String, String, Long) -> String?,
+    onConvertDurably: (suspend (IdeaProjectConversionRequest) -> String?)? = null,
+    onConverted: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val generation = remember { CreatorDataGate.generation(context) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var plan by remember { mutableStateOf(IdeaProjectConversion(context).rememberedPlan()) }
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
     val defaultPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
     var platform by remember { mutableStateOf(idea.platformHint.ifBlank { defaultPlatform }) }
@@ -968,40 +977,72 @@ private fun V09ConvertIdeaDialog(
     val display = remember(due) { SimpleDateFormat("EEE, d MMM · h:mm a", Locale.getDefault()).format(due) }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!saving) onDismiss() },
         containerColor = CinemaSurfaceRaised,
         title = { Text("Turn into Project", color = ProjectorIvory, fontWeight = FontWeight.Black) },
         text = {
-            Column(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Text(idea.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(13.dp)); V09VaultLabel("PLATFORM")
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 10.sp) }) }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 12.sp) }, enabled = !saving) }
                 }
                 Spacer(Modifier.height(10.dp)); V09VaultLabel("FORMAT")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 10.sp) }) }
+                    formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 12.sp) }, enabled = !saving) }
                 }
                 Spacer(Modifier.height(12.dp)); V09VaultLabel("PUBLISH DEADLINE")
                 Text(display, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { pickDate() }, modifier = Modifier.weight(1f)) { Text("DATE", fontSize = 10.sp) }
-                    OutlinedButton(onClick = { pickTime() }, modifier = Modifier.weight(1f)) { Text("TIME", fontSize = 10.sp) }
+                    OutlinedButton(enabled = !saving, onClick = { pickDate() }, modifier = Modifier.weight(1f)) { Text("DATE", fontSize = 10.sp) }
+                    OutlinedButton(enabled = !saving, onClick = { pickTime() }, modifier = Modifier.weight(1f)) { Text("TIME", fontSize = 10.sp) }
                 }
+                Spacer(Modifier.height(12.dp))
+                Text("Project reminders", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    IdeaProjectConversion.supportedPlans.forEach { option ->
+                        FilterChip(selected = plan == option, onClick = { plan = option }, enabled = !saving,
+                            modifier = Modifier.testTag("conversion-plan-${option.name}"),
+                            label = { Text(ProjectPulseEngine.planLabel(option), fontSize = 12.sp) })
+                    }
+                }
+                Text(when (plan) {
+                    ProjectAttentionPlan.OFF -> "No automatic reminders. You can add them in the project."
+                    ProjectAttentionPlan.LIGHT -> "Quiet notifications with longer gaps between check-ins."
+                    ProjectAttentionPlan.GUIDED -> "Stage check-ins; voice or alarms may be used near the deadline."
+                    else -> "Closer check-ins with voice or alarms near the deadline."
+                }, color = MutedText, fontSize = 13.sp, modifier = Modifier.testTag("conversion-plan-description"))
                 Spacer(Modifier.height(8.dp))
-                Text("We'll open your new project so you can start working.", color = MutedText, fontSize = 9.3.sp)
-                if (conversionFailed) {
+                Text("Your idea and original voice note stay in Idea Vault. We'll open the project after it is saved.", color = MutedText, fontSize = 13.sp)
+                if (error != null || conversionFailed) {
                     Spacer(Modifier.height(8.dp))
-                    Text("Conversion did not complete. Check the linked project or reload saved data before retrying.", color = RecRed, fontSize = 11.sp)
+                    Text(error ?: "Could not finish creating the project. Your idea was kept. Try again.",
+                        color = RecRed, fontSize = 13.sp, modifier = Modifier.testTag("conversion-error"))
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { onConvert(platform, format, due) }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) {
-                Icon(Icons.Outlined.RocketLaunch, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(5.dp)); Text("CREATE PROJECT")
+            Button(enabled = !saving, modifier = Modifier.testTag("conversion-create"), onClick = {
+                if (!saving) {
+                    saving = true; error = null
+                    scope.launch {
+                        try {
+                            val id = if (onConvertDurably != null) onConvertDurably(
+                                IdeaProjectConversionRequest(idea.id, platform, format, due, plan, generation))
+                            else onConvert(platform, format, due)
+                            if (id != null) onConverted()
+                            else error = "Could not finish creating the project. Your idea was kept. Try again."
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (failure: Throwable) { error = failure.message ?: "Could not save. Your idea was kept. Try again." }
+                        finally { saving = false }
+                    }
+                }
+            }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) {
+                Icon(Icons.Outlined.RocketLaunch, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(5.dp)); Text(if (saving) "SAVING…" else "CREATE PROJECT")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL", color = MutedText) } },
+        dismissButton = { TextButton(enabled = !saving, onClick = onDismiss, modifier = Modifier.testTag("conversion-cancel")) { Text("CANCEL", color = MutedText) } },
     )
 }
 
