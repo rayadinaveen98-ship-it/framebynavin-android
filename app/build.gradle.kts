@@ -54,8 +54,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Backlot V150 Pilot & Product Focus candidate.
-        versionCode = 177
-        versionName = "2.2.7-v177-reminder-ack-p1-preview"
+        versionCode = 178
+        versionName = "2.2.8-v178-reminder-voice-alarm-p2-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

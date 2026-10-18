@@ -93,15 +93,29 @@ class AlarmRingingService : Service() {
         // ACTIVE means the alarm service ran, not that its sound was audible.
         runCatching { ReminderAcknowledgementStore(applicationContext).markAlarmActive(task.id, token) }
 
-        val timeoutMillis = task.alarmTimeoutSeconds.coerceIn(30, 300) * 1000L
+        val timeoutMillis = V178PlaybackLifecyclePolicy.alarmDurationMillis(task)
         handler.postDelayed({
             if (!isCurrent(task.id, token)) return@postDelayed
             val endingTask = currentTask
             val endingStage = currentSmartStage
-            runCatching {
-                ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, "alarm_timeout")
-            }
             stopCurrent()
+            // At most the selected ring duration: stop sound/vibration first.
+            // Do not treat stopping hardware as a dismissal or another snooze.
+            // A single normal notification keeps the *same* occurrence actionable.
+            if (ReminderOccurrenceStore(applicationContext).matches(task, token)) {
+                runCatching {
+                    ReminderNotifications.show(
+                        applicationContext,
+                        task,
+                        stageLabel = "Alarm ended · response still needed",
+                        occurrenceId = token,
+                    )
+                }
+                runCatching {
+                    ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, "alarm_timeout")
+                }
+            }
+            ReminderSurfaceRegistry.close(task.id, token)
             if (endingTask != null && endingTask.reminderMode == ReminderMode.SMART) {
                 val terminal = endingStage == SmartEscalationScheduler.Stage.CRITICAL ||
                     (endingStage == SmartEscalationScheduler.Stage.ALARM && endingTask.priority != TaskPriority.CRITICAL)
