@@ -50,7 +50,7 @@ internal fun V144SettingsHub(
     onVoice: (VoicePersona) -> Unit,
     onAlarmTimeout: (Int) -> Unit,
     onSnooze: (Int) -> Unit,
-    onUnansweredFollowUps: (Boolean) -> Unit,
+    onUnansweredFollowUps: (Boolean) -> Unit = {},
     onWeeklyAutoPlan: (Boolean) -> Unit,
     onContextNudges: (Boolean) -> Unit,
     onQuietHoursEnabled: (Boolean) -> Unit = {},
