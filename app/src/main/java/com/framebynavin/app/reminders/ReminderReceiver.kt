@@ -49,6 +49,8 @@ class ReminderReceiver : BroadcastReceiver() {
         val delayMillis = (firedAt - scheduledAt).coerceAtLeast(0L)
         val mode = task.reminderMode
         val token = ReminderOccurrenceStore(appContext).issue(task)
+        val acknowledgements = ReminderAcknowledgementStore(appContext)
+        runCatching { acknowledgements.begin(task, token, "REGULAR") }
 
         fun notificationFallback(label: String? = null): Boolean = runCatching {
             ReminderNotifications.show(
@@ -82,5 +84,6 @@ class ReminderReceiver : BroadcastReceiver() {
         }
 
         if (delivered) ledger.markDelivered(task.id, scheduledAt)
+        else runCatching { acknowledgements.markDeliveryFailed(task.id, token) }
     }
 }
