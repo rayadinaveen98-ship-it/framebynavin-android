@@ -76,7 +76,6 @@ internal object V156ReminderSetupCopy {
 }
 
 @OptIn(ExperimentalLayoutApi::class)
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun V156ReminderPlanPicker(
     selected: ProjectAttentionPlan,
