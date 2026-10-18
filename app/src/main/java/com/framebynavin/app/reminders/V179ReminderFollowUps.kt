@@ -106,6 +106,12 @@ internal object V179ReminderFollowUps {
                         return@readyTransaction
                     }
 
+                    // WorkManager can rerun after a crash. Claim the attempt on disk before
+                    // posting so it cannot create another alert for the same occurrence.
+                    if (!ReminderNotifications.canPost(applicationContext)) return@readyTransaction
+                    if (!V179FollowUpClaimStore(applicationContext).claim(task.id, token, attempt)) {
+                        return@readyTransaction
+                    }
                     val posted = ReminderNotifications.show(
                         context = applicationContext,
                         task = task,
@@ -124,6 +130,8 @@ internal object V179ReminderFollowUps {
                     }
                 }
                 Result.success()
+            }.onFailure {
+                android.util.Log.w("BacklotFollowUp", "Skipped a failed quiet follow-up")
             }.getOrDefault(Result.success())
         }
     }
