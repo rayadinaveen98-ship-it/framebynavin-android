@@ -387,6 +387,7 @@ internal fun PProjectComposer(
             priority = priority,
             onPriorityChange = { priority = it },
             voicePersona = voice,
+            onVoicePersonaChange = { voice = it },
             onPreviewVoice = { pComposerPreviewVoice(context, it) },
             notes = notes,
             onNotesChange = { notes = it },
