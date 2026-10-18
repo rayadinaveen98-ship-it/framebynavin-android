@@ -8,7 +8,12 @@
 
 - Creator-confirmed functional testing on their device, V182 passing Android 11 instrumentation, unit tests, lint, and APK compilation.
 - The source and functionality are inherited from V182. This release changes only version identity, build packaging/signing configuration, historical version guards, and stable CI/docs.
-- This APK is **non-debuggable**, signed using the repository's **public prototypeStable** keystore. The public signing key deliberately matches Backlot's earlier personal sideload previews.
+- This APK is **non-debuggable**, signed using the repository's **public prototypeStable** keystore.
+- Firebase App Check for the **personalStable** source set intentionally uses the
+  same debug App Check provider as the user's already-working preview. This helps
+  retain existing sideload/allow-listed developer account behavior. It is not
+  production attestation, and the token must be allow-listed by the Firebase owner.
+  The separate `release` variant still uses Play Integrity. The public signing key deliberately matches Backlot's earlier personal sideload previews.
 - **Not** a production/Play Store release: the prototype key is present in the public repository and can be copied. It does **not** provide a privately controlled upgrade identity or production distribution security. A future production key requires a controlled signing/migration plan and should never be committed.
 - Do not promise seamless upgrades from any build signed with a different certificate. Android will reject the update instead of preserving/migrating it automatically.
 - Installation: back up important creator data; verify current installed package and certificate match; install as an update without uninstalling. Do not downgrade to earlier version codes afterward.
