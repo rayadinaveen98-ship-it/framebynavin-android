@@ -2,16 +2,8 @@ name: Build FrameByNavin Public APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "app/**"
-      - "tools/v175_integrate.py"
-      - "tools/v175_public_prepare.py"
-      - ".github/workflows/public-apk.yml"
-      - "*.gradle.kts"
-      - "gradle.properties"
+  # Legacy V175 public build is manual-only. The V183 stable workflow owns main
+  # release checks; do not mutate its source using historical V175 integration.
 
 concurrency:
   group: framebynavin-public-apk-${{ github.ref }}
