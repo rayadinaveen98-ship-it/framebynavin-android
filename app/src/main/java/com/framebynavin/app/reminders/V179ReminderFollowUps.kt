@@ -120,7 +120,7 @@ internal object V179ReminderFollowUps {
 
                     // WorkManager can rerun after a crash. Claim the attempt on disk before
                     // posting so it cannot create another alert for the same occurrence.
-                    if (!ReminderNotifications.canPost(applicationContext)) return@readyTransaction
+                    if (!ReminderNotifications.canPost(applicationContext, discreet = true)) return@readyTransaction
                     if (!V179FollowUpClaimStore(applicationContext).claim(task.id, token, attempt)) {
                         return@readyTransaction
                     }
