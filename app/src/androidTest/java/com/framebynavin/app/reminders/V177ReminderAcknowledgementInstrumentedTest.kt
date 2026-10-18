@@ -26,7 +26,7 @@ class V177ReminderAcknowledgementInstrumentedTest {
         dueAtMillis = System.currentTimeMillis() + 3_600_000L,
         attentionPlan = ProjectAttentionPlan.CUSTOM,
         reminderEnabled = true,
-        reminderMode = ReminderMode.NOTIFICATION,
+        reminderMode = ReminderMode.SIMPLE,
         reminderAtMillis = System.currentTimeMillis() + 600_000L,
     )
 
