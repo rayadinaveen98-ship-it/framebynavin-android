@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -58,6 +59,15 @@ internal fun V195ReminderParticleScene(
             Color(0xFF647CCA), Color(0xFF9B70D6), Color(0xFF51AFB7), Color(0xFFBD76A3),
         )
     }
+    val atmosphere = remember(kind) {
+        Brush.verticalGradient(
+            if (kind == ReminderCheckInKind.ALARM) listOf(
+                Color(0xFF281D2B), Color(0xFF251923), Color(0xFF171E2C),
+            ) else listOf(
+                Color(0xFF1C1C34), Color(0xFF191E34), Color(0xFF14272C),
+            ),
+        )
+    }
     val glyphColor = if (kind == ReminderCheckInKind.ALARM) BacklotAccent
         else Color(0xFFB69CFF)
     val revealProgress by animateFloatAsState(
@@ -79,6 +89,8 @@ internal fun V195ReminderParticleScene(
         .clickable(interactionSource = interactions, indication = null, onClick = onReveal)
 
     Canvas(modifier = modifier.fillMaxSize().testTag("v1952-ambient-particles").then(touch)) {
+        // A deep portrait gradient supports the bokeh without flattening text contrast.
+        drawRect(brush = atmosphere)
         val radius = 2.5.dp.toPx()
         val ambientCoreAlpha = .38f * (1f - revealProgress) + .16f * revealProgress
         val ambientHaloAlpha = .085f * (1f - revealProgress) + .11f * revealProgress
