@@ -3,6 +3,7 @@ package com.framebynavin.app.data
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -40,6 +41,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private val publicationRecoveryReady = CompletableDeferred<Unit>()
 
     val tasks = mutableStateListOf<CreatorTask>()
+    /** Emitted ONLY after TaskStore.applyDelta completes inside a successful transaction. */
+    data class DurableProjectSave(val revision: Long, val task: CreatorTask)
+    private val durableProjectSaves = mutableStateMapOf<String, DurableProjectSave>()
+    fun durableProjectSave(id: String): DurableProjectSave? = durableProjectSaves[id]
     val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
     val ideas = mutableStateListOf<CreatorIdea>()
     /** Deleted ideas remain in the same backed-up store, but are never counted as active work. */
@@ -353,7 +358,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             val task = ProjectPulseEngine.applyAttentionPlan(baseTask, attentionPlan)
             if (task.reminderMode == ReminderMode.SMART) putSmartConfig(task)
             tasks.add(0, task)
-            persist()
+            persist(committedProjectId = task.id)
             return task.id
         }
 
@@ -421,7 +426,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val updated = if (refreshReminders) ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan) else configured
         if (refreshReminders && updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
         tasks[index] = updated
-        persist()
+        persist(committedProjectId = updated.id)
         return updated.id
     }
 
@@ -1212,11 +1217,12 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun persist() {
+    private fun persist(committedProjectId: String? = null) {
         val base = optimisticTasks
         val desired = tasks.toList()
         optimisticTasks = desired
-        enqueueWrite { epoch -> CreatorDataGate.transaction {
+        enqueueWrite { epoch ->
+            val committedSnapshot = CreatorDataGate.transaction {
             val committed = store.applyDelta(base, desired, epoch)
             val before = base.associateBy { it.id }
             val after = committed.associateBy { it.id }
@@ -1231,6 +1237,16 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                     scheduleTask(current)
                 }
             }
-        } }
+            committed
+            }
+            // The transaction returned successfully: this is a *durable* receipt,
+            // not the optimistic editor state or a generic queue-idle observation.
+            committedProjectId?.let { taskId ->
+                committedSnapshot.firstOrNull { it.id == taskId }?.let { saved ->
+                    val nextRevision = (durableProjectSaves[taskId]?.revision ?: 0L) + 1L
+                    durableProjectSaves[taskId] = DurableProjectSave(nextRevision, saved)
+                }
+            }
+        }
     }
 }
