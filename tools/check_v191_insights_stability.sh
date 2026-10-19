@@ -3,7 +3,9 @@ set -euo pipefail
 ui=app/src/main/java/com/framebynavin/app/ui
 grep -Fq 'V191InsightsPeriodPolicy.isSelectedRangeReady(windowDays, data)' "$ui/V11YouTubeInsights.kt"
 grep -Fq 'else V172InsightsBody(' "$ui/V11YouTubeInsights.kt"
-grep -Fq 'Report pending' "$ui/V11YouTubeInsights.kt"
+# The visible pending caption was intentionally removed in V192; preserve
+# protection against displaying cached results for the wrong selected range.
+grep -Fq 'if (!V191InsightsPeriodPolicy.isSelectedRangeReady(windowDays, data))' "$ui/V11YouTubeInsights.kt"
 grep -Fq 'V191InsightMetricPolicy.evaluate(snapshot, kind)' "$ui/V20InsightsDrilldownUi.kt"
 grep -Fq 'V191InsightMetricPolicy.evaluate(snapshot, V20InsightsDetailKind.AVG_VIEW)' "$ui/V20InsightsDrilldownUi.kt"
 grep -Fq '.filter { it.hasPeriodData }' "$ui/V20InsightsDrilldownUi.kt"

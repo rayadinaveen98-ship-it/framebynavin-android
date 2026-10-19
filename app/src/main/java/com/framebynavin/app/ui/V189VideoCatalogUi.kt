@@ -128,8 +128,11 @@ internal fun V189VideoCatalog(
         Text("No videos", color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(vertical = 20.dp))
     } else {
         visible.take(visibleLimit).forEachIndexed { index, video ->
+            // Preserve each row's image state across Recent / Views reordering.
+            key(video.videoId) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp)
+                    .testTag("v192-row-${video.videoId}")
                     .clickable { onVideo(video) },
                 shape = RoundedCornerShape(14.dp),
                 color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine),
@@ -152,6 +155,7 @@ internal fun V189VideoCatalog(
                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText,
                         modifier = Modifier.size(18.dp))
                 }
+            }
             }
         }
     }

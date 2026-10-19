@@ -16,9 +16,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -51,17 +53,22 @@ internal fun V148YouTubeThumbnail(
     rank: Int,
     modifier: Modifier = Modifier,
 ) {
-    val bitmap = produceState<Bitmap?>(
-        initialValue = V148YouTubeThumbnailCache.get(videoId),
-        key1 = videoId,
-    ) {
-        if (value == null && videoId.isNotBlank()) {
-            value = withContext(Dispatchers.IO) { loadV148YouTubeThumbnail(videoId) }
-        }
-    }.value
+    // A sorted row can be reused by Compose for a different video ID. Key the
+    // entire image state, not just the asynchronous request, so a previous
+    // bitmap can never stay attached to the new row.
+    key(videoId) {
+        val bitmap = produceState<Bitmap?>(
+            initialValue = V148YouTubeThumbnailCache.get(videoId),
+            key1 = videoId,
+        ) {
+            if (value == null && videoId.isNotBlank()) {
+                value = withContext(Dispatchers.IO) { loadV148YouTubeThumbnail(videoId) }
+            }
+        }.value
 
-    Box(
-        modifier = modifier.clip(RoundedCornerShape(12.dp)).background(BacklotSurfaceRaised),
+        Box(
+        modifier = modifier.testTag("v148-thumbnail-$videoId")
+            .clip(RoundedCornerShape(12.dp)).background(BacklotSurfaceRaised),
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
@@ -93,6 +100,7 @@ internal fun V148YouTubeThumbnail(
                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
             )
         }
+    }
     }
 }
 
