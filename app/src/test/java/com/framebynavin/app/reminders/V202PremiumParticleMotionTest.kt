@@ -27,7 +27,7 @@ class V202PremiumParticleMotionTest {
     @Test fun allScreenEdgesReflectContinuouslyAndStopSmoothly() {
         for (velocity in listOf(.12f, -.12f)) {
             val initial = .21f
-            val hit = if (velocity > 0f) (1.0 - initial) / velocity else -initial / velocity
+            val hit: Double = if (velocity > 0f) (1.0 - initial.toDouble()) / velocity.toDouble() else -initial.toDouble() / velocity.toDouble()
             val at = V202InfiniteBounce.position(initial, velocity, hit)
             val before = V202InfiniteBounce.position(initial, velocity, hit - .001)
             val after = V202InfiniteBounce.position(initial, velocity, hit + .001)
