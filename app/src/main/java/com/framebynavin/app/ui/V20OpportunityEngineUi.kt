@@ -357,8 +357,6 @@ private fun V20CreatorBrainRecommendationRow(
         Column(Modifier.weight(1f)) {
             Text(recommendation.title, color = ProjectorIvory.copy(alpha = .9f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(2.dp))
-            Text(recommendation.body, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-            Text("${recommendation.confidence}% evidence confidence · ${recommendation.patternIds.size} Brain pattern${if (recommendation.patternIds.size == 1) "" else "s"}", color = accent.copy(alpha = .86f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
         if (clickable) {
             Spacer(Modifier.width(6.dp))
@@ -423,14 +421,9 @@ private fun V20CreatorBrainExplanationRow(
 
             if (expanded) {
                 Spacer(Modifier.height(7.dp))
-                Text(explanation.why, color = ProjectorIvory.copy(alpha = .82f), fontSize = 11.sp, lineHeight = 15.sp)
-                Spacer(Modifier.height(4.dp))
-                Text(explanation.freshnessReason, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
-                Spacer(Modifier.height(3.dp))
-                Text(explanation.trajectoryReason, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
                 if (explanation.evidence.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
-                    Text("WHAT TAUGHT THE BRAIN", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+                    Text("Evidence", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(3.dp))
                     explanation.evidence.take(3).forEach { evidence ->
                         Text(
