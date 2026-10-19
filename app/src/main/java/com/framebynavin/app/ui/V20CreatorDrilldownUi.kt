@@ -75,8 +75,6 @@ internal fun V20CreatorDrilldownDialog(
             Column(Modifier.padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("CREATOR DETAIL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                        Spacer(Modifier.height(3.dp))
                         Text(creatorDetailTitle(kind), color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
                     }
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = MutedText) }
@@ -164,7 +162,6 @@ private fun CreatorDetailHero(value: String, body: String, accent: Color) {
         Column(Modifier.padding(15.dp)) {
             Text(value, color = accent, fontSize = 23.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(3.dp))
-            Text(body, color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         }
     }
     Spacer(Modifier.height(10.dp))
@@ -189,11 +186,14 @@ private fun CreatorTaskList(tasks: List<CreatorTask>, empty: String) {
 private fun CreatorDetailRow(title: String, meta: String, body: String) {
     Surface(Modifier.fillMaxWidth().padding(bottom = 7.dp), RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
-            Text(title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(2.dp))
-            Text(meta, color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(3.dp))
-            Text(body, color = MutedText, fontSize = 8.5.sp, lineHeight = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(meta, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            if (body.contains("avg views") || body.startsWith("Typical elapsed time:")) {
+                Spacer(Modifier.height(4.dp))
+                Text(body, color = MutedText, fontSize = 11.sp,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
@@ -201,7 +201,13 @@ private fun CreatorDetailRow(title: String, meta: String, body: String) {
 @Composable
 private fun CreatorExplain(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised) {
-        Text(text, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp, modifier = Modifier.padding(13.dp))
+        Text(when {
+            text.contains("No active", ignoreCase = true) -> "No active projects"
+            text.contains("No projects completed", ignoreCase = true) -> "No completed projects"
+            text.contains("workflow is clear", ignoreCase = true) -> "No active projects"
+            text.contains("Connect", ignoreCase = true) -> "No linked videos"
+            else -> "Not enough data"
+        }, color = MutedText, fontSize = 11.sp, modifier = Modifier.padding(13.dp))
     }
     Spacer(Modifier.height(8.dp))
 }
