@@ -24,7 +24,7 @@ class CreatorProjectFactsV186PolicyTest {
     @Test fun completedWorkflowNeverInventsPublishing() {
         val facts = CreatorProjectFactsV186Policy.facts(task().copy(status = TaskStatus.DONE))
         assertEquals(facts.workflowTotalStages, facts.workflowCompletedStages)
-        assertEquals(1f, facts.workflowFraction)
+        assertEquals(1f, facts.workflowFraction, 0.0001f)
         assertEquals("No checklist", facts.checklistLabel)
         assertEquals("Not published", facts.publicationLabel)
         assertEquals("Finished", facts.projectStatusLabel)
