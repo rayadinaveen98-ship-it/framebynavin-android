@@ -18,8 +18,8 @@ Base: V194 Insights acceptance preview. This is a stacked, **draft** preview; st
 - Reminder UI might close soon after short voice playback under current V178 policy. Device acceptance must include fast voice completions, not only long phrases.
 
 ## Phases
-P1: native deterministic particle geometry, tests, scene spec (first implementation).
-P2: Compose drawing/tap/reveal stage, reduced-motion and fallback, emulator UI coverage.
+P1: native deterministic particle geometry, tests, scene spec (implemented).
+P2: Compose drawing/tap/reveal stage, reduced-motion and fallback, emulator UI coverage (first preview implemented; physical review pending).
 P3: actual Spark alert and speaking poses, exact approved art continuity.
 P4: performance/accessibility/device validation and candidate APK, without stable merge.
 

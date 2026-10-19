@@ -1,5 +1,15 @@
 package com.framebynavin.app.reminders
 
+import android.animation.ValueAnimator
+import android.os.PowerManager
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import com.framebynavin.app.ui.CinePulseGuide
+import com.framebynavin.app.ui.CinePulseState
+import kotlinx.coroutines.delay
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -91,6 +101,27 @@ internal fun ReminderCheckInScreen(
     val nextAction = suggestedAction.trim().ifBlank { "Continue the current stage" }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
 
+    // Screen controls always work: animation scale zero means immediate reveal.
+    // Battery saver reduces the number of dots rather than affecting actions.
+    val context = LocalContext.current
+    val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
+    val lowPower = remember(context) {
+        context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
+    }
+    var revealed by rememberSaveable(kind, title) { mutableStateOf(!motionEnabled) }
+    LaunchedEffect(kind, title, motionEnabled) {
+        if (!motionEnabled) revealed = true
+        else {
+            delay(2_100L)
+            revealed = true
+        }
+    }
+    val revealAlpha by animateFloatAsState(
+        targetValue = if (revealed) 1f else 0f,
+        animationSpec = tween(durationMillis = 650),
+        label = "v195-reminder-controls",
+    )
+
     Box(
         Modifier
             .fillMaxSize()
@@ -99,11 +130,22 @@ internal fun ReminderCheckInScreen(
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Column(
+        if (motionEnabled) {
+            V195ReminderParticleScene(
+                kind = kind,
+                revealed = revealed,
+                lowPower = lowPower,
+                onReveal = { revealed = true },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        // No invisible focusable reminder actions behind the intro.
+        if (revealed) Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.Center)
-                .verticalScroll(scroll),
+                .verticalScroll(scroll)
+                .graphicsLayer { alpha = revealAlpha },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(
@@ -130,10 +172,16 @@ internal fun ReminderCheckInScreen(
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
-            if (kind == ReminderCheckInKind.VOICE) V140VoicePulse(Modifier.size(68.dp))
-            else V140AlarmPulse(Modifier.size(68.dp))
             Spacer(Modifier.height(8.dp))
+            // Approved Spark artwork, until the custom alert/speaking poses ship.
+            CinePulseGuide(
+                state = if (kind == ReminderCheckInKind.VOICE)
+                    CinePulseState.PRESENT else CinePulseState.POINT,
+                modifier = Modifier
+                    .size(width = 88.dp, height = 94.dp)
+                    .testTag(if (kind == ReminderCheckInKind.VOICE) "v195-voice-guide" else "v195-alarm-guide"),
+            )
+            Spacer(Modifier.height(7.dp))
 
             Text(
                 text = title,
