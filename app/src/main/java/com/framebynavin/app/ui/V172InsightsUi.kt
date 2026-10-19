@@ -246,7 +246,7 @@ private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snap
         Column(Modifier.padding(11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(when(metric.label) { "WATCH" -> "Watch Time"; "SUBS" -> "Subscribers"; "AVG VIEW" -> "Average View"; else -> "Views" },
-                    color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
+                    color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
                 Icon(Icons.Outlined.ChevronRight, "View ${metric.label} details", tint = MutedText, modifier = Modifier.size(13.dp))
             }
             Spacer(Modifier.height(3.dp))
@@ -332,10 +332,10 @@ private fun V172FormatCard(rank: Int, format: YouTubeFormatPerformance) {
     Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("#$rank", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("#$rank", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(8.dp))
                 Text(format.label, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${format.uploadCount} connected", color = MutedText, fontSize = 8.sp)
+                Text("${format.uploadCount} connected", color = MutedText, fontSize = 11.sp)
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -400,7 +400,7 @@ private fun V172Creator(
 private fun V172Mini(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(12.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(horizontal = 9.dp, vertical = 9.dp)) {
-            Text(label, color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             Spacer(Modifier.height(2.dp))
             Text(value, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
         }
@@ -412,7 +412,7 @@ private fun V172CreatorMetric(label: String, value: String, accent: Color, modif
     Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(13.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
+                Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
                 Icon(Icons.Outlined.ChevronRight, "Open $label details", tint = MutedText, modifier = Modifier.size(13.dp))
             }
             Spacer(Modifier.height(4.dp))
