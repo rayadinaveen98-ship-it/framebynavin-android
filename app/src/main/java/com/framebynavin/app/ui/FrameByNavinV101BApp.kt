@@ -131,11 +131,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     LaunchedEffect(pendingReminderConfirmation) {
         val pending = pendingReminderConfirmation ?: return@LaunchedEffect
         val result = snapshotFlow {
-            Triple(vm.canRecoverWrites, vm.writeError,
-                vm.tasks.firstOrNull { it.id == pending.taskId })
-        }.first { (idle, error, saved) -> error != null || (idle && saved != null) }
-        if (result.second == null && result.first) {
-            result.third?.let { committed ->
+            vm.durableProjectSave(pending.taskId) to vm.writeError
+        }.first { (receipt, error) ->
+            error != null || (receipt != null && receipt.revision > pending.baselineRevision)
+        }
+        if (result.second == null) {
+            result.first?.task?.let { committed ->
                 savedReminderConfirmation = V203ReminderSetFeedback.message(
                     active = committed.reminderEnabled,
                     nextAtMillis = committed.reminderAtMillis,
@@ -757,6 +758,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 overlay = POverlay.SETTINGS
             },
             onSave = { draft ->
+                val previousRevision = task?.id?.let { vm.durableProjectSave(it)?.revision } ?: 0L
                 val savedTaskId = vm.saveTaskConfiguration(
                     id = task?.id,
                     title = draft.title,
@@ -787,6 +789,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 // reminder and silently skip if alerts are disabled.
                 pendingReminderConfirmation = V203PendingReminderConfirmation(
                     taskId = savedTaskId, editedExisting = task != null,
+                    baselineRevision = previousRevision,
                 )
                 finishComposerSession()
                 if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
