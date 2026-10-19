@@ -6,6 +6,21 @@ Planning baseline: V183 / 2.3.3 Stable Personal, reviewed source commit `aa9e1aa
 
 Help a solo creator capture thoughts, continue meaningful work, finish outputs and learn from publication with less administrative effort. Preserve the cinematic identity and the familiar project structure. Improve existing systems before adding parallel ones.
 
+## Locked Insights: professional minimal-content standard (19 October 2026)
+
+This requirement was reconfirmed before V187 implementation. It applies to Overview, Content, Revenue, Creator, video detail, analytics drills, creator recommendations and cross-surface analytics presentations.
+
+- Visible sections must be identified by short, useful names, not explanatory introductions. Use clear labels such as Views, Watch Time, Revenue, RPM, Top Videos, Projects and Retention.
+- No heading descriptions, motivational fillers, generic teaching copy, repetitive observations, redundant metrics or technically oriented prose on ordinary screens.
+- One authoritative presentation of each metric per context. Show more detail only after intentional drill-down, not through progressively smaller text.
+- Clean, consistent type, scale, card dimensions and spacing. Never shrink essential labels or metric values to fit excess content.
+- An exception is mandatory for concise **functional** notices: permission/consent, data freshness, partial/unavailable/loading/error status, irreversible actions and recovery options. The UI must not show false zeroes or conceal uncertainty merely to appear minimal.
+- Chart axes, periods, metric units and comparison baselines remain accessible; minimal copy must not erase information required to interpret data correctly. Accessibility/assistive labels may contain descriptions not rendered visually.
+- In the future an optional Settings → Guide may carry definitions, detailed behavior and help articles. Do not build this extra destination during V187–V190 unless separately approved.
+- Capture and review every changed screen and sub-screen during V190. Enforce the same rule when new features or copy are added, including the Home analytics cards. Do not modify the existing custom Home slideshow while revising Insights.
+
+Phase sequence: **V187** core report evidence and safe deeper-data commit; **V188** revenue/reach reliability; **V189** complete content and video analysis; **V190** all-screens minimal-content redesign; **V191** release QA with live Studio parity and physical-device acceptance. Treat every version as a candidate, never an automatically stable release.
+
 ## Locked Home slideshow requirement
 
 Custom images and their automatic slideshow remain a first-class Home feature.
