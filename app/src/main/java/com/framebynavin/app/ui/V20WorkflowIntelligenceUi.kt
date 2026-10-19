@@ -69,7 +69,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
 private fun WorkflowMini(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(13.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(9.dp)) {
-            Text(label, color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Bold, letterSpacing = .45.sp)
+            Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = .45.sp)
             Text(value, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
         }
     }
