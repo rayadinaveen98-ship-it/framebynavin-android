@@ -77,6 +77,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -123,6 +124,34 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
     var guidedTourStepName by rememberSaveable { mutableStateOf<String?>(null) }
     var stageCompletionEvent by rememberSaveable { mutableLongStateOf(0L) }
+    var pendingReminderConfirmation by remember { mutableStateOf<V203PendingReminderConfirmation?>(null) }
+    var savedReminderConfirmation by remember { mutableStateOf<String?>(null) }
+
+    // Return a success notification only after the optimistic task was saved durably.
+    LaunchedEffect(pendingReminderConfirmation) {
+        val pending = pendingReminderConfirmation ?: return@LaunchedEffect
+        val result = snapshotFlow {
+            Triple(vm.canRecoverWrites, vm.writeError,
+                vm.tasks.firstOrNull { it.id == pending.taskId })
+        }.first { (idle, error, saved) -> error != null || (idle && saved != null) }
+        if (result.second == null && result.first) {
+            result.third?.let { committed ->
+                savedReminderConfirmation = V203ReminderSetFeedback.message(
+                    active = committed.reminderEnabled,
+                    nextAtMillis = committed.reminderAtMillis,
+                    nowMillis = System.currentTimeMillis(),
+                    editedExisting = pending.editedExisting,
+                )
+            }
+        }
+        pendingReminderConfirmation = null
+    }
+    LaunchedEffect(savedReminderConfirmation) {
+        if (savedReminderConfirmation != null) {
+            delay(3_000L)
+            savedReminderConfirmation = null
+        }
+    }
 
     fun finishComposerSession() {
         composerCleanupKey = "project-composer-$composerSession"
@@ -575,6 +604,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             )
         }
 
+        savedReminderConfirmation?.let { message ->
+            V203ReminderSavedChip(
+                message = message,
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 28.dp, start = 18.dp, end = 18.dp),
+            )
+        }
         V127StageCompletionPulse(stageCompletionEvent, modifier = Modifier.align(Alignment.Center))
 
         vm.rewardFeedback?.let { reward ->
@@ -743,9 +780,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 if (savedTaskId == null) {
                     Toast.makeText(context, "Could not save the project. Your form is still open.", Toast.LENGTH_LONG).show()
                 } else {
-                // saveTaskConfiguration queues a disk write; do not claim completion here.
+                // Saving queues a disk write; the countdown only appears after that write.
+                if (draft.attentionPlan != ProjectAttentionPlan.OFF && draft.mode != ReminderMode.NONE) {
+                    pendingReminderConfirmation = V203PendingReminderConfirmation(
+                        taskId = savedTaskId, editedExisting = task != null,
+                    )
+                } else {
+                    pendingReminderConfirmation = null
+                    Toast.makeText(context, "Saving project…", Toast.LENGTH_SHORT).show()
+                }
                 finishComposerSession()
-                Toast.makeText(context, "Saving project…", Toast.LENGTH_SHORT).show()
                 if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
                     guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
                 }
