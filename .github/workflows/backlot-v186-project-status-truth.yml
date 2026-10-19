@@ -29,8 +29,8 @@ jobs:
             test -n "$script"
             bash "$script"
           done
-          grep -Fq 'versionCode = 185' app/build.gradle.kts
-          grep -Fq 'versionName = "2.3.5-v186-project-status-truth-preview"' app/build.gradle.kts
+          grep -Fq 'versionCode = 186' app/build.gradle.kts
+          grep -Fq 'versionName = "2.3.6-v186-project-status-preview"' app/build.gradle.kts
       - name: Clean build, regressions, lint and instrumentation compilation
         run: gradle :app:clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
       - name: Upload compiled instrumentation APKs
