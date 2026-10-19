@@ -50,7 +50,7 @@ class V191ContentStabilityUiTest {
         rule.onNodeWithText("Video 30").assertExists()
         rule.onNodeWithTag("v189-catalog-search").performScrollTo()
             .performTextInput("Video 40")
-        rule.onNodeWithText("Video 40").assertExists()
+        rule.onAllNodesWithText("Video 40").assertCountEquals(2)
         rule.onNodeWithText("Video 30").assertDoesNotExist()
     }
 }
