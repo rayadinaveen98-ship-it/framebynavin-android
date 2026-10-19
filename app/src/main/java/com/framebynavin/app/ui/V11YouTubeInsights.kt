@@ -427,7 +427,7 @@ internal fun V11InsightsScreen(
                 YTChannelHeader(
                     data = data,
                     syncing = syncing || revoking,
-                    windowDays = data.windowDays,
+                    windowDays = windowDays,
                     onWindow = { days ->
                         if (days != windowDays) {
                             windowDays = days
@@ -446,7 +446,30 @@ internal fun V11InsightsScreen(
                 }
 
                 Spacer(Modifier.height(14.dp))
-                V172InsightsBody(
+                if (!V191InsightsPeriodPolicy.isSelectedRangeReady(windowDays, data)) {
+                    // The previously loaded channel may belong to another date range.
+                    // Keep its account controls visible, never display its numbers as
+                    // though they belong to the newly requested reporting period.
+                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                        color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(if (syncing) "Updating ${windowDays}D" else "No ${windowDays}D data",
+                                color = ProjectorIvory, fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold)
+                            if (syncing) {
+                                Spacer(Modifier.height(12.dp))
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = MutedGold, strokeWidth = 2.dp)
+                            } else {
+                                Spacer(Modifier.height(10.dp))
+                                TextButton(onClick = { authorize(false, windowDays) }) {
+                                    Text("Retry", color = ProjectorIvory, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                } else V172InsightsBody(
                     snapshot = data,
                     tasks = tasks,
                     ideas = ideas,
