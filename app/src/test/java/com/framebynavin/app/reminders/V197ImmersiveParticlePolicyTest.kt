@@ -12,8 +12,10 @@ class V197ImmersiveParticlePolicyTest {
                 dots.size,
             )
             assertTrue(dots.all { it.x in 0f..1f && it.y in 0f..1f })
-            assertTrue(dots.all { it.phase.isFinite() && it.speed > 0f && it.palette in 0..3 })
-            assertEquals(4, dots.map { it.palette }.distinct().size)
+            assertTrue(dots.all { it.phase.isFinite() && it.speed > 0f && it.palette in 0..5 && it.depth in 0..2 && it.speed in 1f..3f })
+            assertEquals(6, dots.map { it.palette }.distinct().size)
+            assertEquals(3, dots.map { it.depth }.distinct().size)
+            assertTrue(dots.all { it.speed.toInt().toFloat() == it.speed })
             // Background must occupy top/bottom and left/right, unlike V195's icon-only dots.
             assertTrue(dots.any { it.x < .06f && it.y < .06f })
             assertTrue(dots.any { it.x > .94f && it.y > .94f })
@@ -26,7 +28,7 @@ class V197ImmersiveParticlePolicyTest {
         val first = V197AmbientGeometry.build()
         assertEquals(first, V197AmbientGeometry.build())
         assertEquals(first.size, first.map { it.x to it.y }.distinct().size)
-        assertEquals(4, first.map { it.palette }.distinct().size)
+        assertEquals(6, first.map { it.palette }.distinct().size)
     }
 
     @Test fun aNormalSceneNeverAutoRevealsWhileReducedMotionOpensControlsDirectly() {

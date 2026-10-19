@@ -17,13 +17,15 @@ internal data class V197AmbientParticle(
     val driftX: Float,
     val driftY: Float,
     val palette: Int,
+    /** 0 far, 1 mid, 2 near: depth affects brightness, glow and drift. */
+    val depth: Int,
 )
 
 internal object V197AmbientGeometry {
-    private const val NORMAL_COLS = 22
-    private const val NORMAL_ROWS = 34
-    private const val LOW_POWER_COLS = 15
-    private const val LOW_POWER_ROWS = 25
+    private const val NORMAL_COLS = 26
+    private const val NORMAL_ROWS = 42
+    private const val LOW_POWER_COLS = 17
+    private const val LOW_POWER_ROWS = 29
     const val NORMAL_COUNT = NORMAL_COLS * NORMAL_ROWS
     const val LOW_POWER_COUNT = LOW_POWER_COLS * LOW_POWER_ROWS
 
@@ -36,15 +38,18 @@ internal object V197AmbientGeometry {
                 // Slight per-cell randomness keeps full-screen coverage predictable.
                 val x = (col + .14f + .72f * noise(index, 11)) / cols
                 val y = (row + .14f + .72f * noise(index, 29)) / rows
+                val depth = (row + 2 * col) % 3
                 add(
                     V197AmbientParticle(
                         x = x.coerceIn(0f, 1f),
                         y = y.coerceIn(0f, 1f),
                         phase = (2 * PI * noise(index, 47)).toFloat(),
-                        speed = .65f + 1.55f * noise(index, 83),
-                        driftX = (noise(index, 113) * 2f - 1f) * .018f,
-                        driftY = (noise(index, 131) * 2f - 1f) * .024f,
-                        palette = (noise(index, 173) * 4f).toInt().coerceIn(0, 3),
+                        // Whole-number harmonics ensure no jump on animation repeat.
+                        speed = (1 + (noise(index, 83) * 3f).toInt().coerceIn(0, 2)).toFloat(),
+                        driftX = (noise(index, 113) * 2f - 1f) * (.015f + depth * .010f),
+                        driftY = (noise(index, 131) * 2f - 1f) * (.024f + depth * .013f),
+                        palette = (noise(index, 173) * 6f).toInt().coerceIn(0, 5),
+                        depth = depth,
                     ),
                 )
             }
