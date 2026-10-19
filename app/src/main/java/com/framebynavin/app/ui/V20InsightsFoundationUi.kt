@@ -147,7 +147,7 @@ internal fun V20InsightsFoundationCard(
                 reach == YouTubeDatasetState.READY && reachSummary != null -> {
                     Text("THUMBNAIL VIEWS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                     Text(
-                        "${compactFoundation(reachSummary.impressions)} impressions · ${String.format(java.util.Locale.US, "%.1f", reachSummary.ctrPercent)}% CTR",
+                        "${compactFoundation(reachSummary.impressions)} impressions · ${String.format(java.util.Locale.US, "%.1f", reachSummary.ctrPercent)}% CTR · ${reachSummary.coveredDays}/${reachSummary.requestedDays} days",
                         color = ProjectorIvory,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
