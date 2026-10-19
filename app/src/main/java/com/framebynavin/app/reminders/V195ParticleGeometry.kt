@@ -21,11 +21,11 @@ internal data class V195Dot(
  * Discrete positions and scatter origins are created once per scene, never per frame.
  */
 internal object V195ParticleGeometry {
-    const val DEFAULT_DOTS = 420
-    const val LOW_POWER_DOTS = 220
+    const val DEFAULT_DOTS = 840
+    const val LOW_POWER_DOTS = 440
 
     fun build(glyph: V195ReminderGlyph, count: Int = DEFAULT_DOTS): List<V195Dot> {
-        require(count in 24..500)
+        require(count in 24..1000)
         val targets = when (glyph) {
             V195ReminderGlyph.CLOCK -> clock(count)
             V195ReminderGlyph.MICROPHONE -> microphone(count)
