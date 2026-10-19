@@ -642,24 +642,6 @@ private fun YTChannelHeader(
                     }
                 }
             }
-            Spacer(Modifier.height(7.dp))
-            val selectedReady = V191InsightsPeriodPolicy.isSelectedRangeReady(windowDays, data)
-            Text(
-                if (selectedReady) "${YouTubeAnalyticsQueryPolicy.finalizedWindowLabel(windowDays)} · ${data.startDate} → ${data.endDate}"
-                else "${windowDays}D · Report pending",
-                color = MutedText,
-                fontSize = 11.sp,
-            )
-            Text(
-                if (!selectedReady) { if (syncing) "Updating" else "Unavailable · Retry" }
-                else when (val evidence = data.reportEvidence) {
-                    null -> "Unverified · Refresh"
-                    else -> if (!evidence.summaryPresent) "Unavailable · Refresh"
-                        else "Updated ${ytSyncTime(data.fetchedAtMillis)} · ${evidence.returnedDailyDates.size} daily rows"
-                },
-                color = MutedText,
-                fontSize = 11.sp,
-            )
         }
     }
 }
