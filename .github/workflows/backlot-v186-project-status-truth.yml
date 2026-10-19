@@ -27,6 +27,7 @@ jobs:
           for version in $(seq 161 182); do
             script=$(find tools -maxdepth 1 -name "check_v${version}_*.sh" | head -n 1)
             test -n "$script"
+            echo "V${version} contract: $script"
             bash "$script"
           done
           grep -Fq 'versionCode = 186' app/build.gradle.kts
