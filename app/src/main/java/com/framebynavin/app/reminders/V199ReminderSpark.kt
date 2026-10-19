@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import com.framebynavin.app.ui.CinePulseGuide
 import com.framebynavin.app.ui.CinePulseState
 import kotlin.math.min
@@ -57,7 +58,9 @@ internal fun V199ReminderSpark(
         Color(0xFFFFD18B) else Color(0xFFBEB0FF)
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(Modifier.fillMaxSize().testTag(
+            if (expression == V199SparkExpression.ALERT) "v199-spark-alarm-fx" else "v199-spark-voice-fx",
+        )) {
             val middle = Offset(size.width * .5f, size.height * .52f)
             val radius = min(size.width, size.height) * .45f
             drawCircle(
@@ -120,8 +123,8 @@ internal fun V199ReminderSpark(
             modifier = Modifier
                 .size(width = 92.dp, height = 103.dp)
                 .graphicsLayer {
-                    translationY = V199SparkMotionPolicy.liftDp(expression, t).dp.toPx()
-                    rotationZ = V199SparkMotionPolicy.tiltDegrees(expression, t)
+                    translationY = if (animate) V199SparkMotionPolicy.liftDp(expression, t).dp.toPx() else 0f
+                    rotationZ = if (animate) V199SparkMotionPolicy.tiltDegrees(expression, t) else 0f
                     val pulse = if (animate) V199SparkMotionPolicy.scale(t) else 1f
                     scaleX = pulse
                     scaleY = pulse
