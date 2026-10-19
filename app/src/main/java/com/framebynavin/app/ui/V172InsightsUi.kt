@@ -48,9 +48,19 @@ internal fun V172InsightsBody(
 ) {
     var tabName by rememberSaveable { mutableStateOf(V172InsightsTab.OVERVIEW.name) }
     val tab = V172InsightsTab.valueOf(tabName)
-    var detailVideoId by rememberSaveable { mutableStateOf<String?>(null) }
-    var insightDetail by remember { mutableStateOf<V20InsightsDrilldownRequest?>(null) }
-    var creatorDetail by remember { mutableStateOf<V20CreatorDetailKind?>(null) }
+    // Details are snapshot-scoped: changing YouTube owner/range must never
+    // retain a dialog produced from the previous channel or reporting period.
+    var detailVideoId by rememberSaveable(
+        snapshot.channel.channelId, snapshot.startDate, snapshot.endDate,
+    ) { mutableStateOf<String?>(null) }
+    var insightDetail by remember(
+        snapshot.channel.channelId, snapshot.startDate, snapshot.endDate,
+        snapshot.fetchedAtMillis,
+    ) { mutableStateOf<V20InsightsDrilldownRequest?>(null) }
+    var creatorDetail by remember(
+        snapshot.channel.channelId, snapshot.startDate, snapshot.endDate,
+        snapshot.fetchedAtMillis,
+    ) { mutableStateOf<V20CreatorDetailKind?>(null) }
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
     val detail = (catalogState.videos + snapshot.recentVideos + snapshot.topVideos)
         .distinctBy { it.videoId }.firstOrNull { it.videoId == detailVideoId }

@@ -6,6 +6,7 @@ Basis: successful V193 source `cf85eb9397b1dbcdcd8d9f1f6cde22846c82783e`, 41 And
 - Pulse reports now carry the actual channel ID. The previously stored singleton Pulse signal and the deeper Pulse drilldown **independently** reject reports owned by another channel, derived after the selected snapshot, expired by more than 36 hours, or from an invalid clock sequence.
 - The policy rejects legacy reports without owner identity rather than assuming they are safe. Current reports remain available on the same account.
 - Seven JVM regressions cover current, switched, legacy, expired, time ordering, malformed, and slight clock-skew cases. No additions to the default screen, no changes to metric calculation, authorization, projects or Home slideshow.
+- UI regression hardening: open video details and Signals are scoped to the active channel/range; Signal and Creator drilldowns also reset when the reporting snapshot changes. Two Android 11 Compose tests verify stale Signal detail closes on channel switch and analytics refresh.
 
 ## Manual device sign-off — required, not simulated
 Device: user's Android phone; record Android version, current installed Backlot version, APK SHA and date.

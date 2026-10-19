@@ -118,11 +118,15 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V192ThumbnailSortUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v192-thumbnail-sort-instrumentation.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v192-thumbnail-sort-instrumentation.log; then exit 1; fi
             grep -Fq 'OK (1 test)' v192-thumbnail-sort-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V194InsightsSnapshotOwnershipUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v194-snapshot-ownership-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v194-snapshot-ownership-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v194-snapshot-ownership-instrumentation.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Backlot-V194-Emulator-Results
           path: |
+            v194-snapshot-ownership-instrumentation.log
             v192-thumbnail-sort-instrumentation.log
             v191-content-stability-instrumentation.log
             v190-insights-ui-instrumentation.log
