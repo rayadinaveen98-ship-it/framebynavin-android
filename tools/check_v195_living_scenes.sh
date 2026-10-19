@@ -10,7 +10,8 @@ grep -Fq 'V195ReminderParticleScene(' "$src/ReminderCheckInScreen.kt"
 grep -Fq 'V197ReminderRevealPolicy.startRevealed(motionEnabled)' "$src/ReminderCheckInScreen.kt"
 grep -Fq 'V197AmbientGeometry.build(lowPower)' "$src/V195ReminderParticleScene.kt"
 grep -Fq 'ValueAnimator.areAnimatorsEnabled()' "$src/ReminderCheckInScreen.kt"
-grep -Fq 'CinePulseGuide(' "$src/ReminderCheckInScreen.kt"
+grep -Fq 'V199ReminderSpark(' "$src/ReminderCheckInScreen.kt"
+grep -Fq 'CinePulseGuide(' "$src/V199ReminderSpark.kt"
 test -f app/src/test/java/com/framebynavin/app/reminders/V195ParticleGeometryTest.kt
 test -f app/src/androidTest/java/com/framebynavin/app/reminders/V195ReminderSceneUiTest.kt
 echo 'V195 particle/scene/reveal contracts passed.'

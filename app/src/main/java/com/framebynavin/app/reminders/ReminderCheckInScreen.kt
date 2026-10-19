@@ -7,8 +7,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import com.framebynavin.app.ui.CinePulseGuide
-import com.framebynavin.app.ui.CinePulseState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -172,12 +170,13 @@ internal fun ReminderCheckInScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            // Approved Spark artwork, until the custom alert/speaking poses ship.
-            CinePulseGuide(
-                state = if (kind == ReminderCheckInKind.VOICE)
-                    CinePulseState.PRESENT else CinePulseState.POINT,
+            // Approved Spark raster, now with mode-specific alert and speaking motion.
+            V199ReminderSpark(
+                kind = kind,
+                motionEnabled = motionEnabled,
+                lowPower = lowPower,
                 modifier = Modifier
-                    .size(width = 88.dp, height = 94.dp)
+                    .size(width = 118.dp, height = 118.dp)
                     .testTag(if (kind == ReminderCheckInKind.VOICE) "v195-voice-guide" else "v195-alarm-guide"),
             )
             Spacer(Modifier.height(7.dp))
