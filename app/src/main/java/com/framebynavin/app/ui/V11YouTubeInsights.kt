@@ -162,7 +162,7 @@ internal fun V11InsightsScreen(
                     // independent and should not make cached/core Insights feel blocked.
                     val (foundationResult, reachResult) = withContext(Dispatchers.IO) {
                         val foundationDeferred = async { runCatching { foundationApi.sync(token, fresh) } }
-                        val reachDeferred = async { runCatching { reachApi.sync(token, fresh.channel.channelId) } }
+                        val reachDeferred = async { runCatching { reachApi.sync(token, fresh.channel.channelId, request, store) } }
                         foundationDeferred.await() to reachDeferred.await()
                     }
                     val foundation = foundationResult.getOrNull()
