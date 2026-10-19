@@ -67,6 +67,7 @@ data class YouTubeRevenueSnapshot(
     val content: List<YouTubeRevenueContentRow> = emptyList(),
     val fetchedAtMillis: Long,
     val channelId: String = "",
+    val creatorGeneration: Long = -1L,
     val evidence: YouTubeRevenueEvidence? = null,
 ) {
     /** A custom total-revenue / public-view ratio, not YouTube Studio's format-aware RPM. */
@@ -273,6 +274,7 @@ class YouTubeRevenueStore(context: Context) {
         val raw = prefs.getString(key(period), null) ?: return null
         return runCatching { decode(JSONObject(raw)) }.getOrNull()
             ?.takeIf { it.channelId == expectedChannelId &&
+                it.creatorGeneration == CreatorDataGate.generation(appContext) &&
                 YouTubeAnalyticsStore(appContext).loadAny()?.channel?.channelId == expectedChannelId }
     }
 
@@ -291,7 +293,8 @@ class YouTubeRevenueStore(context: Context) {
                 ?.let { runCatching { decode(JSONObject(it)) }.getOrNull() }
             if (previous?.channelId == snapshot.channelId &&
                 previous.fetchedAtMillis > snapshot.fetchedAtMillis) return@readyTransaction false
-            check(prefs.edit().putString(key(snapshot.period), encode(snapshot).toString()).commit()) {
+            val owned = snapshot.copy(creatorGeneration = expectedGeneration)
+            check(prefs.edit().putString(key(snapshot.period), encode(owned).toString()).commit()) {
                 "Could not save owned YouTube revenue."
             }
             true
@@ -304,6 +307,7 @@ class YouTubeRevenueStore(context: Context) {
     private fun encode(snapshot: YouTubeRevenueSnapshot): JSONObject = JSONObject()
         .put("period", snapshot.period.name)
         .put("channelId", snapshot.channelId)
+        .put("creatorGeneration", snapshot.creatorGeneration)
         .put("startDate", snapshot.startDate)
         .put("endDate", snapshot.endDate)
         .put("currencyCode", snapshot.currencyCode)
@@ -383,6 +387,7 @@ class YouTubeRevenueStore(context: Context) {
             content = content,
             fetchedAtMillis = root.optLong("fetchedAtMillis"),
             channelId = root.optString("channelId"),
+            creatorGeneration = root.optLong("creatorGeneration", -1L),
             evidence = root.optJSONObject("evidence")?.let { evidence ->
                 YouTubeRevenueEvidence(
                     summaryPresent = evidence.optBoolean("summaryPresent"),
