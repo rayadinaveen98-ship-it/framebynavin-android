@@ -1,6 +1,10 @@
 package com.framebynavin.app.ui
 
-internal data class V203PendingReminderConfirmation(val taskId: String, val editedExisting: Boolean)
+internal data class V203PendingReminderConfirmation(
+    val taskId: String,
+    val editedExisting: Boolean,
+    val baselineRevision: Long,
+)
 
 internal object V203ReminderSetFeedback {
     /** Based on the persisted next alert, not on an uncommitted project draft. */
