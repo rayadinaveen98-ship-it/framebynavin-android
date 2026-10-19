@@ -13,13 +13,12 @@ class V196ReminderReliabilityPolicyTest {
 
     @Test fun onlyTimeCriticalAlertsRequireFullscreenAndExactTiming() {
         val rule = V196ReminderLaunchReadiness
-        val b = V196ReminderLaunchReadiness.Blocker
-        assertEquals(b.NONE, rule.blocker(false, true, false, false, false))
-        assertEquals(b.NOTIFICATIONS, rule.blocker(true, false, false, false, false))
-        assertEquals(b.EXACT_TIMING, rule.blocker(true, true, false, false, true))
-        assertEquals(b.FULL_SCREEN, rule.blocker(true, true, true, false, true))
-        assertEquals(b.ALERT_CHANNEL, rule.blocker(true, true, true, true, false))
-        assertEquals(b.NONE, rule.blocker(true, true, true, true, true))
+        assertEquals(V196ReminderLaunchReadiness.Blocker.NONE, rule.blocker(false, true, false, false, false))
+        assertEquals(V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS, rule.blocker(true, false, false, false, false))
+        assertEquals(V196ReminderLaunchReadiness.Blocker.EXACT_TIMING, rule.blocker(true, true, false, false, true))
+        assertEquals(V196ReminderLaunchReadiness.Blocker.FULL_SCREEN, rule.blocker(true, true, true, false, true))
+        assertEquals(V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL, rule.blocker(true, true, true, true, false))
+        assertEquals(V196ReminderLaunchReadiness.Blocker.NONE, rule.blocker(true, true, true, true, true))
     }
 
     @Test fun alarmSoundDurationNeverCutsOffResponseScene() {
