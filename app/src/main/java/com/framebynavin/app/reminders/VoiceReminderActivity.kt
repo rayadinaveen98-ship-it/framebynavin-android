@@ -54,8 +54,7 @@ class VoiceReminderActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             // Service owns normal speech completion. This is only a later safety watchdog.
-            delay(V178PlaybackLifecyclePolicy.voiceWatchdogMillis(task) +
-                V178PlaybackLifecyclePolicy.ACTIVITY_WATCHDOG_EXTRA_MILLIS)
+            delay(V196ReminderResponseWindow.voiceActivityWatchdogMillis(task))
             if (!isFinishing && !isDestroyed) {
                 VoiceReminderService.stop(applicationContext, taskId, occurrenceId)
                 if (!ReminderOccurrenceStore(applicationContext).matches(task, occurrenceId)) {

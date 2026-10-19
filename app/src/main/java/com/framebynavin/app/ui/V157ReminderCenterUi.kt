@@ -17,6 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.framebynavin.app.reminders.V196ReminderLaunchReadiness
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,6 +62,15 @@ internal fun V157ReminderCenterUi(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var permissionRefresh by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) permissionRefresh++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -72,10 +85,29 @@ internal fun V157ReminderCenterUi(
     var turnOffTarget by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     val selectionMode = selected.isNotEmpty()
-    val notificationsReady = ReminderNotifications.canPost(context)
-    val exactTimingReady = ReminderScheduler(context).canScheduleExact()
-    val hasTimeCritical = grouped.values.flatten().any { it.reminderEnabled && it.reminderMode in
+    // Recheck Android grants when the user returns from permission Settings.
+    val notificationsReady = remember(permissionRefresh, context) {
+        ReminderNotifications.canPost(context)
+    }
+    val exactTimingReady = remember(permissionRefresh, context) {
+        ReminderScheduler(context).canScheduleExact()
+    }
+    val activeReminders = grouped.values.flatten().filter { it.reminderEnabled }
+    val hasTimeCritical = activeReminders.any { it.reminderMode in
         setOf(ReminderMode.VOICE, ReminderMode.ALARM, ReminderMode.SMART) }
+    val needsAlarm = activeReminders.any { it.reminderMode in
+        setOf(ReminderMode.ALARM, ReminderMode.SMART) }
+    val needsVoice = activeReminders.any { it.reminderMode in
+        setOf(ReminderMode.VOICE, ReminderMode.SMART) }
+    val fullScreenReady = remember(permissionRefresh, context) {
+        V196ReminderLaunchReadiness.canUseFullScreen(context)
+    }
+    val alertChannelsReady = remember(permissionRefresh, context, needsAlarm, needsVoice) {
+        V196ReminderLaunchReadiness.alertChannelsHighPriority(context, needsAlarm, needsVoice)
+    }
+    val launchBlocker = V196ReminderLaunchReadiness.blocker(
+        hasTimeCritical, notificationsReady, exactTimingReady, fullScreenReady, alertChannelsReady,
+    )
 
     fun select(id: String) {
         selected = if (id in selected) selected - id else selected + id
@@ -149,33 +181,47 @@ internal fun V157ReminderCenterUi(
                     )
                     Spacer(Modifier.height(13.dp))
                     Surface(
-                        onClick = onOpenReminderSettings,
+                        onClick = {
+                            when (launchBlocker) {
+                                V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
+                                    V196ReminderLaunchReadiness.openFullScreenSettings(context)
+                                V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS,
+                                V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
+                                    V196ReminderLaunchReadiness.openNotificationSettings(context)
+                                else -> onOpenReminderSettings()
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         color = CinemaSurface,
                         shape = RoundedCornerShape(14.dp),
                         border = BorderStroke(
                             1.dp,
-                            if (!notificationsReady || (hasTimeCritical && !exactTimingReady))
+                            if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE)
                                 RecRed.copy(alpha = .5f) else CinemaLine,
                         ),
                     ) {
                         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                if (notificationsReady && (!hasTimeCritical || exactTimingReady))
+                                if (launchBlocker == V196ReminderLaunchReadiness.Blocker.NONE)
                                     Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber,
                                 null,
-                                tint = if (!notificationsReady || (hasTimeCritical && !exactTimingReady))
+                                tint = if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE)
                                     RecRed else MutedGold,
                                 modifier = Modifier.size(20.dp),
                             )
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                when {
-                                    !notificationsReady ->
-                                        "Notifications are blocked. Reminders may not appear. Open settings."
-                                    hasTimeCritical && !exactTimingReady ->
-                                        "Precise timing is off. Voice and alarm alerts may be delayed or downgraded."
-                                    else -> "Notification settings checked. Android can still delay some alerts."
+                                when (launchBlocker) {
+                                    V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS ->
+                                        "Notifications off · tap to enable"
+                                    V196ReminderLaunchReadiness.Blocker.EXACT_TIMING ->
+                                        "Precise reminders off · tap to fix"
+                                    V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
+                                        "Full-screen alerts off · tap to enable"
+                                    V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
+                                        "Alarm/voice alerts muted · tap to fix"
+                                    V196ReminderLaunchReadiness.Blocker.NONE ->
+                                        "Reminder alerts ready"
                                 },
                                 color = ProjectorIvory,
                                 fontSize = 11.5.sp,

@@ -131,7 +131,8 @@ class AlarmRingingService : Service() {
                     }
                 }
             }
-            ReminderSurfaceRegistry.close(task.id, token)
+            // Ring duration is NOT response duration; keep any active
+            // response surface available after the audible alarm ends.
             if (endingTask != null &&
                 (endingTask.reminderMode == ReminderMode.SMART || endingTask.smartEscalationEnabled)) {
                 val terminal = endingStage == SmartEscalationScheduler.Stage.CRITICAL ||
