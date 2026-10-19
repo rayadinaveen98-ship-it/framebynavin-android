@@ -101,6 +101,18 @@ class YouTubeApiClient {
             )
         }
 
+        val evidence = YouTubeReportEvidence(
+            summaryPresent = summary.rows.isNotEmpty(),
+            previousSummaryPresent = previousSummary.rows.isNotEmpty(),
+            summaryMetricKeys = summaryRow.filter { (_, value) ->
+                value?.toString()?.toDoubleOrNull() != null
+            }.keys,
+            previousMetricKeys = previousRow.filter { (_, value) ->
+                value?.toString()?.toDoubleOrNull() != null
+            }.keys,
+            returnedDailyDates = trend.map { it.date }.distinct().sorted(),
+        )
+
         return YouTubeAnalyticsSnapshot(
             channel = channel,
             windowDays = windowDays,
@@ -117,7 +129,7 @@ class YouTubeApiClient {
             recentVideos = recentVideos,
             trend = trend,
             fetchedAtMillis = System.currentTimeMillis(),
-            previousPeriod = YouTubePeriodSnapshot(
+            previousPeriod = if (evidence.previousSummaryPresent) YouTubePeriodSnapshot(
                 startDate = previousStart.toString(),
                 endDate = previousEnd.toString(),
                 views = previousRow.long("views"),
@@ -127,7 +139,8 @@ class YouTubeApiClient {
                 subscribersLost = previousRow.long("subscribersLost"),
                 likes = previousRow.long("likes"),
                 comments = previousRow.long("comments"),
-            ),
+            ) else null,
+            reportEvidence = evidence,
         )
     }
 

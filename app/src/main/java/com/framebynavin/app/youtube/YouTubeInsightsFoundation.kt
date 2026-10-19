@@ -219,9 +219,10 @@ class YouTubeInsightsFoundationClient {
             startDate = base.startDate,
             endDate = base.endDate,
             fetchedAtMillis = base.fetchedAtMillis,
-            periodViews = summaryRow.long("views").takeIf { it > 0L } ?: base.views,
+            periodViews = if ("views" in summaryRow) summaryRow.long("views") else base.views,
             periodEngagedViews = summaryRow.long("engagedViews"),
-            periodWatchMinutes = summaryRow.long("estimatedMinutesWatched").takeIf { it > 0L } ?: base.watchMinutes,
+            periodWatchMinutes = if ("estimatedMinutesWatched" in summaryRow)
+                summaryRow.long("estimatedMinutesWatched") else base.watchMinutes,
             metricContract = YouTubeMetricContract.forWindow(base.startDate, base.endDate),
             trafficSources = traffic,
             subscribedStatus = subscribed,

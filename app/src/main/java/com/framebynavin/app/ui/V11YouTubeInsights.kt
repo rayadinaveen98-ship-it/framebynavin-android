@@ -181,8 +181,10 @@ internal fun V11InsightsScreen(
                             health = foundation.health
                                 .filterNot { it.dataset == YouTubeFoundationDataset.REACH } + reachHealth,
                         )
-                        withContext(Dispatchers.IO) { foundationStore.save(withReach) }
-                        if (isActive(request)) foundationRevision += 1
+                        val accepted = withContext(Dispatchers.IO) {
+                            store.saveFoundationIfCurrent(withReach, request)
+                        }
+                        if (accepted && isActive(request)) foundationRevision += 1
                     }
                 }
             } catch (cancelled: CancellationException) {
@@ -560,7 +562,11 @@ private fun YTChannelHeader(
                 fontSize = 10.sp,
             )
             Text(
-                "Analytics through ${data.endDate} (Pacific). ${YouTubeAnalyticsQueryPolicy.freshnessNote()}",
+                when (val evidence = data.reportEvidence) {
+                    null -> "Legacy data · Refresh"
+                    else -> if (!evidence.summaryPresent) "Summary unavailable · Refresh"
+                        else "${evidence.returnedDailyDates.size} reported days · Processing"
+                },
                 color = MutedText.copy(alpha = .88f),
                 fontSize = 10.sp,
                 lineHeight = 14.sp,

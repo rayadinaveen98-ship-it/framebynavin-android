@@ -166,7 +166,7 @@ private fun V172Overview(
 
     Text("YOUR RESULTS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
     Spacer(Modifier.height(8.dp))
-    YouTubeInsightEngine.topSignals(snapshot, tasks, ideas, links).forEach { signal ->
+    if (snapshot.reportEvidence?.summaryPresent == true) YouTubeInsightEngine.topSignals(snapshot, tasks, ideas, links).forEach { signal ->
         V172SignalCard(signal) { onDetail(V20InsightsDrilldownRequest.signal(signal)) }
         Spacer(Modifier.height(8.dp))
     }
@@ -195,9 +195,15 @@ private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot, onDetail: (V20Insi
         Column(Modifier.padding(18.dp)) {
             Text("CHANNEL AT A GLANCE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(5.dp))
-            Text(YouTubeInsightEngine.pulseTitle(snapshot), color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text(
+                if (snapshot.reportEvidence?.summaryPresent == true) YouTubeInsightEngine.pulseTitle(snapshot)
+                else "Channel report unavailable",
+                color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black,
+            )
             Spacer(Modifier.height(5.dp))
-            Text(YouTubeInsightEngine.pulseBody(snapshot), color = MutedText, fontSize = 9.7.sp, lineHeight = 14.sp)
+            if (snapshot.reportEvidence?.summaryPresent == true) {
+                Text(YouTubeInsightEngine.pulseBody(snapshot), color = MutedText, fontSize = 9.7.sp, lineHeight = 14.sp)
+            }
             Spacer(Modifier.height(15.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 deltas.take(2).forEach { metric -> V172DeltaMetric(metric, Modifier.weight(1f), snapshot) { onDetail(V20InsightsDrilldownRequest.fromMetric(metric.label)) } }
@@ -218,8 +224,20 @@ private val BrushCard: Color get() = MutedGold.copy(alpha = .06f)
 
 @Composable
 private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Unit) {
-    val positive = (metric.percentChange ?: 0) > 0
-    val negative = (metric.percentChange ?: 0) < 0
+    val key = when (metric.label) {
+        "VIEWS" -> "views"
+        "WATCH" -> "estimatedMinutesWatched"
+        "SUBS" -> "subscribersGained"
+        else -> "averageViewDuration"
+    }
+    val evidence = snapshot.reportEvidence
+    val available = evidence?.hasMetric(key) == true &&
+        (metric.label != "SUBS" || evidence.hasMetric("subscribersLost"))
+    val comparison = available && evidence?.canCompare(key) == true &&
+        (metric.label != "SUBS" || evidence.canCompare("subscribersLost"))
+    val shownChange = metric.percentChange.takeIf { comparison }
+    val positive = (shownChange ?: 0) > 0
+    val negative = (shownChange ?: 0) < 0
     Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -228,7 +246,7 @@ private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snap
             }
             Spacer(Modifier.height(3.dp))
             Text(
-                when (metric.label) {
+                if (!available) "—" else when (metric.label) {
                     "VIEWS" -> v172Compact(metric.current)
                     "WATCH" -> v172Watch(metric.current)
                     "SUBS" -> v172Signed(metric.current)
@@ -248,7 +266,7 @@ private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snap
                 )
                 Spacer(Modifier.width(3.dp))
                 Text(
-                    metric.percentChange?.let { "${if (it > 0) "+" else ""}$it%" } ?: "waiting for comparison",
+                    shownChange?.let { "${if (it > 0) "+" else ""}$it%" } ?: "—",
                     color = when { positive -> SuccessGreen; negative -> RecRed; else -> MutedText },
                     fontSize = 7.8.sp,
                     fontWeight = FontWeight.Bold,
@@ -305,7 +323,7 @@ private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Uni
                     val ratio = point.views.toFloat() / max.toFloat()
                     Box(
                         Modifier.weight(1f)
-                            .fillMaxHeight(ratio.coerceIn(.08f, 1f))
+                            .fillMaxHeight(ratio.coerceIn(0f, 1f))
                             .background(if (point.views == max) RecRed else MutedGold.copy(alpha = .48f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
                     )
                 }
