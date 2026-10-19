@@ -21,6 +21,7 @@ data class YouTubeVideoSnapshot(
     val subscribersLost: Long,
     val likes: Long,
     val comments: Long,
+    val hasPeriodData: Boolean = true,
 ) {
     val netSubscribers: Long get() = subscribersGained - subscribersLost
 }
