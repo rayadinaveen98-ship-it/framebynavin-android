@@ -90,13 +90,14 @@ internal fun V20InsightsDrilldownDialog(
 
 @Composable
 private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20InsightsDetailKind) {
-    val current = v20Current(snapshot, kind)
-    val previous = v20Previous(snapshot, kind)
-    val change = if (previous != null && previous != 0L) (((current - previous) * 100.0) / abs(previous.toDouble())).toInt() else null
+    val verified = V191InsightMetricPolicy.evaluate(snapshot, kind)
+    val change = verified.changePercent
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        V20DetailMetric("THIS PERIOD", v20MetricValue(kind, current), Modifier.weight(1f))
-        V20DetailMetric("PREVIOUS", previous?.let { v20MetricValue(kind, it) } ?: "—", Modifier.weight(1f))
+        V20DetailMetric("This Period", verified.current?.let { v20MetricValue(kind, it) } ?: "—",
+            Modifier.weight(1f))
+        V20DetailMetric("Previous", verified.previous?.let { v20MetricValue(kind, it) } ?: "—",
+            Modifier.weight(1f))
     }
     Spacer(Modifier.height(8.dp))
     Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
@@ -291,19 +292,16 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
 
 @Composable
 private fun V20AverageViewEvidence(snapshot: YouTubeAnalyticsSnapshot) {
-    val previous = snapshot.previousPeriod
+    val verified = V191InsightMetricPolicy.evaluate(snapshot, V20InsightsDetailKind.AVG_VIEW)
     Text("Average View", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V20DetailMetric("THIS PERIOD", v20Duration(snapshot.averageViewDurationSeconds), Modifier.weight(1f))
-        V20DetailMetric("PREVIOUS", previous?.let { v20Duration(it.averageViewDurationSeconds) } ?: "—", Modifier.weight(1f))
+        V20DetailMetric("This Period", verified.current?.let(::v20Duration) ?: "—", Modifier.weight(1f))
+        V20DetailMetric("Previous", verified.previous?.let(::v20Duration) ?: "—", Modifier.weight(1f))
     }
     Spacer(Modifier.height(8.dp))
-    val previousSeconds = previous?.averageViewDurationSeconds
-    val change = if (previousSeconds != null && previousSeconds != 0L) {
-        (((snapshot.averageViewDurationSeconds - previousSeconds) * 100.0) / abs(previousSeconds.toDouble())).toInt()
-    } else null
+    val change = verified.changePercent
     V20EvidenceNote(
         "PERIOD CHANGE",
         change?.let { "${if (it > 0) "+" else ""}$it% versus the previous ${snapshot.windowDays}-day period." }
@@ -451,7 +449,8 @@ private fun v20MetricValue(kind: V20InsightsDetailKind, value: Long): String = w
 }
 
 private fun v20RankedVideos(snapshot: YouTubeAnalyticsSnapshot, kind: V20InsightsDetailKind): List<YouTubeVideoSnapshot> {
-    val videos = (snapshot.topVideos + snapshot.recentVideos).distinctBy { it.videoId }
+    val videos = (snapshot.topVideos + snapshot.recentVideos)
+        .distinctBy { it.videoId }.filter { it.hasPeriodData }
     return when (kind) {
         V20InsightsDetailKind.WATCH -> videos.sortedByDescending { it.watchMinutes }
         V20InsightsDetailKind.SUBS -> videos.sortedByDescending { it.netSubscribers }
