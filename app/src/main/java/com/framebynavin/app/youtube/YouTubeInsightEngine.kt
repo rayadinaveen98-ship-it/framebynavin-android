@@ -177,8 +177,11 @@ object YouTubeInsightEngine {
     ): List<YouTubeInsightSignal> {
         val signals = mutableListOf<YouTubeInsightSignal>()
 
-        val pulse24h = YouTubeAnalyticsStore.latest24HourReport
-            ?.takeIf { it.currentCapturedAtMillis <= snapshot.fetchedAtMillis }
+        val pulse24h = YouTubePulseVisibilityPolicy.visible(
+            YouTubeAnalyticsStore.latest24HourReport,
+            selectedChannelId = snapshot.channel.channelId,
+            selectedSnapshotAtMillis = snapshot.fetchedAtMillis,
+        )
         if (pulse24h == null) {
             signals += YouTubeInsightSignal(
                 "24H PULSE", "Unavailable", "No recent comparable channel snapshots.",
