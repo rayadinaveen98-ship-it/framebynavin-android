@@ -127,8 +127,7 @@ internal fun ReminderCheckInScreen(
             .fillMaxSize()
             .background(BacklotBackground)
             .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .navigationBarsPadding(),
     ) {
         if (motionEnabled) {
             V195ReminderParticleScene(
@@ -145,6 +144,7 @@ internal fun ReminderCheckInScreen(
                 .fillMaxWidth()
                 .align(Alignment.Center)
                 .verticalScroll(scroll)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
                 .graphicsLayer { alpha = revealAlpha },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
