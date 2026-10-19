@@ -55,8 +55,8 @@ android {
         targetSdk = 36
         // Backlot V188 Phase 1B revenue and audience preview on top of V187.
         // Same application and signing identity; no destructive creator-data migration.
-        versionCode = 200
-        versionName = "2.5.0-v195.4-phase4b-reminder-ui-preview"
+        versionCode = 201
+        versionName = "2.5.1-v195.4-phase4c-action-feedback-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

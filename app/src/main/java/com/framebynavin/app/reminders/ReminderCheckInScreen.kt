@@ -2,6 +2,11 @@ package com.framebynavin.app.reminders
 
 import android.animation.ValueAnimator
 import android.os.PowerManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
@@ -9,6 +14,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -99,6 +105,14 @@ internal fun ReminderCheckInScreen(
     val compact = V200ReminderLayoutPolicy.isCompact(screen.screenHeightDp)
     val wideActions = V200ReminderLayoutPolicy.useHorizontalActions(screen.screenWidthDp)
     var moreOpen by rememberSaveable { mutableStateOf(false) }
+    val primaryPress = remember { MutableInteractionSource() }
+    val workingPress = remember { MutableInteractionSource() }
+    val snoozePress = remember { MutableInteractionSource() }
+    val morePress = remember { MutableInteractionSource() }
+    val pausePress = remember { MutableInteractionSource() }
+    val reschedulePress = remember { MutableInteractionSource() }
+    val replayPress = remember { MutableInteractionSource() }
+    val dismissPress = remember { MutableInteractionSource() }
 
     // Screen controls always work: animation scale zero means immediate reveal.
     // Battery saver reduces the number of dots rather than affecting actions.
@@ -227,7 +241,9 @@ internal fun ReminderCheckInScreen(
             // ONE dominant answer; Stage Done takes priority only for check-ins.
             Button(
                 onClick = if (stageCheckIn) onStageDone else onWorking,
+                interactionSource = primaryPress,
                 modifier = Modifier.fillMaxWidth().height(54.dp)
+                    .v201PressFeedback(primaryPress, motionEnabled, prominent = true)
                     .testTag("v200-primary-reminder-action"),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (stageCheckIn) BacklotSuccess else accent,
@@ -251,7 +267,9 @@ internal fun ReminderCheckInScreen(
                 Spacer(Modifier.height(9.dp))
                 OutlinedButton(
                     onClick = onWorking,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    interactionSource = workingPress,
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                        .v201PressFeedback(workingPress, motionEnabled),
                     border = BorderStroke(1.dp, accent.copy(alpha = .72f)),
                     shape = RoundedCornerShape(15.dp),
                 ) {
@@ -271,7 +289,9 @@ internal fun ReminderCheckInScreen(
                 ) {
                     OutlinedButton(
                         onClick = onSnooze,
-                        modifier = Modifier.weight(1f).height(50.dp),
+                        interactionSource = snoozePress,
+                        modifier = Modifier.weight(1f).height(50.dp)
+                            .v201PressFeedback(snoozePress, motionEnabled),
                         border = BorderStroke(1.dp, BacklotBorder),
                         shape = RoundedCornerShape(15.dp),
                     ) {
@@ -283,7 +303,9 @@ internal fun ReminderCheckInScreen(
                     }
                     TextButton(
                         onClick = { moreOpen = !moreOpen },
-                        modifier = Modifier.height(50.dp),
+                        interactionSource = morePress,
+                        modifier = Modifier.height(50.dp)
+                            .v201PressFeedback(morePress, motionEnabled),
                     ) {
                         Text(if (moreOpen) "HIDE OPTIONS" else "MORE OPTIONS",
                             color = BacklotPrimaryText, fontSize = 11.sp,
@@ -293,7 +315,9 @@ internal fun ReminderCheckInScreen(
             } else {
                 OutlinedButton(
                     onClick = onSnooze,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    interactionSource = snoozePress,
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                        .v201PressFeedback(snoozePress, motionEnabled),
                     border = BorderStroke(1.dp, BacklotBorder),
                     shape = RoundedCornerShape(15.dp),
                 ) {
@@ -305,7 +329,9 @@ internal fun ReminderCheckInScreen(
                 }
                 TextButton(
                     onClick = { moreOpen = !moreOpen },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    interactionSource = morePress,
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                        .v201PressFeedback(morePress, motionEnabled),
                 ) {
                     Text(if (moreOpen) "HIDE OPTIONS" else "MORE OPTIONS",
                         color = BacklotPrimaryText, fontSize = 12.sp,
@@ -313,7 +339,18 @@ internal fun ReminderCheckInScreen(
                 }
             }
 
-            if (moreOpen) {
+            AnimatedVisibility(
+                visible = moreOpen,
+                enter = expandVertically(
+                    animationSpec = tween(if (motionEnabled) V201ReminderMotionPolicy.OPTIONS_ENTER_MILLIS else 0),
+                    expandFrom = Alignment.Top,
+                ) + fadeIn(animationSpec = tween(if (motionEnabled) V201ReminderMotionPolicy.FADE_MILLIS else 0)),
+                exit = shrinkVertically(
+                    animationSpec = tween(if (motionEnabled) V201ReminderMotionPolicy.OPTIONS_EXIT_MILLIS else 0),
+                    shrinkTowards = Alignment.Top,
+                ) + fadeOut(animationSpec = tween(if (motionEnabled) V201ReminderMotionPolicy.FADE_MILLIS else 0)),
+            ) {
+                Column {
                 Spacer(Modifier.height(10.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth().testTag("v200-more-options"),
@@ -338,7 +375,9 @@ internal fun ReminderCheckInScreen(
                         if (stageCheckIn) {
                             OutlinedButton(
                                 onClick = onPause,
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                interactionSource = pausePress,
+                                modifier = Modifier.fillMaxWidth().height(48.dp)
+                                    .v201PressFeedback(pausePress, motionEnabled),
                                 border = BorderStroke(1.dp, BacklotBorder),
                                 shape = RoundedCornerShape(13.dp),
                             ) {
@@ -349,7 +388,9 @@ internal fun ReminderCheckInScreen(
                         }
                         OutlinedButton(
                             onClick = onReschedule,
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            interactionSource = reschedulePress,
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                                .v201PressFeedback(reschedulePress, motionEnabled),
                             border = BorderStroke(1.dp, BacklotBorder),
                             shape = RoundedCornerShape(13.dp),
                         ) {
@@ -360,7 +401,9 @@ internal fun ReminderCheckInScreen(
                         if (onReplay != null) {
                             TextButton(
                                 onClick = onReplay,
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                interactionSource = replayPress,
+                                modifier = Modifier.fillMaxWidth().height(48.dp)
+                                    .v201PressFeedback(replayPress, motionEnabled),
                             ) {
                                 Icon(Icons.Outlined.Replay, null, tint = BacklotSecondaryAccent)
                                 Spacer(Modifier.size(8.dp))
@@ -370,13 +413,16 @@ internal fun ReminderCheckInScreen(
                         }
                         TextButton(
                             onClick = onDismiss,
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            interactionSource = dismissPress,
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                                .v201PressFeedback(dismissPress, motionEnabled),
                         ) {
                             Text("DISMISS FOR NOW", color = BacklotSecondaryText,
                                 fontSize = 12.sp)
                         }
                     }
                 }
+            }
             }
         }
     }
