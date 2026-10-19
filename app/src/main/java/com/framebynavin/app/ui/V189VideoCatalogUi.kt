@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,7 +95,7 @@ internal fun V189VideoCatalog(
     Spacer(Modifier.height(9.dp))
     OutlinedTextField(
         value = query, onValueChange = { query = it }, singleLine = true,
-        modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search loaded videos") },
+        modifier = Modifier.fillMaxWidth().testTag("v189-catalog-search"), placeholder = { Text("Search loaded videos") },
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = ProjectorIvory, unfocusedTextColor = ProjectorIvory,
             focusedBorderColor = MutedGold, unfocusedBorderColor = CinemaLine,
@@ -153,7 +154,7 @@ internal fun V189VideoCatalog(
     val canLoad = !state.loaded || state.pageToken != null || state.error != null
     if (canLoad) {
         Button(onClick = onLoad, enabled = !state.loading,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("v189-catalog-load"),
             colors = ButtonDefaults.buttonColors(containerColor = CinemaSurfaceRaised)) {
             if (state.loading) CircularProgressIndicator(
                 modifier = Modifier.size(16.dp), color = MutedGold, strokeWidth = 2.dp)
