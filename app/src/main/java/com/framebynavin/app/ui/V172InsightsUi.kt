@@ -43,6 +43,8 @@ internal fun V172InsightsBody(
     foundationLoading: Boolean = false,
     onCreateProject: () -> Unit = {},
     onLinkVideo: (YouTubeVideoSnapshot) -> Unit,
+    catalogState: V189CatalogUiState = V189CatalogUiState(),
+    onCatalogLoad: () -> Unit = {},
 ) {
     var tabName by rememberSaveable { mutableStateOf(V172InsightsTab.OVERVIEW.name) }
     val tab = V172InsightsTab.valueOf(tabName)
@@ -50,7 +52,14 @@ internal fun V172InsightsBody(
     var insightDetail by remember { mutableStateOf<V20InsightsDrilldownRequest?>(null) }
     var creatorDetail by remember { mutableStateOf<V20CreatorDetailKind?>(null) }
     val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
-    val detail = videos.firstOrNull { it.video.videoId == detailVideoId }
+    val detail = (catalogState.videos + snapshot.recentVideos + snapshot.topVideos)
+        .distinctBy { it.videoId }.firstOrNull { it.videoId == detailVideoId }
+
+    LaunchedEffect(tab, snapshot.channel.channelId, snapshot.startDate, snapshot.endDate) {
+        if (tab == V172InsightsTab.CONTENT &&
+            !catalogState.loaded && !catalogState.loading && catalogState.error == null
+        ) onCatalogLoad()
+    }
 
     LaunchedEffect(V148InsightsRouteState.pendingVideoId, snapshot.fetchedAtMillis) {
         val requested = v148ResolveRequestedVideoId(
@@ -79,21 +88,23 @@ internal fun V172InsightsBody(
             onVideo = { detailVideoId = it.videoId },
             onDetail = { insightDetail = it },
         )
-        V172InsightsTab.CONTENT -> V172Content(snapshot, tasks, links) { detailVideoId = it.videoId }
+        V172InsightsTab.CONTENT -> V189VideoCatalog(
+            snapshot = snapshot, state = catalogState, links = links,
+            onLoad = onCatalogLoad, onVideo = { detailVideoId = it.videoId },
+        )
         V172InsightsTab.REVENUE -> V144YouTubeRevenueIntegration(snapshot)
         V172InsightsTab.CREATOR -> V172Creator(snapshot, tasks, ideas, links) { creatorDetail = it }
     }
 
-    detail?.let { performance ->
-        val linkedTask = links[performance.video.videoId]?.let { id -> tasks.firstOrNull { it.id == id } }
-        V172VideoDetailDialog(
-            performance = performance,
-            linkedTask = linkedTask,
-            windowDays = snapshot.windowDays,
+    detail?.let { video ->
+        val linkedTask = links[video.videoId]?.let { id -> tasks.firstOrNull { it.id == id } }
+        V189VideoDetailScreen(
+            video = video, snapshot = snapshot, linkedTask = linkedTask,
+            foundationRevision = foundationRevision,
             onDismiss = { detailVideoId = null },
             onLink = {
                 detailVideoId = null
-                onLinkVideo(performance.video)
+                onLinkVideo(video)
             },
         )
     }
@@ -177,7 +188,6 @@ private fun V172Overview(
 
     val top = YouTubeInsightEngine.videoPerformance(snapshot).take(3)
     Text("TOP VIDEOS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Your top videos for the selected dates.", color = MutedText, fontSize = 9.sp)
     Spacer(Modifier.height(9.dp))
     if (top.isEmpty()) V172Empty("Refresh YouTube to see which videos are performing best.")
     else top.forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
@@ -477,96 +487,6 @@ private fun V172Creator(
     Spacer(Modifier.height(9.dp))
     if (formats.isEmpty()) V172Empty("Connect published videos to projects to see what works best.")
     else formats.take(3).forEachIndexed { index, format -> V172FormatCard(index + 1, format) }
-}
-
-@Composable
-private fun V172VideoDetailDialog(
-    performance: YouTubeVideoPerformance,
-    linkedTask: CreatorTask?,
-    windowDays: Int,
-    onDismiss: () -> Unit,
-    onLink: () -> Unit,
-) {
-    val video = performance.video
-    var showDeepAnalytics by rememberSaveable(video.videoId) { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column {
-                Text("VIDEO INSIGHT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Spacer(Modifier.height(4.dp))
-                Text(video.title, fontWeight = FontWeight.Black, maxLines = 3, overflow = TextOverflow.Ellipsis)
-            }
-        },
-        text = {
-            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
-                val baseline = if (performance.baselineMultiple > 0) {
-                    val difference = ((performance.baselineMultiple - 1.0) * 100).toInt()
-                    if (difference >= 0) "$difference% above your usual" else "${abs(difference)}% below your usual"
-                } else "Learning your usual performance"
-                Text("$baseline · ${performance.viewSharePercent}% of views in this finalized window", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    V172Mini("VIEWS", v172Compact(video.periodViews), Modifier.weight(1f))
-                    V172Mini("WATCH", v172Watch(video.watchMinutes), Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    V172Mini("SUBSCRIBERS", v172Signed(video.netSubscribers), Modifier.weight(1f))
-                    V172Mini("AVG VIEW", v172Duration(video.averageViewDurationSeconds), Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    V172Mini("LIKES", v172Compact(video.likes), Modifier.weight(1f))
-                    V172Mini("COMMENTS", v172Compact(video.comments), Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(12.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text("CONNECTED PROJECT", color = MutedText, fontSize = 7.7.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(3.dp))
-                        Text(linkedTask?.title ?: "Not connected yet", color = if (linkedTask != null) ProjectorIvory else RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                linkedTask?.let { task ->
-                    Spacer(Modifier.height(12.dp))
-                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), MutedGold.copy(alpha = .06f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text("QUICK READ", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black)
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                when {
-                                    performance.baselineMultiple >= 1.5 -> "This video is doing better than your recent average. Review its title and opening."
-                                    performance.baselineMultiple in 0.01..0.75 -> "This video is below your recent average. Review its title and opening."
-                                    video.netSubscribers > 0 -> "Performance is near your baseline, but it is converting some viewers into subscribers. Preserve what earns that commitment."
-                                    else -> "Results are close to your recent average. Watch for more data."
-                                },
-                                color = ProjectorIvory,
-                                fontSize = 8.7.sp,
-                                lineHeight = 12.5.sp,
-                            )
-                            TextButton(onClick = { showDeepAnalytics = !showDeepAnalytics }, contentPadding = PaddingValues(0.dp)) {
-                                Text(if (showDeepAnalytics) "HIDE DEEP ANALYTICS" else "VIEW DEEP ANALYTICS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black)
-                            }
-                        }
-                    }
-                    if (showDeepAnalytics) {
-                        Spacer(Modifier.height(8.dp))
-                        V20VideoPostmortemCard(task = task, video = video, windowDays = windowDays)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onLink) {
-                Icon(Icons.Outlined.Link, null, modifier = Modifier.size(15.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(if (linkedTask == null) "CONNECT PROJECT" else "CHANGE PROJECT")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("CLOSE") } },
-        containerColor = CinemaSurfaceRaised,
-    )
 }
 
 @Composable
