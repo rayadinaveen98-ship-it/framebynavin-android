@@ -89,6 +89,11 @@ internal fun V189VideoCatalog(
         V189CatalogPolicy.visible(source, query, V189CatalogFilter.valueOf(filterName),
             V189CatalogSort.valueOf(sortName), links)
     }
+    // Search and sort cover all loaded pages. Compose only a short visible batch.
+    var visibleLimit by rememberSaveable(snapshot.channel.channelId) { mutableIntStateOf(25) }
+    LaunchedEffect(query, filterName, sortName, snapshot.channel.channelId) {
+        visibleLimit = 25
+    }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text("Videos", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f))
@@ -122,7 +127,7 @@ internal fun V189VideoCatalog(
     if (visible.isEmpty()) {
         Text("No videos", color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(vertical = 20.dp))
     } else {
-        visible.forEachIndexed { index, video ->
+        visible.take(visibleLimit).forEachIndexed { index, video ->
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp)
                     .clickable { onVideo(video) },
@@ -150,8 +155,14 @@ internal fun V189VideoCatalog(
             }
         }
     }
+    if (visible.size > visibleLimit) {
+        TextButton(
+            modifier = Modifier.fillMaxWidth().testTag("v191-catalog-show-more"),
+            onClick = { visibleLimit += 25 },
+        ) { Text("Show more results", color = ProjectorIvory, fontSize = 12.sp) }
+    }
     state.error?.let {
-        Text(it, color = RecRed, fontSize = 10.sp, modifier = Modifier.padding(vertical = 8.dp))
+        Text(it, color = RecRed, fontSize = 11.sp, modifier = Modifier.padding(vertical = 8.dp))
     }
     val canLoad = !state.loaded || state.pageToken != null || state.error != null
     if (canLoad) {

@@ -55,8 +55,8 @@ android {
         targetSdk = 36
         // Backlot V188 Phase 1B revenue and audience preview on top of V187.
         // Same application and signing identity; no destructive creator-data migration.
-        versionCode = 190
-        versionName = "2.4.0-v190-insights-minimal-preview"
+        versionCode = 191
+        versionName = "2.4.1-v191-insights-stability-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

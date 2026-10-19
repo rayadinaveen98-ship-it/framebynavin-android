@@ -47,7 +47,10 @@ internal fun V20InsightsFoundationCard(
     }
     val reachSummary = remember(snapshot.channel.channelId, snapshot.startDate, snapshot.endDate,
         snapshot.fetchedAtMillis, refreshRevision) {
-        YouTubeReachStore(context).summary(snapshot.startDate, snapshot.endDate)
+        val reachStore = YouTubeReachStore(context)
+        if (reachStore.channelId() == snapshot.channel.channelId)
+            reachStore.summary(snapshot.startDate, snapshot.endDate)
+        else null
     }
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface,
         border = BorderStroke(1.dp, CinemaLine)) {
