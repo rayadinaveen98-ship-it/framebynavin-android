@@ -214,7 +214,11 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
     }
 
     LaunchedEffect(channelId, selectedPeriodName, snapshot.fetchedAtMillis, revenueAccessGranted) {
-        val cached = revenueStore.load(selectedPeriod, channelId)
+        val pacificToday = java.time.LocalDate.now(java.time.ZoneId.of("America/Los_Angeles"))
+        val cached = revenueStore.load(selectedPeriod, channelId)?.takeUnless {
+            selectedPeriod == YouTubeRevenuePeriod.THIS_MONTH &&
+                it.startDate != pacificToday.withDayOfMonth(1).toString()
+        }
         revenueSnapshot = cached
         revenueError = null
         if (!revenueAccessGranted || revenueLoading) return@LaunchedEffect
@@ -238,7 +242,11 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
         loading = revenueLoading,
         error = revenueError,
         onPeriod = { period ->
-            selectedPeriodName = period.name
+            if (period.name != selectedPeriodName) {
+                requestNonce += 1L
+                revenueLoading = false
+                selectedPeriodName = period.name
+            }
             revenueError = null
         },
         onRefresh = { authorizeRevenue(selectedPeriod, allowResolution = true) },
@@ -249,6 +257,8 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
 private fun v144RevenueFriendlyError(error: Throwable): String {
     val raw = error.message.orEmpty()
     return when {
+        raw.contains("not available on the first day", ignoreCase = true) ->
+            "This month's revenue is pending."
         error is YouTubeRevenueException && error.httpCode == 401 ->
             "Your YouTube revenue permission expired. Reconnect revenue access."
         error is YouTubeRevenueException && error.httpCode == 403 ->
