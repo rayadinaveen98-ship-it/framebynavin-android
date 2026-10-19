@@ -2,6 +2,8 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -90,12 +92,12 @@ internal fun V189VideoCatalog(
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text("Videos", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f))
-        Text("${source.size} loaded", color = MutedText, fontSize = 10.sp)
+        Text("${source.size} loaded", color = MutedText, fontSize = 11.sp)
     }
     Spacer(Modifier.height(9.dp))
     OutlinedTextField(
         value = query, onValueChange = { query = it }, singleLine = true,
-        modifier = Modifier.fillMaxWidth().testTag("v189-catalog-search"), placeholder = { Text("Search loaded videos") },
+        modifier = Modifier.fillMaxWidth().testTag("v189-catalog-search"), placeholder = { Text("Search videos") },
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = ProjectorIvory, unfocusedTextColor = ProjectorIvory,
             focusedBorderColor = MutedGold, unfocusedBorderColor = CinemaLine,
@@ -103,17 +105,17 @@ internal fun V189VideoCatalog(
         shape = RoundedCornerShape(13.dp),
     )
     Spacer(Modifier.height(9.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         V189CatalogFilter.entries.forEach { item ->
             FilterChip(selected = filterName == item.name, onClick = { filterName = item.name },
-                label = { Text(item.label, fontSize = 10.sp) })
+                label = { Text(item.label, fontSize = 11.sp) })
         }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("Sort", color = MutedText, fontSize = 10.sp)
         V189CatalogSort.entries.forEach { option ->
             FilterChip(selected = sortName == option.name, onClick = { sortName = option.name },
-                label = { Text(option.label, fontSize = 10.sp) })
+                label = { Text(option.label, fontSize = 11.sp) })
         }
     }
     Spacer(Modifier.height(6.dp))
@@ -132,14 +134,14 @@ internal fun V189VideoCatalog(
                         Modifier.width(96.dp).aspectRatio(16f / 9f))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(video.title, color = ProjectorIvory, fontSize = 11.sp,
+                        Text(video.title, color = ProjectorIvory, fontSize = 12.sp,
                             fontWeight = FontWeight.Bold, maxLines = 2,
                             overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.height(4.dp))
                         Text(
                             if (video.hasPeriodData) "${v189Count(video.periodViews)} views"
-                            else "Period data unavailable",
-                            color = MutedText, fontSize = 9.sp,
+                            else "Unavailable",
+                            color = MutedText, fontSize = 11.sp,
                         )
                     }
                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText,

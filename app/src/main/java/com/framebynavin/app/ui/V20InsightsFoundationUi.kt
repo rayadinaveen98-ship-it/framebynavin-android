@@ -41,146 +41,61 @@ internal fun V20InsightsFoundationCard(
     onCreateProject: () -> Unit = {},
 ) {
     val context = LocalContext.current.applicationContext
-    val foundation = remember(snapshot.channel.channelId, snapshot.windowDays, snapshot.fetchedAtMillis, refreshRevision) {
+    val foundation = remember(snapshot.channel.channelId, snapshot.windowDays,
+        snapshot.fetchedAtMillis, refreshRevision) {
         YouTubeInsightsFoundationStore(context).load(snapshot.windowDays, snapshot.channel.channelId)
     }
-
-    if (foundation == null) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            color = CinemaSurface,
-            border = BorderStroke(1.dp, CinemaLine),
-        ) {
-            Column(Modifier.padding(14.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("AUDIENCE INSIGHTS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
-                        Spacer(Modifier.height(3.dp))
-                        Text("Understand your audience", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                    }
-                    if (loading) {
-                        CircularProgressIndicator(modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = MutedGold)
-                    }
-                }
-                Spacer(Modifier.height(9.dp))
-                Text(
-                    if (loading) "Loading deeper audience, reach and retention signals…" else "More audience details aren't ready yet. Your main results are available.",
-                    color = MutedText,
-                    fontSize = 8.6.sp,
-                    lineHeight = 13.sp,
-                )
-                Spacer(Modifier.height(7.dp))
-                Text("More audience details are on the way.", color = MutedText.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        // Opportunity intelligence only needs the core snapshot, so it should never disappear
-        // while deeper YouTube reports are still arriving.
-        V20OpportunityEngineInsightsCard(snapshot, onCreateProject)
-        return
-    }
-
-    val traffic = foundation.health(YouTubeFoundationDataset.TRAFFIC)?.state
-    val audience = foundation.health(YouTubeFoundationDataset.SUBSCRIBED_STATUS)?.state
-    val device = foundation.health(YouTubeFoundationDataset.DEVICE)?.state
-    val country = foundation.health(YouTubeFoundationDataset.COUNTRY)?.state
-    val retention = foundation.health(YouTubeFoundationDataset.RETENTION)?.state
-    val reachHealth = foundation.health(YouTubeFoundationDataset.REACH)
-    val reachState = reachHealth?.state
-    val reachSummary = remember(snapshot.channel.channelId, snapshot.startDate, snapshot.endDate, snapshot.fetchedAtMillis, refreshRevision) {
+    val reachSummary = remember(snapshot.channel.channelId, snapshot.startDate, snapshot.endDate,
+        snapshot.fetchedAtMillis, refreshRevision) {
         YouTubeReachStore(context).summary(snapshot.startDate, snapshot.endDate)
     }
-    val reach = if (reachSummary != null) YouTubeDatasetState.READY else reachState
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
-    ) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface,
+        border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("AUDIENCE INSIGHTS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
-                    Spacer(Modifier.height(3.dp))
-                    Text("Understand your audience", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                }
-                if (loading) {
-                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = MutedGold)
-                    Spacer(Modifier.width(6.dp))
-                }
-                Text("${foundation.readyDatasetCount()} ready", color = SuccessGreen, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text("Audience", color = ProjectorIvory, fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                if (loading) CircularProgressIndicator(
+                    modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = MutedGold)
+                else if (foundation == null) Text("Unavailable", color = MutedText,
+                    fontSize = 11.sp)
             }
-
-            Spacer(Modifier.height(9.dp))
-            Text(
-                listOf(
-                    statusText("Traffic", traffic),
-                    statusText("Audience", audience),
-                    statusText("Devices", device),
-                    statusText("Geography", country),
-                    statusText("Retention", retention),
-                    statusText("Reach", reach),
-                ).joinToString("  ·  "),
-                color = MutedText,
-                fontSize = 8.6.sp,
-                lineHeight = 13.sp,
-            )
-
-            if (foundation.periodEngagedViews > 0L) {
-                Spacer(Modifier.height(8.dp))
+            if (foundation != null) {
+                Spacer(Modifier.height(10.dp))
                 Text(
-                    "Engaged views: ${compactFoundation(foundation.periodEngagedViews)}",
-                    color = ProjectorIvory.copy(alpha = .78f),
-                    fontSize = 8.5.sp,
+                    listOf(
+                        statusText("Traffic", foundation.health(YouTubeFoundationDataset.TRAFFIC)?.state),
+                        statusText("Subscribers", foundation.health(YouTubeFoundationDataset.SUBSCRIBED_STATUS)?.state),
+                        statusText("Devices", foundation.health(YouTubeFoundationDataset.DEVICE)?.state),
+                        statusText("Countries", foundation.health(YouTubeFoundationDataset.COUNTRY)?.state),
+                        statusText("Retention", foundation.health(YouTubeFoundationDataset.RETENTION)?.state),
+                        statusText("Reach", if (reachSummary != null) YouTubeDatasetState.READY
+                            else foundation.health(YouTubeFoundationDataset.REACH)?.state),
+                    ).joinToString(" · "),
+                    color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
                 )
-            }
-
-            if (foundation.metricContract.crossesPublicViewBoundary) {
-                Spacer(Modifier.height(8.dp))
-                Text("YouTube's view-counting rules changed. Older numbers may not compare directly.", color = MutedText, fontSize = 8.2.sp, lineHeight = 12.sp)
-            }
-
-            Spacer(Modifier.height(8.dp))
-            when {
-                reach == YouTubeDatasetState.READY && reachSummary != null -> {
-                    Text("THUMBNAIL VIEWS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                    Text(
-                        "${compactFoundation(reachSummary.impressions)} impressions · ${String.format(java.util.Locale.US, "%.1f", reachSummary.ctrPercent)}% CTR · ${reachSummary.coveredDays}/${reachSummary.requestedDays} days",
-                        color = ProjectorIvory,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+                if (foundation.periodEngagedViews > 0L) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Engaged Views  ${compactFoundation(foundation.periodEngagedViews)}",
+                        color = ProjectorIvory, fontSize = 12.sp)
                 }
-                reach == YouTubeDatasetState.PENDING -> Text(
-                    reachHealth?.note ?: "Reach reporting is waiting for YouTube's first daily report.",
-                    color = MutedText,
-                    fontSize = 8.1.sp,
-                    lineHeight = 12.sp,
-                )
-                reach == YouTubeDatasetState.UNAVAILABLE -> Text(
-                    reachHealth?.note ?: "Reach data isn't available right now. Other results still work.",
-                    color = MutedText,
-                    fontSize = 8.1.sp,
-                    lineHeight = 12.sp,
-                )
-                reach == YouTubeDatasetState.NOT_CONFIGURED -> Text(
-                    "Reach data will appear when YouTube provides it.",
-                    color = MutedText,
-                    fontSize = 8.1.sp,
-                    lineHeight = 12.sp,
-                )
-                else -> Text(
-                    "Reach is still being prepared. Core performance remains available.",
-                    color = MutedText,
-                    fontSize = 8.1.sp,
-                    lineHeight = 12.sp,
-                )
+                if (reachSummary != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("${compactFoundation(reachSummary.impressions)} impressions · ${String.format(java.util.Locale.US, "%.1f", reachSummary.ctrPercent)}% CTR",
+                        color = ProjectorIvory, fontSize = 12.sp)
+                    Text("${reachSummary.coveredDays}/${reachSummary.requestedDays} days",
+                        color = MutedText, fontSize = 11.sp)
+                }
+                if (foundation.metricContract.crossesPublicViewBoundary) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("Views definition changed", color = MutedText, fontSize = 11.sp)
+                }
+            } else if (loading) {
+                Spacer(Modifier.height(7.dp))
+                Text("Updating", color = MutedText, fontSize = 11.sp)
             }
         }
     }
-
     Spacer(Modifier.height(10.dp))
     V20OpportunityEngineInsightsCard(snapshot, onCreateProject)
 }
@@ -188,10 +103,10 @@ internal fun V20InsightsFoundationCard(
 private fun statusText(label: String, state: YouTubeDatasetState?): String = when (state) {
     YouTubeDatasetState.READY -> "$label ✓"
     YouTubeDatasetState.EMPTY -> "$label —"
-    YouTubeDatasetState.PENDING -> "$label waiting"
-    YouTubeDatasetState.UNAVAILABLE -> "$label unavailable"
-    YouTubeDatasetState.NOT_CONFIGURED -> "$label pending"
-    null -> "$label waiting"
+    YouTubeDatasetState.PENDING -> "$label · Pending"
+    YouTubeDatasetState.UNAVAILABLE -> "$label · Unavailable"
+    YouTubeDatasetState.NOT_CONFIGURED -> "$label · Pending"
+    null -> "$label · Pending"
 }
 
 private fun compactFoundation(value: Long): String = when {

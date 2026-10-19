@@ -8,6 +8,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -32,84 +33,35 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
             timeline = CreatorWorkflowTimelineStore(context).loadAll(),
         )
     }
-
-    Surface(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
-        RoundedCornerShape(20.dp),
-        CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text("PROJECT PROGRESS", color = MutedGold, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
-            Spacer(Modifier.height(5.dp))
-            Text("See which steps take longer", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(3.dp))
-            Text("See each project step", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Last 7 days · ${snapshot.responseCount7Days} check-in responses · ${snapshot.stageDone7Days} stage completions",
-                color = MutedText,
-                fontSize = 8.7.sp,
-            )
-
-            Spacer(Modifier.height(11.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                WorkflowMini("WORKING", snapshot.working7Days.toString(), Modifier.weight(1f))
-                WorkflowMini("SNOOZED", snapshot.snoozed7Days.toString(), Modifier.weight(1f))
-                WorkflowMini("DISMISSED", snapshot.dismissed7Days.toString(), Modifier.weight(1f))
+    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick),
+        RoundedCornerShape(16.dp), CinemaSurface,
+        border = BorderStroke(1.dp, CinemaLine)) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Workflow", color = ProjectorIvory, fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("7D", color = MutedText, fontSize = 11.sp)
             }
-
             Spacer(Modifier.height(10.dp))
-            val bottleneck = snapshot.historicalBottleneck
-            when {
-                bottleneck?.timingBasis == CreatorWorkflowTimingBasis.TIMELINE_EXACT -> {
-                    Text("SLOWEST STEP", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                    Text(
-                        "${bottleneck.stageLabel} currently has your longest measured time in stage · median ${workflowDuration(bottleneck.medianTimeInStageMillis)} across ${bottleneck.exactTimelineSamples} transition-measured exits.",
-                        color = ProjectorIvory,
-                        fontSize = 9.sp,
-                        lineHeight = 13.sp,
-                    )
-                }
-                bottleneck != null -> {
-                    Text("EARLY SIGNS", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                    Text(
-                        "${bottleneck.stageLabel} has the longest observed check-in span · median ${workflowDuration(bottleneck.medianObservedSpanMillis)} across ${bottleneck.completionSamples} measured completions.",
-                        color = ProjectorIvory,
-                        fontSize = 9.sp,
-                        lineHeight = 13.sp,
-                    )
-                }
-                snapshot.activeBottleneckCount >= 2 -> {
-                    Text("BUSIEST STEP", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                    Text(
-                        "${snapshot.activeBottleneckCount} active projects are currently at ${snapshot.activeBottleneckLabel}. Historical timing needs more completed samples before calling this a repeated slowdown.",
-                        color = ProjectorIvory,
-                        fontSize = 9.sp,
-                        lineHeight = 13.sp,
-                    )
-                }
-                snapshot.measuredTimelineExits > 0 -> Text(
-                    "${snapshot.measuredTimelineExits} steps measured. We need more completed work to spot a pattern.",
-                    color = MutedText,
-                    fontSize = 8.5.sp,
-                    lineHeight = 12.sp,
-                )
-                else -> Text(
-                    "We're learning how long each step takes. More completed projects will improve this.",
-                    color = MutedText,
-                    fontSize = 8.5.sp,
-                    lineHeight = 12.sp,
-                )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                WorkflowMini("Working", snapshot.working7Days.toString(), Modifier.weight(1f))
+                WorkflowMini("Snoozed", snapshot.snoozed7Days.toString(), Modifier.weight(1f))
+                WorkflowMini("Dismissed", snapshot.dismissed7Days.toString(), Modifier.weight(1f))
             }
-
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Step time includes breaks and waiting, not just time spent working.",
-                color = MutedText.copy(alpha = .78f),
-                fontSize = 7.6.sp,
-                lineHeight = 11.sp,
-            )
+            val bottleneck = snapshot.historicalBottleneck
+            if (bottleneck != null) {
+                Spacer(Modifier.height(11.dp))
+                Text("Slowest Step", color = MutedText, fontSize = 11.sp)
+                val measured = if (bottleneck.timingBasis == CreatorWorkflowTimingBasis.TIMELINE_EXACT)
+                    bottleneck.medianTimeInStageMillis else bottleneck.medianObservedSpanMillis
+                Text("${bottleneck.stageLabel} · ${workflowDuration(measured)}",
+                    color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            } else if (snapshot.activeBottleneckCount >= 2) {
+                Spacer(Modifier.height(11.dp))
+                Text("Busiest Step", color = MutedText, fontSize = 11.sp)
+                Text("${snapshot.activeBottleneckLabel ?: "Working"} · ${snapshot.activeBottleneckCount} projects",
+                    color = ProjectorIvory, fontSize = 12.sp)
+            }
         }
     }
 }
@@ -118,7 +70,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
 private fun WorkflowMini(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(13.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(9.dp)) {
-            Text(label, color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Bold, letterSpacing = .45.sp)
+            Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = .45.sp)
             Text(value, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
         }
     }

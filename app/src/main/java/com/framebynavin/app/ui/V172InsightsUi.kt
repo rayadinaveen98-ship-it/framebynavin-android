@@ -147,8 +147,8 @@ private fun V172TabRow(selected: V172InsightsTab, onSelect: (V172InsightsTab) ->
                     Text(
                         tab.name.lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase() },
                         color = if (active) ProjectorIvory else MutedText,
-                        fontSize = 9.2.sp,
-                        fontWeight = if (active) FontWeight.Black else FontWeight.Medium,
+                        fontSize = 12.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                         modifier = Modifier.padding(vertical = 9.dp),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
@@ -171,25 +171,33 @@ private fun V172Overview(
     onDetail: (V20InsightsDrilldownRequest) -> Unit,
 ) {
     V172PulseCard(snapshot, onDetail)
-    Spacer(Modifier.height(10.dp))
-    V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading, onCreateProject = onCreateProject)
-    Spacer(Modifier.height(18.dp))
-
-    Text("YOUR RESULTS", color = RecRed, fontSize = 8.7.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-    Spacer(Modifier.height(8.dp))
-    if (snapshot.reportEvidence?.summaryPresent == true) YouTubeInsightEngine.topSignals(snapshot, tasks, ideas, links).forEach { signal ->
-        V172SignalCard(signal) { onDetail(V20InsightsDrilldownRequest.signal(signal)) }
-        Spacer(Modifier.height(8.dp))
-    }
-
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(14.dp))
     V172TrendCard(snapshot) { onDetail(V20InsightsDrilldownRequest(V20InsightsDetailKind.DAILY_VIEWS)) }
+    Spacer(Modifier.height(18.dp))
+    val signals = if (snapshot.reportEvidence?.summaryPresent == true)
+        YouTubeInsightEngine.topSignals(snapshot, tasks, ideas, links).take(2)
+        else emptyList()
+    if (signals.isNotEmpty()) {
+        Text("Highlights", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        signals.forEach { signal ->
+            V172SignalCard(signal) { onDetail(V20InsightsDrilldownRequest.signal(signal)) }
+            Spacer(Modifier.height(7.dp))
+        }
+    }
+    var advanced by rememberSaveable(snapshot.channel.channelId) { mutableStateOf(false) }
+    V190Disclosure("Audience & opportunities", advanced) { advanced = !advanced }
+    if (advanced) {
+        Spacer(Modifier.height(8.dp))
+        V20InsightsFoundationCard(snapshot, foundationRevision, loading = foundationLoading,
+            onCreateProject = onCreateProject)
+    }
     Spacer(Modifier.height(18.dp))
 
     val top = YouTubeInsightEngine.videoPerformance(snapshot).take(3)
-    Text("TOP VIDEOS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    Text("Top Videos", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(9.dp))
-    if (top.isEmpty()) V172Empty("Refresh YouTube to see which videos are performing best.")
+    if (top.isEmpty()) V172Empty("No video data")
     else top.forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
 }
 
@@ -198,33 +206,19 @@ private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot, onDetail: (V20Insi
     val deltas = remember(snapshot) { YouTubeInsightEngine.metricDeltas(snapshot) }
     Surface(
         Modifier.fillMaxWidth(),
-        RoundedCornerShape(24.dp),
-        BrushCard,
-        border = BorderStroke(1.dp, MutedGold.copy(alpha = .24f)),
+        RoundedCornerShape(18.dp),
+        CinemaSurface,
+        border = BorderStroke(1.dp, CinemaLine),
     ) {
-        Column(Modifier.padding(18.dp)) {
-            Text("CHANNEL AT A GLANCE", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Spacer(Modifier.height(5.dp))
-            Text(
-                if (snapshot.reportEvidence?.summaryPresent == true) YouTubeInsightEngine.pulseTitle(snapshot)
-                else "Channel report unavailable",
-                color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black,
-            )
-            Spacer(Modifier.height(5.dp))
-            if (snapshot.reportEvidence?.summaryPresent == true) {
-                Text(YouTubeInsightEngine.pulseBody(snapshot), color = MutedText, fontSize = 9.7.sp, lineHeight = 14.sp)
-            }
-            Spacer(Modifier.height(15.dp))
+        Column(Modifier.padding(14.dp)) {
+            Text("Overview", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(11.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 deltas.take(2).forEach { metric -> V172DeltaMetric(metric, Modifier.weight(1f), snapshot) { onDetail(V20InsightsDrilldownRequest.fromMetric(metric.label)) } }
             }
             Spacer(Modifier.height(7.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 deltas.drop(2).take(2).forEach { metric -> V172DeltaMetric(metric, Modifier.weight(1f), snapshot) { onDetail(V20InsightsDrilldownRequest.fromMetric(metric.label)) } }
-            }
-            snapshot.previousPeriod?.let {
-                Spacer(Modifier.height(10.dp))
-                Text("Compared with ${it.startDate} → ${it.endDate}", color = MutedText.copy(alpha = .78f), fontSize = 7.8.sp)
             }
         }
     }
@@ -251,7 +245,8 @@ private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snap
     Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(15.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(metric.label, color = MutedText, fontSize = 7.3.sp, fontWeight = FontWeight.Bold, letterSpacing = .6.sp, modifier = Modifier.weight(1f))
+                Text(when(metric.label) { "WATCH" -> "Watch Time"; "SUBS" -> "Subscribers"; "AVG VIEW" -> "Average View"; else -> "Views" },
+                    color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
                 Icon(Icons.Outlined.ChevronRight, "View ${metric.label} details", tint = MutedText, modifier = Modifier.size(13.dp))
             }
             Spacer(Modifier.height(3.dp))
@@ -263,8 +258,8 @@ private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snap
                     else -> v172Duration(metric.current)
                 },
                 color = ProjectorIvory,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Black,
+                fontSize = 21.sp,
+                fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -278,8 +273,8 @@ private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snap
                 Text(
                     shownChange?.let { "${if (it > 0) "+" else ""}$it%" } ?: "—",
                     color = when { positive -> SuccessGreen; negative -> RecRed; else -> MutedText },
-                    fontSize = 7.8.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                 )
             }
@@ -289,28 +284,18 @@ private fun V172DeltaMetric(metric: YouTubeMetricDelta, modifier: Modifier, snap
 
 @Composable
 private fun V172SignalCard(signal: YouTubeInsightSignal, onClick: () -> Unit) {
-    val accent = when (signal.tone) {
-        YouTubeInsightTone.POSITIVE -> SuccessGreen
-        YouTubeInsightTone.WATCH -> RecRed
-        YouTubeInsightTone.OPPORTUNITY -> MutedGold
-        YouTubeInsightTone.NEUTRAL -> ProjectorIvory
-    }
-    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .25f))) {
-        Column(Modifier.padding(14.dp)) {
-            Text(signal.kicker, color = accent, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
-            Spacer(Modifier.height(3.dp))
-            Text(signal.title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(3.dp))
-            Text(signal.body, color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
-            Spacer(Modifier.height(7.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${signal.confidence}% CONFIDENCE", color = accent.copy(alpha = .88f), fontSize = 6.8.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
-                Icon(Icons.Outlined.ChevronRight, "Open evidence", tint = MutedText, modifier = Modifier.size(14.dp))
-            }
-            signal.action?.let { action ->
-                Spacer(Modifier.height(4.dp))
-                Text("NEXT · $action", color = ProjectorIvory.copy(alpha = .86f), fontSize = 8.1.sp, lineHeight = 11.5.sp, fontWeight = FontWeight.Medium)
-            }
+    Surface(
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        RoundedCornerShape(14.dp), CinemaSurface,
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(signal.title, color = ProjectorIvory, fontSize = 12.sp,
+                fontWeight = FontWeight.Medium, maxLines = 2,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            Icon(Icons.Outlined.ChevronRight, "Details", tint = MutedText,
+                modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -322,12 +307,12 @@ private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Uni
     Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("DAILY VIEWS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Text("Daily Views", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Icon(Icons.Outlined.ChevronRight, "Open daily views", tint = MutedText, modifier = Modifier.size(18.dp))
             }
-            Text("Last ${points.size} reported days", color = MutedText, fontSize = 8.5.sp)
+            Text("${points.size} days", color = MutedText, fontSize = 11.sp)
             Spacer(Modifier.height(13.dp))
-            if (points.isEmpty()) Text("No daily trend data yet.", color = MutedText, fontSize = 9.sp)
+            if (points.isEmpty()) Text("Trend unavailable", color = MutedText, fontSize = 11.sp)
             else Row(Modifier.fillMaxWidth().height(74.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
                 points.forEach { point ->
                     val ratio = point.views.toFloat() / max.toFloat()
@@ -343,71 +328,14 @@ private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Uni
 }
 
 @Composable
-private fun V172Content(
-    snapshot: YouTubeAnalyticsSnapshot,
-    tasks: List<CreatorTask>,
-    links: Map<String, String>,
-    onVideo: (YouTubeVideoSnapshot) -> Unit,
-) {
-    Text("VIDEO RESULTS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("See your best-performing videos for this period.", color = MutedText, fontSize = 9.sp)
-    Spacer(Modifier.height(9.dp))
-    val videos = remember(snapshot) { YouTubeInsightEngine.videoPerformance(snapshot) }
-    if (videos.isEmpty()) V172Empty("No video performance data yet.")
-    else videos.take(12).forEachIndexed { index, performance -> V148VideoPerformanceRow(index + 1, performance, onVideo) }
-
-    Spacer(Modifier.height(18.dp))
-    Text("TOP CONTENT TYPES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Compare videos by content type.", color = MutedText, fontSize = 9.sp)
-    Spacer(Modifier.height(9.dp))
-    val formats = remember(snapshot, tasks, links) { YouTubeInsightEngine.formatPerformance(snapshot, tasks, links) }
-    if (formats.isEmpty()) V172Empty("Connect published videos to projects to compare what works best.")
-    else formats.forEachIndexed { index, format -> V172FormatCard(index + 1, format) }
-}
-
-@Composable
-private fun V172VideoRow(rank: Int, performance: YouTubeVideoPerformance, onVideo: (YouTubeVideoSnapshot) -> Unit) {
-    val accent = when {
-        performance.baselineMultiple >= 1.5 -> SuccessGreen
-        performance.baselineMultiple >= 1.05 -> MutedGold
-        performance.baselineMultiple in 0.01..0.75 -> RecRed
-        else -> MutedText
-    }
-    Surface(
-        Modifier.fillMaxWidth().padding(bottom = 7.dp).clickable { onVideo(performance.video) },
-        RoundedCornerShape(17.dp),
-        CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
-    ) {
-        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(38.dp).background(accent.copy(alpha = .11f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
-                Text("#$rank", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black)
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(performance.video.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(3.dp))
-                Text("${v172Compact(performance.video.periodViews)} views · ${v172Watch(performance.video.watchMinutes)} · ${v172Signed(performance.video.netSubscribers)} subs", color = MutedText, fontSize = 8.2.sp)
-                val baseline = if (performance.baselineMultiple > 0) {
-                    val difference = ((performance.baselineMultiple - 1.0) * 100).toInt()
-                    if (difference >= 0) "$difference% above your usual" else "${abs(difference)}% below your usual"
-                } else "Learning your usual performance"
-                Text("$baseline · ${performance.viewSharePercent}% of views in this finalized window", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-            }
-            Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-@Composable
 private fun V172FormatCard(rank: Int, format: YouTubeFormatPerformance) {
     Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("#$rank", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("#$rank", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(8.dp))
                 Text(format.label, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${format.uploadCount} connected", color = MutedText, fontSize = 8.sp)
+                Text("${format.uploadCount} connected", color = MutedText, fontSize = 11.sp)
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -433,8 +361,7 @@ private fun V172Creator(
     onDetail: (V20CreatorDetailKind) -> Unit,
 ) {
     val summary = remember(tasks, ideas, links) { YouTubeInsightEngine.creatorSummary(tasks, ideas, links) }
-    Text("YOUR CREATOR PROGRESS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("See how your work and channel results connect.", color = MutedText, fontSize = 9.sp)
+    Text("Creator Progress", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(10.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         V172CreatorMetric("COMPLETED 30D", summary.completed30Days.toString(), MutedGold, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.PUBLISHED) }
@@ -448,52 +375,32 @@ private fun V172Creator(
     Spacer(Modifier.height(7.dp))
     V172CreatorMetric("IDEAS READY", summary.readyIdeas.toString(), MutedGold, Modifier.fillMaxWidth()) { onDetail(V20CreatorDetailKind.IDEAS) }
 
-    Spacer(Modifier.height(18.dp))
-    Surface(Modifier.fillMaxWidth().clickable { onDetail(V20CreatorDetailKind.WORKFLOW) }, RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("WORKFLOW", color = RecRed, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp, modifier = Modifier.weight(1f))
-                Icon(Icons.Outlined.ChevronRight, "Open workflow details", tint = MutedText, modifier = Modifier.size(18.dp))
-            }
-            Spacer(Modifier.height(5.dp))
-            Text(
-                if (summary.bottleneckCount >= 2) "${summary.bottleneckCount} active projects are bunching up around ${summary.bottleneckLabel ?: "production"}."
-                else "Your workflow looks clear right now.",
-                color = ProjectorIvory,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                if (summary.bottleneckCount >= 2) "Finish these projects before starting too many new ones."
-                else "Keep connecting published videos so Backlot can learn what works.",
-                color = MutedText,
-                fontSize = 9.sp,
-                lineHeight = 13.sp,
-            )
+    Spacer(Modifier.height(16.dp))
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    V190Disclosure("Workflow & patterns", expanded) { expanded = !expanded }
+    if (expanded) {
+        Spacer(Modifier.height(10.dp))
+        V20WorkflowIntelligenceCard(tasks,
+            onClick = { onDetail(V20CreatorDetailKind.WORKFLOW_INTELLIGENCE) })
+        Spacer(Modifier.height(8.dp))
+        V20CreativeIntelligenceCard(snapshot, tasks, links,
+            onClick = { onDetail(V20CreatorDetailKind.CREATIVE_INTELLIGENCE) })
+        Spacer(Modifier.height(14.dp))
+        val formats = YouTubeInsightEngine.formatPerformance(snapshot, tasks, links)
+        Text("Content Types", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        if (formats.isEmpty()) V172Empty("No linked video data")
+        else formats.take(3).forEachIndexed { index, format ->
+            V172FormatCard(index + 1, format)
         }
     }
-
-    Spacer(Modifier.height(10.dp))
-    V20WorkflowIntelligenceCard(tasks, onClick = { onDetail(V20CreatorDetailKind.WORKFLOW_INTELLIGENCE) })
-
-    Spacer(Modifier.height(10.dp))
-    V20CreativeIntelligenceCard(snapshot, tasks, links, onClick = { onDetail(V20CreatorDetailKind.CREATIVE_INTELLIGENCE) })
-
-    Spacer(Modifier.height(18.dp))
-    val formats = YouTubeInsightEngine.formatPerformance(snapshot, tasks, links)
-    Text("WHAT PAYS OFF", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Which type of content gives you the best results?", color = MutedText, fontSize = 9.sp)
-    Spacer(Modifier.height(9.dp))
-    if (formats.isEmpty()) V172Empty("Connect published videos to projects to see what works best.")
-    else formats.take(3).forEachIndexed { index, format -> V172FormatCard(index + 1, format) }
 }
 
 @Composable
 private fun V172Mini(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(12.dp), CinemaSurfaceRaised) {
         Column(Modifier.padding(horizontal = 9.dp, vertical = 9.dp)) {
-            Text(label, color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             Spacer(Modifier.height(2.dp))
             Text(value, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black, maxLines = 1)
         }
@@ -505,11 +412,11 @@ private fun V172CreatorMetric(label: String, value: String, accent: Color, modif
     Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(13.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, color = MutedText, fontSize = 7.2.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp, modifier = Modifier.weight(1f), maxLines = 1)
+                Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
                 Icon(Icons.Outlined.ChevronRight, "Open $label details", tint = MutedText, modifier = Modifier.size(13.dp))
             }
             Spacer(Modifier.height(4.dp))
-            Text(value, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text(value, color = accent, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -517,7 +424,7 @@ private fun V172CreatorMetric(label: String, value: String, accent: Color, modif
 @Composable
 private fun V172Empty(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = MutedText, fontSize = 9.2.sp, lineHeight = 13.sp, modifier = Modifier.padding(14.dp))
+        Text(text, color = MutedText, fontSize = 11.sp, modifier = Modifier.padding(14.dp))
     }
 }
 

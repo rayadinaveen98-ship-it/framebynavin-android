@@ -70,12 +70,12 @@ internal fun V20InsightsDrilldownDialog(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("INSIGHTS · ${snapshot.windowDays} DAYS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text("${snapshot.windowDays}D", color = MutedGold, fontSize = 11.sp)
                         Text(v20DetailTitle(request), color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
                     }
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = MutedText) }
                 }
-                Text("${snapshot.startDate} → ${snapshot.endDate}", color = MutedText, fontSize = 8.5.sp)
+                Text("${snapshot.startDate} → ${snapshot.endDate}", color = MutedText, fontSize = 11.sp)
                 Spacer(Modifier.height(16.dp))
 
                 if (request.kind == V20InsightsDetailKind.SIGNAL) {
@@ -101,12 +101,11 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
     Spacer(Modifier.height(8.dp))
     Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Text(
-            change?.let { "${if (it > 0) "+" else ""}$it% compared with the previous ${snapshot.windowDays}-day period" }
-                ?: "A reliable previous-period comparison is not available yet.",
+            change?.let { "${if (it > 0) "+" else ""}$it%" } ?: "Comparison unavailable",
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             color = when { change == null -> MutedText; change > 0 -> SuccessGreen; change < 0 -> RecRed; else -> MutedText },
-            fontSize = 9.sp,
-            lineHeight = 13.sp,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
             fontWeight = FontWeight.Bold,
         )
     }
@@ -114,17 +113,17 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
     Spacer(Modifier.height(18.dp))
     if (kind == V20InsightsDetailKind.AVG_VIEW) {
         Text("COMPARE PERIODS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("YouTube hasn't provided daily average watch time for this view.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("YouTube hasn't provided daily average watch time for this view.", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
     } else {
         Text(if (kind == V20InsightsDetailKind.DAILY_VIEWS) "DAILY VIEWS" else "DAILY TREND", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("Tap anywhere on the chart to inspect an exact day.", color = MutedText, fontSize = 8.5.sp)
+        
         Spacer(Modifier.height(10.dp))
         V20InteractiveTrendChart(snapshot, kind)
     }
 
     Spacer(Modifier.height(20.dp))
-    Text("VIDEOS BEHIND THIS CHANGE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("Ranked using the same ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
+    Text("Top Videos", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    
     Spacer(Modifier.height(8.dp))
     v20RankedVideos(snapshot, kind).take(5).forEachIndexed { index, video ->
         Surface(
@@ -134,11 +133,11 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
             border = BorderStroke(1.dp, CinemaLine),
         ) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("#${index + 1}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("#${index + 1}", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(9.dp))
                 Column(Modifier.weight(1f)) {
                     Text(video.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(v20VideoMetric(video, kind), color = MutedText, fontSize = 8.sp)
+                    Text(v20VideoMetric(video, kind), color = MutedText, fontSize = 11.sp)
                 }
             }
         }
@@ -156,11 +155,11 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
     }
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .35f))) {
         Column(Modifier.padding(15.dp)) {
-            Text(signal.kicker, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+            Text(signal.kicker, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(4.dp))
             Text(signal.title, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(6.dp))
-            Text(signal.body, color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+    
         }
     }
 
@@ -193,12 +192,6 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
 @Composable
 private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Text("24-HOUR CHANGE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text(
-        "This compares two saved updates. It is not live hourly data.",
-        color = MutedText,
-        fontSize = 8.5.sp,
-        lineHeight = 12.5.sp,
-    )
     Spacer(Modifier.height(9.dp))
 
     if (report == null) {
@@ -222,8 +215,8 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Spacer(Modifier.height(9.dp))
     Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Text(
-            report.viewsChangePercent?.let { "${if (it > 0) "+" else ""}$it% views versus the preceding comparable sample window." }
-                ?: "Not enough earlier data to show a fair percentage change.",
+            report.viewsChangePercent?.let { "${if (it > 0) "+" else ""}$it%" }
+                ?: "Comparison unavailable",
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             color = when {
                 report.viewsChangePercent == null -> MutedText
@@ -231,8 +224,8 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
                 report.viewsChangePercent < 0 -> RecRed
                 else -> MutedText
             },
-            fontSize = 9.sp,
-            lineHeight = 13.sp,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
             fontWeight = FontWeight.Bold,
         )
     }
@@ -242,14 +235,14 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Text(
         "${v20PulseTime(report.baselineCapturedAtMillis)} → ${v20PulseTime(report.currentCapturedAtMillis)} · about ${report.sampleHours} hours",
         color = MutedText,
-        fontSize = 8.5.sp,
-        lineHeight = 12.sp,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
     )
 
     Spacer(Modifier.height(14.dp))
     Text("FASTEST-GROWING VIDEOS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
     if (report.topMovers.isEmpty()) {
-        Text("No individual video gained enough sampled views to list in this window.", color = MutedText, fontSize = 8.5.sp)
+        Text("No recent changes", color = MutedText, fontSize = 11.sp)
     } else {
         report.topMovers.forEachIndexed { index, mover ->
             Surface(
@@ -259,11 +252,11 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
                 border = BorderStroke(1.dp, CinemaLine),
             ) {
                 Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("#${index + 1}", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                    Text("#${index + 1}", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(mover.title, color = ProjectorIvory, fontSize = 9.8.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("+${v20Compact(mover.viewsGained)} sampled views · about ${mover.channelGainSharePercent}% of channel gain", color = MutedText, fontSize = 7.8.sp)
+                        Text(mover.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("+${v20Compact(mover.viewsGained)} sampled views · about ${mover.channelGainSharePercent}% of channel gain", color = MutedText, fontSize = 11.sp)
                     }
                 }
             }
@@ -276,8 +269,8 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
     val performance = remember(snapshot, signal.title) {
         YouTubeInsightEngine.videoPerformance(snapshot).firstOrNull { it.video.title == signal.title }
     }
-    Text("WHY THIS MATTERS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("Measured in the active ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
+    Text("Evidence", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    
     Spacer(Modifier.height(8.dp))
     if (performance == null) {
         V20EvidenceNote("EVIDENCE MOVED", "The video that originally triggered this signal is no longer present in the active cached ranking. Refresh Insights to rebuild the signal from the newest snapshot.")
@@ -289,18 +282,18 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
     }
     Spacer(Modifier.height(7.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V20DetailMetric("VS RECENT AVG", if (performance.baselineMultiple > 0) String.format(Locale.US, "%.1fx", performance.baselineMultiple) else "—", Modifier.weight(1f))
-        V20DetailMetric("WATCH", v20Watch(performance.video.watchMinutes), Modifier.weight(1f))
+        V20DetailMetric("Watch Time", v20Watch(performance.video.watchMinutes), Modifier.weight(1f))
+        V20DetailMetric("Subscribers", v20Signed(performance.video.netSubscribers), Modifier.weight(1f))
     }
     Spacer(Modifier.height(9.dp))
-    Text("This compares recent videos. It doesn't explain why a video performed better.", color = MutedText, fontSize = 8.3.sp, lineHeight = 12.3.sp)
+    Text("This compares recent videos. It doesn't explain why a video performed better.", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
 }
 
 @Composable
 private fun V20AverageViewEvidence(snapshot: YouTubeAnalyticsSnapshot) {
     val previous = snapshot.previousPeriod
-    Text("WHY THIS MATTERS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("Average watch time is compared by period, not by invented daily values.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.5.sp)
+    Text("Average View", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         V20DetailMetric("THIS PERIOD", v20Duration(snapshot.averageViewDurationSeconds), Modifier.weight(1f))
@@ -321,7 +314,7 @@ private fun V20AverageViewEvidence(snapshot: YouTubeAnalyticsSnapshot) {
 @Composable
 private fun V20ChannelContextEvidence(snapshot: YouTubeAnalyticsSnapshot) {
     Text("CURRENT CONTEXT", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("This signal is being read against the active ${snapshot.windowDays}-day analytics window.", color = MutedText, fontSize = 8.5.sp)
+    
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         V20DetailMetric("VIEWS", v20Compact(snapshot.views), Modifier.weight(1f))
@@ -333,9 +326,9 @@ private fun V20ChannelContextEvidence(snapshot: YouTubeAnalyticsSnapshot) {
         V20DetailMetric("AVG VIEW", v20Duration(snapshot.averageViewDurationSeconds), Modifier.weight(1f))
     }
     Spacer(Modifier.height(16.dp))
-    Text("TOP SUPPORTING VIDEOS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("Top Videos", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     YouTubeInsightEngine.videoPerformance(snapshot).take(3).forEachIndexed { index, performance ->
-        Text("${index + 1}. ${performance.video.title} · ${v20Compact(performance.video.periodViews)} views", color = MutedText, fontSize = 8.6.sp, lineHeight = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text("${index + 1}. ${performance.video.title} · ${v20Compact(performance.video.periodViews)} views", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
     }
 }
@@ -344,9 +337,9 @@ private fun V20ChannelContextEvidence(snapshot: YouTubeAnalyticsSnapshot) {
 private fun V20EvidenceNote(title: String, body: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
-            Text(title, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+            Text(title, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
             Spacer(Modifier.height(4.dp))
-            Text(body, color = MutedText, fontSize = 8.7.sp, lineHeight = 13.sp)
+            Text(body, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
         }
     }
 }
@@ -355,7 +348,7 @@ private fun V20EvidenceNote(title: String, body: String) {
 private fun V20DetailMetric(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
-            Text(label, color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+            Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
             Spacer(Modifier.height(3.dp))
             Text(value, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
         }
@@ -366,7 +359,7 @@ private fun V20DetailMetric(label: String, value: String, modifier: Modifier) {
 private fun V20InteractiveTrendChart(snapshot: YouTubeAnalyticsSnapshot, kind: V20InsightsDetailKind) {
     val points = snapshot.trend.takeLast(snapshot.windowDays.coerceAtMost(90))
     if (points.isEmpty()) {
-        Text("No daily data is available for this period yet.", color = MutedText, fontSize = 9.sp)
+        Text("Trend unavailable", color = MutedText, fontSize = 11.sp)
         return
     }
     val values = remember(points, kind) { points.map { v20PointValue(it, kind) } }
@@ -383,10 +376,10 @@ private fun V20InteractiveTrendChart(snapshot: YouTubeAnalyticsSnapshot, kind: V
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(selected.date, color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text(selected.date, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Text(v20MetricValue(kind, selectedValue), color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
                 }
-                Text("${selectedIndex + 1}/${points.size}", color = MutedText, fontSize = 8.sp)
+                Text("${selectedIndex + 1}/${points.size}", color = MutedText, fontSize = 11.sp)
             }
             Spacer(Modifier.height(10.dp))
             Canvas(
