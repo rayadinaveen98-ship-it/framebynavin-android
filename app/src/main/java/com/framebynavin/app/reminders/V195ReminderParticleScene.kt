@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -77,7 +78,7 @@ internal fun V195ReminderParticleScene(
         .semantics { contentDescription = "Show reminder controls" }
         .clickable(interactionSource = interactions, indication = null, onClick = onReveal)
 
-    Canvas(modifier = modifier.fillMaxSize().then(touch)) {
+    Canvas(modifier = modifier.fillMaxSize().testTag("v1952-ambient-particles").then(touch)) {
         val radius = 2.5.dp.toPx()
         val ambientCoreAlpha = .38f * (1f - revealProgress) + .16f * revealProgress
         val ambientHaloAlpha = .085f * (1f - revealProgress) + .11f * revealProgress

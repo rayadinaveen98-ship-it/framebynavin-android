@@ -130,11 +130,15 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V195ReminderSceneUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v195-reminder-scene-ui.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v195-reminder-scene-ui.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v195-reminder-scene-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V197ImmersiveSceneUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-immersive-scene-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-immersive-scene-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v197-immersive-scene-ui.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Backlot-V195-2-Emulator-Results
           path: |
+            v197-immersive-scene-ui.log
             v195-reminder-scene-ui.log
             v194-snapshot-ownership-instrumentation.log
             v192-thumbnail-sort-instrumentation.log
