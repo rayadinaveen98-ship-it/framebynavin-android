@@ -338,6 +338,7 @@ class YouTubeAnalyticsStore(context: Context) {
         .put("subscribersLost", v.subscribersLost)
         .put("likes", v.likes)
         .put("comments", v.comments)
+        .put("hasPeriodData", v.hasPeriodData)
 
     private fun videoFromJson(o: JSONObject): YouTubeVideoSnapshot = YouTubeVideoSnapshot(
         videoId = o.optString("videoId"),
@@ -351,6 +352,7 @@ class YouTubeAnalyticsStore(context: Context) {
         subscribersLost = o.optLong("subscribersLost"),
         likes = o.optLong("likes"),
         comments = o.optLong("comments"),
+        hasPeriodData = o.optBoolean("hasPeriodData", false),
     )
 
     private fun trendToJson(t: YouTubeTrendPoint) = JSONObject()

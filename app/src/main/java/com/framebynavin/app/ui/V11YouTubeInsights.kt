@@ -80,6 +80,80 @@ internal fun V11InsightsScreen(
     var autoRefreshKey by rememberSaveable { mutableStateOf("") }
     var foundationRevision by remember { mutableIntStateOf(0) }
     var deepInsightsRefreshing by remember { mutableStateOf(false) }
+    var videoCatalog by remember { mutableStateOf(V189CatalogUiState()) }
+    var catalogSession by remember { mutableLongStateOf(0L) }
+
+    // A channel, date window, or source-report change invalidates every pending page.
+    LaunchedEffect(snapshot?.channel?.channelId, snapshot?.startDate,
+        snapshot?.endDate, snapshot?.fetchedAtMillis) {
+        catalogSession += 1L
+        videoCatalog = V189CatalogUiState()
+    }
+
+    fun loadVideoCatalog() {
+        val data = snapshot ?: return
+        if (videoCatalog.loading ||
+            (videoCatalog.loaded && videoCatalog.pageToken == null)) return
+        val nonce = catalogSession
+        val creatorGeneration = CreatorDataGate.generation(context.applicationContext)
+        val requestedPage = videoCatalog.pageToken.takeIf { videoCatalog.loaded }
+        videoCatalog = videoCatalog.copy(loading = true, error = null)
+        val client = authClient
+        if (client == null) {
+            videoCatalog = videoCatalog.copy(loading = false, error = "YouTube unavailable")
+            return
+        }
+        fun isStillValid(): Boolean =
+            nonce == catalogSession &&
+                CreatorDataGate.generation(context.applicationContext) == creatorGeneration &&
+                snapshot?.channel?.channelId == data.channel.channelId &&
+                snapshot?.startDate == data.startDate &&
+                snapshot?.endDate == data.endDate &&
+                snapshot?.fetchedAtMillis == data.fetchedAtMillis &&
+                store.loadAny()?.channel?.channelId == data.channel.channelId
+
+        client.authorize(YouTubeAuthorization.request())
+            .addOnSuccessListener { result ->
+                if (!isStillValid()) return@addOnSuccessListener
+                if (result.hasResolution() || result.accessToken.isNullOrBlank()) {
+                    videoCatalog = videoCatalog.copy(loading = false, error = "Reconnect YouTube")
+                    return@addOnSuccessListener
+                }
+                val token = result.accessToken ?: return@addOnSuccessListener
+                scope.launch {
+                    val page = try {
+                        withContext(Dispatchers.IO) {
+                            api.catalogPage(
+                                accessToken = token,
+                                expectedChannelId = data.channel.channelId,
+                                uploadsPlaylistId = data.channel.uploadsPlaylistId,
+                                startDate = data.startDate,
+                                endDate = data.endDate,
+                                pageToken = requestedPage,
+                            )
+                        }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        if (isStillValid()) videoCatalog = videoCatalog.copy(
+                            loading = false, error = "Couldn't load videos")
+                        return@launch
+                    }
+                    if (isStillValid()) {
+                        videoCatalog = videoCatalog.copy(
+                            videos = (videoCatalog.videos + page.videos)
+                                .distinctBy { it.videoId },
+                            pageToken = page.nextPageToken,
+                            loaded = true, loading = false, error = null,
+                        )
+                    }
+                }
+            }
+            .addOnFailureListener {
+                if (isStillValid()) videoCatalog = videoCatalog.copy(
+                    loading = false, error = "Couldn't load videos")
+            }
+    }
     val personalization by remember(creatorProfile) {
         derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
     }
@@ -386,6 +460,8 @@ internal fun V11InsightsScreen(
                     foundationLoading = deepInsightsRefreshing,
                     onCreateProject = onAdd,
                     onLinkVideo = { selectedVideo = it },
+                    catalogState = videoCatalog,
+                    onCatalogLoad = ::loadVideoCatalog,
                 )
             }
         }
