@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,7 +38,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -141,9 +139,9 @@ internal fun ReminderCheckInScreen(
         if (revealed) Column(
             modifier = Modifier
                 .align(Alignment.Center)
+                .testTag("v200-reminder-controls")
                 .widthIn(max = 440.dp)
                 .fillMaxWidth()
-                .fillMaxHeight()
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(scroll)
