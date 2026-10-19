@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,7 +58,7 @@ internal fun V189VideoDetailScreen(
     var section by remember(video.videoId) { mutableStateOf(V189VideoSection.RESULTS) }
     Dialog(onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+        Surface(Modifier.fillMaxSize().testTag("v189-video-screen"), color = CinemaBlack) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -87,7 +88,7 @@ internal fun V189VideoDetailScreen(
                             FilterChip(
                                 selected = section == item,
                                 onClick = { section = item },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).testTag("v189-video-section-${item.name}"),
                                 label = { Text(item.label, fontSize = 9.sp,
                                     maxLines = 1) },
                             )
