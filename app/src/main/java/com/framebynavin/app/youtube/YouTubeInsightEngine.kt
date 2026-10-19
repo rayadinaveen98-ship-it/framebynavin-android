@@ -178,43 +178,41 @@ object YouTubeInsightEngine {
         val signals = mutableListOf<YouTubeInsightSignal>()
 
         val pulse24h = YouTubeAnalyticsStore.latest24HourReport
+            ?.takeIf { it.currentCapturedAtMillis <= snapshot.fetchedAtMillis }
         if (pulse24h == null) {
             signals += YouTubeInsightSignal(
-                "24H PULSE",
-                "Learning your normal 24-hour pace",
-                "Your creator system is learning your normal 24-hour pace. Refresh YouTube over time and this card will show what is rising, steady or slowing down.",
-                YouTubeInsightTone.NEUTRAL,
-                action = "Keep collecting channel snapshots until Backlot has enough evidence to compare your normal pace.",
-                confidence = 55,
+                "24H PULSE", "Unavailable", "No recent comparable channel snapshots.",
+                YouTubeInsightTone.NEUTRAL, confidence = 0,
             )
         } else {
-            val changeText = pulse24h.viewsChangePercent?.let { " · ${if (it > 0) "+" else ""}$it% vs before" }.orEmpty()
-            val topMover = pulse24h.topMovers.firstOrNull()?.let { " · top video: ${it.title} +${compact(it.viewsGained)}" }.orEmpty()
+            val pulseState = when (pulse24h.momentum) {
+                YouTubePulseMomentum.RISING -> "Rising"
+                YouTubePulseMomentum.COOLING -> "Cooling"
+                YouTubePulseMomentum.STEADY -> "Steady"
+                YouTubePulseMomentum.INSUFFICIENT -> "Comparison unavailable"
+                YouTubePulseMomentum.CORRECTION -> "Counter adjusted"
+            }
+            val change = pulse24h.viewsChangePercent?.let {
+                " · ${if (it > 0) "+" else ""}$it%"
+            }.orEmpty()
             signals += YouTubeInsightSignal(
-                "24H PULSE",
-                "+${compact(pulse24h.viewsGained)} views · ${signed(pulse24h.subscribersDelta)} subs",
-                "Based on your last ~${pulse24h.sampleHours} hours of channel activity$changeText$topMover.",
+                "24H PULSE", pulseState,
+                "~${pulse24h.sampleHours}h · ${compact(pulse24h.viewsGained)} views$change",
                 when (pulse24h.momentum) {
                     YouTubePulseMomentum.RISING -> YouTubeInsightTone.POSITIVE
                     YouTubePulseMomentum.COOLING -> YouTubeInsightTone.WATCH
-                    YouTubePulseMomentum.STEADY -> YouTubeInsightTone.NEUTRAL
+                    YouTubePulseMomentum.STEADY, YouTubePulseMomentum.INSUFFICIENT,
+                    YouTubePulseMomentum.CORRECTION -> YouTubeInsightTone.NEUTRAL
                 },
-                action = when (pulse24h.momentum) {
-                    YouTubePulseMomentum.RISING -> "Open the strongest mover and identify the repeatable topic, packaging or format signal."
-                    YouTubePulseMomentum.COOLING -> "Check whether the slowdown is channel-wide or concentrated in the newest uploads before changing strategy."
-                    YouTubePulseMomentum.STEADY -> "Stay consistent and wait for a stronger movement before making a major change."
-                },
-                confidence = if (pulse24h.sampleHours >= 20) 90 else 78,
+                confidence = 0,
             )
-            YouTubeOpportunityEngine.build(pulse24h, ideas).forEach { alert ->
-                signals += YouTubeInsightSignal(
-                    alert.kicker,
-                    alert.title,
-                    if (alert.ideaId != null) "${alert.body} Open Idea Vault and build this idea." else alert.body,
-                    alert.tone,
-                    action = "Turn this signal into one focused follow-up experiment.",
-                    confidence = 78,
-                )
+            if (pulse24h.momentum != YouTubePulseMomentum.CORRECTION) {
+                YouTubeOpportunityEngine.build(pulse24h, ideas).forEach { alert ->
+                    signals += YouTubeInsightSignal(
+                        alert.kicker, alert.title, alert.body, alert.tone,
+                        confidence = 0,
+                    )
+                }
             }
         }
 

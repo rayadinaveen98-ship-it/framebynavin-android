@@ -192,31 +192,43 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
 
 @Composable
 private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
-    Text("24-HOUR CHANGE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("24h Pulse", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(9.dp))
 
     if (report == null) {
-        V20EvidenceNote(
-            title = "LEARNING YOUR BASELINE",
-            body = "Check again after two YouTube updates roughly a day apart.",
-        )
+        V20EvidenceNote(title = "Unavailable", body = "More snapshots needed")
         return
     }
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V20DetailMetric("~${report.sampleHours}H VIEWS", "+${v20Compact(report.viewsGained)}", Modifier.weight(1f))
+        V20DetailMetric("~${report.sampleHours}h Views",
+            if (report.momentum == YouTubePulseMomentum.CORRECTION) "—"
+            else "+${v20Compact(report.viewsGained)}", Modifier.weight(1f))
         V20DetailMetric("SUBSCRIBERS", v20Signed(report.subscribersDelta), Modifier.weight(1f))
     }
     Spacer(Modifier.height(7.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V20DetailMetric("PRIOR WINDOW", report.previousViewsGained?.let { "+${v20Compact(it)}" } ?: "—", Modifier.weight(1f))
-        V20DetailMetric("MOMENTUM", report.momentum.name.lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase() }, Modifier.weight(1f))
+        V20DetailMetric(
+            report.previousWindowHours?.let { "Prior ~${it}h" } ?: "Prior",
+            report.previousViewsGained?.let { "+${v20Compact(it)}" } ?: "—",
+            Modifier.weight(1f),
+        )
+        V20DetailMetric("Momentum",
+            when (report.momentum) {
+                YouTubePulseMomentum.RISING -> "Rising"
+                YouTubePulseMomentum.COOLING -> "Cooling"
+                YouTubePulseMomentum.STEADY -> "Steady"
+                YouTubePulseMomentum.INSUFFICIENT -> "Unavailable"
+                YouTubePulseMomentum.CORRECTION -> "Adjusted"
+            }, Modifier.weight(1f))
     }
 
     Spacer(Modifier.height(9.dp))
     Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Text(
-            report.viewsChangePercent?.let { "${if (it > 0) "+" else ""}$it%" }
+            if (report.momentum == YouTubePulseMomentum.CORRECTION)
+                "Counter correction ${v20Signed(report.counterAdjustment)}"
+            else report.viewsChangePercent?.let { "${if (it > 0) "+" else ""}$it%" }
                 ?: "Comparison unavailable",
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             color = when {
@@ -232,7 +244,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     }
 
     Spacer(Modifier.height(14.dp))
-    Text("DATA WINDOW", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    Text("Sample Dates", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     Text(
         "${v20PulseTime(report.baselineCapturedAtMillis)} → ${v20PulseTime(report.currentCapturedAtMillis)} · about ${report.sampleHours} hours",
         color = MutedText,
@@ -241,7 +253,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     )
 
     Spacer(Modifier.height(14.dp))
-    Text("FASTEST-GROWING VIDEOS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    Text("Top Movers", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     if (report.topMovers.isEmpty()) {
         Text("No recent changes", color = MutedText, fontSize = 11.sp)
     } else {
@@ -257,7 +269,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
                         Text(mover.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("+${v20Compact(mover.viewsGained)} sampled views · about ${mover.channelGainSharePercent}% of channel gain", color = MutedText, fontSize = 11.sp)
+                        Text("+${v20Compact(mover.viewsGained)} · ${mover.channelGainSharePercent}% sampled share", color = MutedText, fontSize = 11.sp)
                     }
                 }
             }
