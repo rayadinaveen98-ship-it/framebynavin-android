@@ -1,5 +1,6 @@
 package com.framebynavin.app.ui
 
+import com.framebynavin.app.data.CreatorDataGate
 import android.app.Activity
 import android.content.Context
 import androidx.activity.ComponentActivity
@@ -67,7 +68,7 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
             .getOrDefault(YouTubeRevenuePeriod.TWENTY_EIGHT_DAYS)
     }
     var revenueSnapshot by remember(channelId, selectedPeriodName) {
-        mutableStateOf(revenueStore.load(selectedPeriod))
+        mutableStateOf(revenueStore.load(selectedPeriod, channelId))
     }
     var revenueLoading by remember(channelId) { mutableStateOf(false) }
     var revenueError by rememberSaveable(channelId) { mutableStateOf<String?>(null) }
@@ -75,8 +76,8 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
     var requestNonce by remember(channelId) { mutableLongStateOf(0L) }
     var revenueAccessGranted by remember(channelId) {
         val persisted = ownerPrefs.getBoolean(REVENUE_ACCESS_GRANTED, false)
-        val migratedFromV144Cache = YouTubeRevenuePeriod.entries.any { revenueStore.load(it) != null }
-        mutableStateOf(persisted || migratedFromV144Cache)
+        // Old cache is not permission evidence; require a verified owner and grant.
+        mutableStateOf(persisted)
     }
 
     fun setRevenueAccess(granted: Boolean) {
@@ -103,14 +104,22 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
     fun syncRevenueWithToken(token: String, period: YouTubeRevenuePeriod) {
         val nonce = requestNonce + 1L
         requestNonce = nonce
+        val expectedGeneration = CreatorDataGate.generation(appContext)
         scope.launch {
             revenueLoading = true
             revenueError = null
             try {
-                val fresh = withContext(Dispatchers.IO) { revenueApi.sync(token, period) }
-                withContext(Dispatchers.IO) { revenueStore.save(fresh) }
-                if (requestNonce == nonce && selectedPeriodName == period.name) {
+                val fresh = withContext(Dispatchers.IO) {
+                    revenueApi.sync(token, period, expectedChannelId = channelId)
+                }
+                if (requestNonce != nonce || selectedPeriodName != period.name) return@launch
+                val accepted = withContext(Dispatchers.IO) {
+                    revenueStore.saveIfOwner(fresh, expectedGeneration)
+                }
+                if (accepted && requestNonce == nonce && selectedPeriodName == period.name) {
                     revenueSnapshot = fresh
+                } else if (requestNonce == nonce) {
+                    revenueError = "Revenue was not saved. Refresh."
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -205,13 +214,17 @@ internal fun V144YouTubeRevenueIntegration(snapshot: YouTubeAnalyticsSnapshot) {
     }
 
     LaunchedEffect(channelId, selectedPeriodName, snapshot.fetchedAtMillis, revenueAccessGranted) {
-        val cached = revenueStore.load(selectedPeriod)
+        val cached = revenueStore.load(selectedPeriod, channelId)
         revenueSnapshot = cached
         revenueError = null
         if (!revenueAccessGranted || revenueLoading) return@LaunchedEffect
 
         val ageMillis = cached?.let { System.currentTimeMillis() - it.fetchedAtMillis }
-        val needsFetch = cached == null || (ageMillis != null && ageMillis >= REVENUE_REFRESH_AGE_MS)
+        val expectedStart = if (selectedPeriod == YouTubeRevenuePeriod.THIS_MONTH)
+            java.time.LocalDate.now(java.time.ZoneId.of("America/Los_Angeles")).withDayOfMonth(1).toString()
+        else null
+        val needsFetch = cached == null || (ageMillis != null && ageMillis >= REVENUE_REFRESH_AGE_MS) ||
+            (expectedStart != null && cached.startDate != expectedStart)
         if (needsFetch) {
             // Date-range changes use silent authorization. Never show consent for every period.
             authorizeRevenue(period = selectedPeriod, allowResolution = false)
