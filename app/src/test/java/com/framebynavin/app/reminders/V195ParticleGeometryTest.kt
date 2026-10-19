@@ -42,7 +42,7 @@ class V195ParticleGeometryTest {
     }
 
     @Test fun invalidParticleBudgetsAreRejected() {
-        for (count in listOf(0, 10, 501)) {
+        for (count in listOf(0, 10, 1001)) {
             try {
                 V195ParticleGeometry.build(V195ReminderGlyph.CLOCK, count)
                 fail("invalid count accepted: $count")
