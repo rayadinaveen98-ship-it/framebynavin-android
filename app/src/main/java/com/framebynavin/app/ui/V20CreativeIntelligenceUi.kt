@@ -76,7 +76,7 @@ private fun CreativePatternCard(pattern: CreatorCreativePattern) {
             Text(
                 if (pattern.strength == CreatorCreativeEvidenceStrength.REPEATED) "REPEATED EVIDENCE" else "EARLY EVIDENCE",
                 color = accent,
-                fontSize = 6.7.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = .6.sp,
             )
@@ -84,22 +84,22 @@ private fun CreativePatternCard(pattern: CreatorCreativePattern) {
             Text(
                 "${pattern.leaderLabel} is leading ${outcomeLabel(pattern.outcome)}",
                 color = ProjectorIvory,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
             )
             Spacer(Modifier.height(3.dp))
             Text(
                 "${metricValue(pattern.outcome, pattern.leaderValue)} across ${pattern.leaderSamples} samples vs ${metricValue(pattern.outcome, pattern.comparisonValue)} for ${pattern.comparisonLabel} (${pattern.comparisonSamples}).",
                 color = MutedText,
-                fontSize = 8.1.sp,
-                lineHeight = 11.5.sp,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
             )
             if (pattern.relativeLiftPercent != 0) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     "Observed lift: ${if (pattern.relativeLiftPercent > 0) "+" else ""}${pattern.relativeLiftPercent}% · correlation, not proof of causation.",
                     color = accent,
-                    fontSize = 7.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
