@@ -280,8 +280,8 @@ private fun V20DecisionScorecard(scorecard: CreatorOpportunityScorecard) {
                 color = CinemaSurfaceRaised,
             ) {
                 Column(Modifier.padding(horizontal = 5.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(value.toString(), color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                    Text(label, color = MutedText, fontSize = 5.5.sp, maxLines = 1)
+                    Text(value.toString(), color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text(label, color = MutedText, fontSize = 11.sp, maxLines = 1)
                 }
             }
         }
@@ -305,18 +305,18 @@ private fun V20PlaybookPatternRow(pattern: CreatorPlaybookPattern) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .12f)) {
-            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 5.8.sp, fontWeight = FontWeight.Black)
+            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.width(7.dp))
         Column(Modifier.weight(1f)) {
-            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
-            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 6.4.sp)
+            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 11.sp)
         }
         if (pattern.rankingDelta != 0) {
             Text(
                 if (pattern.rankingDelta > 0) "+${pattern.rankingDelta}" else pattern.rankingDelta.toString(),
                 color = accent,
-                fontSize = 7.2.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
             )
         }
@@ -351,14 +351,14 @@ private fun V20CreatorBrainRecommendationRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .12f)) {
-            Text(label, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp), color = accent, fontSize = 5.8.sp, fontWeight = FontWeight.Black)
+            Text(label, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.width(7.dp))
         Column(Modifier.weight(1f)) {
-            Text(recommendation.title, color = ProjectorIvory.copy(alpha = .9f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text(recommendation.title, color = ProjectorIvory.copy(alpha = .9f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(2.dp))
-            Text(recommendation.body, color = MutedText, fontSize = 6.6.sp, lineHeight = 9.5.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-            Text("${recommendation.confidence}% evidence confidence · ${recommendation.patternIds.size} Brain pattern${if (recommendation.patternIds.size == 1) "" else "s"}", color = accent.copy(alpha = .86f), fontSize = 6.sp, fontWeight = FontWeight.Bold)
+            Text(recommendation.body, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text("${recommendation.confidence}% evidence confidence · ${recommendation.patternIds.size} Brain pattern${if (recommendation.patternIds.size == 1) "" else "s"}", color = accent.copy(alpha = .86f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
         if (clickable) {
             Spacer(Modifier.width(6.dp))
@@ -400,44 +400,44 @@ private fun V20CreatorBrainExplanationRow(
                         if (explanation.control == CreatorBrainLearningControl.ACTIVE) explanation.state.name else explanation.control.name,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
                         color = accent,
-                        fontSize = 5.7.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
                     )
                 }
                 Spacer(Modifier.width(7.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(explanation.label, color = ProjectorIvory.copy(alpha = .9f), fontSize = 7.9.sp, fontWeight = FontWeight.Bold)
+                    Text(explanation.label, color = ProjectorIvory.copy(alpha = .9f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Text(
                         "${explanation.sampleSize} evaluated · ${explanation.positiveRatePercent}% positive · ${explanation.freshness.name.lowercase()} · ${explanation.trajectory.name.lowercase()}",
                         color = MutedText,
-                        fontSize = 6.3.sp,
+                        fontSize = 11.sp,
                     )
                 }
                 Text(
                     if (explanation.effectiveRankingDelta > 0) "+${explanation.effectiveRankingDelta}" else explanation.effectiveRankingDelta.toString(),
                     color = accent,
-                    fontSize = 7.1.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
                 )
             }
 
             if (expanded) {
                 Spacer(Modifier.height(7.dp))
-                Text(explanation.why, color = ProjectorIvory.copy(alpha = .82f), fontSize = 6.8.sp, lineHeight = 10.sp)
+                Text(explanation.why, color = ProjectorIvory.copy(alpha = .82f), fontSize = 11.sp, lineHeight = 15.sp)
                 Spacer(Modifier.height(4.dp))
-                Text(explanation.freshnessReason, color = MutedText, fontSize = 6.4.sp, lineHeight = 9.5.sp)
+                Text(explanation.freshnessReason, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
                 Spacer(Modifier.height(3.dp))
-                Text(explanation.trajectoryReason, color = MutedText, fontSize = 6.4.sp, lineHeight = 9.5.sp)
+                Text(explanation.trajectoryReason, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
                 if (explanation.evidence.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
-                    Text("WHAT TAUGHT THE BRAIN", color = MutedGold, fontSize = 5.8.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+                    Text("WHAT TAUGHT THE BRAIN", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
                     Spacer(Modifier.height(3.dp))
                     explanation.evidence.take(3).forEach { evidence ->
                         Text(
                             "• ${evidence.title} · ${evidence.verdict.name.lowercase()} · ${String.format("%.2f", evidence.baselineMultiple)}× baseline${if (evidence.videoId.isBlank()) "" else " · ${evidence.videoId}"}",
                             color = MutedText,
-                            fontSize = 6.2.sp,
-                            lineHeight = 9.sp,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
                         )
                     }
                 }
@@ -448,16 +448,16 @@ private fun V20CreatorBrainExplanationRow(
                             OutlinedButton(
                                 onClick = { onControl(explanation.patternId, CreatorBrainLearningControl.PAUSED) },
                                 contentPadding = PaddingValues(horizontal = 9.dp, vertical = 2.dp),
-                            ) { Text("PAUSE", fontSize = 6.2.sp, fontWeight = FontWeight.Black) }
+                            ) { Text("PAUSE", fontSize = 11.sp, fontWeight = FontWeight.Black) }
                             OutlinedButton(
                                 onClick = { onControl(explanation.patternId, CreatorBrainLearningControl.RETIRED) },
                                 contentPadding = PaddingValues(horizontal = 9.dp, vertical = 2.dp),
-                            ) { Text("RETIRE", fontSize = 6.2.sp, fontWeight = FontWeight.Black) }
+                            ) { Text("RETIRE", fontSize = 11.sp, fontWeight = FontWeight.Black) }
                         } else {
                             OutlinedButton(
                                 onClick = { onControl(explanation.patternId, CreatorBrainLearningControl.ACTIVE) },
                                 contentPadding = PaddingValues(horizontal = 9.dp, vertical = 2.dp),
-                            ) { Text("RESTORE", fontSize = 6.2.sp, fontWeight = FontWeight.Black) }
+                            ) { Text("RESTORE", fontSize = 11.sp, fontWeight = FontWeight.Black) }
                         }
                     }
                 }
@@ -480,18 +480,18 @@ private fun V20CreatorBrainPatternRow(pattern: CreatorBrainPattern) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .12f)) {
-            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 5.7.sp, fontWeight = FontWeight.Black)
+            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.width(7.dp))
         Column(Modifier.weight(1f)) {
-            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
-            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 6.4.sp)
+            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 11.sp)
         }
         if (pattern.rankingDelta != 0) {
             Text(
                 if (pattern.rankingDelta > 0) "+${pattern.rankingDelta}" else pattern.rankingDelta.toString(),
                 color = accent,
-                fontSize = 7.2.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
             )
         }
@@ -505,7 +505,7 @@ private fun V20HorizonList(
     accent: Color,
     onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
-    Text(label, color = accent, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+    Text(label, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
     Spacer(Modifier.height(5.dp))
     opportunities.take(2).forEach { opportunity ->
         Row(
@@ -521,7 +521,7 @@ private fun V20HorizonList(
                 Text(
                     opportunity.title,
                     color = ProjectorIvory.copy(alpha = .88f),
-                    fontSize = 8.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -529,7 +529,7 @@ private fun V20HorizonList(
                 Text(
                     "Decision ${opportunity.scorecard.weightedScore} · ${opportunity.evidence.size} evidence",
                     color = MutedText,
-                    fontSize = 6.7.sp,
+                    fontSize = 11.sp,
                 )
             }
             if (onAction != null) {
