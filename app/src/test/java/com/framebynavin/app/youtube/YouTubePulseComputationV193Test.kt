@@ -21,8 +21,8 @@ class YouTubePulseComputationV193Test {
             listOf(sample(42, 1000), sample(18, 2200), sample(0, 3100)), now)!!
         assertEquals(18, report.sampleHours)
         assertEquals(24, report.previousWindowHours)
-        assertEquals(900, report.viewsGained)
-        assertEquals(1200, report.previousViewsGained)
+        assertEquals(900L, report.viewsGained)
+        assertEquals(1200L, report.previousViewsGained)
         assertEquals(0, report.viewsChangePercent)
         assertEquals(YouTubePulseMomentum.STEADY, report.momentum)
     }
@@ -54,8 +54,8 @@ class YouTubePulseComputationV193Test {
         val report = YouTubePulseComputation.build(
             listOf(sample(48, 1000), sample(24, 1200), sample(0, 1140)), now)!!
         assertEquals(YouTubePulseMomentum.CORRECTION, report.momentum)
-        assertEquals(-60, report.counterAdjustment)
-        assertEquals(0, report.viewsGained)
+        assertEquals(-60L, report.counterAdjustment)
+        assertEquals(0L, report.viewsGained)
         assertNull(report.viewsChangePercent)
         assertTrue(report.topMovers.isEmpty())
         assertTrue(YouTubeOpportunityEngine.build(report, emptyList()).isEmpty())
@@ -79,7 +79,7 @@ class YouTubePulseComputationV193Test {
         val report = YouTubePulseComputation.build(
             listOf(sample(24, 1000, videos = listOf(old)),
                 sample(0, 1200, videos = listOf(newer))), now)!!
-        assertEquals(60, report.topMovers.single().viewsGained)
+        assertEquals(60L, report.topMovers.single().viewsGained)
         assertEquals(30, report.topMovers.single().channelGainSharePercent)
     }
 }
