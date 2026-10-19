@@ -265,7 +265,8 @@ class VoiceReminderService : Service() {
                 V179ReminderFollowUps.armAfterUnanswered(applicationContext, task, token)
             }
         }
-        ReminderSurfaceRegistry.close(task.id, token)
+        // Completing speech is not user acknowledgement: preserve the
+        // already-visible scene and leave the same occurrence actionable.
         stopVoiceService(task.id, token)
     }
 
