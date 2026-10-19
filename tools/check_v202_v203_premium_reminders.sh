@@ -19,7 +19,11 @@ grep -Fq 'V202InfiniteBounce.colorBlend(' "$scene"
 grep -Fq 'withFrameNanos' "$scene"
 grep -Fq 'drawCircle(pigment.copy(alpha = .88f * scrimmed * depth)' "$scene"
 grep -Fq 'snapshotFlow {' "$main"
-grep -Fq 'vm.canRecoverWrites' "$main"
+grep -Fq 'vm.durableProjectSave(pending.taskId)' "$main"
+grep -Fq 'receipt.revision > pending.baselineRevision' "$main"
+grep -Fq 'persist(committedProjectId = task.id)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+grep -Fq 'persist(committedProjectId = updated.id)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+grep -Fq 'durableProjectSaves[taskId] = DurableProjectSave(nextRevision, saved)' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
 grep -Fq 'vm.writeError' "$main"
 grep -Fq 'V203ReminderSetFeedback.message(' "$main"
 grep -Fq 'V203ReminderSavedChip(' "$main"
