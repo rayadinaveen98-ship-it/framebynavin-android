@@ -70,7 +70,7 @@ internal fun V20InsightsDrilldownDialog(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("INSIGHTS · ${snapshot.windowDays} DAYS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text("${snapshot.windowDays}D", color = MutedGold, fontSize = 11.sp)
                         Text(v20DetailTitle(request), color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
                     }
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = MutedText) }
@@ -101,8 +101,7 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
     Spacer(Modifier.height(8.dp))
     Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Text(
-            change?.let { "${if (it > 0) "+" else ""}$it% compared with the previous ${snapshot.windowDays}-day period" }
-                ?: "A reliable previous-period comparison is not available yet.",
+            change?.let { "${if (it > 0) "+" else ""}$it%" } ?: "Comparison unavailable",
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             color = when { change == null -> MutedText; change > 0 -> SuccessGreen; change < 0 -> RecRed; else -> MutedText },
             fontSize = 9.sp,
@@ -117,14 +116,14 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
         Text("YouTube hasn't provided daily average watch time for this view.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
     } else {
         Text(if (kind == V20InsightsDetailKind.DAILY_VIEWS) "DAILY VIEWS" else "DAILY TREND", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("Tap anywhere on the chart to inspect an exact day.", color = MutedText, fontSize = 8.5.sp)
+        
         Spacer(Modifier.height(10.dp))
         V20InteractiveTrendChart(snapshot, kind)
     }
 
     Spacer(Modifier.height(20.dp))
-    Text("VIDEOS BEHIND THIS CHANGE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("Ranked using the same ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
+    Text("Top Videos", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    
     Spacer(Modifier.height(8.dp))
     v20RankedVideos(snapshot, kind).take(5).forEachIndexed { index, video ->
         Surface(
@@ -160,7 +159,7 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
             Spacer(Modifier.height(4.dp))
             Text(signal.title, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(6.dp))
-            Text(signal.body, color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+    
         }
     }
 
@@ -249,7 +248,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Spacer(Modifier.height(14.dp))
     Text("FASTEST-GROWING VIDEOS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
     if (report.topMovers.isEmpty()) {
-        Text("No individual video gained enough sampled views to list in this window.", color = MutedText, fontSize = 8.5.sp)
+        Text("No recent changes", color = MutedText, fontSize = 11.sp)
     } else {
         report.topMovers.forEachIndexed { index, mover ->
             Surface(
@@ -276,8 +275,8 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
     val performance = remember(snapshot, signal.title) {
         YouTubeInsightEngine.videoPerformance(snapshot).firstOrNull { it.video.title == signal.title }
     }
-    Text("WHY THIS MATTERS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("Measured in the active ${snapshot.windowDays}-day window.", color = MutedText, fontSize = 8.5.sp)
+    Text("Evidence", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    
     Spacer(Modifier.height(8.dp))
     if (performance == null) {
         V20EvidenceNote("EVIDENCE MOVED", "The video that originally triggered this signal is no longer present in the active cached ranking. Refresh Insights to rebuild the signal from the newest snapshot.")
@@ -300,7 +299,7 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
 private fun V20AverageViewEvidence(snapshot: YouTubeAnalyticsSnapshot) {
     val previous = snapshot.previousPeriod
     Text("WHY THIS MATTERS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("Average watch time is compared by period, not by invented daily values.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.5.sp)
+    
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         V20DetailMetric("THIS PERIOD", v20Duration(snapshot.averageViewDurationSeconds), Modifier.weight(1f))
@@ -321,7 +320,7 @@ private fun V20AverageViewEvidence(snapshot: YouTubeAnalyticsSnapshot) {
 @Composable
 private fun V20ChannelContextEvidence(snapshot: YouTubeAnalyticsSnapshot) {
     Text("CURRENT CONTEXT", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text("This signal is being read against the active ${snapshot.windowDays}-day analytics window.", color = MutedText, fontSize = 8.5.sp)
+    
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         V20DetailMetric("VIEWS", v20Compact(snapshot.views), Modifier.weight(1f))
@@ -366,7 +365,7 @@ private fun V20DetailMetric(label: String, value: String, modifier: Modifier) {
 private fun V20InteractiveTrendChart(snapshot: YouTubeAnalyticsSnapshot, kind: V20InsightsDetailKind) {
     val points = snapshot.trend.takeLast(snapshot.windowDays.coerceAtMost(90))
     if (points.isEmpty()) {
-        Text("No daily data is available for this period yet.", color = MutedText, fontSize = 9.sp)
+        Text("Trend unavailable", color = MutedText, fontSize = 11.sp)
         return
     }
     val values = remember(points, kind) { points.map { v20PointValue(it, kind) } }
