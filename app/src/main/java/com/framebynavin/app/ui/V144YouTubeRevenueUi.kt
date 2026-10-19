@@ -137,7 +137,7 @@ private fun V144RevenueWorkspace(
     V144RevenueTrend(data)
 
     Spacer(Modifier.height(16.dp))
-    Text("VIDEOS VS SHORTS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    Text("CONTENT SAMPLE", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
     Spacer(Modifier.height(8.dp))
     V144RevenueFormatSplit(data)
 
@@ -245,7 +245,7 @@ private fun V144RevenueContentRow(rank: Int, row: YouTubeRevenueContentRow, titl
             Spacer(Modifier.width(9.dp))
             Column(Modifier.weight(1f)) {
                 Text(title ?: "YouTube content · ${row.videoId.take(8)}", color = ProjectorIvory, fontSize = 9.2.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("${v144Type(row.creatorContentType)} · ${v144Compact(row.views)} views · RPM ${v144Money(row.calculatedRpm, currencyCode)}", color = MutedText, fontSize = 7.6.sp)
+                Text("${v144Type(row.creatorContentType)} · ${v144Compact(row.views)} views · Rev/1K ${if (row.views > 0L) v144Money(row.estimatedRevenue * 1000.0 / row.views, currencyCode) else "—"}", color = MutedText, fontSize = 7.6.sp)
             }
             Spacer(Modifier.width(8.dp))
             Text(v144Money(row.estimatedRevenue, currencyCode), color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Black)
