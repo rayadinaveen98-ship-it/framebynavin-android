@@ -119,7 +119,7 @@ internal fun V11InsightsScreen(
                     videoCatalog = videoCatalog.copy(loading = false, error = "Reconnect YouTube")
                     return@addOnSuccessListener
                 }
-                val token = result.accessToken
+                val token = result.accessToken ?: return@addOnSuccessListener
                 scope.launch {
                     val page = try {
                         withContext(Dispatchers.IO) {
