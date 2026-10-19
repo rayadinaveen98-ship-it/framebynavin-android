@@ -562,7 +562,11 @@ private fun YTChannelHeader(
                 fontSize = 10.sp,
             )
             Text(
-                "Analytics through ${data.endDate} (Pacific). ${YouTubeAnalyticsQueryPolicy.freshnessNote()}",
+                when (val evidence = data.reportEvidence) {
+                    null -> "Legacy data · Refresh"
+                    else -> if (!evidence.summaryPresent) "Summary unavailable · Refresh"
+                        else "${evidence.returnedDailyDates.size} reported days · Processing"
+                },
                 color = MutedText.copy(alpha = .88f),
                 fontSize = 10.sp,
                 lineHeight = 14.sp,
