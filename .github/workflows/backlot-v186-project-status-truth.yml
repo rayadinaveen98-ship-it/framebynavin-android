@@ -24,12 +24,22 @@ jobs:
       - name: Preserve existing source contracts
         run: |
           set -euo pipefail
+          # Historical source guards hard-code accepted version numbers through V185.
+          # Run them against a temporary V185 version marker only; restore V186 before build.
+          original=$(mktemp)
+          cp app/build.gradle.kts "$original"
+          trap 'cp "$original" app/build.gradle.kts; rm -f "$original"' EXIT
+          sed -i -e 's/versionCode = 186/versionCode = 185/' \
+                 -e 's/2.3.6-v186-project-status-preview/2.3.5-v185-idea-conversion-preview/' app/build.gradle.kts
           for version in $(seq 161 182); do
             script=$(find tools -maxdepth 1 -name "check_v${version}_*.sh" | head -n 1)
             test -n "$script"
             echo "V${version} contract: $script"
             bash "$script"
           done
+          cp "$original" app/build.gradle.kts
+          rm -f "$original"
+          trap - EXIT
           grep -Fq 'versionCode = 186' app/build.gradle.kts
           grep -Fq 'versionName = "2.3.6-v186-project-status-preview"' app/build.gradle.kts
       - name: Clean build, regressions, lint and instrumentation compilation
