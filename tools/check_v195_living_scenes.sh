@@ -3,7 +3,7 @@ set -euo pipefail
 src=app/src/main/java/com/framebynavin/app/reminders
 test -f "$src/V195ParticleGeometry.kt"
 test -f "$src/V195ReminderParticleScene.kt"
-grep -Fq 'const val DEFAULT_DOTS = 300' "$src/V195ParticleGeometry.kt"
+grep -Fq 'const val DEFAULT_DOTS = 420' "$src/V195ParticleGeometry.kt"
 grep -Fq 'V195ReminderParticleScene(' "$src/ReminderCheckInScreen.kt"
 # V195.2 removes the unwanted automatic 2.1-second transition.
 ! grep -Fq 'delay(2_100L)' "$src/ReminderCheckInScreen.kt"

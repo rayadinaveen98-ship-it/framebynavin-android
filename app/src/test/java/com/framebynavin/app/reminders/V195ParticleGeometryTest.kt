@@ -36,7 +36,7 @@ class V195ParticleGeometryTest {
     @Test fun lowerPowerModeRemainsIdentifiableWithoutChangingGlyph() {
         for (glyph in V195ReminderGlyph.entries) {
             val p = V195ParticleGeometry.build(glyph, V195ParticleGeometry.LOW_POWER_DOTS)
-            assertEquals(160, p.size)
+            assertEquals(V195ParticleGeometry.LOW_POWER_DOTS, p.size)
             assertTrue(p.all { it.x.isFinite() && it.y.isFinite() })
         }
     }
