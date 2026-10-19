@@ -48,6 +48,8 @@ data class YouTube24HourReport(
     val previousWindowHours: Int? = null,
     /** A negative raw channel counter delta indicates an external counter adjustment. */
     val counterAdjustment: Long = 0L,
+    /** Report's actual YouTube owner; must match the currently selected channel. */
+    val channelId: String = "",
 )
 
 data class CreatorOpportunityAlert(

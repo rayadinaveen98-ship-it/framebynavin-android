@@ -167,7 +167,13 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
     Spacer(Modifier.height(16.dp))
     when (signal.kicker) {
         "24H PULSE", "MOMENTUM", "VIDEO PICKING UP", "NEW SUBSCRIBERS", "MATCHED IDEA" -> {
-            V20Pulse24HourEvidence(YouTubeAnalyticsStore.latest24HourReport)
+            V20Pulse24HourEvidence(
+                YouTubePulseVisibilityPolicy.visible(
+                    YouTubeAnalyticsStore.latest24HourReport,
+                    selectedChannelId = snapshot.channel.channelId,
+                    selectedSnapshotAtMillis = snapshot.fetchedAtMillis,
+                ),
+            )
             if (signal.kicker == "MATCHED IDEA") {
                 Spacer(Modifier.height(12.dp))
                 V20EvidenceNote(

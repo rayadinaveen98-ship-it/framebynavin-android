@@ -86,6 +86,7 @@ internal object YouTubePulseComputation {
             previousWindowHours = previousMillis
                 ?.let { (it / HOUR_MS.toDouble()).roundToInt().coerceAtLeast(1) },
             counterAdjustment = correction,
+            channelId = latest.channelId,
         )
     }
 
