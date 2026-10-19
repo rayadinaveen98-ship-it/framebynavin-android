@@ -13,6 +13,7 @@ class V197ImmersiveParticlePolicyTest {
             )
             assertTrue(dots.all { it.x in 0f..1f && it.y in 0f..1f })
             assertTrue(dots.all { it.phase.isFinite() && it.speed > 0f && it.palette in 0..3 })
+            assertEquals(4, dots.map { it.palette }.distinct().size)
             // Background must occupy top/bottom and left/right, unlike V195's icon-only dots.
             assertTrue(dots.any { it.x < .06f && it.y < .06f })
             assertTrue(dots.any { it.x > .94f && it.y > .94f })

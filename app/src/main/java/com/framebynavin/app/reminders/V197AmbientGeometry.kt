@@ -44,7 +44,7 @@ internal object V197AmbientGeometry {
                         speed = .65f + 1.55f * noise(index, 83),
                         driftX = (noise(index, 113) * 2f - 1f) * .018f,
                         driftY = (noise(index, 131) * 2f - 1f) * .024f,
-                        palette = (index + row * 3 + col * 5) % 4,
+                        palette = (noise(index, 173) * 4f).toInt().coerceIn(0, 3),
                     ),
                 )
             }
