@@ -41,8 +41,8 @@ class V198ParticleMotionTest {
     @Test fun richerDensityRetainsLowPowerCeiling() {
         assertEquals(1_092, V197AmbientGeometry.NORMAL_COUNT)
         assertEquals(493, V197AmbientGeometry.LOW_POWER_COUNT)
-        assertEquals(420, V195ParticleGeometry.DEFAULT_DOTS)
-        assertEquals(220, V195ParticleGeometry.LOW_POWER_DOTS)
+        assertEquals(840, V195ParticleGeometry.DEFAULT_DOTS)
+        assertEquals(440, V195ParticleGeometry.LOW_POWER_DOTS)
         assertTrue(V197AmbientGeometry.LOW_POWER_COUNT < V197AmbientGeometry.NORMAL_COUNT / 2)
     }
 }
