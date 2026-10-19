@@ -84,7 +84,8 @@ internal fun V144YouTubeRevenueCard(
             when {
                 !accessEnabled && error != null -> V144RevenueAccessError(error, loading, onRefresh)
                 !accessEnabled -> V144RevenueConnect(loading, onRefresh)
-                snapshot == null -> V144RevenueLoading(selectedPeriod, loading, error, onRefresh)
+                snapshot == null || snapshot.evidence?.summaryPresent != true ->
+                    V144RevenueLoading(selectedPeriod, loading, error ?: "Revenue unavailable", onRefresh)
                 else -> V144RevenueWorkspace(snapshot, analyticsSnapshot, error)
             }
         }
@@ -100,18 +101,22 @@ private fun V144RevenueWorkspace(
     Text("OVERVIEW", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
     Spacer(Modifier.height(6.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        V144RevenueMetric("EST. REVENUE", v144Money(data.estimatedRevenue, data.currencyCode), MutedGold, Modifier.weight(1f))
-        V144RevenueMetric("RPM", v144Money(data.calculatedRpm, data.currencyCode), SuccessGreen, Modifier.weight(1f))
+        V144RevenueMetric("EST. REVENUE", v188Money(data, "estimatedRevenue", data.estimatedRevenue), MutedGold, Modifier.weight(1f))
+        V144RevenueMetric("REV / 1K VIEWS", data.revenuePerThousandViews?.let {
+            v144Money(it, data.currencyCode)
+        } ?: "—", SuccessGreen, Modifier.weight(1f))
     }
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        V144RevenueMetric("AD REVENUE", v144Money(data.estimatedAdRevenue, data.currencyCode), ProjectorIvory, Modifier.weight(1f))
-        V144RevenueMetric("PLAYBACK CPM", v144Money(data.playbackBasedCpm, data.currencyCode), ProjectorIvory, Modifier.weight(1f))
+        V144RevenueMetric("AD REVENUE", v188Money(data, "estimatedAdRevenue", data.estimatedAdRevenue), ProjectorIvory, Modifier.weight(1f))
+        V144RevenueMetric("PLAYBACK CPM", v188Money(data, "playbackBasedCpm", data.playbackBasedCpm, ad = true), ProjectorIvory, Modifier.weight(1f))
     }
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        V144RevenueMetric("MONETIZED PLAYBACKS", v144Compact(data.monetizedPlaybacks), ProjectorIvory, Modifier.weight(1f))
-        V144RevenueMetric("AD IMPRESSIONS", v144Compact(data.adImpressions), ProjectorIvory, Modifier.weight(1f))
+        V144RevenueMetric("MONETIZED PLAYBACKS", if (data.evidence?.hasSummary("monetizedPlaybacks") == true)
+            v144Compact(data.monetizedPlaybacks) else "—", ProjectorIvory, Modifier.weight(1f))
+        V144RevenueMetric("AD IMPRESSIONS", if (data.evidence?.hasAd("adImpressions") == true)
+            v144Compact(data.adImpressions) else "—", ProjectorIvory, Modifier.weight(1f))
     }
 
     val bestDay = data.trend.maxByOrNull { it.estimatedRevenue }
@@ -133,13 +138,11 @@ private fun V144RevenueWorkspace(
 
     Spacer(Modifier.height(16.dp))
     Text("VIDEOS VS SHORTS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
-    Text("YouTube groups videos and Shorts using its own data.", color = MutedText, fontSize = 8.sp)
     Spacer(Modifier.height(8.dp))
     V144RevenueFormatSplit(data)
 
     Spacer(Modifier.height(16.dp))
     Text("TOP EARNING CONTENT", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black)
-    Text("Estimated earnings for each video in this period.", color = MutedText, fontSize = 8.sp)
     Spacer(Modifier.height(8.dp))
     V144RevenueContentList(data, analyticsSnapshot)
 
@@ -173,7 +176,7 @@ private fun V144RevenueWorkspace(
     }
     Spacer(Modifier.height(8.dp))
     Text(
-        "Estimated · ${data.startDate} → ${data.endDate} · YouTube revenue may lag and can change during month-end adjustment. RPM = estimated revenue ÷ views × 1,000.",
+        "Estimated · ${data.startDate} → ${data.endDate} · ${data.evidence?.observedDays ?: 0} daily rows",
         color = MutedText.copy(alpha = .85f),
         fontSize = 7.8.sp,
         lineHeight = 11.5.sp,
@@ -183,7 +186,8 @@ private fun V144RevenueWorkspace(
 @Composable
 private fun V144RevenueFormatSplit(data: YouTubeRevenueSnapshot) {
     if (data.content.isEmpty()) {
-        Text("Video earnings aren't loaded yet. Tap Refresh.", color = MutedText, fontSize = 8.5.sp, lineHeight = 12.sp)
+        Text(if (data.evidence?.contentState == YouTubeDatasetState.UNAVAILABLE) "Content unavailable"
+            else "No content data", color = MutedText, fontSize = 8.5.sp)
         return
     }
     val shorts = data.content.filter { it.creatorContentType == "SHORTS" }
@@ -218,7 +222,8 @@ private fun V144RevenueFormatSplit(data: YouTubeRevenueSnapshot) {
 @Composable
 private fun V144RevenueContentList(data: YouTubeRevenueSnapshot, analyticsSnapshot: YouTubeAnalyticsSnapshot?) {
     if (data.content.isEmpty()) {
-        Text("Tap Refresh to load earnings by video.", color = MutedText, fontSize = 8.5.sp)
+        Text(if (data.evidence?.contentState == YouTubeDatasetState.UNAVAILABLE) "Content unavailable"
+            else "No content data", color = MutedText, fontSize = 8.5.sp)
         return
     }
     val titles = analyticsSnapshot
@@ -310,7 +315,8 @@ private fun V144RevenueMetric(label: String, value: String, accent: Color, modif
 private fun V144RevenueTrend(data: YouTubeRevenueSnapshot) {
     val points = data.trend.takeLast(14)
     if (points.isEmpty()) {
-        Text("Earnings trend will appear when YouTube provides daily data.", color = MutedText, fontSize = 8.5.sp)
+        Text(if (data.evidence?.trendState == YouTubeDatasetState.UNAVAILABLE) "Trend unavailable"
+            else "No trend data", color = MutedText, fontSize = 8.5.sp)
         return
     }
     val max = points.maxOfOrNull { it.estimatedRevenue }?.takeIf { it > 0.0 } ?: 1.0
@@ -319,7 +325,7 @@ private fun V144RevenueTrend(data: YouTubeRevenueSnapshot) {
         Spacer(Modifier.height(7.dp))
         Row(Modifier.fillMaxWidth().height(44.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
             points.forEach { point ->
-                val ratio = (point.estimatedRevenue / max).toFloat().coerceIn(.06f, 1f)
+                val ratio = (point.estimatedRevenue / max).toFloat().coerceIn(0f, 1f)
                 Box(Modifier.weight(1f).fillMaxHeight(ratio).background(MutedGold.copy(alpha = if (ratio >= .98f) .95f else .48f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)))
             }
         }
@@ -346,3 +352,7 @@ private fun v144Money(value: Double, currencyCode: String): String {
     formatter.maximumFractionDigits = if (value >= 100.0) 0 else 2
     return formatter.format(value)
 }
+
+private fun v188Money(data: YouTubeRevenueSnapshot, key: String, amount: Double, ad: Boolean = false): String =
+    if (if (ad) data.evidence?.hasAd(key) == true else data.evidence?.hasSummary(key) == true)
+        v144Money(amount, data.currencyCode) else "—"
