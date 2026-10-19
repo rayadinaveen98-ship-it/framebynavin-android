@@ -79,7 +79,7 @@ internal fun V189VideoDetailScreen(
                         if (video.publishedAtMillis > 0L)
                             SimpleDateFormat("d MMM yyyy", Locale.getDefault())
                                 .format(Date(video.publishedAtMillis))
-                        else "Published date unavailable",
+                        else "Date unavailable",
                         color = MutedText, fontSize = 10.sp,
                     )
                     Spacer(Modifier.height(14.dp))
@@ -89,7 +89,7 @@ internal fun V189VideoDetailScreen(
                                 selected = section == item,
                                 onClick = { section = item },
                                 modifier = Modifier.weight(1f).testTag("v189-video-section-${item.name}"),
-                                label = { Text(item.label, fontSize = 9.sp,
+                                label = { Text(item.label, fontSize = 11.sp,
                                     maxLines = 1) },
                             )
                         }
