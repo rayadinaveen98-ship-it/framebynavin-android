@@ -37,6 +37,8 @@ data class YouTubeReachWindowSummary(
     val ctrPercent: Double,
     val videos: List<YouTubeReachVideoSummary>,
     val latestReportCreateTime: String,
+    val coveredDays: Int = 0,
+    val requestedDays: Int = 0,
 )
 
 data class YouTubeReachSyncResult(
@@ -116,7 +118,12 @@ class YouTubeReachStore(context: Context) {
             val date = runCatching { LocalDate.parse(row.date) }.getOrNull() ?: return@filter false
             !date.isBefore(start) && !date.isAfter(end)
         }
-        if (rows.isEmpty()) return null
+        val coveredDates = prefs.all.keys.mapNotNull { key ->
+            if (!key.startsWith("day_meta_")) return@mapNotNull null
+            runCatching { LocalDate.parse(key.removePrefix("day_meta_")) }.getOrNull()
+                ?.takeIf { !it.isBefore(start) && !it.isAfter(end) }
+        }.distinct()
+        if (coveredDates.isEmpty()) return null
 
         val totalImpressions = rows.sumOf { it.impressions.coerceAtLeast(0L) }
         val estimatedClicks = rows.sumOf { it.impressions.coerceAtLeast(0L) * (it.ctrPercent.coerceIn(0.0, 100.0) / 100.0) }
@@ -132,7 +139,9 @@ class YouTubeReachStore(context: Context) {
         }.sortedByDescending { it.impressions }
 
         val latestCreate = rows.map { it.reportCreateTime }.filter { it.isNotBlank() }.maxOrNull().orEmpty()
-        return YouTubeReachWindowSummary(start.toString(), end.toString(), totalImpressions, ctr, videos, latestCreate)
+        val requested = java.time.temporal.ChronoUnit.DAYS.between(start, end).toInt() + 1
+        return YouTubeReachWindowSummary(start.toString(), end.toString(), totalImpressions, ctr,
+            videos, latestCreate, coveredDates.size, requested)
     }
 
     private fun rowToJson(row: YouTubeReachDailyRow) = JSONObject()
@@ -183,9 +192,12 @@ class YouTubeReachStore(context: Context) {
  * are asynchronous, so a freshly-created job correctly returns PENDING until YouTube produces data.
  */
 class YouTubeReachReportingClient(private val store: YouTubeReachStore) {
-    fun sync(accessToken: String, channelId: String): YouTubeReachSyncResult {
-        if (channelId.isBlank()) return YouTubeReachSyncResult(YouTubeDatasetState.UNAVAILABLE, "Channel identity is unavailable.")
-        store.bindChannel(channelId)
+    suspend fun sync(
+        accessToken: String, channelId: String,
+        request: YouTubeCacheRequest, analyticsStore: YouTubeAnalyticsStore,
+    ): YouTubeReachSyncResult {
+        if (!analyticsStore.applyReachIfCurrent(request, channelId) { store.bindChannel(channelId) })
+            return YouTubeReachSyncResult(YouTubeDatasetState.UNAVAILABLE, "Reach refresh cancelled.")
         return try {
             if (!supportsReach(accessToken)) {
                 return YouTubeReachSyncResult(
@@ -194,6 +206,8 @@ class YouTubeReachReportingClient(private val store: YouTubeReachStore) {
                 )
             }
             val job = resolveOrCreateJob(accessToken)
+            if (!analyticsStore.applyReachIfCurrent(request, channelId) { store.saveJob(job.id) })
+                return YouTubeReachSyncResult(YouTubeDatasetState.UNAVAILABLE, "Reach refresh cancelled.")
             val reports = listReports(accessToken, job.id)
             if (reports.isEmpty()) {
                 return YouTubeReachSyncResult(
@@ -215,7 +229,11 @@ class YouTubeReachReportingClient(private val store: YouTubeReachStore) {
                     val rows = downloadReachCsv(accessToken, report).map { parsed ->
                         parsed.copy(reportId = report.id, reportCreateTime = report.createTime)
                     }
-                    if (store.replaceDay(date, report.id, report.createTime, rows)) imported++
+                    var written = false
+                    if (!analyticsStore.applyReachIfCurrent(request, channelId) {
+                            written = store.replaceDay(date, report.id, report.createTime, rows)
+                        }) return YouTubeReachSyncResult(YouTubeDatasetState.UNAVAILABLE, "Reach refresh cancelled.")
+                    if (written) imported++
                 }
 
             val state = if (store.summary(reports.minOf { reportDate(it.startTime) }, reports.maxOf { reportDate(it.startTime) }) != null) {
@@ -258,7 +276,6 @@ class YouTubeReachReportingClient(private val store: YouTubeReachStore) {
         val jobs = listJobs(token)
         jobs.firstOrNull { it.id == persisted && it.reportTypeId == REPORT_TYPE }?.let { return it }
         jobs.filter { it.reportTypeId == REPORT_TYPE }.maxByOrNull { it.createTime }?.let {
-            store.saveJob(it.id)
             return it
         }
         val created = postJson(
@@ -268,7 +285,6 @@ class YouTubeReachReportingClient(private val store: YouTubeReachStore) {
         )
         val job = ReachJob(created.optString("id"), created.optString("reportTypeId"), created.optString("createTime"))
         require(job.id.isNotBlank()) { "YouTube did not return a reach-reporting job id." }
-        store.saveJob(job.id)
         return job
     }
 
@@ -286,25 +302,33 @@ class YouTubeReachReportingClient(private val store: YouTubeReachStore) {
     }
 
     private fun listReports(token: String, jobId: String): List<ReachReport> {
-        val response = getJson("$BASE/jobs/${encodePath(jobId)}/reports", token, mapOf("pageSize" to "100"))
-        val reports = response.optJSONArray("reports") ?: JSONArray()
-        return buildList {
+        val endpoint = "$BASE/jobs/${encodePath(jobId)}/reports"
+        val seenTokens = mutableSetOf<String>()
+        val result = mutableListOf<ReachReport>()
+        var tokenPage = ""
+        // YouTube Reporting uses nextPageToken; a single response is not a full report history.
+        repeat(15) {
+            val params = if (tokenPage.isBlank()) mapOf("pageSize" to "100")
+                else mapOf("pageSize" to "100", "pageToken" to tokenPage)
+            val response = getJson(endpoint, token, params)
+            val reports = response.optJSONArray("reports") ?: JSONArray()
             for (i in 0 until reports.length()) {
                 val o = reports.optJSONObject(i) ?: continue
                 val id = o.optString("id")
                 val download = o.optString("downloadUrl")
                 if (id.isBlank() || download.isBlank()) continue
-                add(
-                    ReachReport(
-                        id = id,
-                        startTime = o.optString("startTime"),
-                        endTime = o.optString("endTime"),
-                        createTime = o.optString("createTime"),
-                        downloadUrl = download,
-                    )
+                result += ReachReport(
+                    id, o.optString("startTime"), o.optString("endTime"),
+                    o.optString("createTime"), download,
                 )
             }
+            val next = response.optString("nextPageToken")
+            if (next.isBlank()) return result
+            if (!seenTokens.add(next)) throw IllegalStateException("Repeated YouTube reporting page.")
+            tokenPage = next
         }
+        // Do not declare truncated history complete.
+        throw IllegalStateException("YouTube reach pagination limit reached; try refreshing later.")
     }
 
     private fun downloadReachCsv(token: String, report: ReachReport): List<YouTubeReachDailyRow> {

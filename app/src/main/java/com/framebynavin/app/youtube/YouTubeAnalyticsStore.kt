@@ -101,6 +101,26 @@ class YouTubeAnalyticsStore(context: Context) {
         }
     }
 
+    /**
+     * Apply one reach-cache edit atomically with current channel/request/generation
+     * validation. Never hold this lock while fetching remote reports.
+     */
+    suspend fun applyReachIfCurrent(
+        request: YouTubeCacheRequest,
+        expectedChannelId: String,
+        write: () -> Unit,
+    ): Boolean = CreatorDataGate.readyTransaction(appContext) {
+        synchronized(cacheLock) {
+            ensureCurrentDataGenerationLocked()
+            if (!isCurrentLocked(request) ||
+                expectedChannelId.isBlank() ||
+                prefs.getString(KEY_CHANNEL_ID, null) != expectedChannelId
+            ) return@synchronized false
+            write()
+            true
+        }
+    }
+
     /** Cancel a superseded UI request without discarding the last accepted cache. */
     fun cancelRequest(request: YouTubeCacheRequest) = synchronized(cacheLock) {
         ensureCurrentDataGenerationLocked()

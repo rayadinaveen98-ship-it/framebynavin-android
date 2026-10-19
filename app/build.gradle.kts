@@ -53,10 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V187 Phase 1B Insights data-truth preview on top of V186.
+        // Backlot V188 Phase 1B revenue and audience preview on top of V187.
         // Same application and signing identity; no destructive creator-data migration.
-        versionCode = 187
-        versionName = "2.3.7-v187-insights-truth-preview"
+        versionCode = 188
+        versionName = "2.3.8-v188-revenue-audience-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
