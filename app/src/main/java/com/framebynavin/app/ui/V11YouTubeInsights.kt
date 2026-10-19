@@ -410,12 +410,7 @@ internal fun V11InsightsScreen(
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
-            Text(personalization.insightTitle, color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
-            Text(personalization.insightBody, color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(14.dp))
-            YTProfileFocusCard(creatorProfile, personalization)
-            Spacer(Modifier.height(18.dp))
 
             if (snapshot == null) {
                 YTConnectCard(
@@ -553,8 +548,7 @@ private fun YTConnectCard(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Connect YouTube", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                    Text("See how your channel is doing", color = MutedText, fontSize = 9.2.sp)
-                }
+                        }
             }
             Spacer(Modifier.height(14.dp))
             Text("See views, watch time and subscribers. Backlot cannot post or delete videos.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
@@ -579,7 +573,6 @@ private fun YTErrorCard(message: String, packageName: String, sha1: String) {
             Spacer(Modifier.height(4.dp))
             Text(message, color = ProjectorIvory, fontSize = 9.5.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(8.dp))
-            Text("Try connecting again. If it still fails, check Settings.", color = MutedText, fontSize = 8.2.sp)
         }
     }
 }
@@ -603,7 +596,7 @@ private fun YTChannelHeader(
                 Spacer(Modifier.width(11.dp))
                 Column(Modifier.weight(1f)) {
                     Text(data.channel.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${ytCompact(data.channel.subscribers)} subscribers · ${data.channel.videoCount} videos", color = MutedText, fontSize = 8.8.sp)
+                    Text("${ytCompact(data.channel.subscribers)} subscribers", color = MutedText, fontSize = 11.sp)
                     if (syncing) Text("Updating…", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = onSync, enabled = !syncing) {
@@ -630,22 +623,16 @@ private fun YTChannelHeader(
             Text(
                 "${YouTubeAnalyticsQueryPolicy.finalizedWindowLabel(data.windowDays)} · ${data.startDate} → ${data.endDate}",
                 color = MutedText,
-                fontSize = 10.sp,
-            )
-            Text(
-                "Channel totals checked ${ytSyncTime(data.fetchedAtMillis)} · ${ytCompact(data.channel.lifetimeViews)} lifetime views",
-                color = MutedText,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
             )
             Text(
                 when (val evidence = data.reportEvidence) {
-                    null -> "Legacy data · Refresh"
-                    else -> if (!evidence.summaryPresent) "Summary unavailable · Refresh"
-                        else "${evidence.returnedDailyDates.size} reported days · Processing"
+                    null -> "Unverified · Refresh"
+                    else -> if (!evidence.summaryPresent) "Unavailable · Refresh"
+                        else "Updated ${ytSyncTime(data.fetchedAtMillis)} · ${evidence.returnedDailyDates.size} daily rows"
                 },
-                color = MutedText.copy(alpha = .88f),
-                fontSize = 10.sp,
-                lineHeight = 14.sp,
+                color = MutedText,
+                fontSize = 11.sp,
             )
         }
     }
