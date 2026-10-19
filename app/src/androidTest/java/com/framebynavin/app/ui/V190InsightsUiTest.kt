@@ -1,6 +1,10 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.youtube.*
@@ -29,15 +33,17 @@ class V190InsightsUiTest {
         HardeningTestEnvironment.requireCiEmulator()
         rule.setContent {
             FrameByNavinTheme {
-                V172InsightsBody(channel(), emptyList(), emptyList(), emptyMap(),
-                    onLinkVideo = {})
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    V172InsightsBody(channel(), emptyList(), emptyList(), emptyMap(),
+                        onLinkVideo = {})
+                }
             }
         }
         rule.onNodeWithText("Daily Views").assertExists()
         rule.onNodeWithText("Top Videos").assertExists()
         rule.onNodeWithText("YOUR RESULTS").assertDoesNotExist()
         rule.onNodeWithTag("v190-disclosure-audience-opportunities").assertExists()
-        rule.onNodeWithTag("v190-disclosure-audience-opportunities").performClick()
+        rule.onNodeWithTag("v190-disclosure-audience-opportunities").performScrollTo().performClick()
         rule.onNodeWithText("Audience").assertExists()
     }
 
@@ -45,8 +51,10 @@ class V190InsightsUiTest {
         HardeningTestEnvironment.requireCiEmulator()
         rule.setContent {
             FrameByNavinTheme {
-                V172InsightsBody(channel(), emptyList(), emptyList(), emptyMap(),
-                    onLinkVideo = {})
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    V172InsightsBody(channel(), emptyList(), emptyList(), emptyMap(),
+                        onLinkVideo = {})
+                }
             }
         }
         rule.onNodeWithText("Creator").performClick()
