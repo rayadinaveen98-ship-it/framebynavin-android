@@ -75,7 +75,7 @@ internal fun V20InsightsDrilldownDialog(
                     }
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = MutedText) }
                 }
-                Text("${snapshot.startDate} → ${snapshot.endDate}", color = MutedText, fontSize = 8.5.sp)
+                Text("${snapshot.startDate} → ${snapshot.endDate}", color = MutedText, fontSize = 11.sp)
                 Spacer(Modifier.height(16.dp))
 
                 if (request.kind == V20InsightsDetailKind.SIGNAL) {
@@ -104,8 +104,8 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
             change?.let { "${if (it > 0) "+" else ""}$it%" } ?: "Comparison unavailable",
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             color = when { change == null -> MutedText; change > 0 -> SuccessGreen; change < 0 -> RecRed; else -> MutedText },
-            fontSize = 9.sp,
-            lineHeight = 13.sp,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
             fontWeight = FontWeight.Bold,
         )
     }
@@ -113,7 +113,7 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
     Spacer(Modifier.height(18.dp))
     if (kind == V20InsightsDetailKind.AVG_VIEW) {
         Text("COMPARE PERIODS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("YouTube hasn't provided daily average watch time for this view.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("YouTube hasn't provided daily average watch time for this view.", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
     } else {
         Text(if (kind == V20InsightsDetailKind.DAILY_VIEWS) "DAILY VIEWS" else "DAILY TREND", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
         
@@ -133,11 +133,11 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
             border = BorderStroke(1.dp, CinemaLine),
         ) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("#${index + 1}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("#${index + 1}", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(9.dp))
                 Column(Modifier.weight(1f)) {
                     Text(video.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(v20VideoMetric(video, kind), color = MutedText, fontSize = 8.sp)
+                    Text(v20VideoMetric(video, kind), color = MutedText, fontSize = 11.sp)
                 }
             }
         }
@@ -155,7 +155,7 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
     }
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, accent.copy(alpha = .35f))) {
         Column(Modifier.padding(15.dp)) {
-            Text(signal.kicker, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+            Text(signal.kicker, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
             Spacer(Modifier.height(4.dp))
             Text(signal.title, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(6.dp))
@@ -195,8 +195,8 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Text(
         "This compares two saved updates. It is not live hourly data.",
         color = MutedText,
-        fontSize = 8.5.sp,
-        lineHeight = 12.5.sp,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
     )
     Spacer(Modifier.height(9.dp))
 
@@ -230,8 +230,8 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
                 report.viewsChangePercent < 0 -> RecRed
                 else -> MutedText
             },
-            fontSize = 9.sp,
-            lineHeight = 13.sp,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
             fontWeight = FontWeight.Bold,
         )
     }
@@ -241,8 +241,8 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Text(
         "${v20PulseTime(report.baselineCapturedAtMillis)} → ${v20PulseTime(report.currentCapturedAtMillis)} · about ${report.sampleHours} hours",
         color = MutedText,
-        fontSize = 8.5.sp,
-        lineHeight = 12.sp,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
     )
 
     Spacer(Modifier.height(14.dp))
@@ -258,11 +258,11 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
                 border = BorderStroke(1.dp, CinemaLine),
             ) {
                 Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("#${index + 1}", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                    Text("#${index + 1}", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(mover.title, color = ProjectorIvory, fontSize = 9.8.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("+${v20Compact(mover.viewsGained)} sampled views · about ${mover.channelGainSharePercent}% of channel gain", color = MutedText, fontSize = 7.8.sp)
+                        Text(mover.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("+${v20Compact(mover.viewsGained)} sampled views · about ${mover.channelGainSharePercent}% of channel gain", color = MutedText, fontSize = 11.sp)
                     }
                 }
             }
@@ -292,7 +292,7 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
         V20DetailMetric("WATCH", v20Watch(performance.video.watchMinutes), Modifier.weight(1f))
     }
     Spacer(Modifier.height(9.dp))
-    Text("This compares recent videos. It doesn't explain why a video performed better.", color = MutedText, fontSize = 8.3.sp, lineHeight = 12.3.sp)
+    Text("This compares recent videos. It doesn't explain why a video performed better.", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
 }
 
 @Composable
@@ -334,7 +334,7 @@ private fun V20ChannelContextEvidence(snapshot: YouTubeAnalyticsSnapshot) {
     Spacer(Modifier.height(16.dp))
     Text("TOP SUPPORTING VIDEOS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
     YouTubeInsightEngine.videoPerformance(snapshot).take(3).forEachIndexed { index, performance ->
-        Text("${index + 1}. ${performance.video.title} · ${v20Compact(performance.video.periodViews)} views", color = MutedText, fontSize = 8.6.sp, lineHeight = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text("${index + 1}. ${performance.video.title} · ${v20Compact(performance.video.periodViews)} views", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
     }
 }
@@ -343,9 +343,9 @@ private fun V20ChannelContextEvidence(snapshot: YouTubeAnalyticsSnapshot) {
 private fun V20EvidenceNote(title: String, body: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
-            Text(title, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+            Text(title, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
             Spacer(Modifier.height(4.dp))
-            Text(body, color = MutedText, fontSize = 8.7.sp, lineHeight = 13.sp)
+            Text(body, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
         }
     }
 }
@@ -354,7 +354,7 @@ private fun V20EvidenceNote(title: String, body: String) {
 private fun V20DetailMetric(label: String, value: String, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
-            Text(label, color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+            Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
             Spacer(Modifier.height(3.dp))
             Text(value, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
         }
@@ -382,10 +382,10 @@ private fun V20InteractiveTrendChart(snapshot: YouTubeAnalyticsSnapshot, kind: V
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(selected.date, color = MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text(selected.date, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Text(v20MetricValue(kind, selectedValue), color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
                 }
-                Text("${selectedIndex + 1}/${points.size}", color = MutedText, fontSize = 8.sp)
+                Text("${selectedIndex + 1}/${points.size}", color = MutedText, fontSize = 11.sp)
             }
             Spacer(Modifier.height(10.dp))
             Canvas(
