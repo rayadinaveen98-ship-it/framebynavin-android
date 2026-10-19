@@ -140,7 +140,7 @@ private fun V144RevenueWorkspace(
 
     error?.let {
         Spacer(Modifier.height(8.dp))
-        Text(it, color = RecRed, fontSize = 8.2.sp, lineHeight = 12.sp)
+        Text(it, color = RecRed, fontSize = 11.sp, lineHeight = 15.sp)
     }
     Spacer(Modifier.height(8.dp))
     Text(
@@ -154,7 +154,7 @@ private fun V144RevenueWorkspace(
 private fun V144RevenueFormatSplit(data: YouTubeRevenueSnapshot) {
     if (data.content.isEmpty()) {
         Text(if (data.evidence?.contentState == YouTubeDatasetState.UNAVAILABLE) "Content unavailable"
-            else "No content data", color = MutedText, fontSize = 8.5.sp)
+            else "No content data", color = MutedText, fontSize = 11.sp)
         return
     }
     val shorts = data.content.filter { it.creatorContentType == "SHORTS" }
@@ -177,8 +177,8 @@ private fun V144RevenueFormatSplit(data: YouTubeRevenueSnapshot) {
         Surface(Modifier.fillMaxWidth().padding(bottom = 6.dp), RoundedCornerShape(13.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
             Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(label, color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Black)
-                    Text("${v144Compact(views)} views · ${String.format(Locale.US, "%.0f", share)}% of revenue", color = ProjectorIvory, fontSize = 8.5.sp)
+                    Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text("${v144Compact(views)} views · ${String.format(Locale.US, "%.0f", share)}% of revenue", color = ProjectorIvory, fontSize = 11.sp)
                 }
                 Text(v144Money(revenue, data.currencyCode), color = if (label == "SHORTS") RecRed else MutedGold, fontSize = 13.sp, fontWeight = FontWeight.Black)
             }
@@ -190,7 +190,7 @@ private fun V144RevenueFormatSplit(data: YouTubeRevenueSnapshot) {
 private fun V144RevenueContentList(data: YouTubeRevenueSnapshot, analyticsSnapshot: YouTubeAnalyticsSnapshot?) {
     if (data.content.isEmpty()) {
         Text(if (data.evidence?.contentState == YouTubeDatasetState.UNAVAILABLE) "Content unavailable"
-            else "No content data", color = MutedText, fontSize = 8.5.sp)
+            else "No content data", color = MutedText, fontSize = 11.sp)
         return
     }
     val titles = analyticsSnapshot
@@ -208,11 +208,11 @@ private fun V144RevenueContentList(data: YouTubeRevenueSnapshot, analyticsSnapsh
 private fun V144RevenueContentRow(rank: Int, row: YouTubeRevenueContentRow, title: String?, currencyCode: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(13.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("#$rank", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Text("#$rank", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.width(9.dp))
             Column(Modifier.weight(1f)) {
-                Text(title ?: "YouTube content · ${row.videoId.take(8)}", color = ProjectorIvory, fontSize = 9.2.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("${v144Type(row.creatorContentType)} · ${v144Compact(row.views)} views · Rev/1K ${if (row.views > 0L) v144Money(row.estimatedRevenue * 1000.0 / row.views, currencyCode) else "—"}", color = MutedText, fontSize = 7.6.sp)
+                Text(title ?: "YouTube content · ${row.videoId.take(8)}", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("${v144Type(row.creatorContentType)} · ${v144Compact(row.views)} views · Rev/1K ${if (row.views > 0L) v144Money(row.estimatedRevenue * 1000.0 / row.views, currencyCode) else "—"}", color = MutedText, fontSize = 11.sp)
             }
             Spacer(Modifier.width(8.dp))
             Text(v144Money(row.estimatedRevenue, currencyCode), color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Black)
@@ -226,7 +226,7 @@ private fun V144RevenueAccessError(error: String, loading: Boolean, onRefresh: (
         Column(Modifier.padding(12.dp)) {
             Text("Revenue unavailable", color = RecRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(3.dp))
-            Text(error, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
+            Text(error, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = onRefresh, enabled = !loading, contentPadding = PaddingValues(0.dp)) {
                 Text("Reconnect", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -253,11 +253,11 @@ private fun V144RevenueLoading(selectedPeriod: YouTubeRevenuePeriod, loading: Bo
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MutedGold)
                     Spacer(Modifier.width(8.dp))
                 }
-                Text(if (loading) "Loading ${selectedPeriod.label} revenue…" else "Revenue is enabled for ${selectedPeriod.label}.", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                Text(if (loading) "Loading ${selectedPeriod.label} revenue…" else "Revenue is enabled for ${selectedPeriod.label}.", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             error?.let {
                 Spacer(Modifier.height(5.dp))
-                Text(it, color = RecRed, fontSize = 8.2.sp, lineHeight = 12.sp)
+                Text(it, color = RecRed, fontSize = 11.sp, lineHeight = 15.sp)
                 Spacer(Modifier.height(6.dp))
                 TextButton(onClick = onRefresh, enabled = !loading, contentPadding = PaddingValues(0.dp)) {
                     Text("Retry", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -271,7 +271,7 @@ private fun V144RevenueLoading(selectedPeriod: YouTubeRevenuePeriod, loading: Bo
 private fun V144RevenueMetric(label: String, value: String, accent: Color, modifier: Modifier) {
     Surface(modifier, RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(11.dp)) {
-            Text(label, color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
             Text(value, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -283,7 +283,7 @@ private fun V144RevenueTrend(data: YouTubeRevenueSnapshot) {
     val points = data.trend.takeLast(14)
     if (points.isEmpty()) {
         Text(if (data.evidence?.trendState == YouTubeDatasetState.UNAVAILABLE) "Trend unavailable"
-            else "No trend data", color = MutedText, fontSize = 8.5.sp)
+            else "No trend data", color = MutedText, fontSize = 11.sp)
         return
     }
     val max = points.maxOfOrNull { it.estimatedRevenue }?.takeIf { it > 0.0 } ?: 1.0
