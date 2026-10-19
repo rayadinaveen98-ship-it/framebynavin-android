@@ -25,7 +25,7 @@ data class YouTubePulseSample(
     val videos: List<YouTubePulseVideoCounter>,
 )
 
-enum class YouTubePulseMomentum { RISING, STEADY, COOLING }
+enum class YouTubePulseMomentum { RISING, STEADY, COOLING, INSUFFICIENT, CORRECTION }
 
 data class YouTubePulseMover(
     val videoId: String,
@@ -44,6 +44,10 @@ data class YouTube24HourReport(
     val topMovers: List<YouTubePulseMover>,
     val currentCapturedAtMillis: Long,
     val baselineCapturedAtMillis: Long,
+    /** Previous interval's observed length, not an assumed 24 hours. */
+    val previousWindowHours: Int? = null,
+    /** A negative raw channel counter delta indicates an external counter adjustment. */
+    val counterAdjustment: Long = 0L,
 )
 
 data class CreatorOpportunityAlert(
@@ -63,9 +67,8 @@ class YouTubePulseStore(context: Context) {
         if (channelId.isBlank()) return
 
         val existingChannel = prefs.getString(KEY_CHANNEL_ID, null)
-        if (!existingChannel.isNullOrBlank() && existingChannel != channelId) {
-            prefs.edit().clear().apply()
-        }
+        val channelChanged = !existingChannel.isNullOrBlank() && existingChannel != channelId
+        if (channelChanged) prefs.edit().clear().apply()
 
         val videos = (snapshot.topVideos + snapshot.recentVideos)
             .distinctBy { it.videoId }
@@ -86,8 +89,11 @@ class YouTubePulseStore(context: Context) {
             videos = videos,
         )
 
-        val samples = loadSamples().toMutableList()
+        // A cached different channel must never contribute to this channel's pulse.
+        val samples = if (channelChanged) mutableListOf() else loadSamples()
+            .filter { it.channelId == channelId }.sortedBy { it.capturedAtMillis }.toMutableList()
         val last = samples.lastOrNull()
+        if (last != null && sample.capturedAtMillis < last.capturedAtMillis) return
         if (last != null && sample.capturedAtMillis - last.capturedAtMillis < MIN_SAMPLE_GAP_MS) {
             samples[samples.lastIndex] = sample
         } else {
@@ -99,87 +105,12 @@ class YouTubePulseStore(context: Context) {
         prefs.edit().putString(KEY_CHANNEL_ID, channelId).apply()
     }
 
-    fun build24HourReport(): YouTube24HourReport? {
-        val samples = loadSamples().sortedBy { it.capturedAtMillis }
-        val current = samples.lastOrNull() ?: return null
-        val baseline = closestSample(
-            samples = samples.dropLast(1),
-            currentMillis = current.capturedAtMillis,
-            targetAgeHours = 24,
-            minAgeHours = 18,
-            maxAgeHours = 30,
-        ) ?: return null
-
-        val sampleHours = (((current.capturedAtMillis - baseline.capturedAtMillis) / HOUR_MS.toDouble()).roundToInt()).coerceAtLeast(1)
-        val viewsGained = (current.lifetimeViews - baseline.lifetimeViews).coerceAtLeast(0L)
-        val subscribersDelta = current.subscribers - baseline.subscribers
-
-        val previousBase = closestSample(
-            samples = samples.filter { it.capturedAtMillis < baseline.capturedAtMillis },
-            currentMillis = current.capturedAtMillis,
-            targetAgeHours = 48,
-            minAgeHours = 40,
-            maxAgeHours = 58,
-        )
-        val previousViews = previousBase?.let { (baseline.lifetimeViews - it.lifetimeViews).coerceAtLeast(0L) }
-        val change = if (previousViews != null && previousViews > 0L) {
-            (((viewsGained - previousViews) * 100.0) / previousViews.toDouble()).roundToInt()
-        } else null
-
-        val oldVideos = baseline.videos.associateBy { it.videoId }
-        val movers = current.videos.mapNotNull { video ->
-            val before = oldVideos[video.videoId]
-            val gained = when {
-                before != null -> (video.lifetimeViews - before.lifetimeViews).coerceAtLeast(0L)
-                video.publishedAtMillis >= baseline.capturedAtMillis -> video.lifetimeViews.coerceAtLeast(0L)
-                else -> 0L
-            }
-            if (gained <= 0L) return@mapNotNull null
-            YouTubePulseMover(
-                videoId = video.videoId,
-                title = video.title,
-                viewsGained = gained,
-                channelGainSharePercent = if (viewsGained > 0L) ((gained * 100.0) / viewsGained.toDouble()).roundToInt().coerceAtMost(100) else 0,
-            )
-        }.sortedByDescending { it.viewsGained }.take(5)
-
-        val momentum = when {
-            change != null && change >= 25 -> YouTubePulseMomentum.RISING
-            change != null && change <= -25 -> YouTubePulseMomentum.COOLING
-            else -> YouTubePulseMomentum.STEADY
-        }
-
-        return YouTube24HourReport(
-            sampleHours = sampleHours,
-            viewsGained = viewsGained,
-            subscribersDelta = subscribersDelta,
-            previousViewsGained = previousViews,
-            viewsChangePercent = change,
-            momentum = momentum,
-            topMovers = movers,
-            currentCapturedAtMillis = current.capturedAtMillis,
-            baselineCapturedAtMillis = baseline.capturedAtMillis,
-        )
-    }
+    fun build24HourReport(): YouTube24HourReport? =
+        YouTubePulseComputation.build(loadSamples(), System.currentTimeMillis())
 
     fun sampleCount(): Int = loadSamples().size
 
     fun clear() = prefs.edit().clear().apply()
-
-    private fun closestSample(
-        samples: List<YouTubePulseSample>,
-        currentMillis: Long,
-        targetAgeHours: Int,
-        minAgeHours: Int,
-        maxAgeHours: Int,
-    ): YouTubePulseSample? {
-        val minAge = minAgeHours * HOUR_MS
-        val maxAge = maxAgeHours * HOUR_MS
-        val target = targetAgeHours * HOUR_MS
-        return samples
-            .filter { currentMillis - it.capturedAtMillis in minAge..maxAge }
-            .minByOrNull { abs((currentMillis - it.capturedAtMillis) - target) }
-    }
 
     private fun loadSamples(): List<YouTubePulseSample> {
         val raw = prefs.getString(KEY_SAMPLES, null) ?: return emptyList()
@@ -256,6 +187,8 @@ object YouTubeOpportunityEngine {
         ideas: List<CreatorIdea>,
     ): List<CreatorOpportunityAlert> {
         report ?: return emptyList()
+        // Counter corrections do not provide reliable growth evidence.
+        if (report.momentum == YouTubePulseMomentum.CORRECTION) return emptyList()
         val alerts = mutableListOf<CreatorOpportunityAlert>()
         val top = report.topMovers.firstOrNull()
 
@@ -272,7 +205,7 @@ object YouTubeOpportunityEngine {
             alerts += CreatorOpportunityAlert(
                 kicker = "VIDEO PICKING UP",
                 title = top.title,
-                body = "This video gained ${compact(top.viewsGained)} views and drove about ${top.channelGainSharePercent}% of today's growth. A related Short or follow-up could work.",
+                body = "This sampled video gained ${compact(top.viewsGained)} views, about ${top.channelGainSharePercent}% of the observed channel change.",
                 tone = YouTubeInsightTone.OPPORTUNITY,
             )
 
