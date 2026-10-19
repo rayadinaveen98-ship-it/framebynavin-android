@@ -307,7 +307,6 @@ class YouTubeAnalyticsStore(context: Context) {
         subscribersLost = o.optLong("subscribersLost"),
         likes = o.optLong("likes"),
         comments = o.optLong("comments"),
-        hasPeriodData = o.optBoolean("hasPeriodData", false),
     )
 
     private fun channelToJson(c: YouTubeChannelSnapshot) = JSONObject()
@@ -353,6 +352,7 @@ class YouTubeAnalyticsStore(context: Context) {
         subscribersLost = o.optLong("subscribersLost"),
         likes = o.optLong("likes"),
         comments = o.optLong("comments"),
+        hasPeriodData = o.optBoolean("hasPeriodData", false),
     )
 
     private fun trendToJson(t: YouTubeTrendPoint) = JSONObject()
