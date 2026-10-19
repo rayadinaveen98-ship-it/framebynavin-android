@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: backlot-v190-${{ github.ref }}
+  group: backlot-v190-acceptance-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
