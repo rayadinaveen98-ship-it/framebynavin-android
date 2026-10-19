@@ -192,12 +192,6 @@ private fun V20SignalDetail(snapshot: YouTubeAnalyticsSnapshot, signal: YouTubeI
 @Composable
 private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Text("24-HOUR CHANGE", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    Text(
-        "This compares two saved updates. It is not live hourly data.",
-        color = MutedText,
-        fontSize = 11.sp,
-        lineHeight = 15.sp,
-    )
     Spacer(Modifier.height(9.dp))
 
     if (report == null) {
@@ -221,8 +215,8 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     Spacer(Modifier.height(9.dp))
     Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Text(
-            report.viewsChangePercent?.let { "${if (it > 0) "+" else ""}$it% views versus the preceding comparable sample window." }
-                ?: "Not enough earlier data to show a fair percentage change.",
+            report.viewsChangePercent?.let { "${if (it > 0) "+" else ""}$it%" }
+                ?: "Comparison unavailable",
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             color = when {
                 report.viewsChangePercent == null -> MutedText
@@ -288,8 +282,8 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
     }
     Spacer(Modifier.height(7.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V20DetailMetric("VS RECENT AVG", if (performance.baselineMultiple > 0) String.format(Locale.US, "%.1fx", performance.baselineMultiple) else "—", Modifier.weight(1f))
-        V20DetailMetric("WATCH", v20Watch(performance.video.watchMinutes), Modifier.weight(1f))
+        V20DetailMetric("Watch Time", v20Watch(performance.video.watchMinutes), Modifier.weight(1f))
+        V20DetailMetric("Subscribers", v20Signed(performance.video.netSubscribers), Modifier.weight(1f))
     }
     Spacer(Modifier.height(9.dp))
     Text("This compares recent videos. It doesn't explain why a video performed better.", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
@@ -298,7 +292,7 @@ private fun V20VideoSignalEvidence(snapshot: YouTubeAnalyticsSnapshot, signal: Y
 @Composable
 private fun V20AverageViewEvidence(snapshot: YouTubeAnalyticsSnapshot) {
     val previous = snapshot.previousPeriod
-    Text("WHY THIS MATTERS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("Average View", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -332,7 +326,7 @@ private fun V20ChannelContextEvidence(snapshot: YouTubeAnalyticsSnapshot) {
         V20DetailMetric("AVG VIEW", v20Duration(snapshot.averageViewDurationSeconds), Modifier.weight(1f))
     }
     Spacer(Modifier.height(16.dp))
-    Text("TOP SUPPORTING VIDEOS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+    Text("Top Videos", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     YouTubeInsightEngine.videoPerformance(snapshot).take(3).forEachIndexed { index, performance ->
         Text("${index + 1}. ${performance.video.title} · ${v20Compact(performance.video.periodViews)} views", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
