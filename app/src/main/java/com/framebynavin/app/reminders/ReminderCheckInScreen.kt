@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import com.framebynavin.app.ui.CinePulseGuide
 import com.framebynavin.app.ui.CinePulseState
-import kotlinx.coroutines.delay
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -108,13 +107,13 @@ internal fun ReminderCheckInScreen(
     val lowPower = remember(context) {
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     }
-    var revealed by rememberSaveable(kind, title) { mutableStateOf(!motionEnabled) }
-    LaunchedEffect(kind, title, motionEnabled) {
+    // The user, not an intro timer, chooses when to reveal controls.
+    // When OS animations are disabled, accessible controls appear immediately.
+    var revealed by rememberSaveable(kind, title) {
+        mutableStateOf(V197ReminderRevealPolicy.startRevealed(motionEnabled))
+    }
+    LaunchedEffect(motionEnabled) {
         if (!motionEnabled) revealed = true
-        else {
-            delay(2_100L)
-            revealed = true
-        }
     }
     val revealAlpha by animateFloatAsState(
         targetValue = if (revealed) 1f else 0f,
@@ -125,24 +124,24 @@ internal fun ReminderCheckInScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(BacklotBackground)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
+            .background(BacklotBackground),
     ) {
-        if (motionEnabled) {
-            V195ReminderParticleScene(
-                kind = kind,
-                revealed = revealed,
-                lowPower = lowPower,
-                onReveal = { revealed = true },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+        // The ambient field persists even after controls are visible.
+        V195ReminderParticleScene(
+            kind = kind,
+            revealed = revealed,
+            lowPower = lowPower,
+            onReveal = { revealed = true },
+            modifier = Modifier.fillMaxSize(),
+            motionEnabled = motionEnabled,
+        )
         // No invisible focusable reminder actions behind the intro.
         if (revealed) Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.Center)
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(scroll)
                 .padding(horizontal = 20.dp, vertical = 12.dp)
                 .graphicsLayer { alpha = revealAlpha },
