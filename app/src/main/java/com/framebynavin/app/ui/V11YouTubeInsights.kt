@@ -181,8 +181,10 @@ internal fun V11InsightsScreen(
                             health = foundation.health
                                 .filterNot { it.dataset == YouTubeFoundationDataset.REACH } + reachHealth,
                         )
-                        withContext(Dispatchers.IO) { foundationStore.save(withReach) }
-                        if (isActive(request)) foundationRevision += 1
+                        val accepted = withContext(Dispatchers.IO) {
+                            store.saveFoundationIfCurrent(withReach, request)
+                        }
+                        if (accepted && isActive(request)) foundationRevision += 1
                     }
                 }
             } catch (cancelled: CancellationException) {

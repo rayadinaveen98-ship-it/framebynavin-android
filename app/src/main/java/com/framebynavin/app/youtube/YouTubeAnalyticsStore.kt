@@ -81,6 +81,26 @@ class YouTubeAnalyticsStore(context: Context) {
             }
         }
 
+    /**
+     * Commit a deeper audience report only if the original core snapshot
+     * remains current across a disconnect, switch, new request or restore.
+     */
+    suspend fun saveFoundationIfCurrent(
+        foundation: YouTubeInsightsFoundationSnapshot,
+        request: YouTubeCacheRequest,
+    ): Boolean = CreatorDataGate.readyTransaction(appContext) {
+        synchronized(cacheLock) {
+            ensureCurrentDataGenerationLocked()
+            if (!isCurrentLocked(request) ||
+                foundation.channelId != prefs.getString(KEY_CHANNEL_ID, null) ||
+                foundation.windowDays !in setOf(7, 28, 90) ||
+                load(foundation.windowDays)?.fetchedAtMillis != foundation.fetchedAtMillis
+            ) return@synchronized false
+            YouTubeInsightsFoundationStore(appContext).save(foundation)
+            true
+        }
+    }
+
     /** Cancel a superseded UI request without discarding the last accepted cache. */
     fun cancelRequest(request: YouTubeCacheRequest) = synchronized(cacheLock) {
         ensureCurrentDataGenerationLocked()
@@ -200,7 +220,17 @@ class YouTubeAnalyticsStore(context: Context) {
         .put("recentVideos", JSONArray().apply { s.recentVideos.forEach { put(videoToJson(it)) } })
         .put("trend", JSONArray().apply { s.trend.forEach { put(trendToJson(it)) } })
         .put("fetchedAtMillis", s.fetchedAtMillis)
-        .apply { s.previousPeriod?.let { put("previousPeriod", periodToJson(it)) } }
+        .apply {
+            s.previousPeriod?.let { put("previousPeriod", periodToJson(it)) }
+            s.reportEvidence?.let { evidence ->
+                put("reportEvidence", JSONObject()
+                    .put("summaryPresent", evidence.summaryPresent)
+                    .put("previousSummaryPresent", evidence.previousSummaryPresent)
+                    .put("summaryMetricKeys", JSONArray(evidence.summaryMetricKeys.toList()))
+                    .put("previousMetricKeys", JSONArray(evidence.previousMetricKeys.toList()))
+                    .put("returnedDailyDates", JSONArray(evidence.returnedDailyDates)))
+            }
+        }
 
     private fun snapshotFromJson(o: JSONObject): YouTubeAnalyticsSnapshot = YouTubeAnalyticsSnapshot(
         channel = channelFromJson(o.getJSONObject("channel")),
@@ -219,7 +249,22 @@ class YouTubeAnalyticsStore(context: Context) {
         trend = jsonArrayToList(o.optJSONArray("trend")) { trendFromJson(it) },
         fetchedAtMillis = o.optLong("fetchedAtMillis"),
         previousPeriod = o.optJSONObject("previousPeriod")?.let { periodFromJson(it) },
+        reportEvidence = o.optJSONObject("reportEvidence")?.let { evidence ->
+            YouTubeReportEvidence(
+                summaryPresent = evidence.optBoolean("summaryPresent"),
+                previousSummaryPresent = evidence.optBoolean("previousSummaryPresent"),
+                summaryMetricKeys = jsonStringSet(evidence.optJSONArray("summaryMetricKeys")),
+                previousMetricKeys = jsonStringSet(evidence.optJSONArray("previousMetricKeys")),
+                returnedDailyDates = jsonStringSet(evidence.optJSONArray("returnedDailyDates")).sorted(),
+            )
+        },
     )
+
+    private fun jsonStringSet(array: JSONArray?): Set<String> = buildSet {
+        if (array != null) for (i in 0 until array.length()) {
+            array.optString(i).takeIf(String::isNotBlank)?.let(::add)
+        }
+    }
 
     private fun periodToJson(p: YouTubePeriodSnapshot) = JSONObject()
         .put("startDate", p.startDate)
