@@ -781,14 +781,13 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     Toast.makeText(context, "Could not save the project. Your form is still open.", Toast.LENGTH_LONG).show()
                 } else {
                 // Saving queues a disk write; the countdown only appears after that write.
-                if (draft.attentionPlan != ProjectAttentionPlan.OFF && draft.mode != ReminderMode.NONE) {
-                    pendingReminderConfirmation = V203PendingReminderConfirmation(
-                        taskId = savedTaskId, editedExisting = task != null,
-                    )
-                } else {
-                    pendingReminderConfirmation = null
-                    Toast.makeText(context, "Saving project…", Toast.LENGTH_SHORT).show()
-                }
+                // Managed LIGHT/GUIDED/URGENT plans compute their reminder AFTER
+                // saving, even though their draft mode is NONE. Track every
+                // successful project write, then inspect the actual committed
+                // reminder and silently skip if alerts are disabled.
+                pendingReminderConfirmation = V203PendingReminderConfirmation(
+                    taskId = savedTaskId, editedExisting = task != null,
+                )
                 finishComposerSession()
                 if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
                     guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
