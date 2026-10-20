@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -182,10 +183,10 @@ internal fun V19ScriptStudioAlpha4Dialog(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("SCRIPT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
-                        Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text("SCRIPT", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2)
                     }
-                    Text("S$originalStudioRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
                 }
 
                 if (recovered != null) {
@@ -200,19 +201,20 @@ internal fun V19ScriptStudioAlpha4Dialog(
                     Alpha4ScriptSummary(current)
                     Spacer(Modifier.height(18.dp))
 
-                    Alpha4Title("CREATION STATE", "Track your script's progress separately.")
+                    Alpha4Title("STATUS", "")
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         CreatorScriptStatus.entries.forEach { item ->
                             FilterChip(
                                 selected = status == item,
                                 onClick = { status = item },
-                                label = { Text(item.name.replace('_', ' '), fontSize = 8.sp) },
+                                label = { Text(item.name.replace('_', ' '), fontSize = 12.sp) },
+                                modifier = Modifier.heightIn(min = 44.dp),
                             )
                         }
                     }
 
                     Spacer(Modifier.height(22.dp))
-                    Alpha4Title("HOOK LAB", "Keep alternatives; select the one that becomes the project hook.")
+                    Alpha4Title("HOOKS", "")
                     Button(onClick = { hooks = hooks + CreatorHookIdea(id = UUID.randomUUID().toString()) }) {
                         Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(5.dp)); Text("ADD HOOK")
                     }
@@ -231,7 +233,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
                     if (hooks.isEmpty()) Alpha4Empty("No opening hook yet. Add one to start.")
 
                     Spacer(Modifier.height(22.dp))
-                    Alpha4Title("TITLE LAB", "Explore multiple titles without overwriting the project title.")
+                    Alpha4Title("TITLES", "")
                     Button(onClick = { titles = titles + CreatorTitleIdea(id = UUID.randomUUID().toString()) }) {
                         Icon(Icons.Outlined.Title, null); Spacer(Modifier.width(5.dp)); Text("ADD TITLE IDEA")
                     }
@@ -251,7 +253,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
 
                     Spacer(Modifier.height(22.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Alpha4Title("STORY BEATS", "Narration and visual planning live together.", Modifier.weight(1f))
+                        Alpha4Title("BEATS", "", Modifier.weight(1f))
                         TextButton(onClick = {
                             beats = beats + CreatorScriptBeat(id = UUID.randomUUID().toString(), label = "Beat ${beats.size + 1}")
                         }) {
@@ -273,7 +275,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
                     if (beats.isEmpty()) Alpha4Empty("No structured beats yet. Your old script is imported automatically the first time Script Studio opens.")
 
                     Spacer(Modifier.height(22.dp))
-                    Alpha4Title("CREATOR NOTES", "Direction, performance, pacing or recording reminders.")
+                    Alpha4Title("NOTES", "")
                     OutlinedTextField(
                         value = creatorNotes,
                         onValueChange = { creatorNotes = it },
@@ -340,8 +342,8 @@ private fun Alpha4ScriptSummary(studio: CreatorScriptStudio) {
 @Composable
 private fun Alpha4Metric(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text(label, color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -379,6 +381,7 @@ private fun Alpha4BeatCard(
     onChange: (CreatorScriptBeat) -> Unit,
     onRemove: () -> Unit,
 ) {
+    var expanded by rememberSaveable(beat.id) { mutableStateOf(false) }
     val accent = when (beat.status) {
         CreatorScriptBeatStatus.DRAFT -> MutedText
         CreatorScriptBeatStatus.READY -> MutedGold
@@ -388,14 +391,19 @@ private fun Alpha4BeatCard(
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("STORY BEAT", color = accent, fontSize = 7.5.sp, fontWeight = FontWeight.Black)
-                    Text(beat.label.ifBlank { "Untitled beat" }, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(beat.status.name, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Text(beat.label.ifBlank { "Untitled beat" }, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                        if (expanded) "Collapse beat" else "Edit beat", tint = MutedGold)
                 }
                 IconButton(onClick = onUp, enabled = canUp) { Icon(Icons.Outlined.KeyboardArrowUp, "Move up") }
                 IconButton(onClick = onDown, enabled = canDown) { Icon(Icons.Outlined.KeyboardArrowDown, "Move down") }
                 IconButton(onClick = onRemove) { Icon(Icons.Outlined.DeleteOutline, "Remove", tint = MutedText) }
             }
-            OutlinedTextField(value = beat.label, onValueChange = { onChange(beat.copy(label = it)) }, modifier = Modifier.fillMaxWidth(), label = { Text("Beat label") }, singleLine = true)
+            if (expanded) {
+                OutlinedTextField(value = beat.label, onValueChange = { onChange(beat.copy(label = it)) }, modifier = Modifier.fillMaxWidth(), label = { Text("Beat label") }, singleLine = true)
             Spacer(Modifier.height(7.dp))
             OutlinedTextField(value = beat.purpose, onValueChange = { onChange(beat.copy(purpose = it)) }, modifier = Modifier.fillMaxWidth(), label = { Text("Purpose / emotional job") }, minLines = 2)
             Spacer(Modifier.height(7.dp))
@@ -412,26 +420,27 @@ private fun Alpha4BeatCard(
                     FilterChip(
                         selected = beat.status == item,
                         onClick = { onChange(beat.copy(status = item)) },
-                        label = { Text(item.name, fontSize = 8.sp) },
+                        label = { Text(item.name, fontSize = 12.sp) },
+                        modifier = Modifier.heightIn(min = 44.dp),
                     )
                 }
+            }
             }
         }
     }
 }
 
 @Composable
-private fun Alpha4Title(title: String, subtitle: String, modifier: Modifier = Modifier) {
+private fun Alpha4Title(title: String, @Suppress("UNUSED_PARAMETER") subtitle: String, modifier: Modifier = Modifier) {
     Column(modifier) {
-        Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text(subtitle, color = MutedText, fontSize = 8.7.sp)
-        Spacer(Modifier.height(8.dp))
+        Text(title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(11.dp))
     }
 }
 
 @Composable
 private fun Alpha4Empty(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = MutedText, fontSize = 9.sp, modifier = Modifier.padding(13.dp))
+        Text(text, color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(13.dp))
     }
 }

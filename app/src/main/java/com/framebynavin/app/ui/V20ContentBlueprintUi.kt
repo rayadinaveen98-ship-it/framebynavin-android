@@ -43,8 +43,8 @@ internal fun V20ContentBlueprintDialog(
                     }
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("CONTENT GUIDE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                        Text(task.title, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text("GUIDE", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2)
                     }
                 }
 
@@ -89,7 +89,7 @@ internal fun V20ContentBlueprintDialog(
                             Text(blueprint.summary, color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
                             Spacer(Modifier.height(10.dp))
                             Text(
-                                "Ideas to help you plan. Nothing changes automatically.",
+                                "Reference only",
                                 color = RecRed,
                                 fontSize = 7.8.sp,
                                 fontWeight = FontWeight.Black,
@@ -140,7 +140,9 @@ internal fun V20ContentBlueprintDialog(
                     Spacer(Modifier.height(9.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         blueprint.toolSuggestions.forEach { tool ->
-                            SuggestionChip(onClick = {}, label = { Text(tool, fontSize = 8.8.sp) })
+                            Surface(shape = RoundedCornerShape(12.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                                Text(tool, color = ProjectorIvory, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp))
+                            }
                         }
                     }
 
@@ -149,7 +151,9 @@ internal fun V20ContentBlueprintDialog(
                     Spacer(Modifier.height(9.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         blueprint.outputIdeas.forEach { output ->
-                            AssistChip(onClick = {}, label = { Text(output, fontSize = 8.8.sp) })
+                            Surface(shape = RoundedCornerShape(12.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                                Text(output, color = ProjectorIvory, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp))
+                            }
                         }
                     }
                 }
@@ -159,7 +163,7 @@ internal fun V20ContentBlueprintDialog(
 }
 
 @Composable
-private fun V20BlueprintSectionHeader(icon: ImageVector, title: String, subtitle: String) {
+private fun V20BlueprintSectionHeader(icon: ImageVector, title: String, @Suppress("UNUSED_PARAMETER") subtitle: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(shape = RoundedCornerShape(12.dp), color = MutedGold.copy(alpha = .10f)) {
             Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
@@ -167,10 +171,7 @@ private fun V20BlueprintSectionHeader(icon: ImageVector, title: String, subtitle
             }
         }
         Spacer(Modifier.width(10.dp))
-        Column {
-            Text(title, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = .4.sp)
-            Text(subtitle, color = MutedText, fontSize = 8.5.sp)
-        }
+        Text(title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -187,14 +188,14 @@ private fun V20StepList(steps: List<CreatorBlueprintStep>) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
                     Surface(shape = CircleShape, color = RecRed.copy(alpha = .13f)) {
                         Box(Modifier.size(27.dp), contentAlignment = Alignment.Center) {
-                            Text("${index + 1}", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                            Text("${index + 1}", color = RecRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(step.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                        Text(step.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(2.dp))
-                        Text(step.guidance, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
+                        Text(step.guidance, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
                     }
                 }
                 if (index != steps.lastIndex) HorizontalDivider(color = CinemaLine.copy(alpha = .7f))
@@ -212,9 +213,9 @@ private fun V20PromptCard(prompt: CreatorBlueprintPrompt) {
         border = BorderStroke(1.dp, CinemaLine),
     ) {
         Column(Modifier.padding(13.dp)) {
-            Text(prompt.label.uppercase(), color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+            Text(prompt.label.uppercase(), color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(3.dp))
-            Text(prompt.prompt, color = ProjectorIvory, fontSize = 9.5.sp, lineHeight = 14.sp)
+            Text(prompt.prompt, color = ProjectorIvory, fontSize = 13.sp, lineHeight = 19.sp)
         }
     }
 }

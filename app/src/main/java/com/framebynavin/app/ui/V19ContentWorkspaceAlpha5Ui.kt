@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -105,10 +106,10 @@ internal fun V19PublishStudioAlpha5Dialog(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("PREPARE TO PUBLISH", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
-                        Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text("PUBLISH", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2)
                     }
-                    Text("R$originalRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
                 }
 
                 if (recovered != null) {
@@ -122,13 +123,14 @@ internal fun V19PublishStudioAlpha5Dialog(
                 ) {
                     Alpha5PublishSummary(deliverables)
                     Spacer(Modifier.height(16.dp))
-                    Alpha5Title("OUTPUTS", "Choose the post you're preparing.")
+                    Alpha5Title("OUTPUTS", "")
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         deliverables.forEach { item ->
                             FilterChip(
                                 selected = selectedId == item.id,
                                 onClick = { selectedId = item.id },
-                                label = { Text("${item.platform} · ${item.format}", fontSize = 8.sp) },
+                                label = { Text("${item.platform} · ${item.format}", fontSize = 12.sp) },
+                                modifier = Modifier.heightIn(min = 44.dp),
                             )
                         }
                     }
@@ -240,8 +242,8 @@ private fun Alpha5PublishSummary(deliverables: List<CreatorDeliverable>) {
 @Composable
 private fun Alpha5Metric(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text(label, color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -260,12 +262,14 @@ private fun Alpha5DeliverableEditor(
     val gateTotal = CreatorPublishWorkflow.ensureGate(deliverable).publishGate.size
     val ready = CreatorPublishWorkflow.isReadyToPublish(deliverable)
     val unrecorded = CreatorPublishWorkflow.hasUnrecordedPublishedChanges(deliverable)
+    var showVariants by rememberSaveable(deliverable.id) { mutableStateOf(false) }
+    var showHistory by rememberSaveable(deliverable.id) { mutableStateOf(false) }
 
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(15.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("${deliverable.platform.uppercase()} · ${deliverable.format.uppercase()}", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("${deliverable.platform.uppercase()} · ${deliverable.format.uppercase()}", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Text(
                         deliverable.status.name.replace('_', ' '),
                         color = when (deliverable.status) {
@@ -277,14 +281,14 @@ private fun Alpha5DeliverableEditor(
                         fontWeight = FontWeight.Black,
                     )
                 }
-                Text("$gateResolved/$gateTotal checks", color = MutedText, fontSize = 8.sp)
+                Text("$gateResolved/$gateTotal checks", color = MutedText, fontSize = 12.sp)
             }
             parentTitle?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(5.dp)); Text("Derived from: $it", color = MutedText, fontSize = 8.sp)
+                Spacer(Modifier.height(5.dp)); Text("Derived from: $it", color = MutedText, fontSize = 12.sp)
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("FINAL METADATA", "These details are saved when you confirm publication.")
+            Alpha5Title("DETAILS", "")
             Alpha5Field("FINAL TITLE", deliverable.title, { onChange(deliverable.copy(title = it)) }, "Final platform title")
             Alpha5Field("DESCRIPTION / CAPTION", deliverable.description, { onChange(deliverable.copy(description = it)) }, "Platform description or caption", 4)
             Alpha5Field("TAGS / HASHTAGS", deliverable.tags, { onChange(deliverable.copy(tags = it)) }, "Tags, keywords or hashtags", 2)
@@ -292,23 +296,35 @@ private fun Alpha5DeliverableEditor(
             Alpha5Field("LIVE URL", deliverable.publishedUrl, { onChange(deliverable.copy(publishedUrl = it)) }, "https://…")
 
             Spacer(Modifier.height(12.dp))
+            TextButton(
+                onClick = { showVariants = !showVariants },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            ) {
+                Text("TITLE & COVER OPTIONS", color = ProjectorIvory, fontSize = 13.sp)
+                Spacer(Modifier.weight(1f))
+                Text(if (showVariants) "HIDE" else "SHOW", color = MutedGold, fontSize = 12.sp)
+                Icon(if (showVariants) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = null, tint = MutedGold)
+            }
+            if (showVariants) {
             Alpha5VariantSection(
-                title = "TITLE VARIANTS",
+                title = "TITLE OPTIONS",
                 variants = deliverable.titleVariants,
                 onVariants = { onChange(deliverable.copy(titleVariants = it)) },
                 onUse = { onChange(deliverable.copy(title = it)) },
             )
             Spacer(Modifier.height(14.dp))
             Alpha5VariantSection(
-                title = "THUMBNAIL / COVER VARIANTS",
+                title = "COVER OPTIONS",
                 variants = deliverable.thumbnailVariants,
                 onVariants = { onChange(deliverable.copy(thumbnailVariants = it)) },
                 onUse = { onChange(deliverable.copy(thumbnailConcept = it)) },
             )
+            }
 
             Spacer(Modifier.height(18.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Alpha5Title("PRE-PUBLISH GATE", "Required TODO items block publication.", Modifier.weight(1f))
+                Alpha5Title("FINAL CHECKS", "", Modifier.weight(1f))
                 TextButton(onClick = {
                     onChange(deliverable.copy(
                         publishGate = deliverable.publishGate + CreatorPublishGateItem(
@@ -338,7 +354,7 @@ private fun Alpha5DeliverableEditor(
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("PUBLISH", "This records the post as published. Your project remains open.")
+            Alpha5Title("PUBLISH", "")
             when (deliverable.status) {
                 CreatorDeliverableStatus.PUBLISHED -> {
                     if (unrecorded) {
@@ -370,17 +386,25 @@ private fun Alpha5DeliverableEditor(
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("REPURPOSE", "Create linked outputs without duplicating the parent project.")
+            Alpha5Title("REPURPOSE", "")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onYouTubeShort, modifier = Modifier.weight(1f)) { Text("→ YT SHORT", fontSize = 8.sp) }
                 OutlinedButton(onClick = onInstagramReel, modifier = Modifier.weight(1f)) { Text("→ IG REEL", fontSize = 8.sp) }
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("PUBLICATION HISTORY", "Append-only snapshots of publish, correction and reopen actions.")
-            if (deliverable.publicationHistory.isEmpty()) {
-                Alpha5Empty("No publication events yet.")
-            } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Alpha5Title("HISTORY", "", Modifier.weight(1f))
+                TextButton(onClick = { showHistory = !showHistory },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    enabled = deliverable.publicationHistory.isNotEmpty()) {
+                    Text(if (showHistory) "HIDE" else "VIEW " + deliverable.publicationHistory.size,
+                        color = MutedGold, fontSize = 12.sp)
+                    Icon(if (showHistory) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                        contentDescription = null, tint = MutedGold)
+                }
+            }
+            if (showHistory) {
                 deliverable.publicationHistory.asReversed().forEach { event ->
                     Alpha5HistoryCard(event)
                     Spacer(Modifier.height(6.dp))
@@ -543,11 +567,10 @@ private fun Alpha5PublicationActionDialog(
 }
 
 @Composable
-private fun Alpha5Title(title: String, subtitle: String, modifier: Modifier = Modifier) {
+private fun Alpha5Title(title: String, @Suppress("UNUSED_PARAMETER") subtitle: String, modifier: Modifier = Modifier) {
     Column(modifier) {
-        Text(title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text(subtitle, color = MutedText, fontSize = 8.5.sp)
-        Spacer(Modifier.height(8.dp))
+        Text(title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(11.dp))
     }
 }
 
@@ -559,7 +582,7 @@ private fun Alpha5Field(
     placeholder: String,
     minLines: Int = 1,
 ) {
-    Text(label, color = MutedGold, fontSize = 7.7.sp, fontWeight = FontWeight.Black)
+    Text(label, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     Spacer(Modifier.height(4.dp))
     OutlinedTextField(
         value = value,
@@ -575,6 +598,6 @@ private fun Alpha5Field(
 @Composable
 private fun Alpha5Empty(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = MutedText, fontSize = 8.5.sp, modifier = Modifier.padding(12.dp))
+        Text(text, color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
     }
 }

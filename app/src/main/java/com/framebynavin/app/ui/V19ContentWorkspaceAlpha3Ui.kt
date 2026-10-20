@@ -35,8 +35,8 @@ import java.util.Locale
 import java.util.UUID
 
 private enum class Alpha3Section(val label: String) {
-    OVERVIEW("Overview"), BRIEF("Brief"), SCRIPT("Script"), RESEARCH("Research"), ASSETS("Assets"),
-    PRODUCTION("Production"), DELIVERABLES("Deliverables"), LEARN("Learn")
+    OVERVIEW("Overview"), BRIEF("Brief"), RESEARCH("Sources"), ASSETS("Assets"),
+    PRODUCTION("Tasks"), DELIVERABLES("Outputs"), LEARN("Notes")
 }
 
 @Composable
@@ -163,10 +163,10 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 ) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("PLAN", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                        Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text("PLAN", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2)
                     }
-                    Text("R$originalRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
                 }
 
                 if (recovered != null) {
@@ -183,7 +183,8 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                         FilterChip(
                             selected = section == item,
                             onClick = { section = item },
-                            label = { Text(item.label, fontSize = 8.5.sp) },
+                            label = { Text(item.label, fontSize = 12.sp) },
+                            modifier = Modifier.heightIn(min = 44.dp),
                         )
                     }
                 }
@@ -201,7 +202,6 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                                 deliverables = merged.deliverables
                                 appliedTemplate = template.name
                             },
-                            onJump = { section = it },
                         )
                         Alpha3Section.BRIEF -> {
                             A3Title("BRIEF", "Define the audience, tension, promise and angle.")
@@ -209,12 +209,6 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             A3Field("VIEWER PROBLEM", viewerProblem, { viewerProblem = it }, "What question or need are they bringing?")
                             A3Field("PROMISE", promise, { promise = it }, "What will they get by staying?")
                             A3Field("ANGLE", angle, { angle = it }, "Why is your take different?")
-                        }
-                        Alpha3Section.SCRIPT -> {
-                            A3Title("SCRIPT", "Write your hook, script and narration in Script.")
-                            A3ReadOnly("CURRENT HOOK", hook.ifBlank { "No hook saved yet." })
-                            Spacer(Modifier.height(10.dp))
-                            A3ReadOnly("COMPILED SCRIPT", script.ifBlank { "No script yet. Open Script to get started." })
                         }
                         Alpha3Section.RESEARCH -> {
                             A3Title("RESEARCH", "Sources stay attached to the project.")
@@ -356,20 +350,22 @@ private fun Alpha3Overview(
     workspace: CreatorContentWorkspace,
     appliedTemplate: String,
     onApplyTemplate: (CreatorContentTemplate) -> Unit,
-    onJump: (Alpha3Section) -> Unit,
 ) {
     val progress = workspace.productionProgressPercent()
     val next = workspace.nextProductionStep()?.title ?: "No checklist step queued"
     val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
     val pending = workspace.deliverables.size - published
-    A3Title("PROJECT COMMAND CENTER", "Checklist completion is supporting context; main project workflow remains the execution authority.")
+    A3Title("OVERVIEW", "")
     if (appliedTemplate.isNotBlank()) Text("Template merged: $appliedTemplate", color = SuccessGreen, fontSize = 9.sp)
     Spacer(Modifier.height(8.dp))
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
-            Text("CHECKLIST $progress%", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 12.sp)
+            Text("TASKS $progress%", color = ProjectorIvory, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Spacer(Modifier.height(7.dp)); LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(10.dp)); Text("Next checklist item: $next", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            if (workspace.nextProductionStep() != null) {
+                Spacer(Modifier.height(10.dp))
+                Text("Next · $next", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 A3Metric("Sources", workspace.references.size.toString())
@@ -394,34 +390,25 @@ private fun Alpha3Overview(
             }
         }
     }
-    Spacer(Modifier.height(18.dp))
-    Text("JUMP TO", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
-    Spacer(Modifier.height(6.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        listOf(Alpha3Section.SCRIPT, Alpha3Section.PRODUCTION, Alpha3Section.ASSETS, Alpha3Section.DELIVERABLES).forEach { target ->
-            OutlinedButton(onClick = { onJump(target) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
-                Text(target.label, fontSize = 7.4.sp)
-            }
-        }
-    }
+
 }
 
-@Composable private fun A3Metric(label: String, value: String) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(value, color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 16.sp); Text(label, color = MutedText, fontSize = 7.5.sp) } }
-@Composable private fun A3Title(title: String, subtitle: String) { Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black); Text(subtitle, color = MutedText, fontSize = 8.7.sp); Spacer(Modifier.height(10.dp)) }
-@Composable private fun A3Empty(text: String) { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) { Text(text, color = MutedText, fontSize = 9.sp, modifier = Modifier.padding(14.dp)) } }
+@Composable private fun A3Metric(label: String, value: String) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(value, color = ProjectorIvory, fontWeight = FontWeight.Bold, fontSize = 18.sp); Text(label, color = MutedText, fontSize = 11.sp) } }
+@Composable private fun A3Title(title: String, @Suppress("UNUSED_PARAMETER") subtitle: String) { Text(title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp)) }
+@Composable private fun A3Empty(text: String) { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) { Text(text, color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(14.dp)) } }
 
 @Composable
 private fun A3ReadOnly(label: String, value: String) {
-    Text(label, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+    Text(label, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     Spacer(Modifier.height(4.dp))
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(value, color = ProjectorIvory, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(13.dp))
+        Text(value, color = ProjectorIvory, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(13.dp))
     }
 }
 
 @Composable
 private fun A3Field(label: String, value: String, onChange: (String) -> Unit, placeholder: String, minLines: Int = 1) {
-    Text(label, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+    Text(label, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     Spacer(Modifier.height(4.dp))
     OutlinedTextField(value, onChange, Modifier.fillMaxWidth(), placeholder = { Text(placeholder) }, minLines = minLines, shape = RoundedCornerShape(14.dp))
     Spacer(Modifier.height(11.dp))
