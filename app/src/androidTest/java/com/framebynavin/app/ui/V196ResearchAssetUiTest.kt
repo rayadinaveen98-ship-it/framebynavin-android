@@ -33,19 +33,19 @@ class V196ResearchAssetUiTest {
 
     @Test fun validSourceGetsOpenActionButLocalPathDoesNot() {
         render(project("https://example.org/interview", "/sdcard/missing.mp4"))
-        rule.onNodeWithText("Sources").performClick()
+        rule.onNode(hasText("Sources") and hasClickAction()).performClick()
         rule.onNodeWithText("Film interview").assertExists()
         rule.onNodeWithText("OPEN").assertExists()
-        rule.onNodeWithText("Assets").performScrollTo().performClick()
+        rule.onNode(hasText("Assets") and hasClickAction()).performClick()
         rule.onNodeWithText("Saved footage").assertExists()
         rule.onNodeWithText("OPEN").assertDoesNotExist()
     }
 
     @Test fun unsafeSourceHiddenButPersistedDocumentCanOpen() {
         render(project("javascript:alert(1)", "content://com.android.providers.media.documents/document/video%3A3"))
-        rule.onNodeWithText("Sources").performClick()
+        rule.onNode(hasText("Sources") and hasClickAction()).performClick()
         rule.onNodeWithText("OPEN").assertDoesNotExist()
-        rule.onNodeWithText("Assets").performScrollTo().performClick()
+        rule.onNode(hasText("Assets") and hasClickAction()).performClick()
         rule.onNodeWithText("OPEN").assertExists()
     }
 }
