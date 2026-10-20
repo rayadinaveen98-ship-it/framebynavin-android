@@ -68,6 +68,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     var appliedTemplate by remember { mutableStateOf("") }
     var pendingRemovalId by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
     var assetError by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
+    var openError by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
 
     fun draft() = CreatorContentWorkspace(
         revision = originalRevision,
@@ -132,7 +133,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 assetError = "This file provider did not grant durable read access. Choose the file from another provider so the project does not keep a broken asset link."
             } else {
                 assetError = null
-                val mime = context.contentResolver.getType(uri).orEmpty()
+                val mime = runCatching { context.contentResolver.getType(uri).orEmpty() }.getOrDefault("")
                 val label = runCatching {
                     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
                         if (cursor.moveToFirst()) cursor.getString(0) else null
@@ -183,7 +184,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                     Alpha3Section.entries.forEach { item ->
                         FilterChip(
                             selected = section == item,
-                            onClick = { section = item },
+                            onClick = { section = item; openError = null },
                             label = { Text(item.label, fontSize = 12.sp) },
                             modifier = Modifier.heightIn(min = 44.dp),
                         )
@@ -212,21 +213,32 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             A3Field("ANGLE", angle, { angle = it }, "Why is your take different?")
                         }
                         Alpha3Section.RESEARCH -> {
-                            A3Title("RESEARCH", "Sources stay attached to the project.")
+                            A3Title("SOURCES", "")
+                            openError?.let { Text(it, color = RecRed, fontSize = 12.sp); Spacer(Modifier.height(8.dp)) }
                             Button(onClick = { references = references + CreatorProjectReference(id = UUID.randomUUID().toString()) }) {
                                 Icon(Icons.Outlined.AddLink, null); Spacer(Modifier.width(5.dp)); Text("ADD SOURCE")
                             }
                             Spacer(Modifier.height(10.dp))
                             references.forEach { ref ->
-                                A3ReferenceCard(ref, { changed -> references = references.map { if (it.id == changed.id) changed else it } }) {
-                                    references = references.filterNot { it.id == ref.id }
-                                }
+                                A3ReferenceCard(
+                                    ref = ref,
+                                    onChange = { changed ->
+                                        openError = null
+                                        references = references.map { if (it.id == changed.id) changed else it }
+                                    },
+                                    onOpen = { openError = CreatorWorkspaceExternalOpen.openSource(context, ref.url) },
+                                    onRemove = {
+                                        openError = null
+                                        references = references.filterNot { it.id == ref.id }
+                                    },
+                                )
                                 Spacer(Modifier.height(8.dp))
                             }
                             if (references.isEmpty()) A3Empty("No research sources yet.")
                         }
                         Alpha3Section.ASSETS -> {
-                            A3Title("ASSETS", "Attach a file from your phone. Backlot saves a link to it, not another copy.")
+                            A3Title("ASSETS", "")
+                            openError?.let { Text(it, color = RecRed, fontSize = 12.sp); Spacer(Modifier.height(8.dp)) }
                             Button(onClick = { assetPicker.launch(arrayOf("image/*", "video/*", "audio/*", "application/pdf", "text/*")) }) {
                                 Icon(Icons.Outlined.AttachFile, null); Spacer(Modifier.width(5.dp)); Text("PICK FROM DEVICE")
                             }
@@ -236,9 +248,18 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             }
                             Spacer(Modifier.height(10.dp))
                             assets.forEach { asset ->
-                                A3AssetCard(asset, { changed -> assets = assets.map { if (it.id == changed.id) changed else it } }) {
-                                    assets = assets.filterNot { it.id == asset.id }
-                                }
+                                A3AssetCard(
+                                    asset = asset,
+                                    onChange = { changed ->
+                                        openError = null
+                                        assets = assets.map { if (it.id == changed.id) changed else it }
+                                    },
+                                    onOpen = { openError = CreatorWorkspaceExternalOpen.openAsset(context, asset.location) },
+                                    onRemove = {
+                                        openError = null
+                                        assets = assets.filterNot { it.id == asset.id }
+                                    },
+                                )
                                 Spacer(Modifier.height(8.dp))
                             }
                             if (assets.isEmpty()) A3Empty("No assets linked yet.")
@@ -426,25 +447,53 @@ private fun A3Field(label: String, value: String, onChange: (String) -> Unit, pl
 }
 
 @Composable
-private fun A3ReferenceCard(ref: CreatorProjectReference, onChange: (CreatorProjectReference) -> Unit, onRemove: () -> Unit) {
+private fun A3ReferenceCard(
+    ref: CreatorProjectReference,
+    onChange: (CreatorProjectReference) -> Unit,
+    onOpen: () -> Unit,
+    onRemove: () -> Unit,
+) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             OutlinedTextField(ref.label, { onChange(ref.copy(label = it)) }, Modifier.fillMaxWidth(), label = { Text("Label") }, singleLine = true)
             Spacer(Modifier.height(6.dp)); OutlinedTextField(ref.url, { onChange(ref.copy(url = it)) }, Modifier.fillMaxWidth(), label = { Text("URL") }, singleLine = true)
-            TextButton(onClick = onRemove, modifier = Modifier.align(Alignment.End)) { Text("REMOVE") }
+            Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                if (CreatorWorkspaceLinkRules.isWebUrl(ref.url)) {
+                    TextButton(onClick = onOpen, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Icon(Icons.Outlined.OpenInNew, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("OPEN")
+                    }
+                }
+                TextButton(onClick = onRemove, modifier = Modifier.heightIn(min = 48.dp)) { Text("REMOVE") }
+            }
         }
     }
 }
 
 @Composable
-private fun A3AssetCard(asset: CreatorProjectAsset, onChange: (CreatorProjectAsset) -> Unit, onRemove: () -> Unit) {
+private fun A3AssetCard(
+    asset: CreatorProjectAsset,
+    onChange: (CreatorProjectAsset) -> Unit,
+    onOpen: () -> Unit,
+    onRemove: () -> Unit,
+) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.AttachFile, null, tint = MutedGold); Spacer(Modifier.width(6.dp)); Text(asset.kind.name, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.height(6.dp)); OutlinedTextField(asset.label, { onChange(asset.copy(label = it)) }, Modifier.fillMaxWidth(), label = { Text("Label") }, singleLine = true)
             Spacer(Modifier.height(6.dp)); Text(asset.location, color = MutedText, fontSize = 7.5.sp, maxLines = 2)
             Spacer(Modifier.height(6.dp)); OutlinedTextField(asset.notes, { onChange(asset.copy(notes = it)) }, Modifier.fillMaxWidth(), label = { Text("Notes") }, minLines = 2)
-            TextButton(onClick = onRemove, modifier = Modifier.align(Alignment.End)) { Text("REMOVE") }
+            Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                if (CreatorWorkspaceLinkRules.isAssetLocation(asset.location)) {
+                    TextButton(onClick = onOpen, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Icon(Icons.Outlined.OpenInNew, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("OPEN")
+                    }
+                }
+                TextButton(onClick = onRemove, modifier = Modifier.heightIn(min = 48.dp)) { Text("REMOVE") }
+            }
         }
     }
 }
