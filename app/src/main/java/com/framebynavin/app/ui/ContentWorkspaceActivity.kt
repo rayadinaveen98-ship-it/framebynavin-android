@@ -109,6 +109,12 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onSave = { studioRevision, workspaceRevision, draft ->
                                 saveScriptStudio(task!!.id, studioRevision, workspaceRevision, draft)
                             },
+                            onSaveAndPublish = { studioRevision, workspaceRevision, draft ->
+                                saveScriptStudio(
+                                    task!!.id, studioRevision, workspaceRevision, draft,
+                                    nextMode = Alpha6WorkspaceMode.PUBLISH,
+                                )
+                            },
                         )
                         mode == Alpha6WorkspaceMode.PUBLISH -> V19PublishStudioAlpha5Dialog(
                             task = task!!,
@@ -312,6 +318,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         expectedStudioRevision: Long,
         expectedWorkspaceRevision: Long,
         draft: CreatorScriptStudio,
+        nextMode: Alpha6WorkspaceMode = Alpha6WorkspaceMode.HUB,
     ) {
         val expectedGeneration = CreatorDataGate.generation(applicationContext)
         lifecycleScope.launch(Dispatchers.IO) {
@@ -345,7 +352,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     scriptStudio = saved
                     task = updated
                     confirmEditorClose = false
-                    mode = Alpha6WorkspaceMode.HUB
+                    // Open Publish only after the canonical embedded script has saved successfully.
+                    mode = if (nextMode == Alpha6WorkspaceMode.PUBLISH) Alpha6WorkspaceMode.PUBLISH
+                        else Alpha6WorkspaceMode.HUB
                 }.onFailure {
                     error = it.message ?: "Could not save Script Studio. Existing project data was retained."
                 }

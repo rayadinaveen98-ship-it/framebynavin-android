@@ -119,6 +119,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
     studio: CreatorScriptStudio,
     onDismiss: () -> Unit,
     onSave: (Long, Long, CreatorScriptStudio) -> Unit,
+    onSaveAndPublish: (Long, Long, CreatorScriptStudio) -> Unit = onSave,
 ) {
     val context = LocalContext.current
     val originalStudioRevision = studio.revision
@@ -341,13 +342,21 @@ internal fun V19ScriptStudioAlpha4Dialog(
                 }
 
                 Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
-                    Button(
-                        onClick = { onSave(originalStudioRevision, originalWorkspaceRevision, draft()) },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp).height(50.dp),
-                        shape = RoundedCornerShape(15.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Text("SAVE SCRIPT", fontWeight = FontWeight.Black)
+                        OutlinedButton(
+                            onClick = { onSave(originalStudioRevision, originalWorkspaceRevision, draft()) },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(15.dp),
+                        ) { Text("SAVE", fontWeight = FontWeight.Bold) }
+                        Button(
+                            onClick = { onSaveAndPublish(originalStudioRevision, originalWorkspaceRevision, draft()) },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(15.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        ) { Text("SAVE & PUBLISH", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                     }
                 }
             }
