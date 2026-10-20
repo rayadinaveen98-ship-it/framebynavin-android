@@ -19,6 +19,10 @@ object CreatorContentStabilization {
         val draftIds = draft.deliverables.map { it.id }.toSet()
         val explicitlyRemoved = current.deliverables.map { it.id }.toSet() - draftIds
         val removedTree = descendantIds(current.deliverables, explicitlyRemoved)
+        val historyAtRisk = protectedRemovalIds(current.deliverables, explicitlyRemoved)
+        require(historyAtRisk.isEmpty()) {
+            "This output or a linked output has publication history. Keep it in the project to preserve the release record."
+        }
 
         val protectedDeliverables = draft.deliverables
             .filterNot { it.id in removedTree }
@@ -92,6 +96,21 @@ object CreatorContentStabilization {
                 item.copy(parentDeliverableId = "")
             } else item
         }
+    }
+
+    /** A planned removal also removes its descendants. Published and formerly published outputs must survive. */
+    fun protectedRemovalIds(
+        deliverables: List<CreatorDeliverable>,
+        roots: Set<String>,
+    ): Set<String> {
+        val descendants = descendantIds(deliverables, roots)
+        return deliverables.filter { item ->
+            item.id in descendants && (
+                item.status == CreatorDeliverableStatus.PUBLISHED ||
+                    item.publishedAtMillis > 0L ||
+                    item.publicationHistory.isNotEmpty()
+                )
+        }.mapTo(mutableSetOf()) { it.id }
     }
 
     fun descendantIds(

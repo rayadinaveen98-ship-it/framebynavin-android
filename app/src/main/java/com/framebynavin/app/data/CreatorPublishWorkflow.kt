@@ -3,6 +3,12 @@ package com.framebynavin.app.data
 import java.util.UUID
 
 object CreatorPublishWorkflow {
+    private const val RIGHTS_GATE_ID = "system:rights-source-check"
+    private const val RIGHTS_GATE_LABEL = "Rights, music and source check"
+
+    fun isProtectedCheck(gate: CreatorPublishGateItem): Boolean =
+        gate.id == RIGHTS_GATE_ID || gate.title.equals(RIGHTS_GATE_LABEL, ignoreCase = true)
+
     fun defaultGate(platform: String, format: String): List<CreatorPublishGateItem> {
         val items = mutableListOf(
             "Final export reviewed",
@@ -19,13 +25,28 @@ object CreatorPublishWorkflow {
             p == "instagram" -> items += "Cover crop and safe-area check"
         }
         return items.map { title ->
-            CreatorPublishGateItem(id = UUID.randomUUID().toString(), title = title)
+            CreatorPublishGateItem(
+                id = if (title == RIGHTS_GATE_LABEL) RIGHTS_GATE_ID else UUID.randomUUID().toString(),
+                title = title,
+            )
         }
     }
 
     fun ensureGate(deliverable: CreatorDeliverable): CreatorDeliverable {
-        var normalized = if (deliverable.publishGate.isNotEmpty()) deliverable
-        else deliverable.copy(publishGate = defaultGate(deliverable.platform, deliverable.format))
+        val originalGates = deliverable.publishGate.ifEmpty { defaultGate(deliverable.platform, deliverable.format) }
+        // Migrate legacy UUID-based rights checks and restore any previously removed mandatory check.
+        val gates = originalGates.map { gate ->
+            if (isProtectedCheck(gate)) gate.copy(
+                id = RIGHTS_GATE_ID,
+                title = RIGHTS_GATE_LABEL,
+                required = true,
+                status = if (gate.status == CreatorPublishGateStatus.SKIPPED) CreatorPublishGateStatus.TODO else gate.status,
+            ) else gate
+        }.distinctBy { it.id }.let { existing ->
+            if (existing.any(::isProtectedCheck)) existing
+            else existing + CreatorPublishGateItem(id = RIGHTS_GATE_ID, title = RIGHTS_GATE_LABEL)
+        }
+        var normalized = deliverable.copy(publishGate = gates)
         if (
             normalized.status == CreatorDeliverableStatus.PUBLISHED &&
             normalized.publishedAtMillis > 0L &&
@@ -48,11 +69,14 @@ object CreatorPublishWorkflow {
 
     fun unresolvedRequired(deliverable: CreatorDeliverable): List<CreatorPublishGateItem> =
         ensureGate(deliverable).publishGate.filter {
-            it.required && it.status == CreatorPublishGateStatus.TODO
+            it.required && it.status != CreatorPublishGateStatus.DONE
         }
 
     fun resolvedGateCount(deliverable: CreatorDeliverable): Int =
-        ensureGate(deliverable).publishGate.count { it.status != CreatorPublishGateStatus.TODO }
+        ensureGate(deliverable).publishGate.count {
+            it.status == CreatorPublishGateStatus.DONE ||
+                (it.status == CreatorPublishGateStatus.SKIPPED && !it.required)
+        }
 
     fun isReadyToPublish(deliverable: CreatorDeliverable): Boolean {
         val normalized = ensureGate(deliverable)

@@ -52,9 +52,8 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     val stageIndex = CreatorWorkflowEngine.stageIndex(task)
     val currentStage = CreatorWorkflowEngine.currentStage(task)
     val nextAction = CreatorWorkflowEngine.nextAction(task)
-    val workflowProgress = CreatorWorkflowEngine.progress(task)
-    val workspaceProgress = workspace.productionProgressPercent()
-    val overallProgress = maxOf(workflowProgress, workspaceProgress).coerceIn(0, 100)
+    // Checklist completion supports production planning; it must never inflate project workflow progress.
+    val overallProgress = CreatorWorkflowEngine.progress(task).coerceIn(0, 100)
 
     val checklistDone = workspace.checklist.count { it.status == CreatorChecklistStatus.DONE }
     val checklistTotal = workspace.checklist.size

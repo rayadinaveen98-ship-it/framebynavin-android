@@ -84,6 +84,46 @@ class CreatorContentStabilizationTest {
     }
 
     @Test
+    fun deletingPublishedOrPreviouslyPublishedOutputIsRejected() {
+        val live = CreatorDeliverable(
+            id = "live", platform = "YouTube", format = "Long video",
+            status = CreatorDeliverableStatus.PUBLISHED,
+            publishedAtMillis = 100L,
+            publicationHistory = listOf(CreatorPublicationEvent(atMillis = 100L)),
+        )
+        val former = CreatorDeliverable(
+            id = "former", platform = "Instagram", format = "Reel",
+            parentDeliverableId = "live",
+            status = CreatorDeliverableStatus.READY,
+            publicationHistory = listOf(CreatorPublicationEvent(atMillis = 90L)),
+        )
+        val current = CreatorContentWorkspace(deliverables = listOf(live, former))
+
+        assertEquals(setOf("live", "former"), CreatorContentStabilization.protectedRemovalIds(current.deliverables, setOf("live")))
+        val result = runCatching {
+            CreatorContentStabilization.prepareProjectEditorSave(current, current.copy(deliverables = emptyList()))
+        }
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("publication history"))
+    }
+
+    @Test
+    fun deletingAncestorOfPublishedDerivativeIsRejected() {
+        val parent = CreatorDeliverable(id = "parent", platform = "YouTube", format = "Long video")
+        val child = CreatorDeliverable(
+            id = "child", platform = "Instagram", format = "Reel",
+            parentDeliverableId = "parent", status = CreatorDeliverableStatus.PUBLISHED,
+            publishedAtMillis = 50L,
+        )
+        val original = CreatorContentWorkspace(deliverables = listOf(parent, child))
+        val result = runCatching {
+            CreatorContentStabilization.prepareProjectEditorSave(original, original.copy(deliverables = listOf(child)))
+        }
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(setOf("child"), CreatorContentStabilization.protectedRemovalIds(original.deliverables, setOf("parent")))
+    }
+
+    @Test
     fun parentPublicationIsDerivedFromEarliestLiveRootOutput() {
         val later = CreatorDeliverable(
             id = "youtube",

@@ -21,6 +21,18 @@ class CreatorProjectFactsV186PolicyTest {
         assertEquals(0L, task.publishedAtMillis)
     }
 
+    @Test fun completedChecklistNeverAdvancesProjectWorkflow() {
+        val t = task().copy(workflowStageIndex = 0, workspace = CreatorContentWorkspace(
+            checklist = listOf(
+                CreatorChecklistItem(id = "script", title = "Script", status = CreatorChecklistStatus.DONE),
+                CreatorChecklistItem(id = "edit", title = "Edit", status = CreatorChecklistStatus.DONE),
+            ),
+        ))
+        assertEquals(100, t.workspace.productionProgressPercent())
+        assertEquals(0, CreatorWorkflowEngine.progress(t))
+        assertEquals(0, CreatorProjectFactsV186Policy.facts(t).workflowCompletedStages)
+    }
+
     @Test fun completedWorkflowNeverInventsPublishing() {
         val facts = CreatorProjectFactsV186Policy.facts(task().copy(status = TaskStatus.DONE))
         assertEquals(facts.workflowTotalStages, facts.workflowCompletedStages)
