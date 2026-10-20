@@ -429,6 +429,7 @@ private fun Alpha5GateCard(
     onChange: (CreatorPublishGateItem) -> Unit,
     onRemove: () -> Unit,
 ) {
+    val protectedCheck = CreatorPublishWorkflow.isProtectedCheck(gate)
     val accent = when (gate.status) {
         CreatorPublishGateStatus.TODO -> MutedText
         CreatorPublishGateStatus.DONE -> SuccessGreen
@@ -441,16 +442,17 @@ private fun Alpha5GateCard(
                 onValueChange = { onChange(gate.copy(title = it)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                enabled = !protectedCheck,
                 label = { Text("Check") },
             )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = gate.required, onCheckedChange = { onChange(gate.copy(required = it)) })
+                Checkbox(checked = gate.required, onCheckedChange = { onChange(gate.copy(required = it)) }, enabled = !protectedCheck)
                 Text(if (gate.required) "Required" else "Optional", color = MutedText, fontSize = 8.sp)
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.DONE)) }) { Text("DONE", fontSize = 8.sp) }
-                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.SKIPPED)) }) { Text("SKIP", fontSize = 8.sp) }
+                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.SKIPPED)) }, enabled = !gate.required && !protectedCheck) { Text("SKIP", fontSize = 8.sp) }
                 TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.TODO)) }) { Text("RESET", fontSize = 8.sp) }
-                IconButton(onClick = onRemove) { Icon(Icons.Outlined.DeleteOutline, "Remove", tint = MutedText) }
+                IconButton(onClick = onRemove, enabled = !protectedCheck) { Icon(Icons.Outlined.DeleteOutline, "Remove", tint = MutedText) }
             }
         }
     }
