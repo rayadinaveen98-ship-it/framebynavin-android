@@ -133,7 +133,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 assetError = "This file provider did not grant durable read access. Choose the file from another provider so the project does not keep a broken asset link."
             } else {
                 assetError = null
-                val mime = context.contentResolver.getType(uri).orEmpty()
+                val mime = runCatching { context.contentResolver.getType(uri).orEmpty() }.getOrDefault("")
                 val label = runCatching {
                     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
                         if (cursor.moveToFirst()) cursor.getString(0) else null
@@ -184,7 +184,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                     Alpha3Section.entries.forEach { item ->
                         FilterChip(
                             selected = section == item,
-                            onClick = { section = item },
+                            onClick = { section = item; openError = null },
                             label = { Text(item.label, fontSize = 12.sp) },
                             modifier = Modifier.heightIn(min = 44.dp),
                         )
