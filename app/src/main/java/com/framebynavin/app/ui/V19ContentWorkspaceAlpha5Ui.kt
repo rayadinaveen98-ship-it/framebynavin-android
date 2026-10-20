@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -261,12 +262,14 @@ private fun Alpha5DeliverableEditor(
     val gateTotal = CreatorPublishWorkflow.ensureGate(deliverable).publishGate.size
     val ready = CreatorPublishWorkflow.isReadyToPublish(deliverable)
     val unrecorded = CreatorPublishWorkflow.hasUnrecordedPublishedChanges(deliverable)
+    var showVariants by rememberSaveable(deliverable.id) { mutableStateOf(false) }
+    var showHistory by rememberSaveable(deliverable.id) { mutableStateOf(false) }
 
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(15.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("${deliverable.platform.uppercase()} · ${deliverable.format.uppercase()}", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("${deliverable.platform.uppercase()} · ${deliverable.format.uppercase()}", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Text(
                         deliverable.status.name.replace('_', ' '),
                         color = when (deliverable.status) {
@@ -278,10 +281,10 @@ private fun Alpha5DeliverableEditor(
                         fontWeight = FontWeight.Black,
                     )
                 }
-                Text("$gateResolved/$gateTotal checks", color = MutedText, fontSize = 8.sp)
+                Text("$gateResolved/$gateTotal checks", color = MutedText, fontSize = 12.sp)
             }
             parentTitle?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(5.dp)); Text("Derived from: $it", color = MutedText, fontSize = 8.sp)
+                Spacer(Modifier.height(5.dp)); Text("Derived from: $it", color = MutedText, fontSize = 12.sp)
             }
 
             Spacer(Modifier.height(18.dp))
@@ -293,6 +296,17 @@ private fun Alpha5DeliverableEditor(
             Alpha5Field("LIVE URL", deliverable.publishedUrl, { onChange(deliverable.copy(publishedUrl = it)) }, "https://…")
 
             Spacer(Modifier.height(12.dp))
+            TextButton(
+                onClick = { showVariants = !showVariants },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            ) {
+                Text("TITLE & COVER OPTIONS", color = ProjectorIvory, fontSize = 13.sp)
+                Spacer(Modifier.weight(1f))
+                Text(if (showVariants) "HIDE" else "SHOW", color = MutedGold, fontSize = 12.sp)
+                Icon(if (showVariants) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = null, tint = MutedGold)
+            }
+            if (showVariants) {
             Alpha5VariantSection(
                 title = "TITLE OPTIONS",
                 variants = deliverable.titleVariants,
@@ -306,6 +320,7 @@ private fun Alpha5DeliverableEditor(
                 onVariants = { onChange(deliverable.copy(thumbnailVariants = it)) },
                 onUse = { onChange(deliverable.copy(thumbnailConcept = it)) },
             )
+            }
 
             Spacer(Modifier.height(18.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -378,10 +393,18 @@ private fun Alpha5DeliverableEditor(
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("HISTORY", "")
-            if (deliverable.publicationHistory.isEmpty()) {
-                Alpha5Empty("No publication events yet.")
-            } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Alpha5Title("HISTORY", "", Modifier.weight(1f))
+                TextButton(onClick = { showHistory = !showHistory },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    enabled = deliverable.publicationHistory.isNotEmpty()) {
+                    Text(if (showHistory) "HIDE" else "VIEW " + deliverable.publicationHistory.size,
+                        color = MutedGold, fontSize = 12.sp)
+                    Icon(if (showHistory) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                        contentDescription = null, tint = MutedGold)
+                }
+            }
+            if (showHistory) {
                 deliverable.publicationHistory.asReversed().forEach { event ->
                     Alpha5HistoryCard(event)
                     Spacer(Modifier.height(6.dp))
