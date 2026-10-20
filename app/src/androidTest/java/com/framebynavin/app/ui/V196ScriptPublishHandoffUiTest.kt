@@ -67,11 +67,11 @@ class V196ScriptPublishHandoffUiTest {
         rule.onNodeWithText("USE SCRIPT TITLE").performScrollTo().performClick()
         rule.onNodeWithText("Use script title?").assertExists()
         rule.onNodeWithText("CURRENT TITLE").assertExists()
-        rule.onNodeWithText("Existing output title").assertExists()
+        rule.onAllNodesWithText("Existing output title").onFirst().assertExists()
         rule.onNodeWithText("Selected analysis title").assertExists()
         rule.onNodeWithText("USE TITLE").performClick()
         rule.onNodeWithText("USE SCRIPT TITLE").assertDoesNotExist()
-        rule.onNodeWithText("SAVE PUBLISH DETAILS").performScrollTo().performClick()
+        rule.onNodeWithText("SAVE PUBLISH DETAILS").performClick()
         rule.runOnIdle {
             assertEquals("Selected analysis title", savedWorkspace?.deliverables?.single()?.title)
             assertEquals(0, savedWorkspace?.deliverables?.single()?.publicationHistory?.size)
