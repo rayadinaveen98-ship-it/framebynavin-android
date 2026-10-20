@@ -65,6 +65,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     var deliverables by remember(task.id, originalRevision) { mutableStateOf(initial.deliverables) }
     var learnings by remember(task.id, originalRevision) { mutableStateOf(initial.learnings) }
     var appliedTemplate by remember { mutableStateOf("") }
+    var pendingRemovalId by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
     var assetError by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
 
     fun draft() = CreatorContentWorkspace(
@@ -291,10 +292,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                                     onDown = { moveDeliverable(index, 1) },
                                     onChange = { changed -> deliverables = deliverables.map { if (it.id == changed.id) changed else it } },
                                     onDerivative = { addDeliverable(if (d.platform.equals("Instagram", true)) "YouTube" else "Instagram", if (d.platform.equals("Instagram", true)) "Short" else "Reel", d.id) },
-                                    onRemove = {
-                                        val removed = CreatorContentStabilization.descendantIds(deliverables, setOf(d.id))
-                                        deliverables = deliverables.filterNot { it.id in removed }
-                                    },
+                                    onRemove = { pendingRemovalId = d.id },
                                 )
                                 Spacer(Modifier.height(8.dp))
                             }
@@ -317,6 +315,39 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 }
             }
         }
+    }
+
+    pendingRemovalId?.let { rootId ->
+        val affectedIds = CreatorContentStabilization.descendantIds(deliverables, setOf(rootId))
+        val protectedIds = CreatorContentStabilization.protectedRemovalIds(deliverables, setOf(rootId))
+        val count = affectedIds.size
+        AlertDialog(
+            onDismissRequest = { pendingRemovalId = null },
+            title = { Text(if (protectedIds.isNotEmpty()) "Cannot remove published work" else "Remove output?") },
+            text = {
+                Text(
+                    if (protectedIds.isNotEmpty())
+                        "This output or a linked output has a publication record. It cannot be removed from the plan."
+                    else if (count > 1)
+                        "This will remove $count linked outputs from your draft plan. Save Plan to make the removal permanent."
+                    else
+                        "This will remove the output from your draft plan. Save Plan to make the removal permanent."
+                )
+            },
+            confirmButton = {
+                if (protectedIds.isEmpty()) {
+                    TextButton(onClick = {
+                        deliverables = deliverables.filterNot { it.id in affectedIds }
+                        pendingRemovalId = null
+                    }) { Text("REMOVE") }
+                } else {
+                    TextButton(onClick = { pendingRemovalId = null }) { Text("OK") }
+                }
+            },
+            dismissButton = {
+                if (protectedIds.isEmpty()) TextButton(onClick = { pendingRemovalId = null }) { Text("CANCEL") }
+            },
+        )
     }
 }
 
