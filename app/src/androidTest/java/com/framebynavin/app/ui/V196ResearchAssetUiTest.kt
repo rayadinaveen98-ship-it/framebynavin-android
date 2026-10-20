@@ -36,7 +36,7 @@ class V196ResearchAssetUiTest {
         rule.onNodeWithText("Sources").performClick()
         rule.onNodeWithText("Film interview").assertExists()
         rule.onNodeWithText("OPEN").assertExists()
-        rule.onNodeWithText("Assets").performClick()
+        rule.onNodeWithText("Assets").performScrollTo().performClick()
         rule.onNodeWithText("Saved footage").assertExists()
         rule.onNodeWithText("OPEN").assertDoesNotExist()
     }
@@ -45,7 +45,7 @@ class V196ResearchAssetUiTest {
         render(project("javascript:alert(1)", "content://com.android.providers.media.documents/document/video%3A3"))
         rule.onNodeWithText("Sources").performClick()
         rule.onNodeWithText("OPEN").assertDoesNotExist()
-        rule.onNodeWithText("Assets").performClick()
+        rule.onNodeWithText("Assets").performScrollTo().performClick()
         rule.onNodeWithText("OPEN").assertExists()
     }
 }
