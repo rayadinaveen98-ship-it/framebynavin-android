@@ -64,15 +64,10 @@ internal fun V19ContentWorkspaceAlpha6Hub(
         else -> "CONTINUE " + currentStage.label.uppercase()
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(
-                Modifier.fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
-            ) {
+    WorkspaceAdaptiveFrame {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+        ) {
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
@@ -219,7 +214,6 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     }
                 }
                 Spacer(Modifier.height(28.dp))
-            }
         }
     }
 }
