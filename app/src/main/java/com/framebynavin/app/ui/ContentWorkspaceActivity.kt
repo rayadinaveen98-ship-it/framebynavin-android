@@ -33,6 +33,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private val legacyScriptStore by lazy { ScriptStudioStore(applicationContext) }
     private val publicationRecovery by lazy { CreatorPublicationRecovery(applicationContext) }
     private val editorDrafts by lazy { CreatorEditorDraftStore(applicationContext) }
+    private val saveGate = CreatorWorkspaceSaveGate()
     private var task by mutableStateOf<CreatorTask?>(null)
     private var scriptStudio by mutableStateOf<CreatorScriptStudio?>(null)
     private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
@@ -264,9 +265,11 @@ class ContentWorkspaceActivity : ComponentActivity() {
         editorMode: Alpha6WorkspaceMode,
         nextMode: Alpha6WorkspaceMode = Alpha6WorkspaceMode.HUB,
     ) {
-        val expectedGeneration = CreatorDataGate.generation(applicationContext)
+        if (!saveGate.tryBegin()) return
         lifecycleScope.launch(Dispatchers.IO) {
+            try {
             val result = runCatching {
+                val expectedGeneration = CreatorDataGate.generation(applicationContext)
                 val updated = store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
                     check(current.workspace.revision == expectedRevision) {
                         "This workspace changed while you were editing. Reopen it to keep the newest version."
@@ -291,11 +294,19 @@ class ContentWorkspaceActivity : ComponentActivity() {
 
                 // Parent publication is compatibility state for the existing reward/review engine.
                 // Reconciliation is idempotent and does not complete the project.
-                publicationRecovery.recoverAll()
-                when (editorMode) {
-                    Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
-                    Alpha6WorkspaceMode.PUBLISH -> editorDrafts.clearPublish(projectId)
-                    else -> Unit
+                // These are retryable post-commit side effects. Failure must not pretend the
+                // already-durable project transaction was rolled back.
+                runCatching { publicationRecovery.recoverAll() }.onFailure {
+                    android.util.Log.w("BacklotWorkspace", "Publication reconciliation deferred", it)
+                }
+                runCatching {
+                    when (editorMode) {
+                        Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
+                        Alpha6WorkspaceMode.PUBLISH -> editorDrafts.clearPublish(projectId)
+                        else -> Unit
+                    }
+                }.onFailure {
+                    android.util.Log.w("BacklotWorkspace", "Stale editor draft cleanup deferred", it)
                 }
                 updated
             }
@@ -310,6 +321,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     error = it.message ?: "Could not save the workspace. Your previous project data was retained."
                 }
             }
+            } finally {
+                saveGate.end()
+            }
         }
     }
 
@@ -320,9 +334,11 @@ class ContentWorkspaceActivity : ComponentActivity() {
         draft: CreatorScriptStudio,
         nextMode: Alpha6WorkspaceMode = Alpha6WorkspaceMode.HUB,
     ) {
-        val expectedGeneration = CreatorDataGate.generation(applicationContext)
+        if (!saveGate.tryBegin()) return
         lifecycleScope.launch(Dispatchers.IO) {
+            try {
             val result = runCatching {
+                val expectedGeneration = CreatorDataGate.generation(applicationContext)
                 val savedStudio = draft.normalized(
                     projectId = projectId,
                     revision = expectedStudioRevision + 1L,
@@ -344,7 +360,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         )
                     )
                 } ?: error("This project no longer exists.")
-                editorDrafts.clearScript(projectId)
+                // The script is already committed; draft cleanup failure is not a save failure.
+                runCatching { editorDrafts.clearScript(projectId) }.onFailure {
+                    android.util.Log.w("BacklotWorkspace", "Script draft cleanup deferred", it)
+                }
                 savedStudio to updatedProject
             }
             withContext(Dispatchers.Main) {
@@ -358,6 +377,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 }.onFailure {
                     error = it.message ?: "Could not save Script Studio. Existing project data was retained."
                 }
+            }
+            } finally {
+                saveGate.end()
             }
         }
     }
