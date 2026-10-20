@@ -92,7 +92,15 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         mode == Alpha6WorkspaceMode.PROJECT -> V19ContentWorkspaceAlpha3Dialog(
                             task = task!!,
                             onDismiss = { confirmEditorClose = true },
-                            onSave = { id, revision, workspace -> saveProject(id, revision, workspace, Alpha6WorkspaceMode.PROJECT) },
+                            onSave = { id, revision, workspace ->
+                                saveProject(id, revision, workspace, Alpha6WorkspaceMode.PROJECT)
+                            },
+                            onSaveAndScript = { id, revision, workspace ->
+                                saveProject(
+                                    id, revision, workspace, Alpha6WorkspaceMode.PROJECT,
+                                    nextMode = Alpha6WorkspaceMode.SCRIPT,
+                                )
+                            },
                         )
                         mode == Alpha6WorkspaceMode.SCRIPT && scriptStudio != null -> V19ScriptStudioAlpha4Dialog(
                             task = task!!,
@@ -248,6 +256,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         expectedRevision: Long,
         draft: CreatorContentWorkspace,
         editorMode: Alpha6WorkspaceMode,
+        nextMode: Alpha6WorkspaceMode = Alpha6WorkspaceMode.HUB,
     ) {
         val expectedGeneration = CreatorDataGate.generation(applicationContext)
         lifecycleScope.launch(Dispatchers.IO) {
@@ -285,10 +294,12 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 updated
             }
             withContext(Dispatchers.Main) {
-                result.onSuccess {
-                    task = it
+                result.onSuccess { saved ->
+                    task = saved
                     confirmEditorClose = false
-                    mode = Alpha6WorkspaceMode.HUB
+                    // Navigation follows successful durable persistence, never a pending editor draft.
+                    if (nextMode == Alpha6WorkspaceMode.SCRIPT) openScriptStudio(saved)
+                    else mode = Alpha6WorkspaceMode.HUB
                 }.onFailure {
                     error = it.message ?: "Could not save the workspace. Your previous project data was retained."
                 }
