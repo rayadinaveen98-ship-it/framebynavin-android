@@ -31,9 +31,7 @@ internal fun V20ContentBlueprintDialog(
     blueprint: CreatorContentBlueprint,
     onDismiss: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    WorkspaceAdaptiveFrame {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -157,8 +155,6 @@ internal fun V20ContentBlueprintDialog(
                         }
                     }
                 }
-            }
-        }
     }
 }
 
