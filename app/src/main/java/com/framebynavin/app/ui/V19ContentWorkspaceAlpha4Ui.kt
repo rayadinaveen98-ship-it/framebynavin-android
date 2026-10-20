@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -380,6 +381,7 @@ private fun Alpha4BeatCard(
     onChange: (CreatorScriptBeat) -> Unit,
     onRemove: () -> Unit,
 ) {
+    var expanded by rememberSaveable(beat.id) { mutableStateOf(false) }
     val accent = when (beat.status) {
         CreatorScriptBeatStatus.DRAFT -> MutedText
         CreatorScriptBeatStatus.READY -> MutedGold
@@ -389,14 +391,19 @@ private fun Alpha4BeatCard(
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("BEAT", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Text(beat.status.name, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     Text(beat.label.ifBlank { "Untitled beat" }, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                        if (expanded) "Collapse beat" else "Edit beat", tint = MutedGold)
                 }
                 IconButton(onClick = onUp, enabled = canUp) { Icon(Icons.Outlined.KeyboardArrowUp, "Move up") }
                 IconButton(onClick = onDown, enabled = canDown) { Icon(Icons.Outlined.KeyboardArrowDown, "Move down") }
                 IconButton(onClick = onRemove) { Icon(Icons.Outlined.DeleteOutline, "Remove", tint = MutedText) }
             }
-            OutlinedTextField(value = beat.label, onValueChange = { onChange(beat.copy(label = it)) }, modifier = Modifier.fillMaxWidth(), label = { Text("Beat label") }, singleLine = true)
+            if (expanded) {
+                OutlinedTextField(value = beat.label, onValueChange = { onChange(beat.copy(label = it)) }, modifier = Modifier.fillMaxWidth(), label = { Text("Beat label") }, singleLine = true)
             Spacer(Modifier.height(7.dp))
             OutlinedTextField(value = beat.purpose, onValueChange = { onChange(beat.copy(purpose = it)) }, modifier = Modifier.fillMaxWidth(), label = { Text("Purpose / emotional job") }, minLines = 2)
             Spacer(Modifier.height(7.dp))
@@ -417,6 +424,7 @@ private fun Alpha4BeatCard(
                         modifier = Modifier.heightIn(min = 44.dp),
                     )
                 }
+            }
             }
         }
     }
