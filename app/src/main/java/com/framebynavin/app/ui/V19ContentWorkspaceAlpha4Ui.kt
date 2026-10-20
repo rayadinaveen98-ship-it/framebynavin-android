@@ -134,6 +134,10 @@ internal fun V19ScriptStudioAlpha4Dialog(
     var beats by remember(task.id, originalStudioRevision) { mutableStateOf(initial.beats) }
     var creatorNotes by remember(task.id, originalStudioRevision) { mutableStateOf(initial.creatorNotes) }
     var showPreview by remember { mutableStateOf(false) }
+    var showPlanBrief by rememberSaveable(task.id) { mutableStateOf(false) }
+    val planBrief = remember(task.id, originalWorkspaceRevision) {
+        CreatorPlanScriptBridge.fields(task.workspace)
+    }
 
     fun draft() = CreatorScriptStudio(
         projectId = task.id,
@@ -199,6 +203,39 @@ internal fun V19ScriptStudioAlpha4Dialog(
                     Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp).padding(bottom = 30.dp),
                 ) {
                     Alpha4ScriptSummary(current)
+                    if (planBrief.isNotEmpty()) {
+                        Spacer(Modifier.height(14.dp))
+                        Surface(
+                            Modifier.fillMaxWidth(),
+                            RoundedCornerShape(17.dp),
+                            CinemaSurface,
+                            border = BorderStroke(1.dp, CinemaLine),
+                        ) {
+                            Column(Modifier.padding(horizontal = 14.dp, vertical = 7.dp)) {
+                                TextButton(
+                                    onClick = { showPlanBrief = !showPlanBrief },
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp),
+                                ) {
+                                    Text("PLAN BRIEF", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.weight(1f))
+                                    Text(if (showPlanBrief) "HIDE" else "VIEW", color = MutedGold, fontSize = 12.sp)
+                                    Icon(
+                                        if (showPlanBrief) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                                        contentDescription = null, tint = MutedGold,
+                                    )
+                                }
+                                if (showPlanBrief) {
+                                    planBrief.forEach { field ->
+                                        Spacer(Modifier.height(9.dp))
+                                        Text(field.label.uppercase(), color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                        Spacer(Modifier.height(3.dp))
+                                        Text(field.value, color = ProjectorIvory, fontSize = 13.sp, lineHeight = 19.sp)
+                                    }
+                                    Spacer(Modifier.height(12.dp))
+                                }
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(18.dp))
 
                     Alpha4Title("STATUS", "")

@@ -44,6 +44,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     task: CreatorTask,
     onDismiss: () -> Unit,
     onSave: (String, Long, CreatorContentWorkspace) -> Unit,
+    onSaveAndScript: (String, Long, CreatorContentWorkspace) -> Unit,
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
@@ -300,12 +301,22 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 }
 
                 Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
-                    Button(
-                        onClick = { onSave(task.id, originalRevision, draft()) },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp).height(50.dp),
-                        shape = RoundedCornerShape(15.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                    ) { Text("SAVE PLAN", fontWeight = FontWeight.Black) }
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = { onSave(task.id, originalRevision, draft()) },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(15.dp),
+                        ) { Text("SAVE", fontWeight = FontWeight.Bold) }
+                        Button(
+                            onClick = { onSaveAndScript(task.id, originalRevision, draft()) },
+                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                            shape = RoundedCornerShape(15.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        ) { Text("SAVE & SCRIPT", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                    }
                 }
             }
         }
