@@ -40,6 +40,7 @@ private enum class Alpha3Section(val label: String) {
     PRODUCTION("Tasks"), DELIVERABLES("Outputs"), LEARN("Notes")
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun V19ContentWorkspaceAlpha3Dialog(
     task: CreatorTask,
