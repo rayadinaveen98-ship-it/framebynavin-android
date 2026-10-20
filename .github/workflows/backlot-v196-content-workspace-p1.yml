@@ -1,0 +1,195 @@
+name: Backlot V196 P1 — Content Workspace Safety
+on:
+  push:
+    branches: [feature/backlot-v196-content-workspace-safety-p1]
+  workflow_dispatch:
+  pull_request:
+    branches: [stable/backlot-v195-5]
+permissions:
+  contents: read
+concurrency:
+  group: backlot-v196-p1-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Preserve existing source contracts
+        run: |
+          set -euo pipefail
+          # Historical source guards hard-code accepted version numbers through V185.
+          # Run them against a temporary V185 version marker only; restore V192 before build.
+          original=$(mktemp)
+          cp app/build.gradle.kts "$original"
+          trap 'cp "$original" app/build.gradle.kts; rm -f "$original"' EXIT
+          sed -i -e 's/versionCode = 204/versionCode = 185/' \
+                 -e 's/2.5.4-v196-workspace-safety-preview/2.3.5-v185-idea-conversion-preview/' app/build.gradle.kts
+          for version in $(seq 161 182); do
+            script=$(find tools -maxdepth 1 -name "check_v${version}_*.sh" | head -n 1)
+            test -n "$script"
+            echo "V${version} contract: $script"
+            bash "$script"
+          done
+          cp "$original" app/build.gradle.kts
+          rm -f "$original"
+          trap - EXIT
+          grep -Fq 'versionCode = 204' app/build.gradle.kts
+          grep -Fq 'versionName = "2.5.4-v196-workspace-safety-preview"' app/build.gradle.kts
+      - name: Verify minimal Insights UI contract
+        run: bash tools/check_v190_insights_minimal.sh
+      - name: Verify V191 stability invariants
+        run: bash tools/check_v191_insights_stability.sh
+      - name: Check V192 UI contract
+        run: bash tools/check_v192_insights_thumbnails.sh
+      - name: Verify V193 Pulse computation invariants
+        run: bash tools/check_v193_pulse_truth.sh
+      - name: Validate inherited V194 acceptance guards
+        run: bash tools/check_v194_insights_acceptance.sh
+      - name: Validate living-scene source contract
+        run: bash tools/check_v195_living_scenes.sh
+      - name: Validate V195.1 reminder delivery guards
+        run: bash tools/check_v196_reminder_delivery.sh
+      - name: Validate full-screen ambient scene and manual reveal
+        run: bash tools/check_v197_immersive_particles.sh
+      - name: Validate richer motion and vibrance source contracts
+        run: bash tools/check_v198_motion_vibrance.sh
+      - name: Validate Spark mode-specific animation and visual safety
+        run: bash tools/check_v199_reminder_spark.sh
+      - name: Validate V195.4 Phase 4B minimal reminder UI
+        run: bash tools/check_v200_reminder_ui.sh
+      - name: Validate V195.4 Phase 4C action feedback and callback safety
+        run: bash tools/check_v201_action_feedback.sh
+      - name: Validate V195.5 doubled motion and durable reminder countdown
+        run: bash tools/check_v202_v203_premium_reminders.sh
+      - name: Verify V196 workspace safety source rules
+        run: |
+          set -euo pipefail
+          hub=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+          plan=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
+          publish=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha5Ui.kt
+          grep -Fq 'val overallProgress = CreatorWorkflowEngine.progress(task)' "$hub"
+          ! grep -Fq 'maxOf(workflowProgress, workspaceProgress)' "$hub"
+          grep -Fq 'pendingRemovalId = d.id' "$plan"
+          grep -Fq 'protectedRemovalIds(deliverables' "$plan"
+          grep -Fq 'enabled = !gate.required && !protectedCheck' "$publish"
+          grep -Fq 'enabled = !protectedCheck' "$publish"
+          grep -Fq 'require(historyAtRisk.isEmpty())' app/src/main/java/com/framebynavin/app/data/CreatorContentStabilization.kt
+          grep -Fq 'it.required && it.status != CreatorPublishGateStatus.DONE' app/src/main/java/com/framebynavin/app/data/CreatorPublishWorkflow.kt
+      - name: Clean build, regressions, lint and instrumentation compilation
+        run: gradle :app:clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - name: Upload compiled instrumentation APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: V196-P1-Instrumentation-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload candidate and verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V196-P1-Preview-APK
+          path: |
+            app/build/outputs/apk/personalStable/*.apk
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.html
+          if-no-files-found: warn
+          retention-days: 30
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: V196-P1-Instrumentation-APKs
+          path: instrumentation-apks
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Execute precompiled Android 11 acceptance suites
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r instrumentation-apks/debug/app-debug.apk
+            adb install -r instrumentation-apks/androidTest/debug/app-debug-androidTest.apk
+            adb logcat -c
+            bash tools/run_v185_instrumentation.sh
+            adb shell am instrument -w -r -e class com.framebynavin.app.youtube.YouTubeCacheLifecycleV183Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v187-insights-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v187-insights-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (8 tests)' v187-insights-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.youtube.V188RevenueAndReachOwnerTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v188-revenue-audience-instrumentation.log
+            grep -Fq 'OK (3 tests)' v188-revenue-audience-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V189VideoUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v189-video-ui-instrumentation.log
+            grep -Fq 'OK (2 tests)' v189-video-ui-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V190InsightsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v190-insights-ui-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v190-insights-ui-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v190-insights-ui-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V191ContentStabilityUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v191-content-stability-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v191-content-stability-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v191-content-stability-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V192ThumbnailSortUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v192-thumbnail-sort-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v192-thumbnail-sort-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v192-thumbnail-sort-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V194InsightsSnapshotOwnershipUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v194-snapshot-ownership-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v194-snapshot-ownership-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v194-snapshot-ownership-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V195ReminderSceneUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v195-reminder-scene-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v195-reminder-scene-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v195-reminder-scene-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V197ImmersiveSceneUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-immersive-scene-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-immersive-scene-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v197-immersive-scene-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V199ReminderSparkUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v199-spark-expression-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v199-spark-expression-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v199-spark-expression-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V200ReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v200-reminder-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v200-reminder-ui.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v200-reminder-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V201ReminderFeedbackUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v201-reminder-feedback-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v201-reminder-feedback-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v201-reminder-feedback-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V202PremiumParticlesUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v202-premium-particles-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v202-premium-particles-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v202-premium-particles-ui.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V196-P1-Emulator-Results
+          path: |
+            v202-premium-particles-ui.log
+            v201-reminder-feedback-ui.log
+            v200-reminder-ui.log
+            v199-spark-expression-ui.log
+            v197-immersive-scene-ui.log
+            v195-reminder-scene-ui.log
+            v194-snapshot-ownership-instrumentation.log
+            v192-thumbnail-sort-instrumentation.log
+            v191-content-stability-instrumentation.log
+            v190-insights-ui-instrumentation.log
+            v189-video-ui-instrumentation.log
+            v188-revenue-audience-instrumentation.log
+            v187-insights-instrumentation.log
+            v185-instrumentation.log
+            v185-logcat.txt
+            v185-emulator-screen.png
+            v185-conversion-dialog.png
