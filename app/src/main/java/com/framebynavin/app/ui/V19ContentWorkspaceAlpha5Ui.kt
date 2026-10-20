@@ -56,6 +56,9 @@ internal fun V19PublishStudioAlpha5Dialog(
     }
     var action by remember { mutableStateOf<Alpha5PublicationAction?>(null) }
     var actionError by remember { mutableStateOf<String?>(null) }
+    // Explicitly selected title only. Never use a random/unselected draft title.
+    val scriptTitle = CreatorScriptPublishBridge.selectedTitle(task.workspace.scriptStudio)
+    var pendingScriptTitleForId by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(deliverables) {
         delay(350)
@@ -148,6 +151,8 @@ internal fun V19PublishStudioAlpha5Dialog(
                             deliverable = selected,
                             parentTitle = deliverables.firstOrNull { it.id == selected.parentDeliverableId }?.title,
                             onChange = { replace(it) },
+                            scriptTitle = scriptTitle,
+                            onUseScriptTitle = { pendingScriptTitleForId = selected.id },
                             onPublish = { action = Alpha5PublicationAction.PUBLISH; actionError = null },
                             onUpdate = { action = Alpha5PublicationAction.UPDATE; actionError = null },
                             onReopen = { action = Alpha5PublicationAction.REOPEN; actionError = null },
@@ -188,6 +193,47 @@ internal fun V19PublishStudioAlpha5Dialog(
                 }
             }
         }
+    }
+
+    val titleTarget = deliverables.firstOrNull { it.id == pendingScriptTitleForId }
+    if (pendingScriptTitleForId != null) {
+        AlertDialog(
+            onDismissRequest = { pendingScriptTitleForId = null },
+            title = { Text("Use script title?") },
+            text = {
+                Column {
+                    Text(
+                        if (titleTarget != null) "For ${titleTarget.platform} · ${titleTarget.format}"
+                        else "This output is no longer available.",
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("SCRIPT TITLE", color = MutedGold, fontSize = 12.sp)
+                    Text(scriptTitle)
+                    if (titleTarget?.title?.isNotBlank() == true) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("CURRENT TITLE", color = MutedGold, fontSize = 12.sp)
+                        Text(titleTarget.title)
+                    }
+                }
+            },
+            confirmButton = {
+                if (titleTarget != null && CreatorScriptPublishBridge.canUseTitle(titleTarget, scriptTitle)) {
+                    TextButton(onClick = {
+                        // Re-validate at the actual click, even if the output changed meanwhile.
+                        val currentTarget = deliverables.firstOrNull { it.id == pendingScriptTitleForId }
+                        if (currentTarget != null && CreatorScriptPublishBridge.canUseTitle(currentTarget, scriptTitle)) {
+                            replace(CreatorScriptPublishBridge.useTitle(currentTarget, scriptTitle))
+                        }
+                        pendingScriptTitleForId = null
+                    }) { Text("USE TITLE") }
+                } else {
+                    TextButton(onClick = { pendingScriptTitleForId = null }) { Text("OK") }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingScriptTitleForId = null }) { Text("CANCEL") }
+            },
+        )
     }
 
     val actionDeliverable = deliverables.firstOrNull { it.id == selectedId }
@@ -252,6 +298,8 @@ private fun Alpha5DeliverableEditor(
     deliverable: CreatorDeliverable,
     parentTitle: String?,
     onChange: (CreatorDeliverable) -> Unit,
+    scriptTitle: String,
+    onUseScriptTitle: () -> Unit,
     onPublish: () -> Unit,
     onUpdate: () -> Unit,
     onReopen: () -> Unit,
@@ -289,6 +337,18 @@ private fun Alpha5DeliverableEditor(
 
             Spacer(Modifier.height(18.dp))
             Alpha5Title("DETAILS", "")
+            if (CreatorScriptPublishBridge.canUseTitle(deliverable, scriptTitle)) {
+                OutlinedButton(
+                    onClick = onUseScriptTitle,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(13.dp),
+                ) {
+                    Icon(Icons.Outlined.Title, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("USE SCRIPT TITLE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(9.dp))
+            }
             Alpha5Field("FINAL TITLE", deliverable.title, { onChange(deliverable.copy(title = it)) }, "Final platform title")
             Alpha5Field("DESCRIPTION / CAPTION", deliverable.description, { onChange(deliverable.copy(description = it)) }, "Platform description or caption", 4)
             Alpha5Field("TAGS / HASHTAGS", deliverable.tags, { onChange(deliverable.copy(tags = it)) }, "Tags, keywords or hashtags", 2)
