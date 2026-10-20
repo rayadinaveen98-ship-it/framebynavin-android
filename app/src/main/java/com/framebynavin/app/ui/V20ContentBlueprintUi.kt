@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -31,9 +32,7 @@ internal fun V20ContentBlueprintDialog(
     blueprint: CreatorContentBlueprint,
     onDismiss: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    WorkspaceAdaptiveFrame {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -44,7 +43,7 @@ internal fun V20ContentBlueprintDialog(
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
                         Text("GUIDE", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
 
@@ -157,8 +156,6 @@ internal fun V20ContentBlueprintDialog(
                         }
                     }
                 }
-            }
-        }
     }
 }
 

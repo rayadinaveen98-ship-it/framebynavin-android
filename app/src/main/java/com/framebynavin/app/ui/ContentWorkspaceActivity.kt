@@ -3,6 +3,7 @@ package com.framebynavin.app.ui
 import android.os.Bundle
 import android.graphics.drawable.ColorDrawable
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -52,6 +53,12 @@ class ContentWorkspaceActivity : ComponentActivity() {
         val projectId = intent.getStringExtra(EXTRA_PROJECT_ID).orEmpty()
         setContent {
             FrameByNavinTheme {
+                // The editors are Activity-owned screens now. Keep the same unsaved-draft
+                // confirmation on system Back that the previous Dialog window provided.
+                BackHandler(enabled = !confirmEditorClose && error == null && mode != Alpha6WorkspaceMode.HUB) {
+                    if (mode == Alpha6WorkspaceMode.BLUEPRINT) mode = Alpha6WorkspaceMode.HUB
+                    else confirmEditorClose = true
+                }
                 Box(Modifier.fillMaxSize().background(BacklotBackground)) {
                     when {
                         error != null -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {

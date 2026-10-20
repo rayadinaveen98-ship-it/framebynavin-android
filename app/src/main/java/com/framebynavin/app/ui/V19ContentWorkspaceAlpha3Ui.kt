@@ -19,7 +19,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -39,6 +41,7 @@ private enum class Alpha3Section(val label: String) {
     PRODUCTION("Tasks"), DELIVERABLES("Outputs"), LEARN("Notes")
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun V19ContentWorkspaceAlpha3Dialog(
     task: CreatorTask,
@@ -156,9 +159,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    WorkspaceAdaptiveFrame {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -166,7 +167,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
                         Text("PLAN", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(Modifier.width(8.dp))
                 }
@@ -177,16 +178,20 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                     }
                 }
 
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ScrollableTabRow(
+                    selectedTabIndex = section.ordinal,
+                    modifier = Modifier.fillMaxWidth(),
+                    edgePadding = 12.dp,
+                    containerColor = CinemaBlack,
+                    divider = {},
+                    indicator = {},
                 ) {
                     Alpha3Section.entries.forEach { item ->
                         FilterChip(
                             selected = section == item,
                             onClick = { section = item; openError = null },
                             label = { Text(item.label, fontSize = 12.sp) },
-                            modifier = Modifier.heightIn(min = 44.dp),
+                            modifier = Modifier.heightIn(min = 48.dp).padding(end = 7.dp),
                         )
                     }
                 }
@@ -322,25 +327,12 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 }
 
                 Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        OutlinedButton(
-                            onClick = { onSave(task.id, originalRevision, draft()) },
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(15.dp),
-                        ) { Text("SAVE", fontWeight = FontWeight.Bold) }
-                        Button(
-                            onClick = { onSaveAndScript(task.id, originalRevision, draft()) },
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(15.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        ) { Text("SAVE & SCRIPT", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
-                    }
+                    WorkspaceAdaptiveSaveActions(
+                        primaryLabel = "SAVE & SCRIPT",
+                        onPrimary = { onSaveAndScript(task.id, originalRevision, draft()) },
+                        onSecondary = { onSave(task.id, originalRevision, draft()) },
+                    )
                 }
-            }
-        }
     }
 
     pendingRemovalId?.let { rootId ->
@@ -399,26 +391,46 @@ private fun Alpha3Overview(
                 Text("Next · $next", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             }
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                A3Metric("Sources", workspace.references.size.toString())
-                A3Metric("Assets", workspace.assets.size.toString())
-                A3Metric("Pending", pending.toString())
-                A3Metric("Published", published.toString())
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val compact = maxWidth < 350.dp || LocalDensity.current.fontScale >= 1.3f
+                if (compact) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                            A3Metric("Sources", workspace.references.size.toString())
+                            A3Metric("Assets", workspace.assets.size.toString())
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                            A3Metric("Pending", pending.toString())
+                            A3Metric("Published", published.toString())
+                        }
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        A3Metric("Sources", workspace.references.size.toString())
+                        A3Metric("Assets", workspace.assets.size.toString())
+                        A3Metric("Pending", pending.toString())
+                        A3Metric("Published", published.toString())
+                    }
+                }
             }
         }
     }
     Spacer(Modifier.height(18.dp))
     Text("TEMPLATES", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
     Spacer(Modifier.height(6.dp))
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        CreatorProjectTemplates.contentTemplates.chunked(2).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                row.forEach { template ->
-                    OutlinedButton(onClick = { onApplyTemplate(template) }, modifier = Modifier.weight(1f)) {
-                        Text(template.name, fontSize = 8.sp)
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val narrow = maxWidth < 350.dp || LocalDensity.current.fontScale >= 1.3f
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            CreatorProjectTemplates.contentTemplates.chunked(if (narrow) 1 else 2).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    row.forEach { template ->
+                        OutlinedButton(
+                            onClick = { onApplyTemplate(template) },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        ) { Text(template.name, fontSize = 12.sp) }
                     }
+                    if (row.size == 1 && !narrow) Spacer(Modifier.weight(1f))
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }

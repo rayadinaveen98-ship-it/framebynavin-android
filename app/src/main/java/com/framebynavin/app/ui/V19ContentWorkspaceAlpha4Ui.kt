@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -182,14 +183,12 @@ internal fun V19ScriptStudioAlpha4Dialog(
     }
 
     val current = draft()
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    WorkspaceAdaptiveFrame {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
                         Text("SCRIPT", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(Modifier.width(8.dp))
                 }
@@ -342,25 +341,12 @@ internal fun V19ScriptStudioAlpha4Dialog(
                 }
 
                 Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        OutlinedButton(
-                            onClick = { onSave(originalStudioRevision, originalWorkspaceRevision, draft()) },
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(15.dp),
-                        ) { Text("SAVE", fontWeight = FontWeight.Bold) }
-                        Button(
-                            onClick = { onSaveAndPublish(originalStudioRevision, originalWorkspaceRevision, draft()) },
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(15.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        ) { Text("SAVE & PUBLISH", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-                    }
+                    WorkspaceAdaptiveSaveActions(
+                        primaryLabel = "SAVE & PUBLISH",
+                        onPrimary = { onSaveAndPublish(originalStudioRevision, originalWorkspaceRevision, draft()) },
+                        onSecondary = { onSave(originalStudioRevision, originalWorkspaceRevision, draft()) },
+                    )
                 }
-            }
-        }
     }
 }
 
