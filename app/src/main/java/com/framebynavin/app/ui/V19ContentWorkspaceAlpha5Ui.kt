@@ -103,9 +103,7 @@ internal fun V19PublishStudioAlpha5Dialog(
     val selected = deliverables.firstOrNull { it.id == selectedId }
     val unrecordedPublishedEdits = deliverables.any(CreatorPublishWorkflow::hasUnrecordedPublishedChanges)
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    WorkspaceAdaptiveFrame {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
@@ -191,8 +189,6 @@ internal fun V19PublishStudioAlpha5Dialog(
                         ) { Text("SAVE PUBLISH DETAILS", fontWeight = FontWeight.Black) }
                     }
                 }
-            }
-        }
     }
 
     val titleTarget = deliverables.firstOrNull { it.id == pendingScriptTitleForId }
