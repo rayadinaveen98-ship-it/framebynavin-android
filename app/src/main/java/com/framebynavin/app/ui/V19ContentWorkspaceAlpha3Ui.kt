@@ -156,9 +156,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    WorkspaceAdaptiveFrame {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -322,25 +320,12 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 }
 
                 Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        OutlinedButton(
-                            onClick = { onSave(task.id, originalRevision, draft()) },
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(15.dp),
-                        ) { Text("SAVE", fontWeight = FontWeight.Bold) }
-                        Button(
-                            onClick = { onSaveAndScript(task.id, originalRevision, draft()) },
-                            modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                            shape = RoundedCornerShape(15.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        ) { Text("SAVE & SCRIPT", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
-                    }
+                    WorkspaceAdaptiveSaveActions(
+                        primaryLabel = "SAVE & SCRIPT",
+                        onPrimary = { onSaveAndScript(task.id, originalRevision, draft()) },
+                        onSecondary = { onSave(task.id, originalRevision, draft()) },
+                    )
                 }
-            }
-        }
     }
 
     pendingRemovalId?.let { rootId ->
