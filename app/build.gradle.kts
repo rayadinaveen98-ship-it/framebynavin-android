@@ -55,8 +55,8 @@ android {
         targetSdk = 36
         // Backlot V188 Phase 1B revenue and audience preview on top of V187.
         // Same application and signing identity; no destructive creator-data migration.
-        versionCode = 221
-        versionName = "2.7.1-v201-respectful-nudges-preview"
+        versionCode = 222
+        versionName = "2.7.2-v202-contextual-nudges-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
