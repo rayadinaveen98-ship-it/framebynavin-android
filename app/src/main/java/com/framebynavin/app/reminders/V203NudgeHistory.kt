@@ -16,8 +16,10 @@ internal object V203NudgeHistory {
         return PREFIX + digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 
-    fun lastShown(prefs: SharedPreferences, key: String): Long =
-        prefs.getLong(storageKey(key), 0L)
+    fun lastShown(prefs: SharedPreferences, key: String): Long = maxOf(
+        prefs.getLong(storageKey(key), 0L),
+        if (prefs.getString("last_key", "") == key) prefs.getLong("last_at", 0L) else 0L,
+    )
 
     /** A durable write after handing the notification to Android. */
     fun recordShown(prefs: SharedPreferences, key: String, nowMillis: Long): Boolean {
@@ -25,6 +27,13 @@ internal object V203NudgeHistory {
             .putString("last_key", key)
             .putLong("last_at", nowMillis)
             .putLong(storageKey(key), nowMillis)
+
+        // Migrate the V201 last-key state before replacing it with this send.
+        val legacyKey = prefs.getString("last_key", "").orEmpty()
+        val legacyAt = prefs.getLong("last_at", 0L)
+        if (legacyKey.isNotBlank() && legacyKey != key && legacyAt > 0L) {
+            editor.putLong(storageKey(legacyKey), lastShown(prefs, legacyKey))
+        }
 
         // At most a small local history remains, even if creators run for years.
         for ((savedKey, value) in prefs.all) {
