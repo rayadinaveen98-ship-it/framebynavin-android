@@ -9,6 +9,10 @@ import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +32,7 @@ import com.framebynavin.app.youtube.YouTubeAnalyticsSnapshot
 import com.framebynavin.app.youtube.YouTubeRevenueContentRow
 import com.framebynavin.app.youtube.YouTubeRevenuePeriod
 import com.framebynavin.app.youtube.YouTubeRevenueSnapshot
+import com.framebynavin.app.youtube.V207RevenuePresentation
 import com.framebynavin.app.youtube.YouTubeDatasetState
 import java.text.NumberFormat
 import java.util.Currency
@@ -73,7 +78,7 @@ internal fun V144YouTubeRevenueCard(
                     FilterChip(
                         selected = selectedPeriod == period,
                         onClick = { onPeriod(period) },
-                        label = { Text(period.label, fontSize = if (period == YouTubeRevenuePeriod.THIS_MONTH) 8.4.sp else 9.sp) },
+                        label = { Text(period.label, fontSize = 11.sp) },
                     )
                 }
             }
@@ -96,31 +101,79 @@ private fun V144RevenueWorkspace(
     analyticsSnapshot: YouTubeAnalyticsSnapshot?,
     error: String?,
 ) {
+    var detailsExpanded by rememberSaveable { mutableStateOf(false) }
 
+    // Channel summary is the only source for the headline; never add top-50
+    // video rows to invent a total or confuse estimates with AdSense payouts.
+    Surface(
+        Modifier.fillMaxWidth(),
+        RoundedCornerShape(18.dp),
+        CinemaSurface,
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text("ESTIMATED REVENUE", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(5.dp))
+            Text(
+                if (V207RevenuePresentation.hasEstimatedTotal(data))
+                    v144Money(data.estimatedRevenue, data.currencyCode) else "—",
+                color = MutedGold, fontSize = 32.sp, fontWeight = FontWeight.Black,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                "YouTube Analytics estimate · Not an AdSense payout",
+                color = MutedText, fontSize = 12.sp, lineHeight = 17.sp,
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                "${data.startDate} – ${data.endDate} · ${V207RevenuePresentation.refreshLabel(data)}",
+                color = MutedText, fontSize = 11.sp,
+            )
+        }
+    }
+
+    Spacer(Modifier.height(9.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        V144RevenueMetric("Estimated Revenue", v188Money(data, "estimatedRevenue", data.estimatedRevenue), MutedGold, Modifier.weight(1f))
-        V144RevenueMetric("Rev / 1K Views", data.revenuePerThousandViews?.let {
+        V144RevenueMetric("Revenue / 1K views", data.revenuePerThousandViews?.let {
             v144Money(it, data.currencyCode)
-        } ?: "—", SuccessGreen, Modifier.weight(1f))
+        } ?: "—", ProjectorIvory, Modifier.weight(1f))
+        V144RevenueMetric(
+            "Estimated ad revenue",
+            v188Money(data, "estimatedAdRevenue", data.estimatedAdRevenue),
+            ProjectorIvory, Modifier.weight(1f),
+        )
     }
-    Spacer(Modifier.height(8.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        V144RevenueMetric("Ad Revenue", v188Money(data, "estimatedAdRevenue", data.estimatedAdRevenue), ProjectorIvory, Modifier.weight(1f))
-        V144RevenueMetric("Playback CPM", v188Money(data, "playbackBasedCpm", data.playbackBasedCpm, ad = true), ProjectorIvory, Modifier.weight(1f))
+    Spacer(Modifier.height(3.dp))
+    Text("Revenue / 1K views is calculated, not YouTube Studio RPM.", color = MutedText, fontSize = 11.sp)
+
+    TextButton(onClick = { detailsExpanded = !detailsExpanded }, contentPadding = PaddingValues(horizontal = 4.dp)) {
+        Text(if (detailsExpanded) "Hide ad metrics" else "More ad metrics", color = MutedGold, fontSize = 12.sp)
     }
-    Spacer(Modifier.height(8.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        V144RevenueMetric("Monetized Plays", if (data.evidence?.hasSummary("monetizedPlaybacks") == true)
-            v144Compact(data.monetizedPlaybacks) else "—", ProjectorIvory, Modifier.weight(1f))
-        V144RevenueMetric("Ad Impressions", if (data.evidence?.hasAd("adImpressions") == true)
-            v144Compact(data.adImpressions) else "—", ProjectorIvory, Modifier.weight(1f))
+    if (detailsExpanded) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            V144RevenueMetric("Playback CPM", v188Money(data, "playbackBasedCpm", data.playbackBasedCpm, ad = true), ProjectorIvory, Modifier.weight(1f))
+            V144RevenueMetric("Monetized plays", if (data.evidence?.hasSummary("monetizedPlaybacks") == true)
+                v144Compact(data.monetizedPlaybacks) else "—", ProjectorIvory, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        V144RevenueMetric(
+            "Ad impressions",
+            if (data.evidence?.hasAd("adImpressions") == true) v144Compact(data.adImpressions) else "—",
+            ProjectorIvory, Modifier.fillMaxWidth(),
+        )
     }
 
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(13.dp))
     V144RevenueTrend(data)
 
     Spacer(Modifier.height(16.dp))
-    Text("Revenue by Format", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    Text("Earnings among top videos", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    Spacer(Modifier.height(5.dp))
+    Text(
+        V207RevenuePresentation.sampleLabel(data),
+        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+    )
     Spacer(Modifier.height(8.dp))
     V144RevenueFormatSplit(data)
 
@@ -129,58 +182,44 @@ private fun V144RevenueWorkspace(
     Spacer(Modifier.height(8.dp))
     V144RevenueContentList(data, analyticsSnapshot)
 
-    if (data.content.isNotEmpty() && data.evidence?.contentState == YouTubeDatasetState.READY &&
-        data.evidence.hasSummary("estimatedRevenue") && data.estimatedRevenue > 0.0) {
-        val top3 = data.content.take(3).sumOf { it.estimatedRevenue }
-        val share = (top3 * 100.0 / data.estimatedRevenue).coerceIn(0.0, 100.0)
-        Spacer(Modifier.height(10.dp))
-        V144RevenueMetric("Top 3 Share", String.format(Locale.US, "%.0f%%", share),
-            ProjectorIvory, Modifier.fillMaxWidth())
-    }
-
     error?.let {
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(9.dp))
+        Text("Latest refresh failed; showing previously saved revenue.", color = MutedText, fontSize = 11.sp)
         Text(it, color = RecRed, fontSize = 11.sp, lineHeight = 15.sp)
     }
     Spacer(Modifier.height(8.dp))
     Text(
-        "Estimated · ${data.startDate} → ${data.endDate} · ${data.evidence?.observedDays ?: 0} daily rows",
+        "Estimates may change when YouTube finalizes revenue. ${data.evidence?.observedDays ?: 0} daily trend rows available.",
         color = MutedText.copy(alpha = .85f),
-        fontSize = 11.sp,
+        fontSize = 11.sp, lineHeight = 16.sp,
     )
 }
 
 @Composable
 private fun V144RevenueFormatSplit(data: YouTubeRevenueSnapshot) {
-    if (data.content.isEmpty()) {
-        Text(if (data.evidence?.contentState == YouTubeDatasetState.UNAVAILABLE) "Content unavailable"
-            else "No content data", color = MutedText, fontSize = 11.sp)
+    val groups = V207RevenuePresentation.formatGroups(data)
+    if (groups.isEmpty()) {
+        Text(V207RevenuePresentation.sampleLabel(data), color = MutedText, fontSize = 11.sp)
         return
     }
-    val shorts = data.content.filter { it.creatorContentType == "SHORTS" }
-    val videos = data.content.filter { it.creatorContentType == "VIDEO_ON_DEMAND" }
-    val live = data.content.filter { it.creatorContentType == "LIVE_STREAM" }
-    val known = shorts + videos + live
-    val unknown = data.content.filterNot { it in known }
-
-    val groups = listOf(
-        "SHORTS" to shorts,
-        "VIDEOS" to videos,
-        "LIVE" to live,
-        "OTHER / UNKNOWN" to unknown,
-    ).filter { it.second.isNotEmpty() }
-
-    groups.forEach { (label, rows) ->
-        val revenue = rows.sumOf { it.estimatedRevenue }
-        val views = rows.sumOf { it.views }
-        val share = if (data.estimatedRevenue > 0.0) revenue * 100.0 / data.estimatedRevenue else 0.0
-        Surface(Modifier.fillMaxWidth().padding(bottom = 6.dp), RoundedCornerShape(13.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    groups.forEach { group ->
+        Surface(
+            Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            RoundedCornerShape(13.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine),
+        ) {
             Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                    Text("${v144Compact(views)} views · ${String.format(Locale.US, "%.0f", share)}% of revenue", color = ProjectorIvory, fontSize = 11.sp)
+                    Text(group.label, color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "${group.rows} returned videos · ${v144Compact(group.views)} views",
+                        color = ProjectorIvory, fontSize = 11.sp,
+                    )
                 }
-                Text(v144Money(revenue, data.currencyCode), color = if (label == "SHORTS") RecRed else MutedGold, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text(
+                    v144Money(group.estimatedRevenue, data.currencyCode),
+                    color = if (group.label == "SHORTS") RecRed else MutedGold,
+                    fontSize = 13.sp, fontWeight = FontWeight.Black,
+                )
             }
         }
     }
