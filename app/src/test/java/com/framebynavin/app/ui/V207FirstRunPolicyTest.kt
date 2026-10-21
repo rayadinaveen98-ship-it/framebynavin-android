@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import com.framebynavin.app.data.CreatorProfile
+import com.framebynavin.app.data.CreatorModeRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -20,14 +21,15 @@ class V207FirstRunPolicyTest {
     }
 
     @Test fun newCreatorGetsClearEditableFocusAndValidProfile() {
+        val validMode = CreatorModeRegistry.labels.first()
         val created = V207FirstRunPolicy.completeProfile(
             CreatorProfile(displayName = "New creator"),
-            "Film Creator",
+            validMode,
             setOf("YouTube"),
         )
         assertTrue(created.isComplete)
         assertEquals("Stay organized", created.primaryGoal)
-        assertEquals("Film Creator", created.resolvedPrimaryCreatorMode)
+        assertEquals(validMode, created.resolvedPrimaryCreatorMode)
         assertEquals(setOf("YouTube"), created.platforms)
         assertEquals("New creator", created.displayName)
         assertEquals(CreatorProfile.CURRENT_SCHEMA_VERSION, created.setupSchemaVersion)
