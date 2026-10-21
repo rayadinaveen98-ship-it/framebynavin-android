@@ -1366,7 +1366,8 @@ private fun PSettingsScreen(
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Column(Modifier.padding(13.dp)) {
                     Row { Text("Version", color = MutedText, fontSize = 9.5.sp); Spacer(Modifier.weight(1f)); Text(BuildConfig.VERSION_NAME, color = ProjectorIvory, fontSize = 9.5.sp) }
-
+                    Spacer(Modifier.height(9.dp))
+                    Text("Backlot · Built for Creators", color = Color(0xFFB596F8), fontSize = 10.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
