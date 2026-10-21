@@ -56,7 +56,7 @@ class V197BottomNavigationUiTest {
                 )
             }
         }
-        rule.onNodeWithText("Insights", useUnmergedTree = true).performClick()
+        rule.onNodeWithText("Insights").performClick()
         rule.runOnIdle { assertTrue(selected == PTab.INSIGHTS) }
     }
 }
