@@ -20,7 +20,11 @@ grep -Fq 'val original' "$POLICY" || grep -Fq 'fun apply(original: CreatorProfil
 grep -Fq 'original.copy(' "$POLICY"
 grep -Fq 'primaryGoal = draft.primaryGoal' "$POLICY"
 grep -Fq 'MORE OPTIONS · CREATOR TYPES & STYLES' "$EDITOR"
-grep -Fq 'modifier = Modifier.weight(1.4f).height(49.dp).testTag("v168-save-profile")' "$EDITOR"
+# V197.4 keeps validation in V168 and the same test tag in the adaptive footer.
+grep -Fq 'V197ProfileEditorFooter(' "$EDITOR"
+grep -Fq 'enabled = error == null' "$EDITOR"
+grep -Fq 'CreatorProfileEditV168Policy.apply(profile, draft)' "$EDITOR"
+grep -Fq 'testTag("v168-save-profile")' app/src/main/java/com/framebynavin/app/ui/V197ProfileEditorFooter.kt
 grep -Fq 'Existing projects keep their own voice choice.' "$PERSONALIZE"
 grep -Fq 'defaultMinSize(minHeight = 40.dp)' "$VOICE"
 test -f app/src/test/java/com/framebynavin/app/data/CreatorProfileEditV168PolicyTest.kt
