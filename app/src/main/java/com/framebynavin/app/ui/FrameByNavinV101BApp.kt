@@ -429,6 +429,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     externalIdeaId = externalLaunch?.ideaId.orEmpty(),
                     externalIdeaMode = externalLaunch?.ideaMode.orEmpty(),
                     externalLaunchNonce = externalLaunch?.nonce ?: 0L,
+                    bottomNavigationClearance = bottomNavClearanceDp.dp,
                 )
                 PTab.CREATE -> V131StudioScreen(
                     onQuickCreate = { openComposer(quick = true) },

@@ -24,10 +24,11 @@ import com.framebynavin.app.ui.theme.CinemaBlack
 @Composable
 internal fun CreatorAdaptiveFullScreen(
     onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     BackHandler(onBack = onDismissRequest)
-    Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+    Surface(modifier.fillMaxSize(), color = CinemaBlack) {
         Box(Modifier.fillMaxSize()) {
             val shieldInteraction = remember { MutableInteractionSource() }
             Box(

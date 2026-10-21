@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -56,10 +57,12 @@ internal fun V189VideoDetailScreen(
     }
     val retention = foundation?.retention?.firstOrNull { it.videoId == video.videoId }
     var section by remember(video.videoId) { mutableStateOf(V189VideoSection.RESULTS) }
+    // This route lives inside Insights tab content: retain the Dialog's higher window
+    // z-order so the host's floating bottom nav cannot cover the video detail screen.
     Dialog(onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize().testTag("v189-video-screen"), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 Row(Modifier.fillMaxWidth().padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) {
@@ -83,14 +86,17 @@ internal fun V189VideoDetailScreen(
                         color = MutedText, fontSize = 10.sp,
                     )
                     Spacer(Modifier.height(14.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Keep every section reachable rather than squeezing four chips on narrow phones.
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         V189VideoSection.entries.forEach { item ->
                             FilterChip(
                                 selected = section == item,
                                 onClick = { section = item },
-                                modifier = Modifier.weight(1f).testTag("v189-video-section-${item.name}"),
-                                label = { Text(item.label, fontSize = 11.sp,
-                                    maxLines = 1) },
+                                modifier = Modifier.testTag("v189-video-section-${item.name}"),
+                                label = { Text(item.label, fontSize = 11.sp, maxLines = 1) },
                             )
                         }
                     }

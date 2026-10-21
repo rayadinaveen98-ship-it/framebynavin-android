@@ -38,7 +38,7 @@ class V189VideoUiTest {
         rule.onNodeWithText("Independent video").assertExists()
         rule.onNodeWithTag("v189-video-section-REACH").performClick()
         rule.onNodeWithText("Impressions").assertExists()
-        rule.onNodeWithTag("v189-video-section-PROJECT").performClick()
+        rule.onNodeWithTag("v189-video-section-PROJECT").performScrollTo().performClick()
         rule.onNodeWithText("Not linked").assertExists()
         rule.onNodeWithText("Link project").performClick()
         rule.runOnIdle { assertEquals(1, links) }

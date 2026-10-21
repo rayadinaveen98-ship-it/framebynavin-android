@@ -68,6 +68,7 @@ internal fun V09IdeaVaultScreen(
     externalIdeaId: String = "",
     externalIdeaMode: String = "",
     externalLaunchNonce: Long = 0L,
+    bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
 ) {
     val context = LocalContext.current
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
@@ -231,7 +232,7 @@ internal fun V09IdeaVaultScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 124.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = bottomNavigationClearance),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filtered, key = { it.id }) { idea ->
@@ -458,10 +459,8 @@ private fun V09NewIdeaCleanEditor(
     ) {
         Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
             Column(
-                Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
+                Modifier.fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
                     .imePadding(),
             ) {
                 Row(
