@@ -16,7 +16,10 @@ grep -Fq 'var savedStyleList by rememberSaveable(task?.id)' "$EDITOR"
 grep -Fq 'V172ProjectDraftPolicy.changed(' "$EDITOR"
 grep -Fq 'V172ConfirmDiscardDialog(' "$EDITOR"
 grep -Fq 'onDismiss = { requestExit() }' "$EDITOR"
-grep -Fq 'Dialog(onDismissRequest = { requestExit() }' "$EDITOR"
+# V197.1: the Activity-owned overlay replaces the old full-screen Dialog.
+# The unsaved-editor Back behavior must still pass through requestExit().
+grep -Fq 'CreatorAdaptiveFullScreen(onDismissRequest = { requestExit() })' "$EDITOR"
+grep -Fq 'BackHandler(onBack = onDismissRequest)' app/src/main/java/com/framebynavin/app/ui/CreatorAdaptiveFullScreen.kt
 ! grep -Fq 'animateScrollTo(scrollState.maxValue)' "$WIZARD"
 grep -Fq 'bringToStep.bringIntoView()' "$WIZARD"
 grep -Fq 'project-step-$index' "$WIZARD"
