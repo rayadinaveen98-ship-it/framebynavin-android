@@ -88,6 +88,7 @@ internal fun PTodayScreen(
     onOpenIdeaVault: () -> Unit = {},
     onOpenInsights: () -> Unit = {},
     onOpenProject: (String) -> Unit = {},
+    bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
 ) {
     val queue by remember { derivedStateOf { pActiveQueue(tasks).take(10) } }
     val queueIds by remember { derivedStateOf { queue.map { it.id } } }
@@ -102,7 +103,7 @@ internal fun PTodayScreen(
     var showWeeklyFocus by rememberSaveable { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(RecRed.copy(alpha = .055f), CinemaBlack), radius = 980f))) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 124.dp)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = bottomNavigationClearance)) {
             V18CinematicHomeHero(creatorProfile.safeDisplayName)
             Spacer(Modifier.height(20.dp))
             Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)

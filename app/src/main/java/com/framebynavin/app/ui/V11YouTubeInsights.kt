@@ -54,6 +54,7 @@ internal fun V11InsightsScreen(
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     onAdd: () -> Unit,
+    bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
 ) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
@@ -398,7 +399,7 @@ internal fun V11InsightsScreen(
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 124.dp),
+                .padding(bottom = bottomNavigationClearance),
         ) {
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
