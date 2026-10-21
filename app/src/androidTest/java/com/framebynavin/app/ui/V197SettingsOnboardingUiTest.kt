@@ -106,7 +106,7 @@ class V197SettingsOnboardingUiTest {
         val lastRow = rule.onNodeWithText("About & Help").getUnclippedBoundsInRoot()
         assertTrue("Final Settings row clipped", lastRow.bottom <= root.bottom && lastRow.top >= root.top)
         rule.onNodeWithText("About & Help").performClick()
-        rule.onNodeWithText("ABOUT").assertExists()
+        rule.onNodeWithText("ABOUT BACKLOT").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithText("Backup & Data").assertExists()
     }
