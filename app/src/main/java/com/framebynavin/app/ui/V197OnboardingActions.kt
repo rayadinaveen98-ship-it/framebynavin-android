@@ -27,6 +27,7 @@ internal fun V197OnboardingActions(
     enabled: Boolean,
     onBack: () -> Unit,
     onPrimary: () -> Unit,
+    lastPage: Int = 4,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val stackActions = maxWidth < 370.dp || LocalDensity.current.fontScale >= 1.35f
@@ -35,6 +36,7 @@ internal fun V197OnboardingActions(
                 V197OnboardingPrimary(
                     page = page, hasProductionStyles = hasProductionStyles,
                     enabled = enabled, onClick = onPrimary, modifier = Modifier.fillMaxWidth(),
+                    lastPage = lastPage,
                 )
                 if (page > 0) V197OnboardingBack(onBack, Modifier.fillMaxWidth())
             }
@@ -44,7 +46,7 @@ internal fun V197OnboardingActions(
                 Spacer(Modifier.weight(1f))
                 V197OnboardingPrimary(
                     page = page, hasProductionStyles = hasProductionStyles,
-                    enabled = enabled, onClick = onPrimary,
+                    enabled = enabled, onClick = onPrimary, lastPage = lastPage,
                 )
             }
         }
@@ -58,6 +60,7 @@ private fun V197OnboardingPrimary(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    lastPage: Int = 4,
 ) {
     Button(
         onClick = onClick,
@@ -67,7 +70,8 @@ private fun V197OnboardingPrimary(
         modifier = modifier.heightIn(min = 50.dp).testTag("v197-onboarding-primary"),
     ) {
         Text(
-            V149CreatorOnboardingPolicy.primaryActionLabel(page, hasProductionStyles),
+            if (page == lastPage && lastPage == V207FirstRunPolicy.LAST_PAGE) "START BACKLOT"
+            else V149CreatorOnboardingPolicy.primaryActionLabel(page, hasProductionStyles),
             fontWeight = FontWeight.Black,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
