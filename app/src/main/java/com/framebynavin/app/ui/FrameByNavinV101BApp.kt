@@ -46,10 +46,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -126,6 +128,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
     var guidedTourStepName by rememberSaveable { mutableStateOf<String?>(null) }
+    val guideTargets = remember { mutableStateMapOf<CreatorGuidedTourStep, Rect>() }
     var stageCompletionEvent by rememberSaveable { mutableLongStateOf(0L) }
     var pendingReminderConfirmation by remember { mutableStateOf<V203PendingReminderConfirmation?>(null) }
     var savedReminderConfirmation by remember { mutableStateOf<String?>(null) }
@@ -200,9 +203,20 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             showControl -> { showControl = false; controlExpanded = false }
             overlay != POverlay.NONE -> leaveOverlay()
             guidedTourStepName != null -> {
-                settingsStore.markGuidedTourComplete()
-                settings = settingsStore.snapshot()
-                guidedTourStepName = null
+                // Back navigates the guide rather than silently permanently
+                // completing it. From lesson one, close for this session.
+                val current = CreatorGuidedTourStep.entries.firstOrNull { it.name == guidedTourStepName }
+                val previous = current?.let(V207GuidedTourPolicy::previous)
+                if (previous == null) guidedTourStepName = null
+                else {
+                    tab = when (previous) {
+                        CreatorGuidedTourStep.TODAY -> PTab.TODAY
+                        CreatorGuidedTourStep.IDEAS -> PTab.IDEAS
+                        CreatorGuidedTourStep.PROJECT -> PTab.CREATE
+                        else -> PTab.INSIGHTS
+                    }
+                    guidedTourStepName = previous.name
+                }
             }
             else -> {
                 externalStudioId = null
@@ -475,6 +489,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     tab = destination
                 },
                 onCapture = { openComposer() },
+                onGuideTarget = { destination, bounds ->
+                    val key = when (destination) {
+                        PTab.TODAY -> CreatorGuidedTourStep.TODAY
+                        PTab.IDEAS -> CreatorGuidedTourStep.IDEAS
+                        PTab.CREATE -> CreatorGuidedTourStep.PROJECT
+                        PTab.INSIGHTS -> CreatorGuidedTourStep.INSIGHTS
+                        PTab.CALENDAR -> null
+                    }
+                    if (key != null && guideTargets[key] != bounds) guideTargets[key] = bounds
+                },
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -813,7 +837,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 )
                 finishComposerSession()
                 if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
-                    guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
+                    guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
                 }
                 if (task == null && V18CreatorJourney.afterProjectCreated(savedTaskId) == V18JourneyDestination.CREATE) {
                     externalStudioId = savedTaskId
@@ -901,61 +925,46 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             layer = v137GuideLayer,
             step = guidedTourStep,
             modifier = Modifier.fillMaxSize(),
+            targetBounds = guideTargets[guidedTourStep] ?: when (guidedTourStep) {
+                CreatorGuidedTourStep.WORKSPACE -> guideTargets[CreatorGuidedTourStep.PROJECT]
+                CreatorGuidedTourStep.CONTROL -> guideTargets[CreatorGuidedTourStep.INSIGHTS]
+                else -> null
+            },
         )
         V20GuidedFirstRunCoach(
             step = guidedTourStep,
             hasProjects = vm.tasks.any { it.archivedAtMillis == 0L },
             onPrimary = {
-                when (guidedTourStep) {
-                    CreatorGuidedTourStep.TODAY -> {
-                        externalStudioId = null
+                // Next is always non-destructive. Capture and project creation
+                // are optional secondary demonstrations, never completion gates.
+                when (V207GuidedTourPolicy.next(guidedTourStep)) {
+                    CreatorGuidedTourStep.IDEAS -> {
                         tab = PTab.IDEAS
                         guidedTourStepName = CreatorGuidedTourStep.IDEAS.name
                     }
-                    CreatorGuidedTourStep.IDEAS -> {
-                        showQuickCapture = true
-                    }
                     CreatorGuidedTourStep.PROJECT -> {
-                        val project = vm.tasks.firstOrNull { it.archivedAtMillis == 0L && it.status != TaskStatus.SKIPPED }
-                            ?: vm.tasks.firstOrNull { it.archivedAtMillis == 0L }
-                            ?: vm.tasks.firstOrNull()
-                        if (project == null) {
-                            openComposer()
-                        } else {
-                            openProject(project.id)
-                            guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
-                        }
+                        tab = PTab.CREATE
+                        guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
                     }
-                    CreatorGuidedTourStep.WORKSPACE -> {
-                        externalStudioId = null
+                    CreatorGuidedTourStep.INSIGHTS -> {
                         tab = PTab.INSIGHTS
                         guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
                     }
-                    CreatorGuidedTourStep.INSIGHTS -> {
-                        guidedTourStepName = CreatorGuidedTourStep.CONTROL.name
-                    }
-                    CreatorGuidedTourStep.CONTROL -> {
+                    else -> {
                         settingsStore.markGuidedTourComplete()
                         settings = settingsStore.snapshot()
                         guidedTourStepName = null
-                        showControl = true
                     }
                 }
             },
             onSecondary = {
                 when (guidedTourStep) {
-                    CreatorGuidedTourStep.IDEAS -> {
-                        externalStudioId = null
-                        tab = PTab.CREATE
-                        guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
-                    }
+                    CreatorGuidedTourStep.IDEAS -> showQuickCapture = true
                     CreatorGuidedTourStep.PROJECT -> {
-                        // A tour must never force the creator to create real data. If they do not
-                        // want a project yet, skip the Workspace-only lesson and continue to Insights.
-                        externalStudioId = null
-                        tab = PTab.INSIGHTS
-                        guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
+                        val project = vm.tasks.firstOrNull { it.archivedAtMillis == 0L }
+                        if (project != null) openProject(project.id) else openComposer()
                     }
+                    CreatorGuidedTourStep.INSIGHTS -> showControl = true
                     else -> Unit
                 }
             },
@@ -1415,6 +1424,7 @@ internal fun PBottomNav(
     onSelect: (PTab) -> Unit,
     onCapture: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onGuideTarget: (PTab, Rect) -> Unit = { _, _ -> },
 ) {
     Surface(
         modifier,
@@ -1428,8 +1438,8 @@ internal fun PBottomNav(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PBottomNavItem(PTab.TODAY, Icons.Outlined.Home, "Home", selected == PTab.TODAY, onSelect, Modifier.weight(1f))
-            PBottomNavItem(PTab.IDEAS, Icons.Outlined.Lightbulb, "Ideas", selected == PTab.IDEAS, onSelect, Modifier.weight(1f))
+            PBottomNavItem(PTab.TODAY, Icons.Outlined.Home, "Home", selected == PTab.TODAY, onSelect, Modifier.weight(1f), onPositioned = { onGuideTarget(PTab.TODAY, it) })
+            PBottomNavItem(PTab.IDEAS, Icons.Outlined.Lightbulb, "Ideas", selected == PTab.IDEAS, onSelect, Modifier.weight(1f), onPositioned = { onGuideTarget(PTab.IDEAS, it) })
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Surface(
                     onClick = onCapture,
@@ -1448,8 +1458,8 @@ internal fun PBottomNav(
                     }
                 }
             }
-            PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Projects", selected == PTab.CREATE, onSelect, Modifier.weight(1f))
-            PBottomNavItem(PTab.INSIGHTS, Icons.Outlined.Insights, "Insights", selected == PTab.INSIGHTS, onSelect, Modifier.weight(1f))
+            PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Projects", selected == PTab.CREATE, onSelect, Modifier.weight(1f), onPositioned = { onGuideTarget(PTab.CREATE, it) })
+            PBottomNavItem(PTab.INSIGHTS, Icons.Outlined.Insights, "Insights", selected == PTab.INSIGHTS, onSelect, Modifier.weight(1f), onPositioned = { onGuideTarget(PTab.INSIGHTS, it) })
         }
     }
 }
@@ -1462,12 +1472,13 @@ private fun PBottomNavItem(
     active: Boolean,
     onSelect: (PTab) -> Unit,
     modifier: Modifier = Modifier,
+    onPositioned: (Rect) -> Unit = {},
 ) {
     Surface(
         onClick = { onSelect(tab) },
         shape = RoundedCornerShape(16.dp),
         color = if (active) { if (VisualExperiencePrefs.isLumen) FrameTertiary.copy(alpha=.16f) else CinemaSurfaceRaised } else Color.Transparent,
-        modifier = modifier.heightIn(min = 52.dp),
+        modifier = modifier.heightIn(min = 52.dp).onGloballyPositioned { onPositioned(it.boundsInRoot()) },
     ) {
         Column(
             Modifier.padding(vertical = 7.dp),
