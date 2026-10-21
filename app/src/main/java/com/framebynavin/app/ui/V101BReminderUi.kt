@@ -606,7 +606,7 @@ internal fun PProjectComposer(
                                 lineHeight = 16.sp,
                             )
                             Spacer(Modifier.height(12.dp))
-                            V140VoiceStudioPicker(
+                            V207ProjectVoiceSelector(
                                 selected = voice,
                                 onSelected = { voice = it },
                                 onPreview = { pComposerPreviewVoice(context, it) },

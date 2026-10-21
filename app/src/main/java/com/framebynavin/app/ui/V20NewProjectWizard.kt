@@ -379,7 +379,7 @@ internal fun V20NewProjectWizard(
                                             fontSize = V173ProjectUiMetrics.supportingText,
                                         )
                                         Spacer(Modifier.height(12.dp))
-                                        V140VoiceStudioPicker(
+                                        V207ProjectVoiceSelector(
                                             selected = voicePersona,
                                             onSelected = onVoicePersonaChange,
                                             onPreview = onPreviewVoice,
@@ -681,7 +681,7 @@ internal fun V20NewProjectWizard(
                                     lineHeight = 16.sp,
                                 )
                                 Spacer(Modifier.height(12.dp))
-                                V140VoiceStudioPicker(
+                                V207ProjectVoiceSelector(
                                     selected = voicePersona,
                                     onSelected = onVoicePersonaChange,
                                     onPreview = onPreviewVoice,
