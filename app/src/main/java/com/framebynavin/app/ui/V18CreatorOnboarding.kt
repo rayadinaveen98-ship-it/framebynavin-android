@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -93,7 +94,7 @@ internal fun V18CreatorOnboarding(
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("BACKLOT", color = RecRed, fontSize = 9.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Black)
+                    Text("Backlot · Built for Creators", color = Color(0xFFB596F8), fontSize = 9.sp, letterSpacing = .5.sp, fontWeight = FontWeight.Bold)
                     Text("Tell us what you make", color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
                 Text("${page + 1}/5", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)

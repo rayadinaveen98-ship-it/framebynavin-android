@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
+import com.framebynavin.app.R
 import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
@@ -96,7 +97,7 @@ object ReminderNotifications {
         runCatching { ReminderAcknowledgementStore(context).begin(task, token, "NOTIFICATION") }
         val manager = context.getSystemService(NotificationManager::class.java)
         val builder = NotificationCompat.Builder(context, if (quiet) QUIET_CHANNEL_ID else ReminderConstants.CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle(task.title)
             .setContentText(notificationText(task))
             .setStyle(
