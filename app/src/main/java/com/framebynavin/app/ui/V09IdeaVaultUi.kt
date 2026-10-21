@@ -452,18 +452,7 @@ private fun V09NewIdeaCleanEditor(
         onDismiss()
     }
 
-    Dialog(
-        onDismissRequest = ::dismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .imePadding(),
-            ) {
+    CreatorAdaptiveFullScreen(onDismissRequest = ::dismiss) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -731,8 +720,6 @@ private fun V09NewIdeaCleanEditor(
                         Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE IDEA", fontSize = 10.sp, fontWeight = FontWeight.Black)
                     }
                 }
-            }
-        }
     }
 }
 
