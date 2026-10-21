@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.BlurEffect
@@ -22,23 +23,6 @@ import com.framebynavin.app.ui.theme.BacklotScrim
 import com.framebynavin.app.ui.theme.BacklotScrim
 import com.framebynavin.app.ui.theme.RecRed
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
-
-private data class V137Spot(
-    val x: Float,
-    val y: Float,
-    val width: Float,
-    val height: Float,
-    val corner: Float,
-)
-
-private fun v137Spot(step: CreatorGuidedTourStep): V137Spot = when (step) {
-    CreatorGuidedTourStep.TODAY -> V137Spot(.045f, .23f, .91f, .38f, 34f)
-    CreatorGuidedTourStep.IDEAS -> V137Spot(.78f, .035f, .17f, .13f, 50f)
-    CreatorGuidedTourStep.PROJECT -> V137Spot(.05f, .18f, .90f, .30f, 34f)
-    CreatorGuidedTourStep.WORKSPACE -> V137Spot(.04f, .22f, .92f, .43f, 34f)
-    CreatorGuidedTourStep.INSIGHTS -> V137Spot(.045f, .17f, .91f, .27f, 34f)
-    CreatorGuidedTourStep.CONTROL -> V137Spot(.78f, .74f, .17f, .14f, 54f)
-}
 
 /** Capture the live app so the guide overlay can blur only the non-target area. */
 @Composable
@@ -57,41 +41,46 @@ internal fun V137GuideSharpWindow(
     layer: GraphicsLayer,
     step: CreatorGuidedTourStep,
     modifier: Modifier = Modifier,
+    targetBounds: Rect? = null,
 ) {
-    val spot = v137Spot(step)
+    // Never highlight an arbitrary screen percentage. If the target has not
+    // laid out yet, dim the screen without claiming a false highlight.
     val profile = VisualExperiencePrefs.profile
     Canvas(
         modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
     ) {
-        val left = size.width * spot.x
-        val top = size.height * spot.y
-        val right = left + size.width * spot.width
-        val bottom = top + size.height * spot.height
-        val themeCorner = profile.cardRadius.value * 2.2f
-        val corner = when {
-            profile.cardRadius.value <= 4f -> 5f
-            else -> minOf(spot.corner, themeCorner)
+        val bounds = targetBounds?.let { raw ->
+            val l = raw.left.coerceIn(0f, size.width)
+            val t = raw.top.coerceIn(0f, size.height)
+            val r = raw.right.coerceIn(0f, size.width)
+            val b = raw.bottom.coerceIn(0f, size.height)
+            if (r > l + 4f && b > t + 4f) Rect(l, t, r, b) else null
         }
+        val themeCorner = profile.cardRadius.value * 2.2f
+        val corner = if (profile.cardRadius.value <= 4f) 5f else minOf(28f, themeCorner)
 
         layer.renderEffect = BlurEffect(18f, 18f, TileMode.Decal)
         drawLayer(layer)
         layer.renderEffect = null
         drawRect(BacklotScrim.copy(alpha = maxOf(profile.guideScrimAlpha, if (VisualExperiencePrefs.isLight) .48f else .68f)))
 
-        drawRoundRect(
-            color = Color.Transparent,
-            topLeft = Offset(left, top),
-            size = Size((right - left).coerceAtLeast(0f), (bottom - top).coerceAtLeast(0f)),
-            cornerRadius = CornerRadius(corner, corner),
-            blendMode = BlendMode.Clear,
-        )
-
-        drawRoundRect(
-            color = RecRed.copy(alpha = .90f),
-            topLeft = Offset(left, top),
-            size = Size((right - left).coerceAtLeast(0f), (bottom - top).coerceAtLeast(0f)),
-            cornerRadius = CornerRadius(corner, corner),
-            style = Stroke(width = if (profile.borderWidth.value >= 2f) 3.4f else 2.6f),
-        )
+        if (bounds != null) {
+            val origin = Offset(bounds.left, bounds.top)
+            val extent = Size(bounds.width, bounds.height)
+            drawRoundRect(
+                color = Color.Transparent,
+                topLeft = origin,
+                size = extent,
+                cornerRadius = CornerRadius(corner, corner),
+                blendMode = BlendMode.Clear,
+            )
+            drawRoundRect(
+                color = RecRed.copy(alpha = .90f),
+                topLeft = origin,
+                size = extent,
+                cornerRadius = CornerRadius(corner, corner),
+                style = Stroke(width = if (profile.borderWidth.value >= 2f) 3.4f else 2.6f),
+            )
+        }
     }
 }
