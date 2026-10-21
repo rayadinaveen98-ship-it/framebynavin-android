@@ -56,10 +56,10 @@ internal fun V189VideoDetailScreen(
     }
     val retention = foundation?.retention?.firstOrNull { it.videoId == video.videoId }
     var section by remember(video.videoId) { mutableStateOf(V189VideoSection.RESULTS) }
-    Dialog(onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize().testTag("v189-video-screen"), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    CreatorAdaptiveFullScreen(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("v189-video-screen"),
+    ) {
                 Row(Modifier.fillMaxWidth().padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) {
@@ -146,8 +146,6 @@ internal fun V189VideoDetailScreen(
                         }
                     }
                 }
-            }
-        }
     }
 }
 
