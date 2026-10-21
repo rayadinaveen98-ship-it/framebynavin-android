@@ -22,7 +22,6 @@ import com.framebynavin.app.MainActivity
 import com.framebynavin.app.R
 import com.framebynavin.app.widget.CreatorWidgetContract
 import com.framebynavin.app.data.CreatorContextNudgeEngine
-import com.framebynavin.app.data.CreatorContextNudgeLevel
 import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.data.CreatorDataGate
@@ -45,23 +44,22 @@ class CreatorContextNudgeWorker(
         ) return@readyTransaction Result.success()
 
         val tasks = TaskStore(applicationContext).load()
-        val nudge = CreatorContextNudgeEngine.topNudge(tasks) ?: return@readyTransaction Result.success()
-        if (nudge.level == CreatorContextNudgeLevel.READY) return@readyTransaction Result.success()
-
         val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
         val previousKey = prefs.getString(KEY_LAST_NUDGE, "").orEmpty()
         val previousAt = prefs.getLong(KEY_LAST_AT, 0L)
-        if (!V201ContextNudgePolicy.mayShow(
-                nowMillis = now,
-                lastShownMillis = previousAt,
-                lastKey = previousKey,
-                candidateKey = nudge.key,
-                quietHoursEnabled = settings.quietHoursEnabled,
-                quietStartMinute = settings.quietHoursStartMinute,
-                quietEndMinute = settings.quietHoursEndMinute,
-            )
-        ) return@readyTransaction Result.success()
+        // The highest-ranked project might still be in cooldown. Instead of
+        // skipping everyone, use the next genuinely eligible active project.
+        val nudge = V203NudgeSelector.choose(
+            candidates = CreatorContextNudgeEngine.nudges(tasks, now),
+            nowMillis = now,
+            lastGlobalShownAtMillis = previousAt,
+            lastGlobalKey = previousKey,
+            lastShownAtForKey = { key -> V203NudgeHistory.lastShown(prefs, key) },
+            quietHoursEnabled = settings.quietHoursEnabled,
+            quietStartMinute = settings.quietHoursStartMinute,
+            quietEndMinute = settings.quietHoursEndMinute,
+        ) ?: return@readyTransaction Result.success()
 
         ensureChannel(applicationContext)
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
@@ -92,7 +90,8 @@ class CreatorContextNudgeWorker(
             .build()
 
         manager.notify(NOTIFICATION_ID, notification)
-        prefs.edit().putString(KEY_LAST_NUDGE, nudge.key).putLong(KEY_LAST_AT, now).apply()
+        // Preserve both the global cap and per-project-key cooldown durably.
+        V203NudgeHistory.recordShown(prefs, nudge.key, now)
         Result.success()
     } }.getOrElse { Result.retry() }
 
