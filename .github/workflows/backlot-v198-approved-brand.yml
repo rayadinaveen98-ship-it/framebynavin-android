@@ -316,7 +316,7 @@ jobs:
           package_line=$(printf '%s\n' "$badging" | grep '^package:')
           printf '%s\n' "$package_line"
           grep -Fq "name='com.framebynavin.app'" <<< "$package_line"
-          grep -Fq "versionCode='217'" <<< "$package_line"
+          grep -Fq "versionCode='218'" <<< "$package_line"
           grep -Fq "versionName='2.6.8-v198-approved-brand-preview'" <<< "$package_line"
           sha256sum "$apk" | tee backlot-v198-brand-apk.sha256
           printf 'Personal side-load RC only. Same public dev signer, not production Play signing.\n'
