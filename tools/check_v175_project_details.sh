@@ -21,7 +21,10 @@ grep -Fq 'V20WizardReviewRow("NOTES", notes) { activeStage = 0 }' "$WIZARD"
 grep -Fq 'onVoicePersonaChange: (VoicePersona) -> Unit' "$WIZARD"
 grep -Fq 'onVoicePersonaChange = { voice = it }' "$EDITOR"
 grep -Fq 'onSelected = onVoicePersonaChange' "$WIZARD"
-test "$(grep -Fc 'V140VoiceStudioPicker(' "$WIZARD")" -eq 2
+test "$(grep -Fc 'V207ProjectVoiceSelector(' "$WIZARD")" -eq 2
+# V207: preserve the same project-voice callback contract with a compact presentation.
+grep -Fq 'V207ProjectVoiceSelector(' "$EDITOR"
+grep -Fq 'onSelected = { voice = it }' "$EDITOR"
 
 # Reminder guidance cannot suppress custom-time validation or permissions.
 grep -Fq 'V175ReminderMeaning(attentionPlan, deliveryPreference, permissionWarning)' "$WIZARD"
