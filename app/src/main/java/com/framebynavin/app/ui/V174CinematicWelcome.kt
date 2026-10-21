@@ -6,6 +6,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,8 @@ import androidx.compose.runtime.withFrameNanos
 import android.os.SystemClock
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
+import com.framebynavin.app.R
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
@@ -182,7 +185,9 @@ internal fun V174CinematicWelcome(onFinished: () -> Unit) {
             }
         }
 
-        BacklotIdentMark(
+        Image(
+            painter = painterResource(id = R.drawable.backlot_v198_brand_mark),
+            contentDescription = null,
             modifier = Modifier
                 .align(Alignment.Center)
                 .offset(y = (-36).dp)
@@ -192,11 +197,10 @@ internal fun V174CinematicWelcome(onFinished: () -> Unit) {
                     scaleX = 0.84f + (0.16f * mark)
                     scaleY = 0.84f + (0.16f * mark)
                 },
-            reveal = mark,
         )
 
         Text(
-            text = "BACKLOT",
+            text = "Backlot",
             modifier = Modifier
                 .align(Alignment.Center)
                 .offset(y = 83.dp)
@@ -215,7 +219,7 @@ internal fun V174CinematicWelcome(onFinished: () -> Unit) {
         )
 
         Text(
-            text = "CREATE WHAT'S NEXT",
+            text = "Built for Creators",
             modifier = Modifier
                 .align(Alignment.Center)
                 .offset(y = 116.dp)
