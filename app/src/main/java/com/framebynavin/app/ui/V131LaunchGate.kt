@@ -15,7 +15,7 @@ import com.framebynavin.app.ui.theme.BacklotBackground
 import com.framebynavin.app.widget.CreatorWidgetLaunch
 
 internal object V151LaunchPolicy {
-    /** Normal app launches always show the cinematic ident; widget/deep-link launches stay instant. */
+    /** Normal launches show the 3-second particle wordmark; widget/deep-link launches stay instant. */
     fun shouldShowCinematicIdent(externalLaunch: Boolean): Boolean = !externalLaunch
 }
 
@@ -28,7 +28,7 @@ internal object V151SetupPolicy {
 }
 
 /**
- * The cinematic studio ident is part of every normal Backlot launch. Widget/deep-link launches
+ * The V199 three-second particle ident is part of every normal Backlot launch. Widget/deep-link launches
  * stay instant so a targeted action is never blocked by branding.
  *
  * Guide identity is intentionally handled separately by V144GuideChoiceGate.
@@ -49,14 +49,14 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         AnimatedContent(
             targetState = welcomeDone,
             transitionSpec = {
-                fadeIn(tween(140)) togetherWith fadeOut(tween(110))
+                fadeIn(tween(0)) togetherWith fadeOut(tween(0))
             },
             label = "launchGate",
         ) { ready ->
             if (ready) {
                 FrameByNavinV101BApp(externalLaunch = externalLaunch)
             } else {
-                V174CinematicWelcome(
+                V199ParticleWelcome(
                     onFinished = { welcomeDone = true },
                 )
             }
