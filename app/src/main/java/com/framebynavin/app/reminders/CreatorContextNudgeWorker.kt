@@ -46,12 +46,16 @@ class CreatorContextNudgeWorker(
         val tasks = TaskStore(applicationContext).load()
         val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
+        val tasksById = tasks.associateBy { it.id }
+        val freshNudges = CreatorContextNudgeEngine.nudges(tasks, now).filter { candidate ->
+            V204NudgeFreshnessPolicy.relevant(candidate, tasksById[candidate.taskId], now)
+        }
         val previousKey = prefs.getString(KEY_LAST_NUDGE, "").orEmpty()
         val previousAt = prefs.getLong(KEY_LAST_AT, 0L)
         // The highest-ranked project might still be in cooldown. Instead of
         // skipping everyone, use the next genuinely eligible active project.
         val nudge = V203NudgeSelector.choose(
-            candidates = CreatorContextNudgeEngine.nudges(tasks, now),
+            candidates = freshNudges,
             nowMillis = now,
             lastGlobalShownAtMillis = previousAt,
             lastGlobalKey = previousKey,
