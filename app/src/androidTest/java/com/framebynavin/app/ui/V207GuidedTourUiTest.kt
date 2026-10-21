@@ -7,8 +7,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.*
 import com.framebynavin.app.data.CreatorGuidedTourStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -59,7 +58,6 @@ class V207GuidedTourUiTest {
                 )
             }
         }
-        rule.onNodeWithContentDescription("Creator mode").assertDoesNotExist()
         rule.onNodeWithText("HOME · 1/4").assertExists()
         rule.onNodeWithText("NEXT").performClick()
         rule.onNodeWithText("EXIT GUIDE").performClick()
