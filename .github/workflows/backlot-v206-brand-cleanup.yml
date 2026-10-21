@@ -337,6 +337,16 @@ jobs:
           grep -Fq "name='com.framebynavin.app'" <<< "$package_line"
           grep -Fq "versionCode='226'" <<< "$package_line"
           grep -Fq "versionName='2.7.6-v206-brand-icon-purge-preview'" <<< "$package_line"
+          # Verify the installed APK resource table, not only its source tree.
+          resources_dump=$("$aapt_tool" dump resources "$apk")
+          grep -Fq 'drawable/backlot_v198_notification_monochrome' <<< "$resources_dump"
+          grep -Fq 'drawable/backlot_v198_approved_icon' <<< "$resources_dump"
+          for retired in ic_framebynavin_launcher ic_framebynavin_splash backlot_icon_cinematic backlot_icon_minimal backlot_icon_light backlot_icon_horizontal backlot_splash_mark; do
+            if grep -Fq "drawable/$retired" <<< "$resources_dump"; then
+              printf 'Retired icon still packaged in APK: %s\\n' "$retired" >&2
+              exit 1
+            fi
+          done
           sha256sum "$apk" | tee backlot-v206-brand-apk.sha256
           printf 'Personal side-load RC only. Same public dev signer, not production Play signing.\n'
       - name: Upload RC fingerprint
