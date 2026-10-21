@@ -15,7 +15,7 @@
 
     <style name="Theme.FrameByNavin.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#111227</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/backlot_v198_brand_mark</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/backlot_v198_approved_icon</item>
         <item name="windowSplashScreenAnimationDuration">0</item>
         <item name="postSplashScreenTheme">@style/Theme.FrameByNavin</item>
     </style>
