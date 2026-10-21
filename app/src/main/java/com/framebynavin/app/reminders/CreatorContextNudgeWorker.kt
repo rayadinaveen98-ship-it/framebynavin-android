@@ -46,6 +46,10 @@ class CreatorContextNudgeWorker(
         val tasks = TaskStore(applicationContext).load()
         val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
+        if (V205NudgePausePolicy.isPaused(
+                now, prefs.getLong(V205NudgePausePolicy.KEY_PAUSED_UNTIL, 0L)
+            )
+        ) return@readyTransaction Result.success()
         val tasksById = tasks.associateBy { it.id }
         val freshNudges = CreatorContextNudgeEngine.nudges(tasks, now).filter { candidate ->
             V204NudgeFreshnessPolicy.relevant(candidate, tasksById[candidate.taskId], now)
@@ -89,6 +93,18 @@ class CreatorContextNudgeWorker(
             .setContentText(message.body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message.body))
             .setContentIntent(openApp)
+            .addAction(
+                0,
+                "Pause 7 days",
+                PendingIntent.getBroadcast(
+                    applicationContext,
+                    8402,
+                    Intent(applicationContext, V205NudgePauseReceiver::class.java).apply {
+                        action = V205NudgePausePolicy.ACTION_PAUSE_WEEK
+                    },
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()

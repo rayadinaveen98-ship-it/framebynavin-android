@@ -1,5 +1,6 @@
 package com.framebynavin.app.ui
 
+import android.content.Context
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
@@ -30,8 +31,11 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.QuietHoursPolicy
+import com.framebynavin.app.reminders.V205NudgePausePolicy
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
+import java.text.DateFormat
+import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -288,6 +292,16 @@ internal fun V144SettingsHub(
                             Text(
                                 when {
                                     !notificationsReady -> "Enable notifications first."
+                                    settings.contextNudgesEnabled && V205NudgePausePolicy.isPaused(
+                                        System.currentTimeMillis(),
+                                        context.getSharedPreferences(V205NudgePausePolicy.PREFS, Context.MODE_PRIVATE)
+                                            .getLong(V205NudgePausePolicy.KEY_PAUSED_UNTIL, 0L),
+                                    ) -> {
+                                        val until = context.getSharedPreferences(
+                                            V205NudgePausePolicy.PREFS, Context.MODE_PRIVATE
+                                        ).getLong(V205NudgePausePolicy.KEY_PAUSED_UNTIL, 0L)
+                                        "Paused · resumes ${DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(until))}"
+                                    }
                                     settings.contextNudgesEnabled -> "On · optional check-ins when work may need attention."
                                     else -> "Off · your scheduled project reminders still work."
                                 },

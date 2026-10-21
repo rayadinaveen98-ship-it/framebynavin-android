@@ -3,6 +3,7 @@ package com.framebynavin.app.data
 import android.content.Context
 import com.framebynavin.app.cloud.CloudLocalStore
 import com.framebynavin.app.reminders.QuietHoursPolicy
+import com.framebynavin.app.reminders.V205NudgePausePolicy
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -298,6 +299,11 @@ class CreatorOsSettingsStore(context: Context) {
 
     fun setContextNudgesEnabled(value: Boolean) {
         prefs.edit().putBoolean(KEY_CONTEXT_NUDGES, value).apply()
+        if (value) {
+            // Turning optional check-ins off then on is an explicit resume action.
+            appContext.getSharedPreferences(V205NudgePausePolicy.PREFS, Context.MODE_PRIVATE)
+                .edit().remove(V205NudgePausePolicy.KEY_PAUSED_UNTIL).apply()
+        }
     }
 
     fun setQuietHoursEnabled(enabled: Boolean) {
