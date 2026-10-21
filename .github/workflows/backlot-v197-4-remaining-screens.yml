@@ -202,7 +202,7 @@ jobs:
           grep -Fq 'coordinates.positionInRoot().y' "$ui/FrameByNavinV101BApp.kt"
           grep -Fq 'V197BottomNavigationClearance.calculate(' "$ui/FrameByNavinV101BApp.kt"
           grep -Fq 'bottomNavigationClearance = bottomNavClearanceDp.dp' "$ui/FrameByNavinV101BApp.kt"
-          test "$(grep -Fc 'bottomNavigationClearance = bottomNavClearanceDp.dp' "$ui/FrameByNavinV101BApp.kt")" -eq 2
+          test "$(grep -Fc 'bottomNavigationClearance = bottomNavClearanceDp.dp' "$ui/FrameByNavinV101BApp.kt")" -eq 3
           grep -Fq '.padding(bottom = bottomNavigationClearance)' "$ui/V18TodayScreen.kt"
           grep -Fq '.padding(bottom = bottomNavigationClearance)' "$ui/V11YouTubeInsights.kt"
           grep -Fq 'maxLines = 2' "$ui/FrameByNavinV101BApp.kt"
