@@ -20,6 +20,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.R
+import com.framebynavin.app.widget.CreatorWidgetContract
 import com.framebynavin.app.data.CreatorContextNudgeEngine
 import com.framebynavin.app.data.CreatorContextNudgeLevel
 import com.framebynavin.app.data.CreatorOsSettingsStore
@@ -71,17 +72,20 @@ class CreatorContextNudgeWorker(
             applicationContext,
             8401,
             Intent(applicationContext, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                // Tap opens the real active project's workspace, not generic Home.
+                action = CreatorWidgetContract.ACTION_OPEN_STUDIO
+                putExtra(CreatorWidgetContract.EXTRA_TASK_ID, nudge.taskId)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val body = "${nudge.message} ${nudge.action}"
+        val message = V202CreatorNudgeContent.forNudge(nudge)
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
-            .setContentTitle("Backlot · ${nudge.title}")
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentTitle(message.title)
+            .setContentText(message.body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message.body))
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
