@@ -285,9 +285,12 @@ jobs:
           test -f "$res/drawable/backlot_v198_brand_mark.xml"
           test -f "$res/drawable/backlot_v198_notification_monochrome.xml"
           test -f "$res/mipmap-anydpi-v26/backlot_v198_launcher.xml"
+          test -s "$res/drawable-nodpi/backlot_v198_approved_icon.webp"
+          test "$(git hash-object "$res/drawable-nodpi/backlot_v198_approved_icon.webp")" = d02fcce620543960d4276aeefcc39323e3b936d0
+          grep -Fq '@drawable/backlot_v198_approved_icon' "$res/mipmap-anydpi-v26/backlot_v198_launcher.xml"
           test -f "$res/values/backlot_v198_brand_colors.xml"
           grep -Fq 'android:icon="@mipmap/backlot_v198_launcher"' "$manifest"
-          grep -Fq 'windowSplashScreenAnimatedIcon">@drawable/backlot_v198_brand_mark' "$res/values/themes.xml"
+          grep -Fq 'windowSplashScreenAnimatedIcon">@drawable/backlot_v198_approved_icon' "$res/values/themes.xml"
           grep -Fq 'android:color="#3B9EFF"' "$res/drawable/backlot_v198_brand_mark.xml"
           grep -Fq 'android:color="#D0B9FF"' "$res/drawable/backlot_v198_brand_mark.xml"
           grep -Fq 'android:color="#FA748E"' "$res/drawable/backlot_v198_brand_mark.xml"
