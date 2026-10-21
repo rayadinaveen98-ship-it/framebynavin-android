@@ -457,6 +457,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onClose = null,
                     onOpenProject = ::openProject,
                     onOpenWeeklyPlan = { overlay = POverlay.WEEK },
+                    bottomNavigationClearance = bottomNavClearanceDp.dp,
                 )
                 PTab.INSIGHTS -> V11InsightsScreen(
                     creatorProfile = settings.creatorProfile,
@@ -540,6 +541,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onClose = { overlay = POverlay.NONE },
                 onOpenProject = ::openProject,
                 onOpenWeeklyPlan = { overlay = POverlay.WEEK },
+                bottomNavigationClearance = 36.dp,
             )
             POverlay.AUTOMATION -> V17AutomationCenterScreen(
                 tasks = vm.tasks,
