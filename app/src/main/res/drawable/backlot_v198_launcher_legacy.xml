@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/backlot_v198_icon_background"/>
-    <item android:drawable="@drawable/backlot_v198_brand_mark"/>
+    <item android:drawable="@drawable/backlot_v198_approved_icon"/>
 </layer-list>
