@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -83,14 +84,17 @@ internal fun V189VideoDetailScreen(
                         color = MutedText, fontSize = 10.sp,
                     )
                     Spacer(Modifier.height(14.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Keep every section reachable rather than squeezing four chips on narrow phones.
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         V189VideoSection.entries.forEach { item ->
                             FilterChip(
                                 selected = section == item,
                                 onClick = { section = item },
-                                modifier = Modifier.weight(1f).testTag("v189-video-section-${item.name}"),
-                                label = { Text(item.label, fontSize = 11.sp,
-                                    maxLines = 1) },
+                                modifier = Modifier.testTag("v189-video-section-${item.name}"),
+                                label = { Text(item.label, fontSize = 11.sp, maxLines = 1) },
                             )
                         }
                     }
