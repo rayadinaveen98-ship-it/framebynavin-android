@@ -828,8 +828,6 @@ internal fun V20NewProjectWizard(
                         }
                     }
                 }
-            }
-        }
     }
 }
 
@@ -934,6 +932,8 @@ private fun V20ProgressiveSection(
                         Text(if (valid) "CHANGE" else "REVIEW", color = if (valid) MutedGold else RecRed, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black)
                     }
                 }
+            }
+        }
     }
 }
 
