@@ -6,32 +6,32 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Hub
+import androidx.compose.material.icons.outlined.RocketLaunch
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorModeRegistry
-import com.framebynavin.app.data.CreatorProfile
 import com.framebynavin.app.data.CreatorPlatformRegistry
-import com.framebynavin.app.data.ProductionStyleRegistry
+import com.framebynavin.app.data.CreatorProfile
 import com.framebynavin.app.ui.theme.*
 
-private val creatorGoals = listOf(
-    "Publish consistently",
-    "Grow an audience",
-    "Improve content quality",
-    "Build a creator business",
-    "Launch a project",
-    "Stay organized",
-)
-
+/**
+ * A deliberately short first-run creator setup. Sign-in and recovery remain
+ * separate and optional; the saved creator profile remains backward compatible.
+ * Permission setup happens contextually when a reminder needs it.
+ */
 @Composable
 internal fun V18CreatorOnboarding(
     profile: CreatorProfile,
@@ -46,327 +46,161 @@ internal fun V18CreatorOnboarding(
     onFinish: (CreatorProfile) -> Boolean,
 ) {
     var page by rememberSaveable { mutableIntStateOf(0) }
-    var isSaving by remember { mutableStateOf(false) }
-    var saveFailed by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf(false) }
     var primaryMode by rememberSaveable(profile.resolvedPrimaryCreatorMode) {
         mutableStateOf(profile.resolvedPrimaryCreatorMode)
     }
-    var secondaryModes by remember(profile.secondaryCreatorModes) {
-        mutableStateOf(profile.secondaryCreatorModes)
+    var platformSelections by rememberSaveable {
+        mutableStateOf(ArrayList(profile.platforms.sorted()))
     }
-    var platforms by remember(profile.platforms) { mutableStateOf(profile.platforms) }
-    var styles by remember(profile.productionStyles) { mutableStateOf(profile.productionStyles) }
-    var selectedGoals by remember(profile.primaryGoal, profile.secondaryGoals) {
-        mutableStateOf(profile.activeGoals.toSet())
-    }
-    var primaryGoal by rememberSaveable(profile.primaryGoal) { mutableStateOf(profile.primaryGoal) }
-    var weeklyTarget by rememberSaveable(profile.weeklyPublishingTarget) {
-        mutableIntStateOf(profile.weeklyPublishingTarget.coerceIn(1, 14))
-    }
-
-    LaunchedEffect(primaryMode) {
-        secondaryModes = secondaryModes - primaryMode
-    }
-    LaunchedEffect(selectedGoals) {
-        if (primaryGoal !in selectedGoals) primaryGoal = selectedGoals.firstOrNull().orEmpty()
-    }
-
-    val canContinue = V149CreatorOnboardingPolicy.canContinue(
-        page = page,
-        primaryMode = primaryMode,
-        platforms = platforms,
-        selectedGoals = selectedGoals,
-        primaryGoal = primaryGoal,
-    )
-
-    val selectedModeDefinition = CreatorModeRegistry.definition(primaryMode)
-    val orderedProductionStyles = remember(primaryMode) {
-        ProductionStyleRegistry.orderedForMode(primaryMode)
-    }
+    val platforms = platformSelections.toSet()
+    val canContinue = V207FirstRunPolicy.canContinue(page, primaryMode, platforms) && !saving
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
-            Modifier
-                .fillMaxSize()
+            Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .imePadding()
                 .padding(horizontal = 22.dp, vertical = 18.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Backlot · Built for Creators", color = Color(0xFFB596F8), fontSize = 9.sp, letterSpacing = .5.sp, fontWeight = FontWeight.Bold)
-                    Text("Tell us what you make", color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        "BACKLOT", color = RecRed, fontSize = 11.sp,
+                        fontWeight = FontWeight.Black, letterSpacing = 1.sp,
+                    )
+                    Text("Set up your space", color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 }
-                Text("${page + 1}/5", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "${page + 1}/${V207FirstRunPolicy.PAGE_COUNT}",
+                    color = MutedText, fontSize = 12.sp,
+                    modifier = Modifier.testTag("v207-first-run-progress"),
+                )
             }
-
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(15.dp))
             LinearProgressIndicator(
-                progress = { (page + 1) / 5f },
-                modifier = Modifier.fillMaxWidth().height(4.dp),
+                progress = { (page + 1) / V207FirstRunPolicy.PAGE_COUNT.toFloat() },
                 color = RecRed,
                 trackColor = CinemaLine,
+                modifier = Modifier.fillMaxWidth().height(4.dp),
             )
-            Spacer(Modifier.height(12.dp))
-            V127SetupGuideStrip(page)
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(30.dp))
 
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 when (page) {
                     0 -> {
-                        Icon(Icons.Outlined.AutoAwesome, "Creator mode", tint = RecRed, modifier = Modifier.size(36.dp))
-                        Spacer(Modifier.height(14.dp))
-                        Text("What do you create most?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
+                        Icon(Icons.Outlined.AutoAwesome, "Creator type", tint = RecRed, modifier = Modifier.size(32.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("What do you create?", color = ProjectorIvory, fontSize = 27.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(20.dp))
-                        V18OnboardingLabel("PRIMARY CREATOR MODE")
-                        Spacer(Modifier.height(9.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            CreatorModeRegistry.labels.forEach { item ->
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(9.dp),
+                            verticalArrangement = Arrangement.spacedBy(9.dp),
+                        ) {
+                            CreatorModeRegistry.labels.forEach { mode ->
                                 FilterChip(
-                                    selected = primaryMode == item,
-                                    onClick = { primaryMode = item },
-                                    leadingIcon = if (primaryMode == item) { { Icon(Icons.Outlined.Star, null, modifier = Modifier.size(15.dp)) } } else null,
-                                    label = { Text(item, fontSize = 10.sp) },
+                                    selected = primaryMode == mode,
+                                    onClick = { primaryMode = mode },
+                                    modifier = Modifier.heightIn(min = 46.dp),
+                                    label = { Text(mode, fontSize = 12.sp) },
+                                    leadingIcon = if (primaryMode == mode) {
+                                        { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(18.dp)) }
+                                    } else null,
                                 )
                             }
                         }
-                        if (primaryMode.isNotBlank()) {
-                            Spacer(Modifier.height(22.dp))
-                            V18OnboardingLabel("SECONDARY MODES · OPTIONAL")
-                            Spacer(Modifier.height(5.dp))
-                            Text("You can choose more than one.", color = MutedText, fontSize = 10.sp)
-                            Spacer(Modifier.height(9.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                CreatorModeRegistry.labels.filter { it != primaryMode }.forEach { item ->
-                                    val selected = item in secondaryModes
-                                    FilterChip(
-                                        selected = selected,
-                                        onClick = {
-                                            secondaryModes = when {
-                                                selected -> secondaryModes - item
-                                                secondaryModes.size < CreatorProfile.MAX_SECONDARY_MODES -> secondaryModes + item
-                                                else -> secondaryModes
-                                            }
-                                        },
-                                        label = { Text(item, fontSize = 10.sp) },
-                                    )
-                                }
-                            }
-                        }
                     }
-
                     1 -> {
-                        Icon(Icons.Outlined.Hub, "Creator platforms", tint = MutedGold, modifier = Modifier.size(36.dp))
-                        Spacer(Modifier.height(14.dp))
-                        Text("Where do you publish?", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(20.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            CreatorPlatformRegistry.supportedPlatforms.forEach { item ->
-                                val selected = item in platforms
-                                FilterChip(
-                                    selected = selected,
-                                    onClick = { platforms = if (selected) platforms - item else platforms + item },
-                                    leadingIcon = if (selected) { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(16.dp)) } } else null,
-                                    label = { Text(item, fontSize = 10.sp) },
-                                )
-                            }
-                        }
-                    }
-
-                    2 -> {
-                        Icon(Icons.Outlined.MovieCreation, "Production style", tint = MutedGold, modifier = Modifier.size(36.dp))
-                        Spacer(Modifier.height(14.dp))
-                        Text("How do you usually create?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(5.dp))
-                        Text("Optional. You can change this later.", color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
-                        Spacer(Modifier.height(20.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            orderedProductionStyles.forEach { item ->
-                                val selected = item in styles
-                                FilterChip(
-                                    selected = selected,
-                                    onClick = {
-                                        styles = when {
-                                            selected -> styles - item
-                                            styles.size < CreatorProfile.MAX_PRODUCTION_STYLES -> styles + item
-                                            else -> styles
-                                        }
-                                    },
-                                    leadingIcon = if (selected) { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(16.dp)) } } else null,
-                                    label = { Text(item, fontSize = 10.sp) },
-                                )
-                            }
-                        }
-                    }
-
-                    3 -> {
-                        Icon(Icons.Outlined.TrackChanges, "Creator goals", tint = RecRed, modifier = Modifier.size(36.dp))
-                        Spacer(Modifier.height(14.dp))
-                        Text("What matters most right now?", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(5.dp))
-                        Text("Choose up to 3.", color = MutedText, fontSize = 10.sp)
+                        Icon(Icons.Outlined.Hub, "Publishing platforms", tint = MutedGold, modifier = Modifier.size(32.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("Where do you publish?", color = ProjectorIvory, fontSize = 27.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Pick at least one.", color = MutedText, fontSize = 13.sp)
                         Spacer(Modifier.height(18.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            creatorGoals.forEach { item ->
-                                val selected = item in selectedGoals
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(9.dp),
+                            verticalArrangement = Arrangement.spacedBy(9.dp),
+                        ) {
+                            CreatorPlatformRegistry.supportedPlatforms.forEach { platform ->
+                                val selected = platform in platforms
                                 FilterChip(
                                     selected = selected,
                                     onClick = {
-                                        selectedGoals = when {
-                                            selected && selectedGoals.size > 1 -> selectedGoals - item
-                                            selected -> selectedGoals
-                                            selectedGoals.size < CreatorProfile.MAX_ACTIVE_GOALS -> selectedGoals + item
-                                            else -> selectedGoals
-                                        }
-                                        if (primaryGoal.isBlank() && item in selectedGoals) primaryGoal = item
+                                        platformSelections = ArrayList(
+                                            if (selected) platforms - platform else platforms + platform
+                                        )
                                     },
-                                    leadingIcon = when {
-                                        item == primaryGoal && selected -> { { Icon(Icons.Outlined.Star, null, modifier = Modifier.size(15.dp)) } }
-                                        selected -> { { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(15.dp)) } }
-                                        else -> null
-                                    },
-                                    label = { Text(item, fontSize = 10.sp) },
-                                )
-                            }
-                        }
-                        if (selectedGoals.size > 1) {
-                            Spacer(Modifier.height(18.dp))
-                            V18OnboardingLabel("PRIMARY FOCUS")
-                            Spacer(Modifier.height(7.dp))
-                            Text("Choose your most important goal.", color = MutedText, fontSize = 10.5.sp)
-                            Spacer(Modifier.height(8.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                selectedGoals.sorted().forEach { item ->
-                                    FilterChip(
-                                        selected = primaryGoal == item,
-                                        onClick = { primaryGoal = item },
-                                        leadingIcon = if (primaryGoal == item) { { Icon(Icons.Outlined.Star, null, modifier = Modifier.size(15.dp)) } } else null,
-                                        label = { Text(item, fontSize = 10.sp) },
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(22.dp))
-                        V18OnboardingLabel("WEEKLY TARGET")
-                        Spacer(Modifier.height(6.dp))
-                        Text("Pieces per week", color = MutedText, fontSize = 10.sp)
-                        Spacer(Modifier.height(10.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(1, 2, 3, 5, 7).forEach { value ->
-                                FilterChip(
-                                    selected = weeklyTarget == value,
-                                    onClick = { weeklyTarget = value },
-                                    label = { Text("$value / week", fontSize = 10.sp) },
+                                    modifier = Modifier.heightIn(min = 46.dp),
+                                    label = { Text(platform, fontSize = 12.sp) },
+                                    leadingIcon = if (selected) {
+                                        { Icon(Icons.Outlined.Check, null, modifier = Modifier.size(18.dp)) }
+                                    } else null,
                                 )
                             }
                         }
                     }
-
                     else -> {
-                        Icon(Icons.Outlined.SettingsSuggest, "Reminders & alerts", tint = MutedGold, modifier = Modifier.size(36.dp))
-                        Spacer(Modifier.height(14.dp))
-                        Text("Reminders & alerts", color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.height(18.dp))
-                        V18OnboardingPermissionRow("Notifications", notificationsReady, onNotifications)
-                        V18OnboardingPermissionRow("On-time reminders", preciseTimingReady, onPreciseTiming)
-                        V18OnboardingPermissionRow("Show alerts on screen", fullScreenReady, onFullScreen)
-                        V18OnboardingPermissionRow("Remind me when the app is closed", batteryReady, onBattery)
-                        Spacer(Modifier.height(14.dp))
+                        Icon(Icons.Outlined.RocketLaunch, "Ready to create", tint = RecRed, modifier = Modifier.size(34.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("You're ready to create.", color = ProjectorIvory, fontSize = 27.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(17.dp))
                         Surface(
-                            Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = CinemaSurface,
+                            modifier = Modifier.fillMaxWidth().testTag("v207-first-run-review"),
+                            shape = RoundedCornerShape(18.dp), color = CinemaSurface,
                             border = BorderStroke(1.dp, CinemaLine),
                         ) {
-                            Column(Modifier.padding(14.dp)) {
-                                Text("YOUR CHOICES", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                                Spacer(Modifier.height(5.dp))
-                                Text(primaryMode, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                if (secondaryModes.isNotEmpty()) Text("Also: ${secondaryModes.sorted().joinToString()}", color = MutedText, fontSize = 9.5.sp)
-                                Text(platforms.sorted().joinToString(), color = MutedText, fontSize = 9.5.sp)
-                                Text(if (styles.isEmpty()) "Production styles · Add later" else styles.sorted().joinToString(), color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
-                                Spacer(Modifier.height(5.dp))
-                                Text("Primary goal · $primaryGoal", color = MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-                                val secondary = selectedGoals - primaryGoal
-                                if (secondary.isNotEmpty()) Text("Also: ${secondary.sorted().joinToString()}", color = MutedText, fontSize = 9.5.sp)
-                                Text("$weeklyTarget / week", color = MutedText, fontSize = 9.5.sp)
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                                V207ReviewRow("CREATOR", primaryMode)
+                                V207ReviewRow("PLATFORMS", platforms.sorted().joinToString())
+                                V207ReviewRow("STARTING FOCUS", V207FirstRunPolicy.resolvedGoal(profile))
                             }
                         }
+                        Spacer(Modifier.height(13.dp))
+                        Text(
+                            "You can change your focus, production style and reminder preferences in Settings.",
+                            color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                        )
                     }
                 }
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(20.dp))
             }
 
             V197OnboardingActions(
                 page = page,
-                hasProductionStyles = styles.isNotEmpty(),
-                enabled = canContinue && !isSaving,
-                onBack = { if (page > 0) page-- },
+                hasProductionStyles = false,
+                enabled = canContinue,
+                onBack = { if (page > 0) { page--; error = false } },
                 onPrimary = {
-                    if (page < 4) {
+                    if (page < V207FirstRunPolicy.LAST_PAGE) {
                         page++
-                    } else if (!isSaving) {
-                        isSaving = true
-                        saveFailed = false
-                        val completed = runCatching {
-                            onFinish(
-                                CreatorProfile(
-                                    displayName = profile.displayName,
-                                    category = primaryMode,
-                                    primaryCreatorMode = primaryMode,
-                                    secondaryCreatorModes = secondaryModes,
-                                    platforms = platforms,
-                                    productionStyles = styles,
-                                    primaryGoal = primaryGoal,
-                                    secondaryGoals = selectedGoals - primaryGoal,
-                                    weeklyPublishingTarget = weeklyTarget,
-                                    setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
-                                ).normalized(),
-                            )
+                        error = false
+                    } else if (!saving) {
+                        saving = true
+                        error = false
+                        val complete = runCatching {
+                            onFinish(V207FirstRunPolicy.completeProfile(profile, primaryMode, platforms))
                         }.getOrDefault(false)
-                        if (!completed) {
-                            isSaving = false
-                            saveFailed = true
+                        if (!complete) {
+                            error = true
+                            saving = false
                         }
                     }
                 },
+                lastPage = V207FirstRunPolicy.LAST_PAGE,
             )
-            if (saveFailed) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Could not save creator setup. Please try again.",
-                    color = RecRed,
-                    fontSize = 11.sp,
-                )
+            if (error) {
+                Spacer(Modifier.height(9.dp))
+                Text("Could not save creator setup. Try again.", color = RecRed, fontSize = 12.sp)
             }
         }
     }
 }
 
 @Composable
-private fun V18OnboardingLabel(text: String) {
-    Text(text, color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-}
-
-@Composable
-private fun V18OnboardingPermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.dp, if (ready) SuccessGreen.copy(alpha = .45f) else CinemaLine),
-    ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                null,
-                tint = if (ready) SuccessGreen else MutedText,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(label, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black)
-        }
+private fun V207ReviewRow(label: String, value: String) {
+    Column {
+        Text(label, color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
