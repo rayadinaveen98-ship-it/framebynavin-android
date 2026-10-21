@@ -232,9 +232,7 @@ internal fun V20NewProjectWizard(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
+    CreatorAdaptiveFullScreen(onDismissRequest = onDismiss) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -830,8 +828,6 @@ internal fun V20NewProjectWizard(
                         }
                     }
                 }
-            }
-        }
     }
 }
 
