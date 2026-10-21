@@ -55,8 +55,8 @@ android {
         targetSdk = 36
         // Backlot V188 Phase 1B revenue and audience preview on top of V187.
         // Same application and signing identity; no destructive creator-data migration.
-        versionCode = 225
-        versionName = "2.7.5-v205-nudge-pause-preview"
+        versionCode = 226
+        versionName = "2.7.6-v206-brand-icon-purge-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

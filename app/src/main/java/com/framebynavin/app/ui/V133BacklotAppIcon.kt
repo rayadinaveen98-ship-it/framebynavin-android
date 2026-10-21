@@ -46,10 +46,10 @@ internal enum class BacklotAppIcon(
     @DrawableRes val previewRes: Int,
     val aliasSuffix: String,
 ) {
-    CINEMATIC("Cinematic", "The signature illuminated Backlot gateway.", R.drawable.backlot_v198_approved_icon, "BacklotCinematicAlias"),
-    MINIMAL("Minimal", "Reduced gold mark for a quieter home screen.", R.drawable.backlot_v198_approved_icon, "BacklotMinimalAlias"),
-    LIGHT("Light", "Ivory edition with the dark Backlot mark.", R.drawable.backlot_v198_approved_icon, "BacklotLightAlias"),
-    HORIZONTAL("Horizontal", "A compact wide-lockup inspired edition.", R.drawable.backlot_v198_approved_icon, "BacklotHorizontalAlias"),
+    CINEMATIC("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotCinematicAlias"),
+    MINIMAL("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotMinimalAlias"),
+    LIGHT("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotLightAlias"),
+    HORIZONTAL("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotHorizontalAlias"),
     ;
 
     fun componentName(packageName: String): String = "$packageName.launcher.$aliasSuffix"
