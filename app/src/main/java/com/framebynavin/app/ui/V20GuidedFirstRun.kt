@@ -140,7 +140,7 @@ internal fun V20GuidedFirstRunCoach(
                             }
                             Button(
                                 onClick = onPrimary,
-                                modifier = Modifier.weight(1f).height(41.dp),
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                                 shape = RoundedCornerShape(13.dp),
                             ) {
