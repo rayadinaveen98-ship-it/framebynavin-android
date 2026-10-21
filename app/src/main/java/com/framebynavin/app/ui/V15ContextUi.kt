@@ -50,8 +50,9 @@ internal fun V15DailyBriefScreen(
     val brief = CreatorDailyBriefEngine.build(tasks, weeklySlots)
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding()
-                .padding(horizontal = 20.dp).padding(bottom = 42.dp)
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp).padding(bottom = 36.dp)
         ) {
             V15BackHeader("DAILY BRIEF", "What matters today", onClose)
             Spacer(Modifier.height(18.dp))
