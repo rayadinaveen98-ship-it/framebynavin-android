@@ -87,8 +87,8 @@ internal fun V18CreatorOnboarding(
         Column(
             Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .imePadding()
                 .padding(horizontal = 22.dp, vertical = 18.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -296,57 +296,40 @@ internal fun V18CreatorOnboarding(
                 Spacer(Modifier.height(32.dp))
             }
 
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (page > 0) {
-                    TextButton(onClick = { page-- }) {
-                        Icon(Icons.Outlined.ArrowBack, null, modifier = Modifier.size(17.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("BACK", fontWeight = FontWeight.Bold)
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                Button(
-                    onClick = {
-                        if (page < 4) {
-                            page++
-                        } else if (!isSaving) {
-                            isSaving = true
-                            saveFailed = false
-                            val completed = runCatching {
-                                onFinish(
-                                    CreatorProfile(
-                                        displayName = profile.displayName,
-                                        category = primaryMode,
-                                        primaryCreatorMode = primaryMode,
-                                        secondaryCreatorModes = secondaryModes,
-                                        platforms = platforms,
-                                        productionStyles = styles,
-                                        primaryGoal = primaryGoal,
-                                        secondaryGoals = selectedGoals - primaryGoal,
-                                        weeklyPublishingTarget = weeklyTarget,
-                                        setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
-                                    ).normalized(),
-                                )
-                            }.getOrDefault(false)
-                            if (!completed) {
-                                isSaving = false
-                                saveFailed = true
-                            }
+            V197OnboardingActions(
+                page = page,
+                hasProductionStyles = styles.isNotEmpty(),
+                enabled = canContinue && !isSaving,
+                onBack = { if (page > 0) page-- },
+                onPrimary = {
+                    if (page < 4) {
+                        page++
+                    } else if (!isSaving) {
+                        isSaving = true
+                        saveFailed = false
+                        val completed = runCatching {
+                            onFinish(
+                                CreatorProfile(
+                                    displayName = profile.displayName,
+                                    category = primaryMode,
+                                    primaryCreatorMode = primaryMode,
+                                    secondaryCreatorModes = secondaryModes,
+                                    platforms = platforms,
+                                    productionStyles = styles,
+                                    primaryGoal = primaryGoal,
+                                    secondaryGoals = selectedGoals - primaryGoal,
+                                    weeklyPublishingTarget = weeklyTarget,
+                                    setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
+                                ).normalized(),
+                            )
+                        }.getOrDefault(false)
+                        if (!completed) {
+                            isSaving = false
+                            saveFailed = true
                         }
-                    },
-                    enabled = canContinue && !isSaving,
-                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                    shape = RoundedCornerShape(15.dp),
-                    modifier = Modifier.height(50.dp),
-                ) {
-                    Text(
-                        V149CreatorOnboardingPolicy.primaryActionLabel(page, styles.isNotEmpty()),
-                        fontWeight = FontWeight.Black,
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(17.dp))
-                }
-            }
+                    }
+                },
+            )
             if (saveFailed) {
                 Spacer(Modifier.height(8.dp))
                 Text(
