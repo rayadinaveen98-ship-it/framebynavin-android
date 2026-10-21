@@ -84,15 +84,15 @@ internal fun V144SettingsHub(
         if (section == V167SettingsSection.HOME) onClose() else navigateBack()
     }
 
-    // Consume drawing and keyboard insets at the owning Activity surface only.
-    // Child Settings pages must not re-apply system bar insets.
+    // V207: the OPAQUE surface must cover the entire shared Activity root.
+    // Only content receives system/keyboard insets, or Home can bleed through
+    // status/navigation bar strips while a Settings page is open.
     Surface(
-        Modifier.fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .imePadding(),
+        modifier = Modifier.fillMaxSize().testTag("v207-settings-fullscreen"),
         color = CinemaBlack,
     ) {
-        when (section) {
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+            when (section) {
             V167SettingsSection.HOME -> V144SettingsHome(
                 settings = settings,
                 weeklyAutoPlanEnabled = weeklyAutoPlanEnabled,
@@ -413,6 +413,7 @@ internal fun V144SettingsHub(
                     }
                 }
             }
+        }
         }
     }
     if (confirmAutoPlan) {
