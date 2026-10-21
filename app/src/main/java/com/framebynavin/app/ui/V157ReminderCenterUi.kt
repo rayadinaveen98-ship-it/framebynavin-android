@@ -113,12 +113,9 @@ internal fun V157ReminderCenterUi(
         selected = if (id in selected) selected - id else selected + id
     }
 
-    Dialog(
+    CreatorAdaptiveFullScreen(
         onDismissRequest = { if (selectionMode) selected = emptySet() else onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -318,8 +315,6 @@ internal fun V157ReminderCenterUi(
                         )
                     }
                 }
-            }
-        }
     }
 
     if (confirmDelete || turnOffTarget != null) {
