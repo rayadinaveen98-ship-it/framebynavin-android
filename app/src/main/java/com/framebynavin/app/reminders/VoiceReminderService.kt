@@ -1,5 +1,7 @@
 package com.framebynavin.app.reminders
 
+import com.framebynavin.app.R
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -290,7 +292,7 @@ class VoiceReminderService : Service() {
         )
 
         return NotificationCompat.Builder(this, ReminderConstants.VOICE_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle(task.title)
             .setContentText("Voice reminder · ${task.dueLabel}")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
