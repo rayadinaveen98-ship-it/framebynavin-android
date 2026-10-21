@@ -80,7 +80,14 @@ internal fun V144SettingsHub(
         if (section == V167SettingsSection.HOME) onClose() else navigateBack()
     }
 
-    Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+    // Consume drawing and keyboard insets at the owning Activity surface only.
+    // Child Settings pages must not re-apply system bar insets.
+    Surface(
+        Modifier.fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .imePadding(),
+        color = CinemaBlack,
+    ) {
         when (section) {
             V167SettingsSection.HOME -> V144SettingsHome(
                 settings = settings,
@@ -436,7 +443,7 @@ private fun V144SettingsHome(
 ) {
     val reminderReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader("SETTINGS", "Backlot, your way", onClose)
         Spacer(Modifier.height(10.dp))
@@ -484,7 +491,7 @@ private fun V144SettingsHome(
 @Composable
 private fun V144SettingsPage(kicker: String, title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader(kicker, title, onBack)
         Spacer(Modifier.height(18.dp))
