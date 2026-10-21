@@ -59,7 +59,8 @@ class V163BriefCalendarUiTest {
         }
         rule.onNodeWithText("Shoot a scene").assertExists().performClick()
         rule.runOnIdle { assertEquals("project-to-open", openedProject) }
-        rule.onNodeWithText("Next weekly planning session").assertExists().performClick()
+        // A weekly slot appears twice within the 14-day preview. Either row opens Weekly Plan.
+        rule.onAllNodesWithText("Next weekly planning session").onFirst().performClick()
         rule.runOnIdle { assertEquals(true, weeklyOpened) }
     }
 }
