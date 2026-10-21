@@ -55,8 +55,8 @@ android {
         targetSdk = 36
         // Backlot V188 Phase 1B revenue and audience preview on top of V187.
         // Same application and signing identity; no destructive creator-data migration.
-        versionCode = 222
-        versionName = "2.7.2-v202-contextual-nudges-preview"
+        versionCode = 223
+        versionName = "2.7.3-v203-nudge-fatigue-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
