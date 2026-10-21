@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -56,9 +57,9 @@ class V207FullscreenVoiceUiTest {
         }
         val root = rule.onNodeWithTag("v207-activity-root").getUnclippedBoundsInRoot()
         val cover = rule.onNodeWithTag("v207-settings-fullscreen").getUnclippedBoundsInRoot()
-        assertTrue("Settings should start at the Activity top, not below the status bar", cover.top <= root.top + 1f)
-        assertTrue("Settings must cover Home at the bottom", cover.bottom >= root.bottom - 1f)
-        assertTrue("Settings must cover both horizontal edges", cover.left <= root.left + 1f && cover.right >= root.right - 1f)
+        assertTrue("Settings should start at the Activity top, not below the status bar", cover.top <= root.top + 1.dp)
+        assertTrue("Settings must cover Home at the bottom", cover.bottom >= root.bottom - 1.dp)
+        assertTrue("Settings must cover both horizontal edges", cover.left <= root.left + 1.dp && cover.right >= root.right - 1.dp)
         rule.onNodeWithText("Backlot, your way").assertIsDisplayed()
     }
 
