@@ -3,9 +3,14 @@ package com.framebynavin.app.reminders
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -30,6 +35,13 @@ class CreatorContextNudgeWorker(
     override suspend fun doWork(): Result = runCatching { CreatorDataGate.readyTransaction(applicationContext) {
         val settings = CreatorOsSettingsStore(applicationContext).snapshot()
         if (!settings.contextNudgesEnabled) return@readyTransaction Result.success()
+        // Marketing-style engagement is strictly optional, unlike real reminders.
+        if (!NotificationManagerCompat.from(applicationContext).areNotificationsEnabled()) {
+            return@readyTransaction Result.success()
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return@readyTransaction Result.success()
 
         val tasks = TaskStore(applicationContext).load()
         val nudge = CreatorContextNudgeEngine.topNudge(tasks) ?: return@readyTransaction Result.success()
@@ -39,10 +51,22 @@ class CreatorContextNudgeWorker(
         val now = System.currentTimeMillis()
         val previousKey = prefs.getString(KEY_LAST_NUDGE, "").orEmpty()
         val previousAt = prefs.getLong(KEY_LAST_AT, 0L)
-        if (previousKey == nudge.key && now - previousAt < DEDUPE_MS) return@readyTransaction Result.success()
+        if (!V201ContextNudgePolicy.mayShow(
+                nowMillis = now,
+                lastShownMillis = previousAt,
+                lastKey = previousKey,
+                candidateKey = nudge.key,
+                quietHoursEnabled = settings.quietHoursEnabled,
+                quietStartMinute = settings.quietHoursStartMinute,
+                quietEndMinute = settings.quietHoursEndMinute,
+            )
+        ) return@readyTransaction Result.success()
 
         ensureChannel(applicationContext)
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE
+        ) return@readyTransaction Result.success()
         val openApp = PendingIntent.getActivity(
             applicationContext,
             8401,
@@ -76,7 +100,6 @@ class CreatorContextNudgeWorker(
         private const val KEY_LAST_NUDGE = "last_key"
         private const val KEY_LAST_AT = "last_at"
         private const val NOTIFICATION_ID = 8401
-        private const val DEDUPE_MS = 12L * 60L * 60_000L
 
         fun ensurePeriodic(context: Context) {
             val request = PeriodicWorkRequestBuilder<CreatorContextNudgeWorker>(6, TimeUnit.HOURS).build()
