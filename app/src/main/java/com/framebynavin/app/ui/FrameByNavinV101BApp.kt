@@ -50,6 +50,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -376,6 +379,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val v137GuideLayer = rememberV137GuideLayer()
     val focusTaskState = remember { derivedStateOf { vm.tasks.firstOrNull { it.id == focusTaskId } } }
     val focusTask = focusTaskState.value
+    val bottomNavDensity = androidx.compose.ui.platform.LocalDensity.current.density
+    var bottomNavClearanceDp by remember { mutableFloatStateOf(V197BottomNavigationClearance.MINIMUM_DP) }
     Box(Modifier.fillMaxSize().background(CinemaBlack).v137GuideCaptureAndBlur(v137GuideLayer, guidedTourStep != null)) {
         V129ThemeBackdrop(Modifier.matchParentSize())
         if (focusTask != null) {
@@ -401,6 +406,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onOpenIdeaVault = { tab = PTab.IDEAS },
                     onOpenInsights = { tab = PTab.INSIGHTS },
                     onOpenProject = ::openProject,
+                    bottomNavigationClearance = bottomNavClearanceDp.dp,
                 )
                 PTab.IDEAS -> V09IdeaVaultScreen(
                     ideas = vm.ideas,
@@ -456,6 +462,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     tasks = vm.tasks,
                     ideas = vm.ideas,
                     onAdd = { openComposer() },
+                    bottomNavigationClearance = bottomNavClearanceDp.dp,
                 )
             }
 
@@ -466,7 +473,17 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     tab = destination
                 },
                 onCapture = { openComposer() },
-                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .onGloballyPositioned { coordinates ->
+                        val neededDp = V197BottomNavigationClearance.calculate(
+                            rootHeightPx = coordinates.findRootCoordinates().size.height,
+                            navigationTopPx = coordinates.positionInRoot().y,
+                            density = bottomNavDensity,
+                        )
+                        if (bottomNavClearanceDp != neededDp) bottomNavClearanceDp = neededDp
+                    },
             )
 
             if (overlay == POverlay.NONE && settings.onboardingComplete && !showControl) {
@@ -1463,7 +1480,8 @@ private fun PBottomNavItem(
                 color = if (active) ProjectorIvory else MutedText,
                 fontSize = 11.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 1,
+                maxLines = 2,
+                textAlign = TextAlign.Center,
                 overflow = TextOverflow.Ellipsis,
             )
         }
