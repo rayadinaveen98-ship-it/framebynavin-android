@@ -80,8 +80,8 @@ internal fun V17AutomationCenterScreen(
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
             Modifier.fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
-                .statusBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 44.dp)
         ) {

@@ -107,7 +107,10 @@ grep -Fq '.put("automationPreferences", requireNotNull(snapshot.automationPrefsJ
 grep -Fq 'PortableVoiceExportPolicy.requireReadableOwnedRecording(' "$PORTABLE"
 grep -Fq 'in 8..CreatorBackupManager.SCHEMA_VERSION' "$PORTABLE"
 grep -Fq 'sizeBeforeCopy' app/src/main/java/com/framebynavin/app/data/PortableBackupArchive.kt
-grep -Fq 'enabled = autoPlanEnabled' "$BASE/V08WeeklyScheduleUi.kt"
+# V197.5 keeps Auto Plan gating in the Week screen and passes it to the accessible button.
+grep -Fq 'previewEnabled = autoPlanEnabled && preview.missing.isNotEmpty()' "$BASE/V08WeeklyScheduleUi.kt"
+grep -Fq 'enabled = enabled' "$BASE/V197WeeklyPlanActions.kt"
+grep -Fq 'testTag("v164-create-preview")' "$BASE/V197WeeklyPlanActions.kt"
 test -f app/src/test/java/com/framebynavin/app/data/V160QuickActionsPreservationTest.kt
 test -f app/src/androidTest/java/com/framebynavin/app/data/V160QuickActionsSafetyInstrumentedTest.kt
 echo "V160 P1 safety and V154–V159 preservation checks passed"

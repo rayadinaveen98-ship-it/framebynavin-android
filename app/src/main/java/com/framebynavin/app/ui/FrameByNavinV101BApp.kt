@@ -457,6 +457,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onClose = null,
                     onOpenProject = ::openProject,
                     onOpenWeeklyPlan = { overlay = POverlay.WEEK },
+                    bottomNavigationClearance = bottomNavClearanceDp.dp,
                 )
                 PTab.INSIGHTS -> V11InsightsScreen(
                     creatorProfile = settings.creatorProfile,
@@ -540,6 +541,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onClose = { overlay = POverlay.NONE },
                 onOpenProject = ::openProject,
                 onOpenWeeklyPlan = { overlay = POverlay.WEEK },
+                bottomNavigationClearance = 36.dp,
             )
             POverlay.AUTOMATION -> V17AutomationCenterScreen(
                 tasks = vm.tasks,
@@ -1032,7 +1034,8 @@ private fun PWeekScreen(
     val next = remember(slots.toList()) { WeeklyScheduleEngine.nextOccurrence(slots) }
     val enabledSlots = slots.filter { it.enabled }
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 42.dp)) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
+            .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
             PBackHeader("WEEKLY PLAN", "Your recurring rhythm", onClose)
             Spacer(Modifier.height(18.dp))
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), if (autoPlanEnabled) BacklotSurfaceSelected else CinemaSurface, border = BorderStroke(1.dp, if (autoPlanEnabled) MutedGold.copy(alpha = .45f) else CinemaLine)) {
