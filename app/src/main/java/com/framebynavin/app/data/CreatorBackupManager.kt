@@ -87,6 +87,22 @@ class CreatorBackupManager(private val context: Context) {
         encode(snapshot(), System.currentTimeMillis())
     }
 
+    /**
+     * Used ONLY by the portable ZIP frame codec. The installed/core backup
+     * schema is not migrated; the ZIP carries a marker while its image media
+     * is external, and is expanded and fully validated before any restore.
+     */
+    internal fun rewritePortablePersonalFrames(raw: String, value: String): String {
+        val root = JSONObject(raw)
+        require(root.optInt("schemaVersion", -1) == SCHEMA_VERSION) {
+            "Best Frames portable format requires the current backup schema"
+        }
+        require(root.has("personalFrames")) { "Missing Best Frames backup section" }
+        root.put("personalFrames", value)
+        root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION)))
+        return root.toString()
+    }
+
     fun validate(raw: String): BackupPreview {
         val root = JSONObject(raw)
         require(root.optString("format") == FORMAT) { "This is not a Backlot backup." }
