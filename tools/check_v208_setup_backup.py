@@ -43,8 +43,15 @@ assert "V199ParticleWelcome(" in launch and "V174CinematicWelcome(" not in launc
 host = (src / "ui/FrameByNavinV101BApp.kt").read_text()
 assert "PTab.TODAY -> PTodayScreen(" in host and "V133CreatorHome(" not in host
 gradle = Path("app/build.gradle.kts").read_text()
-assert "versionCode = 232" in gradle
-assert 'versionName = "2.8.2-v208-setup-backup-preview"' in gradle
+# Preserve the V208 verified baseline while allowing the V209 coverage-only
+# preview to increment its version for safe in-place Android installation.
+assert (
+    ('versionCode = 232' in gradle and
+     'versionName = "2.8.2-v208-setup-backup-preview"' in gradle)
+    or
+    ('versionCode = 233' in gradle and
+     'versionName = "2.8.3-v209-backup-coverage-preview"' in gradle)
+), "Unexpected or mismatched Android version and release name"
 assert 'applicationId = "com.framebynavin.app"' in gradle
 print("V201 inherited brand audit passed: 8 notification small icons, Settings, launcher, splash, startup, Home and application ID.")
 
