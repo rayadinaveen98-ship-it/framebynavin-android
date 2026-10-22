@@ -19,6 +19,23 @@ object CreatorHeroArchive {
     private const val MAX_TOTAL = 100L * 1024 * 1024
     private val namePattern = Regex("[a-zA-Z0-9._-]{1,128}")
 
+    /**
+     * Read only the ordered original-source names for portable ZIP packaging.
+     * This intentionally avoids parsing the huge Base64 personalFrames JSON
+     * a second time just to discover source files.
+     */
+    internal fun orderedSourceNames(context: Context): List<String> {
+        val names = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(ORDER, "").orEmpty().split('\n').filter { it.isNotBlank() }
+        require(names.size <= 10 && names.distinct().size == names.size) {
+            "Invalid or duplicate original Best Frames"
+        }
+        require(names.all { namePattern.matches(it) && it != "." && it != ".." }) {
+            "Invalid original Best Frames source names"
+        }
+        return names
+    }
+
     fun export(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val directory = File(context.filesDir, DIRECTORY)

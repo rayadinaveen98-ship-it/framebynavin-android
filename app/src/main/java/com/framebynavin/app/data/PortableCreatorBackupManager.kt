@@ -21,12 +21,15 @@ class PortableCreatorBackupManager(context: Context) {
     private val creatorBackup = CreatorBackupManager(appContext)
 
     suspend fun writeBackup(output: OutputStream) {
-        val raw = creatorBackup.createBackup()
-        val packed = PortableBestFrameMedia.pack(
-            raw, appContext.filesDir, creatorBackup::rewritePortablePersonalFrames,
-        )
+        // The core snapshot remains schema v9; the PORTABLE representation
+        // is built compactly while holding the same creator-data transaction.
+        // Never reparse the massive Base64 canonical JSON just to split images.
+        val packed = creatorBackup.createPortableBackup()
         PortableBackupArchive.write(
-            packed.compactJson, exportableVoiceMedia(raw), output, packed.frames,
+            packed.compactJson,
+            exportableVoiceMedia(packed.compactJson),
+            output,
+            packed.frames,
         )
     }
 
@@ -39,8 +42,18 @@ class PortableCreatorBackupManager(context: Context) {
     fun validate(input: InputStream): CreatorBackupManager.BackupPreview {
         val staged = PortableBackupArchive.stage(input, appContext.cacheDir)
         try {
-            val canonical = fullyHydratedBackup(staged)
-            val preview = creatorBackup.validate(canonical)
+            // Preview does not need to materialize the full Base64 canonical
+            // JSON. Validate the original compact envelope, staged media, exact
+            // original-frame hash, and every regular creator-data section.
+            creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)
+            val verifiedFrames = PortableBestFrameMedia.verifyCompactPreview(
+                staged.backupJson, staged.bestFrames, staged.hasFrameManifest,
+            )
+            val preview = if (verifiedFrames == null) {
+                creatorBackup.validate(staged.backupJson) // legacy raw JSON / ZIP
+            } else {
+                creatorBackup.validatePortableCompact(staged.backupJson, verifiedFrames)
+            }
             verifyArchiveVoiceReferences(staged)
             return preview
         } finally {
