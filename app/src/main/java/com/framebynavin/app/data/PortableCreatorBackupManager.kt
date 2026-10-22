@@ -42,8 +42,18 @@ class PortableCreatorBackupManager(context: Context) {
     fun validate(input: InputStream): CreatorBackupManager.BackupPreview {
         val staged = PortableBackupArchive.stage(input, appContext.cacheDir)
         try {
-            val canonical = fullyHydratedBackup(staged)
-            val preview = creatorBackup.validate(canonical)
+            // Preview does not need to materialize the full Base64 canonical
+            // JSON. Validate the original compact envelope, staged media, exact
+            // original-frame hash, and every regular creator-data section.
+            creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)
+            val verifiedFrames = PortableBestFrameMedia.verifyCompactPreview(
+                staged.backupJson, staged.bestFrames, staged.hasFrameManifest,
+            )
+            val preview = if (verifiedFrames == null) {
+                creatorBackup.validate(staged.backupJson) // legacy raw JSON / ZIP
+            } else {
+                creatorBackup.validatePortableCompact(staged.backupJson, verifiedFrames)
+            }
             verifyArchiveVoiceReferences(staged)
             return preview
         } finally {
