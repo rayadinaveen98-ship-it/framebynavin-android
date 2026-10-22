@@ -87,6 +87,28 @@ class CreatorBackupManager(private val context: Context) {
         encode(snapshot(), System.currentTimeMillis())
     }
 
+    /**
+     * Portable ZIP export must never build a giant canonical root JSON only
+     * to parse it again. Build the compact envelope from the same locked
+     * creator-data snapshot, preserving schema and integrity semantics.
+     */
+    internal suspend fun createPortableBackup(): PortablePackedFrames = CreatorDataGate.transaction {
+        recoverPendingRestoreUnlocked()
+        IdeaProjectConversion(appContext).recoverPendingUnlocked()
+        val originalSnapshot = snapshot()
+        val originalFrames = requireNotNull(originalSnapshot.heroJson)
+        val prepared = PortableBestFrameMedia.prepare(
+            originalFrames,
+            appContext.filesDir,
+            CreatorHeroArchive.orderedSourceNames(appContext),
+        )
+        val compact = encode(
+            originalSnapshot.copy(heroJson = prepared.personalFramesSection),
+            System.currentTimeMillis(),
+        )
+        PortablePackedFrames(compact, prepared.frames)
+    }
+
     /** Check the original compact ZIP JSON BEFORE reconstruction or re-signing.
      * Otherwise altered tasks/ideas could be silently legitimized by frame hydration.
      * This intentionally checks the envelope, not the Base64 image array, which is
