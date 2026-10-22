@@ -10,6 +10,18 @@ P3.1 Android emulator workflow run [#39793083000](https://github.com/rayadinavee
 - Keep the large-image acceptance test on a **disposable emulator**, where 2 valid PNGs (metadata-expanded) create a core backup exceeding the former 32 MiB ZIP JSON cap. Clear this test's active Best Frames order before cleanup restoration to avoid constructing yet another huge pre-restore recovery snapshot.
 - Increment the preview to **2.8.5-v209-large-backup-memory-preview**, versionCode **235**. Package identity and personal prototype signing remain unchanged. All earlier releases remain untouched.
 
+## Additional large-export/preview fix
+
+A second >32 MiB Android test run [#39797913077](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39797913077) showed an OOM in `org.json.JSONTokener.nextString` when `PortableBestFrameMedia.pack` reparsed the oversized canonical JSON, even after the streaming checksum fix.
+
+New candidate source changes:
+- `CreatorBackupManager.createPortableBackup()` encodes a compact portable v9 JSON envelope from the same locked snapshot, instead of producing and reparsing one enormous full-root Base64 JSON string.
+- `PortableBestFrameMedia.prepare()` reads original image names/files directly and ties ordered originals to the compact marker; the ZIP still verifies hashes/sizes.
+- `PortableBestFrameMedia.verifyCompactPreview()` verifies staged media, safe filenames, image bounds, media checksums and original canonical array SHA-256 **one image at a time** without recreating the giant root JSON, then `CreatorBackupManager.validatePortableCompact` validates the rest of the core data.
+- The **restore path remains separate**: `PortableBestFrameMedia.expand` still reconstructs a full canonical Base64 JSON for core restore/journaling. Until large-image restore is proven or redesigned, DO NOT claim large backups are reliably restorable on low-RAM phones.
+
+This is still a **draft**. No CI pass or APK should be claimed for this source revision before the exact-head suite finishes.
+
 ## What this does NOT prove
 - Streaming checksums remove a large extra allocation, **not all** Base64 / JSONObject copies in `CreatorHeroArchive.export`, `CreatorBackupManager.snapshot`, `PortableBestFrameMedia.pack/expand`, and pre-restore journaling.
 - A >32 MiB emulator pass is not a low-RAM phone proof and is not a guarantee at the 100 MiB original frames limit.
