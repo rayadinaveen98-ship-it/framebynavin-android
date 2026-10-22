@@ -15,7 +15,7 @@ The local Best Frames archive allows up to ten images, 20 MiB per original, up t
 - During *portable* export only, original images are replaced by a strict portable marker in the ZIP's compact `backlot.json`. The marker records the exact original serialized frame-array SHA-256 and count.
 - Original file bytes are copied into `best_frames/frame-0.img`, `frame-1.img`, etc. A versioned `best_frames.tsv` manifest binds their order, safe original filename, actual size and SHA-256.
 - `backlot.json` stays limited to 32 MiB. Frame extraction is limited to ten entries, 20 MiB each, 100 MiB combined. The existing Voice Ideas manifest and its 1 GiB media budget remain separate.
-- Restore **fully stages** all ZIP media, verifies declared sizes/hashes/order, reconstructs the original canonical Base64 `personalFrames` JSON, compares the original SHA-256 and then invokes the existing core backup schema validator *before any restore mutations*.
+- Restore **fully stages** all ZIP media, verifies declared sizes/hashes/order, verifies the original compact JSON manifest and checksum **before re-signing anything**, reconstructs the original canonical Base64 `personalFrames` JSON, compares the original image-array SHA-256 and then invokes the existing core backup schema validator *before any restore mutations*.
 - Legacy raw JSON and V208/V209 portable ZIPs without a frame manifest remain supported unchanged. A marker with missing manifest, unexpected image entries, duplicate entries or altered images fails closed.
 - External **project attachments remain references only**; this work does not package content URIs or footage and does not offer encryption.
 
@@ -30,7 +30,7 @@ The local Best Frames archive allows up to ten images, 20 MiB per original, up t
 ## CI acceptance
 
 - Inherited unit, lint, full Android emulator, APK signing and hash gates.
-- V209 existing test checks compact marker, physical image ZIP entry, saved project URI reference, old-format compatibility, missing Best Frames manifest, and tampered image-media detection.
+- V209 existing test checks compact marker, physical image ZIP entry, saved project URI reference, old-format compatibility, missing Best Frames manifest, tampered image-media detection, and tampered compact JSON with a rewritten ZIP CRC.
 - Test on a disposable device with real ~35–50 MiB original images before approving for larger image libraries.
 - Verify export-readback, preview, restore and rollback in isolated data, 100% and larger font sizes, low disk, process interruption, and in-place upgrade preserving existing projects/reminders.
 
