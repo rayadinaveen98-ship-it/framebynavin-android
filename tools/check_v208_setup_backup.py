@@ -51,6 +51,9 @@ assert (
     or
     ('versionCode = 233' in gradle and
      'versionName = "2.8.3-v209-backup-coverage-preview"' in gradle)
+    or
+    ('versionCode = 234' in gradle and
+     'versionName = "2.8.4-v209-best-frames-portable-preview"' in gradle)
 ), "Unexpected or mismatched Android version and release name"
 assert 'applicationId = "com.framebynavin.app"' in gradle
 print("V201 inherited brand audit passed: 8 notification small icons, Settings, launcher, splash, startup, Home and application ID.")
@@ -362,7 +365,11 @@ backup_ui = (src / "ui/BackupActivity.kt").read_text(encoding="utf-8")
 copy = (src / "ui/V208BackupErrorCopy.kt").read_text(encoding="utf-8")
 assert "PortableBackupArchive.stage(input, appContext.cacheDir)" in portable
 assert "verifyArchiveVoiceReferences(staged)" in portable
-assert "creatorBackup.validate(staged.backupJson)" in portable
+assert "creatorBackup.validate(canonical)" in portable
+assert "val canonical = fullyHydratedBackup(staged)" in portable
+assert "val original = fullyHydratedBackup(staged)" in portable
+assert "PortableBestFrameMedia.expand(" in portable
+assert "creatorBackup::rewritePortablePersonalFrames" in portable
 assert "PortableBackupArchive.readBackupJson(input)" not in portable
 assert '"Voice recording integrity check failed"' in archive
 assert "No data was restored." in portable

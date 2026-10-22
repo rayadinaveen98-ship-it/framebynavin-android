@@ -8,12 +8,15 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import java.util.zip.ZipInputStream
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -89,12 +92,78 @@ class V209BackupCoverageTest {
             val savedAssetLocation = restoredProjectJson.getJSONObject("workspace")
                 .getJSONArray("assets").getJSONObject(0).getString("location")
             assertEquals(externalUri, savedAssetLocation)
-            assertEquals(1, JSONArray(backupRoot.getString("personalFrames")).length())
+            assertTrue(entries.contains("best_frames/frame-0.img"))
+            assertTrue(entries.contains("best_frames.tsv"))
+            val packedFrames = JSONObject(backupRoot.getString("personalFrames"))
+            assertEquals("BacklotPortableBestFrames", packedFrames.getString("format"))
+            assertEquals(1, packedFrames.getInt("count"))
+
+            // The V208/V209 archive shape remains importable: no media split
+            // marker, just the old JSON with a properly verified inline frame.
+            val legacyBytes = ByteArrayOutputStream().also {
+                PortableBackupArchive.write(core.createBackup(), emptyList(), it)
+            }.toByteArray()
+            assertEquals(1, manager.validate(ByteArrayInputStream(legacyBytes)).personalFrameCount)
+
+            // Corrupt the image itself while leaving the original manifest in place.
+            // Preview must validate ALL bytes and refuse the archive before restore.
+            val damaged = rewriteArchive(bytes) { name, data ->
+                if (name.startsWith("best_frames/") && data.isNotEmpty()) {
+                    data[0] = (data[0].toInt() xor 0xff).toByte()
+                }
+                data
+            }
+            val checksumError = assertThrows(IllegalArgumentException::class.java) {
+                manager.validate(ByteArrayInputStream(damaged))
+            }
+            assertTrue(checksumError.message.orEmpty().contains("integrity", ignoreCase = true))
+
+            // Corrupt only the compact JSON (not the image or its frame
+            // manifest), then rebuild the ZIP CRC. Re-hydration must not
+            // re-sign this corrupted project/idea envelope into validity.
+            val changedJson = rewriteArchive(bytes) { name, body ->
+                if (name == "backlot.json") {
+                    val root = JSONObject(body.toString(Charsets.UTF_8))
+                    root.put("createdAtMillis", root.getLong("createdAtMillis") + 123L)
+                    root.toString().toByteArray(Charsets.UTF_8)
+                } else body
+            }
+            val envelopeError = assertThrows(IllegalArgumentException::class.java) {
+                manager.validate(ByteArrayInputStream(changedJson))
+            }
+            assertTrue(envelopeError.message.orEmpty().contains("integrity", ignoreCase = true))
+
+            // A missing manifest must never silently import zero Best Frames.
+            val missingManifest = rewriteArchive(bytes, omit = "best_frames.tsv")
+            assertThrows(IllegalArgumentException::class.java) {
+                manager.validate(ByteArrayInputStream(missingManifest))
+            }
         } finally {
             // Never exercise restore on real installed data; this test is CI-emulator gated.
             CreatorDataGate.nonCancellable { core.restore(original) }
         }
     }
+
+    private fun rewriteArchive(
+        bytes: ByteArray,
+        omit: String? = null,
+        modify: (String, ByteArray) -> ByteArray = { _, payload -> payload },
+    ): ByteArray = ByteArrayOutputStream().also { output ->
+        ZipInputStream(ByteArrayInputStream(bytes)).use { input ->
+            ZipOutputStream(output).use { zip ->
+                while (true) {
+                    val entry = input.nextEntry ?: break
+                    val body = input.readBytes()
+                    if (entry.name != omit) {
+                        zip.putNextEntry(ZipEntry(entry.name))
+                        zip.write(modify(entry.name, body))
+                        zip.closeEntry()
+                    }
+                    input.closeEntry()
+                }
+            }
+        }
+    }.toByteArray()
 
     @Test fun validatedCurrentSnapshotReportsZeroAbsentAssetReferences(): Unit = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()

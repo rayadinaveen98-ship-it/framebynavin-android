@@ -44,3 +44,7 @@ No CI result or single-device test alone certifies public release readiness,
 full backup restoration, Play policy compliance, privately controlled signing,
 cross-device alarm delivery or complete personal-data export. Do not uninstall
 a populated app or change its signing certificate as an update procedure.
+
+## Pending V209 P3 engineering candidate
+
+The V209 P3 source branch adds separately checksummed original Best Frames media to portable ZIP backups, versionCode 234 and versionName `2.8.4-v209-best-frames-portable-preview`. This is an unpromoted personal preview, stacked on V209 P2. Exact-head CI, emulator and device validation are mandatory before using it as a stable baseline. The older V195.5 stable branch remains frozen. See [P3 QA](../qa/V209_P3_PORTABLE_BEST_FRAMES.md).

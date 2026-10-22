@@ -21,3 +21,6 @@ The latest frozen personal-sideload stable snapshot is **V195.5 / 2.5.3-v195.5-s
 - Do not reset creator data or uninstall as an upgrade procedure. Preserve package/signature, original images/recordings, existing schedules and publication records.
 
 Core creator work remains local. Cloud, YouTube and AI access have their own configuration/consent. The public prototype signing identity supports personal previews; it is not a privately controlled commercial signing identity.
+
+
+**V209 P3 draft candidate:** `2.8.4-v209-best-frames-portable-preview` (versionCode 234) moves original Best Frames image bytes from the 32 MiB portable JSON entry into separately verified ZIP media. Core backup schema, project attachment references and production signing remain unchanged. This version is **not stable**. See [P3 QA and remaining memory limits](docs/qa/V209_P3_PORTABLE_BEST_FRAMES.md).
