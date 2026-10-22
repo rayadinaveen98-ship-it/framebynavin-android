@@ -89,7 +89,11 @@ class V209BackupCoverageTest {
             val savedAssetLocation = restoredProjectJson.getJSONObject("workspace")
                 .getJSONArray("assets").getJSONObject(0).getString("location")
             assertEquals(externalUri, savedAssetLocation)
-            assertEquals(1, JSONArray(backupRoot.getString("personalFrames")).length())
+            assertTrue(entries.contains("best_frames/frame-0.img"))
+            assertTrue(entries.contains("best_frames.tsv"))
+            val packedFrames = JSONObject(backupRoot.getString("personalFrames"))
+            assertEquals("BacklotPortableBestFrames", packedFrames.getString("format"))
+            assertEquals(1, packedFrames.getInt("count"))
         } finally {
             // Never exercise restore on real installed data; this test is CI-emulator gated.
             CreatorDataGate.nonCancellable { core.restore(original) }
