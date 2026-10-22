@@ -21,12 +21,15 @@ class PortableCreatorBackupManager(context: Context) {
     private val creatorBackup = CreatorBackupManager(appContext)
 
     suspend fun writeBackup(output: OutputStream) {
-        val raw = creatorBackup.createBackup()
-        val packed = PortableBestFrameMedia.pack(
-            raw, appContext.filesDir, creatorBackup::rewritePortablePersonalFrames,
-        )
+        // The core snapshot remains schema v9; the PORTABLE representation
+        // is built compactly while holding the same creator-data transaction.
+        // Never reparse the massive Base64 canonical JSON just to split images.
+        val packed = creatorBackup.createPortableBackup()
         PortableBackupArchive.write(
-            packed.compactJson, exportableVoiceMedia(raw), output, packed.frames,
+            packed.compactJson,
+            exportableVoiceMedia(packed.compactJson),
+            output,
+            packed.frames,
         )
     }
 
