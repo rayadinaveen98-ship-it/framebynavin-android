@@ -9,6 +9,14 @@ The stable personal-install baseline is **V183 / 2.3.3-stable** (`versionCode` 1
 - The creator reported the V182 functional baseline working on their phone. CI does not establish an exact V183 physical-device upgrade check.
 - This is a personal sideload baseline, not a production/Play release. Preserve its certificate/package for compatible preview upgrades.
 
-V184 is a development preview for Phase 0 and the first Phase 1A capture protections. It is **not promoted to stable** by changing the development branch version. Each candidate must pass its own checks and device acceptance.
+## Current development (not promoted to stable)
+
+- **V208 / 2.8.2-v208-setup-backup-preview / versionCode 232** is the latest verified personal-preview candidate on `feature/backlot-v208-restore-setup-backup-validation`, at commit `05a082d73696892764e77fa12edf3df07985d582`.
+- [V208 candidate PR #87](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/87) remains a draft. [Exact-commit CI run #39750705638](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39750705638) succeeded for build and emulator tests. The creator reports their V208 personal installation working.
+- That report does **not** prove independent new-install testing across manufacturers, store-policy compliance, production signing, encrypted portable backups or complete personal-data export. These are separate gates.
+- **V209 P1** is stacked on that exact V208 SHA solely for repository/release trust hygiene. It does not change the Android package, update versionCode, create another signed APK or claim production readiness.
+- V184–V207 are historical development stages and must not be labeled as the latest candidate.
+
+Changing a development branch, successful CI, or an informal device smoke test must never silently promote a preview to stable. Keep the existing personal-install signing/package path for current users. Do not uninstall a populated app or replace its signing certificate as a migration procedure.
 
 Historical rollback reference: [V149 checkpoint](HISTORICAL_V149_STABLE.md). Preserve historical branches and records; start new implementation from current verified main.
