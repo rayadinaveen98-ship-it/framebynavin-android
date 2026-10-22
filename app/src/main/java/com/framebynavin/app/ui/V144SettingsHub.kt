@@ -390,9 +390,10 @@ internal fun V144SettingsHub(
                 )
                 Spacer(Modifier.height(12.dp))
                 V144SettingsNote(
-                    "A portable backup includes projects, ideas and supported voice recordings, reminder preferences and the weekly plan. " +
-                        "It does not export Google sign-in, cloud tokens, phone Calendar connection, app icon, launch sound or theme selection. " +
-                        "Exported backup files are not encrypted: keep them private."
+                    "A portable backup includes projects, ideas, supported Voice Idea recordings, original Best Frames, reminders and planning. " +
+                        "Project attachments keep their links only: the referenced files are not included. " +
+                        "Companion, theme, app icon, launch sound, Calendar connection and sign-in remain device-specific. " +
+                        "Exported files are not encrypted: keep them private."
                 )
             }
 
