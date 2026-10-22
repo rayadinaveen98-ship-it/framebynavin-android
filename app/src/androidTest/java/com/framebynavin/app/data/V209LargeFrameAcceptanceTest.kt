@@ -46,10 +46,10 @@ class V209LargeFrameAcceptanceTest {
                     .put("data", Base64.encodeToString(image, Base64.NO_WRAP)))
             }
             CreatorHeroArchive.import(context, entries.toString())
-            val largeCoreJson = core.createBackup()
+            val legacyJsonByteCount = core.createBackup().toByteArray(Charsets.UTF_8).size
             assertTrue(
                 "Fixture must cross the old 32 MiB JSON entry cap",
-                largeCoreJson.toByteArray(Charsets.UTF_8).size > 32 * 1024 * 1024,
+                legacyJsonByteCount > 32 * 1024 * 1024,
             )
             // Remove large fixture intermediates before exporting.
             val portable = PortableCreatorBackupManager(context)
@@ -70,6 +70,10 @@ class V209LargeFrameAcceptanceTest {
             assertTrue(preview.personalFramesIncluded)
             assertEquals(2, preview.personalFrameCount)
         } finally {
+            // Drop only this disposable emulator test's large active image order
+            // BEFORE the full core restore snapshots the "before" state.
+            // The old image files remain for recovery; no user device runs this.
+            CreatorHeroArchive.import(context, "[]")
             CreatorDataGate.nonCancellable { core.restore(original) }
         }
     }
