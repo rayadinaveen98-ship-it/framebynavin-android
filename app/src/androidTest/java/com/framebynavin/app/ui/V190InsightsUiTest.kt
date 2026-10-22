@@ -83,8 +83,13 @@ class V190InsightsUiTest {
                     onPeriod = {}, onRefresh = {})
             }
         }
-        rule.onNodeWithText("Estimated Revenue").assertExists()
-        rule.onNodeWithText("Rev / 1K Views").assertExists()
+        // V207-E now emphasizes the channel-wide evidenced summary rather than
+        // two equally weighted old metrics. Preserve both revenue transparency
+        // and the original anti-clutter assertion.
+        rule.onNodeWithText("ESTIMATED REVENUE").assertExists()
+        rule.onNodeWithText("Revenue / 1K views").assertExists()
+        rule.onNodeWithText("Not an AdSense payout", substring = true).assertExists()
+        rule.onNodeWithText("More ad metrics").assertExists()
         rule.onNodeWithText("SHOPPING").assertDoesNotExist()
     }
 }
