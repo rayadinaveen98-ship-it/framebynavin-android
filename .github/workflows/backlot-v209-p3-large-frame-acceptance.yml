@@ -31,8 +31,8 @@ jobs:
           original=$(mktemp)
           cp app/build.gradle.kts "$original"
           trap 'cp "$original" app/build.gradle.kts; rm -f "$original"' EXIT
-          sed -i -e 's/versionCode = 234/versionCode = 185/' \
-                 -e 's/2.8.4-v209-best-frames-portable-preview/2.3.5-v185-idea-conversion-preview/' app/build.gradle.kts
+          sed -i -e 's/versionCode = 235/versionCode = 185/' \
+                 -e 's/2.8.5-v209-large-backup-memory-preview/2.3.5-v185-idea-conversion-preview/' app/build.gradle.kts
           for version in $(seq 161 182); do
             script=$(find tools -maxdepth 1 -name "check_v${version}_*.sh" | head -n 1)
             test -n "$script"
@@ -42,8 +42,8 @@ jobs:
           cp "$original" app/build.gradle.kts
           rm -f "$original"
           trap - EXIT
-          grep -Fq 'versionCode = 234' app/build.gradle.kts
-          grep -Fq 'versionName = "2.8.4-v209-best-frames-portable-preview"' app/build.gradle.kts
+          grep -Fq 'versionCode = 235' app/build.gradle.kts
+          grep -Fq 'versionName = "2.8.5-v209-large-backup-memory-preview"' app/build.gradle.kts
       - name: Verify V209 P3 backup and frame-media checks before building
         run: |
           set -euo pipefail
@@ -282,14 +282,14 @@ jobs:
             reminders/V159ReminderScheduleAcceptanceTest.kt; do
             test -f "app/src/androidTest/java/com/framebynavin/app/$f"
           done
-          grep -Fq 'versionCode = 234' app/build.gradle.kts
+          grep -Fq 'versionCode = 235' app/build.gradle.kts
       - name: Validate RC source scope and preserved stable signing config
         run: |
           set -euo pipefail
           test -f tools/check_backlot_personal_apk_signer.py
           test -f docs/releases/BACKLOT_V197_RC1.md
-          grep -Fq 'versionCode = 234' app/build.gradle.kts
-          grep -Fq 'versionName = "2.8.4-v209-best-frames-portable-preview"' app/build.gradle.kts
+          grep -Fq 'versionCode = 235' app/build.gradle.kts
+          grep -Fq 'versionName = "2.8.5-v209-large-backup-memory-preview"' app/build.gradle.kts
           grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
           grep -Fq 'signingConfig = signingConfigs.getByName("prototypeStable")' app/build.gradle.kts
           grep -Fq 'matchingFallbacks += listOf("release")' app/build.gradle.kts
@@ -317,7 +317,7 @@ jobs:
           grep -Fq 'backlot_v198_notification_monochrome' "$reminders/ReminderNotifications.kt"
           grep -Fq 'backlot_v198_notification_monochrome' "$reminders/CreatorContextNudgeWorker.kt"
           grep -Fq 'V151LaunchPolicy.shouldShowCinematicIdent' "$ui/V131LaunchGate.kt"
-          grep -Fq 'versionCode = 234' app/build.gradle.kts
+          grep -Fq 'versionCode = 235' app/build.gradle.kts
       - name: Verify V199 three-second particle welcome contract
         run: |
           set -euo pipefail
@@ -334,7 +334,7 @@ jobs:
           grep -Fq 'fadeIn(tween(0)) togetherWith fadeOut(tween(0))' "$ui/V131LaunchGate.kt"
           grep -Fq 'V199WelcomeTimeline.DURATION_MS' "$ui/V199WelcomeSound.kt"
           ! grep -Fq 'V174CinematicWelcome(' "$ui/V131LaunchGate.kt"
-          grep -Fq 'versionCode = 234' app/build.gradle.kts
+          grep -Fq 'versionCode = 235' app/build.gradle.kts
       - name: Guard V200 brand identity
         run: python3 tools/check_v208_setup_backup.py
       - name: Clean build, regressions, lint and instrumentation compilation
@@ -353,8 +353,8 @@ jobs:
           package_line=$(printf '%s\n' "$badging" | grep '^package:')
           printf '%s\n' "$package_line"
           grep -Fq "name='com.framebynavin.app'" <<< "$package_line"
-          grep -Fq "versionCode='234'" <<< "$package_line"
-          grep -Fq "versionName='2.8.4-v209-best-frames-portable-preview'" <<< "$package_line"
+          grep -Fq "versionCode='235'" <<< "$package_line"
+          grep -Fq "versionName='2.8.5-v209-large-backup-memory-preview'" <<< "$package_line"
           # Verify the installed APK resource table, not only its source tree.
           resources_dump=$("$aapt_tool" dump resources "$apk")
           grep -Fq 'drawable/backlot_v198_notification_monochrome' <<< "$resources_dump"
