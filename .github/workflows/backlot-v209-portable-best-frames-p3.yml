@@ -54,6 +54,8 @@ jobs:
           test -f app/src/androidTest/java/com/framebynavin/app/data/V209BackupCoverageTest.kt
           grep -Fq 'FRAME_MANIFEST_ENTRY = "best_frames.tsv"' app/src/main/java/com/framebynavin/app/data/PortableBackupArchive.kt
           grep -Fq 'PortableBestFrameMedia.expand(' app/src/main/java/com/framebynavin/app/data/PortableCreatorBackupManager.kt
+          grep -Fq 'creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)' app/src/main/java/com/framebynavin/app/data/PortableCreatorBackupManager.kt
+          grep -Fq 'sha256(fingerprint(root, schema)) == root.optString("payloadSha256")' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
           grep -Fq 'rewritePortablePersonalFrames(' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
           python3 tools/check_v209_trust_hygiene.py --help >/dev/null
       - name: Verify minimal Insights UI contract
