@@ -374,7 +374,9 @@ assert "verifyArchiveVoiceReferences(staged)" in portable
 assert "creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)" in portable
 assert "PortableBestFrameMedia.verifyCompactPreview(" in portable
 assert "creatorBackup.validatePortableCompact(staged.backupJson, verifiedFrames)" in portable
-assert "val original = fullyHydratedBackup(staged)" in portable
+assert "val original = if (frameCount == null) fullyHydratedBackup(staged)" in portable
+assert "if (frameCount == null) creatorBackup.restore(rewritten)" in portable
+assert "else creatorBackup.restorePortableCompact(rewritten, staged.bestFrames)" in portable
 assert "PortableBestFrameMedia.expand(" in portable
 assert "creatorBackup::rewritePortablePersonalFrames" in portable
 assert "PortableBackupArchive.readBackupJson(input)" not in portable
