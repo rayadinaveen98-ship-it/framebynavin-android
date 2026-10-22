@@ -144,7 +144,19 @@ class CreatorBackupManager(private val context: Context) {
         return root.toString()
     }
 
-    fun validate(raw: String): BackupPreview {
+    fun validate(raw: String): BackupPreview = validateSnapshot(raw, null)
+
+    /**
+     * Entry only for ZIPs whose original Best Frames are fully staged,
+     * individually verified and checksum-reconstructed by the media codec.
+     * Never call this for an untrusted or unverified compact frame marker.
+     */
+    internal fun validatePortableCompact(raw: String, verifiedFrameCount: Int): BackupPreview {
+        require(verifiedFrameCount in 1..10) { "Invalid verified Best Frames count" }
+        return validateSnapshot(raw, verifiedFrameCount)
+    }
+
+    private fun validateSnapshot(raw: String, verifiedFrameCount: Int?): BackupPreview {
         val root = JSONObject(raw)
         require(root.optString("format") == FORMAT) { "This is not a Backlot backup." }
         val schema = root.optInt("schemaVersion", -1)
@@ -164,7 +176,10 @@ class CreatorBackupManager(private val context: Context) {
             require(fingerprintSha256(root, schema) == root.getString("payloadSha256")) { "Backup integrity check failed" }
         }
         val personalFramesRaw = optionalSection(root, "personalFrames")
-        val personalFrameCount = personalFramesRaw?.let(CreatorHeroArchive::validate) ?: 0
+        val personalFrameCount = verifiedFrameCount ?: (personalFramesRaw?.let(CreatorHeroArchive::validate) ?: 0)
+        if (verifiedFrameCount != null) require(personalFramesRaw != null) {
+            "Missing portable Best Frames section"
+        }
         if (schema >= 4) {
             require(root.has("youtubeProjectLinks") && root.has("youtubeMilestones")) {
                 "Backup is missing YouTube project metadata"
