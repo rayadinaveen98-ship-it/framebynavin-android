@@ -26,6 +26,7 @@ import com.framebynavin.app.reminders.ReminderHealthScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.reminders.ReminderRecoveryEngine
 import com.framebynavin.app.ui.BacklotCharacterPrefs
+import com.framebynavin.app.ui.V144GuidePrefs
 import com.framebynavin.app.ui.V131LaunchGate
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
@@ -49,6 +50,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         VisualExperiencePrefs.initialize(applicationContext)
         BacklotCharacterPrefs.initialize(applicationContext)
+        // Load the historical companion selection before the first Compose frame.
+        // Returning creators skip the choice gate, so gate-only initialization
+        // would silently display the default guide despite their saved choice.
+        V144GuidePrefs.initialize(applicationContext)
         CreatorAppCheck.install(applicationContext)
         splash.setKeepOnScreenCondition { !startupReady && startupError == null }
         externalLaunch = widgetLaunch(intent)
