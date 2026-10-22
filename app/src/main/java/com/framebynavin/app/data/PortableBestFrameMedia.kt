@@ -73,6 +73,90 @@ internal object PortableBestFrameMedia {
         return PreparedPortableFrames(marker.toString(), entries)
     }
 
+    /**
+     * Validates all original Best Frames without rehydrating a potentially
+     * 140 MiB Base64 root JSON. Stage already checked entry sizes and file
+     * SHA-256; here we also verify image bounds, original serialization,
+     * exact image order and compact-marker authenticity.
+     *
+     * @return original frame count for compact archives; null for legacy ZIP.
+     */
+    fun verifyCompactPreview(
+        compactJson: String,
+        stagedFrames: List<PortableBestFrame>,
+        manifestPresent: Boolean,
+    ): Int? {
+        val root = JSONObject(compactJson)
+        val raw = root.optString("personalFrames", "")
+        val marker = runCatching { JSONObject(raw) }.getOrNull()
+        if (marker?.optString("format") != FORMAT) {
+            require(!manifestPresent && stagedFrames.isEmpty()) {
+                "Best Frames manifest does not match portable data"
+            }
+            return null
+        }
+        require(manifestPresent &&
+            root.optInt("schemaVersion", -1) == CreatorBackupManager.SCHEMA_VERSION) {
+            "Best Frames manifest missing or incompatible"
+        }
+        require(marker.keys().asSequence().toSet() ==
+            setOf("format", "version", "count", "originalSha256") &&
+            marker.optInt("version", -1) == FORMAT_VERSION &&
+            marker.optInt("count", -1) == stagedFrames.size &&
+            stagedFrames.size in 1..MAX_COUNT) {
+            "Best Frames manifest count or version mismatch"
+        }
+        val originalHash = marker.getString("originalSha256")
+        require(hash.matches(originalHash)) { "Invalid Best Frames original checksum" }
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update("[".toByteArray(Charsets.UTF_8))
+        val names = mutableSetOf<String>()
+        var total = 0L
+        stagedFrames.forEachIndexed { index, frame ->
+            val file = frame.file
+            val size = file.length()
+            require(safeName.matches(frame.name) && frame.name != "." && frame.name != ".." &&
+                names.add(frame.name) && hash.matches(frame.sha256) &&
+                size in 1..MAX_FILE_BYTES && total <= MAX_TOTAL_BYTES - size) {
+                "Best Frames media size or name mismatch"
+            }
+            total += size
+            require(sha256(file) == frame.sha256) { "Best Frames integrity check failed" }
+            val options = android.graphics.BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            android.graphics.BitmapFactory.decodeFile(file.absolutePath, options)
+            require(options.outWidth in 1..20000 && options.outHeight in 1..20000) {
+                "Original Best Frame is not a valid image"
+            }
+            if (index > 0) digest.update(",".toByteArray(Charsets.UTF_8))
+            // Build one bounded (max 20 MiB) image record at a time instead of
+            // collecting every Base64 value in a single JSONArray/JSONObject.
+            val base64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.NO_WRAP)
+            val item = JSONObject()
+                .put("name", frame.name)
+                .put("sha256", frame.sha256)
+                .put("data", base64)
+                .toString()
+            digestUpdateChunked(digest, item)
+        }
+        digest.update("]".toByteArray(Charsets.UTF_8))
+        val computed = digest.digest().joinToString("") { "%02x".format(it) }
+        require(computed == originalHash) { "Best Frames image order or content integrity check failed" }
+        return stagedFrames.size
+    }
+
+    private fun digestUpdateChunked(digest: MessageDigest, raw: String) {
+        var start = 0
+        while (start < raw.length) {
+            var end = minOf(start + 4096, raw.length)
+            if (end < raw.length && Character.isHighSurrogate(raw[end - 1]) &&
+                Character.isLowSurrogate(raw[end])) end--
+            digest.update(raw.substring(start, end).toByteArray(Charsets.UTF_8))
+            start = end
+        }
+    }
+
     /** Fail closed if frames are missing, renamed, reordered or altered. */
     fun expand(
         compactJson: String,
