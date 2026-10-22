@@ -28,7 +28,7 @@ class V208PortableBackupIntegrityTest {
         assertTrue(bytes.size() > 80)
     }
 
-    @Test fun orphanVoiceArchiveDoesNotPassPreviewWhenJsonIsValid() = runBlocking {
+    @Test fun orphanVoiceArchiveDoesNotPassPreviewWhenJsonIsValid(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val raw = CreatorBackupManager(context).createBackup()
         val extra = File.createTempFile("voice-idea-orphan", ".m4a", context.cacheDir)
@@ -47,7 +47,7 @@ class V208PortableBackupIntegrityTest {
         }
     }
 
-    @Test fun tamperedMediaChecksumFailsBeforeAnyRestore() = runBlocking {
+    @Test fun tamperedMediaChecksumFailsBeforeAnyRestore(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val raw = CreatorBackupManager(context).createBackup()
         val extra = File.createTempFile("voice-idea-tamper", ".m4a", context.cacheDir)
