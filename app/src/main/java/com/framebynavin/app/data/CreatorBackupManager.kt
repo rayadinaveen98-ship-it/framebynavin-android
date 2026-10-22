@@ -100,7 +100,7 @@ class CreatorBackupManager(private val context: Context) {
         if (schema >= 5) validateManifest(root, schema)
         if (schema >= 3) {
             require(root.has("payloadSha256") &&
-                sha256(fingerprint(root, schema)) == root.optString("payloadSha256")) {
+                fingerprintSha256(root, schema) == root.optString("payloadSha256")) {
                 "Portable backup JSON integrity check failed"
             }
         }
@@ -118,7 +118,7 @@ class CreatorBackupManager(private val context: Context) {
         }
         require(root.has("personalFrames")) { "Missing Best Frames backup section" }
         root.put("personalFrames", value)
-        root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION)))
+        root.put("payloadSha256", fingerprintSha256(root, SCHEMA_VERSION))
         return root.toString()
     }
 
@@ -139,7 +139,7 @@ class CreatorBackupManager(private val context: Context) {
         if (schema >= 5) validateManifest(root, schema)
         if (schema >= 3) {
             require(root.has("payloadSha256")) { "Backup integrity information is missing" }
-            require(sha256(fingerprint(root, schema)) == root.getString("payloadSha256")) { "Backup integrity check failed" }
+            require(fingerprintSha256(root, schema) == root.getString("payloadSha256")) { "Backup integrity check failed" }
         }
         val personalFramesRaw = optionalSection(root, "personalFrames")
         val personalFrameCount = personalFramesRaw?.let(CreatorHeroArchive::validate) ?: 0
@@ -338,11 +338,15 @@ class CreatorBackupManager(private val context: Context) {
             .put("workflowStageTimeline", requireNotNull(snapshot.workflowTimelineJson))
             .put("automationPreferences", requireNotNull(snapshot.automationPrefsJson))
             .put("manifest", backupManifest())
-        return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
+        return root.put("payloadSha256", fingerprintSha256(root, SCHEMA_VERSION)).toString()
     }
 
-    /** Schema 1–4 fingerprint order is deliberately unchanged for existing backups. */
-    private fun fingerprint(root: JSONObject, schema: Int): String = buildString {
+    /**
+     * EXACT legacy fingerprint bytes without an O(payload) StringBuilder allocation:
+     * <key UTF-16 length>:<key><value UTF-16 length>:<value>, in schema order.
+     * Streaming the digest preserves checksums for every existing backup schema.
+     */
+    private fun fingerprintSha256(root: JSONObject, schema: Int): String {
         val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
             "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
         val allKeys = when {
@@ -353,9 +357,26 @@ class CreatorBackupManager(private val context: Context) {
             schema >= 4 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones")
             else -> keys
         }
+        val digest = MessageDigest.getInstance("SHA-256")
         (if (schema >= 5) allKeys + "manifest" else allKeys).forEach { key ->
             val value = root.optString(key, "")
-            append(key.length).append(':').append(key).append(value.length).append(':').append(value)
+            updateDigestUtf8(digest, "${key.length}:$key${value.length}:")
+            updateDigestUtf8(digest, value)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /** Bound transient UTF-8 encoding buffers; keep surrogate pairs intact. */
+    private fun updateDigestUtf8(digest: MessageDigest, value: String) {
+        var index = 0
+        while (index < value.length) {
+            var end = minOf(index + 4096, value.length)
+            if (end < value.length && Character.isHighSurrogate(value[end - 1]) &&
+                Character.isLowSurrogate(value[end])) {
+                end--
+            }
+            digest.update(value.substring(index, end).toByteArray(Charsets.UTF_8))
+            index = end
         }
     }
 
@@ -393,8 +414,10 @@ class CreatorBackupManager(private val context: Context) {
         }
     }
 
-    private fun sha256(raw: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(raw.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    private fun sha256(raw: String): String = MessageDigest.getInstance("SHA-256").let { digest ->
+        updateDigestUtf8(digest, raw)
+        digest.digest().joinToString("") { "%02x".format(it) }
+    }
 
     private fun decodeSnapshot(raw: String): Snapshot {
         val root = JSONObject(raw)
@@ -456,7 +479,7 @@ class CreatorBackupManager(private val context: Context) {
         val schema = root.getInt("schemaVersion")
         if (!root.has("youtubeProjectLinks") && links != null) root.put("youtubeProjectLinks", links)
         if (!root.has("youtubeMilestones") && milestones != null) root.put("youtubeMilestones", milestones)
-        if (schema >= 3) root.put("payloadSha256", sha256(fingerprint(root, schema)))
+        if (schema >= 3) root.put("payloadSha256", fingerprintSha256(root, schema))
         return root.toString().also(::validate)
     }
 
