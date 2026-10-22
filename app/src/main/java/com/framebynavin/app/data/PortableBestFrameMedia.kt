@@ -14,6 +14,11 @@ internal data class PortablePackedFrames(
     val frames: List<PortableBestFrame>,
 )
 
+internal data class PreparedPortableFrames(
+    val personalFramesSection: String,
+    val frames: List<PortableBestFrame>,
+)
+
 internal object PortableBestFrameMedia {
     private const val FORMAT = "BacklotPortableBestFrames"
     private const val FORMAT_VERSION = 1
@@ -25,36 +30,30 @@ internal object PortableBestFrameMedia {
     private val hash = Regex("[a-f0-9]{64}")
 
     /**
-     * CreatorBackupManager keeps the canonical, old-schema JSON unchanged.
-     * Only the external ZIP representation substitutes a marker for Base64 data.
-     * The original personalFrames SHA-256 ties image order, names and bytes together.
+     * Prepare a compact manifest from the already-produced Best Frames section
+     * and ordered original file names. Do NOT parse the huge canonical JSON:
+     * Android's JSONTokener makes a contiguous O(payload) StringBuilder copy.
      */
-    fun pack(
-        original: String,
+    fun prepare(
+        originalFrames: String,
         filesDir: File,
-        rewrite: (String, String) -> String,
-    ): PortablePackedFrames {
-        val root = JSONObject(original)
-        require(root.optInt("schemaVersion", -1) == CreatorBackupManager.SCHEMA_VERSION) {
-            "Portable Best Frames require the current creator backup schema"
+        orderedNames: List<String>,
+    ): PreparedPortableFrames {
+        require(orderedNames.size <= MAX_COUNT &&
+            orderedNames.distinct().size == orderedNames.size) {
+            "Invalid Best Frames count or duplicate original name"
         }
-        val originalFrames = root.getString("personalFrames")
-        val frames = JSONArray(originalFrames)
-        require(frames.length() <= MAX_COUNT) { "Too many original Best Frames" }
-        if (frames.length() == 0) return PortablePackedFrames(original, emptyList())
-
+        if (orderedNames.isEmpty()) {
+            require(originalFrames == "[]") { "Unexpected original Best Frames content" }
+            return PreparedPortableFrames("[]", emptyList())
+        }
         val directory = File(filesDir, DIRECTORY).canonicalFile
         val entries = mutableListOf<PortableBestFrame>()
-        val names = mutableSetOf<String>()
         var total = 0L
-        for (index in 0 until frames.length()) {
-            val frame = frames.getJSONObject(index)
-            val name = frame.getString("name")
-            val sum = frame.getString("sha256").lowercase()
-            require(safeName.matches(name) && name != "." && name != ".." && names.add(name)) {
+        for (name in orderedNames) {
+            require(safeName.matches(name) && name != "." && name != "..") {
                 "Invalid Best Frames name"
             }
-            require(hash.matches(sum)) { "Invalid Best Frames checksum" }
             val file = File(directory, name).canonicalFile
             require(file.parentFile == directory && file.isFile && file.canRead()) {
                 "An original Best Frame is no longer available"
@@ -64,15 +63,14 @@ internal object PortableBestFrameMedia {
                 "Best Frames exceed portable backup limits"
             }
             total += size
-            require(sha256(file) == sum) { "An original Best Frame changed during export" }
-            entries += PortableBestFrame(name, sum, file)
+            entries += PortableBestFrame(name, sha256(file), file)
         }
         val marker = JSONObject()
             .put("format", FORMAT)
             .put("version", FORMAT_VERSION)
             .put("count", entries.size)
             .put("originalSha256", sha256(originalFrames.toByteArray(Charsets.UTF_8)))
-        return PortablePackedFrames(rewrite(original, marker.toString()), entries)
+        return PreparedPortableFrames(marker.toString(), entries)
     }
 
     /** Fail closed if frames are missing, renamed, reordered or altered. */
