@@ -118,6 +118,21 @@ class V209BackupCoverageTest {
             }
             assertTrue(checksumError.message.orEmpty().contains("integrity", ignoreCase = true))
 
+            // Corrupt only the compact JSON (not the image or its frame
+            // manifest), then rebuild the ZIP CRC. Re-hydration must not
+            // re-sign this corrupted project/idea envelope into validity.
+            val changedJson = rewriteArchive(bytes) { name, body ->
+                if (name == "backlot.json") {
+                    val root = JSONObject(body.toString(Charsets.UTF_8))
+                    root.put("createdAtMillis", root.getLong("createdAtMillis") + 123L)
+                    root.toString().toByteArray(Charsets.UTF_8)
+                } else body
+            }
+            val envelopeError = assertThrows(IllegalArgumentException::class.java) {
+                manager.validate(ByteArrayInputStream(changedJson))
+            }
+            assertTrue(envelopeError.message.orEmpty().contains("integrity", ignoreCase = true))
+
             // A missing manifest must never silently import zero Best Frames.
             val missingManifest = rewriteArchive(bytes, omit = "best_frames.tsv")
             assertThrows(IllegalArgumentException::class.java) {
