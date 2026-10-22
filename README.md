@@ -10,6 +10,8 @@ The latest frozen personal-sideload stable snapshot is **V195.5 / 2.5.3-v195.5-s
 
 **Current maintenance work:** V209 P1 is a **non-functional trust/release hygiene phase** based on V208. It documents release and backup coverage, ignores future generated build files, and verifies the existing package/signing identity. It creates no replacement APK. V184–V207 remain historical milestones. See [V209 P1 QA](docs/qa/V209_TRUST_RELEASE_HYGIENE_P1.md).
 
+**Next personal preview candidate:** **V209 P2 / 2.8.3-v209-backup-coverage-preview** (versionCode 233) improves truthful portable-backup coverage and shows original Best Frames versus reference-only project attachments during restore preview. This **changes the app**; it is not automatically stable or installed on user devices. See [V209 P2 QA](docs/qa/V209_BACKUP_COVERAGE_P2.md).
+
 ## Development and acceptance
 
 - [Approved master plan](docs/roadmap/BACKLOT_IMPROVEMENT_MASTER_PLAN.md)

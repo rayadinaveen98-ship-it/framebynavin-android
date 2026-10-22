@@ -42,6 +42,11 @@ class CreatorBackupManager(private val context: Context) {
         val weeklySlotCount: Int,
         val activeReminderCount: Int,
         val settingsIncluded: Boolean,
+        /** Actual image bytes embedded in the core backup (Best Frames). */
+        val personalFrameCount: Int = 0,
+        val personalFramesIncluded: Boolean = false,
+        /** Workspace asset locations are references only; media bytes are not packaged. */
+        val externalProjectAssetCount: Int = 0,
     )
 
     private data class Snapshot(
@@ -101,7 +106,8 @@ class CreatorBackupManager(private val context: Context) {
             require(root.has("payloadSha256")) { "Backup integrity information is missing" }
             require(sha256(fingerprint(root, schema)) == root.getString("payloadSha256")) { "Backup integrity check failed" }
         }
-        optionalSection(root, "personalFrames")?.let(CreatorHeroArchive::validate)
+        val personalFramesRaw = optionalSection(root, "personalFrames")
+        val personalFrameCount = personalFramesRaw?.let(CreatorHeroArchive::validate) ?: 0
         if (schema >= 4) {
             require(root.has("youtubeProjectLinks") && root.has("youtubeMilestones")) {
                 "Backup is missing YouTube project metadata"
@@ -136,8 +142,19 @@ class CreatorBackupManager(private val context: Context) {
 
         val taskArray = JSONArray(tasksRaw)
         var activeReminders = 0
+        var externalProjectAssets = 0
         for (i in 0 until taskArray.length()) {
             val item = taskArray.getJSONObject(i)
+            // TaskStore exports workspace asset LOCATION strings, not the source files.
+            // Count references so backup preview cannot imply that attachments are portable.
+            val assets = item.optJSONObject("workspace")?.optJSONArray("assets")
+            if (assets != null) {
+                for (assetIndex in 0 until assets.length()) {
+                    if (assets.optJSONObject(assetIndex)?.optString("location", "").orEmpty().isNotBlank()) {
+                        externalProjectAssets++
+                    }
+                }
+            }
             if (item.optBoolean("reminderEnabled", false) &&
                 item.optString("reminderMode", ReminderMode.NONE.name) != ReminderMode.NONE.name &&
                 item.optString("status", TaskStatus.PLANNED.name) !in setOf(TaskStatus.DONE.name, TaskStatus.SKIPPED.name)
@@ -154,6 +171,9 @@ class CreatorBackupManager(private val context: Context) {
             weeklySlotCount = weeklyCount,
             activeReminderCount = activeReminders,
             settingsIncluded = true,
+            personalFrameCount = personalFrameCount,
+            personalFramesIncluded = personalFramesRaw != null,
+            externalProjectAssetCount = externalProjectAssets,
         )
     }
 

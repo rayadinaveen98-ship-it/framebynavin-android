@@ -3,9 +3,6 @@ on:
   push:
     branches:
       - feature/backlot-v209-trust-release-hygiene-p1
-  pull_request:
-    branches:
-      - feature/backlot-v208-restore-setup-backup-validation
   workflow_dispatch:
 
 permissions:
