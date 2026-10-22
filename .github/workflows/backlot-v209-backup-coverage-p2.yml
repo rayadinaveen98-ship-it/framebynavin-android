@@ -344,7 +344,7 @@ jobs:
           package_line=$(printf '%s\n' "$badging" | grep '^package:')
           printf '%s\n' "$package_line"
           grep -Fq "name='com.framebynavin.app'" <<< "$package_line"
-          grep -Fq "versionCode='232'" <<< "$package_line"
+          grep -Fq "versionCode='233'" <<< "$package_line"
           grep -Fq "versionName='2.8.3-v209-backup-coverage-preview'" <<< "$package_line"
           # Verify the installed APK resource table, not only its source tree.
           resources_dump=$("$aapt_tool" dump resources "$apk")
