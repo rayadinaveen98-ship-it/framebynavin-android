@@ -3,6 +3,8 @@ package com.framebynavin.app.ui
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -107,7 +109,10 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
-            Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 24.dp),
+            Modifier.fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
