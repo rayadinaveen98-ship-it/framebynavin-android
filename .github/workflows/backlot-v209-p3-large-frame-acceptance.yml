@@ -53,6 +53,9 @@ jobs:
           grep -Fq 'Best Frames' app/src/main/java/com/framebynavin/app/ui/BackupActivity.kt
           test -f app/src/androidTest/java/com/framebynavin/app/data/V209BackupCoverageTest.kt
           test -f app/src/androidTest/java/com/framebynavin/app/data/V209LargeFrameAcceptanceTest.kt
+          grep -Fq 'private fun fingerprintSha256(root: JSONObject, schema: Int)' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'updateDigestUtf8(digest, value)' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          ! grep -Fq 'sha256(fingerprint(root' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
           grep -Fq 'FRAME_MANIFEST_ENTRY = "best_frames.tsv"' app/src/main/java/com/framebynavin/app/data/PortableBackupArchive.kt
           grep -Fq 'PortableBestFrameMedia.expand(' app/src/main/java/com/framebynavin/app/data/PortableCreatorBackupManager.kt
           grep -Fq 'creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)' app/src/main/java/com/framebynavin/app/data/PortableCreatorBackupManager.kt
@@ -573,7 +576,7 @@ jobs:
             grep -Fq 'OK (2 tests)' v209-backup-coverage.log
             adb shell am instrument -w -r -e class com.framebynavin.app.data.V209LargeFrameAcceptanceTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v209-p3-large-frame.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v209-p3-large-frame.log; then exit 1; fi
-            grep -Fq 'OK (1 test)' v209-p3-large-frame.log
+            grep -Fq 'OK (2 tests)' v209-p3-large-frame.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V145GuideAssetDecodeTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v208-guides-asset-qa.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v208-guides-asset-qa.log; then exit 1; fi
             grep -Fq 'OK (1 test)' v208-guides-asset-qa.log
