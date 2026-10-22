@@ -72,6 +72,7 @@ class V209LargeFrameAcceptanceTest {
             // P4: restore the same >32 MiB original library. The compact path
             // must never rehydrate an oversized Base64 core JSON or pre-restore
             // journal, and the installed images must retain their checksums.
+            val beforeRestoreImages = CreatorHeroArchive.captureOriginalOrder(context)
             val restored = portable.restore(ByteArrayInputStream(zipBytes))
             assertEquals(2, restored.personalFrameCount)
             val checkpoint = JSONArray(CreatorHeroArchive.captureOriginalOrder(context))
@@ -79,6 +80,10 @@ class V209LargeFrameAcceptanceTest {
             for (index in 0 until checkpoint.length()) {
                 assertEquals(sha, checkpoint.getJSONObject(index).getString("sha256"))
             }
+            // Original files were NOT deleted by the compact restore: a
+            // pending recovery journal can return to these exact originals.
+            CreatorHeroArchive.restoreOriginalOrder(context, beforeRestoreImages)
+            assertEquals(beforeRestoreImages, CreatorHeroArchive.captureOriginalOrder(context))
         } finally {
             // Drop only this disposable emulator test's large active image order
             // BEFORE the full core restore snapshots the "before" state.
