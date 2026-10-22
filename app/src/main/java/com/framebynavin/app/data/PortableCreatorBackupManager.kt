@@ -22,7 +22,12 @@ class PortableCreatorBackupManager(context: Context) {
 
     suspend fun writeBackup(output: OutputStream) {
         val raw = creatorBackup.createBackup()
-        PortableBackupArchive.write(raw, exportableVoiceMedia(raw), output)
+        val packed = PortableBestFrameMedia.pack(
+            raw, appContext.filesDir, creatorBackup::rewritePortablePersonalFrames,
+        )
+        PortableBackupArchive.write(
+            packed.compactJson, exportableVoiceMedia(raw), output, packed.frames,
+        )
     }
 
     /**
@@ -34,7 +39,8 @@ class PortableCreatorBackupManager(context: Context) {
     fun validate(input: InputStream): CreatorBackupManager.BackupPreview {
         val staged = PortableBackupArchive.stage(input, appContext.cacheDir)
         try {
-            val preview = creatorBackup.validate(staged.backupJson)
+            val canonical = fullyHydratedBackup(staged)
+            val preview = creatorBackup.validate(canonical)
             verifyArchiveVoiceReferences(staged)
             return preview
         } finally {
@@ -45,7 +51,7 @@ class PortableCreatorBackupManager(context: Context) {
     suspend fun restore(input: InputStream): CreatorBackupManager.BackupPreview {
         val staged = PortableBackupArchive.stage(input, appContext.cacheDir)
         try {
-            val original = staged.backupJson
+            val original = fullyHydratedBackup(staged)
             creatorBackup.validate(original)
             verifyArchiveVoiceReferences(staged)
             if (!staged.isArchive) return creatorBackup.restore(original)
@@ -61,6 +67,14 @@ class PortableCreatorBackupManager(context: Context) {
             staged.cleanup()
         }
     }
+
+    private fun fullyHydratedBackup(staged: StagedPortableBackup): String =
+        PortableBestFrameMedia.expand(
+            staged.backupJson,
+            staged.bestFrames,
+            staged.hasFrameManifest,
+            creatorBackup::rewritePortablePersonalFrames,
+        )
 
     /**
      * A portable ZIP must contain exactly one verified media item per idea
