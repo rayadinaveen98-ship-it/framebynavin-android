@@ -78,6 +78,36 @@ class V209LargeFrameAcceptanceTest {
         }
     }
 
+    @Test fun incrementalChecksumMatchesLegacyFormatAcrossUtf8ChunkBoundary(): Unit = runBlocking {
+        HardeningTestEnvironment.requireCiEmulator()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val manager = CreatorBackupManager(context)
+        val original = manager.createBackup()
+        val fixture = "x".repeat(4095) + "😀" + "with Telugu తెలుగు".repeat(5000)
+        val rewritten = JSONObject(manager.rewritePortablePersonalFrames(original, fixture))
+        // The old v9 fingerprint was one giant buildString, then SHA-256 UTF-8.
+        // Assert byte-for-byte compatibility across a split surrogate pair and
+        // multi-byte Indian-script characters; never create a new checksum schema.
+        val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas",
+            "weeklySchedule", "settings", "smartEscalationConfig", "postPublish",
+            "rewards", "personalFrames", "youtubeProjectLinks", "youtubeMilestones",
+            "youtubePublishCheckpoints", "projectPulseHistory", "workflowStageTimeline",
+            "automationPreferences", "manifest")
+        val oldFingerprint = buildString {
+            keys.forEach { key ->
+                val value = rewritten.optString(key, "")
+                append(key.length).append(':').append(key).append(value.length)
+                    .append(':').append(value)
+            }
+        }
+        val checksum = MessageDigest.getInstance("SHA-256")
+            .digest(oldFingerprint.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        assertEquals(checksum, rewritten.getString("payloadSha256"))
+        // Existing valid snapshots still validate with the exact same checksum.
+        assertEquals(CreatorBackupManager.SCHEMA_VERSION, manager.validate(original).schemaVersion)
+    }
+
     private fun oversizedButValidPng(extraTextBytes: Int): ByteArray {
         val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
         val encoded = ByteArrayOutputStream().also {
