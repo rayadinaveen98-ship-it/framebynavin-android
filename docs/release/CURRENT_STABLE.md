@@ -38,6 +38,7 @@ to conflate these lines.
   be represented as a newer installed app or commercial release.
 - The V195.5 stable snapshot remains untouched. V197 was a release candidate,
   not a promoted stable branch; V208 is still a personal preview.
+- **V209 P2 / 2.8.3-v209-backup-coverage-preview / versionCode 233** is a new draft personal-preview candidate with an accurate backup coverage screen, built on V209 P1. It has its own CI gates and must not be promoted until exact-commit CI, emulator and device checks pass. V209 P2 remains separate from the frozen V195.5 stable branch.
 
 No CI result or single-device test alone certifies public release readiness,
 full backup restoration, Play policy compliance, privately controlled signing,
