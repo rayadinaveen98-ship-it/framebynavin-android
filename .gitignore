@@ -1,6 +1,30 @@
+# IDE, local machine state and caches
+.idea/
+*.iml
+.gradle/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+local.properties
+.DS_Store
+*.log
+
+# Generated Gradle/Android artifacts. Some were accidentally committed in older
+# history; ignore rules prevent NEW files but do not untrack existing files.
+**/build/
+*.apk
+*.aab
+
+# Local credentials and signing material. A historical PUBLIC prototype
+# keystore is already tracked only for personal-install signing compatibility.
+# Never treat that prototype certificate as a commercial release identity.
 keystore/
 *.jks
 *.keystore
-local.properties
+*.p12
+*.pfx
+*.pem
 .env
 .env.*
+!*.env.example
+*.secrets
