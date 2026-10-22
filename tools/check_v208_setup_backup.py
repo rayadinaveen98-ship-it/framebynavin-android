@@ -54,6 +54,9 @@ assert (
     or
     ('versionCode = 234' in gradle and
      'versionName = "2.8.4-v209-best-frames-portable-preview"' in gradle)
+    or
+    ('versionCode = 235' in gradle and
+     'versionName = "2.8.5-v209-large-backup-memory-preview"' in gradle)
 ), "Unexpected or mismatched Android version and release name"
 assert 'applicationId = "com.framebynavin.app"' in gradle
 print("V201 inherited brand audit passed: 8 notification small icons, Settings, launcher, splash, startup, Home and application ID.")
