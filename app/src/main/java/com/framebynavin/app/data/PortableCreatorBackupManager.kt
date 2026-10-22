@@ -68,13 +68,17 @@ class PortableCreatorBackupManager(context: Context) {
         }
     }
 
-    private fun fullyHydratedBackup(staged: StagedPortableBackup): String =
-        PortableBestFrameMedia.expand(
+    private fun fullyHydratedBackup(staged: StagedPortableBackup): String {
+        // Verify the ORIGINAL portable envelope before any frame hydration
+        // recomputes its checksum. Corrupted project/idea JSON must fail closed.
+        creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)
+        return PortableBestFrameMedia.expand(
             staged.backupJson,
             staged.bestFrames,
             staged.hasFrameManifest,
             creatorBackup::rewritePortablePersonalFrames,
         )
+    }
 
     /**
      * A portable ZIP must contain exactly one verified media item per idea
