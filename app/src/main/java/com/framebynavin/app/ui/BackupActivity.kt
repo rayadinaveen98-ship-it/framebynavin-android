@@ -115,7 +115,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 message = if (result.isSuccess) {
                     "Backup saved with supported voice recordings. This file is not encrypted; store it privately. Calendar connections, theme, launch sound and app icon are not included."
                 } else {
-                    "Could not save the backup. Try another location."
+                    V208BackupErrorCopy.forExport(result.exceptionOrNull())
                 }
             }
         }
@@ -140,7 +140,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 }.onFailure {
                     pendingRestoreUri = null
                     isError = true
-                    message = "This file did not pass Backlot backup validation. No data was restored."
+                    message = V208BackupErrorCopy.forValidation(it)
                 }
             }
         }
@@ -349,7 +349,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                                 }
                             } else {
                                 isError = true
-                                message = "Restore failed or could not be confirmed. Check your existing work before retrying; retained recovery copies remain available."
+                                message = V208BackupErrorCopy.forRestore(result.exceptionOrNull())
                             }
                         }
                     },
