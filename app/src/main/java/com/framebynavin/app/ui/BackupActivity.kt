@@ -108,6 +108,11 @@ private fun BackupScreen(onClose: () -> Unit) {
                         context.contentResolver.openOutputStream(uri)?.use { output ->
                             manager.writeBackup(output)
                         } ?: error("Could not open the selected file.")
+                        // Do not tell the creator "Backup saved" until the copy
+                        // actually written through the document provider can
+                        // be reopened and fully checksum-verified from disk.
+                        context.contentResolver.openInputStream(uri)?.use(manager::validate)
+                            ?: error("Could not verify the exported backup file.")
                     }
                 }
                 busy = false
@@ -115,7 +120,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 message = if (result.isSuccess) {
                     "Backup saved with supported voice recordings. This file is not encrypted; store it privately. Calendar connections, theme, launch sound and app icon are not included."
                 } else {
-                    "Could not save the backup. Try another location."
+                    V208BackupErrorCopy.forExport(result.exceptionOrNull())
                 }
             }
         }
@@ -140,7 +145,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 }.onFailure {
                     pendingRestoreUri = null
                     isError = true
-                    message = "This file did not pass Backlot backup validation. No data was restored."
+                    message = V208BackupErrorCopy.forValidation(it)
                 }
             }
         }
@@ -349,7 +354,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                                 }
                             } else {
                                 isError = true
-                                message = "Restore failed or could not be confirmed. Check your existing work before retrying; retained recovery copies remain available."
+                                message = V208BackupErrorCopy.forRestore(result.exceptionOrNull())
                             }
                         }
                     },

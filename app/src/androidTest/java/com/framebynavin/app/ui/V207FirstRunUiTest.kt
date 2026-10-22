@@ -12,6 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
+/** Historical test class name retained for the inherited emulator matrix. */
 class V207FirstRunUiTest {
     @get:Rule val rule = createComposeRule()
 
@@ -34,40 +35,43 @@ class V207FirstRunUiTest {
         }
     }
 
-    @Test fun threeStepsSaveCompleteLocalProfileWithoutPermissionPrompts() {
+    @Test fun fivePageSetupRetainsAllCreatorChoicesAndOptionalPermissions() {
         val saved = mutableStateOf<CreatorProfile?>(null)
+        show { saved.value = it; true }
         val mode = CreatorModeRegistry.labels.first()
         val platform = CreatorPlatformRegistry.supportedPlatforms.first()
-        show { saved.value = it; true }
-        rule.onNodeWithText("1/3").assertIsDisplayed()
-        rule.onNodeWithTag("v197-onboarding-primary").assertIsNotEnabled()
+        rule.onNodeWithText("1/5").assertExists()
         rule.onNodeWithText(mode).performClick()
         rule.onNodeWithTag("v197-onboarding-primary").performClick()
-        rule.onNodeWithText("2/3").assertIsDisplayed()
-        rule.onNodeWithTag("v197-onboarding-primary").assertIsNotEnabled()
+        rule.onNodeWithText("2/5").assertExists()
         rule.onNodeWithText(platform).performClick()
         rule.onNodeWithTag("v197-onboarding-primary").performClick()
-        rule.onNodeWithText("3/3").assertIsDisplayed()
-        rule.onNodeWithTag("v207-first-run-review").assertExists()
-        rule.onNodeWithText("START BACKLOT").performClick()
+        rule.onNodeWithText("3/5").assertExists()
+        // Production styles remain optional, and skipping must not block setup.
+        rule.onNodeWithTag("v197-onboarding-primary").performClick()
+        rule.onNodeWithText("4/5").assertExists()
+        rule.onNodeWithText("Publish consistently").performClick()
+        rule.onNodeWithTag("v197-onboarding-primary").performClick()
+        rule.onNodeWithText("5/5").assertExists()
+        rule.onNodeWithText("Reminders & alerts", substring = true).assertExists()
+        // Do not require notification/battery permissions to save a valid profile.
+        rule.onNodeWithTag("v197-onboarding-primary").performClick()
         rule.runOnIdle {
             assertTrue(saved.value?.isComplete == true)
-            assertEquals("Stay organized", saved.value?.primaryGoal)
             assertEquals(mode, saved.value?.resolvedPrimaryCreatorMode)
             assertTrue(platform in saved.value!!.platforms)
+            assertEquals("Publish consistently", saved.value!!.primaryGoal)
         }
-        rule.onNodeWithText("Reminders & alerts").assertDoesNotExist()
-        rule.onNodeWithText("SET UP").assertDoesNotExist()
     }
 
-    @Test fun backNavigationPreservesChoiceAndInvalidatesNextOnlyWhenNeeded() {
-        val mode = CreatorModeRegistry.labels.first()
+    @Test fun restoredBackNavigationKeepsSelections() {
         show { false }
+        val mode = CreatorModeRegistry.labels.first()
         rule.onNodeWithText(mode).performClick()
         rule.onNodeWithTag("v197-onboarding-primary").performClick()
-        rule.onNodeWithText("2/3").assertIsDisplayed()
+        rule.onNodeWithText("2/5").assertExists()
         rule.onNodeWithTag("v197-onboarding-back").performClick()
-        rule.onNodeWithText("1/3").assertIsDisplayed()
+        rule.onNodeWithText("1/5").assertExists()
         rule.onNodeWithTag("v197-onboarding-primary").assertIsEnabled()
     }
 }

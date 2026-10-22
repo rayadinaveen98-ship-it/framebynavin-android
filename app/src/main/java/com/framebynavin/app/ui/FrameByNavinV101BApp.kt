@@ -891,6 +891,13 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     } else if (V151SetupPolicy.needsCreatorSetup(
         onboardingComplete = settings.onboardingComplete,
         profileComplete = settings.creatorProfile.isComplete,
+    ) && !V144GuidePrefs.hasSelection) {
+        // New creators choose the companion before the restored five-page setup.
+        // Do NOT show this gate to existing users whose setup is complete.
+        V144GuideChoiceGate()
+    } else if (V151SetupPolicy.needsCreatorSetup(
+        onboardingComplete = settings.onboardingComplete,
+        profileComplete = settings.creatorProfile.isComplete,
     )) {
         V18CreatorOnboarding(
             profile = settings.creatorProfile,
