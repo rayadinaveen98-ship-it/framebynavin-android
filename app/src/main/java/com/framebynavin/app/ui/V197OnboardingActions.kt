@@ -70,8 +70,7 @@ private fun V197OnboardingPrimary(
         modifier = modifier.heightIn(min = 50.dp).testTag("v197-onboarding-primary"),
     ) {
         Text(
-            if (page == lastPage && lastPage == V207FirstRunPolicy.LAST_PAGE) "START BACKLOT"
-            else V149CreatorOnboardingPolicy.primaryActionLabel(page, hasProductionStyles),
+            V149CreatorOnboardingPolicy.primaryActionLabel(page, hasProductionStyles),
             fontWeight = FontWeight.Black,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
