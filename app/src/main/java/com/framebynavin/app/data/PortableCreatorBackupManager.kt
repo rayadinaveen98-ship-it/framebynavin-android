@@ -25,14 +25,29 @@ class PortableCreatorBackupManager(context: Context) {
         PortableBackupArchive.write(raw, exportableVoiceMedia(raw), output)
     }
 
-    fun validate(input: InputStream): CreatorBackupManager.BackupPreview =
-        creatorBackup.validate(PortableBackupArchive.readBackupJson(input))
+    /**
+     * A restore preview must verify the ENTIRE portable archive, including
+     * voice-media manifest, sizes and SHA-256 checksums. The older preview
+     * stopped at the first ZIP entry (backlot.json), falsely showing a safe
+     * restore even when later voice entries were truncated or corrupted.
+     */
+    fun validate(input: InputStream): CreatorBackupManager.BackupPreview {
+        val staged = PortableBackupArchive.stage(input, appContext.cacheDir)
+        try {
+            val preview = creatorBackup.validate(staged.backupJson)
+            verifyArchiveVoiceReferences(staged)
+            return preview
+        } finally {
+            staged.cleanup()
+        }
+    }
 
     suspend fun restore(input: InputStream): CreatorBackupManager.BackupPreview {
         val staged = PortableBackupArchive.stage(input, appContext.cacheDir)
         try {
             val original = staged.backupJson
             creatorBackup.validate(original)
+            verifyArchiveVoiceReferences(staged)
             if (!staged.isArchive) return creatorBackup.restore(original)
 
             val installed = installVoiceMedia(original, staged.mediaByIdeaId)
@@ -44,6 +59,29 @@ class PortableCreatorBackupManager(context: Context) {
             }
         } finally {
             staged.cleanup()
+        }
+    }
+
+    /**
+     * A portable ZIP must contain exactly one verified media item per idea
+     * that references an owned local Voice Idea recording. Do not erase valid
+     * local recording references merely because an archive silently omitted
+     * them. Legacy raw-JSON backups retain their existing compatibility path.
+     */
+    private fun verifyArchiveVoiceReferences(staged: StagedPortableBackup) {
+        if (!staged.isArchive) return
+        val ideas = JSONArray(JSONObject(staged.backupJson).getString("ideas"))
+        val expectedIds = linkedSetOf<String>()
+        for (index in 0 until ideas.length()) {
+            val idea = ideas.getJSONObject(index)
+            if (idea.optString("audioLocalPath", "").isBlank()) continue
+            val id = idea.optString("id", "").trim()
+            require(id.isNotBlank() && expectedIds.add(id)) {
+                "Backup has an invalid or repeated Voice Idea reference"
+            }
+        }
+        require(expectedIds == staged.mediaByIdeaId.keys) {
+            "Backup voice recordings are missing or do not match saved ideas. No data was restored."
         }
     }
 
