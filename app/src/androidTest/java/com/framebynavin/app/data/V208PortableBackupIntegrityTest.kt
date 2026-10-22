@@ -71,8 +71,18 @@ class V208PortableBackupIntegrityTest {
                     }
                 }
             }
+            // The media is intentionally orphaned from the JSON. Checking only
+            // PortableCreatorBackupManager.validate() could fail on the orphan
+            // mapping even if media checksums were never verified. Assert the
+            // archive checksum guard itself rejects these tampered bytes.
+            val tamperedBytes = corrupted.toByteArray()
+            val integrityFailure = assertThrows(IllegalArgumentException::class.java) {
+                PortableBackupArchive.stage(ByteArrayInputStream(tamperedBytes), context.cacheDir)
+            }
+            assertTrue(integrityFailure.message.orEmpty().contains("integrity", ignoreCase = true))
+            // The public preview must also refuse this corrupted archive.
             assertThrows(IllegalArgumentException::class.java) {
-                PortableCreatorBackupManager(context).validate(ByteArrayInputStream(corrupted.toByteArray()))
+                PortableCreatorBackupManager(context).validate(ByteArrayInputStream(tamperedBytes))
             }
         } finally {
             extra.delete()
