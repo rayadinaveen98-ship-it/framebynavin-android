@@ -10,9 +10,9 @@ import org.junit.Test
 class V144GuideSystemTest {
 
     @Test
-    fun `v152 selectable roster contains only Spark`() {
+    fun `companion chooser includes restored original characters`() {
         assertEquals(
-            listOf(V144GuideIdentity.FUNNY),
+            listOf(V144GuideIdentity.FRAME, V144GuideIdentity.NAVI, V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE),
             V145SelectableGuides,
         )
         assertTrue(V145SelectableGuides.all { it.description.isNotBlank() })
@@ -20,11 +20,11 @@ class V144GuideSystemTest {
     }
 
     @Test
-    fun `legacy guide values still normalize correctly for compatibility`() {
-        assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("FRAME"))
-        assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("NAVI"))
+    fun `existing saved guide choices are never silently remapped`() {
+        assertEquals(V144GuideIdentity.FRAME, v145NormalizeSavedGuide("FRAME"))
+        assertEquals(V144GuideIdentity.NAVI, v145NormalizeSavedGuide("NAVI"))
         assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("FUNNY"))
-        assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("CUTE"))
+        assertEquals(V144GuideIdentity.CUTE, v145NormalizeSavedGuide("CUTE"))
         assertNull(v145NormalizeSavedGuide(null))
         assertNull(v145NormalizeSavedGuide("UNKNOWN"))
     }
