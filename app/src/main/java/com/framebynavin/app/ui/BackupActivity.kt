@@ -108,6 +108,11 @@ private fun BackupScreen(onClose: () -> Unit) {
                         context.contentResolver.openOutputStream(uri)?.use { output ->
                             manager.writeBackup(output)
                         } ?: error("Could not open the selected file.")
+                        // Do not tell the creator "Backup saved" until the copy
+                        // actually written through the document provider can
+                        // be reopened and fully checksum-verified from disk.
+                        context.contentResolver.openInputStream(uri)?.use(manager::validate)
+                            ?: error("Could not verify the exported backup file.")
                     }
                 }
                 busy = false
