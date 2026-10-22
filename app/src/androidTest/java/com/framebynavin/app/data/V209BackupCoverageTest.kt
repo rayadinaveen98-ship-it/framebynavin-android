@@ -79,8 +79,17 @@ class V209BackupCoverageTest {
             // A URI is stored as a reference but no project attachment file is embedded.
             assertTrue(entries.contains("backlot.json"))
             assertFalse(entries.any { it.startsWith("project_assets/") })
-            assertTrue(backedUpJson.contains(externalUri))
-            assertEquals(1, JSONArray(JSONObject(backedUpJson).getString("personalFrames")).length())
+            // Core JSON nests serialized project JSON as a string. Its escaped
+            // representation is not the URI itself; compare the decoded value.
+            val backupRoot = JSONObject(backedUpJson)
+            val tasksInBackup = JSONArray(backupRoot.getString("tasks"))
+            val restoredProjectJson = (0 until tasksInBackup.length())
+                .map { tasksInBackup.getJSONObject(it) }
+                .single { it.getString("id") == id }
+            val savedAssetLocation = restoredProjectJson.getJSONObject("workspace")
+                .getJSONArray("assets").getJSONObject(0).getString("location")
+            assertEquals(externalUri, savedAssetLocation)
+            assertEquals(1, JSONArray(backupRoot.getString("personalFrames")).length())
         } finally {
             // Never exercise restore on real installed data; this test is CI-emulator gated.
             CreatorDataGate.nonCancellable { core.restore(original) }
