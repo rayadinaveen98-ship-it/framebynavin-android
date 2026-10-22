@@ -39,30 +39,27 @@ import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
 
 enum class V144GuideIdentity(val displayName: String, val description: String) {
-    // Kept only as compatibility values for older persisted installs. They are no longer selectable.
     FRAME("Frame", "Simple. Expressive. Always with you."),
     NAVI("Navi", "Curious. Calm. Creative."),
-    // Keep the persisted enum key FUNNY to migrate V151 installations without erasing preferences.
     FUNNY("Spark", "Lively. Creative. Always moving forward."),
     CUTE("Cute", "Warm. Gentle. Always encouraging."),
 }
 
-/** Active roster until the next two approved raster guides are designed. */
-internal val V145SelectableGuides = listOf(V144GuideIdentity.FUNNY)
+/** The original companion choice experience, restored for first-time creators. */
+internal val V145SelectableGuides = listOf(
+    V144GuideIdentity.FRAME,
+    V144GuideIdentity.NAVI,
+    V144GuideIdentity.FUNNY,
+    V144GuideIdentity.CUTE,
+)
 
-internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? {
-    val parsed = value?.let { saved ->
-        V144GuideIdentity.entries.firstOrNull { it.name == saved }
-    } ?: return null
-    return when (parsed) {
-        V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
-        V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> V144GuideIdentity.FUNNY
-    }
-}
+/** Keep already selected companions intact on upgrades; do not silently overwrite choices. */
+internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? =
+    value?.let { saved -> V144GuideIdentity.entries.firstOrNull { it.name == saved } }
 
 /**
  * Guide preference remains on the historical key so existing installs migrate in place.
- * Legacy Frame/Navi selections are normalized to Funny and are not exposed in V145 UI.
+ * Restore the creator's saved Frame / Navi / Spark / Cute selection in place.
  */
 object V144GuidePrefs {
     private const val PREFS = "backlot_character_identity_v151"
@@ -72,7 +69,7 @@ object V144GuidePrefs {
     var selectedGuide by mutableStateOf<V144GuideIdentity?>(null)
         private set
 
-    val hasSelection: Boolean get() = true // Spark is automatic; no first-run character gate.
+    val hasSelection: Boolean get() = selectedGuide != null
     val currentGuide: V144GuideIdentity get() = selectedGuide ?: V144GuideIdentity.FUNNY
 
     fun initialize(context: Context) {
@@ -88,13 +85,9 @@ object V144GuidePrefs {
     }
 
     fun select(guide: V144GuideIdentity) {
-        val normalized = when (guide) {
-            V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
-            V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> V144GuideIdentity.FUNNY
-        }
-        selectedGuide = normalized
+        selectedGuide = guide
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            ?.edit()?.putString(KEY_CHARACTER, normalized.name)?.apply()
+            ?.edit()?.putString(KEY_CHARACTER, guide.name)?.apply()
     }
 }
 
@@ -182,19 +175,19 @@ private fun V144GuideChoiceCard(
             Text(
                 guide.description,
                 color = MutedText,
-                fontSize = 7.6.sp,
-                lineHeight = 10.sp,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
                 textAlign = TextAlign.Center,
                 minLines = 2,
             )
             Spacer(Modifier.height(7.dp))
             Button(
                 onClick = onSelect,
-                modifier = Modifier.fillMaxWidth().height(35.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = Color.White),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text("USE ${guide.displayName.uppercase()}", fontSize = 7.2.sp, fontWeight = FontWeight.Black)
+                Text("USE ${guide.displayName.uppercase()}", fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
         }
     }
@@ -209,8 +202,8 @@ internal fun V144GuidePicker() {
     Column(Modifier.fillMaxWidth()) {
         Text("GUIDE CHARACTER", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Spark, your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("One lively guide, ready whenever you create.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("Choose your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("You can change guides whenever you like.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(10.dp))
 
         V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
@@ -219,7 +212,7 @@ internal fun V144GuidePicker() {
                     val active = guide == selected
                     val identity = v144GuideIdentityColor(guide)
                     Surface(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) },
                         shape = RoundedCornerShape(18.dp),
                         color = if (active) CinemaSurfaceRaised else CinemaSurface,
                         border = BorderStroke(1.2.dp, if (active) identity else CinemaLine),
