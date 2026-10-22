@@ -69,6 +69,16 @@ class V209LargeFrameAcceptanceTest {
             val preview = portable.validate(ByteArrayInputStream(zipBytes))
             assertTrue(preview.personalFramesIncluded)
             assertEquals(2, preview.personalFrameCount)
+            // P4: restore the same >32 MiB original library. The compact path
+            // must never rehydrate an oversized Base64 core JSON or pre-restore
+            // journal, and the installed images must retain their checksums.
+            val restored = portable.restore(ByteArrayInputStream(zipBytes))
+            assertEquals(2, restored.personalFrameCount)
+            val checkpoint = JSONArray(CreatorHeroArchive.captureOriginalOrder(context))
+            assertEquals(2, checkpoint.length())
+            for (index in 0 until checkpoint.length()) {
+                assertEquals(sha, checkpoint.getJSONObject(index).getString("sha256"))
+            }
         } finally {
             // Drop only this disposable emulator test's large active image order
             // BEFORE the full core restore snapshots the "before" state.
