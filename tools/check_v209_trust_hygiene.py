@@ -69,10 +69,12 @@ def main() -> int:
     require("verifyArchiveVoiceReferences(staged)" in backup,
             "Portable voice media reference check was lost")
 
-    require("V183" in stable and "V208" in stable and "preview" in stable.lower(),
-            "Release ledger must distinguish stable and preview")
-    require("V208" in readme and "personal" in readme.lower(),
-            "README must mention the current preview boundary")
+    require(all(token in stable for token in (
+                "V195.5", "stable/backlot-v195-5", "V183", "V208", "preview")),
+            "Release ledger must identify V195.5 stable, historical V183 and V208 preview")
+    require(all(token in readme for token in ("V195.5", "V208")) and
+            "personal" in readme.lower(),
+            "README must identify current stable and preview boundaries")
 
     # check-ignore works even on previously tracked files when --no-index is used.
     for path in (
