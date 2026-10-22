@@ -36,6 +36,145 @@ object CreatorHeroArchive {
         return names
     }
 
+    /**
+     * Durable rollback pointer to pre-restore originals, not their Base64 bytes.
+     * import/importVerifiedFiles never deletes old originals; the original
+     * names and file hashes can therefore recover from a process-death restore.
+     */
+    internal fun captureOriginalOrder(context: Context): String {
+        val directory = File(context.filesDir, DIRECTORY).canonicalFile
+        val items = JSONArray()
+        var total = 0L
+        orderedSourceNames(context).forEach { name ->
+            val source = File(directory, name).canonicalFile
+            require(source.parentFile == directory && source.isFile) {
+                "A previous Best Frame is missing; restore cancelled"
+            }
+            val size = source.length()
+            require(size in 1..MAX_FILE && total <= MAX_TOTAL - size) {
+                "Previous Best Frames exceed recovery safety limits"
+            }
+            total += size
+            checkImageBounds(source)
+            items.put(JSONObject().put("name", name).put("sha256", sha256File(source)))
+        }
+        return items.toString()
+    }
+
+    /** Verify all previously saved originals BEFORE making their order visible. */
+    internal fun restoreOriginalOrder(context: Context, checkpoint: String) {
+        val items = JSONArray(checkpoint)
+        require(items.length() <= 10) { "Too many original Best Frames in recovery" }
+        val root = File(context.filesDir, DIRECTORY).canonicalFile
+        val names = mutableListOf<String>()
+        val seen = mutableSetOf<String>()
+        var total = 0L
+        for (i in 0 until items.length()) {
+            val item = items.getJSONObject(i)
+            require(item.keys().asSequence().toSet() == setOf("name", "sha256")) {
+                "Invalid original Best Frames journal"
+            }
+            val name = item.getString("name")
+            val checksum = item.getString("sha256")
+            require(namePattern.matches(name) && name != "." && name != ".." &&
+                seen.add(name) && checksum.matches(Regex("[a-f0-9]{64}"))) {
+                "Invalid original Best Frames recovery reference"
+            }
+            val file = File(root, name).canonicalFile
+            require(file.parentFile == root && file.isFile) {
+                "A previous Best Frame cannot be recovered"
+            }
+            val size = file.length()
+            require(size in 1..MAX_FILE && total <= MAX_TOTAL - size &&
+                sha256File(file) == checksum) {
+                "Previous Best Frames changed during restore"
+            }
+            total += size
+            checkImageBounds(file)
+            names += name
+        }
+        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(ORDER, names.joinToString("\n"))
+            .putBoolean("alpha17_empty_hero_reset_done", true)
+            .commit()) { "Could not recover original Best Frames order" }
+    }
+
+    /**
+     * Install verified ZIP images from disk without allocating Base64 strings.
+     * Copy into new app-owned names, verify bytes and dimensions before one
+     * atomic SharedPreferences order switch. Existing originals are retained
+     * for the durable rollback journal.
+     */
+    internal fun importVerifiedFiles(context: Context, frames: List<PortableBestFrame>) {
+        require(frames.size <= 10) { "Too many restored Best Frames" }
+        val directory = File(context.filesDir, DIRECTORY).apply { mkdirs() }.canonicalFile
+        val staged = mutableListOf<File>()
+        val names = mutableListOf<String>()
+        var total = 0L
+        try {
+            frames.forEach { frame ->
+                val source = frame.file
+                val size = source.length()
+                require(source.isFile && size in 1..MAX_FILE && total <= MAX_TOTAL - size) {
+                    "Restored Best Frame exceeds media safety limit"
+                }
+                total += size
+                require(sha256File(source) == frame.sha256) {
+                    "Restored Best Frame integrity check failed"
+                }
+                checkImageBounds(source)
+                val name = "restore_${UUID.randomUUID()}.img"
+                val destination = File(directory, name)
+                staged += destination
+                val atomic = AtomicFile(destination)
+                var output: java.io.FileOutputStream? = null
+                try {
+                    val destinationStream = atomic.startWrite()
+                    output = destinationStream
+                    source.inputStream().buffered().use { input ->
+                        input.copyTo(destinationStream, DEFAULT_BUFFER_SIZE)
+                    }
+                    atomic.finishWrite(destinationStream)
+                } catch (error: Throwable) {
+                    output?.let(atomic::failWrite)
+                    throw error
+                }
+                require(destination.length() == size && sha256File(destination) == frame.sha256) {
+                    "Best Frame copy failed integrity validation"
+                }
+                names += name
+            }
+            check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(ORDER, names.joinToString("\n"))
+                .putBoolean("alpha17_empty_hero_reset_done", true)
+                .commit()) { "Could not save restored Best Frames" }
+        } catch (error: Throwable) {
+            staged.forEach { runCatching { it.delete() } }
+            throw error
+        }
+    }
+
+    private fun checkImageBounds(file: File) {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+        require(options.outWidth in 1..20000 && options.outHeight in 1..20000) {
+            "Invalid original Best Frame image"
+        }
+    }
+
+    private fun sha256File(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
     fun export(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val directory = File(context.filesDir, DIRECTORY)

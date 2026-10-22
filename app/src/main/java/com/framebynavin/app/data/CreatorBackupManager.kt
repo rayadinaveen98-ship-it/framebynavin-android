@@ -283,6 +283,60 @@ class CreatorBackupManager(private val context: Context) {
         }
     }
 
+    /**
+     * Dedicated ZIP restore for the verified v9 Best Frames manifest.
+     * The canonical/legacy restore above is preserved as-is. Never hydrate
+     * original images into a giant Base64 JSON string for this format.
+     */
+    internal suspend fun restorePortableCompact(
+        raw: String,
+        frames: List<PortableBestFrame>,
+    ): BackupPreview = CreatorDataGate.transaction {
+        verifyPortableJsonEnvelope(raw)
+        require(PortableBestFrameMedia.verifyCompactPreview(raw, frames, true) == frames.size) {
+            "Best Frames portable recovery manifest is inconsistent"
+        }
+        val preview = validatePortableCompact(raw, frames.size)
+        recoverPendingRestoreUnlocked()
+        IdeaProjectConversion(appContext).recoverPendingUnlocked()
+
+        // Old originals are retained by the Hero archive and recorded by
+        // filename+hash; the pre-restore creator JSON need not Base64 them.
+        val oldFrames = CreatorHeroArchive.captureOriginalOrder(appContext)
+        val before = encode(snapshot(includeHero = false), System.currentTimeMillis())
+        val recovery = retainRecovery(before)
+        val marker = JSONObject().put("file", recovery.name)
+            .put("sha256", sha256(before))
+            .put("originalFrames", oldFrames)
+            .put("originalFramesSha256", sha256(oldFrames))
+        atomicWrite(pendingFile(), marker.toString())
+        CreatorDataGate.invalidate(appContext)
+        try {
+            stopAndCancel(taskStore.load())
+            smartSessions.clearAll()
+            importSnapshot(decodeSnapshot(raw).copy(heroJson = null))
+            CreatorHeroArchive.importVerifiedFiles(appContext, frames)
+            scheduleFuture(taskStore.load())
+            clearPending()
+            preview
+        } catch (error: Throwable) {
+            CreatorDataGate.nonCancellable {
+                try {
+                    stopAndCancel(taskStore.load())
+                    smartSessions.clearAll()
+                    importSnapshot(decodeSnapshot(before).copy(heroJson = null))
+                    CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)
+                    scheduleFuture(taskStore.load())
+                    clearPending()
+                } catch (rollbackError: Throwable) {
+                    error.addSuppressed(rollbackError)
+                    // Pending journal intentionally remains for crash recovery.
+                }
+            }
+            throw error
+        }
+    }
+
     /** Called before normal app startup and by maintenance workers. Never silently discard a journal. */
     suspend fun recoverPendingRestore(): Boolean = CreatorDataGate.transaction {
         recoverPendingRestoreUnlocked()
@@ -298,10 +352,22 @@ class CreatorBackupManager(private val context: Context) {
         val raw = AtomicFile(recovery).openRead().bufferedReader().use { it.readText() }
         require(sha256(raw) == marker.getString("sha256")) { "Recovery integrity check failed" }
         validate(raw)
+        val oldFrames = if (marker.has("originalFrames")) {
+            val checkpoint = marker.getString("originalFrames")
+            require(marker.optString("originalFramesSha256") == sha256(checkpoint)) {
+                "Portable restore recovery frame checkpoint integrity check failed"
+            }
+            // This is a small, checksum-bound list of app-owned original files.
+            // Reverify BEFORE changing tasks/reminders. Never trust an external path.
+            CreatorHeroArchive.restoreOriginalOrder(appContext, checkpoint)
+            checkpoint
+        } else null
         CreatorDataGate.invalidate(appContext)
         stopAndCancel(taskStore.load())
         smartSessions.clearAll()
-        importSnapshot(decodeSnapshot(raw))
+        val snapshot = decodeSnapshot(raw)
+        importSnapshot(if (oldFrames == null) snapshot else snapshot.copy(heroJson = null))
+        if (oldFrames != null) CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)
         scheduleFuture(taskStore.load())
         clearPending()
         return true
@@ -338,7 +404,7 @@ class CreatorBackupManager(private val context: Context) {
         .filter { it.name.startsWith("pre-restore-") && it.name.endsWith(".fbnbackup") }
         .sortedByDescending { it.lastModified() }
 
-    private suspend fun snapshot(): Snapshot = Snapshot(
+    private suspend fun snapshot(includeHero: Boolean = true): Snapshot = Snapshot(
         tasksJson = taskStore.exportJson(),
         ideasJson = ideaStore.exportJson(),
         weeklyJson = weeklyStore.exportJson(),
@@ -346,7 +412,7 @@ class CreatorBackupManager(private val context: Context) {
         smartConfigJson = smartConfigStore.exportJson(),
         postPublishJson = postPublishStore.exportJson(),
         rewardsJson = rewardStore.exportJson(),
-        heroJson = CreatorHeroArchive.export(appContext),
+        heroJson = if (includeHero) CreatorHeroArchive.export(appContext) else "[]",
         youtubeLinksJson = youtubeLinksRaw(),
         youtubeMilestonesJson = youtubeMilestonesRaw(),
         youtubePublishCheckpointsJson = youtubePublishCheckpointsRaw(),

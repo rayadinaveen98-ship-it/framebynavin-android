@@ -57,6 +57,9 @@ assert (
     or
     ('versionCode = 235' in gradle and
      'versionName = "2.8.5-v209-large-backup-memory-preview"' in gradle)
+    or
+    ('versionCode = 236' in gradle and
+     'versionName = "2.8.6-v210-compact-restore-preview"' in gradle)
 ), "Unexpected or mismatched Android version and release name"
 assert 'applicationId = "com.framebynavin.app"' in gradle
 print("V201 inherited brand audit passed: 8 notification small icons, Settings, launcher, splash, startup, Home and application ID.")
@@ -371,7 +374,9 @@ assert "verifyArchiveVoiceReferences(staged)" in portable
 assert "creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)" in portable
 assert "PortableBestFrameMedia.verifyCompactPreview(" in portable
 assert "creatorBackup.validatePortableCompact(staged.backupJson, verifiedFrames)" in portable
-assert "val original = fullyHydratedBackup(staged)" in portable
+assert "val original = if (frameCount == null) fullyHydratedBackup(staged)" in portable
+assert "if (frameCount == null) creatorBackup.restore(rewritten)" in portable
+assert "else creatorBackup.restorePortableCompact(rewritten, staged.bestFrames)" in portable
 assert "PortableBestFrameMedia.expand(" in portable
 assert "creatorBackup::rewritePortablePersonalFrames" in portable
 assert "PortableBackupArchive.readBackupJson(input)" not in portable
