@@ -11,7 +11,7 @@ redistribute an APK as a new version.
 
 | Finding | Evidence on V208 | V209 P1 action | Follow-up |
 | --- | --- | --- | --- |
-| Stable/candidate ambiguity | README and current-stable docs mentioned V183/V184 while active development reached V208 | Identify V183 as published *personal stable* baseline and V208 as verified *personal preview*; link exact CI and keep V208 PR as draft | Formal owner-approved stable promotion with completed acceptance |
+| Stable/candidate ambiguity | README and current-stable docs named V183, but `stable/backlot-v195-5` is the later frozen V195.5 personal stable while active development reached V208 | Identify **V195.5 as the newest frozen personal stable**, V183 as the older main-line checkpoint, and V208 as personal preview; retain both historical sources | Formal owner-approved stable promotion with completed acceptance |
 | Generated files tracked | About 5,930 files under `app/build/` (historical Git tree) | Ignore future builds and check ignore behavior in CI | Controlled untracking in a separate reviewed commit (NO history rewrite; NO data deletion) |
 | Numerous CI workflows | About 211 historical workflow definitions | Do not delete existing CI; use one small V209-specific release-contract gate | Inventory active vs historic; later consolidate with branch/release safety |
 | Signing migration | `personalStable` uses public prototype certificate | Lock identity for in-place existing user updates and clearly document limitations | Commercial/private production signer and an explicit migration strategy; never assume a different signer updates an installed package |
