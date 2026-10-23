@@ -38,22 +38,35 @@ class V210LiveRestoreKillTest {
         val pending = File(context.filesDir, "$journalFolder/pending.json")
         assertFalse("Prior live-stop fixture must not be present", root.exists())
         assertFalse("Pending journal must not be present at start", pending.exists())
-        val creator = CreatorBackupManager(context)
-        val baseline = creator.createBackup()
+        // Progress breadcrumbs are persisted BEFORE accessing CreatorDataGate
+        // so a hanging app initialization is distinguishable from a failed
+        // restore, even if instrumentation is forcibly stopped by CI.
         check(root.mkdir()) { "Could not create isolated emulator fixture" }
+        fun mark(stage: String) = writeAtomic(File(root, "progress.txt"), stage)
+        mark("entered_test_before_manager_init")
+        val creator = CreatorBackupManager(context)
+        mark("manager_constructed_before_baseline_backup")
+        val baseline = creator.createBackup()
+        mark("baseline_backup_complete")
         writeAtomic(File(root, "baseline.json"), baseline)
 
+        mark("baseline_written_before_first_hero_import")
         CreatorHeroArchive.import(context, frameArray("before-stop.png", 0xFF1166AA.toInt()))
+        mark("first_hero_imported")
         val beforeOrder = CreatorHeroArchive.captureOriginalOrder(context)
         assertEquals(1, JSONArray(beforeOrder).length())
         writeAtomic(File(root, "before-order.json"), beforeOrder)
+        mark("before_original_creator_backup")
         val beforeCreator = creator.createBackup()
+        mark("original_creator_backup_complete")
         writeAtomic(File(root, "before-creator.json"), beforeCreator)
 
         // Obtain an authentic compact ZIP-style image snapshot from the source
         // under test; then restore the old visible Best Frames references.
         CreatorHeroArchive.import(context, frameArray("after-stop.png", 0xFF22AA55.toInt()))
+        mark("before_compact_backup")
         val packed = creator.createPortableBackup()
+        mark("compact_backup_complete")
         assertEquals(1, packed.frames.size)
         CreatorHeroArchive.restoreOriginalOrder(context, beforeOrder)
         assertEquals(beforeOrder, CreatorHeroArchive.captureOriginalOrder(context))
@@ -61,7 +74,9 @@ class V210LiveRestoreKillTest {
         // CI observes this marker with adb run-as and FORCE-STOPS the app.
         // Only a genuine committed image order inside the real restore flow
         // can make this file appear. No normal app caller passes a callback.
+        mark("before_real_compact_restore")
         creator.restorePortableCompact(packed.compactJson, packed.frames) {
+            mark("inside_callback_after_hero_order_committed")
             assertTrue("Real restore must have published durable recovery journal", pending.isFile)
             assertNotEquals(beforeOrder, CreatorHeroArchive.captureOriginalOrder(context))
             writeAtomic(File(root, "images_committed"), "journal-active")
