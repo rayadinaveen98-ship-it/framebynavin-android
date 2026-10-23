@@ -52,6 +52,8 @@ if [[ "${boundary_reached}" -ne 1 ]]; then
   adb shell pidof "${package}" || true
   echo "Recovery fixture path status:"
   adb shell run-as "${package}" sh -c 'pwd; ls -l files/v210_live_restore_kill_qa; ls -l files/creator_restore_recovery_v181/pending.json' || true
+  echo "Durable live-restore test stage (if setup began):"
+  adb shell run-as "${package}" cat files/v210_live_restore_kill_qa/progress.txt || true
   exit 1
 fi
 
