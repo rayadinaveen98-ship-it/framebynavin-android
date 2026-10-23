@@ -79,6 +79,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorHeroArchive
 import com.framebynavin.app.ui.theme.BacklotMediaBorder
 import com.framebynavin.app.ui.theme.BacklotMediaCanvas
 import com.framebynavin.app.ui.theme.BacklotOnMedia
@@ -186,13 +187,26 @@ private object V18HomeHeroStore {
     } }
 
     /**
+     * Never accidentally drop a saved reference when one source file is missing.
+     * Let the owner use backup/recovery tools instead of rewriting broken order.
+     */
+    private fun checkedCurrent(context: Context): List<File> {
+        val savedNames = CreatorHeroArchive.orderedSourceNames(context)
+        val visible = current(context)
+        check(visible.map { it.name } == savedNames) {
+            "A saved Best Frame is missing; preserve original selection for recovery"
+        }
+        return visible
+    }
+
+    /**
      * Reorder only the active saved selection; never rename, rewrite or delete
      * image bytes. Portable backup observes this same persisted filename order.
      */
     suspend fun move(context: Context, fileName: String, offset: Int): List<File> =
         CreatorDataGate.transaction { withContext(Dispatchers.IO) {
             require(offset == -1 || offset == 1) { "Invalid photo move" }
-            val items = current(context).toMutableList()
+            val items = checkedCurrent(context).toMutableList()
             val from = items.indexOfFirst { it.name == fileName }
             if (from < 0) return@withContext items
             val to = (from + offset).coerceIn(0, items.lastIndex)
@@ -210,7 +224,7 @@ private object V18HomeHeroStore {
      */
     suspend fun removeOne(context: Context, fileName: String): List<File> =
         CreatorDataGate.transaction { withContext(Dispatchers.IO) {
-            val before = current(context)
+            val before = checkedCurrent(context)
             val after = before.filterNot { it.name == fileName }
             if (after.size != before.size) persist(context, after)
             after
