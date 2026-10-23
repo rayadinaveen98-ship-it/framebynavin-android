@@ -31,19 +31,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,6 +79,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorHeroArchive
 import com.framebynavin.app.ui.theme.BacklotMediaBorder
 import com.framebynavin.app.ui.theme.BacklotMediaCanvas
 import com.framebynavin.app.ui.theme.BacklotOnMedia
@@ -177,6 +185,50 @@ private object V18HomeHeroStore {
         // Clearing the selection must not destroy the original files retained for recovery.
         check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_ORDER).commit()) { "Could not clear personal frame selection" }
     } }
+
+    /**
+     * Never accidentally drop a saved reference when one source file is missing.
+     * Let the owner use backup/recovery tools instead of rewriting broken order.
+     */
+    private fun checkedCurrent(context: Context): List<File> {
+        val savedNames = CreatorHeroArchive.orderedSourceNames(context)
+        val visible = current(context)
+        check(visible.map { it.name } == savedNames) {
+            "A saved Best Frame is missing; preserve original selection for recovery"
+        }
+        return visible
+    }
+
+    /**
+     * Reorder only the active saved selection; never rename, rewrite or delete
+     * image bytes. Portable backup observes this same persisted filename order.
+     */
+    suspend fun move(context: Context, fileName: String, offset: Int): List<File> =
+        CreatorDataGate.transaction { withContext(Dispatchers.IO) {
+            require(offset == -1 || offset == 1) { "Invalid photo move" }
+            val items = checkedCurrent(context).toMutableList()
+            val from = items.indexOfFirst { it.name == fileName }
+            if (from < 0) return@withContext items
+            val to = (from + offset).coerceIn(0, items.lastIndex)
+            if (to != from) {
+                val entry = items.removeAt(from)
+                items.add(to, entry)
+                persist(context, items)
+            }
+            items
+        } }
+
+    /**
+     * Remove one item from the visible slideshow without destroying the
+     * original file. This allows recovery/rollback and preserves other frames.
+     */
+    suspend fun removeOne(context: Context, fileName: String): List<File> =
+        CreatorDataGate.transaction { withContext(Dispatchers.IO) {
+            val before = checkedCurrent(context)
+            val after = before.filterNot { it.name == fileName }
+            if (after.size != before.size) persist(context, after)
+            after
+        } }
 
     private fun persist(context: Context, files: List<File>) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -298,7 +350,7 @@ internal fun V18HeroGreetingBar(
 }
 
 @Composable
-internal fun V18CinematicHomeHero(creatorName: String) {
+internal fun V18CinematicHomeHero(creatorName: String, autoPlay: Boolean = true) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var frames by remember { mutableStateOf(V18HomeHeroStore.current(context)) }
@@ -306,9 +358,38 @@ internal fun V18CinematicHomeHero(creatorName: String) {
     var importing by remember { mutableStateOf(false) }
     var manageExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    var showPhotoEditor by rememberSaveable { mutableStateOf(false) }
+    var pendingSingleRemove by rememberSaveable { mutableStateOf<String?>(null) }
+    var photoEditError by remember { mutableStateOf<String?>(null) }
     val decoded = remember { mutableStateMapOf<String, ImageBitmap>() }
     val framePaths = remember(frames) { frames.map { it.absolutePath } }
     val greeting = v18Greeting(creatorName)
+    val previewFrames = remember { mutableStateMapOf<String, ImageBitmap>() }
+    LaunchedEffect(showPhotoEditor, framePaths) {
+        if (!showPhotoEditor) return@LaunchedEffect
+        framePaths.forEach { path ->
+            if (previewFrames[path] == null) {
+                val bitmap = withContext(Dispatchers.IO) { v18DecodeHeroFrame(File(path), maxDimension = 256) }
+                if (bitmap != null) previewFrames[path] = bitmap
+            }
+        }
+        previewFrames.keys.toList().filterNot { it in framePaths }.forEach { previewFrames.remove(it) }
+    }
+
+    fun commitPhotoChange(operation: suspend () -> List<File>) {
+        scope.launch {
+            try {
+                val selectedName = frames.getOrNull(index)?.name
+                val updated = operation()
+                frames = updated
+                decoded.clear()
+                index = selectedName?.let { name -> updated.indexOfFirst { it.name == name } }
+                    ?.takeIf { it >= 0 } ?: 0
+            } catch (e: Exception) {
+                photoEditError = "Unable to save slideshow changes. Your current photos were retained."
+            }
+        }
+    }
 
     val picker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(V18HomeHeroStore.MAX_FRAMES),
@@ -328,10 +409,10 @@ internal fun V18CinematicHomeHero(creatorName: String) {
         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
-    LaunchedEffect(framePaths) {
+    LaunchedEffect(framePaths, autoPlay, showPhotoEditor) {
         if (framePaths.isEmpty()) index = 0
         else if (index !in framePaths.indices) index = 0
-        while (framePaths.size > 1) {
+        while (autoPlay && !showPhotoEditor && framePaths.size > 1) {
             delay(V18_HERO_FRAME_MS)
             index = (index + 1) % framePaths.size
         }
@@ -407,12 +488,110 @@ internal fun V18CinematicHomeHero(creatorName: String) {
                             onToggle = { manageExpanded = !manageExpanded },
                             onChange = { manageExpanded = false; chooseFrames() },
                             onRemove = { manageExpanded = false; confirmRemove = true },
+                            onEdit = { manageExpanded = false; showPhotoEditor = true },
                             modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
                         )
                     }
                 }
             }
         }
+    }
+
+    if (showPhotoEditor) {
+        AlertDialog(
+            onDismissRequest = { showPhotoEditor = false },
+            title = { Text("Slideshow photos", color = ProjectorIvory) },
+            text = {
+                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                    frames.forEachIndexed { itemIndex, photo ->
+                        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                val preview = previewFrames[photo.absolutePath]
+                                if (preview != null) {
+                                    Image(
+                                        bitmap = preview,
+                                        contentDescription = "Photo ${itemIndex + 1} preview",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(9.dp)),
+                                    )
+                                } else {
+                                    Box(
+                                        Modifier.size(48.dp).background(CinemaSurfaceRaised, RoundedCornerShape(9.dp)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text("${itemIndex + 1}", color = ProjectorIvory)
+                                    }
+                                }
+                                Text("Photo ${itemIndex + 1}", color = ProjectorIvory, fontSize = 13.sp)
+                            }
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                IconButton(
+                                    onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, -1) } },
+                                    enabled = itemIndex > 0,
+                                ) { Icon(Icons.Outlined.ArrowUpward, "Move photo ${itemIndex + 1} up", tint = ProjectorIvory) }
+                                IconButton(
+                                    onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, 1) } },
+                                    enabled = itemIndex < frames.lastIndex,
+                                ) { Icon(Icons.Outlined.ArrowDownward, "Move photo ${itemIndex + 1} down", tint = ProjectorIvory) }
+                                IconButton(
+                                    onClick = { pendingSingleRemove = photo.name },
+                                ) { Icon(Icons.Outlined.DeleteOutline, "Remove photo ${itemIndex + 1}", tint = RecRed) }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPhotoEditor = false }) {
+                    Text("DONE", color = ProjectorIvory)
+                }
+            },
+            containerColor = CinemaSurfaceRaised,
+            titleContentColor = ProjectorIvory,
+            textContentColor = MutedText,
+        )
+    }
+
+    pendingSingleRemove?.let { fileName ->
+        AlertDialog(
+            onDismissRequest = { pendingSingleRemove = null },
+            title = { Text("Remove this photo?", color = ProjectorIvory) },
+            text = { Text("The original file will be retained for recovery.", color = MutedText) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingSingleRemove = null
+                    commitPhotoChange { V18HomeHeroStore.removeOne(context, fileName) }
+                }) {
+                    Text("REMOVE PHOTO", color = RecRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingSingleRemove = null }) { Text("CANCEL", color = ProjectorIvory) }
+            },
+            containerColor = CinemaSurfaceRaised,
+        )
+    }
+
+    photoEditError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { photoEditError = null },
+            title = { Text("Slideshow unchanged", color = ProjectorIvory) },
+            text = { Text(message, color = MutedText) },
+            confirmButton = {
+                TextButton(onClick = { photoEditError = null }) {
+                    Text("OK", color = ProjectorIvory)
+                }
+            },
+            containerColor = CinemaSurfaceRaised,
+        )
     }
 
     if (confirmRemove) {
@@ -479,6 +658,7 @@ internal fun V18HeroManageActions(
     onToggle: () -> Unit,
     onChange: () -> Unit,
     onRemove: () -> Unit,
+    onEdit: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
@@ -489,6 +669,7 @@ internal fun V18HeroManageActions(
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 V18HeroIconButton(Icons.Outlined.Collections, "Change slideshow images", onChange)
+                V18HeroIconButton(Icons.Outlined.Edit, "Edit slideshow order", onEdit)
                 V18HeroIconButton(Icons.Outlined.DeleteOutline, "Remove slideshow images", onRemove, danger = true)
                 Spacer(Modifier.width(1.dp))
             }
