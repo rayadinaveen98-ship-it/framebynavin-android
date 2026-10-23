@@ -4,7 +4,7 @@ on:
     branches: [feature/backlot-v210-p4-streamed-frame-export]
   workflow_dispatch:
   pull_request:
-    branches: [feature/backlot-v210-p4-integrated-acceptance]
+    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export]
 permissions:
   contents: read
 concurrency:
@@ -439,6 +439,11 @@ jobs:
             adb install -r instrumentation-apks/androidTest/debug/app-debug-androidTest.apk
             adb logcat -c
             bash tools/run_v185_instrumentation.sh
+            # Separate Home-layout PR: run the five visible greeting/photo control and populated-media tests
+            # before the inherited data-changing recovery suites.
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V18CinematicHomeHeroAlpha16UiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-home-greeting-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v211-home-greeting-ui.log; then exit 1; fi
+            grep -Fq 'OK (5 tests)' v211-home-greeting-ui.log
             adb shell am instrument -w -r -e class com.framebynavin.app.youtube.YouTubeCacheLifecycleV183Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v187-insights-instrumentation.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v187-insights-instrumentation.log; then exit 1; fi
             grep -Fq 'OK (8 tests)' v187-insights-instrumentation.log
