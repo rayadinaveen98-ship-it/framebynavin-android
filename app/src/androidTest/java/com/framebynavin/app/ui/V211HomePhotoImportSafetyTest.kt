@@ -109,4 +109,72 @@ class V211HomePhotoImportSafetyTest {
                 oversized.delete()
             }
         }
+    @Test
+    fun appendPreservesExistingOriginalNamesAndExtendsOrder() =
+        withIsolatedSelection { context, _ ->
+            val first = png(context, "prior")
+            val next = png(context, "added")
+            try {
+                val old = V18HomeHeroStore.replace(context, listOf(Uri.fromFile(first)))
+                val previous = old.single()
+                val appended = V18HomeHeroStore.append(context, listOf(Uri.fromFile(next)))
+                assertEquals(2, appended.size)
+                assertEquals(previous.absolutePath, appended[0].absolutePath)
+                assertTrue("Existing source was not copied/replaced", previous.isFile)
+                assertTrue(appended[1].isFile)
+                assertEquals(appended.map { it.name }, CreatorHeroArchive.orderedSourceNames(context))
+                assertEquals(2, org.json.JSONArray(CreatorHeroArchive.captureOriginalOrder(context)).length())
+            } finally {
+                first.delete()
+                next.delete()
+            }
+        }
+
+    @Test
+    fun invalidSecondPhotoRollsBackEntireAppendAndKeepsOriginal() =
+        withIsolatedSelection { context, _ ->
+            val first = png(context, "prior")
+            val next = png(context, "append-good")
+            val broken = File(context.cacheDir, "append_broken_${System.nanoTime()}.png")
+            broken.writeText("not an image")
+            try {
+                val previous = V18HomeHeroStore.replace(context, listOf(Uri.fromFile(first)))
+                val saved = CreatorHeroArchive.orderedSourceNames(context)
+                val failure = runCatching {
+                    V18HomeHeroStore.append(context, listOf(Uri.fromFile(next), Uri.fromFile(broken)))
+                }
+                assertTrue("One bad photo must reject whole append", failure.isFailure)
+                assertEquals(saved, CreatorHeroArchive.orderedSourceNames(context))
+                assertTrue(previous.single().isFile)
+                assertEquals(previous.single().absolutePath, V18HomeHeroStore.current(context).single().absolutePath)
+            } finally {
+                first.delete()
+                next.delete()
+                broken.delete()
+            }
+        }
+
+    @Test
+    fun fullGalleryRejectsEleventhPhotoWithoutChangingOrder() =
+        withIsolatedSelection { context, _ ->
+            val original = png(context, "full")
+            val extra = png(context, "overflow")
+            try {
+                val installed = V18HomeHeroStore.replace(
+                    context, List(V18HomeHeroStore.MAX_FRAMES) { Uri.fromFile(original) },
+                )
+                assertEquals(10, installed.size)
+                val saved = CreatorHeroArchive.orderedSourceNames(context)
+                val failure = runCatching {
+                    V18HomeHeroStore.append(context, listOf(Uri.fromFile(extra)))
+                }
+                assertTrue("An eleventh image must be rejected", failure.isFailure)
+                assertEquals(saved, CreatorHeroArchive.orderedSourceNames(context))
+                assertTrue(installed.all { it.isFile })
+            } finally {
+                original.delete()
+                extra.delete()
+            }
+        }
+
 }
