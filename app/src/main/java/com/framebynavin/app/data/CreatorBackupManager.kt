@@ -291,6 +291,8 @@ class CreatorBackupManager(private val context: Context) {
     internal suspend fun restorePortableCompact(
         raw: String,
         frames: List<PortableBestFrame>,
+        // Only supplied by emulator QA. Null in every normal app caller.
+        afterImagesCommittedForTest: (() -> Unit)? = null,
     ): BackupPreview = CreatorDataGate.transaction {
         verifyPortableJsonEnvelope(raw)
         require(PortableBestFrameMedia.verifyCompactPreview(raw, frames, true) == frames.size) {
@@ -316,6 +318,9 @@ class CreatorBackupManager(private val context: Context) {
             smartSessions.clearAll()
             importSnapshot(decodeSnapshot(raw).copy(heroJson = null))
             CreatorHeroArchive.importVerifiedFiles(appContext, frames)
+            // Explicit test seam AFTER the new order is visible and BEFORE the
+            // durable recovery marker is cleared. Production passes null.
+            afterImagesCommittedForTest?.invoke()
             scheduleFuture(taskStore.load())
             clearPending()
             preview
