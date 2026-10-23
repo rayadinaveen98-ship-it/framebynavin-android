@@ -489,39 +489,47 @@ internal fun V18CinematicHomeHero(creatorName: String) {
             text = {
                 Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
                     frames.forEachIndexed { itemIndex, photo ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp),
-                        ) {
-                            val preview = previewFrames[photo.absolutePath]
-                            if (preview != null) {
-                                Image(
-                                    bitmap = preview,
-                                    contentDescription = "Photo ${itemIndex + 1} preview",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(9.dp)),
-                                )
-                            } else {
-                                Box(
-                                    Modifier.size(48.dp).background(CinemaSurfaceRaised, RoundedCornerShape(9.dp)),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text("${itemIndex + 1}", color = ProjectorIvory)
+                        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                val preview = previewFrames[photo.absolutePath]
+                                if (preview != null) {
+                                    Image(
+                                        bitmap = preview,
+                                        contentDescription = "Photo ${itemIndex + 1} preview",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(9.dp)),
+                                    )
+                                } else {
+                                    Box(
+                                        Modifier.size(48.dp).background(CinemaSurfaceRaised, RoundedCornerShape(9.dp)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text("${itemIndex + 1}", color = ProjectorIvory)
+                                    }
                                 }
+                                Text("Photo ${itemIndex + 1}", color = ProjectorIvory, fontSize = 13.sp)
                             }
-                            Text("Photo ${itemIndex + 1}", Modifier.weight(1f), color = ProjectorIvory, fontSize = 13.sp)
-                            IconButton(
-                                onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, -1) } },
-                                enabled = itemIndex > 0,
-                            ) { Icon(Icons.Outlined.ArrowUpward, "Move photo ${itemIndex + 1} up", tint = ProjectorIvory) }
-                            IconButton(
-                                onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, 1) } },
-                                enabled = itemIndex < frames.lastIndex,
-                            ) { Icon(Icons.Outlined.ArrowDownward, "Move photo ${itemIndex + 1} down", tint = ProjectorIvory) }
-                            IconButton(
-                                onClick = { commitPhotoChange { V18HomeHeroStore.removeOne(context, photo.name) } },
-                            ) { Icon(Icons.Outlined.DeleteOutline, "Remove photo ${itemIndex + 1}", tint = RecRed) }
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                IconButton(
+                                    onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, -1) } },
+                                    enabled = itemIndex > 0,
+                                ) { Icon(Icons.Outlined.ArrowUpward, "Move photo ${itemIndex + 1} up", tint = ProjectorIvory) }
+                                IconButton(
+                                    onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, 1) } },
+                                    enabled = itemIndex < frames.lastIndex,
+                                ) { Icon(Icons.Outlined.ArrowDownward, "Move photo ${itemIndex + 1} down", tint = ProjectorIvory) }
+                                IconButton(
+                                    onClick = { commitPhotoChange { V18HomeHeroStore.removeOne(context, photo.name) } },
+                                ) { Icon(Icons.Outlined.DeleteOutline, "Remove photo ${itemIndex + 1}", tint = RecRed) }
+                            }
                         }
                     }
                 }
