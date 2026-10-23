@@ -118,10 +118,12 @@ class V18CinematicHomeHeroAlpha16UiTest {
             check(first.isFile && second.isFile)
 
             composeRule.onNodeWithContentDescription("Remove photo 1").performClick()
+            composeRule.onNodeWithText("REMOVE PHOTO").performClick()
             composeRule.waitUntil(15_000) { prefs.getString("frame_order", "") == first.name }
             check(first.isFile && second.isFile)
 
             composeRule.onNodeWithContentDescription("Remove photo 1").performClick()
+            composeRule.onNodeWithText("REMOVE PHOTO").performClick()
             composeRule.waitUntil(15_000) { prefs.getString("frame_order", "")?.isEmpty() == true }
             composeRule.onNodeWithText("DONE").performClick()
             composeRule.onNodeWithContentDescription("Add slideshow images").assertIsDisplayed()
@@ -152,6 +154,7 @@ class V18CinematicHomeHeroAlpha16UiTest {
             composeRule.onNodeWithContentDescription("Manage slideshow images").performClick()
             composeRule.onNodeWithContentDescription("Edit slideshow order").performClick()
             composeRule.onNodeWithContentDescription("Remove photo 1").performClick()
+            composeRule.onNodeWithText("REMOVE PHOTO").performClick()
             composeRule.waitUntil(15_000) {
                 composeRule.onAllNodesWithText("Slideshow unchanged").fetchSemanticsNodes().isNotEmpty()
             }
