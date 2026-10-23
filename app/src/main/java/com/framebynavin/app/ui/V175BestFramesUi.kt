@@ -359,6 +359,7 @@ internal fun V18CinematicHomeHero(creatorName: String) {
     var manageExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
     var showPhotoEditor by rememberSaveable { mutableStateOf(false) }
+    var pendingSingleRemove by rememberSaveable { mutableStateOf<String?>(null) }
     var photoEditError by remember { mutableStateOf<String?>(null) }
     val decoded = remember { mutableStateMapOf<String, ImageBitmap>() }
     val framePaths = remember(frames) { frames.map { it.absolutePath } }
@@ -541,7 +542,7 @@ internal fun V18CinematicHomeHero(creatorName: String) {
                                     enabled = itemIndex < frames.lastIndex,
                                 ) { Icon(Icons.Outlined.ArrowDownward, "Move photo ${itemIndex + 1} down", tint = ProjectorIvory) }
                                 IconButton(
-                                    onClick = { commitPhotoChange { V18HomeHeroStore.removeOne(context, photo.name) } },
+                                    onClick = { pendingSingleRemove = photo.name },
                                 ) { Icon(Icons.Outlined.DeleteOutline, "Remove photo ${itemIndex + 1}", tint = RecRed) }
                             }
                         }
@@ -556,6 +557,26 @@ internal fun V18CinematicHomeHero(creatorName: String) {
             containerColor = CinemaSurfaceRaised,
             titleContentColor = ProjectorIvory,
             textContentColor = MutedText,
+        )
+    }
+
+    pendingSingleRemove?.let { fileName ->
+        AlertDialog(
+            onDismissRequest = { pendingSingleRemove = null },
+            title = { Text("Remove this photo?", color = ProjectorIvory) },
+            text = { Text("The original file will be retained for recovery.", color = MutedText) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingSingleRemove = null
+                    commitPhotoChange { V18HomeHeroStore.removeOne(context, fileName) }
+                }) {
+                    Text("REMOVE PHOTO", color = RecRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingSingleRemove = null }) { Text("CANCEL", color = ProjectorIvory) }
+            },
+            containerColor = CinemaSurfaceRaised,
         )
     }
 
