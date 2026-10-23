@@ -169,6 +169,38 @@ class V18CinematicHomeHeroAlpha16UiTest {
     }
 
     @Test
+    fun settingsLaunchOpensPopulatedEditorOnceAndDoesNotReopenAfterDone() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs = context.getSharedPreferences("best_frames_original_prefs", Context.MODE_PRIVATE)
+        val previousOrder = prefs.getString("frame_order", null)
+        val dir = File(context.filesDir, "best_frames_original").apply { mkdirs() }
+        val photo = File(dir, "home_settings_open_${System.nanoTime()}.png")
+        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        var handled = 0
+        try {
+            photo.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+            check(prefs.edit().putString("frame_order", photo.name).commit())
+            composeRule.setContent {
+                V18CinematicHomeHero(
+                    creatorName = "King",
+                    openEditorNonce = 1L,
+                    onEditorRequestHandled = { handled += 1 },
+                )
+            }
+            composeRule.onNodeWithText("Slideshow photos").assertIsDisplayed()
+            composeRule.runOnIdle { check(handled == 1) }
+            composeRule.onNodeWithText("DONE").performClick()
+            composeRule.onNodeWithText("Slideshow photos").assertDoesNotExist()
+            composeRule.runOnIdle { check(handled == 1) }
+        } finally {
+            if (previousOrder == null) prefs.edit().remove("frame_order").commit()
+            else prefs.edit().putString("frame_order", previousOrder).commit()
+            photo.delete()
+            bitmap.recycle()
+        }
+    }
+
+    @Test
     fun expandedHeroManagementUsesIconActions() {
         composeRule.setContent {
             V18HeroManageActions(
