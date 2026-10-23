@@ -1,12 +1,10 @@
 package com.framebynavin.app.data
 
 import android.util.Base64
-import android.util.Base64OutputStream
 import android.graphics.BitmapFactory
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.io.OutputStream
 import java.security.MessageDigest
 
 /** Version 1 of the outer ZIP's separately verified original Best Frames media. */
@@ -134,15 +132,28 @@ internal object PortableBestFrameMedia {
                 "Unrecognized Best Frames JSON serialization"
             }
             update(emptyRecord.dropLast(2))
-            val sink = object : OutputStream() {
-                override fun write(value: Int) { digest.update(value.toByte()) }
-                override fun write(bytes: ByteArray, offset: Int, length: Int) {
-                    digest.update(bytes, offset, length)
+            // A streaming Base64OutputStream can emit platform-dependent
+            // finalization bytes. Encode exact 3-byte-aligned 8190-byte
+            // chunks using the SAME Base64.encode(..., NO_WRAP) method as
+            // CreatorHeroArchive.export(). All non-final chunks have lengths
+            // divisible by three, so padding occurs ONLY on the final chunk.
+            // The concatenated bytes are identical to a single encode call.
+            val chunk = ByteArray(8190)
+            frame.file.inputStream().buffered().use { input ->
+                var remaining = frame.file.length()
+                while (remaining > 0L) {
+                    val size = minOf(remaining, chunk.size.toLong()).toInt()
+                    var filled = 0
+                    while (filled < size) {
+                        val count = input.read(chunk, filled, size - filled)
+                        require(count > 0) { "Best Frame truncated during export" }
+                        filled += count
+                    }
+                    digest.update(Base64.encode(chunk, 0, size, Base64.NO_WRAP))
+                    remaining -= size
                 }
-            }
-            Base64OutputStream(sink, Base64.NO_WRAP).use { encoded ->
-                frame.file.inputStream().buffered().use { input ->
-                    input.copyTo(encoded, DEFAULT_BUFFER_SIZE)
+                require(input.read() == -1) {
+                    "Best Frame changed size while exporting"
                 }
             }
             update(emptyRecord.takeLast(2))
