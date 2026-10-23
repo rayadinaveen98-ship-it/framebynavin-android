@@ -1,9 +1,12 @@
 package com.framebynavin.app.data
 
 import android.util.Base64
+import android.util.Base64OutputStream
+import android.graphics.BitmapFactory
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.OutputStream
 import java.security.MessageDigest
 
 /** Version 1 of the outer ZIP's separately verified original Best Frames media. */
@@ -71,6 +74,89 @@ internal object PortableBestFrameMedia {
             .put("count", entries.size)
             .put("originalSha256", sha256(originalFrames.toByteArray(Charsets.UTF_8)))
         return PreparedPortableFrames(marker.toString(), entries)
+    }
+
+    /**
+     * Build the ORIGINAL image-array SHA-256 without ever constructing its
+     * Base64 text. The canonical JSON bytes must be identical to
+     * CreatorHeroArchive.export() for all accepted names and image content.
+     * Each image is read in bounded chunks and encoded through Android's
+     * NO_WRAP Base64 stream into a digest sink.
+     */
+    fun prepareFromFiles(
+        filesDir: File,
+        orderedNames: List<String>,
+    ): PreparedPortableFrames {
+        require(orderedNames.size <= MAX_COUNT &&
+            orderedNames.distinct().size == orderedNames.size) {
+            "Invalid Best Frames count or duplicate original name"
+        }
+        if (orderedNames.isEmpty()) return PreparedPortableFrames("[]", emptyList())
+        val directory = File(filesDir, DIRECTORY).canonicalFile
+        val frames = mutableListOf<PortableBestFrame>()
+        var total = 0L
+        orderedNames.forEach { name ->
+            require(safeName.matches(name) && name != "." && name != "..") {
+                "Invalid original Best Frames name"
+            }
+            val file = File(directory, name).canonicalFile
+            require(file.parentFile == directory && file.isFile && file.canRead()) {
+                "An original Best Frame is unavailable"
+            }
+            val size = file.length()
+            require(size in 1..MAX_FILE_BYTES && total <= MAX_TOTAL_BYTES - size) {
+                "Best Frames exceed portable backup limits"
+            }
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, options)
+            require(options.outWidth in 1..20000 && options.outHeight in 1..20000) {
+                "Invalid original Best Frame image"
+            }
+            total += size
+            frames += PortableBestFrame(name, sha256(file), file)
+        }
+
+        val digest = MessageDigest.getInstance("SHA-256")
+        fun update(text: String) = digest.update(text.toByteArray(Charsets.UTF_8))
+        update("[")
+        frames.forEachIndexed { index, frame ->
+            if (index > 0) update(",")
+            // Let JSONObject itself serialize the *same field order and
+            // escaping* as CreatorHeroArchive.export(), but with empty data.
+            // Only the data bytes are then substituted via streaming Base64.
+            val emptyRecord = JSONObject()
+                .put("name", frame.name)
+                .put("sha256", frame.sha256)
+                .put("data", "")
+                .toString()
+            require(emptyRecord.endsWith("\\"}")) {
+                "Unrecognized Best Frames JSON serialization"
+            }
+            update(emptyRecord.dropLast(2))
+            val sink = object : OutputStream() {
+                override fun write(value: Int) { digest.update(value.toByte()) }
+                override fun write(bytes: ByteArray, offset: Int, length: Int) {
+                    digest.update(bytes, offset, length)
+                }
+            }
+            Base64OutputStream(sink, Base64.NO_WRAP).use { encoded ->
+                frame.file.inputStream().buffered().use { input ->
+                    input.copyTo(encoded, DEFAULT_BUFFER_SIZE)
+                }
+            }
+            update("\\"}")
+            require(sha256(frame.file) == frame.sha256) {
+                "Original Best Frame changed while exporting"
+            }
+        }
+        update("]")
+        val originalHash = digest.digest().joinToString("") { "%02x".format(it) }
+        val marker = JSONObject()
+            .put("format", FORMAT)
+            .put("version", FORMAT_VERSION)
+            .put("count", frames.size)
+            .put("originalSha256", originalHash)
+        return PreparedPortableFrames(marker.toString(), frames)
     }
 
     /**
