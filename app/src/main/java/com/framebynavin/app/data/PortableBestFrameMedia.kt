@@ -132,12 +132,13 @@ internal object PortableBestFrameMedia {
                 "Unrecognized Best Frames JSON serialization"
             }
             update(emptyRecord.dropLast(2))
-            // A streaming Base64OutputStream can emit platform-dependent
-            // finalization bytes. Encode exact 3-byte-aligned 8190-byte
-            // chunks using the SAME Base64.encode(..., NO_WRAP) method as
-            // CreatorHeroArchive.export(). All non-final chunks have lengths
-            // divisible by three, so padding occurs ONLY on the final chunk.
-            // The concatenated bytes are identical to a single encode call.
+            // Android's JSONStringer escapes solidus characters as \\/ in
+            // quoted strings. Hashing raw Base64 '/' instead of the serialized
+            // \\/ was incompatible with CreatorHeroArchive.export(). Probe
+            // the active JSONObject serializer so both paths match on-device.
+            val escapeSolidus = JSONObject().put("data", "/").toString().contains("\\\\/")
+            // Preserve Base64 padding by encoding 3-byte-aligned chunks. Only
+            // the final chunk may contain padding, exactly as in legacy export.
             val chunk = ByteArray(8190)
             frame.file.inputStream().buffered().use { input ->
                 var remaining = frame.file.length()
@@ -149,7 +150,20 @@ internal object PortableBestFrameMedia {
                         require(count > 0) { "Best Frame truncated during export" }
                         filled += count
                     }
-                    digest.update(Base64.encode(chunk, 0, size, Base64.NO_WRAP))
+                    val encoded = Base64.encode(chunk, 0, size, Base64.NO_WRAP)
+                    if (escapeSolidus) {
+                        var start = 0
+                        for (i in encoded.indices) {
+                            if (encoded[i] == '/'.code.toByte()) {
+                                digest.update(encoded, start, i - start)
+                                digest.update('\\'.code.toByte())
+                                start = i
+                            }
+                        }
+                        digest.update(encoded, start, encoded.size - start)
+                    } else {
+                        digest.update(encoded)
+                    }
                     remaining -= size
                 }
                 require(input.read() == -1) {
