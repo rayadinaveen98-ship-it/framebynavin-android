@@ -53,6 +53,48 @@ class V210StreamedFramesExportTest {
         }
     }
 
+    @Test fun streamedArrayHashMatchesLegacyAcrossMultiple8190ByteChunks(): Unit = runBlocking {
+        HardeningTestEnvironment.requireCiEmulator()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val core = CreatorBackupManager(context)
+        val baseline = core.createBackup()
+        try {
+            val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
+            val bytes = try {
+                var state = 0x13579BDF
+                for (y in 0 until 256) {
+                    for (x in 0 until 256) {
+                        state = 1664525 * state + 1013904223
+                        bitmap.setPixel(x, y, -0x1000000 or (state and 0x00FFFFFF))
+                    }
+                }
+                ByteArrayOutputStream().also {
+                    check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                }.toByteArray()
+            } finally {
+                bitmap.recycle()
+            }
+            assertTrue("Fixture must span multiple 8190-byte encoded chunks", bytes.size > 20_000)
+            val payload = JSONArray().put(JSONObject()
+                .put("name", "multiple-chunks.png")
+                .put("sha256", sha256(bytes))
+                .put("data", Base64.encodeToString(bytes, Base64.NO_WRAP)))
+            CreatorHeroArchive.import(context, payload.toString())
+            val canonical = CreatorHeroArchive.export(context)
+            val prepared = PortableBestFrameMedia.prepareFromFiles(
+                context.filesDir, CreatorHeroArchive.orderedSourceNames(context),
+            )
+            assertEquals(sha256(canonical.toByteArray(Charsets.UTF_8)),
+                JSONObject(prepared.personalFramesSection).getString("originalSha256"))
+            val packed = core.createPortableBackup()
+            assertEquals(1, PortableBestFrameMedia.verifyCompactPreview(
+                packed.compactJson, packed.frames, true))
+        } finally {
+            CreatorHeroArchive.import(context, "[]")
+            CreatorDataGate.nonCancellable { core.restore(baseline) }
+        }
+    }
+
     @Test fun emptyFramesRetainPlainArrayInsteadOfInventingManifest(): Unit = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
