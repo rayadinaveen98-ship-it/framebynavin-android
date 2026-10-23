@@ -200,11 +200,12 @@ object CreatorHeroArchive {
                 val atomic = AtomicFile(destination)
                 var output: java.io.FileOutputStream? = null
                 try {
-                    output = atomic.startWrite()
+                    val destinationStream = atomic.startWrite()
+                    output = destinationStream
                     source.inputStream().buffered().use { input ->
-                        input.copyTo(output, DEFAULT_BUFFER_SIZE)
+                        input.copyTo(destinationStream, DEFAULT_BUFFER_SIZE)
                     }
-                    atomic.finishWrite(output)
+                    atomic.finishWrite(destinationStream)
                 } catch (failure: Throwable) {
                     output?.let(atomic::failWrite)
                     throw failure
