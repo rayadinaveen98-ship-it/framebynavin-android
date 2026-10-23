@@ -9,7 +9,7 @@ V209–V210 portable ZIP restore and preview are now memory-bounded for large or
 ## Change
 
 - `createPortableBackup()` now calls `snapshot(includeHero = false)` and `PortableBestFrameMedia.prepareFromFiles`.
-- For each original frame, the encoder validates bounded file sizes, safe canonical app-private paths, decoded image dimensions and SHA-256; it writes the *legacy canonical* JSON object prefix into a digest and streams the original image as `Base64.NO_WRAP` through `Base64OutputStream` directly into a SHA-256 sink using bounded buffers.
+- For each original frame, the encoder validates bounded file sizes, safe canonical app-private paths, decoded image dimensions and SHA-256; it writes the *legacy canonical* JSON object prefix into a digest and hashes 8190-byte Base64.NO_WRAP chunks with Android-compatible JSON solidus escaping into SHA-256, using bounded buffers.
 - A real `JSONObject` containing the same field order with empty data supplies the prefix and closing bytes, avoiding assumptions about future Android JSON escaping. The resulting original-array SHA-256 is recorded unchanged in the existing compact media manifest; the ZIP schema and verification rules do **not** change.
 - Media files are re-hashed after digesting, failing if modified while the export was reading.
 - Empty collections remain exactly `[]`, preserving V208/V209 behavior.
@@ -50,13 +50,13 @@ Exact-head validation is mandatory: [run 39934794873](https://github.com/rayadin
 
 **Engineering test gate: PASS. Stable/physical acceptance: NOT YET.** The earlier "unverified" statements above are a historical record of failed and pending runs, not the current result.
 
-- Exact **runtime-and-test source head**: \`92ef3a6b3aa7fb2ca28c09abe665bdf33bd34f78\`; QA-only documentation head that was actually built/tested: \`7c18d0c25dc567899e7e2b989840a6842cd66304\`.
+- Exact **runtime-and-test source head**: `92ef3a6b3aa7fb2ca28c09abe665bdf33bd34f78`; QA-only documentation head that was actually built/tested: `7c18d0c25dc567899e7e2b989840a6842cd66304`.
 - [GitHub Actions 39934884089](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089): **build SUCCESS; Android 11 emulator SUCCESS**. Source, unit, lint, instrumentation build, personal-stable signing and package/version checks passed.
-- In the integrated Android 11 run: \`V210StreamedFramesExportTest\` **3/3**; inherited >32 MiB \`V209LargeFrameAcceptanceTest\` **2/2**; checkpoint and fresh-process restore recovery; in-flight restore force-stop/recovery; \`V210BackupIoFailureTest\` **2/2**; inherited UI/regression suites. These are emulator checks, not a claim of near-100 MiB real-photo success.
+- In the integrated Android 11 run: `V210StreamedFramesExportTest` **3/3**; inherited >32 MiB `V209LargeFrameAcceptanceTest` **2/2**; checkpoint and fresh-process restore recovery; in-flight restore force-stop/recovery; `V210BackupIoFailureTest` **2/2**; inherited UI/regression suites. These are emulator checks, not a claim of near-100 MiB real-photo success.
 - **Preview artifact:** [Backlot-V210-P4.6-Integrated-QA-APK](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089/artifacts/12493452576). Archive includes the personalStable APK. SHA-256 of the **APK file** (not the artifact ZIP) from the successful build:
-  \`b0ddf66445fbac95e2d464ed559875a0c24fce25a061be5a6a70a39ad07b1191\`.
-- Package: \`com.framebynavin.app\`; versionCode **237**; versionName \`2.8.7-v210-streamed-export-preview\`. APK v2 signer certificate SHA-256:
-  \`f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0\`.
+  `b0ddf66445fbac95e2d464ed559875a0c24fce25a061be5a6a70a39ad07b1191`.
+- Package: `com.framebynavin.app`; versionCode **237**; versionName `2.8.7-v210-streamed-export-preview`. APK v2 signer certificate SHA-256:
+  `f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0`.
   This is the **public personal-sideload signer**, not private Play production signing. An unchanged signer fingerprint does not guarantee all in-place migrations; Android must accept the actual install.
 
 ### Physical-device acceptance — manual, no destructive shortcut
@@ -64,7 +64,7 @@ Exact-head validation is mandatory: [run 39934794873](https://github.com/rayadin
 Use the artifact above; keep the existing V195.5 stable branch and installed user data. Do **not** uninstall, clear app storage, replace the signing key, or bypass Android's update verification. If a populated app cannot be updated in place, **stop** and record the error.
 
 1. **Preservation first:** record the installed app version, export an independent creator backup to durable off-device storage where available, and separately copy important source media/attachments that a portable backup may only reference. A successful export is not proof of restore until revalidated. Do not use a production phone as a destructive restore test device.
-2. **Artifact integrity:** download the GitHub Actions APK archive, extract it and compare the inner \`app-personalStable.apk\` SHA-256 with the value above (Windows PowerShell: \`Get-FileHash -Algorithm SHA256 .\app-personalStable.apk\`). A hash mismatch is a STOP.
+2. **Artifact integrity:** download the GitHub Actions APK archive, extract it and compare the inner `app-personalStable.apk` SHA-256 with the value above (Windows PowerShell: `Get-FileHash -Algorithm SHA256 .\app-personalStable.apk`). A hash mismatch is a STOP.
 3. **Safe upgrade:** attempt install as an Android update over the existing Backlot package, not as a fresh installation. If Android reports incompatible signing, storage or migration errors, STOP. Do not clear data as a workaround.
 4. **Preservation smoke check:** after launch, confirm saved ideas, projects, scripts, voice ideas, settings, creator setup/companion, calendar, existing reminders, publication history, original Best Frames and authorized channel states are present. Check at least one reminder's actual voice/alarm/notification acknowledgment when due; inspect no duplicate or phantom reminder. Confirm Back/gesture/navigation and Settings/Insights/Revenue visually.
 5. **Backup validity (non-destructive on populated phone):** export a portable backup to a user-controlled file provider; reopen in the app's **validation/preview only**, confirming media counts and any reference-only project attachments are disclosed accurately. Verify existing data is unchanged after canceling preview.
