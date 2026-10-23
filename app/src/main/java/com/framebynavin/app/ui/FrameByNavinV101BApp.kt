@@ -110,7 +110,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var settings by remember { mutableStateOf(settingsStore.snapshot()) }
     var permissions by remember { mutableStateOf(pPermissions(context)) }
     var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
-    var homeSlideshowRequestNonce by rememberSaveable { mutableLongStateOf(0L) }
+    var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
@@ -423,6 +423,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onOpenProject = ::openProject,
                     bottomNavigationClearance = bottomNavClearanceDp.dp,
                     homeSlideshowRequestNonce = homeSlideshowRequestNonce,
+                    onHomeSlideshowRequestHandled = { homeSlideshowRequestNonce = 0L },
                 )
                 PTab.IDEAS -> V09IdeaVaultScreen(
                     ideas = vm.ideas,
