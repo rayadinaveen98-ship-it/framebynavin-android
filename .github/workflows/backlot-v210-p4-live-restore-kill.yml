@@ -676,6 +676,7 @@ jobs:
             v210-process-boundary-recover.log
             v210-live-stop-active.log
             v210-live-stop-recover.log
+            v210-live-stop-logcat.txt
             v208-guides-asset-qa.log
             v201-reminder-feedback-ui.log
             v200-reminder-ui.log
