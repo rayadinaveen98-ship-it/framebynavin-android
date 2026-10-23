@@ -132,11 +132,11 @@ internal object PortableBestFrameMedia {
                 "Unrecognized Best Frames JSON serialization"
             }
             update(emptyRecord.dropLast(2))
-            // Android's JSONStringer escapes solidus characters as \\/ in
+            // Android's JSONStringer escapes solidus characters as an escaped '/' in
             // quoted strings. Hashing raw Base64 '/' instead of the serialized
-            // \\/ was incompatible with CreatorHeroArchive.export(). Probe
+            // that escaped '/' was incompatible with CreatorHeroArchive.export(). Probe
             // the active JSONObject serializer so both paths match on-device.
-            val escapeSolidus = JSONObject().put("data", "/").toString().contains("\\\\/")
+            val escapeSolidus = JSONObject().put("data", "/").toString().contains("\\/")
             // Preserve Base64 padding by encoding 3-byte-aligned chunks. Only
             // the final chunk may contain padding, exactly as in legacy export.
             val chunk = ByteArray(8190)
