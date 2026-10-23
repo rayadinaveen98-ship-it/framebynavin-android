@@ -89,6 +89,7 @@ internal fun PTodayScreen(
     onOpenInsights: () -> Unit = {},
     onOpenProject: (String) -> Unit = {},
     bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
+    homeSlideshowRequestNonce: Long = 0L,
 ) {
     val queue by remember { derivedStateOf { pActiveQueue(tasks).take(10) } }
     val queueIds by remember { derivedStateOf { queue.map { it.id } } }
@@ -104,7 +105,7 @@ internal fun PTodayScreen(
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(RecRed.copy(alpha = .055f), CinemaBlack), radius = 980f))) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = bottomNavigationClearance)) {
-            V18CinematicHomeHero(creatorProfile.safeDisplayName)
+            V18CinematicHomeHero(creatorProfile.safeDisplayName, openEditorNonce = homeSlideshowRequestNonce)
             Spacer(Modifier.height(20.dp))
             Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Spacer(Modifier.height(4.dp))
