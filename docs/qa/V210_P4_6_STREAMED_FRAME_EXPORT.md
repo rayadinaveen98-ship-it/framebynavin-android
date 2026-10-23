@@ -44,3 +44,33 @@ Android's `org.json.JSONStringer` escapes each forward slash in a quoted JSON st
 Fix committed on the **draft** P4.6 branch: probe the Android `JSONObject` serializer for solidus escaping and add the escape byte in the SHA-256 stream before each Base64 slash, leaving original bytes and ZIP/media unchanged. The >20 KiB test now asserts that the fixture actually contains an escaped slash. This preserves bounded processing and tests compatibility against the legacy exporter, not only the new exporter itself.
 
 Exact-head validation is mandatory: [run 39934794873](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934794873) was pending when this note was written. **Do not treat build 237 as tested, stable or installable until the run is green, artifact SHA verified and the release gates above are satisfied.**
+
+
+## P4.6 engineering acceptance and release freeze (23 October 2026)
+
+**Engineering test gate: PASS. Stable/physical acceptance: NOT YET.** The earlier "unverified" statements above are a historical record of failed and pending runs, not the current result.
+
+- Exact **runtime-and-test source head**: \`92ef3a6b3aa7fb2ca28c09abe665bdf33bd34f78\`; QA-only documentation head that was actually built/tested: \`7c18d0c25dc567899e7e2b989840a6842cd66304\`.
+- [GitHub Actions 39934884089](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089): **build SUCCESS; Android 11 emulator SUCCESS**. Source, unit, lint, instrumentation build, personal-stable signing and package/version checks passed.
+- In the integrated Android 11 run: \`V210StreamedFramesExportTest\` **3/3**; inherited >32 MiB \`V209LargeFrameAcceptanceTest\` **2/2**; checkpoint and fresh-process restore recovery; in-flight restore force-stop/recovery; \`V210BackupIoFailureTest\` **2/2**; inherited UI/regression suites. These are emulator checks, not a claim of near-100 MiB real-photo success.
+- **Preview artifact:** [Backlot-V210-P4.6-Integrated-QA-APK](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089/artifacts/12493452576). Archive includes the personalStable APK. SHA-256 of the **APK file** (not the artifact ZIP) from the successful build:
+  \`b0ddf66445fbac95e2d464ed559875a0c24fce25a061be5a6a70a39ad07b1191\`.
+- Package: \`com.framebynavin.app\`; versionCode **237**; versionName \`2.8.7-v210-streamed-export-preview\`. APK v2 signer certificate SHA-256:
+  \`f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0\`.
+  This is the **public personal-sideload signer**, not private Play production signing. An unchanged signer fingerprint does not guarantee all in-place migrations; Android must accept the actual install.
+
+### Physical-device acceptance — manual, no destructive shortcut
+
+Use the artifact above; keep the existing V195.5 stable branch and installed user data. Do **not** uninstall, clear app storage, replace the signing key, or bypass Android's update verification. If a populated app cannot be updated in place, **stop** and record the error.
+
+1. **Preservation first:** record the installed app version, export an independent creator backup to durable off-device storage where available, and separately copy important source media/attachments that a portable backup may only reference. A successful export is not proof of restore until revalidated. Do not use a production phone as a destructive restore test device.
+2. **Artifact integrity:** download the GitHub Actions APK archive, extract it and compare the inner \`app-personalStable.apk\` SHA-256 with the value above (Windows PowerShell: \`Get-FileHash -Algorithm SHA256 .\app-personalStable.apk\`). A hash mismatch is a STOP.
+3. **Safe upgrade:** attempt install as an Android update over the existing Backlot package, not as a fresh installation. If Android reports incompatible signing, storage or migration errors, STOP. Do not clear data as a workaround.
+4. **Preservation smoke check:** after launch, confirm saved ideas, projects, scripts, voice ideas, settings, creator setup/companion, calendar, existing reminders, publication history, original Best Frames and authorized channel states are present. Check at least one reminder's actual voice/alarm/notification acknowledgment when due; inspect no duplicate or phantom reminder. Confirm Back/gesture/navigation and Settings/Insights/Revenue visually.
+5. **Backup validity (non-destructive on populated phone):** export a portable backup to a user-controlled file provider; reopen in the app's **validation/preview only**, confirming media counts and any reference-only project attachments are disclosed accurately. Verify existing data is unchanged after canceling preview.
+6. **Restore recovery on a disposable device/profile only:** take separate test data, back up → preview → restore → compare original Best Frames order, voice media, projects, schedules and reminder delivery; test damaged ZIP rejection. Never overwrite the creator's populated phone to prove a restore.
+7. **Stress still pending:** 65–100 MiB real original photos on low-RAM physical hardware, real storage-full/provider write failures and sudden power loss. Older raw JSON/cloud image snapshots and 20 MiB-per-frame preview allocations remain memory risks. Record failures as release blockers; do not silently broaden scope to unrelated UI work.
+
+### Release decision
+
+**No merge, stable tag, Play launch, or automatic app rollout.** P4.6 is a CI-green **personal device-test candidate** only. When owner device checks pass, decide explicitly whether the remaining stress tests are necessary before a new personal-stable snapshot. Preserve V195.5 as the rollback reference and move separately to creator-facing UI/Insights roadmap work. Tracked stress backlog: [issue #93](https://github.com/rayadinaveen98-ship-it/framebynavin-android/issues/93).
