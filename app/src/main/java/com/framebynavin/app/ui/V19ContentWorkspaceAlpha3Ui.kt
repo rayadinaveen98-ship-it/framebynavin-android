@@ -89,12 +89,23 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         scriptStudio = task.workspace.scriptStudio,
     )
 
+    var draftWarningShown by remember(task.id, originalRevision) { mutableStateOf(false) }
     LaunchedEffect(audience, viewerProblem, promise, angle, references, checklist, assets, deliverables, learnings) {
         delay(350)
         val snapshot = draft()
-        withContext(Dispatchers.IO) {
+        val saveError = withContext(Dispatchers.IO) {
+            runCatching {
             if (snapshot == task.workspace) draftStore.clearProject(task.id)
             else draftStore.saveProject(task.id, originalRevision, snapshot)
+            }.exceptionOrNull()
+        }
+        if (saveError != null && !draftWarningShown) {
+            draftWarningShown = true
+            android.widget.Toast.makeText(
+                context,
+                "Could not save this draft. Reopen the project if a backup was restored.",
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
         }
     }
 

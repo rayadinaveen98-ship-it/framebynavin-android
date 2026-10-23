@@ -151,10 +151,12 @@ internal fun V19ScriptStudioAlpha4Dialog(
         creatorNotes = creatorNotes,
     )
 
+    var draftWarningShown by remember(task.id, originalStudioRevision) { mutableStateOf(false) }
     LaunchedEffect(status, hooks, titles, beats, creatorNotes) {
         delay(350)
         val snapshot = draft()
-        withContext(Dispatchers.IO) {
+        val saveError = withContext(Dispatchers.IO) {
+            runCatching {
             if (snapshot == studio) draftStore.clearScript(task.id)
             else draftStore.saveScript(
                 projectId = task.id,
@@ -162,6 +164,15 @@ internal fun V19ScriptStudioAlpha4Dialog(
                 baseStudioRevision = originalStudioRevision,
                 draft = snapshot,
             )
+            }.exceptionOrNull()
+        }
+        if (saveError != null && !draftWarningShown) {
+            draftWarningShown = true
+            android.widget.Toast.makeText(
+                context,
+                "Could not save this draft. Reopen the project if a backup was restored.",
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
         }
     }
 

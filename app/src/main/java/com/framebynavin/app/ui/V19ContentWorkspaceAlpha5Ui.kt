@@ -61,12 +61,23 @@ internal fun V19PublishStudioAlpha5Dialog(
     val scriptTitle = CreatorScriptPublishBridge.selectedTitle(task.workspace.scriptStudio)
     var pendingScriptTitleForId by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
 
+    var draftWarningShown by remember(task.id, originalRevision) { mutableStateOf(false) }
     LaunchedEffect(deliverables) {
         delay(350)
         val snapshot = deliverables
-        withContext(Dispatchers.IO) {
+        val saveError = withContext(Dispatchers.IO) {
+            runCatching {
             if (snapshot == canonicalEditorState) draftStore.clearPublish(task.id)
             else draftStore.savePublish(task.id, originalRevision, snapshot)
+            }.exceptionOrNull()
+        }
+        if (saveError != null && !draftWarningShown) {
+            draftWarningShown = true
+            android.widget.Toast.makeText(
+                context,
+                "Could not save this draft. Reopen the project if a backup was restored.",
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
         }
     }
 

@@ -33,7 +33,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
     /** Alpha4/5 compatibility source only. Alpha6+ saves structured scripts inside the project workspace. */
     private val legacyScriptStore by lazy { ScriptStudioStore(applicationContext) }
     private val publicationRecovery by lazy { CreatorPublicationRecovery(applicationContext) }
-    private val editorDrafts by lazy { CreatorEditorDraftStore(applicationContext) }
+    private lateinit var editorDrafts: CreatorEditorDraftStore
+    private var loadedGeneration: Long = -1L
     private val saveGate = CreatorWorkspaceSaveGate()
     private var task by mutableStateOf<CreatorTask?>(null)
     private var scriptStudio by mutableStateOf<CreatorScriptStudio?>(null)
@@ -46,6 +47,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         VisualExperiencePrefs.initialize(applicationContext)
+        editorDrafts = CreatorEditorDraftStore(applicationContext)
         window.setBackgroundDrawable(ColorDrawable(BacklotBackground.toArgb()))
         restoreModeAfterLoad = savedInstanceState?.getString(STATE_EDITOR_MODE)?.let { saved ->
             runCatching { Alpha6WorkspaceMode.valueOf(saved) }.getOrNull()
@@ -183,17 +185,28 @@ class ContentWorkspaceActivity : ComponentActivity() {
         }
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
-                val loaded = CreatorDataGate.readyTransaction(applicationContext) {
-                    store.load().firstOrNull { it.id == projectId }
+                val (loaded, openEpoch) = CreatorDataGate.readyTransaction(applicationContext) {
+                    val openedEpoch = CreatorDataGate.generation(applicationContext)
+                    val project = store.load().firstOrNull { it.id == projectId }
                         ?: error("This project no longer exists.")
+                    project to openedEpoch
                 }
                 val migrated = migrateLegacyScriptIfNeeded(loaded)
                 val stabilized = stabilizeLoadedProject(migrated)
                 publicationRecovery.recoverAll()
-                stabilized
+                // If a restore occurred during loading, don't open an editor
+                // with data from one epoch and writes authorized in another.
+                CreatorDataGate.checkGeneration(applicationContext, openEpoch)
+                stabilized to openEpoch
             }
             withContext(Dispatchers.Main) {
-                result.onSuccess { loaded ->
+                result.onSuccess { (loaded, openEpoch) ->
+                    if (CreatorDataGate.generation(applicationContext) != openEpoch) {
+                        error = "Your project was restored while loading. Reload the latest version."
+                        return@onSuccess
+                    }
+                    loadedGeneration = openEpoch
+                    editorDrafts = CreatorEditorDraftStore(applicationContext)
                     task = loaded
                     val restore = restoreModeAfterLoad
                     restoreModeAfterLoad = null
@@ -276,7 +289,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
             val result = runCatching {
-                val expectedGeneration = CreatorDataGate.generation(applicationContext)
+                val expectedGeneration = loadedGeneration
+                CreatorDataGate.checkGeneration(applicationContext, expectedGeneration)
                 val updated = store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
                     check(current.workspace.revision == expectedRevision) {
                         "This workspace changed while you were editing. Reopen it to keep the newest version."
@@ -345,7 +359,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
             val result = runCatching {
-                val expectedGeneration = CreatorDataGate.generation(applicationContext)
+                val expectedGeneration = loadedGeneration
+                CreatorDataGate.checkGeneration(applicationContext, expectedGeneration)
                 val savedStudio = draft.normalized(
                     projectId = projectId,
                     revision = expectedStudioRevision + 1L,
