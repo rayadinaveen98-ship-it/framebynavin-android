@@ -178,6 +178,37 @@ private object V18HomeHeroStore {
         check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_ORDER).commit()) { "Could not clear personal frame selection" }
     } }
 
+    /**
+     * Reorder only the active saved selection; never rename, rewrite or delete
+     * image bytes. Portable backup observes this same persisted filename order.
+     */
+    suspend fun move(context: Context, fileName: String, offset: Int): List<File> =
+        CreatorDataGate.transaction { withContext(Dispatchers.IO) {
+            require(offset == -1 || offset == 1) { "Invalid photo move" }
+            val items = current(context).toMutableList()
+            val from = items.indexOfFirst { it.name == fileName }
+            if (from < 0) return@withContext items
+            val to = (from + offset).coerceIn(0, items.lastIndex)
+            if (to != from) {
+                val entry = items.removeAt(from)
+                items.add(to, entry)
+                persist(context, items)
+            }
+            items
+        } }
+
+    /**
+     * Remove one item from the visible slideshow without destroying the
+     * original file. This allows recovery/rollback and preserves other frames.
+     */
+    suspend fun removeOne(context: Context, fileName: String): List<File> =
+        CreatorDataGate.transaction { withContext(Dispatchers.IO) {
+            val before = current(context)
+            val after = before.filterNot { it.name == fileName }
+            if (after.size != before.size) persist(context, after)
+            after
+        } }
+
     private fun persist(context: Context, files: List<File>) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
