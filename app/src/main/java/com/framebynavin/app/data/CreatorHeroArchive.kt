@@ -154,6 +154,77 @@ object CreatorHeroArchive {
         }
     }
 
+    /**
+     * Append staged, checksum-verified originals without re-copying the
+     * creator's existing library. All writes finish before the single order
+     * switch; an error deletes only newly copied files.
+     *
+     * Caller must hold CreatorDataGate.transaction for the whole operation.
+     */
+    internal fun appendVerifiedFiles(context: Context, frames: List<PortableBestFrame>) {
+        if (frames.isEmpty()) return
+        val directory = File(context.filesDir, DIRECTORY).apply { mkdirs() }.canonicalFile
+        val previous = orderedSourceNames(context)
+        require(previous.size + frames.size <= 10) { "Slideshow is full; choose fewer photos" }
+        var total = 0L
+        previous.forEach { name ->
+            val original = File(directory, name).canonicalFile
+            require(original.parentFile == directory && original.isFile) {
+                "An existing slideshow photo is missing; selection retained"
+            }
+            val size = original.length()
+            require(size in 1..MAX_FILE && total <= MAX_TOTAL - size) {
+                "Existing slideshow exceeds backup media limits"
+            }
+            total += size
+            checkImageBounds(original)
+        }
+
+        val newlyCopied = mutableListOf<File>()
+        val finalNames = previous.toMutableList()
+        try {
+            frames.forEach { frame ->
+                val source = frame.file
+                val bytes = source.length()
+                require(source.isFile && bytes in 1..MAX_FILE && total <= MAX_TOTAL - bytes) {
+                    "Selected photos exceed backup media limits"
+                }
+                require(sha256File(source) == frame.sha256) {
+                    "Selected photo checksum did not match"
+                }
+                checkImageBounds(source)
+                total += bytes
+
+                val destination = File(directory, "append_${UUID.randomUUID()}.img")
+                newlyCopied += destination
+                val atomic = AtomicFile(destination)
+                var output: java.io.FileOutputStream? = null
+                try {
+                    val destinationStream = atomic.startWrite()
+                    output = destinationStream
+                    source.inputStream().buffered().use { input ->
+                        input.copyTo(destinationStream, DEFAULT_BUFFER_SIZE)
+                    }
+                    atomic.finishWrite(destinationStream)
+                } catch (failure: Throwable) {
+                    output?.let(atomic::failWrite)
+                    throw failure
+                }
+                require(destination.length() == bytes && sha256File(destination) == frame.sha256) {
+                    "New slideshow photo failed its copy verification"
+                }
+                finalNames += destination.name
+            }
+            check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(ORDER, finalNames.joinToString("\n"))
+                .putBoolean("alpha17_empty_hero_reset_done", true)
+                .commit()) { "Could not save appended photos" }
+        } catch (failure: Throwable) {
+            newlyCopied.forEach { runCatching { it.delete() } }
+            throw failure
+        }
+    }
+
     private fun checkImageBounds(file: File) {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.absolutePath, options)

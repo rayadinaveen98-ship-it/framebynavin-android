@@ -255,6 +255,31 @@ class V18CinematicHomeHeroAlpha16UiTest {
     }
 
     @Test
+    fun photoEditorShowsAddControlWhenThereIsCapacity() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs = context.getSharedPreferences("best_frames_original_prefs", Context.MODE_PRIVATE)
+        val previousOrder = prefs.getString("frame_order", null)
+        val directory = File(context.filesDir, "best_frames_original").apply { mkdirs() }
+        val photo = File(directory, "append_control_${System.nanoTime()}.png")
+        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        try {
+            photo.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+            check(prefs.edit().putString("frame_order", photo.name).commit())
+            composeRule.setContent { V18CinematicHomeHero("King", autoPlay = false) }
+            composeRule.onNodeWithContentDescription("Manage slideshow images").performClick()
+            composeRule.onNodeWithContentDescription("Edit slideshow order").performClick()
+            composeRule.onNodeWithText("ADD PHOTOS").assertIsDisplayed()
+            composeRule.onNodeWithText("DONE").performClick()
+            composeRule.onNodeWithText("Slideshow photos").assertDoesNotExist()
+        } finally {
+            if (previousOrder == null) prefs.edit().remove("frame_order").commit()
+            else prefs.edit().putString("frame_order", previousOrder).commit()
+            photo.delete()
+            bitmap.recycle()
+        }
+    }
+
+    @Test
     fun expandedHeroManagementUsesIconActions() {
         composeRule.setContent {
             V18HeroManageActions(

@@ -159,17 +159,24 @@ internal object V18HomeHeroStore {
         return names.map { File(directory, it) }.filter { it.isFile }
     }
 
-    /**
-     * Atomic photo-picker import. Honor the exact same 10-frame, 20 MiB/frame,
-     * 100 MiB/selection and decodable-image requirements as portable backup.
-     * A bad or unreadable photo rejects the whole selection; old saved order
-     * and originals remain untouched. The verified importer owns final writes.
-     */
+    /** Existing images retain their original names when adding new photos. */
     suspend fun replace(context: Context, uris: List<Uri>): List<File> =
+        importPhotos(context, uris, append = false)
+
+    suspend fun append(context: Context, uris: List<Uri>): List<File> =
+        importPhotos(context, uris, append = true)
+
+    /**
+     * Stage the entire picker selection and update the visible photo order
+     * exactly once. Provider or checksum failures do not alter old images.
+     */
+    private suspend fun importPhotos(context: Context, uris: List<Uri>, append: Boolean): List<File> =
         CreatorDataGate.transaction { withContext(Dispatchers.IO) {
             if (uris.isEmpty()) return@withContext current(context)
-            require(uris.size <= MAX_FRAMES) { "Choose at most ten photos" }
-            checkedCurrent(context)
+            val existing = checkedCurrent(context)
+            require(uris.size + (if (append) existing.size else 0) <= MAX_FRAMES) {
+                "Slideshow holds up to ten photos; select fewer"
+            }
 
             val staging = File(context.cacheDir, "home_hero_stage_${System.nanoTime()}")
             check(staging.mkdirs() || staging.isDirectory) { "Could not prepare photo import" }
@@ -212,7 +219,8 @@ internal object V18HomeHeroStore {
                 // Existing hardened backup restore importer verifies dimensions,
                 // writes new originals, rolls back partial copies on error, then
                 // switches the visible SharedPreferences order exactly once.
-                CreatorHeroArchive.importVerifiedFiles(context, prepared)
+                if (append) CreatorHeroArchive.appendVerifiedFiles(context, prepared)
+                else CreatorHeroArchive.importVerifiedFiles(context, prepared)
                 current(context)
             } finally {
                 staging.deleteRecursively()
@@ -459,27 +467,35 @@ internal fun V18CinematicHomeHero(
         }
     }
 
-    val picker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(V18HomeHeroStore.MAX_FRAMES),
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            scope.launch {
-                importing = true
-                manageExpanded = false
-                try {
-                    frames = V18HomeHeroStore.replace(context, uris)
-                    decoded.clear()
-                    index = 0
-                } catch (_: Exception) {
-                    photoEditError = "Could not import all selected photos. Existing photos were kept. Use valid images up to 20 MB each and 100 MB total."
-                } finally {
-                    importing = false
-                }
+    fun importSelectedPhotos(uris: List<Uri>, append: Boolean) {
+        if (uris.isEmpty()) return
+        scope.launch {
+            importing = true
+            manageExpanded = false
+            try {
+                frames = if (append) V18HomeHeroStore.append(context, uris)
+                         else V18HomeHeroStore.replace(context, uris)
+                decoded.clear()
+                if (!append) index = 0
+            } catch (_: Exception) {
+                photoEditError = "Photos not changed. Choose valid images within 10 photos, 20 MB each and 100 MB total."
+            } finally {
+                importing = false
             }
         }
     }
-    val chooseFrames = {
-        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+
+    val replacePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(V18HomeHeroStore.MAX_FRAMES),
+    ) { uris -> importSelectedPhotos(uris, append = false) }
+    val appendPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(V18HomeHeroStore.MAX_FRAMES),
+    ) { uris -> importSelectedPhotos(uris, append = true) }
+    val chooseReplaceFrames = {
+        replacePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+    val chooseAppendFrames = {
+        appendPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
     // Settings opens this same editor once. Consume the request before the
@@ -487,7 +503,7 @@ internal fun V18CinematicHomeHero(
     LaunchedEffect(openEditorNonce) {
         if (openEditorNonce != 0L) {
             onEditorRequestHandled()
-            if (frames.isEmpty()) chooseFrames()
+            if (frames.isEmpty()) chooseReplaceFrames()
             else showPhotoEditor = true
         }
     }
@@ -525,7 +541,7 @@ internal fun V18CinematicHomeHero(
             hasFrames = frames.isNotEmpty(),
             importing = importing,
             onPhotoClick = {
-                if (frames.isEmpty()) chooseFrames()
+                if (frames.isEmpty()) chooseReplaceFrames()
                 else manageExpanded = !manageExpanded
             },
         )
@@ -588,7 +604,7 @@ internal fun V18CinematicHomeHero(
                         V18HeroManageActions(
                             expanded = manageExpanded,
                             onToggle = { manageExpanded = !manageExpanded },
-                            onChange = { manageExpanded = false; chooseFrames() },
+                            onChange = { manageExpanded = false; chooseReplaceFrames() },
                             onRemove = { manageExpanded = false; confirmRemove = true },
                             onEdit = { manageExpanded = false; showPhotoEditor = true },
                             modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
@@ -654,6 +670,14 @@ internal fun V18CinematicHomeHero(
             confirmButton = {
                 TextButton(onClick = { showPhotoEditor = false }) {
                     Text("DONE", color = ProjectorIvory)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showPhotoEditor = false; chooseAppendFrames() },
+                    enabled = frames.size < V18HomeHeroStore.MAX_FRAMES && !importing,
+                ) {
+                    Text("ADD PHOTOS", color = ProjectorIvory)
                 }
             },
             containerColor = CinemaSurfaceRaised,
