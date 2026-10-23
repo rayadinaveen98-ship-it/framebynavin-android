@@ -1,5 +1,19 @@
 # Backlot current personal stable and active candidate
 
+## V210 P4.6 engineering checkpoint — 23 October 2026
+
+**Latest CI-green development candidate, NOT installed/approved stable:** `2.8.7-v210-streamed-export-preview` (versionCode **237**, `com.framebynavin.app`), stacked draft [PR #100](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/100).
+
+- Final runtime/test source commit: `92ef3a6b3aa7fb2ca28c09abe665bdf33bd34f78`; [green exact-head pipeline from QA-doc commit `7c18d0c`](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089). Both the full build and Android 11 emulator jobs passed. Subsequent documentation-only commits do not modify runtime or APK bytes; any new CI checks must be reported separately.
+- Built APK file SHA-256: `b0ddf66445fbac95e2d464ed559875a0c24fce25a061be5a6a70a39ad07b1191`; signer certificate: `f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0`.
+- [GitHub Actions installable candidate ZIP](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089/artifacts/12493452576). Verify the **inner APK** fingerprint before installation. This is a personal preview, not production/Play signing.
+- Verified Android 11 acceptance includes normal/multi-chunk/empty-frame legacy-checksum compatibility, large original-frame ZIP, process-kill restore recovery and backup I/O failure tests. Physical Samsung in-place upgrade and preservation, backup preview, real-world 65–100 MiB photo sets, low memory, disk-full, provider failure and sudden power loss remain unverified.
+- The creator's last personally reported working installation is the V208 preview (build 232). Do not equate a GitHub artifact with an installed build. **Do not uninstall or clear an existing app to test upgrade.**
+- **Release decision:** Keep both PR #100 and earlier stacked PRs as draft, preserve `stable/backlot-v195-5`, and do not promote any new stable/tag/main ref until accepted device checks. Avoid expanding V210 into unrelated UI improvements. The next product milestone after sign-off is whole-app creator-facing UX/Insights consolidation, following the [master plan](../roadmap/BACKLOT_IMPROVEMENT_MASTER_PLAN.md).
+- [Detailed P4.6 manual acceptance and stop-ship criteria](../qa/V210_P4_6_STREAMED_FRAME_EXPORT.md#p46-engineering-acceptance-and-release-freeze-23-october-2026).
+
+**Historical details below** preserve earlier stable, V208 and V209 draft lineage; V210 above supersedes them as the newest **CI-green engineering candidate**, not as a promoted stable or user-installed release.
+
 ## Latest frozen personal stable: V195.5
 
 The latest preserved personal-sideload stable **branch** is `stable/backlot-v195-5`,

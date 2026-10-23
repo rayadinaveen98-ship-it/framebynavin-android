@@ -95,10 +95,11 @@ class CreatorBackupManager(private val context: Context) {
     internal suspend fun createPortableBackup(): PortablePackedFrames = CreatorDataGate.transaction {
         recoverPendingRestoreUnlocked()
         IdeaProjectConversion(appContext).recoverPendingUnlocked()
-        val originalSnapshot = snapshot()
-        val originalFrames = requireNotNull(originalSnapshot.heroJson)
-        val prepared = PortableBestFrameMedia.prepare(
-            originalFrames,
+        // Do not allocate the complete Base64 Best Frames array first.
+        // Hash the legacy-canonical JSON representation from files in bounded
+        // chunks, and serialize only the compact ZIP metadata in memory.
+        val originalSnapshot = snapshot(includeHero = false)
+        val prepared = PortableBestFrameMedia.prepareFromFiles(
             appContext.filesDir,
             CreatorHeroArchive.orderedSourceNames(appContext),
         )
