@@ -201,6 +201,60 @@ class V18CinematicHomeHeroAlpha16UiTest {
     }
 
     @Test
+    fun slideshowPausePersistsWithoutRemovingPhotos() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs = context.getSharedPreferences("best_frames_original_prefs", Context.MODE_PRIVATE)
+        val previousOrder = prefs.getString("frame_order", null)
+        val previousPaused = if (prefs.contains("home_slideshow_paused"))
+            prefs.getBoolean("home_slideshow_paused", false) else null
+        val directory = File(context.filesDir, "best_frames_original").apply { mkdirs() }
+        val first = File(directory, "pause_first_${System.nanoTime()}.png")
+        val second = File(directory, "pause_second_${System.nanoTime()}.png")
+        val bitmap = Bitmap.createBitmap(36, 36, Bitmap.Config.ARGB_8888)
+        try {
+            first.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+            second.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+            check(prefs.edit().putString("frame_order", "${first.name}\n${second.name}")
+                .putBoolean("home_slideshow_paused", false).commit())
+            composeRule.setContent { V18CinematicHomeHero("King", autoPlay = false) }
+            composeRule.onNodeWithContentDescription("Pause slideshow").assertIsDisplayed().performClick()
+            composeRule.onNodeWithContentDescription("Play slideshow").assertIsDisplayed()
+            check(prefs.getBoolean("home_slideshow_paused", false))
+            composeRule.onNodeWithContentDescription("Play slideshow").performClick()
+            composeRule.onNodeWithContentDescription("Pause slideshow").assertIsDisplayed()
+            check(!prefs.getBoolean("home_slideshow_paused", true))
+            check(first.isFile && second.isFile)
+        } finally {
+            val editor = prefs.edit()
+            if (previousOrder == null) editor.remove("frame_order") else editor.putString("frame_order", previousOrder)
+            if (previousPaused == null) editor.remove("home_slideshow_paused")
+            else editor.putBoolean("home_slideshow_paused", previousPaused)
+            check(editor.commit())
+            first.delete()
+            second.delete()
+            bitmap.recycle()
+        }
+    }
+
+    @Test
+    fun playbackPolicyRespectsPauseAccessibilityAndEditing() {
+        fun policy(paused: Boolean, animations: Boolean, editing: Boolean, count: Int) =
+            V18HeroPlaybackPolicy.shouldAnimate(
+                autoPlay = true,
+                userPaused = paused,
+                animationsEnabled = animations,
+                isEditing = editing,
+                photoCount = count,
+            )
+        check(policy(false, true, false, 2))
+        check(!policy(true, true, false, 2))
+        check(!policy(false, false, false, 2))
+        check(!policy(false, true, true, 2))
+        check(!policy(false, true, false, 1))
+        check(!V18HeroPlaybackPolicy.shouldAnimate(false, false, true, false, 2))
+    }
+
+    @Test
     fun expandedHeroManagementUsesIconActions() {
         composeRule.setContent {
             V18HeroManageActions(
