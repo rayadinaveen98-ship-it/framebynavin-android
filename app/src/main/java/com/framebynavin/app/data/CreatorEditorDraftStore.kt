@@ -13,8 +13,10 @@ import org.json.JSONObject
  * without weakening CreatorDataGate's stale-write protection.
  */
 class CreatorEditorDraftStore(context: Context) {
-    private val prefs = context.applicationContext
-        .getSharedPreferences("creator_editor_drafts_v19", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("creator_editor_drafts_v19", Context.MODE_PRIVATE)
+    /** Bound to the editor instance, not recomputed after a backup restore. */
+    val openedGeneration: Long = CreatorDataGate.generation(appContext)
 
     fun saveProject(projectId: String, baseWorkspaceRevision: Long, draft: CreatorContentWorkspace) {
         put(
@@ -84,26 +86,64 @@ class CreatorEditorDraftStore(context: Context) {
     fun clearScript(projectId: String) = remove(scriptKey(projectId))
 
     fun clearAllForProject(projectId: String) {
-        val ok = prefs.edit()
-            .remove(projectKey(projectId))
-            .remove(scriptKey(projectId))
-            .remove(publishKey(projectId))
-            .commit()
-        check(ok) { "Could not clear editor drafts" }
+        // Never erase a draft written by a newer editor after restore.
+        listOf(projectKey(projectId), scriptKey(projectId), publishKey(projectId)).forEach(::remove)
     }
+
+    /** True when a pre-restore or legacy draft is preserved but not auto-applied. */
+    fun hasHeldDraft(projectId: String): Boolean =
+        listOf(projectKey(projectId), scriptKey(projectId), publishKey(projectId)).any { key ->
+            val record = prefs.getString(key, null)?.let { runCatching { JSONObject(it) }.getOrNull() }
+            record != null && !matchesGeneration(record)
+        }
+
+    private fun matchesGeneration(record: JSONObject): Boolean =
+        if (record.has("restoreGeneration")) {
+            record.optLong("restoreGeneration", -1L) == openedGeneration
+        } else {
+            // An untagged draft could precede ANY previous restore. Only
+            // auto-recover on untouched epoch zero; retain others for review.
+            openedGeneration == 0L
+        }
 
     private fun put(key: String, root: JSONObject) {
         root.put("updatedAtMillis", System.currentTimeMillis())
-        check(prefs.edit().putString(key, root.toString()).commit()) { "Could not preserve editor draft" }
+            .put("restoreGeneration", openedGeneration)
+        CreatorDataGate.withGeneration(appContext, openedGeneration) {
+            val existing = prefs.getString(key, null)
+            val previous = existing?.let { runCatching { JSONObject(it) }.getOrNull() }
+            val editor = prefs.edit()
+            if (existing != null && (previous == null || !matchesGeneration(previous))) {
+                // Keep the original content for explicit recovery. Never silently
+                // overwrite a legacy/older-generation journal with a new draft.
+                editor.putString("held:$key:${System.nanoTime()}", existing)
+            }
+            check(editor.putString(key, root.toString()).commit()) {
+                "Could not preserve editor draft"
+            }
+        }
     }
 
-    private fun read(key: String): JSONObject? {
-        val raw = prefs.getString(key, null) ?: return null
-        return runCatching { JSONObject(raw) }.getOrNull()?.takeIf { it.optInt("version", -1) == VERSION }
-    }
+    private fun read(key: String): JSONObject? = runCatching {
+        CreatorDataGate.withGeneration(appContext, openedGeneration) {
+            val raw = prefs.getString(key, null) ?: return@withGeneration null
+            val root = runCatching { JSONObject(raw) }.getOrNull() ?: return@withGeneration null
+            root.takeIf { it.optInt("version", -1) == VERSION && matchesGeneration(it) }
+        }
+    }.getOrNull()
 
     private fun remove(key: String) {
-        check(prefs.edit().remove(key).commit()) { "Could not clear editor draft" }
+        try {
+            CreatorDataGate.withGeneration(appContext, openedGeneration) {
+                val raw = prefs.getString(key, null) ?: return@withGeneration
+                val record = runCatching { JSONObject(raw) }.getOrNull()
+                // Preserve incompatible or undecodable journal payloads.
+                if (record == null || !matchesGeneration(record)) return@withGeneration
+                check(prefs.edit().remove(key).commit()) { "Could not clear editor draft" }
+            }
+        } catch (_: CreatorWriteConflict) {
+            // A stale editor must never delete a post-restore replacement.
+        }
     }
 
     private fun projectKey(projectId: String) = "project:$projectId"
