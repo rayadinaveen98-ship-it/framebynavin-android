@@ -37,4 +37,32 @@ class V172ProjectDraftPolicyTest {
         assertTrue(V172ProjectDraftPolicy.resumeAfterSettings(true))
         assertFalse(V172ProjectDraftPolicy.resumeAfterSettings(false))
     }
+    @Test fun hugeScriptSignatureStaysBoundedAndNeverContainsDraftText() {
+        val privateScript = "Scene in Telugu తెలుగు 🎬 — ".repeat(100_000)
+        val token = V172ProjectDraftPolicy.signature(listOf("My Project", privateScript))
+        assertEquals("Always a versioned SHA-256 hex fingerprint", 71, token.length)
+        assertTrue(token.matches(Regex("sha256:[0-9a-f]{64}")))
+        assertFalse(token.contains("My Project"))
+        assertFalse(token.contains("Scene in Telugu"))
+        assertEquals(token, V172ProjectDraftPolicy.signature(listOf("My Project", privateScript)))
+    }
+
+    @Test fun utf8FieldBoundariesAndEmptyFieldsAreUnique() {
+        val a = V172ProjectDraftPolicy.signature(listOf("కథ 🎬", "film", ""))
+        val b = V172ProjectDraftPolicy.signature(listOf("కథ 🎬film", ""))
+        val c = V172ProjectDraftPolicy.signature(listOf("కథ 🎬", "film"))
+        assertTrue(a != b)
+        assertTrue(a != c)
+        assertTrue(b != c)
+        assertTrue(a != V172ProjectDraftPolicy.signature(listOf("కథ 🎬", "Film", "")))
+    }
+
+    @Test fun longDraftFieldChangesStillPromptForDiscard() {
+        val words = "A".repeat(180_000)
+        val baseline = V172ProjectDraftPolicy.signature(listOf("Title", words, "OFF"))
+        val modified = V172ProjectDraftPolicy.signature(listOf("Title", words.dropLast(1) + "B", "OFF"))
+        assertTrue(V172ProjectDraftPolicy.changed(baseline, modified))
+        assertFalse(V172ProjectDraftPolicy.changed(baseline, baseline))
+    }
+
 }
