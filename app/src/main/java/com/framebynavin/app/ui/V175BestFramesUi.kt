@@ -350,7 +350,11 @@ internal fun V18HeroGreetingBar(
 }
 
 @Composable
-internal fun V18CinematicHomeHero(creatorName: String) {
+internal fun V18CinematicHomeHero(
+    creatorName: String,
+    openEditorNonce: Long = 0L,
+    onEditorRequestHandled: () -> Unit = {},
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var frames by remember { mutableStateOf(V18HomeHeroStore.current(context)) }
@@ -407,6 +411,16 @@ internal fun V18CinematicHomeHero(creatorName: String) {
     }
     val chooseFrames = {
         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
+    // Settings opens this same editor once. Consume the request before the
+    // next Home mount, otherwise tab navigation would reopen it repeatedly.
+    LaunchedEffect(openEditorNonce) {
+        if (openEditorNonce != 0L) {
+            onEditorRequestHandled()
+            if (frames.isEmpty()) chooseFrames()
+            else showPhotoEditor = true
+        }
     }
 
     LaunchedEffect(framePaths) {
