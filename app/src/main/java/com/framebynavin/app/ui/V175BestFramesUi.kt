@@ -31,19 +31,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -337,9 +344,37 @@ internal fun V18CinematicHomeHero(creatorName: String) {
     var importing by remember { mutableStateOf(false) }
     var manageExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    var showPhotoEditor by rememberSaveable { mutableStateOf(false) }
+    var photoEditError by remember { mutableStateOf<String?>(null) }
     val decoded = remember { mutableStateMapOf<String, ImageBitmap>() }
     val framePaths = remember(frames) { frames.map { it.absolutePath } }
     val greeting = v18Greeting(creatorName)
+    val previewFrames = remember { mutableStateMapOf<String, ImageBitmap>() }
+    LaunchedEffect(showPhotoEditor, framePaths) {
+        if (!showPhotoEditor) return@LaunchedEffect
+        framePaths.forEach { path ->
+            if (previewFrames[path] == null) {
+                val bitmap = withContext(Dispatchers.IO) { v18DecodeHeroFrame(File(path), maxDimension = 256) }
+                if (bitmap != null) previewFrames[path] = bitmap
+            }
+        }
+        previewFrames.keys.toList().filterNot { it in framePaths }.forEach { previewFrames.remove(it) }
+    }
+
+    fun commitPhotoChange(operation: suspend () -> List<File>) {
+        scope.launch {
+            try {
+                val selectedName = frames.getOrNull(index)?.name
+                val updated = operation()
+                frames = updated
+                decoded.clear()
+                index = selectedName?.let { name -> updated.indexOfFirst { it.name == name } }
+                    ?.takeIf { it >= 0 } ?: 0
+            } catch (e: Exception) {
+                photoEditError = "Unable to save slideshow changes. Your current photos were retained."
+            }
+        }
+    }
 
     val picker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(V18HomeHeroStore.MAX_FRAMES),
@@ -438,12 +473,82 @@ internal fun V18CinematicHomeHero(creatorName: String) {
                             onToggle = { manageExpanded = !manageExpanded },
                             onChange = { manageExpanded = false; chooseFrames() },
                             onRemove = { manageExpanded = false; confirmRemove = true },
+                            onEdit = { manageExpanded = false; showPhotoEditor = true },
                             modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
                         )
                     }
                 }
             }
         }
+    }
+
+    if (showPhotoEditor) {
+        AlertDialog(
+            onDismissRequest = { showPhotoEditor = false },
+            title = { Text("Slideshow photos", color = ProjectorIvory) },
+            text = {
+                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                    frames.forEachIndexed { itemIndex, photo ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            val preview = previewFrames[photo.absolutePath]
+                            if (preview != null) {
+                                Image(
+                                    bitmap = preview,
+                                    contentDescription = "Photo ${itemIndex + 1} preview",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(9.dp)),
+                                )
+                            } else {
+                                Box(
+                                    Modifier.size(48.dp).background(CinemaSurfaceRaised, RoundedCornerShape(9.dp)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text("${itemIndex + 1}", color = ProjectorIvory)
+                                }
+                            }
+                            Text("Photo ${itemIndex + 1}", Modifier.weight(1f), color = ProjectorIvory, fontSize = 13.sp)
+                            IconButton(
+                                onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, -1) } },
+                                enabled = itemIndex > 0,
+                            ) { Icon(Icons.Outlined.ArrowUpward, "Move photo ${itemIndex + 1} up", tint = ProjectorIvory) }
+                            IconButton(
+                                onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, 1) } },
+                                enabled = itemIndex < frames.lastIndex,
+                            ) { Icon(Icons.Outlined.ArrowDownward, "Move photo ${itemIndex + 1} down", tint = ProjectorIvory) }
+                            IconButton(
+                                onClick = { commitPhotoChange { V18HomeHeroStore.removeOne(context, photo.name) } },
+                            ) { Icon(Icons.Outlined.DeleteOutline, "Remove photo ${itemIndex + 1}", tint = RecRed) }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPhotoEditor = false }) {
+                    Text("DONE", color = ProjectorIvory)
+                }
+            },
+            containerColor = CinemaSurfaceRaised,
+            titleContentColor = ProjectorIvory,
+            textContentColor = MutedText,
+        )
+    }
+
+    photoEditError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { photoEditError = null },
+            title = { Text("Slideshow unchanged", color = ProjectorIvory) },
+            text = { Text(message, color = MutedText) },
+            confirmButton = {
+                TextButton(onClick = { photoEditError = null }) {
+                    Text("OK", color = ProjectorIvory)
+                }
+            },
+            containerColor = CinemaSurfaceRaised,
+        )
     }
 
     if (confirmRemove) {
@@ -510,6 +615,7 @@ internal fun V18HeroManageActions(
     onToggle: () -> Unit,
     onChange: () -> Unit,
     onRemove: () -> Unit,
+    onEdit: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
@@ -520,6 +626,7 @@ internal fun V18HeroManageActions(
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 V18HeroIconButton(Icons.Outlined.Collections, "Change slideshow images", onChange)
+                V18HeroIconButton(Icons.Outlined.Edit, "Edit slideshow order", onEdit)
                 V18HeroIconButton(Icons.Outlined.DeleteOutline, "Remove slideshow images", onRemove, danger = true)
                 Spacer(Modifier.width(1.dp))
             }
