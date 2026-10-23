@@ -610,13 +610,14 @@ jobs:
             # individual /bin/sh: keep control flow INSIDE one Bash file.
             # This fails closed unless the real image-commit boundary and
             # durable pending journal are observed before force-stop.
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V210StreamedFramesExportTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v210-streamed-frame-export.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v210-streamed-frame-export.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v210-streamed-frame-export.log
             bash tools/run_v210_live_restore_kill.sh
             adb shell am instrument -w -r -e class com.framebynavin.app.data.V210BackupIoFailureTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v210-io-failure.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v210-io-failure.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v210-io-failure.log
-            adb shell am instrument -w -r -e class com.framebynavin.app.data.V210StreamedFramesExportTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v210-streamed-frame-export.log
-            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v210-streamed-frame-export.log; then exit 1; fi
-            grep -Fq 'OK (2 tests)' v210-streamed-frame-export.log
+
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V145GuideAssetDecodeTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v208-guides-asset-qa.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v208-guides-asset-qa.log; then exit 1; fi
             grep -Fq 'OK (1 test)' v208-guides-asset-qa.log
