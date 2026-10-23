@@ -129,7 +129,8 @@ internal object PortableBestFrameMedia {
                 .put("sha256", frame.sha256)
                 .put("data", "")
                 .toString()
-            require(emptyRecord.endsWith("\\"}")) {
+            require(emptyRecord.length >= 2 &&
+                emptyRecord[emptyRecord.length - 2] == '"' && emptyRecord.last() == '}') {
                 "Unrecognized Best Frames JSON serialization"
             }
             update(emptyRecord.dropLast(2))
@@ -144,7 +145,7 @@ internal object PortableBestFrameMedia {
                     input.copyTo(encoded, DEFAULT_BUFFER_SIZE)
                 }
             }
-            update("\\"}")
+            update(emptyRecord.takeLast(2))
             require(sha256(frame.file) == frame.sha256) {
                 "Original Best Frame changed while exporting"
             }
