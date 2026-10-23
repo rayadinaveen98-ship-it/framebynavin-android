@@ -352,6 +352,7 @@ internal fun V18HeroGreetingBar(
 @Composable
 internal fun V18CinematicHomeHero(
     creatorName: String,
+    autoPlay: Boolean = true,
     openEditorNonce: Long = 0L,
     onEditorRequestHandled: () -> Unit = {},
 ) {
@@ -423,10 +424,10 @@ internal fun V18CinematicHomeHero(
         }
     }
 
-    LaunchedEffect(framePaths) {
+    LaunchedEffect(framePaths, autoPlay, showPhotoEditor) {
         if (framePaths.isEmpty()) index = 0
         else if (index !in framePaths.indices) index = 0
-        while (framePaths.size > 1) {
+        while (autoPlay && !showPhotoEditor && framePaths.size > 1) {
             delay(V18_HERO_FRAME_MS)
             index = (index + 1) % framePaths.size
         }
