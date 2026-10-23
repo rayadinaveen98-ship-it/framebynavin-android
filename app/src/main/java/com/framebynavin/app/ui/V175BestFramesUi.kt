@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import android.content.Context
+import android.animation.ValueAnimator
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -47,6 +48,8 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -131,6 +134,15 @@ internal object V18HomeHeroStore {
     private const val PREFS = "best_frames_original_prefs"
     private const val KEY_ORDER = "frame_order"
     private const val KEY_ALPHA17_RESET = "alpha17_empty_hero_reset_done"
+    private const val KEY_PAUSED = "home_slideshow_paused"
+
+    fun isPaused(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_PAUSED, false)
+
+    fun savePaused(context: Context, paused: Boolean) {
+        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_PAUSED, paused).commit()) { "Could not save slideshow pause setting" }
+    }
 
     fun current(context: Context): List<File> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -331,6 +343,18 @@ private fun v18Greeting(name: String): String {
 
 private fun v18Lerp(start: Float, end: Float, progress: Float): Float = start + (end - start) * progress
 
+/** One source of truth for autoplay, image drift and animation accessibility. */
+internal object V18HeroPlaybackPolicy {
+    fun shouldAnimate(
+        autoPlay: Boolean,
+        userPaused: Boolean,
+        animationsEnabled: Boolean,
+        isEditing: Boolean,
+        photoCount: Int,
+    ): Boolean = autoPlay && !userPaused && animationsEnabled && !isEditing && photoCount > 1
+}
+
+
 /**
  * The greeting is an independent, stable Home header; slideshow frames must
  * never make it disappear or place it over an image. Photo actions stay beside
@@ -387,6 +411,7 @@ internal fun V18CinematicHomeHero(
     var frames by remember { mutableStateOf(V18HomeHeroStore.current(context)) }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var importing by remember { mutableStateOf(false) }
+    var userPaused by remember { mutableStateOf(V18HomeHeroStore.isPaused(context)) }
     var manageExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
     var showPhotoEditor by rememberSaveable { mutableStateOf(false) }
@@ -395,6 +420,18 @@ internal fun V18CinematicHomeHero(
     val decoded = remember { mutableStateMapOf<String, ImageBitmap>() }
     val framePaths = remember(frames) { frames.map { it.absolutePath } }
     val greeting = v18Greeting(creatorName)
+    // Android Accessibility's "remove animations" setting takes precedence
+    // over a user's saved Play preference without overwriting that choice.
+    val animationsEnabled = remember(context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ValueAnimator.areAnimatorsEnabled() else true
+    }
+    val playbackEnabled = V18HeroPlaybackPolicy.shouldAnimate(
+        autoPlay = autoPlay,
+        userPaused = userPaused,
+        animationsEnabled = animationsEnabled,
+        isEditing = showPhotoEditor,
+        photoCount = frames.size,
+    )
     val previewFrames = remember { mutableStateMapOf<String, ImageBitmap>() }
     LaunchedEffect(showPhotoEditor, framePaths) {
         if (!showPhotoEditor) return@LaunchedEffect
@@ -455,10 +492,10 @@ internal fun V18CinematicHomeHero(
         }
     }
 
-    LaunchedEffect(framePaths, autoPlay, showPhotoEditor) {
+    LaunchedEffect(framePaths, playbackEnabled) {
         if (framePaths.isEmpty()) index = 0
         else if (index !in framePaths.indices) index = 0
-        while (autoPlay && !showPhotoEditor && framePaths.size > 1) {
+        while (playbackEnabled && framePaths.size > 1) {
             delay(V18_HERO_FRAME_MS)
             index = (index + 1) % framePaths.size
         }
@@ -508,13 +545,32 @@ internal fun V18CinematicHomeHero(
                     AnimatedContent(
                         targetState = framePaths.getOrNull(index).orEmpty(),
                         transitionSpec = {
-                            fadeIn(tween(V18_HERO_DISSOLVE_MS)) togetherWith fadeOut(tween(V18_HERO_DISSOLVE_MS))
+                            fadeIn(tween(if (playbackEnabled) V18_HERO_DISSOLVE_MS else 0)) togetherWith
+                                fadeOut(tween(if (playbackEnabled) V18_HERO_DISSOLVE_MS else 0))
                         },
                         label = "cinematicHomeHeroFrame",
                     ) { path ->
                         val frameIndex = framePaths.indexOf(path).coerceAtLeast(0)
                         decoded[path]?.let { bitmap ->
-                            V18LivingHeroFrame(bitmap = bitmap, path = path, frameIndex = frameIndex)
+                            V18LivingHeroFrame(bitmap = bitmap, path = path, frameIndex = frameIndex, animateMotion = playbackEnabled)
+                        }
+                    }
+
+                    if (frames.size > 1) {
+                        Box(Modifier.align(Alignment.TopStart).padding(12.dp)) {
+                            V18HeroIconButton(
+                                icon = if (userPaused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause,
+                                contentDescription = if (userPaused) "Play slideshow" else "Pause slideshow",
+                                onClick = {
+                                    try {
+                                        val next = !userPaused
+                                        V18HomeHeroStore.savePaused(context, next)
+                                        userPaused = next
+                                    } catch (_: Exception) {
+                                        photoEditError = "Could not save slideshow playback preference."
+                                    }
+                                },
+                            )
                         }
                     }
 
@@ -669,7 +725,7 @@ internal fun V18CinematicHomeHero(
 }
 
 @Composable
-private fun V18LivingHeroFrame(bitmap: ImageBitmap, path: String, frameIndex: Int) {
+private fun V18LivingHeroFrame(bitmap: ImageBitmap, path: String, frameIndex: Int, animateMotion: Boolean) {
     val motion = remember(frameIndex) { V18CinematicHeroMotion.planFor(frameIndex) }
     val progress = remember(path) { Animatable(0f) }
     val density = LocalDensity.current
@@ -678,21 +734,30 @@ private fun V18LivingHeroFrame(bitmap: ImageBitmap, path: String, frameIndex: In
     val startYPx = with(density) { motion.startY.dp.toPx() }
     val endYPx = with(density) { motion.endY.dp.toPx() }
 
-    LaunchedEffect(path) {
+    LaunchedEffect(path, animateMotion) {
         progress.snapTo(0f)
-        progress.animateTo(1f, tween(V18_HERO_MOTION_MS, easing = LinearEasing))
+        if (animateMotion) {
+            progress.animateTo(1f, tween(V18_HERO_MOTION_MS, easing = LinearEasing))
+        }
     }
 
     Image(
         bitmap = bitmap,
         contentDescription = null,
         modifier = Modifier.fillMaxSize().graphicsLayer {
-            val p = progress.value
-            val scale = v18Lerp(motion.startScale, motion.endScale, p)
-            scaleX = scale
-            scaleY = scale
-            translationX = v18Lerp(startXPx, endXPx, p)
-            translationY = v18Lerp(startYPx, endYPx, p)
+            if (animateMotion) {
+                val p = progress.value
+                val scale = v18Lerp(motion.startScale, motion.endScale, p)
+                scaleX = scale
+                scaleY = scale
+                translationX = v18Lerp(startXPx, endXPx, p)
+                translationY = v18Lerp(startYPx, endYPx, p)
+            } else {
+                scaleX = 1f
+                scaleY = 1f
+                translationX = 0f
+                translationY = 0f
+            }
         },
         contentScale = ContentScale.Crop,
     )
