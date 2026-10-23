@@ -12,6 +12,10 @@ recovery_log=v210-live-stop-recover.log
 boundary_path=files/v210_live_restore_kill_qa/images_committed
 pending_path=files/creator_restore_recovery_v181/pending.json
 
+# IMPORTANT: adb shell run-as PACKAGE sh -c 'test -f ...' may silently split
+# the shell command on the emulator and always return false, even when the
+# image-commit file exists. Use run-as PACKAGE ls PATH, which verified the
+# progress file at the actual live-restore checkpoint.
 # Capture the *live test* logcat separately from earlier acceptance suites.
 # Without this, Android prints only "Process crashed" in instrumentation output.
 adb logcat -c
@@ -32,7 +36,7 @@ trap cleanup EXIT
 
 boundary_reached=0
 for attempt in $(seq 1 45); do
-  if adb shell run-as "${package}" sh -c "test -f ${boundary_path}" >/dev/null 2>&1; then
+  if adb shell run-as "${package}" ls "${boundary_path}" >/dev/null 2>&1; then
     boundary_reached=1
     break
   fi
@@ -51,7 +55,8 @@ if [[ "${boundary_reached}" -ne 1 ]]; then
   echo "App process status:"
   adb shell pidof "${package}" || true
   echo "Recovery fixture path status:"
-  adb shell run-as "${package}" sh -c 'pwd; ls -l files/v210_live_restore_kill_qa; ls -l files/creator_restore_recovery_v181/pending.json' || true
+  adb shell run-as "${package}" ls -la files/v210_live_restore_kill_qa || true
+  adb shell run-as "${package}" ls -l "${pending_path}" || true
   echo "Durable live-restore test stage (if setup began):"
   adb shell run-as "${package}" cat files/v210_live_restore_kill_qa/progress.txt || true
   exit 1
@@ -59,14 +64,14 @@ fi
 
 # The image commit callback reports completion only after pending journal was
 # written; separately confirm the *on-disk* pending file is still present.
-adb shell run-as "${package}" sh -c "test -f ${pending_path}"
+adb shell run-as "${package}" ls "${pending_path}" >/dev/null
 echo "Confirmed live image commit and pending rollback journal; force-stopping target."
 adb shell am force-stop "${package}"
 wait "${instrument_pid}" || true
 
 # A forced stop is supposed to abort active instrumentation; that is not itself
 # a test failure. The journal MUST remain for the fresh process to recover.
-adb shell run-as "${package}" sh -c "test -f ${pending_path}"
+adb shell run-as "${package}" ls "${pending_path}" >/dev/null
 echo "Confirmed pending journal survived forced stop."
 
 adb shell am instrument -w -r \
