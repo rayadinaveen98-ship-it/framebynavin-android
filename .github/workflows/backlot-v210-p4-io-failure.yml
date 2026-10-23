@@ -1,0 +1,689 @@
+name: Backlot V210 P4.4 — Backup I/O Failure Acceptance
+on:
+  push:
+    branches: [feature/backlot-v210-p4-io-failure-qa]
+  workflow_dispatch:
+  pull_request:
+    branches: [feature/backlot-v210-p4-process-boundary-qa]
+permissions:
+  contents: read
+concurrency:
+  group: backlot-v210-io-failure-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Preserve existing source contracts
+        run: |
+          set -euo pipefail
+          # Historical source guards hard-code accepted version numbers through V185.
+          # Run them against a temporary V185 version marker only; restore V192 before build.
+          original=$(mktemp)
+          cp app/build.gradle.kts "$original"
+          trap 'cp "$original" app/build.gradle.kts; rm -f "$original"' EXIT
+          sed -i -e 's/versionCode = 236/versionCode = 185/' \
+                 -e 's/2.8.6-v210-compact-restore-preview/2.3.5-v185-idea-conversion-preview/' app/build.gradle.kts
+          for version in $(seq 161 182); do
+            script=$(find tools -maxdepth 1 -name "check_v${version}_*.sh" | head -n 1)
+            test -n "$script"
+            echo "V${version} contract: $script"
+            bash "$script"
+          done
+          cp "$original" app/build.gradle.kts
+          rm -f "$original"
+          trap - EXIT
+          grep -Fq 'versionCode = 236' app/build.gradle.kts
+          grep -Fq 'versionName = "2.8.6-v210-compact-restore-preview"' app/build.gradle.kts
+      - name: Verify V209 P3 backup and frame-media checks before building
+        run: |
+          set -euo pipefail
+          grep -Fq 'val externalProjectAssetCount: Int = 0' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'val personalFrameCount: Int = 0' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'Project attachments' app/src/main/java/com/framebynavin/app/ui/BackupActivity.kt
+          grep -Fq 'Best Frames' app/src/main/java/com/framebynavin/app/ui/BackupActivity.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/V209BackupCoverageTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/V209LargeFrameAcceptanceTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/V210RecoveryCheckpointTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/V210ProcessBoundaryRecoveryTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/V210BackupIoFailureTest.kt
+          grep -Fq 'internal suspend fun restorePortableCompact(' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'snapshot(includeHero = false)' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'CreatorHeroArchive.importVerifiedFiles(appContext, frames)' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'creatorBackup.restorePortableCompact(rewritten, staged.bestFrames)' app/src/main/java/com/framebynavin/app/data/PortableCreatorBackupManager.kt
+          grep -Fq 'val restored = portable.restore(ByteArrayInputStream(zipBytes))' app/src/androidTest/java/com/framebynavin/app/data/V209LargeFrameAcceptanceTest.kt
+          grep -Fq 'private fun fingerprintSha256(root: JSONObject, schema: Int)' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'updateDigestUtf8(digest, value)' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          ! grep -Fq 'sha256(fingerprint(root' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'FRAME_MANIFEST_ENTRY = "best_frames.tsv"' app/src/main/java/com/framebynavin/app/data/PortableBackupArchive.kt
+          grep -Fq 'PortableBestFrameMedia.expand(' app/src/main/java/com/framebynavin/app/data/PortableCreatorBackupManager.kt
+          grep -Fq 'creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)' app/src/main/java/com/framebynavin/app/data/PortableCreatorBackupManager.kt
+          grep -Fq 'fingerprintSha256(root, schema) == root.optString("payloadSha256")' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          grep -Fq 'rewritePortablePersonalFrames(' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
+          python3 tools/check_v209_trust_hygiene.py --help >/dev/null
+      - name: Verify minimal Insights UI contract
+        run: bash tools/check_v190_insights_minimal.sh
+      - name: Verify V191 stability invariants
+        run: bash tools/check_v191_insights_stability.sh
+      - name: Check V192 UI contract
+        run: bash tools/check_v192_insights_thumbnails.sh
+      - name: Verify V193 Pulse computation invariants
+        run: bash tools/check_v193_pulse_truth.sh
+      - name: Validate inherited V194 acceptance guards
+        run: bash tools/check_v194_insights_acceptance.sh
+      - name: Validate living-scene source contract
+        run: bash tools/check_v195_living_scenes.sh
+      - name: Validate V195.1 reminder delivery guards
+        run: bash tools/check_v196_reminder_delivery.sh
+      - name: Validate full-screen ambient scene and manual reveal
+        run: bash tools/check_v197_immersive_particles.sh
+      - name: Validate richer motion and vibrance source contracts
+        run: bash tools/check_v198_motion_vibrance.sh
+      - name: Validate Spark mode-specific animation and visual safety
+        run: bash tools/check_v199_reminder_spark.sh
+      - name: Validate V195.4 Phase 4B minimal reminder UI
+        run: bash tools/check_v200_reminder_ui.sh
+      - name: Validate V195.4 Phase 4C action feedback and callback safety
+        run: bash tools/check_v201_action_feedback.sh
+      - name: Validate V195.5 doubled motion and durable reminder countdown
+        run: bash tools/check_v202_v203_premium_reminders.sh
+      - name: Verify V196 workspace safety source rules
+        run: |
+          set -euo pipefail
+          hub=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+          plan=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
+          publish=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha5Ui.kt
+          grep -Fq 'val overallProgress = CreatorWorkflowEngine.progress(task)' "$hub"
+          ! grep -Fq 'maxOf(workflowProgress, workspaceProgress)' "$hub"
+          grep -Fq 'pendingRemovalId = d.id' "$plan"
+          grep -Fq 'protectedRemovalIds(deliverables' "$plan"
+          grep -Fq 'enabled = !gate.required && !protectedCheck' "$publish"
+          grep -Fq 'enabled = !protectedCheck' "$publish"
+          grep -Fq 'require(historyAtRisk.isEmpty())' app/src/main/java/com/framebynavin/app/data/CreatorContentStabilization.kt
+          grep -Fq 'it.required && it.status != CreatorPublishGateStatus.DONE' app/src/main/java/com/framebynavin/app/data/CreatorPublishWorkflow.kt
+      - name: Verify V196.2 workspace UI hierarchy
+        run: |
+          set -euo pipefail
+          hub=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+          plan=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
+          script=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha4Ui.kt
+          publish=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha5Ui.kt
+          guide=app/src/main/java/com/framebynavin/app/ui/V20ContentBlueprintUi.kt
+          grep -Fq 'val overallProgress = CreatorWorkflowEngine.progress(task)' "$hub"
+          grep -Fq 'var showStages by rememberSaveable(task.id)' "$hub"
+          grep -Fq 'MinimalWorkspaceToolCard(' "$hub"
+          grep -Fq 'onOpenBlueprint' "$hub"
+          grep -Fq 'pendingRemovalId = d.id' "$plan"
+          ! grep -Fq 'Alpha3Section.SCRIPT' "$plan"
+          ! grep -Fq '"JUMP TO"' "$plan"
+          grep -Fq 'Alpha4Title("HOOKS", "")' "$script"
+          grep -Fq 'Alpha5Title("FINAL CHECKS", ""' "$publish"
+          ! grep -Fq 'onClick = {}' "$guide"
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V196WorkspaceMinimalUiTest.kt
+      - name: Verify Phase 3 Plan-to-Script source contracts
+        run: |
+          set -euo pipefail
+          a=app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          plan=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
+          script=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha4Ui.kt
+          grep -Fq 'nextMode = Alpha6WorkspaceMode.SCRIPT' "$a"
+          grep -Fq 'if (nextMode == Alpha6WorkspaceMode.SCRIPT) openScriptStudio(saved)' "$a"
+          grep -Fq 'CreatorContentStabilization.prepareProjectEditorSave' "$a"
+          grep -Fq 'onSaveAndScript(task.id, originalRevision, draft())' "$plan"
+          grep -Fq 'CreatorPlanScriptBridge.fields(task.workspace)' "$script"
+          test -f app/src/test/java/com/framebynavin/app/data/CreatorPlanScriptBridgeTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V196PlanScriptHandoffUiTest.kt
+      - name: Verify Phase 3B Script-to-Publish contracts
+        run: |
+          set -euo pipefail
+          a=app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          script=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha4Ui.kt
+          publish=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha5Ui.kt
+          bridge=app/src/main/java/com/framebynavin/app/data/CreatorScriptPublishBridge.kt
+          grep -Fq 'nextMode = Alpha6WorkspaceMode.PUBLISH' "$a"
+          grep -Fq 'mode = if (nextMode == Alpha6WorkspaceMode.PUBLISH)' "$a"
+          grep -Fq 'onSaveAndPublish(originalStudioRevision, originalWorkspaceRevision, draft())' "$script"
+          grep -Fq 'CreatorScriptPublishBridge.selectedTitle(task.workspace.scriptStudio)' "$publish"
+          grep -Fq 'CreatorScriptPublishBridge.useTitle(currentTarget, scriptTitle)' "$publish"
+          grep -Fq 'deliverable.publicationHistory.isEmpty()' "$bridge"
+          grep -Fq 'deliverable.status != CreatorDeliverableStatus.PUBLISHED' "$bridge"
+          test -f app/src/test/java/com/framebynavin/app/data/CreatorScriptPublishBridgeTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V196ScriptPublishHandoffUiTest.kt
+      - name: Verify Phase 3C reference and asset open contracts
+        run: |
+          set -euo pipefail
+          plan=app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
+          opener=app/src/main/java/com/framebynavin/app/ui/CreatorWorkspaceExternalOpen.kt
+          rules=app/src/main/java/com/framebynavin/app/data/CreatorWorkspaceLinkRules.kt
+          grep -Fq 'CreatorWorkspaceExternalOpen.openSource(context, ref.url)' "$plan"
+          grep -Fq 'CreatorWorkspaceExternalOpen.openAsset(context, asset.location)' "$plan"
+          grep -Fq 'CreatorWorkspaceLinkRules.isAssetLocation(asset.location)' "$plan"
+          grep -Fq 'CreatorWorkspaceLinkRules.isWebUrl(ref.url)' "$plan"
+          grep -Fq 'Intent.FLAG_GRANT_READ_URI_PERMISSION' "$opener"
+          grep -Fq 'Intent.ACTION_VIEW' "$opener"
+          ! grep -Fq 'Intent.FLAG_GRANT_WRITE_URI_PERMISSION' "$opener"
+          grep -Fq 'uri.rawUserInfo == null' "$rules"
+          grep -Fq 'uri.scheme.equals("content", true)' "$rules"
+          test -f app/src/test/java/com/framebynavin/app/data/CreatorWorkspaceLinkRulesTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V196ResearchAssetUiTest.kt
+      - name: Verify Phase 4 save and durability guards
+        run: |
+          set -euo pipefail
+          activity=app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          gate=app/src/main/java/com/framebynavin/app/data/CreatorWorkspaceSaveGate.kt
+          grep -Fq 'private val saveGate = CreatorWorkspaceSaveGate()' "$activity"
+          test "$(grep -Fc 'if (!saveGate.tryBegin()) return' "$activity")" = 2
+          test "$(grep -Fc 'saveGate.end()' "$activity")" = 2
+          grep -Fq 'Publication reconciliation deferred' "$activity"
+          grep -Fq 'Stale editor draft cleanup deferred' "$activity"
+          grep -Fq 'Script draft cleanup deferred' "$activity"
+          grep -Fq 'AtomicBoolean(false)' "$gate"
+          test -f app/src/test/java/com/framebynavin/app/data/CreatorWorkspaceSaveGateTest.kt
+          test -f app/src/test/java/com/framebynavin/app/data/CreatorWorkspaceEndToEndTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/V196WorkspaceDurabilityAndroidTest.kt
+      - name: Verify V197 responsive window and save contract
+        run: |
+          set -euo pipefail
+          path=app/src/main/java/com/framebynavin/app/ui/
+          for f in V19ContentWorkspaceAlpha3Ui.kt V19ContentWorkspaceAlpha4Ui.kt V19ContentWorkspaceAlpha5Ui.kt V19ContentWorkspaceAlpha6Ui.kt V20ContentBlueprintUi.kt; do
+            grep -Fq 'WorkspaceAdaptiveFrame {' "${path}${f}"
+            ! grep -Fq 'Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false))' "${path}${f}"
+          done
+          frame=${path}WorkspaceAdaptiveFrame.kt
+          activity=${path}ContentWorkspaceActivity.kt
+          plan=${path}V19ContentWorkspaceAlpha3Ui.kt
+          grep -Fq '.windowInsetsPadding(WindowInsets.safeDrawing)' "$frame"
+          grep -Fq '.imePadding()' "$frame"
+          grep -Fq 'contentWindowInsets = WindowInsets(0, 0, 0, 0)' "$frame"
+          grep -Fq 'maxWidth < 380.dp || largeText' "$frame"
+          grep -Fq 'BackHandler(enabled = !confirmEditorClose' "$activity"
+          grep -Fq 'ScrollableTabRow(' "$plan"
+          grep -Fq 'LocalDensity.current.fontScale >= 1.3f' "$plan"
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V197AdaptiveWorkspaceUiTest.kt
+      - name: Verify V197.1 app overlay source contracts
+        run: |
+          set -euo pipefail
+          ui=app/src/main/java/com/framebynavin/app/ui
+          grep -Fq 'BackHandler(onBack = onDismissRequest)' "$ui/CreatorAdaptiveFullScreen.kt"
+          grep -Fq '.windowInsetsPadding(WindowInsets.safeDrawing)' "$ui/CreatorAdaptiveFullScreen.kt"
+          grep -Fq '.imePadding()' "$ui/CreatorAdaptiveFullScreen.kt"
+          grep -Fq 'CreatorAdaptiveFullScreen(onDismissRequest = onDismiss)' "$ui/V20NewProjectWizard.kt"
+          grep -Fq 'CreatorAdaptiveFullScreen(' "$ui/V157ReminderCenterUi.kt"
+          grep -Fq 'CreatorAdaptiveFullScreen(onDismissRequest = { requestExit() })' "$ui/V101BReminderUi.kt"
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V197AdaptiveAppOverlaysUiTest.kt
+      - name: Verify V197.2 measured navigation and scroll contracts
+        run: |
+          set -euo pipefail
+          ui=app/src/main/java/com/framebynavin/app/ui
+          grep -Fq 'coordinates.findRootCoordinates().size.height' "$ui/FrameByNavinV101BApp.kt"
+          grep -Fq 'coordinates.positionInRoot().y' "$ui/FrameByNavinV101BApp.kt"
+          grep -Fq 'V197BottomNavigationClearance.calculate(' "$ui/FrameByNavinV101BApp.kt"
+          grep -Fq 'bottomNavigationClearance = bottomNavClearanceDp.dp' "$ui/FrameByNavinV101BApp.kt"
+          test "$(grep -Fc 'bottomNavigationClearance = bottomNavClearanceDp.dp' "$ui/FrameByNavinV101BApp.kt")" -eq 4
+          grep -Fq '.padding(bottom = bottomNavigationClearance)' "$ui/V18TodayScreen.kt"
+          grep -Fq '.padding(bottom = bottomNavigationClearance)' "$ui/V11YouTubeInsights.kt"
+          grep -Fq 'maxLines = 2' "$ui/FrameByNavinV101BApp.kt"
+          test -f app/src/test/java/com/framebynavin/app/ui/V197BottomNavigationClearanceTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V197BottomNavigationUiTest.kt
+      - name: Verify V197.3 Settings and onboarding safe viewport
+        run: |
+          set -euo pipefail
+          ui=app/src/main/java/com/framebynavin/app/ui
+          grep -Fq '.windowInsetsPadding(WindowInsets.safeDrawing)' "$ui/V144SettingsHub.kt"
+          grep -Fq '.imePadding()' "$ui/V144SettingsHub.kt"
+          ! grep -Fq 'verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()' "$ui/V144SettingsHub.kt"
+          grep -Fq '.windowInsetsPadding(WindowInsets.safeDrawing)' "$ui/V18CreatorOnboarding.kt"
+          grep -Fq '.imePadding()' "$ui/V18CreatorOnboarding.kt"
+          grep -Fq 'V197OnboardingActions(' "$ui/V18CreatorOnboarding.kt"
+          grep -Fq 'stackActions = maxWidth < 370.dp || LocalDensity.current.fontScale >= 1.35f' "$ui/V197OnboardingActions.kt"
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V197SettingsOnboardingUiTest.kt
+      - name: Verify V197.4 modal layering, safe viewport and editor actions
+        run: |
+          set -euo pipefail
+          ui=app/src/main/java/com/framebynavin/app/ui
+          grep -Fq 'CreatorAdaptiveFullScreen(onDismissRequest = ::dismissQuickCapture)' "$ui/V14QuickCaptureUi.kt"
+          grep -Fq 'onDismissRequest = ::dismiss,' "$ui/V09IdeaVaultUi.kt"
+          grep -Fq '.windowInsetsPadding(WindowInsets.safeDrawing)' "$ui/V09IdeaVaultUi.kt"
+          grep -Fq 'bottomNavigationClearance = bottomNavClearanceDp.dp' "$ui/FrameByNavinV101BApp.kt"
+          test "$(grep -Fc 'bottomNavigationClearance = bottomNavClearanceDp.dp' "$ui/FrameByNavinV101BApp.kt")" -eq 4
+          grep -Fq 'Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())' "$ui/V189VideoDetailScreen.kt"
+          grep -Fq 'Dialog(onDismissRequest = onDismiss,' "$ui/V189VideoDetailScreen.kt"
+          grep -Fq 'V197ProfileEditorFooter(' "$ui/V168CreatorProfileEditor.kt"
+          grep -Fq '.imePadding()' "$ui/V168CreatorProfileEditor.kt"
+          grep -Fq 'testTag("v168-save-profile")' "$ui/V197ProfileEditorFooter.kt"
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V197RemainingScreensUiTest.kt
+      - name: Verify V197.5 calendar, shortcuts and weekly plan source invariants
+        run: |
+          set -euo pipefail
+          ui=app/src/main/java/com/framebynavin/app/ui
+          grep -Fq 'bottomNavigationClearance = bottomNavClearanceDp.dp' "$ui/FrameByNavinV101BApp.kt"
+          grep -Fq 'bottomNavigationClearance = 36.dp' "$ui/FrameByNavinV101BApp.kt"
+          grep -Fq '.padding(bottom = bottomNavigationClearance)' "$ui/V15ContextUi.kt"
+          grep -Fq 'Modifier.navigationBarsPadding()' "$ui/V15ContextUi.kt"
+          grep -Fq 'LocalDensity.current.fontScale >= 1.35f' "$ui/V161QuickActionsHubUi.kt"
+          grep -Fq '.horizontalScroll(rememberScrollState())' "$ui/V161QuickActionsHubUi.kt"
+          grep -Fq 'V197WeeklyPlanActions(' "$ui/V08WeeklyScheduleUi.kt"
+          grep -Fq 'testTag("v164-create-preview")' "$ui/V197WeeklyPlanActions.kt"
+          grep -Fq 'WindowInsets.safeDrawing' "$ui/V08WeeklyScheduleUi.kt"
+          grep -Fq 'WindowInsets.safeDrawing' "$ui/V17AutomationCenter.kt"
+          grep -Fq 'WindowInsets.safeDrawing' "$ui/V09ReleaseDayUi.kt"
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V197QuickCalendarAdaptiveUiTest.kt
+      - name: Verify inherited V197.6 no-schema-change acceptance matrix
+        run: |
+          set -euo pipefail
+          test -f docs/qa/V197_6_E2E_RELIABILITY_AND_RELEASE_GATES.md
+          for f in \
+            data/V185IdeaProjectConversionTest.kt \
+            data/CreatorPublicationRecoveryV183Test.kt \
+            data/V176ProjectPersistenceInstrumentedTest.kt \
+            data/CreatorBackupV183Test.kt \
+            ui/V170LocalBackupScreenUiTest.kt \
+            reminders/V159ReminderScheduleAcceptanceTest.kt; do
+            test -f "app/src/androidTest/java/com/framebynavin/app/$f"
+          done
+          grep -Fq 'versionCode = 236' app/build.gradle.kts
+      - name: Validate RC source scope and preserved stable signing config
+        run: |
+          set -euo pipefail
+          test -f tools/check_backlot_personal_apk_signer.py
+          test -f docs/releases/BACKLOT_V197_RC1.md
+          grep -Fq 'versionCode = 236' app/build.gradle.kts
+          grep -Fq 'versionName = "2.8.6-v210-compact-restore-preview"' app/build.gradle.kts
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'signingConfig = signingConfigs.getByName("prototypeStable")' app/build.gradle.kts
+          grep -Fq 'matchingFallbacks += listOf("release")' app/build.gradle.kts
+      - name: Verify V198 approved branding references and unchanged startup policy
+        run: |
+          set -euo pipefail
+          manifest=app/src/main/AndroidManifest.xml
+          res=app/src/main/res
+          ui=app/src/main/java/com/framebynavin/app/ui
+          reminders=app/src/main/java/com/framebynavin/app/reminders
+          test -f "$res/drawable/backlot_v198_brand_mark.xml"
+          test -f "$res/drawable/backlot_v198_notification_monochrome.xml"
+          test -f "$res/mipmap-anydpi-v26/backlot_v198_launcher.xml"
+          test -s "$res/drawable-nodpi/backlot_v198_approved_icon.webp"
+          test "$(git hash-object "$res/drawable-nodpi/backlot_v198_approved_icon.webp")" = d02fcce620543960d4276aeefcc39323e3b936d0
+          grep -Fq '@drawable/backlot_v198_approved_icon' "$res/mipmap-anydpi-v26/backlot_v198_launcher.xml"
+          test -f "$res/values/backlot_v198_brand_colors.xml"
+          grep -Fq 'android:icon="@mipmap/backlot_v198_launcher"' "$manifest"
+          grep -Fq 'windowSplashScreenAnimatedIcon">@drawable/backlot_v198_approved_icon' "$res/values/themes.xml"
+          grep -Fq 'android:color="#3B9EFF"' "$res/drawable/backlot_v198_brand_mark.xml"
+          grep -Fq 'android:color="#D0B9FF"' "$res/drawable/backlot_v198_brand_mark.xml"
+          grep -Fq 'android:color="#FA748E"' "$res/drawable/backlot_v198_brand_mark.xml"
+          grep -Fq 'painterResource(id = R.drawable.backlot_v198_brand_mark)' "$ui/V174CinematicWelcome.kt"
+          grep -Fq 'text = "Built for Creators"' "$ui/V174CinematicWelcome.kt"
+          grep -Fq 'backlot_v198_notification_monochrome' "$reminders/ReminderNotifications.kt"
+          grep -Fq 'backlot_v198_notification_monochrome' "$reminders/CreatorContextNudgeWorker.kt"
+          grep -Fq 'V151LaunchPolicy.shouldShowCinematicIdent' "$ui/V131LaunchGate.kt"
+          grep -Fq 'versionCode = 236' app/build.gradle.kts
+      - name: Verify V199 three-second particle welcome contract
+        run: |
+          set -euo pipefail
+          ui=app/src/main/java/com/framebynavin/app/ui
+          test -f "$ui/V199ParticleWelcome.kt"
+          test -f "$ui/V199WelcomeSound.kt"
+          test -f app/src/test/java/com/framebynavin/app/ui/V199WelcomeTimelineTest.kt
+          grep -Fq 'const val DURATION_MS = 3_000L' "$ui/V199ParticleWelcome.kt"
+          grep -Fq 'const val CONVERGE_END_MS = 1_900L' "$ui/V199ParticleWelcome.kt"
+          grep -Fq 'val total = when' "$ui/V199ParticleWelcome.kt"
+          grep -Fq 'canvas.drawPoints(packed[group]' "$ui/V199ParticleWelcome.kt"
+          grep -Fq 'val word = "Backlot"' "$ui/V199ParticleWelcome.kt"
+          grep -Fq 'V199ParticleWelcome(' "$ui/V131LaunchGate.kt"
+          grep -Fq 'fadeIn(tween(0)) togetherWith fadeOut(tween(0))' "$ui/V131LaunchGate.kt"
+          grep -Fq 'V199WelcomeTimeline.DURATION_MS' "$ui/V199WelcomeSound.kt"
+          ! grep -Fq 'V174CinematicWelcome(' "$ui/V131LaunchGate.kt"
+          grep -Fq 'versionCode = 236' app/build.gradle.kts
+      - name: Guard V200 brand identity
+        run: python3 tools/check_v208_setup_backup.py
+      - name: Clean build, regressions, lint and instrumentation compilation
+        run: gradle :app:clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - name: Verify RC personal APK signer, package and upgrade version
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$apk"
+          python3 tools/check_backlot_personal_apk_signer.py \
+            --apk "$apk" \
+            --expected-cert-sha256 f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0
+          aapt_tool=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          test -x "$aapt_tool"
+          badging=$("$aapt_tool" dump badging "$apk")
+          package_line=$(printf '%s\n' "$badging" | grep '^package:')
+          printf '%s\n' "$package_line"
+          grep -Fq "name='com.framebynavin.app'" <<< "$package_line"
+          grep -Fq "versionCode='236'" <<< "$package_line"
+          grep -Fq "versionName='2.8.6-v210-compact-restore-preview'" <<< "$package_line"
+          # Verify the installed APK resource table, not only its source tree.
+          resources_dump=$("$aapt_tool" dump resources "$apk")
+          grep -Fq 'drawable/backlot_v198_notification_monochrome' <<< "$resources_dump"
+          grep -Fq 'drawable/backlot_v198_approved_icon' <<< "$resources_dump"
+          for retired in ic_framebynavin_launcher ic_framebynavin_splash backlot_icon_cinematic backlot_icon_minimal backlot_icon_light backlot_icon_horizontal backlot_splash_mark; do
+            if grep -Fq "drawable/$retired" <<< "$resources_dump"; then
+              printf 'Retired icon still packaged in APK: %s\\n' "$retired" >&2
+              exit 1
+            fi
+          done
+          sha256sum "$apk" | tee backlot-v208-setup-backup-apk.sha256
+          printf 'Personal side-load RC only. Same public dev signer, not production Play signing.\n'
+      - name: Upload RC fingerprint
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V210-P4.4-Certificate-and-SHA256
+          path: backlot-v208-setup-backup-apk.sha256
+          retention-days: 30
+      - name: Upload compiled instrumentation APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: V210-P4.4-Instrumentation-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload candidate and verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V210-P4.4-IO-Failure-APK
+          path: |
+            app/build/outputs/apk/personalStable/*.apk
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.html
+          if-no-files-found: warn
+          retention-days: 30
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: V210-P4.4-Instrumentation-APKs
+          path: instrumentation-apks
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Execute precompiled Android 11 acceptance suites
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r instrumentation-apks/debug/app-debug.apk
+            adb install -r instrumentation-apks/androidTest/debug/app-debug-androidTest.apk
+            adb logcat -c
+            bash tools/run_v185_instrumentation.sh
+            adb shell am instrument -w -r -e class com.framebynavin.app.youtube.YouTubeCacheLifecycleV183Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v187-insights-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v187-insights-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (8 tests)' v187-insights-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.youtube.V188RevenueAndReachOwnerTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v188-revenue-audience-instrumentation.log
+            grep -Fq 'OK (3 tests)' v188-revenue-audience-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V189VideoUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v189-video-ui-instrumentation.log
+            grep -Fq 'OK (2 tests)' v189-video-ui-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V190InsightsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v190-insights-ui-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v190-insights-ui-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v190-insights-ui-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V191ContentStabilityUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v191-content-stability-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v191-content-stability-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v191-content-stability-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V192ThumbnailSortUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v192-thumbnail-sort-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v192-thumbnail-sort-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v192-thumbnail-sort-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V194InsightsSnapshotOwnershipUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v194-snapshot-ownership-instrumentation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v194-snapshot-ownership-instrumentation.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v194-snapshot-ownership-instrumentation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V196WorkspaceMinimalUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v196-p2-workspace-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v196-p2-workspace-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v196-p2-workspace-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V196PlanScriptHandoffUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v196-p3-plan-script-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v196-p3-plan-script-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v196-p3-plan-script-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V196ScriptPublishHandoffUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v196-p3b-script-publish-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v196-p3b-script-publish-ui.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v196-p3b-script-publish-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V196ResearchAssetUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v196-p3c-research-assets-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v196-p3c-research-assets-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v196-p3c-research-assets-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V196WorkspaceDurabilityAndroidTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v196-p4-durability.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v196-p4-durability.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v196-p4-durability.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197AdaptiveWorkspaceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-adaptive-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-adaptive-default.log; then exit 1; fi
+            grep -Fq 'OK (5 tests)' v197-adaptive-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197AdaptiveAppOverlaysUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-1-overlays-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-1-overlays-default.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-1-overlays-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197BottomNavigationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-2-nav-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-2-nav-default.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v197-2-nav-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197SettingsOnboardingUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-3-settings-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-3-settings-default.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-3-settings-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V168ProfileEditorUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-4-profile-regression.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-4-profile-regression.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-4-profile-regression.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V184QuickCaptureRecoveryUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-4-capture-draft-regression.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-4-capture-draft-regression.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v197-4-capture-draft-regression.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197RemainingScreensUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-4-remaining-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-4-remaining-default.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-4-remaining-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V161QuickActionsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-5-quick-actions-regression.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-5-quick-actions-regression.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v197-5-quick-actions-regression.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V163BriefCalendarUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-5-calendar-regression.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-5-calendar-regression.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v197-5-calendar-regression.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V164WeeklyPlanPreviewUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-5-weekly-regression.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-5-weekly-regression.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v197-5-weekly-regression.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197QuickCalendarAdaptiveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-5-adaptive-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-5-adaptive-default.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-5-adaptive-default.log
+            # V197.6: recovery / data-safety suites run ONLY on disposable CI emulator.
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V185IdeaProjectConversionTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-6-idea-conversion.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-6-idea-conversion.log; then exit 1; fi
+            grep -Fq 'OK (7 tests)' v197-6-idea-conversion.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.CreatorPublicationRecoveryV183Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-6-publication-recovery.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-6-publication-recovery.log; then exit 1; fi
+            grep -Fq 'OK (7 tests)' v197-6-publication-recovery.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V176ProjectPersistenceInstrumentedTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-6-project-persistence.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-6-project-persistence.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v197-6-project-persistence.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.CreatorBackupV183Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-6-backup-recovery.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-6-backup-recovery.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-6-backup-recovery.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V170LocalBackupScreenUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-6-backup-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-6-backup-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v197-6-backup-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V159ReminderScheduleAcceptanceTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-6-reminder-isolation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-6-reminder-isolation.log; then exit 1; fi
+            grep -Fq 'OK (5 tests)' v197-6-reminder-isolation.log
+            # Compact phone + accessibility font scaling. Reset before remaining app suites.
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197AdaptiveWorkspaceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-adaptive-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-adaptive-compact.log; then exit 1; fi
+            grep -Fq 'OK (5 tests)' v197-adaptive-compact.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197AdaptiveAppOverlaysUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-1-overlays-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-1-overlays-compact.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-1-overlays-compact.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197BottomNavigationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-2-nav-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-2-nav-compact.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v197-2-nav-compact.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197SettingsOnboardingUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-3-settings-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-3-settings-compact.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-3-settings-compact.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197RemainingScreensUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-4-remaining-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-4-remaining-compact.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-4-remaining-compact.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197QuickCalendarAdaptiveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-5-adaptive-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-5-adaptive-compact.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v197-5-adaptive-compact.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V200BrandConsistencyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v200-brand-identity-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v200-brand-identity-ui.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v200-brand-identity-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V205NudgePauseReceiverTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v205-nudge-pause-receiver.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v205-nudge-pause-receiver.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v205-nudge-pause-receiver.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V207FullscreenVoiceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v207-fullscreen-voice-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v207-fullscreen-voice-ui.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v207-fullscreen-voice-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V207FirstRunUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v207-first-run-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v207-first-run-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v207-first-run-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V207GuidedTourUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v207-guided-tour-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v207-guided-tour-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v207-guided-tour-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V207RevenueUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v207-revenue-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v207-revenue-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v207-revenue-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V208PortableBackupIntegrityTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v208-portable-backup.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v208-portable-backup.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v208-portable-backup.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V209BackupCoverageTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v209-backup-coverage.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v209-backup-coverage.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v209-backup-coverage.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V209LargeFrameAcceptanceTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v209-p3-large-frame.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v209-p3-large-frame.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v209-p3-large-frame.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V210RecoveryCheckpointTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v210-recovery-checkpoint.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v210-recovery-checkpoint.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v210-recovery-checkpoint.log
+            # TWO separate instrumentation invocations with an explicit adb
+            # process stop between them. Only disposable emulator app data.
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V210ProcessBoundaryRecoveryTest#preparePendingRecoveryAcrossProcessBoundary' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v210-process-boundary-prepare.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v210-process-boundary-prepare.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v210-process-boundary-prepare.log
+            adb shell am force-stop com.framebynavin.app
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V210ProcessBoundaryRecoveryTest#recoverPendingAfterForceStopInFreshProcess' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v210-process-boundary-recover.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v210-process-boundary-recover.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v210-process-boundary-recover.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V210BackupIoFailureTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v210-io-failure.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v210-io-failure.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v210-io-failure.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V145GuideAssetDecodeTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v208-guides-asset-qa.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v208-guides-asset-qa.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v208-guides-asset-qa.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V195ReminderSceneUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v195-reminder-scene-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v195-reminder-scene-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v195-reminder-scene-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V197ImmersiveSceneUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-immersive-scene-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-immersive-scene-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v197-immersive-scene-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V199ReminderSparkUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v199-spark-expression-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v199-spark-expression-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v199-spark-expression-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V200ReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v200-reminder-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v200-reminder-ui.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v200-reminder-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V201ReminderFeedbackUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v201-reminder-feedback-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v201-reminder-feedback-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v201-reminder-feedback-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V202PremiumParticlesUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v202-premium-particles-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v202-premium-particles-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v202-premium-particles-ui.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V210-P4.4-Emulator-Results
+          path: |
+            v200-brand-identity-ui.log
+            v197-adaptive-default.log
+            v197-1-overlays-default.log
+            v197-1-overlays-compact.log
+            v197-2-nav-default.log
+            v197-2-nav-compact.log
+            v197-3-settings-default.log
+            v197-3-settings-compact.log
+            v197-4-profile-regression.log
+            v197-4-capture-draft-regression.log
+            v197-4-remaining-default.log
+            v197-4-remaining-compact.log
+            v197-5-quick-actions-regression.log
+            v197-5-calendar-regression.log
+            v197-5-weekly-regression.log
+            v197-5-adaptive-default.log
+            v197-5-adaptive-compact.log
+            v197-6-idea-conversion.log
+            v197-6-publication-recovery.log
+            v197-6-project-persistence.log
+            v197-6-backup-recovery.log
+            v197-6-backup-ui.log
+            v197-6-reminder-isolation.log
+            v197-adaptive-compact.log
+            v196-p4-durability.log
+            v196-p3c-research-assets-ui.log
+            v196-p3b-script-publish-ui.log
+            v196-p3-plan-script-ui.log
+            v196-p2-workspace-ui.log
+            v202-premium-particles-ui.log
+            v205-nudge-pause-receiver.log
+            v207-fullscreen-voice-ui.log
+            v207-first-run-ui.log
+            v207-guided-tour-ui.log
+            v207-revenue-ui.log
+            v208-portable-backup.log
+            v209-backup-coverage.log
+            v209-p3-large-frame.log
+            v210-recovery-checkpoint.log
+            v210-process-boundary-prepare.log
+            v210-process-boundary-recover.log
+            v210-io-failure.log
+            v208-guides-asset-qa.log
+            v201-reminder-feedback-ui.log
+            v200-reminder-ui.log
+            v199-spark-expression-ui.log
+            v197-immersive-scene-ui.log
+            v195-reminder-scene-ui.log
+            v194-snapshot-ownership-instrumentation.log
+            v192-thumbnail-sort-instrumentation.log
+            v191-content-stability-instrumentation.log
+            v190-insights-ui-instrumentation.log
+            v189-video-ui-instrumentation.log
+            v188-revenue-audience-instrumentation.log
+            v187-insights-instrumentation.log
+            v185-instrumentation.log
+            v185-logcat.txt
+            v185-emulator-screen.png
+            v185-conversion-dialog.png
