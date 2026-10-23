@@ -2,15 +2,21 @@
 
 Backlot is an Android-first, offline-first creator workspace built with Kotlin and Jetpack Compose. Capture ideas, develop scripts/projects, manage production and reminders, record publication and review authorized channel results.
 
+## Current release gate — 23 October 2026
+
+**V210 P4.6, Build 237 is CI-green but not stable.** [GitHub Actions run 39934884089](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089) passed the Android build and device-emulator suites, including the previously failing Best Frames checksum tests. The source is on [draft PR #100](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/100), not merged into `main` or any stable branch.
+
+**Three different statuses matter:** the frozen personal stable is **V195.5**; the last creator-accepted personal phone preview is **V208**; the newest fully CI-tested **engineering candidate** is **V210 P4.6**. None is a commercial Play Store release. Next gate: non-destructive on-device V210 upgrade and backup preview checks, with low-memory/disk-loss stress separately tracked. See [current release ledger](docs/release/CURRENT_STABLE.md) and [P4.6 acceptance checklist](docs/qa/V210_P4_6_STREAMED_FRAME_EXPORT.md#p46-engineering-acceptance-and-release-freeze-23-october-2026).
+
 ## Release baseline
 
 The latest frozen personal-sideload stable snapshot is **V195.5 / 2.5.3-v195.5-stable** on `stable/backlot-v195-5`. The `main` branch retains the older V183 stable lineage; these are distinct and neither is a Google Play production release. See [current stable and candidate ledger](docs/release/CURRENT_STABLE.md) and [V195.5 release record](docs/releases/BACKLOT_V195_5_STABLE.md).
 
-**Latest verified personal preview:** **V208 / 2.8.2-v208-setup-backup-preview** (versionCode 232, commit `05a082d`). The [V208 PR](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/87) is still a draft; CI and the creator's personal-install feedback do not make it a Play Store release.
+**Latest creator-accepted personal phone preview:** **V208 / 2.8.2-v208-setup-backup-preview** (versionCode 232, commit `05a082d`). The [V208 PR](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/87) is still a draft; CI and the creator's personal-install feedback do not make it a Play Store release.
 
-**Current maintenance work:** V209 P1 is a **non-functional trust/release hygiene phase** based on V208. It documents release and backup coverage, ignores future generated build files, and verifies the existing package/signing identity. It creates no replacement APK. V184–V207 remain historical milestones. See [V209 P1 QA](docs/qa/V209_TRUST_RELEASE_HYGIENE_P1.md).
+**Historical maintenance work:** V209 P1 is a **non-functional trust/release hygiene phase** based on V208. It documents release and backup coverage, ignores future generated build files, and verifies the existing package/signing identity. It creates no replacement APK. V184–V207 remain historical milestones. See [V209 P1 QA](docs/qa/V209_TRUST_RELEASE_HYGIENE_P1.md).
 
-**Next personal preview candidate:** **V209 P2 / 2.8.3-v209-backup-coverage-preview** (versionCode 233) improves truthful portable-backup coverage and shows original Best Frames versus reference-only project attachments during restore preview. This **changes the app**; it is not automatically stable or installed on user devices. See [V209 P2 QA](docs/qa/V209_BACKUP_COVERAGE_P2.md).
+**Earlier personal preview candidate:** **V209 P2 / 2.8.3-v209-backup-coverage-preview** (versionCode 233) improves truthful portable-backup coverage and shows original Best Frames versus reference-only project attachments during restore preview. This **changes the app**; it is not automatically stable or installed on user devices. See [V209 P2 QA](docs/qa/V209_BACKUP_COVERAGE_P2.md).
 
 ## Development and acceptance
 
