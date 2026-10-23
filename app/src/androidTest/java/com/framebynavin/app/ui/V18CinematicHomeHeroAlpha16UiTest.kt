@@ -108,7 +108,7 @@ class V18CinematicHomeHeroAlpha16UiTest {
             second.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
             check(prefs.edit().putString("frame_order", "${first.name}\n${second.name}").commit())
 
-            composeRule.setContent { V18CinematicHomeHero("King") }
+            composeRule.setContent { V18CinematicHomeHero("King", autoPlay = false) }
             composeRule.onNodeWithContentDescription("Manage slideshow images").performClick()
             composeRule.onNodeWithContentDescription("Edit slideshow order").performClick()
             composeRule.onNodeWithContentDescription("Move photo 1 down").performClick()
