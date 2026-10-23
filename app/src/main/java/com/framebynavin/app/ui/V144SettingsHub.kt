@@ -68,6 +68,7 @@ internal fun V144SettingsHub(
     onYouTube: () -> Unit,
     onOpenWeeklyPlan: () -> Unit = {},
     onOpenAutomation: () -> Unit = {},
+    onOpenHomeSlideshow: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var sectionName by rememberSaveable { mutableStateOf(V167SettingsSection.HOME.name) }
@@ -108,6 +109,9 @@ internal fun V144SettingsHub(
             V167SettingsSection.PERSONALIZATION -> V144SettingsPage("PERSONALIZATION", "Make Backlot yours", ::navigateBack) {
                 V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) {
                     sectionName = V167SettingsSection.APPEARANCE.name
+                }
+                V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
+                    onOpenHomeSlideshow()
                 }
                 V144CategoryCard("Spark", "Your creative companion", Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
