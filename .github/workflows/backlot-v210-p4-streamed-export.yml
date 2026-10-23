@@ -1,10 +1,10 @@
-name: Backlot V210 P4.6 — Memory-Bounded Best Frames Export
+name: Backlot Home B1 — Slideshow Manager and V210 Regression
 on:
   push:
-    branches: [feature/backlot-v210-p4-streamed-frame-export]
+    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1]
   workflow_dispatch:
   pull_request:
-    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export]
+    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a]
 permissions:
   contents: read
 concurrency:
@@ -439,11 +439,11 @@ jobs:
             adb install -r instrumentation-apks/androidTest/debug/app-debug-androidTest.apk
             adb logcat -c
             bash tools/run_v185_instrumentation.sh
-            # Separate Home-layout PR: run the five visible greeting/photo control and populated-media tests
+            # Separate Home-layout PR: run the six greeting/photo control, populated media and reorder/remove-one tests
             # before the inherited data-changing recovery suites.
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V18CinematicHomeHeroAlpha16UiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-home-greeting-ui.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v211-home-greeting-ui.log; then exit 1; fi
-            grep -Fq 'OK (5 tests)' v211-home-greeting-ui.log
+            grep -Fq 'OK (6 tests)' v211-home-greeting-ui.log
             adb shell am instrument -w -r -e class com.framebynavin.app.youtube.YouTubeCacheLifecycleV183Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v187-insights-instrumentation.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v187-insights-instrumentation.log; then exit 1; fi
             grep -Fq 'OK (8 tests)' v187-insights-instrumentation.log
