@@ -60,7 +60,8 @@ jobs:
           test -f app/src/androidTest/java/com/framebynavin/app/data/V210StreamedFramesExportTest.kt
           grep -Fq 'snapshot(includeHero = false)' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
           grep -Fq 'PortableBestFrameMedia.prepareFromFiles(' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
-          grep -Fq 'Base64OutputStream(sink, Base64.NO_WRAP)' app/src/main/java/com/framebynavin/app/data/PortableBestFrameMedia.kt
+          grep -Fq 'Base64.encode(chunk, 0, size, Base64.NO_WRAP)' app/src/main/java/com/framebynavin/app/data/PortableBestFrameMedia.kt
+          grep -Fq 'ByteArray(8190)' app/src/main/java/com/framebynavin/app/data/PortableBestFrameMedia.kt
           test -f tools/run_v210_live_restore_kill.sh
           grep -Fq 'adb shell am force-stop "${package}"' tools/run_v210_live_restore_kill.sh
           grep -Fq 'afterImagesCommittedForTest?.invoke()' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
