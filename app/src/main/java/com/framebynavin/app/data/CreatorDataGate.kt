@@ -77,6 +77,24 @@ object CreatorDataGate {
             .getLong("generation", 0L)
     }
 
+    /**
+     * Atomic synchronous guard for tiny SharedPreferences journal operations.
+     * A restore's invalidate() shares epochLock, so its epoch cannot change
+     * between the guard and the draft journal's durable commit.
+     */
+    fun <T> withGeneration(context: Context, expected: Long, block: () -> T): T =
+        synchronized(epochLock) {
+            val current = context.applicationContext
+                .getSharedPreferences("creator_data_gate_v181", Context.MODE_PRIVATE)
+                .getLong("generation", 0L)
+            if (current != expected) {
+                throw CreatorWriteConflict(
+                    "This editor predates a restore. Reopen the current project before saving a draft."
+                )
+            }
+            block()
+        }
+
     fun checkGeneration(context: Context, expected: Long) {
         if (generation(context) != expected)
             throw CreatorWriteConflict("This edit predates a restore. Review the latest data before editing again.")
