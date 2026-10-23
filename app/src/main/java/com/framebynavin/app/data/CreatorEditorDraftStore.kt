@@ -94,7 +94,8 @@ class CreatorEditorDraftStore(context: Context) {
     fun hasHeldDraft(projectId: String): Boolean =
         listOf(projectKey(projectId), scriptKey(projectId), publishKey(projectId)).any { key ->
             val record = prefs.getString(key, null)?.let { runCatching { JSONObject(it) }.getOrNull() }
-            record != null && !matchesGeneration(record)
+            (record != null && !matchesGeneration(record)) ||
+                prefs.all.keys.any { it.startsWith("held:$key:") }
         }
 
     private fun matchesGeneration(record: JSONObject): Boolean =
