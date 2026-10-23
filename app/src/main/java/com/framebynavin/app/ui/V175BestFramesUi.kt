@@ -80,6 +80,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorHeroArchive
+import com.framebynavin.app.data.PortableBestFrame
+import com.framebynavin.app.data.PortableBestFrameMedia
 import com.framebynavin.app.ui.theme.BacklotMediaBorder
 import com.framebynavin.app.ui.theme.BacklotMediaCanvas
 import com.framebynavin.app.ui.theme.BacklotOnMedia
@@ -94,6 +96,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.Locale
 
 private const val V18_HERO_FRAME_MS = 5_200L
@@ -122,7 +125,7 @@ internal object V18CinematicHeroMotion {
     fun planFor(index: Int): V18HeroMotionPlan = plans[Math.floorMod(index, plans.size)]
 }
 
-private object V18HomeHeroStore {
+internal object V18HomeHeroStore {
     const val MAX_FRAMES = 10
     private const val DIRECTORY = "best_frames_original"
     private const val PREFS = "best_frames_original_prefs"
@@ -144,42 +147,65 @@ private object V18HomeHeroStore {
         return names.map { File(directory, it) }.filter { it.isFile }
     }
 
-    suspend fun replace(context: Context, uris: List<Uri>): List<File> = CreatorDataGate.transaction { withContext(Dispatchers.IO) {
-        val selected = uris.take(MAX_FRAMES)
-        if (selected.isEmpty()) return@withContext current(context)
+    /**
+     * Atomic photo-picker import. Honor the exact same 10-frame, 20 MiB/frame,
+     * 100 MiB/selection and decodable-image requirements as portable backup.
+     * A bad or unreadable photo rejects the whole selection; old saved order
+     * and originals remain untouched. The verified importer owns final writes.
+     */
+    suspend fun replace(context: Context, uris: List<Uri>): List<File> =
+        CreatorDataGate.transaction { withContext(Dispatchers.IO) {
+            if (uris.isEmpty()) return@withContext current(context)
+            require(uris.size <= MAX_FRAMES) { "Choose at most ten photos" }
+            checkedCurrent(context)
 
-        val staging = File(context.cacheDir, "home_hero_stage_${System.nanoTime()}").apply { mkdirs() }
-        val staged = mutableListOf<File>()
-        try {
-            selected.forEachIndexed { index, uri ->
-                val out = File(staging, "frame_${index + 1}.${extensionFor(context, uri)}")
-                runCatching {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(out).use { output -> input.copyTo(output, 256 * 1024) }
-                    } ?: error("No readable stream")
-                }.onSuccess {
-                    if (out.length() > 0L) staged += out else out.delete()
-                }.onFailure { out.delete() }
-            }
-
-            if (staged.isEmpty()) return@withContext current(context)
-
-            val directory = File(context.filesDir, DIRECTORY).apply { mkdirs() }
-            val previous = current(context)
-            val stamp = System.currentTimeMillis()
-            val finalFiles = staged.mapIndexed { index, source ->
-                val ext = source.extension.ifBlank { "img" }
-                File(directory, "frame_${stamp}_${index + 1}.$ext").also { target ->
-                    source.copyTo(target, overwrite = true)
+            val staging = File(context.cacheDir, "home_hero_stage_${System.nanoTime()}")
+            check(staging.mkdirs() || staging.isDirectory) { "Could not prepare photo import" }
+            val prepared = mutableListOf<PortableBestFrame>()
+            var totalBytes = 0L
+            try {
+                uris.forEachIndexed { index, uri ->
+                    val target = File(staging, "frame_${index + 1}.${extensionFor(context, uri)}")
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    var written = 0L
+                    val stream = context.contentResolver.openInputStream(uri)
+                        ?: error("The selected photo could not be opened")
+                    stream.use { input ->
+                        FileOutputStream(target).use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                if (count == 0) continue
+                                require(written <= PortableBestFrameMedia.MAX_FILE_BYTES - count) {
+                                    "A selected photo exceeds the 20 MB backup limit"
+                                }
+                                require(totalBytes <= PortableBestFrameMedia.MAX_TOTAL_BYTES - written - count) {
+                                    "Selected photos exceed the 100 MB backup limit"
+                                }
+                                output.write(buffer, 0, count)
+                                digest.update(buffer, 0, count)
+                                written += count
+                            }
+                        }
+                    }
+                    require(written > 0L) { "A selected photo was empty" }
+                    totalBytes += written
+                    prepared += PortableBestFrame(
+                        name = target.name,
+                        sha256 = digest.digest().joinToString("") { "%02x".format(it) },
+                        file = target,
+                    )
                 }
+                // Existing hardened backup restore importer verifies dimensions,
+                // writes new originals, rolls back partial copies on error, then
+                // switches the visible SharedPreferences order exactly once.
+                CreatorHeroArchive.importVerifiedFiles(context, prepared)
+                current(context)
+            } finally {
+                staging.deleteRecursively()
             }
-            persist(context, finalFiles)
-            // Retain old originals for recovery. The active order is the only visible selection.
-            finalFiles
-        } finally {
-            staging.deleteRecursively()
-        }
-    } }
+        } }
 
     suspend fun clear(context: Context) = CreatorDataGate.transaction { withContext(Dispatchers.IO) {
         // Clearing the selection must not destroy the original files retained for recovery.
@@ -403,10 +429,15 @@ internal fun V18CinematicHomeHero(
             scope.launch {
                 importing = true
                 manageExpanded = false
-                frames = V18HomeHeroStore.replace(context, uris)
-                decoded.clear()
-                index = 0
-                importing = false
+                try {
+                    frames = V18HomeHeroStore.replace(context, uris)
+                    decoded.clear()
+                    index = 0
+                } catch (_: Exception) {
+                    photoEditError = "Could not import all selected photos. Existing photos were kept. Use valid images up to 20 MB each and 100 MB total."
+                } finally {
+                    importing = false
+                }
             }
         }
     }
