@@ -253,6 +253,50 @@ private fun v18Greeting(name: String): String {
 
 private fun v18Lerp(start: Float, end: Float, progress: Float): Float = start + (end - start) * progress
 
+/**
+ * The greeting is an independent, stable Home header; slideshow frames must
+ * never make it disappear or place it over an image. Photo actions stay beside
+ * the greeting for zero and multiple image states.
+ */
+@Composable
+internal fun V18HeroGreetingBar(
+    greeting: String,
+    hasFrames: Boolean,
+    importing: Boolean,
+    onPhotoClick: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
+        }
+        Surface(
+            onClick = { if (!importing) onPhotoClick() },
+            modifier = Modifier.size(48.dp),
+            shape = CircleShape,
+            color = CinemaSurfaceRaised,
+            border = BorderStroke(1.dp, CinemaLine),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (importing) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
+                } else {
+                    Icon(
+                        if (hasFrames) Icons.Outlined.Collections else Icons.Outlined.Add,
+                        contentDescription = if (hasFrames) "Manage slideshow images" else "Add slideshow images",
+                        tint = ProjectorIvory,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 internal fun V18CinematicHomeHero(creatorName: String) {
     val context = LocalContext.current
@@ -311,88 +355,61 @@ internal fun V18CinematicHomeHero(creatorName: String) {
         decoded.keys.toList().filterNot { it in wanted }.forEach { decoded.remove(it) }
     }
 
-    if (frames.isEmpty()) {
-        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-            Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(11.dp))
+    Column(Modifier.fillMaxWidth()) {
+        V18HeroGreetingBar(
+            greeting = greeting,
+            hasFrames = frames.isNotEmpty(),
+            importing = importing,
+            onPhotoClick = {
+                if (frames.isEmpty()) chooseFrames()
+                else manageExpanded = !manageExpanded
+            },
+        )
+
+        // Never reserve banner space on an empty collection; the greeting
+        // and photo control remain in the same position with or without media.
+        if (frames.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
             Surface(
-                onClick = { if (!importing) chooseFrames() },
-                modifier = Modifier.size(40.dp),
-                shape = CircleShape,
-                color = CinemaSurfaceRaised,
-                border = BorderStroke(1.dp, CinemaLine),
+                modifier = Modifier.fillMaxWidth().height(252.dp),
+                shape = RoundedCornerShape(26.dp),
+                color = BacklotMediaCanvas,
+                border = BorderStroke(1.dp, BacklotMediaBorder),
+                shadowElevation = 10.dp,
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (importing) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
-                    } else {
-                        Icon(Icons.Outlined.Add, contentDescription = "Add slideshow images", tint = ProjectorIvory, modifier = Modifier.size(20.dp))
-                    }
-                }
-            }
-        }
-    } else {
-        Surface(
-            modifier = Modifier.fillMaxWidth().height(252.dp),
-            shape = RoundedCornerShape(26.dp),
-            color = BacklotMediaCanvas,
-            border = BorderStroke(1.dp, BacklotMediaBorder),
-            shadowElevation = 10.dp,
-        ) {
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp)).background(BacklotMediaCanvas)) {
-                AnimatedContent(
-                    targetState = framePaths.getOrNull(index).orEmpty(),
-                    transitionSpec = {
-                        fadeIn(tween(V18_HERO_DISSOLVE_MS)) togetherWith fadeOut(tween(V18_HERO_DISSOLVE_MS))
-                    },
-                    label = "cinematicHomeHeroFrame",
-                ) { path ->
-                    val frameIndex = framePaths.indexOf(path).coerceAtLeast(0)
-                    decoded[path]?.let { bitmap ->
-                        V18LivingHeroFrame(bitmap = bitmap, path = path, frameIndex = frameIndex)
-                    }
-                }
-
-                Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.Black.copy(alpha = .18f),
-                                Color.Transparent,
-                                Color.Black.copy(alpha = .18f),
-                                Color.Black.copy(alpha = .76f),
-                            )
-                        )
-                    )
-                )
-
-                Column(
-                    Modifier.align(Alignment.BottomStart).padding(start = 18.dp, end = 66.dp, bottom = 18.dp)
-                ) {
-                    Text("BACKLOT", color = RecRed, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.25.sp)
-                    Spacer(Modifier.height(2.dp))
-                    Text(greeting, color = BacklotOnMedia, fontSize = 21.sp, fontWeight = FontWeight.Black)
-                }
-
-                if (importing) {
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(38.dp),
-                        shape = CircleShape,
-                        color = Color.Black.copy(alpha = .55f),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = BacklotOnMedia)
+                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp)).background(BacklotMediaCanvas)) {
+                    AnimatedContent(
+                        targetState = framePaths.getOrNull(index).orEmpty(),
+                        transitionSpec = {
+                            fadeIn(tween(V18_HERO_DISSOLVE_MS)) togetherWith fadeOut(tween(V18_HERO_DISSOLVE_MS))
+                        },
+                        label = "cinematicHomeHeroFrame",
+                    ) { path ->
+                        val frameIndex = framePaths.indexOf(path).coerceAtLeast(0)
+                        decoded[path]?.let { bitmap ->
+                            V18LivingHeroFrame(bitmap = bitmap, path = path, frameIndex = frameIndex)
                         }
                     }
-                } else {
-                    V18HeroManageActions(
-                        expanded = manageExpanded,
-                        onToggle = { manageExpanded = !manageExpanded },
-                        onChange = { manageExpanded = false; chooseFrames() },
-                        onRemove = { manageExpanded = false; confirmRemove = true },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-                    )
+
+                    if (importing) {
+                        Surface(
+                            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(38.dp),
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = .55f),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = BacklotOnMedia)
+                            }
+                        }
+                    } else {
+                        V18HeroManageActions(
+                            expanded = manageExpanded,
+                            onToggle = { manageExpanded = !manageExpanded },
+                            onChange = { manageExpanded = false; chooseFrames() },
+                            onRemove = { manageExpanded = false; confirmRemove = true },
+                            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                        )
+                    }
                 }
             }
         }
