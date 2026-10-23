@@ -17,7 +17,7 @@ V209–V210 portable ZIP restore and preview are now memory-bounded for large or
 
 ## Acceptance
 
-1. New `V210StreamedFramesExportTest` on a disposable Android 11 emulator compares `originalSha256` with **CreatorHeroArchive.export()** (the historical canonical representation) across three different valid image files, verifies compact envelope and source media, and checks empty-list backward compatibility. Require `OK (2 tests)`.
+1. New `V210StreamedFramesExportTest` on a disposable Android 11 emulator compares `originalSha256` with **CreatorHeroArchive.export()** (the historical canonical representation) across three different valid image files, verifies compact envelope and source media, and checks empty-list backward compatibility. Require `OK (3 tests)`.
 2. Run the entire inherited integrated P4.5 suite on the same exact commit: 671 JVM unit tests, whole Android regression matrix, >32 MiB two-image export / preview / restore, tampered journal, cross-process recovery, actual in-flight force-stop and I/O short-write / truncated ZIP rejection.
 3. Verify app ID, preview signing, APK SHA-256 and versionCode **237**. No new APK until all exact-head CI jobs pass and checksum is verified.
 
@@ -34,3 +34,13 @@ Initial build 237 at commit `c60aa7c` **compiled successfully but FAILED both em
 Correction: replace the `Base64OutputStream` digest with repeated calls to **the same** `Base64.encode(bytes, offset, length, Base64.NO_WRAP)` method used by legacy export, using **8190-byte chunks** (exact multiple of three). This ensures no Base64 padding is produced except after the final input chunk; the pieces concatenate to exactly one whole-file Base64 encoding, with no full-image Base64 string in memory. The source file is checked for unexpected truncation/extension during encoding and SHA-256 is verified after reading.
 
 The regression now has **three** cases: three ordinary images, a >20 KiB PNG spanning multiple 8190-byte chunk boundaries, and zero images. CI runs `V210StreamedFramesExportTest` before the live-stop regression to fail quickly at the origin of any checksum mismatch. Full >32 MiB media and integrated V210 recovery/I/O suites remain mandatory. This correction is **unverified until exact-head CI is green**; prior build 236 is the last usable preview, and no build 237 APK should be distributed on the strength of its build job alone.
+
+## Root cause confirmed from emulator tests (23 Oct 2026)
+
+Exact-head run [39930842455](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39930842455) compiled, passed JVM/lint/signature verification, then **failed 2/3** `V210StreamedFramesExportTest` cases. Both normal and multi-chunk fixtures produced SHA-256 values different from the legacy `CreatorHeroArchive.export()` JSON string. The zero-frame case passed.
+
+Android's `org.json.JSONStringer` escapes each forward slash in a quoted JSON string (`/` becomes `\\/`). The legacy Base64 is *quoted JSON*, whereas the streaming digest originally hashed the raw Base64 characters. Aligned 8190-byte chunks fixed Base64 padding, but not JSON's solidus escaping. Merely skipping the escape would incorrectly reject good ZIPs later in preview and restore.
+
+Fix committed on the **draft** P4.6 branch: probe the Android `JSONObject` serializer for solidus escaping and add the escape byte in the SHA-256 stream before each Base64 slash, leaving original bytes and ZIP/media unchanged. The >20 KiB test now asserts that the fixture actually contains an escaped slash. This preserves bounded processing and tests compatibility against the legacy exporter, not only the new exporter itself.
+
+Exact-head validation is mandatory: [run 39934794873](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934794873) was pending when this note was written. **Do not treat build 237 as tested, stable or installable until the run is green, artifact SHA verified and the release gates above are satisfied.**
