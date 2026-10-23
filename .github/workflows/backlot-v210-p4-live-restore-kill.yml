@@ -56,6 +56,8 @@ jobs:
           test -f app/src/androidTest/java/com/framebynavin/app/data/V210RecoveryCheckpointTest.kt
           test -f app/src/androidTest/java/com/framebynavin/app/data/V210ProcessBoundaryRecoveryTest.kt
           test -f app/src/androidTest/java/com/framebynavin/app/data/V210LiveRestoreKillTest.kt
+          test -f tools/run_v210_live_restore_kill.sh
+          grep -Fq 'adb shell am force-stop "${package}"' tools/run_v210_live_restore_kill.sh
           grep -Fq 'afterImagesCommittedForTest?.invoke()' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
           grep -Fq 'internal suspend fun restorePortableCompact(' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
           grep -Fq 'snapshot(includeHero = false)' app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt
@@ -599,40 +601,11 @@ jobs:
             adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V210ProcessBoundaryRecoveryTest#recoverPendingAfterForceStopInFreshProcess' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v210-process-boundary-recover.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v210-process-boundary-recover.log; then exit 1; fi
             grep -Fq 'OK (1 test)' v210-process-boundary-recover.log
-            # REAL live transaction interruption: background instrumentation
-            # enters restorePortableCompact, publishes new image order, then
-            # waits inside the method. Only after observing that disk marker
-            # do we adb force-stop the app and run fresh-process recovery.
-            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V210LiveRestoreKillTest#enterRealRestoreAfterPublishingImages' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner > v210-live-stop-active.log 2>&1 &
-            live_restore_instrument_pid=$!
-            seen_image_commit=0
-            for attempt in $(seq 1 120); do
-              if adb shell run-as com.framebynavin.app sh -c 'test -f files/v210_live_restore_kill_qa/images_committed' >/dev/null 2>&1; then
-                seen_image_commit=1
-                break
-              fi
-              if ! kill -0 "$live_restore_instrument_pid" 2>/dev/null; then
-                break
-              fi
-              sleep 1
-            done
-            if [[ "$seen_image_commit" -ne 1 ]]; then
-              echo 'FAIL: restore did not commit images and publish test boundary'
-              adb shell am force-stop com.framebynavin.app || true
-              wait "$live_restore_instrument_pid" || true
-              cat v210-live-stop-active.log
-              exit 1
-            fi
-            adb shell run-as com.framebynavin.app sh -c 'test -f files/creator_restore_recovery_v181/pending.json'
-            adb shell am force-stop com.framebynavin.app
-            # A force-stopped test normally exits without an instrumentation OK;
-            # this is expected ONLY if the committed-image boundary was observed
-            # and the pending restore marker survives for the fresh process.
-            wait "$live_restore_instrument_pid" || true
-            adb shell run-as com.framebynavin.app sh -c 'test -f files/creator_restore_recovery_v181/pending.json'
-            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V210LiveRestoreKillTest#recoverRealTransactionInFreshProcess' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v210-live-stop-recover.log
-            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v210-live-stop-recover.log; then exit 1; fi
-            grep -Fq 'OK (1 test)' v210-live-stop-recover.log
+            # android-emulator-runner executes each physical script line in an
+            # individual /bin/sh: keep control flow INSIDE one Bash file.
+            # This fails closed unless the real image-commit boundary and
+            # durable pending journal are observed before force-stop.
+            bash tools/run_v210_live_restore_kill.sh
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V145GuideAssetDecodeTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v208-guides-asset-qa.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v208-guides-asset-qa.log; then exit 1; fi
             grep -Fq 'OK (1 test)' v208-guides-asset-qa.log
