@@ -81,6 +81,8 @@ class V210StreamedFramesExportTest {
                 .put("data", Base64.encodeToString(bytes, Base64.NO_WRAP)))
             CreatorHeroArchive.import(context, payload.toString())
             val canonical = CreatorHeroArchive.export(context)
+            assertTrue("Fixture must exercise legacy JSON-escaped Base64 solidus",
+                canonical.contains("\\/"))
             val prepared = PortableBestFrameMedia.prepareFromFiles(
                 context.filesDir, CreatorHeroArchive.orderedSourceNames(context),
             )
