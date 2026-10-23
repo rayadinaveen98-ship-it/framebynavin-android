@@ -12,6 +12,9 @@ recovery_log=v210-live-stop-recover.log
 boundary_path=files/v210_live_restore_kill_qa/images_committed
 pending_path=files/creator_restore_recovery_v181/pending.json
 
+# Capture the *live test* logcat separately from earlier acceptance suites.
+# Without this, Android prints only "Process crashed" in instrumentation output.
+adb logcat -c
 # Bound any unresponsive instrumentation process to 180 seconds.
 timeout 180s adb shell am instrument -w -r \
   -e class "${test_class}#enterRealRestoreAfterPublishingImages" \
@@ -28,7 +31,7 @@ cleanup() {
 trap cleanup EXIT
 
 boundary_reached=0
-for attempt in $(seq 1 120); do
+for attempt in $(seq 1 45); do
   if adb shell run-as "${package}" sh -c "test -f ${boundary_path}" >/dev/null 2>&1; then
     boundary_reached=1
     break
@@ -42,6 +45,13 @@ done
 if [[ "${boundary_reached}" -ne 1 ]]; then
   echo "FAIL: live restore did not commit image order and publish checkpoint"
   cat "${active_log}" || true
+  adb logcat -d -v threadtime > v210-live-stop-logcat.txt || true
+  echo "Recent Android fatal/crash/ANR events:"
+  grep -E -i -C 8 'FATAL EXCEPTION|Process: com.framebynavin.app|OutOfMemoryError|ANR in com.framebynavin.app|am_crash|native crash' v210-live-stop-logcat.txt | tail -n 180 || true
+  echo "App process status:"
+  adb shell pidof "${package}" || true
+  echo "Recovery fixture path status:"
+  adb shell run-as "${package}" sh -c 'pwd; ls -l files/v210_live_restore_kill_qa; ls -l files/creator_restore_recovery_v181/pending.json' || true
   exit 1
 fi
 
