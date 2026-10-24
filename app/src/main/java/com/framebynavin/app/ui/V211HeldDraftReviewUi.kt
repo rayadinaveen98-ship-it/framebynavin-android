@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +20,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +34,9 @@ import com.framebynavin.app.data.CreatorEditorDraftStore
 import com.framebynavin.app.ui.theme.*
 import java.text.DateFormat
 import java.util.Date
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * C3 first safety increment: readable, copy-only review of historical work.
@@ -38,6 +48,28 @@ internal fun V211HeldDraftReviewDialog(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var exportText by remember { mutableStateOf<String?>(null) }
+    val saveText = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        val original = exportText
+        exportText = null
+        if (uri != null && original != null) {
+            scope.launch(Dispatchers.IO) {
+                val result = runCatching {
+                    val output = context.contentResolver.openOutputStream(uri, "w")
+                        ?: error("Selected document could not be opened")
+                    output.bufferedWriter(Charsets.UTF_8).use { it.write(original) }
+                }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        context,
+                        if (result.isSuccess) "Text saved" else "Could not save text. Earlier draft was not changed.",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Earlier drafts", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
@@ -76,22 +108,36 @@ internal fun V211HeldDraftReviewDialog(
                                 draft.fields.forEach { field ->
                                     Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
                                         Text(field.label, color = MutedGold, fontWeight = FontWeight.Bold)
+                                        // Never lay out a multi-megabyte script in a
+                                        // single Compose Text; export/copy retains full bytes.
                                         Text(
-                                            field.value,
+                                            if (field.value.length > 400) field.value.take(400) + "…" else field.value,
                                             color = ProjectorIvory,
                                             maxLines = 3,
                                             overflow = TextOverflow.Ellipsis,
                                         )
                                         TextButton(
                                             onClick = {
-                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
-                                                    as ClipboardManager
-                                                clipboard.setPrimaryClip(
-                                                    ClipData.newPlainText(field.label, field.value),
-                                                )
-                                                Toast.makeText(context, "Text copied", Toast.LENGTH_SHORT).show()
+                                                val copied = runCatching {
+                                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                                        as ClipboardManager
+                                                    clipboard.setPrimaryClip(
+                                                        ClipData.newPlainText(field.label, field.value),
+                                                    )
+                                                }.isSuccess
+                                                Toast.makeText(
+                                                    context,
+                                                    if (copied) "Text copied" else "Clipboard could not copy this text. Use SAVE TEXT.",
+                                                    Toast.LENGTH_SHORT,
+                                                ).show()
                                             },
                                         ) { Text("COPY " + field.label.uppercase(), color = ProjectorIvory) }
+                                        TextButton(
+                                            onClick = {
+                                                exportText = field.value
+                                                saveText.launch("Backlot_" + field.label.replace(Regex("[^A-Za-z0-9_-]"), "_").take(32) + ".txt")
+                                            },
+                                        ) { Text("SAVE TEXT", color = MutedGold) }
                                     }
                                 }
                                 HorizontalDivider(color = CinemaLine)
