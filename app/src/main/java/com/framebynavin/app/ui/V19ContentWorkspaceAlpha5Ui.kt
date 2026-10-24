@@ -39,6 +39,8 @@ internal fun V19PublishStudioAlpha5Dialog(
     task: CreatorTask,
     onDismiss: () -> Unit,
     onSave: (String, Long, CreatorContentWorkspace) -> Unit,
+    hasHeldDraft: Boolean = false,
+    onReviewHeld: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
@@ -122,7 +124,11 @@ internal fun V19PublishStudioAlpha5Dialog(
                         Text("PUBLISH", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    Spacer(Modifier.width(8.dp))
+                    if (hasHeldDraft) {
+                        TextButton(onClick = onReviewHeld) {
+                            Text("EARLIER DRAFT", color = MutedGold, fontSize = 10.sp)
+                        }
+                    }
                 }
 
                 if (recovered != null) {
