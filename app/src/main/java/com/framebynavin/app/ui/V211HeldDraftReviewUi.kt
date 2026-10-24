@@ -78,6 +78,8 @@ internal fun V211HeldDraftReviewDialog(
     onDismiss: () -> Unit,
     allowPlanFieldStaging: Boolean = false,
     onStagePlanField: (String, String, String) -> Unit = { _, _, _ -> },
+    allowScriptNotesStaging: Boolean = false,
+    onStageScriptNotes: (String, String, String) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -191,6 +193,14 @@ internal fun V211HeldDraftReviewDialog(
                                             TextButton(onClick = {
                                                 onStagePlanField(draft.sourceId, field.label, field.value)
                                             }) { Text("USE IN PLAN", color = MutedGold) }
+                                        }
+                                        if (allowScriptNotesStaging &&
+                                            draft.editor == "script" &&
+                                            field.label == "Creator notes"
+                                        ) {
+                                            TextButton(onClick = {
+                                                onStageScriptNotes(draft.sourceId, field.label, field.value)
+                                            }) { Text("USE IN SCRIPT", color = MutedGold) }
                                         }
                                     }
                                 }
