@@ -6,6 +6,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.framebynavin.app.data.CreatorEditorDraftStore
+import java.io.StringWriter
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,6 +32,7 @@ class V211HeldDraftReviewUiTest {
         composeRule.onNodeWithText("Earlier drafts").assertIsDisplayed()
         composeRule.onNodeWithText("COPY LEARNINGS").assertIsDisplayed()
         composeRule.onNodeWithText("SAVE TEXT").assertIsDisplayed()
+        composeRule.onNodeWithText("SAVE DRAFT TEXT").assertIsDisplayed()
         composeRule.onNodeWithText("APPLY DRAFT").assertDoesNotExist()
         composeRule.onNodeWithText("DONE").assertIsDisplayed()
     }
@@ -41,6 +43,7 @@ class V211HeldDraftReviewUiTest {
             "An older draft exists, but could not be read safely. It has not been deleted.",
         ).assertIsDisplayed()
         composeRule.onNodeWithText("DONE").assertIsDisplayed()
+        composeRule.onNodeWithText("SAVE DRAFT TEXT").assertDoesNotExist()
     }
     @Test fun planFieldsRequireExplicitTapAndNeverOfferUnsupportedScriptRecovery() {
         val source = "held:project:test:plan-old"
@@ -71,4 +74,42 @@ class V211HeldDraftReviewUiTest {
         composeRule.onNodeWithText("APPLY DRAFT").assertDoesNotExist()
     }
 
+    @Test fun completeDraftTextExportPreservesAllLongUnicodeFieldsWithoutRestoringState() {
+        val longNarration = "తెలుగు కథ 🎬\n".repeat(75_000)
+        val preview = CreatorEditorDraftStore.HeldDraftPreview(
+            sourceId = "held:script:private:old",
+            editor = "script",
+            savedAtMillis = 0L,
+            restoreGeneration = null,
+            baseWorkspaceRevision = 5L,
+            fields = listOf(
+                CreatorEditorDraftStore.HeldDraftField("Creator notes", "Keep this idea"),
+                CreatorEditorDraftStore.HeldDraftField("Beat 1 · Narration", longNarration),
+            ),
+        )
+        val writer = StringWriter()
+        V211HeldDraftTextExport.write(preview, writer)
+        val exported = writer.toString()
+        check(exported.contains("=== Creator notes ===\nKeep this idea"))
+        check(exported.contains("=== Beat 1 · Narration ===\n$longNarration"))
+        check(!exported.contains(preview.sourceId))
+        check(!exported.contains("publishedUrl"))
+        check(!exported.contains("PUBLISHED"))
+        check(!exported.contains("restoreGeneration"))
+    }
+
+    @Test fun completeDraftTextExportRejectsUnreadableSnapshotWithoutWriting() {
+        val preview = CreatorEditorDraftStore.HeldDraftPreview(
+            sourceId = "held:publish:private:unreadable",
+            editor = "publish",
+            savedAtMillis = 0L,
+            restoreGeneration = null,
+            baseWorkspaceRevision = 7L,
+            fields = emptyList(),
+        )
+        val writer = StringWriter()
+        check(runCatching { V211HeldDraftTextExport.write(preview, writer) }
+            .exceptionOrNull() is IllegalArgumentException)
+        check(writer.toString().isEmpty())
+    }
 }
