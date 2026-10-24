@@ -41,6 +41,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
+    private var heldDraftReviews by mutableStateOf<List<CreatorEditorDraftStore.HeldDraftPreview>?>(null)
     private var restoreModeAfterLoad: Alpha6WorkspaceMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,6 +106,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onSave = { id, revision, workspace ->
                                 saveProject(id, revision, workspace, Alpha6WorkspaceMode.PROJECT)
                             },
+                            hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "project"),
+                            onReviewHeld = { openHeldDraftReviews(task!!.id, "project") },
                             onSaveAndScript = { id, revision, workspace ->
                                 saveProject(
                                     id, revision, workspace, Alpha6WorkspaceMode.PROJECT,
@@ -119,6 +122,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onSave = { studioRevision, workspaceRevision, draft ->
                                 saveScriptStudio(task!!.id, studioRevision, workspaceRevision, draft)
                             },
+                            hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "script"),
+                            onReviewHeld = { openHeldDraftReviews(task!!.id, "script") },
                             onSaveAndPublish = { studioRevision, workspaceRevision, draft ->
                                 saveScriptStudio(
                                     task!!.id, studioRevision, workspaceRevision, draft,
@@ -129,6 +134,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         mode == Alpha6WorkspaceMode.PUBLISH -> V19PublishStudioAlpha5Dialog(
                             task = task!!,
                             onDismiss = { confirmEditorClose = true },
+                            hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "publish"),
+                            onReviewHeld = { openHeldDraftReviews(task!!.id, "publish") },
                             onSave = { id, revision, workspace -> saveProject(id, revision, workspace, Alpha6WorkspaceMode.PUBLISH) },
                         )
                         else -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -136,6 +143,13 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                 CircularProgressIndicator()
                             }
                         }
+                    }
+
+                    heldDraftReviews?.let { previews ->
+                        V211HeldDraftReviewDialog(
+                            drafts = previews,
+                            onDismiss = { heldDraftReviews = null },
+                        )
                     }
 
                     if (confirmEditorClose && mode != Alpha6WorkspaceMode.HUB) {
@@ -179,6 +193,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         scriptStudio = null
         mode = Alpha6WorkspaceMode.HUB
         confirmEditorClose = false
+        heldDraftReviews = null
         if (projectId.isBlank()) {
             error = "Project id is missing."
             return
@@ -274,6 +289,25 @@ class ContentWorkspaceActivity : ComponentActivity() {
             withContext(Dispatchers.Main) {
                 result.onSuccess { scriptStudio = it }
                     .onFailure { error = it.message ?: "Could not open Script Studio." }
+            }
+        }
+    }
+
+    private fun openHeldDraftReviews(projectId: String, editor: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+                editorDrafts.heldDrafts(projectId, editor)
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess { heldDraftReviews = it }
+                    .onFailure {
+                        android.widget.Toast.makeText(
+                            applicationContext,
+                            "Project changed during recovery. Reopen the latest workspace.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
             }
         }
     }
