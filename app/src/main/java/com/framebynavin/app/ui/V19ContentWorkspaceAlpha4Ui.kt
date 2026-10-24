@@ -114,6 +114,14 @@ private fun Alpha4HubCard(
     }
 }
 
+internal data class V211ScriptNotesRecovery(
+    val nonce: Long,
+    val projectId: String,
+    val workspaceRevision: Long,
+    val studioRevision: Long,
+    val text: String,
+)
+
 @Composable
 internal fun V19ScriptStudioAlpha4Dialog(
     task: CreatorTask,
@@ -123,6 +131,8 @@ internal fun V19ScriptStudioAlpha4Dialog(
     onSaveAndPublish: (Long, Long, CreatorScriptStudio) -> Unit = onSave,
     hasHeldDraft: Boolean = false,
     onReviewHeld: () -> Unit = {},
+    pendingNotesRecovery: V211ScriptNotesRecovery? = null,
+    onNotesRecoveryHandled: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
     val originalStudioRevision = studio.revision
@@ -137,6 +147,18 @@ internal fun V19ScriptStudioAlpha4Dialog(
     var titles by remember(task.id, originalStudioRevision) { mutableStateOf(initial.titles) }
     var beats by remember(task.id, originalStudioRevision) { mutableStateOf(initial.beats) }
     var creatorNotes by remember(task.id, originalStudioRevision) { mutableStateOf(initial.creatorNotes) }
+    // The owner's selected earlier note enters only the unsaved Script editor.
+    // Canonical persistence still requires the existing guarded Save action.
+    LaunchedEffect(pendingNotesRecovery?.nonce) {
+        val selection = pendingNotesRecovery ?: return@LaunchedEffect
+        if (selection.projectId == task.id &&
+            selection.workspaceRevision == originalWorkspaceRevision &&
+            selection.studioRevision == originalStudioRevision
+        ) {
+            creatorNotes = selection.text
+        }
+        onNotesRecoveryHandled(selection.nonce)
+    }
     var showPreview by remember { mutableStateOf(false) }
     var showPlanBrief by rememberSaveable(task.id) { mutableStateOf(false) }
     val planBrief = remember(task.id, originalWorkspaceRevision) {
