@@ -121,6 +121,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "project"),
                             onReviewHeld = { openHeldDraftReviews(task!!.id, "project") },
                             pendingFieldRecovery = planRecoveredField,
+                            onFieldRecoveryHandled = { nonce ->
+                                if (planRecoveredField?.nonce == nonce) planRecoveredField = null
+                            },
                             onSaveAndScript = { id, revision, workspace ->
                                 saveProject(
                                     id, revision, workspace, Alpha6WorkspaceMode.PROJECT,
