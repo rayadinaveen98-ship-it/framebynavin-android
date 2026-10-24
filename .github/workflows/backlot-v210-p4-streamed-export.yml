@@ -383,6 +383,8 @@ jobs:
           grep -Fq 'V211HeldDraftReviewDialog(' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
           grep -Fq 'COPY ' app/src/main/java/com/framebynavin/app/ui/V211HeldDraftReviewUi.kt
           test -f app/src/androidTest/java/com/framebynavin/app/data/V211HeldDraftReviewTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V211HeldDraftReviewUiTest.kt
+          grep -Fq 'ActivityResultContracts.CreateDocument("text/plain")' app/src/main/java/com/framebynavin/app/ui/V211HeldDraftReviewUi.kt
       - name: Clean build, regressions, lint and instrumentation compilation
         run: gradle :app:clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
       - name: Verify RC personal APK signer, package and upgrade version
@@ -484,6 +486,9 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.data.V211HeldDraftReviewTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-held-draft-review.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v211-held-draft-review.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v211-held-draft-review.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V211HeldDraftReviewUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-held-draft-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v211-held-draft-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v211-held-draft-ui.log
             adb shell am instrument -w -r -e class com.framebynavin.app.youtube.YouTubeCacheLifecycleV183Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v187-insights-instrumentation.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v187-insights-instrumentation.log; then exit 1; fi
             grep -Fq 'OK (8 tests)' v187-insights-instrumentation.log
