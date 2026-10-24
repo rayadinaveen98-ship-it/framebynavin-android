@@ -369,9 +369,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     check(current.workspace.revision == request.workspaceRevision) {
                         "This project changed since the earlier draft was opened"
                     }
-                    val match = editorDrafts.heldDrafts(request.projectId, "project")
-                        .firstOrNull { it.sourceId == request.sourceId }
-                        ?.fields?.any { it.label == request.label && it.value == request.text } == true
+                    val match = editorDrafts.verifiedHistoricalPlanText(
+                        request.projectId, request.sourceId, request.label, request.text,
+                    )
                     check(match) { "Earlier draft is no longer available for safe recovery" }
                 }
             }
