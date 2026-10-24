@@ -121,4 +121,47 @@ class V211HeldDraftReviewTest {
         assertEquals(raw, drafts.getString("project:$id", null))
         assertEquals(null, current.loadProject(id, 3))
     }
+    @Test
+    fun selectedHistoricalPlanTextRequiresExactProjectSourceFieldAndEpoch() =
+        isolated { context, id ->
+            val old = CreatorEditorDraftStore(context)
+            old.saveProject(
+                id, 8L, CreatorContentWorkspace(
+                    audience = "Earlier creator audience",
+                    promise = "Recover this promise",
+                    script = "Untrusted stale script",
+                ),
+            )
+            CreatorDataGate.invalidate(context)
+            val current = CreatorEditorDraftStore(context)
+            val previous = current.heldDrafts(id, "project").single()
+            assertTrue(current.verifiedHistoricalPlanText(
+                id, previous.sourceId, "Audience", "Earlier creator audience",
+            ))
+            assertTrue(current.verifiedHistoricalPlanText(
+                id, previous.sourceId, "Promise", "Recover this promise",
+            ))
+            assertFalse(current.verifiedHistoricalPlanText(
+                id, previous.sourceId, "Audience", "Altered audience",
+            ))
+            assertFalse(current.verifiedHistoricalPlanText(
+                "different-project", previous.sourceId, "Audience", "Earlier creator audience",
+            ))
+            assertFalse(current.verifiedHistoricalPlanText(
+                id, "held:project:$id:forged", "Audience", "Earlier creator audience",
+            ))
+            assertFalse(current.verifiedHistoricalPlanText(
+                id, previous.sourceId, "Script", "Untrusted stale script",
+            ))
+            assertFalse(current.verifiedHistoricalPlanText(
+                id, previous.sourceId, "Status", "PUBLISHED",
+            ))
+            CreatorDataGate.invalidate(context)
+            assertTrue(runCatching {
+                current.verifiedHistoricalPlanText(
+                    id, previous.sourceId, "Audience", "Earlier creator audience",
+                )
+            }.exceptionOrNull() is CreatorWriteConflict)
+        }
+
 }
