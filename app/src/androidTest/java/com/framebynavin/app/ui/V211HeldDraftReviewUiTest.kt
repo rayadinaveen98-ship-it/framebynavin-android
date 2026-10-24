@@ -73,6 +73,37 @@ class V211HeldDraftReviewUiTest {
         }
         composeRule.onNodeWithText("APPLY DRAFT").assertDoesNotExist()
     }
+    @Test fun scriptRecoveryOffersNotesOnlyWithoutAutoApplyingOldBeats() {
+        val source = "held:script:test:notes"
+        val preview = CreatorEditorDraftStore.HeldDraftPreview(
+            sourceId = source,
+            editor = "script",
+            savedAtMillis = 42_000L,
+            restoreGeneration = 0L,
+            baseWorkspaceRevision = 2L,
+            fields = listOf(
+                CreatorEditorDraftStore.HeldDraftField("Creator notes", "తెలుగు notes"),
+                CreatorEditorDraftStore.HeldDraftField("Beat 1 · Narration", "Old scene"),
+            ),
+        )
+        var selected: Triple<String, String, String>? = null
+        composeRule.setContent {
+            V211HeldDraftReviewDialog(
+                drafts = listOf(preview),
+                onDismiss = {},
+                allowScriptNotesStaging = true,
+                onStageScriptNotes = { sourceId, label, text ->
+                    selected = Triple(sourceId, label, text)
+                },
+            )
+        }
+        composeRule.onNodeWithText("USE IN SCRIPT").assertIsDisplayed().performClick()
+        composeRule.runOnIdle {
+            check(selected == Triple(source, "Creator notes", "తెలుగు notes"))
+        }
+        composeRule.onNodeWithText("USE IN PLAN").assertDoesNotExist()
+        composeRule.onNodeWithText("APPLY DRAFT").assertDoesNotExist()
+    }
 
     @Test fun completeDraftTextExportPreservesAllLongUnicodeFieldsWithoutRestoringState() {
         val longNarration = "తెలుగు కథ 🎬\n".repeat(75_000)
