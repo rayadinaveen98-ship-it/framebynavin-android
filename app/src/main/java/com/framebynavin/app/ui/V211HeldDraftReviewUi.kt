@@ -46,6 +46,8 @@ import kotlinx.coroutines.withContext
 internal fun V211HeldDraftReviewDialog(
     drafts: List<CreatorEditorDraftStore.HeldDraftPreview>,
     onDismiss: () -> Unit,
+    allowPlanFieldStaging: Boolean = false,
+    onStagePlanField: (String, String, String) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -76,7 +78,7 @@ internal fun V211HeldDraftReviewDialog(
         text = {
             Column {
                 Text(
-                    "Earlier edits were kept after a restore. Copy only the text you need. Nothing here changes your current project.",
+                    "Earlier edits were kept after a restore. Copy or export the text you need. Applying one Plan field requires explicit confirmation and never auto-saves the project.",
                     color = MutedText,
                 )
                 Spacer(Modifier.height(10.dp))
@@ -138,6 +140,14 @@ internal fun V211HeldDraftReviewDialog(
                                                 saveText.launch("Backlot_" + field.label.replace(Regex("[^A-Za-z0-9_-]"), "_").take(32) + ".txt")
                                             },
                                         ) { Text("SAVE TEXT", color = MutedGold) }
+                                        if (allowPlanFieldStaging &&
+                                            draft.editor == "project" &&
+                                            field.label in setOf("Audience", "Viewer problem", "Promise", "Angle", "Learnings")
+                                        ) {
+                                            TextButton(onClick = {
+                                                onStagePlanField(draft.sourceId, field.label, field.value)
+                                            }) { Text("USE IN PLAN", color = MutedGold) }
+                                        }
                                     }
                                 }
                                 HorizontalDivider(color = CinemaLine)
