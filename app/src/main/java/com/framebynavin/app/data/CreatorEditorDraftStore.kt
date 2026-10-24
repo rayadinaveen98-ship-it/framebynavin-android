@@ -98,6 +98,147 @@ class CreatorEditorDraftStore(context: Context) {
                 prefs.all.keys.any { it.startsWith("held:$key:") }
         }
 
+    /** Copy-only presentation of a held journal. Never contains an apply action. */
+    data class HeldDraftField(val label: String, val value: String)
+    data class HeldDraftPreview(
+        val sourceId: String,
+        val editor: String,
+        val savedAtMillis: Long,
+        val restoreGeneration: Long?,
+        val baseWorkspaceRevision: Long,
+        val fields: List<HeldDraftField>,
+    )
+
+    /**
+     * List ONLY pre-restore/legacy copies belonging to this project and editor.
+     * A current-generation draft is not a historical recovery item.
+     * Read under the restore-epoch lock: an old editor cannot review data
+     * against an epoch which has since been invalidated.
+     */
+    fun heldDrafts(projectId: String, editor: String): List<HeldDraftPreview> {
+        require(editor == "project" || editor == "script" || editor == "publish")
+        val key = when (editor) {
+            "project" -> projectKey(projectId)
+            "script" -> scriptKey(projectId)
+            else -> publishKey(projectId)
+        }
+        return CreatorDataGate.withGeneration(appContext, openedGeneration) {
+            prefs.all.entries.asSequence()
+                .filter { (name, _) -> name == key || name.startsWith("held:$key:") }
+                .mapNotNull { (name, raw) ->
+                    val root = (raw as? String)?.let { runCatching { JSONObject(it) }.getOrNull() }
+                        ?: return@mapNotNull null
+                    // Reject malformed or unrelated copied journals. Never expose
+                    // one project's notes inside a different project.
+                    if (root.optInt("version", -1) != VERSION ||
+                        root.optString("projectId") != projectId) return@mapNotNull null
+                    if (name == key && matchesGeneration(root)) return@mapNotNull null
+                    val fields = when (editor) {
+                        "project" -> previewProjectFields(root.optJSONObject("payload"))
+                        "script" -> previewScriptFields(root.optJSONObject("studio"))
+                        else -> previewPublishFields(root.optJSONArray("deliverables"))
+                    }
+                    HeldDraftPreview(
+                        sourceId = name,
+                        editor = editor,
+                        savedAtMillis = root.optLong("updatedAtMillis", 0L),
+                        restoreGeneration = if (root.has("restoreGeneration"))
+                            root.optLong("restoreGeneration", -1L) else null,
+                        baseWorkspaceRevision = root.optLong("baseWorkspaceRevision", -1L),
+                        fields = fields,
+                    )
+                }
+                .sortedWith(compareByDescending<HeldDraftPreview> { it.savedAtMillis }.thenBy { it.sourceId })
+                .toList()
+        }
+    }
+
+    fun hasHeldDraftForEditor(projectId: String, editor: String): Boolean {
+        require(editor == "project" || editor == "script" || editor == "publish")
+        val key = "$editor:$projectId"
+        return prefs.all.any { (name, raw) ->
+            if (name != key && !name.startsWith("held:$key:")) return@any false
+            val root = (raw as? String)?.let { runCatching { JSONObject(it) }.getOrNull() }
+            // A malformed record also deserves a recovery warning; its raw
+            // payload stays untouched, but is never exposed in the UI.
+            root == null || name != key || !matchesGeneration(root)
+        }
+    }
+
+    private fun previewProjectFields(root: JSONObject?): List<HeldDraftField> {
+        if (root == null) return emptyList()
+        val result = mutableListOf<HeldDraftField>()
+        fun field(label: String, value: String) {
+            if (value.isNotBlank()) result += HeldDraftField(label, value)
+        }
+        listOf(
+            "Audience" to "audience", "Viewer problem" to "viewerProblem",
+            "Promise" to "promise", "Angle" to "angle", "Hook" to "hook",
+            "Script" to "script", "Learnings" to "learnings",
+        ).forEach { (title, key) -> field(title, root.optString(key)) }
+        root.optJSONArray("references").objects().forEachIndexed { index, record ->
+            field("Source ${index + 1} label", record.optString("label"))
+            field("Source ${index + 1} URL", record.optString("url"))
+        }
+        root.optJSONArray("checklist").objects().forEachIndexed { index, record ->
+            field("Task ${index + 1}", record.optString("title"))
+        }
+        root.optJSONArray("assets").objects().forEachIndexed { index, record ->
+            field("Asset ${index + 1} label", record.optString("label"))
+            field("Asset ${index + 1} notes", record.optString("notes"))
+        }
+        result += previewPublishFields(root.optJSONArray("deliverables"))
+        return result
+    }
+
+    private fun previewScriptFields(root: JSONObject?): List<HeldDraftField> {
+        if (root == null) return emptyList()
+        val result = mutableListOf<HeldDraftField>()
+        fun field(label: String, value: String) {
+            if (value.isNotBlank()) result += HeldDraftField(label, value)
+        }
+        field("Creator notes", root.optString("creatorNotes"))
+        root.optJSONArray("hooks").objects().forEachIndexed { i, obj ->
+            field("Hook idea ${i + 1}", obj.optString("text"))
+        }
+        root.optJSONArray("titles").objects().forEachIndexed { i, obj ->
+            field("Title idea ${i + 1}", obj.optString("text"))
+        }
+        root.optJSONArray("beats").objects().forEachIndexed { i, beat ->
+            listOf(
+                "label" to "Label", "purpose" to "Purpose",
+                "narration" to "Narration", "visualNotes" to "Visual notes",
+                "bRollNotes" to "B-roll", "onScreenText" to "On-screen text",
+            ).forEach { (key, label) ->
+                field("Beat ${i + 1} · $label", beat.optString(key))
+            }
+        }
+        return result
+    }
+
+    private fun previewPublishFields(array: JSONArray?): List<HeldDraftField> {
+        val result = mutableListOf<HeldDraftField>()
+        array.objects().forEachIndexed { i, item ->
+            val prefix = "Output ${i + 1}"
+            listOf(
+                "title" to "Title", "description" to "Description",
+                "tags" to "Tags", "thumbnailConcept" to "Cover idea",
+            ).forEach { (key, label) ->
+                val value = item.optString(key)
+                if (value.isNotBlank()) result += HeldDraftField("$prefix · $label", value)
+            }
+            item.optJSONArray("titleVariants").objects().forEachIndexed { j, variant ->
+                val value = variant.optString("text")
+                if (value.isNotBlank()) result += HeldDraftField("$prefix · Title option ${j + 1}", value)
+            }
+            item.optJSONArray("thumbnailVariants").objects().forEachIndexed { j, variant ->
+                val value = variant.optString("text")
+                if (value.isNotBlank()) result += HeldDraftField("$prefix · Cover option ${j + 1}", value)
+            }
+        }
+        return result
+    }
+
     private fun matchesGeneration(record: JSONObject): Boolean =
         if (record.has("restoreGeneration")) {
             record.optLong("restoreGeneration", -1L) == openedGeneration
