@@ -177,4 +177,29 @@ class V211HomePhotoImportSafetyTest {
             }
         }
 
+    @Test
+    fun reorderAndRemoveOnePersistOrderWithoutDeletingOriginals() =
+        withIsolatedSelection { context, _ ->
+            val first = png(context, "move-first")
+            val second = png(context, "move-second")
+            try {
+                val originals = V18HomeHeroStore.replace(
+                    context,
+                    listOf(Uri.fromFile(first), Uri.fromFile(second)),
+                )
+                val before = originals.map { it.name }
+                assertEquals(2, before.size)
+                val moved = V18HomeHeroStore.move(context, before[0], 1)
+                assertEquals(listOf(before[1], before[0]), moved.map { it.name })
+                assertEquals(moved.map { it.name }, CreatorHeroArchive.orderedSourceNames(context))
+                val afterRemove = V18HomeHeroStore.removeOne(context, before[1])
+                assertEquals(listOf(before[0]), afterRemove.map { it.name })
+                assertEquals(afterRemove.map { it.name }, CreatorHeroArchive.orderedSourceNames(context))
+                assertTrue("A removed selection keeps its original bytes", originals.all { it.isFile })
+            } finally {
+                first.delete()
+                second.delete()
+            }
+        }
+
 }
