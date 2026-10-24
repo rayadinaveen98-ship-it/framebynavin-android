@@ -153,6 +153,24 @@ class CreatorEditorDraftStore(context: Context) {
         }
     }
 
+    /**
+     * Confirm this exact earlier record still supplies the selected Plan text.
+     * Source, project, label, value and restore epoch must all match.
+     */
+    fun verifiedHistoricalPlanText(
+        projectId: String,
+        sourceId: String,
+        label: String,
+        expectedText: String,
+    ): Boolean {
+        if (label !in setOf("Audience", "Viewer problem", "Promise", "Angle", "Learnings")) {
+            return false
+        }
+        return heldDrafts(projectId, "project")
+            .firstOrNull { it.sourceId == sourceId }
+            ?.fields?.any { it.label == label && it.value == expectedText } == true
+    }
+
     fun hasHeldDraftForEditor(projectId: String, editor: String): Boolean {
         require(editor == "project" || editor == "script" || editor == "publish")
         val key = "$editor:$projectId"

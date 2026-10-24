@@ -23,6 +23,15 @@ import kotlinx.coroutines.withContext
 
 private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH }
 
+private data class V211HistoricalPlanFieldRequest(
+    val sourceId: String,
+    val label: String,
+    val text: String,
+    val projectId: String,
+    val workspaceRevision: Long,
+)
+
+
 class ContentWorkspaceActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROJECT_ID = "project_id"
@@ -42,6 +51,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
     private var heldDraftReviews by mutableStateOf<List<CreatorEditorDraftStore.HeldDraftPreview>?>(null)
+    private var pendingHeldField by mutableStateOf<V211HistoricalPlanFieldRequest?>(null)
+    private var planRecoveredField by mutableStateOf<V211PlanFieldRecovery?>(null)
+    private var planRecoveryNonce = 0L
     private var restoreModeAfterLoad: Alpha6WorkspaceMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -108,6 +120,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             },
                             hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "project"),
                             onReviewHeld = { openHeldDraftReviews(task!!.id, "project") },
+                            pendingFieldRecovery = planRecoveredField,
+                            onFieldRecoveryHandled = { nonce ->
+                                if (planRecoveredField?.nonce == nonce) planRecoveredField = null
+                            },
                             onSaveAndScript = { id, revision, workspace ->
                                 saveProject(
                                     id, revision, workspace, Alpha6WorkspaceMode.PROJECT,
@@ -149,6 +165,36 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         V211HeldDraftReviewDialog(
                             drafts = previews,
                             onDismiss = { heldDraftReviews = null },
+                            allowPlanFieldStaging = mode == Alpha6WorkspaceMode.PROJECT,
+                            onStagePlanField = { sourceId, label, text ->
+                                val current = task
+                                if (mode == Alpha6WorkspaceMode.PROJECT && current != null) {
+                                    pendingHeldField = V211HistoricalPlanFieldRequest(
+                                        sourceId, label, text, current.id, current.workspace.revision,
+                                    )
+                                    heldDraftReviews = null
+                                }
+                            },
+                        )
+                    }
+
+                    pendingHeldField?.let { request ->
+                        AlertDialog(
+                            onDismissRequest = { pendingHeldField = null },
+                            title = { Text("Use earlier Plan text?") },
+                            text = {
+                                Text("Replace only the unsaved ${request.label} field with earlier text? " +
+                                    "Your current project will not change until you review and choose Save.")
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    pendingHeldField = null
+                                    stageHistoricalPlanField(request)
+                                }) { Text("USE FIELD") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { pendingHeldField = null }) { Text("CANCEL") }
+                            },
                         )
                     }
 
@@ -194,6 +240,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
         mode = Alpha6WorkspaceMode.HUB
         confirmEditorClose = false
         heldDraftReviews = null
+        pendingHeldField = null
+        planRecoveredField = null
         if (projectId.isBlank()) {
             error = "Project id is missing."
             return
@@ -308,6 +356,57 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             android.widget.Toast.LENGTH_LONG,
                         ).show()
                     }
+            }
+        }
+    }
+
+    private fun stageHistoricalPlanField(request: V211HistoricalPlanFieldRequest) {
+        val supported = setOf("Audience", "Viewer problem", "Promise", "Angle", "Learnings")
+        if (request.label !in supported || mode != Alpha6WorkspaceMode.PROJECT) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                CreatorDataGate.readyTransaction(applicationContext) {
+                    CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+                    val current = store.load().firstOrNull { it.id == request.projectId }
+                        ?: error("Project no longer exists")
+                    check(current.workspace.revision == request.workspaceRevision) {
+                        "This project changed since the earlier draft was opened"
+                    }
+                    val match = editorDrafts.verifiedHistoricalPlanText(
+                        request.projectId, request.sourceId, request.label, request.text,
+                    )
+                    check(match) { "Earlier draft is no longer available for safe recovery" }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess {
+                    val current = task
+                    val stillCurrent = current?.id == request.projectId &&
+                        current.workspace.revision == request.workspaceRevision &&
+                        mode == Alpha6WorkspaceMode.PROJECT &&
+                        CreatorDataGate.generation(applicationContext) == loadedGeneration
+                    if (stillCurrent) {
+                        planRecoveryNonce += 1L
+                        planRecoveredField = V211PlanFieldRecovery(
+                            nonce = planRecoveryNonce,
+                            projectId = request.projectId,
+                            workspaceRevision = request.workspaceRevision,
+                            label = request.label,
+                            text = request.text,
+                        )
+                    } else {
+                        android.widget.Toast.makeText(
+                            applicationContext, "Workspace changed. Reopen the latest project.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }.onFailure {
+                    android.widget.Toast.makeText(
+                        applicationContext,
+                        "Earlier text was not applied. Reopen the project or review the saved copy.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
             }
         }
     }

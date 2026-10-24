@@ -41,6 +41,18 @@ private enum class Alpha3Section(val label: String) {
     PRODUCTION("Tasks"), DELIVERABLES("Outputs"), LEARN("Notes")
 }
 
+/**
+ * Only one owner-approved, validated historical text field is staged at a
+ * time. This changes an unsaved editor field, not canonical project data.
+ */
+internal data class V211PlanFieldRecovery(
+    val nonce: Long,
+    val projectId: String,
+    val workspaceRevision: Long,
+    val label: String,
+    val text: String,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun V19ContentWorkspaceAlpha3Dialog(
@@ -50,6 +62,8 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     onSaveAndScript: (String, Long, CreatorContentWorkspace) -> Unit,
     hasHeldDraft: Boolean = false,
     onReviewHeld: () -> Unit = {},
+    pendingFieldRecovery: V211PlanFieldRecovery? = null,
+    onFieldRecoveryHandled: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
@@ -70,6 +84,26 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     var assets by remember(task.id, originalRevision) { mutableStateOf(initial.assets) }
     var deliverables by remember(task.id, originalRevision) { mutableStateOf(initial.deliverables) }
     var learnings by remember(task.id, originalRevision) { mutableStateOf(initial.learnings) }
+
+    // A direct field recovery never writes canonical content. Existing 350ms
+    // local draft autosave and explicit Save both retain C2 epoch/revision gates.
+    LaunchedEffect(pendingFieldRecovery?.nonce) {
+        val selection = pendingFieldRecovery ?: return@LaunchedEffect
+        if (selection.projectId != task.id || selection.workspaceRevision != originalRevision) {
+            onFieldRecoveryHandled(selection.nonce)
+            return@LaunchedEffect
+        }
+        when (selection.label) {
+            "Audience" -> audience = selection.text
+            "Viewer problem" -> viewerProblem = selection.text
+            "Promise" -> promise = selection.text
+            "Angle" -> angle = selection.text
+            "Learnings" -> learnings = selection.text
+        }
+        // Consuming prevents a later tab switch or editor remount from
+        // re-applying a historical field over more recent unsaved work.
+        onFieldRecoveryHandled(selection.nonce)
+    }
     var appliedTemplate by remember { mutableStateOf("") }
     var pendingRemovalId by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
     var assetError by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }

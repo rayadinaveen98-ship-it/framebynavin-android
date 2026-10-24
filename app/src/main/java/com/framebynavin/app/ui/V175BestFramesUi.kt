@@ -419,6 +419,7 @@ internal fun V18CinematicHomeHero(
     var frames by remember { mutableStateOf(V18HomeHeroStore.current(context)) }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var importing by remember { mutableStateOf(false) }
+    var editingPhotos by remember { mutableStateOf(false) }
     var userPaused by remember { mutableStateOf(V18HomeHeroStore.isPaused(context)) }
     var manageExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
@@ -453,6 +454,10 @@ internal fun V18CinematicHomeHero(
     }
 
     fun commitPhotoChange(operation: suspend () -> List<File>) {
+        // Prevent duplicate rapid moves/removes while the transactional
+        // preference write is still completing on the IO dispatcher.
+        if (editingPhotos) return
+        editingPhotos = true
         scope.launch {
             try {
                 val selectedName = frames.getOrNull(index)?.name
@@ -462,7 +467,10 @@ internal fun V18CinematicHomeHero(
                 index = selectedName?.let { name -> updated.indexOfFirst { it.name == name } }
                     ?.takeIf { it >= 0 } ?: 0
             } catch (e: Exception) {
+                android.util.Log.w("BacklotHome", "Could not commit single-photo edit", e)
                 photoEditError = "Unable to save slideshow changes. Your current photos were retained."
+            } finally {
+                editingPhotos = false
             }
         }
     }
@@ -653,14 +661,15 @@ internal fun V18CinematicHomeHero(
                             ) {
                                 IconButton(
                                     onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, -1) } },
-                                    enabled = itemIndex > 0,
+                                    enabled = itemIndex > 0 && !editingPhotos,
                                 ) { Icon(Icons.Outlined.ArrowUpward, "Move photo ${itemIndex + 1} up", tint = ProjectorIvory) }
                                 IconButton(
                                     onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, 1) } },
-                                    enabled = itemIndex < frames.lastIndex,
+                                    enabled = itemIndex < frames.lastIndex && !editingPhotos,
                                 ) { Icon(Icons.Outlined.ArrowDownward, "Move photo ${itemIndex + 1} down", tint = ProjectorIvory) }
                                 IconButton(
                                     onClick = { pendingSingleRemove = photo.name },
+                                    enabled = !editingPhotos,
                                 ) { Icon(Icons.Outlined.DeleteOutline, "Remove photo ${itemIndex + 1}", tint = RecRed) }
                             }
                         }
@@ -675,7 +684,7 @@ internal fun V18CinematicHomeHero(
             dismissButton = {
                 TextButton(
                     onClick = { showPhotoEditor = false; chooseAppendFrames() },
-                    enabled = frames.size < V18HomeHeroStore.MAX_FRAMES && !importing,
+                    enabled = frames.size < V18HomeHeroStore.MAX_FRAMES && !importing && !editingPhotos,
                 ) {
                     Text("ADD PHOTOS", color = ProjectorIvory)
                 }
