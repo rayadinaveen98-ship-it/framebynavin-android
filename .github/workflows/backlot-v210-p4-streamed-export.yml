@@ -388,6 +388,7 @@ jobs:
           grep -Fq 'fun verifiedHistoricalPlanText(' app/src/main/java/com/framebynavin/app/data/CreatorEditorDraftStore.kt
           grep -Fq 'private fun stageHistoricalPlanField(' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
           grep -Fq 'pendingFieldRecovery: V211PlanFieldRecovery?' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
+          grep -Fq 'onFieldRecoveryHandled(selection.nonce)' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
       - name: Clean build, regressions, lint and instrumentation compilation
         run: gradle :app:clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
       - name: Verify RC personal APK signer, package and upgrade version
