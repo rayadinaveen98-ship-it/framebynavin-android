@@ -1,10 +1,10 @@
-name: Backlot Creator C2 — Draft Restore Epoch Isolation and Full Regression
+name: Backlot Creator C3 — Earlier Draft Review and Full Regression
 on:
   push:
-    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation]
+    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review]
   workflow_dispatch:
   pull_request:
-    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1]
+    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation]
 permissions:
   contents: read
 concurrency:
@@ -375,6 +375,14 @@ jobs:
           grep -Fq 'CreatorDataGate.withGeneration(appContext, openedGeneration)' app/src/main/java/com/framebynavin/app/data/CreatorEditorDraftStore.kt
           grep -Fq 'private var loadedGeneration: Long = -1L' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
           test -f app/src/androidTest/java/com/framebynavin/app/data/V211EditorDraftRestoreEpochTest.kt
+      - name: Verify scoped, copy-only draft recovery source
+        run: |
+          set -euo pipefail
+          grep -Fq 'fun heldDrafts(projectId: String, editor: String)' app/src/main/java/com/framebynavin/app/data/CreatorEditorDraftStore.kt
+          grep -Fq 'val openedGeneration: Long' app/src/main/java/com/framebynavin/app/data/CreatorEditorDraftStore.kt
+          grep -Fq 'V211HeldDraftReviewDialog(' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -Fq 'COPY ' app/src/main/java/com/framebynavin/app/ui/V211HeldDraftReviewUi.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/V211HeldDraftReviewTest.kt
       - name: Clean build, regressions, lint and instrumentation compilation
         run: gradle :app:clean :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
       - name: Verify RC personal APK signer, package and upgrade version
@@ -472,6 +480,10 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.data.V211EditorDraftRestoreEpochTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-editor-restore-epoch.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v211-editor-restore-epoch.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' v211-editor-restore-epoch.log
+            # C3: prior restore journals are visible as copy-only fields, never auto-applied.
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V211HeldDraftReviewTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-held-draft-review.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v211-held-draft-review.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v211-held-draft-review.log
             adb shell am instrument -w -r -e class com.framebynavin.app.youtube.YouTubeCacheLifecycleV183Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v187-insights-instrumentation.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v187-insights-instrumentation.log; then exit 1; fi
             grep -Fq 'OK (8 tests)' v187-insights-instrumentation.log
