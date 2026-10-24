@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.framebynavin.app.data.CreatorEditorDraftStore
 import com.framebynavin.app.ui.theme.*
+import java.io.Writer
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.Dispatchers
@@ -39,8 +40,37 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * C3 first safety increment: readable, copy-only review of historical work.
- * No implicit apply, overwrite, status restoration or deletion is available.
+ * A snapshot of text already filtered by CreatorEditorDraftStore's editor-specific
+ * preview allowlists. Never serialize raw journal JSON, hidden publication state,
+ * reminders or media. Stream each complete field to the caller's chosen file:
+ * even multi-megabyte scripts do not need a second joined String in memory.
+ */
+internal object V211HeldDraftTextExport {
+    fun write(draft: CreatorEditorDraftStore.HeldDraftPreview, writer: Writer) {
+        require(draft.editor in setOf("project", "script", "publish"))
+        require(draft.fields.isNotEmpty()) { "There is no readable text to export" }
+        writer.write("Backlot earlier draft — text-only copy\n")
+        writer.write("Editor: ${draft.editor}\n")
+        if (draft.savedAtMillis > 0L) {
+            writer.write("Saved: ${DateFormat.getDateTimeInstance().format(Date(draft.savedAtMillis))}\n")
+        }
+        writer.write("No publication state, reminders, linked media files or backup data are restored by this export.\n\n")
+        for (field in draft.fields) {
+            writer.write("=== ${field.label} ===\n")
+            writer.write(field.value)
+            writer.write("\n\n")
+        }
+    }
+}
+
+private sealed interface V211HeldDraftExportRequest {
+    data class Field(val text: String) : V211HeldDraftExportRequest
+    data class Complete(val draft: CreatorEditorDraftStore.HeldDraftPreview) : V211HeldDraftExportRequest
+}
+
+/**
+ * C3 safety increment: readable review, selective explicit Plan staging, and
+ * manual text exports. Never auto-apply, overwrite canonical work or delete data.
  */
 @Composable
 internal fun V211HeldDraftReviewDialog(
@@ -51,16 +81,22 @@ internal fun V211HeldDraftReviewDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var exportText by remember { mutableStateOf<String?>(null) }
+    var exportRequest by remember { mutableStateOf<V211HeldDraftExportRequest?>(null) }
     val saveText = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-        val original = exportText
-        exportText = null
-        if (uri != null && original != null) {
+        val request = exportRequest
+        exportRequest = null
+        if (uri != null && request != null) {
             scope.launch(Dispatchers.IO) {
                 val result = runCatching {
                     val output = context.contentResolver.openOutputStream(uri, "w")
                         ?: error("Selected document could not be opened")
-                    output.bufferedWriter(Charsets.UTF_8).use { it.write(original) }
+                    output.bufferedWriter(Charsets.UTF_8).use { writer ->
+                        when (request) {
+                            is V211HeldDraftExportRequest.Field -> writer.write(request.text)
+                            is V211HeldDraftExportRequest.Complete ->
+                                V211HeldDraftTextExport.write(request.draft, writer)
+                        }
+                    }
                 }
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
@@ -78,7 +114,7 @@ internal fun V211HeldDraftReviewDialog(
         text = {
             Column {
                 Text(
-                    "Earlier edits were kept after a restore. Copy or export the text you need. Applying one Plan field requires explicit confirmation and never auto-saves the project.",
+                    "Earlier edits were kept after a restore. Copy a field or export all readable text. Using Plan text requires confirmation and never auto-saves the project.",
                     color = MutedText,
                 )
                 Spacer(Modifier.height(10.dp))
@@ -103,6 +139,14 @@ internal fun V211HeldDraftReviewDialog(
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text("Earlier than current restore · Review only", color = MutedText)
+                                if (draft.fields.isNotEmpty()) {
+                                    TextButton(
+                                        onClick = {
+                                            exportRequest = V211HeldDraftExportRequest.Complete(draft)
+                                            saveText.launch("Backlot_earlier_${draft.editor}_${draft.savedAtMillis}.txt")
+                                        },
+                                    ) { Text("SAVE DRAFT TEXT", color = MutedGold) }
+                                }
                                 Spacer(Modifier.height(5.dp))
                                 if (draft.fields.isEmpty()) {
                                     Text("No readable text fields in this draft.", color = MutedText)
@@ -136,7 +180,7 @@ internal fun V211HeldDraftReviewDialog(
                                         ) { Text("COPY " + field.label.uppercase(), color = ProjectorIvory) }
                                         TextButton(
                                             onClick = {
-                                                exportText = field.value
+                                                exportRequest = V211HeldDraftExportRequest.Field(field.value)
                                                 saveText.launch("Backlot_" + field.label.replace(Regex("[^A-Za-z0-9_-]"), "_").take(32) + ".txt")
                                             },
                                         ) { Text("SAVE TEXT", color = MutedGold) }
