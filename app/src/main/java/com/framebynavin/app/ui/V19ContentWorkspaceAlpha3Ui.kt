@@ -63,6 +63,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     hasHeldDraft: Boolean = false,
     onReviewHeld: () -> Unit = {},
     pendingFieldRecovery: V211PlanFieldRecovery? = null,
+    onFieldRecoveryHandled: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
@@ -89,6 +90,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     LaunchedEffect(pendingFieldRecovery?.nonce) {
         val selection = pendingFieldRecovery ?: return@LaunchedEffect
         if (selection.projectId != task.id || selection.workspaceRevision != originalRevision) {
+            onFieldRecoveryHandled(selection.nonce)
             return@LaunchedEffect
         }
         when (selection.label) {
@@ -98,6 +100,9 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
             "Angle" -> angle = selection.text
             "Learnings" -> learnings = selection.text
         }
+        // Consuming prevents a later tab switch or editor remount from
+        // re-applying a historical field over more recent unsaved work.
+        onFieldRecoveryHandled(selection.nonce)
     }
     var appliedTemplate by remember { mutableStateOf("") }
     var pendingRemovalId by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
