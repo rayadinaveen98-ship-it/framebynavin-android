@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.framebynavin.app.data.CreatorEditorDraftStore
@@ -41,4 +42,33 @@ class V211HeldDraftReviewUiTest {
         ).assertIsDisplayed()
         composeRule.onNodeWithText("DONE").assertIsDisplayed()
     }
+    @Test fun planFieldsRequireExplicitTapAndNeverOfferUnsupportedScriptRecovery() {
+        val source = "held:project:test:plan-old"
+        val preview = CreatorEditorDraftStore.HeldDraftPreview(
+            sourceId = source,
+            editor = "project",
+            savedAtMillis = 42_000L,
+            restoreGeneration = 0L,
+            baseWorkspaceRevision = 1L,
+            fields = listOf(
+                CreatorEditorDraftStore.HeldDraftField("Audience", "Earlier audience"),
+                CreatorEditorDraftStore.HeldDraftField("Script", "Stale script"),
+            ),
+        )
+        var selected: Triple<String, String, String>? = null
+        composeRule.setContent {
+            V211HeldDraftReviewDialog(
+                drafts = listOf(preview),
+                onDismiss = {},
+                allowPlanFieldStaging = true,
+                onStagePlanField = { id, label, value -> selected = Triple(id, label, value) },
+            )
+        }
+        composeRule.onNodeWithText("USE IN PLAN").assertIsDisplayed().performClick()
+        composeRule.runOnIdle {
+            check(selected == Triple(source, "Audience", "Earlier audience"))
+        }
+        composeRule.onNodeWithText("APPLY DRAFT").assertDoesNotExist()
+    }
+
 }
