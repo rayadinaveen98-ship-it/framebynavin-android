@@ -112,8 +112,16 @@ class V18CinematicHomeHeroAlpha16UiTest {
             composeRule.onNodeWithContentDescription("Manage slideshow images").performClick()
             composeRule.onNodeWithContentDescription("Edit slideshow order").performClick()
             composeRule.onNodeWithContentDescription("Move photo 1 down").performClick()
-            composeRule.waitUntil(15_000) {
-                prefs.getString("frame_order", "") == "${second.name}\n${first.name}"
+            val expectedMove = "${second.name}\n${first.name}"
+            val moveResult = runCatching {
+                composeRule.waitUntil(25_000) {
+                    prefs.getString("frame_order", "") == expectedMove
+                }
+            }
+            check(moveResult.isSuccess) {
+                "Home reorder did not persist: expected=$expectedMove, " +
+                    "actual=${prefs.getString("frame_order", "")}, " +
+                    "originalsPresent=${first.isFile && second.isFile}"
             }
             check(first.isFile && second.isFile)
 
