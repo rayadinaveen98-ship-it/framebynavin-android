@@ -151,7 +151,7 @@ class V211HeldDraftReviewUiTest {
             }
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("SAVE & PUBLISH").performScrollTo().performClick()
+        composeRule.onNodeWithText("SAVE & PUBLISH").performClick()
         composeRule.runOnIdle {
             check(consumed)
             check(saved?.creatorNotes == "తెలుగు 🎬 previous Creator notes")
@@ -188,7 +188,7 @@ class V211HeldDraftReviewUiTest {
             }
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("SAVE & PUBLISH").performScrollTo().performClick()
+        composeRule.onNodeWithText("SAVE & PUBLISH").performClick()
         composeRule.runOnIdle {
             check(consumed)
             check(saved?.creatorNotes == "Newer saved notes")
