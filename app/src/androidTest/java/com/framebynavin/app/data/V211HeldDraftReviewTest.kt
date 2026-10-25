@@ -163,5 +163,44 @@ class V211HeldDraftReviewTest {
                 )
             }.exceptionOrNull() is CreatorWriteConflict)
         }
+    @Test
+    fun selectedEarlierScriptNotesCannotStageBeatsStatusOrOtherProjects() =
+        isolated { context, id ->
+            val old = CreatorEditorDraftStore(context)
+            old.saveScript(
+                id, 7L, 4L, CreatorScriptStudio(
+                    projectId = id, creatorNotes = "తెలుగు 🎬 notes",
+                    beats = listOf(CreatorScriptBeat(label = "Scene 1", narration = "Old narration")),
+                ),
+            )
+            CreatorDataGate.invalidate(context)
+            val current = CreatorEditorDraftStore(context)
+            val previous = current.heldDrafts(id, "script").single()
+            assertTrue(current.verifiedHistoricalScriptNotes(
+                id, previous.sourceId, "Creator notes", "తెలుగు 🎬 notes",
+            ))
+            assertFalse(current.verifiedHistoricalScriptNotes(
+                id, previous.sourceId, "Creator notes", "Altered notes",
+            ))
+            assertFalse(current.verifiedHistoricalScriptNotes(
+                id, previous.sourceId, "Beat 1 · Narration", "Old narration",
+            ))
+            assertFalse(current.verifiedHistoricalScriptNotes(
+                id, previous.sourceId, "Status", "DRAFTING",
+            ))
+            assertFalse(current.verifiedHistoricalScriptNotes(
+                "another-project", previous.sourceId, "Creator notes", "తెలుగు 🎬 notes",
+            ))
+            assertFalse(current.verifiedHistoricalScriptNotes(
+                id, "held:script:$id:forged", "Creator notes", "తెలుగు 🎬 notes",
+            ))
+            assertEquals(null, current.loadScript(id, 7L, 4L))
+            CreatorDataGate.invalidate(context)
+            assertTrue(runCatching {
+                current.verifiedHistoricalScriptNotes(
+                    id, previous.sourceId, "Creator notes", "తెలుగు 🎬 notes",
+                )
+            }.exceptionOrNull() is CreatorWriteConflict)
+        }
 
 }

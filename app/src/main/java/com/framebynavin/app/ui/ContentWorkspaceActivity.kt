@@ -32,6 +32,15 @@ private data class V211HistoricalPlanFieldRequest(
 )
 
 
+private data class V211HistoricalScriptNotesRequest(
+    val sourceId: String,
+    val label: String,
+    val text: String,
+    val projectId: String,
+    val workspaceRevision: Long,
+    val studioRevision: Long,
+)
+
 class ContentWorkspaceActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROJECT_ID = "project_id"
@@ -54,6 +63,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var pendingHeldField by mutableStateOf<V211HistoricalPlanFieldRequest?>(null)
     private var planRecoveredField by mutableStateOf<V211PlanFieldRecovery?>(null)
     private var planRecoveryNonce = 0L
+    private var pendingHistoricalScriptNotes by mutableStateOf<V211HistoricalScriptNotesRequest?>(null)
+    private var scriptRecoveredNotes by mutableStateOf<V211ScriptNotesRecovery?>(null)
+    private var scriptNotesRecoveryNonce = 0L
     private var restoreModeAfterLoad: Alpha6WorkspaceMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -140,6 +152,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             },
                             hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "script"),
                             onReviewHeld = { openHeldDraftReviews(task!!.id, "script") },
+                            pendingNotesRecovery = scriptRecoveredNotes,
+                            onNotesRecoveryHandled = { nonce ->
+                                if (scriptRecoveredNotes?.nonce == nonce) scriptRecoveredNotes = null
+                            },
                             onSaveAndPublish = { studioRevision, workspaceRevision, draft ->
                                 saveScriptStudio(
                                     task!!.id, studioRevision, workspaceRevision, draft,
@@ -166,6 +182,19 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             drafts = previews,
                             onDismiss = { heldDraftReviews = null },
                             allowPlanFieldStaging = mode == Alpha6WorkspaceMode.PROJECT,
+                            allowScriptNotesStaging = mode == Alpha6WorkspaceMode.SCRIPT,
+                            onStageScriptNotes = { sourceId, label, text ->
+                                val current = task
+                                val studio = scriptStudio
+                                if (mode == Alpha6WorkspaceMode.SCRIPT && current != null &&
+                                    studio != null && label == "Creator notes") {
+                                    pendingHistoricalScriptNotes = V211HistoricalScriptNotesRequest(
+                                        sourceId, label, text, current.id,
+                                        current.workspace.revision, studio.revision,
+                                    )
+                                    heldDraftReviews = null
+                                }
+                            },
                             onStagePlanField = { sourceId, label, text ->
                                 val current = task
                                 if (mode == Alpha6WorkspaceMode.PROJECT && current != null) {
@@ -194,6 +223,29 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             },
                             dismissButton = {
                                 TextButton(onClick = { pendingHeldField = null }) { Text("CANCEL") }
+                            },
+                        )
+                    }
+
+                    pendingHistoricalScriptNotes?.let { request ->
+                        AlertDialog(
+                            onDismissRequest = { pendingHistoricalScriptNotes = null },
+                            title = { Text("Use earlier Script notes?") },
+                            text = {
+                                Text("Replace only the unsaved Creator notes in Script Studio? " +
+                                    "The saved script, beats and publishing state will not change " +
+                                    "unless you review and choose Save.")
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    pendingHistoricalScriptNotes = null
+                                    stageHistoricalScriptNotes(request)
+                                }) { Text("USE NOTES") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { pendingHistoricalScriptNotes = null }) {
+                                    Text("CANCEL")
+                                }
                             },
                         )
                     }
@@ -242,6 +294,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
         heldDraftReviews = null
         pendingHeldField = null
         planRecoveredField = null
+        pendingHistoricalScriptNotes = null
+        scriptRecoveredNotes = null
         if (projectId.isBlank()) {
             error = "Project id is missing."
             return
@@ -404,6 +458,64 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     android.widget.Toast.makeText(
                         applicationContext,
                         "Earlier text was not applied. Reopen the project or review the saved copy.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Read-only authorization: never applies old notes to canonical storage.
+     * The currently opened editor and saved revisions must match exactly.
+     */
+    private fun stageHistoricalScriptNotes(request: V211HistoricalScriptNotesRequest) {
+        if (request.label != "Creator notes" || mode != Alpha6WorkspaceMode.SCRIPT) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                CreatorDataGate.readyTransaction(applicationContext) {
+                    CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+                    val current = store.load().firstOrNull { it.id == request.projectId }
+                        ?: error("Project no longer exists")
+                    check(current.workspace.revision == request.workspaceRevision) {
+                        "Project changed since earlier notes were opened"
+                    }
+                    check((current.workspace.scriptStudio?.revision ?: 0L) == request.studioRevision) {
+                        "Script changed since earlier notes were opened"
+                    }
+                    check(editorDrafts.verifiedHistoricalScriptNotes(
+                        request.projectId, request.sourceId, request.label, request.text,
+                    )) { "Earlier Script notes are no longer available for safe recovery" }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess {
+                    val current = task
+                    val studio = scriptStudio
+                    val stillCurrent = current?.id == request.projectId &&
+                        current.workspace.revision == request.workspaceRevision &&
+                        studio?.revision == request.studioRevision &&
+                        mode == Alpha6WorkspaceMode.SCRIPT &&
+                        CreatorDataGate.generation(applicationContext) == loadedGeneration
+                    if (stillCurrent) {
+                        scriptNotesRecoveryNonce += 1L
+                        scriptRecoveredNotes = V211ScriptNotesRecovery(
+                            nonce = scriptNotesRecoveryNonce,
+                            projectId = request.projectId,
+                            workspaceRevision = request.workspaceRevision,
+                            studioRevision = request.studioRevision,
+                            text = request.text,
+                        )
+                    } else {
+                        android.widget.Toast.makeText(
+                            applicationContext, "Script changed. Reopen the latest version.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }.onFailure {
+                    android.widget.Toast.makeText(
+                        applicationContext,
+                        "Earlier notes were not applied. Reopen the script or copy the saved text.",
                         android.widget.Toast.LENGTH_LONG,
                     ).show()
                 }

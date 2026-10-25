@@ -171,6 +171,23 @@ class CreatorEditorDraftStore(context: Context) {
             ?.fields?.any { it.label == label && it.value == expectedText } == true
     }
 
+    /**
+     * C3 P4: a selected earlier Script Studio note must still belong to this
+     * project and exact held source at the current restore generation.
+     * Structured beats, status, publishing and selected titles are excluded.
+     */
+    fun verifiedHistoricalScriptNotes(
+        projectId: String,
+        sourceId: String,
+        label: String,
+        expectedText: String,
+    ): Boolean {
+        if (label != "Creator notes") return false
+        return heldDrafts(projectId, "script")
+            .firstOrNull { it.sourceId == sourceId }
+            ?.fields?.any { it.label == label && it.value == expectedText } == true
+    }
+
     fun hasHeldDraftForEditor(projectId: String, editor: String): Boolean {
         require(editor == "project" || editor == "script" || editor == "publish")
         val key = "$editor:$projectId"
