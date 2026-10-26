@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,6 +91,7 @@ class V214QuickActionsSheetVisualUiTest {
             // Exact production bottom-sheet container/handle and the existing hub
             ModalBottomSheet(
                 onDismissRequest = {},
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 containerColor = CinemaSurfaceRaised,
                 dragHandle = { BottomSheetDefaults.DragHandle(color = MutedText) },
             ) {
