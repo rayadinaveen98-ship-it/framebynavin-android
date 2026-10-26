@@ -103,8 +103,14 @@ class V216IdeaEditorSafeFooterUiTest {
         rule.onNodeWithTag("v216-edit-notes").performTextInput(
             "తెలుగు సినిమాలో కెమెరా కదలికలు, వెలుతురు, ఎడిటింగ్ విశ్లేషణ. ".repeat(7)
         )
-        assertFooterInSafeWindow()
+        // Keyboard belongs to a second Android window; Compose idle does
+        // not guarantee its entrance animation has finished.
+        SystemClock.sleep(650)
+        rule.waitForIdle()
+        // Capture the entire device window *before* the visibility assertion:
+        // retain genuine evidence if a keypad still covers Save.
         capture("editor-keyboard")
+        assertFooterInSafeWindow()
     }
 
     @Test fun rejectedSaveRetainsEditableOriginalFields() {
