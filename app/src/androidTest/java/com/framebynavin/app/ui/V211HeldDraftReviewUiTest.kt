@@ -11,6 +11,8 @@ import com.framebynavin.app.data.CreatorEditorDraftStore
 import com.framebynavin.app.data.CreatorContentWorkspace
 import com.framebynavin.app.data.CreatorScriptBeat
 import com.framebynavin.app.data.CreatorScriptStudio
+import com.framebynavin.app.data.CreatorDeliverable
+import com.framebynavin.app.data.CreatorDeliverableStatus
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import java.util.UUID
@@ -193,6 +195,123 @@ class V211HeldDraftReviewUiTest {
             check(consumed)
             check(saved?.creatorNotes == "Newer saved notes")
         }
+    }
+
+    @Test fun historicalPublishDescriptionSelectionUsesStableOutputIdNotListPosition() {
+        val preview = CreatorEditorDraftStore.HeldDraftPreview(
+            sourceId = "held:publish:project:before-restore",
+            editor = "publish", savedAtMillis = 0L, restoreGeneration = 0L,
+            baseWorkspaceRevision = 3L,
+            fields = listOf(
+                CreatorEditorDraftStore.HeldDraftField(
+                    label = "Output 1 · Description", value = "Earlier long-video caption",
+                    deliverableId = "long-id", deliverablePlatform = "YouTube",
+                    deliverableFormat = "Long video",
+                ),
+                CreatorEditorDraftStore.HeldDraftField(
+                    label = "Output 2 · Description", value = "Earlier short caption",
+                    deliverableId = "short-id", deliverablePlatform = "YouTube",
+                    deliverableFormat = "Short",
+                ),
+            ),
+        )
+        var chosen = ""
+        composeRule.setContent {
+            V211HeldDraftReviewDialog(
+                drafts = listOf(preview), onDismiss = {},
+                eligiblePublishOutputIds = setOf("short-id"),
+                onStagePublishDescription = { source, id, platform, format, text ->
+                    chosen = "$source|$id|$platform|$format|$text"
+                },
+            )
+        }
+        composeRule.onNodeWithText("USE IN PUBLISH").assertIsDisplayed().performClick()
+        composeRule.runOnIdle {
+            check(chosen == "held:publish:project:before-restore|short-id|YouTube|Short|Earlier short caption")
+        }
+        composeRule.onNodeWithText("USE IN SCRIPT").assertDoesNotExist()
+        composeRule.onNodeWithText("USE IN PLAN").assertDoesNotExist()
+    }
+
+    @Test fun stagedPublishDescriptionKeepsOtherOutputsAndCanonicalPublicationFields() {
+        val projectId = "publish-recovery-" + UUID.randomUUID().toString()
+        val long = CreatorDeliverable(
+            id = "video-id", platform = "YouTube", format = "Long video",
+            description = "Current video text",
+        )
+        val short = CreatorDeliverable(
+            id = "short-id", platform = "YouTube", format = "Short",
+            description = "Current short text", tags = "unchanged",
+        )
+        val task = CreatorTask(
+            id = projectId, title = "Creator project",
+            platform = "YouTube", contentType = "Long video", dueLabel = "Today",
+            workspace = CreatorContentWorkspace(
+                revision = 11L, deliverables = listOf(short, long),
+            ),
+        )
+        val staged = mutableStateOf<V211PublishDescriptionRecovery?>(
+            V211PublishDescriptionRecovery(
+                nonce = 23L, projectId = projectId, workspaceRevision = 11L,
+                deliverableId = "short-id", platform = "YouTube", format = "Short",
+                text = "తెలుగు 🎬 earlier caption",
+            ),
+        )
+        var consumed = false
+        var saved: CreatorContentWorkspace? = null
+        composeRule.setContent {
+            FrameByNavinTheme {
+                V19PublishStudioAlpha5Dialog(
+                    task = task, onDismiss = {},
+                    onSave = { _, _, workspace -> saved = workspace },
+                    pendingDescriptionRecovery = staged.value,
+                    onDescriptionRecoveryHandled = { nonce ->
+                        consumed = nonce == 23L
+                        staged.value = null
+                    },
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("SAVE PUBLISH DETAILS").performClick()
+        composeRule.runOnIdle {
+            check(consumed)
+            check(saved?.deliverables?.single { it.id == "short-id" }?.description ==
+                "తెలుగు 🎬 earlier caption")
+            check(saved?.deliverables?.single { it.id == "video-id" }?.description ==
+                "Current video text")
+            check(saved?.deliverables?.single { it.id == "short-id" }?.status ==
+                CreatorDeliverableStatus.PLANNED)
+            check(saved?.deliverables?.single { it.id == "short-id" }?.tags == "unchanged")
+            check(saved?.deliverables?.all { it.publicationHistory.isEmpty() } == true)
+            check(staged.value == null)
+        }
+    }
+
+    @Test fun publishRecoveryRejectsReadyPublishedDeletedDuplicateAndChangedOutputs() {
+        val planned = CreatorDeliverable(
+            id = "same-id", platform = "YouTube", format = "Short",
+            status = CreatorDeliverableStatus.PLANNED,
+        )
+        check(V211CanStageHistoricalPublishDescription(listOf(planned), "same-id", "YouTube", "Short"))
+        check(!V211CanStageHistoricalPublishDescription(emptyList(), "same-id", "YouTube", "Short"))
+        check(!V211CanStageHistoricalPublishDescription(
+            listOf(planned, planned), "same-id", "YouTube", "Short",
+        ))
+        check(!V211CanStageHistoricalPublishDescription(
+            listOf(planned), "same-id", "Instagram", "Short",
+        ))
+        check(!V211CanStageHistoricalPublishDescription(
+            listOf(planned), "same-id", "YouTube", "Long video",
+        ))
+        check(!V211CanStageHistoricalPublishDescription(
+            listOf(planned.copy(status = CreatorDeliverableStatus.READY)),
+            "same-id", "YouTube", "Short",
+        ))
+        check(!V211CanStageHistoricalPublishDescription(
+            listOf(planned.copy(status = CreatorDeliverableStatus.PUBLISHED)),
+            "same-id", "YouTube", "Short",
+        ))
     }
 
     @Test fun completeDraftTextExportPreservesAllLongUnicodeFieldsWithoutRestoringState() {
