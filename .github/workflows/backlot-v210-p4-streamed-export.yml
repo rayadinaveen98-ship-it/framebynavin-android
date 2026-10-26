@@ -501,12 +501,12 @@ jobs:
             # Collect actual rendered emulator PNGs, not mockup previews.
             # These use disposable synthetic test content only.
             mkdir -p c3-visual-evidence
-            adb pull /sdcard/Android/data/com.framebynavin.app/files/c3-visual/c3-earlier-drafts-review.png c3-visual-evidence/c3-earlier-drafts-review.png
-            adb pull /sdcard/Android/data/com.framebynavin.app/files/c3-visual/c3-script-recovered-notes.png c3-visual-evidence/c3-script-recovered-notes.png
-            adb pull /sdcard/Android/data/com.framebynavin.app/files/c3-visual/c3-publish-description.png c3-visual-evidence/c3-publish-description.png
-            test -s c3-visual-evidence/c3-earlier-drafts-review.png
-            test -s c3-visual-evidence/c3-script-recovered-notes.png
-            test -s c3-visual-evidence/c3-publish-description.png
+            # Scoped storage blocks adb pull from Android/data on Android 11.
+            # Read only this disposable debug app's internal test screenshots.
+            adb exec-out run-as com.framebynavin.app cat files/c3-visual/c3-earlier-drafts-review.png > c3-visual-evidence/c3-earlier-drafts-review.png
+            adb exec-out run-as com.framebynavin.app cat files/c3-visual/c3-script-recovered-notes.png > c3-visual-evidence/c3-script-recovered-notes.png
+            adb exec-out run-as com.framebynavin.app cat files/c3-visual/c3-publish-description.png > c3-visual-evidence/c3-publish-description.png
+            python3 -c 'from pathlib import Path; files=sorted(Path("c3-visual-evidence").glob("*.png")); assert len(files)==3,files; [(lambda b: (_ for _ in ()).throw(AssertionError("Invalid PNG")) if b[:8]!=bytes.fromhex("89504e470d0a1a0a") or len(b)<64 else None)(p.read_bytes()) for p in files]; print("Verified three emulator PNG signatures")'
             # Inherited Home-layout suite: keep all 11 UI integration tests, including photo reorder
             # before the inherited data-changing recovery suites.
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V18CinematicHomeHeroAlpha16UiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-home-greeting-ui.log
