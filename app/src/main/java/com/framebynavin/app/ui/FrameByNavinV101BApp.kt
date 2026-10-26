@@ -1492,38 +1492,46 @@ private fun PBottomNavItem(
     modifier: Modifier = Modifier,
     onPositioned: (Rect) -> Unit = {},
 ) {
-    // A five-slot navigation bar cannot sustain unrestricted 11sp labels:
-    // at accessibility font sizes, Projects / Insights were splitting a single
-    // final letter into a second row. Keep the visible labels on ONE line,
-    // with a modest large-text size while retaining the full spoken icon name.
-    val navLabelSize = if (LocalDensity.current.fontScale >= 1.4f) 8.sp else 11.sp
     Surface(
         onClick = { onSelect(tab) },
         shape = RoundedCornerShape(16.dp),
         color = if (active) { if (VisualExperiencePrefs.isLumen) FrameTertiary.copy(alpha=.16f) else CinemaSurfaceRaised } else Color.Transparent,
         modifier = modifier.heightIn(min = 52.dp).onGloballyPositioned { onPositioned(it.boundsInRoot()) },
     ) {
-        Column(
-            Modifier.padding(vertical = 7.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(
-                icon,
-                label,
-                tint = if (active) RecRed else MutedText,
-                modifier = Modifier.size(21.dp),
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                label,
-                color = if (active) ProjectorIvory else MutedText,
-                fontSize = navLabelSize,
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 1,
-                softWrap = false,
-                textAlign = TextAlign.Center,
-                overflow = TextOverflow.Ellipsis,
-            )
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            // At 900px / 1.5x system font with 1.8x accessibility Compose
+            // text, Projects and Insights can otherwise touch even when the
+            // Text layout reports one line. Scale to each weighted tab width.
+            // Spoken icon labels remain complete at all sizes.
+            val navLabelSize = when {
+                LocalDensity.current.fontScale >= 1.4f && maxWidth < 60.dp -> 6.5.sp
+                LocalDensity.current.fontScale >= 1.4f -> 8.sp
+                maxWidth < 60.dp -> 9.sp
+                else -> 11.sp
+            }
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 7.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    icon,
+                    label,
+                    tint = if (active) RecRed else MutedText,
+                    modifier = Modifier.size(21.dp),
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    label,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp),
+                    color = if (active) ProjectorIvory else MutedText,
+                    fontSize = navLabelSize,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1,
+                    softWrap = false,
+                    textAlign = TextAlign.Center,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
