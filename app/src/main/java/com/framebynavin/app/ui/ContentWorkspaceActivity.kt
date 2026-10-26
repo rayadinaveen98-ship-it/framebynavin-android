@@ -200,6 +200,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         V211HeldDraftReviewDialog(
                             drafts = previews,
                             onDismiss = { heldDraftReviews = null },
+                            projectId = task!!.id,
+                            onHistoricalDraftDiscarded = { heldDraftReviews = null },
                             allowPlanFieldStaging = mode == Alpha6WorkspaceMode.PROJECT,
                             allowScriptNotesStaging = mode == Alpha6WorkspaceMode.SCRIPT,
                             eligiblePublishOutputIds =
