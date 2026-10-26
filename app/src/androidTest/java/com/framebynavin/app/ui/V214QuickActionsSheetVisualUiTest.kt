@@ -160,7 +160,13 @@ class V214QuickActionsSheetVisualUiTest {
     @Test fun overdueSheetOffersProjectRecoveryActions() {
         showSheet(true)
         rule.onNodeWithText("NEEDS ATTENTION").assertExists()
-        rule.onNodeWithText("Finish a cinema breakdown · తెలుగు").assertExists()
+        // The same synthetic title is also rendered behind the sheet on Home.
+        // Assert presence without incorrectly requiring a unique text node.
+        assertTrue(
+            "Overdue task title absent from the composed Home + sheet",
+            rule.onAllNodesWithText("Finish a cinema breakdown · తెలుగు")
+                .fetchSemanticsNodes().isNotEmpty(),
+        )
         capture("overdue", "top")
     }
 
