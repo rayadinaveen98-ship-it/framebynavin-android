@@ -789,7 +789,13 @@ private fun V09IdeaEditor(
     // sibling of a weighted, scrollable editor, inside safe drawing + IME insets.
     Dialog(
         onDismissRequest = ::dismissEditor,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        // A full-window Compose Dialog must opt out of platform decor-fitting
+        // so the soft keyboard resizes the dialog on Android 11. Otherwise its
+        // footer can be reported inside root bounds yet sit behind the IME.
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
     ) {
         Surface(Modifier.fillMaxSize().testTag("v216-edit-editor"), color = CinemaBlack) {
             Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
