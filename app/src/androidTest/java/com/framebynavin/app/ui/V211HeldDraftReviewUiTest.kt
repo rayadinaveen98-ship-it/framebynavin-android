@@ -38,7 +38,7 @@ class V211HeldDraftReviewUiTest {
         val folder = checkNotNull(context.getExternalFilesDir("c3-visual"))
         check(folder.isDirectory || folder.mkdirs()) { "Could not create screenshot evidence folder" }
         val bitmap = if (dialog) {
-            composeRule.onRoot(isDialog()).captureToImage().asAndroidBitmap()
+            composeRule.onNode(isDialog()).captureToImage().asAndroidBitmap()
         } else {
             composeRule.onRoot().captureToImage().asAndroidBitmap()
         }
