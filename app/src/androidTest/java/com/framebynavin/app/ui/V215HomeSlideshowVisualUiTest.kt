@@ -118,6 +118,20 @@ class V215HomeSlideshowVisualUiTest {
         assertTrue("Project queue is absent with slideshow media",
             rule.onAllNodesWithText("UP NEXT").fetchSemanticsNodes().isNotEmpty())
         rule.onNodeWithContentDescription("Create project").assertExists()
+        // V215 acceptance must hold WITH photos, not only empty slideshow:
+        // a compact media banner must not hide the actionable project
+        // completely behind the fixed floating navigation.
+        val nav = rule.onNodeWithTag("v215-slideshow-bottom-nav").getUnclippedBoundsInRoot()
+        val header = rule.onNodeWithTag("v215-up-next-header").getUnclippedBoundsInRoot()
+        val project = rule.onNodeWithTag("v215-project-entry").getUnclippedBoundsInRoot()
+        assertTrue("Photo Home UP NEXT is behind nav: $header vs $nav", header.bottom + 4.dp < nav.top)
+        assertTrue("Photo Home project starts behind nav: $project vs $nav", project.top + 4.dp < nav.top)
+        val expectedProfile = InstrumentationRegistry.getArguments().getString("backlotVisualProfile")
+        if (expectedProfile == "compact") {
+            val media = rule.onNodeWithTag("v215-home-media").getUnclippedBoundsInRoot()
+            assertTrue("Compact slideshow still consumes full-height Home viewport: $media",
+                media.height < 200.dp)
+        }
     }
 
     private fun capture(name: String) {
