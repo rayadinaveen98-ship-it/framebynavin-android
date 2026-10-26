@@ -644,11 +644,14 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v213-today-compact.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v213-today-compact.log
             mkdir -p v213-today-visual-evidence
-            for name in empty-top empty-bottom projects-top projects-bottom; do
-              for profile in default compact; do
-                adb exec-out run-as com.framebynavin.app cat "files/v213-home-visual/v213-$name-$profile.png" > "v213-today-visual-evidence/v213-$name-$profile.png"
-              done
-            done
+            adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-empty-top-default.png > v213-today-visual-evidence/v213-empty-top-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-empty-top-compact.png > v213-today-visual-evidence/v213-empty-top-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-empty-bottom-default.png > v213-today-visual-evidence/v213-empty-bottom-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-empty-bottom-compact.png > v213-today-visual-evidence/v213-empty-bottom-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-projects-top-default.png > v213-today-visual-evidence/v213-projects-top-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-projects-top-compact.png > v213-today-visual-evidence/v213-projects-top-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-projects-bottom-default.png > v213-today-visual-evidence/v213-projects-bottom-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-projects-bottom-compact.png > v213-today-visual-evidence/v213-projects-bottom-compact.png
             python3 -c 'from pathlib import Path; import struct; files=sorted(Path("v213-today-visual-evidence").glob("*.png")); assert len(files)==8,files; dimensions={p.name:struct.unpack(">II",p.read_bytes()[16:24]) for p in files}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in files); assert dimensions["v213-empty-top-default.png"][0]>dimensions["v213-empty-top-compact.png"][0], dimensions; print("Verified eight complete Home viewport PNGs:", dimensions)'
             mkdir -p home-nav-visual-evidence
             adb exec-out run-as com.framebynavin.app cat files/home-nav-visual/backlot-home-empty-default.png > home-nav-visual-evidence/backlot-home-empty-default.png
