@@ -1,10 +1,10 @@
-name: Backlot Creator C3 P4 — Guarded Script Notes Recovery and Full Regression
+name: Backlot Creator C3 P5 — Guarded Publish Description Recovery and Full Regression
 on:
   push:
-    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery]
+    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery]
   workflow_dispatch:
   pull_request:
-    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export]
+    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery]
 permissions:
   contents: read
 concurrency:
@@ -390,6 +390,10 @@ jobs:
           grep -Fq 'fun verifiedHistoricalScriptNotes(' app/src/main/java/com/framebynavin/app/data/CreatorEditorDraftStore.kt
           grep -Fq 'pendingNotesRecovery: V211ScriptNotesRecovery?' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha4Ui.kt
           grep -Fq 'stageHistoricalScriptNotes(request)' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -Fq 'fun verifiedHistoricalPublishDescription(' app/src/main/java/com/framebynavin/app/data/CreatorEditorDraftStore.kt
+          grep -Fq 'V211CanStageHistoricalPublishDescription(' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha5Ui.kt
+          grep -Fq 'stageHistoricalPublishDescription(request)' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -Fq 'USE IN PUBLISH' app/src/main/java/com/framebynavin/app/ui/V211HeldDraftReviewUi.kt
           grep -Fq 'fun verifiedHistoricalPlanText(' app/src/main/java/com/framebynavin/app/data/CreatorEditorDraftStore.kt
           grep -Fq 'private fun stageHistoricalPlanField(' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
           grep -Fq 'pendingFieldRecovery: V211PlanFieldRecovery?' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha3Ui.kt
@@ -486,10 +490,10 @@ jobs:
             # C3: prior restore journals are visible as copy-only fields, never auto-applied.
             adb shell am instrument -w -r -e class com.framebynavin.app.data.V211HeldDraftReviewTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-held-draft-review.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v211-held-draft-review.log; then exit 1; fi
-            grep -Fq 'OK (6 tests)' v211-held-draft-review.log
+            grep -Fq 'OK (7 tests)' v211-held-draft-review.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V211HeldDraftReviewUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-held-draft-ui.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v211-held-draft-ui.log; then exit 1; fi
-            grep -Fq 'OK (8 tests)' v211-held-draft-ui.log
+            grep -Fq 'OK (11 tests)' v211-held-draft-ui.log
             # Inherited Home-layout suite: keep all 11 UI integration tests, including photo reorder
             # before the inherited data-changing recovery suites.
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V18CinematicHomeHeroAlpha16UiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-home-greeting-ui.log
