@@ -115,7 +115,8 @@ class V215HomeSlideshowVisualUiTest {
             }
         }
         rule.onNodeWithContentDescription("Manage slideshow images").assertIsDisplayed()
-        rule.onNodeWithText("UP NEXT").assertExists()
+        assertTrue("Project queue is absent with slideshow media",
+            rule.onAllNodesWithText("UP NEXT").fetchSemanticsNodes().isNotEmpty())
         rule.onNodeWithContentDescription("Create project").assertExists()
     }
 
