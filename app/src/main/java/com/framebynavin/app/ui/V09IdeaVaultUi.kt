@@ -809,7 +809,7 @@ private fun V09IdeaEditor(
                         .padding(horizontal = 16.dp)
                         .testTag("v216-edit-content"),
                 ) {
-                OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Idea title") })
+                OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth().testTag("v216-edit-title"), singleLine = true, label = { Text("Idea title") })
                 IdeaVaultGuidance.similarTitles(title, existingIdeas, excludingId = idea.id).firstOrNull()?.let { duplicate ->
                     Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
                 }
@@ -826,7 +826,7 @@ private fun V09IdeaEditor(
                 }
 
                 Spacer(Modifier.height(9.dp))
-                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes · optional") })
+                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp).testTag("v216-edit-notes"), label = { Text("Notes · optional") })
                 Spacer(Modifier.height(8.dp))
                 V117VoiceIdeaInput(
                     onTranscript = { transcript ->
