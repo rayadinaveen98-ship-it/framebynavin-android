@@ -130,7 +130,7 @@ class V215HomeSlideshowVisualUiTest {
         if (expectedProfile == "compact") {
             val media = rule.onNodeWithTag("v215-home-media").getUnclippedBoundsInRoot()
             assertTrue("Compact slideshow still consumes full-height Home viewport: $media",
-                media.height < 200.dp)
+                (media.bottom - media.top) < 200.dp)
         }
     }
 
