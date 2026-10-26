@@ -1,10 +1,10 @@
-name: Backlot Creator C3 P6 — Verified Original Draft Export and Full Regression
+name: Backlot Creator C3 — Visual Evidence Capture and Full Regression
 on:
   push:
-    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export]
+    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export, feature/backlot-c3-visual-acceptance-evidence]
   workflow_dispatch:
   pull_request:
-    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery]
+    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export]
 permissions:
   contents: read
 concurrency:
@@ -498,6 +498,15 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V211HeldDraftReviewUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-held-draft-ui.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v211-held-draft-ui.log; then exit 1; fi
             grep -Fq 'OK (12 tests)' v211-held-draft-ui.log
+            # Collect actual rendered emulator PNGs, not mockup previews.
+            # These use disposable synthetic test content only.
+            mkdir -p c3-visual-evidence
+            adb pull /sdcard/Android/data/com.framebynavin.app/files/c3-visual/c3-earlier-drafts-review.png c3-visual-evidence/c3-earlier-drafts-review.png
+            adb pull /sdcard/Android/data/com.framebynavin.app/files/c3-visual/c3-script-recovered-notes.png c3-visual-evidence/c3-script-recovered-notes.png
+            adb pull /sdcard/Android/data/com.framebynavin.app/files/c3-visual/c3-publish-description.png c3-visual-evidence/c3-publish-description.png
+            test -s c3-visual-evidence/c3-earlier-drafts-review.png
+            test -s c3-visual-evidence/c3-script-recovered-notes.png
+            test -s c3-visual-evidence/c3-publish-description.png
             # Inherited Home-layout suite: keep all 11 UI integration tests, including photo reorder
             # before the inherited data-changing recovery suites.
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V18CinematicHomeHeroAlpha16UiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-home-greeting-ui.log
@@ -709,6 +718,14 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v202-premium-particles-ui.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v202-premium-particles-ui.log
 
+      - name: Upload C3 real-emulator screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-C3-Visual-Evidence-PNG
+          path: c3-visual-evidence/*.png
+          if-no-files-found: warn
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         if: always()
         with:
