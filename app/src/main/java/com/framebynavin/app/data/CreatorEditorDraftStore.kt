@@ -98,6 +98,79 @@ class CreatorEditorDraftStore(context: Context) {
                 prefs.all.keys.any { it.startsWith("held:$key:") }
         }
 
+    /**
+     * C3 P6: a lossless *user-owned* copy of one earlier draft. The JSON is
+     * intentionally raw: text-only export cannot preserve old publication
+     * metadata, output relationships, statuses or other structured fields.
+     * Never display this JSON or use it to overwrite current saved data.
+     */
+    data class HeldRawSnapshot(
+        val sourceId: String,
+        val editor: String,
+        val rawJson: String,
+        val sha256: String,
+    )
+
+    private fun historicalRawLocked(
+        projectId: String,
+        editor: String,
+        sourceId: String,
+    ): String? {
+        val primary = when (editor) {
+            "project" -> projectKey(projectId)
+            "script" -> scriptKey(projectId)
+            "publish" -> publishKey(projectId)
+            else -> return null
+        }
+        if (projectId.isBlank() || (sourceId != primary && !sourceId.startsWith("held:$primary:"))) {
+            return null
+        }
+        val raw = prefs.getString(sourceId, null) ?: return null
+        val root = runCatching { JSONObject(raw) }.getOrNull() ?: return null
+        if (root.optInt("version", -1) != VERSION || root.optString("projectId") != projectId) {
+            return null
+        }
+        // Primary current-generation editor content is never eligible.
+        if (sourceId == primary && matchesGeneration(root)) return null
+        return raw
+    }
+
+    private fun sha256(raw: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(raw.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xFF) }
+
+    fun heldRawSnapshotForExport(
+        projectId: String,
+        editor: String,
+        sourceId: String,
+    ): HeldRawSnapshot? = CreatorDataGate.withGeneration(appContext, openedGeneration) {
+        val raw = historicalRawLocked(projectId, editor, sourceId) ?: return@withGeneration null
+        HeldRawSnapshot(sourceId, editor, raw, sha256(raw))
+    }
+
+    /**
+     * Destructive and **never** called on text-export completion.
+     * The caller needs an explicit second confirmation plus the SHA-256 of a
+     * successfully written original JSON copy obtained during this session.
+     * Validate & remove atomically within the restore-generation lock.
+     * No current editor draft, alternate project or rewritten source can pass.
+     */
+    fun discardHeldAfterOriginalExport(
+        projectId: String,
+        editor: String,
+        sourceId: String,
+        exportedSha256: String,
+    ): Boolean = CreatorDataGate.withGeneration(appContext, openedGeneration) {
+        if (!Regex("[0-9a-f]{64}").matches(exportedSha256)) return@withGeneration false
+        val raw = historicalRawLocked(projectId, editor, sourceId) ?: return@withGeneration false
+        if (sha256(raw) != exportedSha256) return@withGeneration false
+        check(prefs.edit().remove(sourceId).commit()) {
+            "Could not remove selected earlier draft"
+        }
+        true
+    }
+
     /** Copy-only presentation of a held journal. Never contains an apply action. */
     data class HeldDraftField(
         val label: String,
