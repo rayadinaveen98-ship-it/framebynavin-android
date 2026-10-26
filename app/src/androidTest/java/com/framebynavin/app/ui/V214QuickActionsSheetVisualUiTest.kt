@@ -141,8 +141,8 @@ class V214QuickActionsSheetVisualUiTest {
             automation.serviceInfo = info
         }
         val roots = buildList {
-            automation.rootInActiveWindow?.let(::add)
-            automation.windows.forEach { window -> window.root?.let(::add) }
+            automation.rootInActiveWindow?.let { root -> add(root) }
+            automation.windows.forEach { window -> window.root?.let { root -> add(root) } }
         }
         return roots.firstOrNull {
             it.findAccessibilityNodeInfosByText("Quickstep keeps stopping").isNotEmpty()
