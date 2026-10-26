@@ -521,6 +521,9 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeFirstFoldVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v215-home-default.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v215-home-default.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v215-home-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v215-slideshow-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v215-slideshow-default.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v215-slideshow-default.log
             # Inherited Home-layout suite: keep all 11 UI integration tests, including photo reorder
             # before the inherited data-changing recovery suites.
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V18CinematicHomeHeroAlpha16UiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-home-greeting-ui.log
@@ -665,6 +668,13 @@ jobs:
             adb shell settings put system font_scale 1.0
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v215-home-compact.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v215-home-compact.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v215-slideshow-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v215-slideshow-compact.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v215-slideshow-compact.log
             mkdir -p v215-home-first-fold-evidence
             adb exec-out run-as com.framebynavin.app cat files/v215-home-visual/v215-empty-top-default.png > v215-home-first-fold-evidence/v215-empty-top-default.png
             adb exec-out run-as com.framebynavin.app cat files/v215-home-visual/v215-empty-top-compact.png > v215-home-first-fold-evidence/v215-empty-top-compact.png
@@ -674,7 +684,16 @@ jobs:
             adb exec-out run-as com.framebynavin.app cat files/v215-home-visual/v215-projects-top-compact.png > v215-home-first-fold-evidence/v215-projects-top-compact.png
             adb exec-out run-as com.framebynavin.app cat files/v215-home-visual/v215-projects-bottom-default.png > v215-home-first-fold-evidence/v215-projects-bottom-default.png
             adb exec-out run-as com.framebynavin.app cat files/v215-home-visual/v215-projects-bottom-compact.png > v215-home-first-fold-evidence/v215-projects-bottom-compact.png
-            python3 -c 'from pathlib import Path; from struct import unpack; fs=sorted(Path("v215-home-first-fold-evidence").glob("*.png")); assert len(fs)==8,fs; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in fs); assert sizes["v215-projects-top-default.png"][0]>sizes["v215-projects-top-compact.png"][0],sizes; print("V215 Home first-fold evidence:",sizes)'
+            python3 -c 'from pathlib import Path; from struct import unpack; fs=sorted(Path("v215-home-first-fold-evidence").glob("*.png")); assert len(fs)>=8,fs; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in fs); assert sizes["v215-projects-top-default.png"][0]>sizes["v215-projects-top-compact.png"][0],sizes; print("V215 Home first-fold evidence:",sizes)'
+            adb exec-out run-as com.framebynavin.app cat files/v215-home-slideshow-visual/v215-photo-one-top-default.png > v215-home-first-fold-evidence/v215-photo-one-top-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v215-home-slideshow-visual/v215-photo-one-top-compact.png > v215-home-first-fold-evidence/v215-photo-one-top-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v215-home-slideshow-visual/v215-photo-one-bottom-default.png > v215-home-first-fold-evidence/v215-photo-one-bottom-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v215-home-slideshow-visual/v215-photo-one-bottom-compact.png > v215-home-first-fold-evidence/v215-photo-one-bottom-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v215-home-slideshow-visual/v215-photo-multi-top-default.png > v215-home-first-fold-evidence/v215-photo-multi-top-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v215-home-slideshow-visual/v215-photo-multi-top-compact.png > v215-home-first-fold-evidence/v215-photo-multi-top-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v215-home-slideshow-visual/v215-photo-multi-bottom-default.png > v215-home-first-fold-evidence/v215-photo-multi-bottom-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v215-home-slideshow-visual/v215-photo-multi-bottom-compact.png > v215-home-first-fold-evidence/v215-photo-multi-bottom-compact.png
+            python3 -c 'from pathlib import Path; from struct import unpack; fs=sorted(Path("v215-home-first-fold-evidence").glob("*.png")); assert len(fs)==16,fs; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in fs); assert sizes["v215-photo-one-top-default.png"][0]>sizes["v215-photo-one-top-compact.png"][0],sizes; print("V215 Home 16-device PNG coverage:",sizes)'
             mkdir -p v214-quick-actions-visual-evidence
             # android-emulator-runner executes each script line in its own shell; no multiline loops.
             adb exec-out run-as com.framebynavin.app cat files/v214-quick-actions-visual/v214-empty-top-default.png > v214-quick-actions-visual-evidence/v214-empty-top-default.png
