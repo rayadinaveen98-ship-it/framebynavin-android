@@ -41,6 +41,16 @@ private data class V211HistoricalScriptNotesRequest(
     val studioRevision: Long,
 )
 
+private data class V211HistoricalPublishDescriptionRequest(
+    val sourceId: String,
+    val projectId: String,
+    val workspaceRevision: Long,
+    val deliverableId: String,
+    val platform: String,
+    val format: String,
+    val text: String,
+)
+
 class ContentWorkspaceActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROJECT_ID = "project_id"
@@ -66,6 +76,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var pendingHistoricalScriptNotes by mutableStateOf<V211HistoricalScriptNotesRequest?>(null)
     private var scriptRecoveredNotes by mutableStateOf<V211ScriptNotesRecovery?>(null)
     private var scriptNotesRecoveryNonce = 0L
+    private var pendingHistoricalPublishDescription by
+        mutableStateOf<V211HistoricalPublishDescriptionRequest?>(null)
+    private var recoveredPublishDescription by mutableStateOf<V211PublishDescriptionRecovery?>(null)
+    private var publishDescriptionRecoveryNonce = 0L
     private var restoreModeAfterLoad: Alpha6WorkspaceMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -168,6 +182,11 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onDismiss = { confirmEditorClose = true },
                             hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "publish"),
                             onReviewHeld = { openHeldDraftReviews(task!!.id, "publish") },
+                            pendingDescriptionRecovery = recoveredPublishDescription,
+                            onDescriptionRecoveryHandled = { nonce ->
+                                if (recoveredPublishDescription?.nonce == nonce)
+                                    recoveredPublishDescription = null
+                            },
                             onSave = { id, revision, workspace -> saveProject(id, revision, workspace, Alpha6WorkspaceMode.PUBLISH) },
                         )
                         else -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -183,6 +202,29 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onDismiss = { heldDraftReviews = null },
                             allowPlanFieldStaging = mode == Alpha6WorkspaceMode.PROJECT,
                             allowScriptNotesStaging = mode == Alpha6WorkspaceMode.SCRIPT,
+                            eligiblePublishOutputIds =
+                                if (mode == Alpha6WorkspaceMode.PUBLISH)
+                                    task!!.workspace.deliverables
+                                        .filter { it.status == CreatorDeliverableStatus.PLANNED }
+                                        .map { it.id }.toSet()
+                                else emptySet(),
+                            onStagePublishDescription = { sourceId, outputId, platform, format, text ->
+                                val current = task
+                                if (mode == Alpha6WorkspaceMode.PUBLISH && current != null &&
+                                    V211CanStageHistoricalPublishDescription(
+                                        current.workspace.deliverables, outputId, platform, format,
+                                    )
+                                ) {
+                                    pendingHistoricalPublishDescription =
+                                        V211HistoricalPublishDescriptionRequest(
+                                            sourceId = sourceId, projectId = current.id,
+                                            workspaceRevision = current.workspace.revision,
+                                            deliverableId = outputId, platform = platform,
+                                            format = format, text = text,
+                                        )
+                                    heldDraftReviews = null
+                                }
+                            },
                             onStageScriptNotes = { sourceId, label, text ->
                                 val current = task
                                 val studio = scriptStudio
@@ -250,6 +292,32 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         )
                     }
 
+                    pendingHistoricalPublishDescription?.let { request ->
+                        AlertDialog(
+                            onDismissRequest = { pendingHistoricalPublishDescription = null },
+                            title = { Text("Use earlier Publish description?") },
+                            text = {
+                                Text(
+                                    "Replace only the unsaved description for the existing " +
+                                        "${request.platform} · ${request.format} output? " +
+                                        "This does not publish, restore old status, or change history. " +
+                                        "You must review the text and choose Save."
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    pendingHistoricalPublishDescription = null
+                                    stageHistoricalPublishDescription(request)
+                                }) { Text("USE DESCRIPTION") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { pendingHistoricalPublishDescription = null }) {
+                                    Text("CANCEL")
+                                }
+                            },
+                        )
+                    }
+
                     if (confirmEditorClose && mode != Alpha6WorkspaceMode.HUB) {
                         AlertDialog(
                             onDismissRequest = { confirmEditorClose = false },
@@ -296,6 +364,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
         planRecoveredField = null
         pendingHistoricalScriptNotes = null
         scriptRecoveredNotes = null
+        pendingHistoricalPublishDescription = null
+        recoveredPublishDescription = null
         if (projectId.isBlank()) {
             error = "Project id is missing."
             return
@@ -516,6 +586,70 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     android.widget.Toast.makeText(
                         applicationContext,
                         "Earlier notes were not applied. Reopen the script or copy the saved text.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * C3 P5 guards exact saved output identity + history source + restore epoch.
+     * Review-only stage: saved project changes exclusively through explicit Save.
+     */
+    private fun stageHistoricalPublishDescription(request: V211HistoricalPublishDescriptionRequest) {
+        if (mode != Alpha6WorkspaceMode.PUBLISH) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                CreatorDataGate.readyTransaction(applicationContext) {
+                    CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+                    val current = store.load().firstOrNull { it.id == request.projectId }
+                        ?: error("Project no longer exists")
+                    check(current.workspace.revision == request.workspaceRevision) {
+                        "Project changed since historical description was selected"
+                    }
+                    check(V211CanStageHistoricalPublishDescription(
+                        current.workspace.deliverables, request.deliverableId,
+                        request.platform, request.format,
+                    )) { "Output is missing, already ready, published, or changed identity" }
+                    check(editorDrafts.verifiedHistoricalPublishDescription(
+                        request.projectId, request.sourceId, request.deliverableId,
+                        request.platform, request.format, request.text,
+                    )) { "Earlier description is unavailable or its output identity is ambiguous" }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess {
+                    val current = task
+                    val stillCurrent = current?.id == request.projectId &&
+                        current.workspace.revision == request.workspaceRevision &&
+                        mode == Alpha6WorkspaceMode.PUBLISH &&
+                        CreatorDataGate.generation(applicationContext) == loadedGeneration &&
+                        V211CanStageHistoricalPublishDescription(
+                            current.workspace.deliverables, request.deliverableId,
+                            request.platform, request.format,
+                        )
+                    if (stillCurrent) {
+                        publishDescriptionRecoveryNonce += 1L
+                        recoveredPublishDescription = V211PublishDescriptionRecovery(
+                            nonce = publishDescriptionRecoveryNonce,
+                            projectId = request.projectId,
+                            workspaceRevision = request.workspaceRevision,
+                            deliverableId = request.deliverableId,
+                            platform = request.platform,
+                            format = request.format,
+                            text = request.text,
+                        )
+                    } else {
+                        android.widget.Toast.makeText(
+                            applicationContext, "Publish output changed. Reopen the latest project.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }.onFailure {
+                    android.widget.Toast.makeText(
+                        applicationContext,
+                        "Earlier description was not applied. Copy or export the original text.",
                         android.widget.Toast.LENGTH_LONG,
                     ).show()
                 }
