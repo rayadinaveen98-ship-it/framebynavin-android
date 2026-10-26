@@ -1,10 +1,10 @@
-name: Backlot Creator C3 — Visual Evidence Capture and Full Regression
+name: Backlot V212 — Home and Bottom Navigation Visual QA
 on:
   push:
-    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export, feature/backlot-c3-visual-acceptance-evidence]
+    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export, feature/backlot-c3-visual-acceptance-evidence, feature/backlot-visual-home-nav-baseline]
   workflow_dispatch:
   pull_request:
-    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export]
+    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export, feature/backlot-c3-visual-acceptance-evidence]
 permissions:
   contents: read
 concurrency:
@@ -507,6 +507,11 @@ jobs:
             adb exec-out run-as com.framebynavin.app cat files/c3-visual/c3-script-recovered-notes.png > c3-visual-evidence/c3-script-recovered-notes.png
             adb exec-out run-as com.framebynavin.app cat files/c3-visual/c3-publish-description.png > c3-visual-evidence/c3-publish-description.png
             python3 -c 'from pathlib import Path; files=sorted(Path("c3-visual-evidence").glob("*.png")); assert len(files)==3,files; [(lambda b: (_ for _ in ()).throw(AssertionError("Invalid PNG")) if b[:8]!=bytes.fromhex("89504e470d0a1a0a") or len(b)<64 else None)(p.read_bytes()) for p in files]; print("Verified three emulator PNG signatures")'
+            # V212 screenshots are genuine Android emulator renders of existing
+            # Home hero / bottom nav components, using synthetic data only.
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V212HomeNavVisualEvidenceUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v212-home-nav-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v212-home-nav-default.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v212-home-nav-default.log
             # Inherited Home-layout suite: keep all 11 UI integration tests, including photo reorder
             # before the inherited data-changing recovery suites.
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V18CinematicHomeHeroAlpha16UiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-home-greeting-ui.log
@@ -620,10 +625,21 @@ jobs:
             adb shell wm size 900x1600
             adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197BottomNavigationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-2-nav-compact.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V212HomeNavVisualEvidenceUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v212-home-nav-compact.log
             adb shell wm size reset
             adb shell settings put system font_scale 1.0
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-2-nav-compact.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v197-2-nav-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v212-home-nav-compact.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v212-home-nav-compact.log
+            mkdir -p home-nav-visual-evidence
+            adb exec-out run-as com.framebynavin.app cat files/home-nav-visual/backlot-home-empty-default.png > home-nav-visual-evidence/backlot-home-empty-default.png
+            adb exec-out run-as com.framebynavin.app cat files/home-nav-visual/backlot-home-photo-default.png > home-nav-visual-evidence/backlot-home-photo-default.png
+            adb exec-out run-as com.framebynavin.app cat files/home-nav-visual/backlot-bottom-nav-largefont-default.png > home-nav-visual-evidence/backlot-bottom-nav-largefont-default.png
+            adb exec-out run-as com.framebynavin.app cat files/home-nav-visual/backlot-home-empty-compact.png > home-nav-visual-evidence/backlot-home-empty-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/home-nav-visual/backlot-home-photo-compact.png > home-nav-visual-evidence/backlot-home-photo-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/home-nav-visual/backlot-bottom-nav-largefont-compact.png > home-nav-visual-evidence/backlot-bottom-nav-largefont-compact.png
+            python3 -c 'from pathlib import Path; from struct import unpack; files=sorted(Path("home-nav-visual-evidence").glob("*.png")); assert len(files)==6,files; sizes={p.name:unpack(">II", p.read_bytes()[16:24]) for p in files}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 and sizes[p.name][0]>300 for p in files); assert sizes["backlot-home-empty-default.png"][0]>sizes["backlot-home-empty-compact.png"][0],sizes; print("Verified six real Android Home/nav PNGs:",sizes)'
             adb shell wm size 900x1600
             adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197SettingsOnboardingUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-3-settings-compact.log
@@ -718,6 +734,14 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v202-premium-particles-ui.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v202-premium-particles-ui.log
 
+      - name: Upload Home/Nav real-emulator screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V212-Home-Nav-Visual-Evidence-PNG
+          path: home-nav-visual-evidence/*.png
+          if-no-files-found: warn
+          retention-days: 30
       - name: Upload C3 real-emulator screenshot evidence
         if: always()
         uses: actions/upload-artifact@v4
