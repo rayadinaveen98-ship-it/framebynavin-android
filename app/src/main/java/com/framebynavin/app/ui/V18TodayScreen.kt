@@ -50,6 +50,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -111,17 +112,19 @@ internal fun PTodayScreen(
                 openEditorNonce = homeSlideshowRequestNonce,
                 onEditorRequestHandled = onHomeSlideshowRequestHandled,
             )
-            Spacer(Modifier.height(20.dp))
-            Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-            Spacer(Modifier.height(4.dp))
-            Text(personalization.focusTitle, color = ProjectorIvory, fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Black)
-            if (personalization.focusBody.isNotBlank()) {
-                Text(personalization.focusBody, color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
+            // V215: do not put weekly stats or motivational copy in front of a
+            // creator's actionable project on compact/large-font phones.
+            // No-image Home stays short; the creator can reach today's work first.
+            Spacer(Modifier.height(12.dp))
+            if (selected == null) {
+                Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                Spacer(Modifier.height(4.dp))
+                Text(personalization.focusTitle, color = ProjectorIvory, fontSize = 23.sp, lineHeight = 28.sp, fontWeight = FontWeight.Black)
+                if (personalization.focusBody.isNotBlank()) {
+                    Text(personalization.focusBody, color = MutedText, fontSize = 11.5.sp, lineHeight = 16.sp)
+                }
+                Spacer(Modifier.height(12.dp))
             }
-            Spacer(Modifier.height(14.dp))
-            V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
-            V148HomeTopPerformersSection(onOpenInsights = onOpenInsights)
-            Spacer(Modifier.height(18.dp))
 
             if (selected == null) {
                 PEmptyState(
@@ -132,7 +135,7 @@ internal fun PTodayScreen(
                     onClick = onAdd,
                 )
             } else {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().testTag("v215-up-next-header"), verticalAlignment = Alignment.CenterVertically) {
                     Text("UP NEXT", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                     Spacer(Modifier.width(8.dp))
                     Text("${index + 1} / ${queue.size}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -142,7 +145,7 @@ internal fun PTodayScreen(
                 Spacer(Modifier.height(8.dp))
 
                 var dragTotal by remember { mutableFloatStateOf(0f) }
-                Box(Modifier.pointerInput(queue.size, index) {
+                Box(Modifier.testTag("v215-project-entry").pointerInput(queue.size, index) {
                     detectHorizontalDragGestures(
                         onDragStart = { dragTotal = 0f },
                         onHorizontalDrag = { _, amount -> dragTotal += amount },
@@ -208,7 +211,13 @@ internal fun PTodayScreen(
                 }
             }
 
-            Spacer(Modifier.height(22.dp))
+            // Secondary progress and channel-performance information follows
+            // the actionable project, instead of pushing it under navigation.
+            Spacer(Modifier.height(18.dp))
+            V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
+            V148HomeTopPerformersSection(onOpenInsights = onOpenInsights)
+
+            Spacer(Modifier.height(18.dp))
             PTodayReminders(tasks = tasks, onViewAll = onViewAllReminders)
 
         }

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
@@ -124,12 +125,24 @@ class V18CinematicHomeHeroAlpha16UiTest {
                     "originalsPresent=${first.isFile && second.isFile}"
             }
             check(first.isFile && second.isFile)
-
+            // The preference change commits on IO before the Compose coroutine
+            // has necessarily cleared editingPhotos and re-enabled actions.
+            composeRule.waitUntil(10_000) {
+                runCatching {
+                    composeRule.onNodeWithContentDescription("Remove photo 1").assertIsEnabled()
+                    true
+                }.getOrDefault(false)
+            }
             composeRule.onNodeWithContentDescription("Remove photo 1").performClick()
             composeRule.onNodeWithText("REMOVE PHOTO").performClick()
             composeRule.waitUntil(15_000) { prefs.getString("frame_order", "") == first.name }
             check(first.isFile && second.isFile)
-
+            composeRule.waitUntil(10_000) {
+                runCatching {
+                    composeRule.onNodeWithContentDescription("Remove photo 1").assertIsEnabled()
+                    true
+                }.getOrDefault(false)
+            }
             composeRule.onNodeWithContentDescription("Remove photo 1").performClick()
             composeRule.onNodeWithText("REMOVE PHOTO").performClick()
             composeRule.waitUntil(15_000) { prefs.getString("frame_order", "")?.isEmpty() == true }

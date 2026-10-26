@@ -76,8 +76,10 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -429,6 +431,12 @@ internal fun V18CinematicHomeHero(
     val decoded = remember { mutableStateMapOf<String, ImageBitmap>() }
     val framePaths = remember(frames) { frames.map { it.absolutePath } }
     val greeting = v18Greeting(creatorName)
+    // V215: a 252dp photo banner consumes most of a 900x1600 first viewport
+    // at 1.5x font. Retain the cinematic banner on normal screens but allow
+    // the next actionable project to enter the first viewport on compact ones.
+    val compactHero = LocalConfiguration.current.screenHeightDp < 700 ||
+        LocalDensity.current.fontScale >= 1.35f
+    val bannerHeight = if (compactHero) 168.dp else 252.dp
     // Android Accessibility's "remove animations" setting takes precedence
     // over a user's saved Play preference without overwriting that choice.
     val animationsEnabled = remember(context) {
@@ -559,7 +567,7 @@ internal fun V18CinematicHomeHero(
         if (frames.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             Surface(
-                modifier = Modifier.fillMaxWidth().height(252.dp),
+                modifier = Modifier.fillMaxWidth().height(bannerHeight).testTag("v215-home-media"),
                 shape = RoundedCornerShape(26.dp),
                 color = BacklotMediaCanvas,
                 border = BorderStroke(1.dp, BacklotMediaBorder),
