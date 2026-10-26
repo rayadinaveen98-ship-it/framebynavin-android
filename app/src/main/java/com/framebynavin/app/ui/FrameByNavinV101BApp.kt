@@ -690,8 +690,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     if (showControl) {
+        // Open Quick Actions fully on compact phones; a half-height sheet hides
+        // the primary Quick Capture control below the initially visible fold.
+        val quickActionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showControl = false },
+            sheetState = quickActionsSheetState,
             containerColor = CinemaSurfaceRaised,
             dragHandle = { BottomSheetDefaults.DragHandle(color = MutedText) },
         ) {
