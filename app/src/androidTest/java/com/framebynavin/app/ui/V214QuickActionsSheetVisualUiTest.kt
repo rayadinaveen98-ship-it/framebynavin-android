@@ -33,7 +33,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * V214: actual ModalBottomSheet / production PControlCenter over the production
+ * V214: actual ModalBottomSheet / production V161QuickActionsHub over the production
  * Home + bottom nav. All tasks and identities are synthetic, and callbacks are
  * inert: screenshots cannot alter a real creator account, reminders or drafts.
  *
@@ -87,13 +87,13 @@ class V214QuickActionsSheetVisualUiTest {
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
-            // Exact production bottom-sheet container, handle and content.
+            // Exact production bottom-sheet container/handle and the existing hub
             ModalBottomSheet(
                 onDismissRequest = {},
                 containerColor = CinemaSurfaceRaised,
                 dragHandle = { BottomSheetDefaults.DragHandle(color = MutedText) },
             ) {
-                PControlCenter(
+                V161QuickActionsHub(
                     tasks = tasks,
                     ideas = emptyList(),
                     weeklyAutoPlanEnabled = false,
