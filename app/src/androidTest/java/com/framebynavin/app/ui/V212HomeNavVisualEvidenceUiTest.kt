@@ -13,6 +13,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
@@ -120,7 +122,19 @@ class V212HomeNavVisualEvidenceUiTest {
         assertTrue("Nav right clipped: $bar vs $root", bar.right <= root.right)
         assertTrue("Nav bottom clipped: $bar vs $root", bar.bottom <= root.bottom)
         for (label in listOf("Home", "Ideas", "Projects", "Insights")) {
-            rule.onNodeWithText(label, useUnmergedTree = true).assertExists()
+            val node = rule.onNodeWithText(label, useUnmergedTree = true)
+            node.assertIsDisplayed()
+            val bounds = node.getUnclippedBoundsInRoot()
+            assertTrue("$label clipped at nav edge: $bounds vs $bar",
+                bounds.left >= bar.left && bounds.right <= bar.right)
+            val lines = mutableListOf<TextLayoutResult>()
+            val action = node.fetchSemanticsNode().config.getOrNull(
+                SemanticsActions.GetTextLayoutResult,
+            )
+            assertTrue("$label missing text-layout accessibility action",
+                action?.action?.invoke(lines) == true && lines.isNotEmpty())
+            assertTrue("$label wrapped across ${lines.single().lineCount} rows",
+                lines.single().lineCount == 1)
         }
         rule.onNodeWithContentDescription("Create project").assertExists()
         capture("bottom-nav-largefont")
