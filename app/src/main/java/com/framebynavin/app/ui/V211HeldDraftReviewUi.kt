@@ -83,10 +83,18 @@ internal fun V211HeldDraftReviewDialog(
     eligiblePublishOutputIds: Set<String> = emptySet(),
     onStagePublishDescription: (String, String, String, String, String) -> Unit =
         { _, _, _, _, _ -> },
+    projectId: String = "",
+    onHistoricalDraftDiscarded: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val draftStore = remember(context) { CreatorEditorDraftStore(context.applicationContext) }
     var exportRequest by remember { mutableStateOf<V211HeldDraftExportRequest?>(null) }
+    var originalExportRequest by remember {
+        mutableStateOf<CreatorEditorDraftStore.HeldDraftPreview?>(null)
+    }
+    var exportedOriginals by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var discardRequest by remember { mutableStateOf<CreatorEditorDraftStore.HeldDraftPreview?>(null) }
     val saveText = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         val request = exportRequest
         exportRequest = null
@@ -113,13 +121,63 @@ internal fun V211HeldDraftReviewDialog(
             }
         }
     }
+    val saveOriginal = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        val draft = originalExportRequest
+        originalExportRequest = null
+        if (uri != null && draft != null && projectId.isNotBlank()) {
+            scope.launch(Dispatchers.IO) {
+                val exported = runCatching {
+                    val snapshot = draftStore.heldRawSnapshotForExport(
+                        projectId, draft.editor, draft.sourceId,
+                    ) ?: error("Earlier journal changed")
+                    val output = context.contentResolver.openOutputStream(uri, "w")
+                        ?: error("Selected document could not be opened")
+                    output.bufferedWriter(Charsets.UTF_8).use { writer ->
+                        writer.write(snapshot.rawJson)
+                    }
+                    // Only a complete document readback can authorize discard.
+                    val digest = java.security.MessageDigest.getInstance("SHA-256")
+                    val input = context.contentResolver.openInputStream(uri)
+                        ?: error("Cannot verify exported document")
+                    input.buffered().use { source ->
+                        val buffer = ByteArray(64 * 1024)
+                        while (true) {
+                            val n = source.read(buffer)
+                            if (n < 0) break
+                            if (n > 0) digest.update(buffer, 0, n)
+                        }
+                    }
+                    val readbackHash = digest.digest().joinToString("") { b ->
+                        "%02x".format(b.toInt() and 0xFF)
+                    }
+                    check(readbackHash == snapshot.sha256) {
+                        "Original JSON did not match after saving"
+                    }
+                    snapshot.sha256
+                }
+                withContext(Dispatchers.Main) {
+                    if (exported.isSuccess) {
+                        exportedOriginals = exportedOriginals + (draft.sourceId to exported.getOrThrow())
+                    }
+                    Toast.makeText(
+                        context,
+                        if (exported.isSuccess) "Original JSON saved and verified"
+                        else "Could not verify original JSON. Earlier draft was preserved.",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Earlier drafts", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 Text(
-                    "Earlier edits were kept after a restore. Copy a field or export all readable text. Using Plan text requires confirmation and never auto-saves the project.",
+                    "Earlier edits are preserved after restore. Export text or save the original JSON. An earlier draft can be discarded only after its original file is saved and verified.",
                     color = MutedText,
                 )
                 Spacer(Modifier.height(10.dp))
@@ -151,6 +209,19 @@ internal fun V211HeldDraftReviewDialog(
                                             saveText.launch("Backlot_earlier_${draft.editor}_${draft.savedAtMillis}.txt")
                                         },
                                     ) { Text("SAVE DRAFT TEXT", color = MutedGold) }
+                                }
+                                if (projectId.isNotBlank()) {
+                                    TextButton(onClick = {
+                                        originalExportRequest = draft
+                                        saveOriginal.launch(
+                                            "Backlot_earlier_${draft.editor}_${draft.savedAtMillis}_original.json"
+                                        )
+                                    }) { Text("SAVE ORIGINAL JSON", color = MutedGold) }
+                                    if (exportedOriginals.containsKey(draft.sourceId)) {
+                                        TextButton(onClick = { discardRequest = draft }) {
+                                            Text("DISCARD EARLIER DRAFT", color = RecRed)
+                                        }
+                                    }
                                 }
                                 Spacer(Modifier.height(5.dp))
                                 if (draft.fields.isEmpty()) {
@@ -233,4 +304,48 @@ internal fun V211HeldDraftReviewDialog(
         },
         containerColor = CinemaSurfaceRaised,
     )
+    discardRequest?.let { draft ->
+        AlertDialog(
+            onDismissRequest = { discardRequest = null },
+            title = { Text("Discard this earlier draft?") },
+            text = {
+                Text(
+                    "This removes only the selected earlier ${draft.editor} journal. " +
+                        "Keep your verified original JSON somewhere safe. " +
+                        "Your current draft and saved project are not changed."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val proof = exportedOriginals[draft.sourceId]
+                    discardRequest = null
+                    if (proof != null && projectId.isNotBlank()) {
+                        scope.launch(Dispatchers.IO) {
+                            val result = runCatching {
+                                draftStore.discardHeldAfterOriginalExport(
+                                    projectId, draft.editor, draft.sourceId, proof,
+                                )
+                            }
+                            withContext(Dispatchers.Main) {
+                                if (result.getOrDefault(false)) {
+                                    exportedOriginals = exportedOriginals - draft.sourceId
+                                    onHistoricalDraftDiscarded()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Earlier draft changed or could not be removed. It was preserved.",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                            }
+                        }
+                    }
+                }) { Text("DISCARD EARLIER DRAFT", color = RecRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { discardRequest = null }) { Text("KEEP DRAFT") }
+            },
+            containerColor = CinemaSurfaceRaised,
+        )
+    }
 }
