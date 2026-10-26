@@ -35,7 +35,7 @@ class V211HeldDraftReviewUiTest {
     /** Real Android 11 emulator pixels from synthetic test fixtures only. */
     private fun captureVisualEvidence(fileName: String, dialog: Boolean = false) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val folder = checkNotNull(context.getExternalFilesDir("c3-visual"))
+        val folder = File(context.filesDir, "c3-visual")
         check(folder.isDirectory || folder.mkdirs()) { "Could not create screenshot evidence folder" }
         val bitmap = if (dialog) {
             composeRule.onNode(isDialog()).captureToImage().asAndroidBitmap()
