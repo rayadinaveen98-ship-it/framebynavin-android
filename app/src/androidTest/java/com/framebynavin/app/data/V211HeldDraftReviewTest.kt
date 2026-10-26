@@ -276,4 +276,95 @@ class V211HeldDraftReviewTest {
             }.exceptionOrNull() is CreatorWriteConflict)
         }
 
+    @Test
+    fun originalJsonMustBeVerifiedBeforeRemovingOnlyItsHistoricalSource() =
+        isolated { context, id ->
+            val old = CreatorEditorDraftStore(context)
+            old.savePublish(id, 6L, listOf(
+                CreatorDeliverable(
+                    id = "already-live", platform = "YouTube", format = "Long video",
+                    title = "Old title", description = "Long Telugu 🎬",
+                    status = CreatorDeliverableStatus.PUBLISHED,
+                    publishedUrl = "https://example.test/already-live",
+                ),
+            ))
+            CreatorDataGate.invalidate(context)
+            val current = CreatorEditorDraftStore(context)
+            val staleKey = current.heldDrafts(id, "publish").single().sourceId
+            val exported = current.heldRawSnapshotForExport(id, "publish", staleKey)!!
+            assertTrue(exported.rawJson.contains("PUBLISHED"))
+            assertTrue(exported.rawJson.contains("publishedUrl"))
+            assertTrue(exported.rawJson.contains("already-live"))
+            assertEquals(64, exported.sha256.length)
+            assertFalse(current.discardHeldAfterOriginalExport(id, "publish", staleKey, "not-a-sha"))
+            assertFalse(current.discardHeldAfterOriginalExport(
+                id, "publish", staleKey, "0".repeat(64),
+            ))
+            assertFalse(current.discardHeldAfterOriginalExport(
+                "another-project", "publish", staleKey, exported.sha256,
+            ))
+            assertFalse(current.discardHeldAfterOriginalExport(
+                id, "script", staleKey, exported.sha256,
+            ))
+
+            // A newer editor takes ownership of the canonical key. Its data
+            // must NEVER be erased by a proof for the older primary source.
+            current.savePublish(id, 6L, listOf(
+                CreatorDeliverable(
+                    id = "new-current", platform = "YouTube", format = "Short",
+                    description = "Current unsaved caption",
+                ),
+            ))
+            assertEquals(null, current.heldRawSnapshotForExport(id, "publish", staleKey))
+            assertFalse(current.discardHeldAfterOriginalExport(
+                id, "publish", staleKey, exported.sha256,
+            ))
+            assertEquals("Current unsaved caption",
+                current.loadPublish(id, 6L)?.single()?.description)
+
+            val held = current.heldDrafts(id, "publish").single()
+            val heldCopy = current.heldRawSnapshotForExport(id, "publish", held.sourceId)!!
+            assertEquals(exported.sha256, heldCopy.sha256)
+            assertTrue(current.discardHeldAfterOriginalExport(
+                id, "publish", held.sourceId, heldCopy.sha256,
+            ))
+            assertEquals(null,
+                current.heldRawSnapshotForExport(id, "publish", held.sourceId))
+            assertEquals("Current unsaved caption",
+                current.loadPublish(id, 6L)?.single()?.description)
+        }
+
+    @Test
+    fun rawExportRejectsMalformedRecordsForgedKeysAndRestoreRaces() =
+        isolated { context, id ->
+            val old = CreatorEditorDraftStore(context)
+            old.saveProject(id, 3L, CreatorContentWorkspace(
+                audience = "Saved audience", learnings = "తెలుగు text",
+            ))
+            CreatorDataGate.invalidate(context)
+            val current = CreatorEditorDraftStore(context)
+            val historical = current.heldDrafts(id, "project").single()
+            val copy = current.heldRawSnapshotForExport(id, "project", historical.sourceId)!!
+            assertTrue(copy.rawJson.contains("Saved audience"))
+            assertEquals(null, current.heldRawSnapshotForExport(
+                id, "project", "held:project:$id:forged",
+            ))
+            val prefs = context.getSharedPreferences("creator_editor_drafts_v19", Context.MODE_PRIVATE)
+            val malformedKey = "held:project:$id:malformed"
+            check(prefs.edit().putString(malformedKey, "not-json").commit())
+            assertEquals(null, current.heldRawSnapshotForExport(id, "project", malformedKey))
+            assertFalse(current.discardHeldAfterOriginalExport(
+                id, "project", malformedKey, copy.sha256,
+            ))
+            assertEquals("not-json", prefs.getString(malformedKey, null))
+
+            CreatorDataGate.invalidate(context)
+            assertTrue(runCatching {
+                current.discardHeldAfterOriginalExport(
+                    id, "project", historical.sourceId, copy.sha256,
+                )
+            }.exceptionOrNull() is CreatorWriteConflict)
+            assertTrue(prefs.contains(historical.sourceId))
+        }
+
 }
