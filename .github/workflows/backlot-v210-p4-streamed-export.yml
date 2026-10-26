@@ -655,14 +655,15 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v214-quick-actions-compact.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v214-quick-actions-compact.log
             mkdir -p v214-quick-actions-visual-evidence
-            for state in empty overdue; do
-              for position in top bottom; do
-                for profile in default compact; do
-                  file="v214-${state}-${position}-${profile}.png"
-                  adb exec-out run-as com.framebynavin.app cat "files/v214-quick-actions-visual/${file}" > "v214-quick-actions-visual-evidence/${file}"
-                done
-              done
-            done
+            # android-emulator-runner executes each script line in its own shell; no multiline loops.
+            adb exec-out run-as com.framebynavin.app cat files/v214-quick-actions-visual/v214-empty-top-default.png > v214-quick-actions-visual-evidence/v214-empty-top-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v214-quick-actions-visual/v214-empty-top-compact.png > v214-quick-actions-visual-evidence/v214-empty-top-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v214-quick-actions-visual/v214-empty-bottom-default.png > v214-quick-actions-visual-evidence/v214-empty-bottom-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v214-quick-actions-visual/v214-empty-bottom-compact.png > v214-quick-actions-visual-evidence/v214-empty-bottom-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v214-quick-actions-visual/v214-overdue-top-default.png > v214-quick-actions-visual-evidence/v214-overdue-top-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v214-quick-actions-visual/v214-overdue-top-compact.png > v214-quick-actions-visual-evidence/v214-overdue-top-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v214-quick-actions-visual/v214-overdue-bottom-default.png > v214-quick-actions-visual-evidence/v214-overdue-bottom-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v214-quick-actions-visual/v214-overdue-bottom-compact.png > v214-quick-actions-visual-evidence/v214-overdue-bottom-compact.png
             python3 -c 'from pathlib import Path; from struct import unpack; files=sorted(Path("v214-quick-actions-visual-evidence").glob("*.png")); assert len(files)==8,files; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in files}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in files),sizes; assert sizes["v214-empty-top-default.png"][0]>sizes["v214-empty-top-compact.png"][0],sizes; print("Verified eight full-device Quick Actions PNGs:",sizes)'
             mkdir -p v213-today-visual-evidence
             adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-empty-top-default.png > v213-today-visual-evidence/v213-empty-top-default.png
