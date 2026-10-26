@@ -156,7 +156,9 @@ class V213TodayFullScreenVisualUiTest {
         // "UP NEXT"; this is a legitimate repeated label, not a UI failure.
         assertTrue("Expected an active Up Next project",
             rule.onAllNodesWithText("UP NEXT").fetchSemanticsNodes().isNotEmpty())
-        rule.onNodeWithText("Cinema craft analysis · తెలుగు").assertExists()
+        assertTrue("Active creator project must be present",
+            rule.onAllNodesWithText("Cinema craft analysis · తెలుగు")
+                .fetchSemanticsNodes().isNotEmpty())
         capture("projects", "top")
     }
 
