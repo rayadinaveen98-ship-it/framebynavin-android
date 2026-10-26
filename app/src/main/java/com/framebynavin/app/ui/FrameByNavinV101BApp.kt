@@ -58,6 +58,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -1491,6 +1492,11 @@ private fun PBottomNavItem(
     modifier: Modifier = Modifier,
     onPositioned: (Rect) -> Unit = {},
 ) {
+    // A five-slot navigation bar cannot sustain unrestricted 11sp labels:
+    // at accessibility font sizes, Projects / Insights were splitting a single
+    // final letter into a second row. Keep the visible labels on ONE line,
+    // with a modest large-text size while retaining the full spoken icon name.
+    val navLabelSize = if (LocalDensity.current.fontScale >= 1.4f) 8.sp else 11.sp
     Surface(
         onClick = { onSelect(tab) },
         shape = RoundedCornerShape(16.dp),
@@ -1511,9 +1517,10 @@ private fun PBottomNavItem(
             Text(
                 label,
                 color = if (active) ProjectorIvory else MutedText,
-                fontSize = 11.sp,
+                fontSize = navLabelSize,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 2,
+                maxLines = 1,
+                softWrap = false,
                 textAlign = TextAlign.Center,
                 overflow = TextOverflow.Ellipsis,
             )
