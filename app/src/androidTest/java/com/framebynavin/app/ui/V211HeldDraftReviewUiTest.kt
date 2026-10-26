@@ -225,7 +225,8 @@ class V211HeldDraftReviewUiTest {
                 },
             )
         }
-        composeRule.onNodeWithText("USE IN PUBLISH").assertIsDisplayed().performClick()
+        // The eligible output can be below the viewport in the lazy dialog.
+        composeRule.onNodeWithText("USE IN PUBLISH").performScrollTo().performClick()
         composeRule.runOnIdle {
             check(chosen == "held:publish:project:before-restore|short-id|YouTube|Short|Earlier short caption")
         }
