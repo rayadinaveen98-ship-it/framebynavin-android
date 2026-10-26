@@ -4,6 +4,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.graphics.asAndroidBitmap
+import android.graphics.Bitmap
+import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -25,6 +32,25 @@ import org.junit.runner.RunWith
 class V211HeldDraftReviewUiTest {
     @get:Rule val composeRule = createComposeRule()
 
+    /** Real Android 11 emulator pixels from synthetic test fixtures only. */
+    private fun captureVisualEvidence(fileName: String, dialog: Boolean = false) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val folder = checkNotNull(context.getExternalFilesDir("c3-visual"))
+        check(folder.isDirectory || folder.mkdirs()) { "Could not create screenshot evidence folder" }
+        val bitmap = if (dialog) {
+            composeRule.onRoot(isDialog()).captureToImage().asAndroidBitmap()
+        } else {
+            composeRule.onRoot().captureToImage().asAndroidBitmap()
+        }
+        val file = File(folder, fileName)
+        file.outputStream().use { output ->
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                "Could not encode screenshot evidence"
+            }
+        }
+        check(file.isFile && file.length() > 0L) { "Screenshot evidence not written" }
+    }
+
     @Test fun historicalDraftShowsCopyAndExportWithoutApply() {
         val preview = CreatorEditorDraftStore.HeldDraftPreview(
             sourceId = "held:project:test:01",
@@ -45,6 +71,7 @@ class V211HeldDraftReviewUiTest {
         composeRule.onNodeWithText("SAVE DRAFT TEXT").assertIsDisplayed()
         composeRule.onNodeWithText("APPLY DRAFT").assertDoesNotExist()
         composeRule.onNodeWithText("DONE").assertIsDisplayed()
+        captureVisualEvidence("c3-earlier-drafts-review.png", dialog = true)
     }
 
     @Test fun unreadableHeldRecordExplainsThatContentWasPreserved() {
@@ -153,6 +180,7 @@ class V211HeldDraftReviewUiTest {
             }
         }
         composeRule.waitForIdle()
+        captureVisualEvidence("c3-script-recovered-notes.png")
         composeRule.onNodeWithText("SAVE & PUBLISH").performClick()
         composeRule.runOnIdle {
             check(consumed)
@@ -294,6 +322,7 @@ class V211HeldDraftReviewUiTest {
             }
         }
         composeRule.waitForIdle()
+        captureVisualEvidence("c3-publish-description.png")
         composeRule.onNodeWithText("SAVE PUBLISH DETAILS").performClick()
         composeRule.runOnIdle {
             check(consumed)
