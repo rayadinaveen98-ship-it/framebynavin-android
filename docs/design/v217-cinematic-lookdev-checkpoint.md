@@ -27,3 +27,14 @@ One AI-generated 1672×941 concept contact sheet has hero illustrations, illustr
 The actual repo renderer presently uses procedural Frame/Navi while Cute uses a single welcome raster for every semantic state; that inconsistency is the reason for the pending implementation. No actual app logic, reminder/alarm engine, user data, existing source art or stable branch was changed by this checkpoint.
 
 **Next:** creator visual feedback → independent alpha pose production → Android drawable/renderer PR → emulator + physical QA.
+
+
+## Second look-development pass — alpha-transparent concept cutouts (26 October 2026)
+
+After the first contact-sheet review, a **separate RGBA 1774×887 design image** was generated showing only Frame F2, Navi N1 and Cute C3 on a genuinely transparent background. Alpha range checked in the source image: **0–255**; no Spark image was generated. The separate image deliberately puts Navi in a navy/coral creator jacket, making it more distinguishable from the original glasses-wearing Spark in black. Cute remains clearly a cream kitten with amethyst eyes. Frame uses a more literal metallic aperture visor and needs final simplification to feel less toy-like.
+
+Three **transparent full-body concept WebPs** and three **transparent small-avatar concept WebPs** were prepared from that independent image for a revised standalone browser look-development prototype. The four expression previews and in-app vignettes still come from the earlier contact sheet, so their poses are **not** yet production-consistent. The revised offline prototype uses transparent cutouts against changing dark/light stages and keeps the original identity names; it never writes app selection.
+
+Browser-only smoke acceptance on the revised standalone prototype: Chromium / Playwright at **1360×1000 desktop** and **390×844 mobile**, all three cutouts and compact avatars decoded, three-character switching, celebration note, light-theme interaction, and **no page horizontal overflow**. This is **not** Android screenshot or installed APK acceptance, and the source images have not been committed as Android assets. Conversation-delivered standalone HTML and ZIP contain the latest media; the repository contains the written engineering/design review gate.
+
+**Remaining**: review aesthetic vs real Spark, independently produce a true matched 9-pose set for each approved identity, prove all 12 state mappings, then bounded Android PR/CI and physical acceptance. Preserve V144 persisted IDs/keys, existing Spark WebPs and unchanged alarm/reminder system. [See state-by-state acceptance matrix](./v217-pose-mapping-acceptance-matrix.md).
