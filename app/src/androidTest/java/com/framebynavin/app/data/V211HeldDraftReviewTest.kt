@@ -203,4 +203,77 @@ class V211HeldDraftReviewTest {
             }.exceptionOrNull() is CreatorWriteConflict)
         }
 
+    @Test
+    fun publishDescriptionRecoveryRequiresExactHistoricalOutputIdentity() =
+        isolated { context, id ->
+            val first = CreatorDeliverable(
+                id = "yt-long", platform = "YouTube", format = "Long video",
+                description = "తెలుగు earlier full description",
+            )
+            val second = CreatorDeliverable(
+                id = "short-01", platform = "YouTube", format = "Short",
+                description = "Earlier short description",
+            )
+            val old = CreatorEditorDraftStore(context)
+            old.savePublish(id, 4L, listOf(first, second))
+            CreatorDataGate.invalidate(context)
+            val current = CreatorEditorDraftStore(context)
+            val historical = current.heldDrafts(id, "publish").single()
+            val short = historical.fields.single { it.label == "Output 2 · Description" }
+            assertEquals("short-01", short.deliverableId)
+            assertEquals("YouTube", short.deliverablePlatform)
+            assertEquals("Short", short.deliverableFormat)
+            assertTrue(current.verifiedHistoricalPublishDescription(
+                id, historical.sourceId, "short-01", "YouTube", "Short",
+                "Earlier short description",
+            ))
+            assertTrue(current.verifiedHistoricalPublishDescription(
+                id, historical.sourceId, "yt-long", "YouTube", "Long video",
+                "తెలుగు earlier full description",
+            ))
+            assertFalse(current.verifiedHistoricalPublishDescription(
+                id, historical.sourceId, "yt-long", "YouTube", "Short",
+                "తెలుగు earlier full description",
+            ))
+            assertFalse(current.verifiedHistoricalPublishDescription(
+                id, historical.sourceId, "short-01", "Instagram", "Short",
+                "Earlier short description",
+            ))
+            assertFalse(current.verifiedHistoricalPublishDescription(
+                id, historical.sourceId, "short-01", "YouTube", "Short",
+                "Tampered text",
+            ))
+            assertFalse(current.verifiedHistoricalPublishDescription(
+                "other-project", historical.sourceId, "short-01", "YouTube",
+                "Short", "Earlier short description",
+            ))
+            assertFalse(current.verifiedHistoricalPublishDescription(
+                id, "held:publish:$id:forged", "short-01", "YouTube",
+                "Short", "Earlier short description",
+            ))
+            assertEquals(null, current.loadPublish(id, 4L))
+
+            // Duplicate IDs in a historic journal must never choose arbitrarily.
+            current.savePublish(
+                id, 4L, listOf(
+                    second.copy(description = "Conflicting earlier caption"),
+                    second.copy(description = "Another caption"),
+                ),
+            )
+            CreatorDataGate.invalidate(context)
+            val after = CreatorEditorDraftStore(context)
+            val duplicate = after.heldDrafts(id, "publish")
+                .single { draft -> draft.fields.count { it.deliverableId == "short-01" } == 2 }
+            assertFalse(after.verifiedHistoricalPublishDescription(
+                id, duplicate.sourceId, "short-01", "YouTube", "Short",
+                "Conflicting earlier caption",
+            ))
+            assertTrue(runCatching {
+                current.verifiedHistoricalPublishDescription(
+                    id, historical.sourceId, "short-01", "YouTube", "Short",
+                    "Earlier short description",
+                )
+            }.exceptionOrNull() is CreatorWriteConflict)
+        }
+
 }

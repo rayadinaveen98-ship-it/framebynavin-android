@@ -34,6 +34,33 @@ import java.util.UUID
 
 private enum class Alpha5PublicationAction { PUBLISH, UPDATE, REOPEN }
 
+/**
+ * The first Publish recovery may target an existing PLANNED output only.
+ * Never resolve a destination by its on-screen index. Duplicate IDs, changed
+ * platform/format, READY and PUBLISHED outputs all fail closed.
+ */
+internal fun V211CanStageHistoricalPublishDescription(
+    outputs: List<CreatorDeliverable>,
+    deliverableId: String,
+    platform: String,
+    format: String,
+): Boolean {
+    if (deliverableId.isBlank() || platform.isBlank() || format.isBlank()) return false
+    val output = outputs.singleOrNull { it.id == deliverableId } ?: return false
+    return output.platform == platform && output.format == format &&
+        output.status == CreatorDeliverableStatus.PLANNED
+}
+
+internal data class V211PublishDescriptionRecovery(
+    val nonce: Long,
+    val projectId: String,
+    val workspaceRevision: Long,
+    val deliverableId: String,
+    val platform: String,
+    val format: String,
+    val text: String,
+)
+
 @Composable
 internal fun V19PublishStudioAlpha5Dialog(
     task: CreatorTask,
@@ -41,6 +68,8 @@ internal fun V19PublishStudioAlpha5Dialog(
     onSave: (String, Long, CreatorContentWorkspace) -> Unit,
     hasHeldDraft: Boolean = false,
     onReviewHeld: () -> Unit = {},
+    pendingDescriptionRecovery: V211PublishDescriptionRecovery? = null,
+    onDescriptionRecoveryHandled: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
@@ -56,6 +85,26 @@ internal fun V19PublishStudioAlpha5Dialog(
     }
     var selectedId by remember(task.id, originalRevision) {
         mutableStateOf(deliverables.firstOrNull()?.id.orEmpty())
+    }
+    // Owner-approved historical text changes the unsaved editor only.
+    // Do not invoke replace(): that method can recalculate publish readiness.
+    LaunchedEffect(pendingDescriptionRecovery?.nonce) {
+        val request = pendingDescriptionRecovery ?: return@LaunchedEffect
+        if (request.projectId == task.id &&
+            request.workspaceRevision == originalRevision &&
+            V211CanStageHistoricalPublishDescription(
+                task.workspace.deliverables, request.deliverableId, request.platform, request.format,
+            ) &&
+            V211CanStageHistoricalPublishDescription(
+                deliverables, request.deliverableId, request.platform, request.format,
+            )
+        ) {
+            deliverables = deliverables.map {
+                if (it.id == request.deliverableId) it.copy(description = request.text) else it
+            }
+            selectedId = request.deliverableId
+        }
+        onDescriptionRecoveryHandled(request.nonce)
     }
     var action by remember { mutableStateOf<Alpha5PublicationAction?>(null) }
     var actionError by remember { mutableStateOf<String?>(null) }
