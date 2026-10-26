@@ -638,38 +638,22 @@ jobs:
             adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V197BottomNavigationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v197-2-nav-compact.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V212HomeNavVisualEvidenceUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v212-home-nav-compact.log
-            adb shell wm size reset
-            adb shell settings put system font_scale 1.0
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v197-2-nav-compact.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v197-2-nav-compact.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v212-home-nav-compact.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' v212-home-nav-compact.log
             # Rerun the same whole-screen Home with compact viewport + large font.
-            adb shell wm size 900x1600
-            adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V213TodayFullScreenVisualUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v213-today-compact.log
-            adb shell wm size reset
-            adb shell settings put system font_scale 1.0
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v213-today-compact.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v213-today-compact.log
             # Capture the same bottom-sheet scenarios at 900x1600 + 1.5x font.
-            adb shell wm size 900x1600
-            adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V214QuickActionsSheetVisualUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v214-quick-actions-compact.log
-            adb shell wm size reset
-            adb shell settings put system font_scale 1.0
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v214-quick-actions-compact.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v214-quick-actions-compact.log
             # Recheck first-fold hierarchy at compact 900x1600 / 1.5x font.
-            adb shell wm size 900x1600
-            adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeFirstFoldVisualUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v215-home-compact.log
-            adb shell wm size reset
-            adb shell settings put system font_scale 1.0
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v215-home-compact.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v215-home-compact.log
-            adb shell wm size 900x1600
-            adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v215-slideshow-compact.log
             adb shell wm size reset
             adb shell settings put system font_scale 1.0
