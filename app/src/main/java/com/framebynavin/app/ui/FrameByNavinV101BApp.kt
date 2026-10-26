@@ -1447,7 +1447,9 @@ internal fun PBottomNav(
     Surface(
         modifier,
         RoundedCornerShape(24.dp),
-        BacklotNavigationSurface.copy(alpha = .96f),
+        // Fully opaque: full-screen Home cards must never ghost through the
+        // floating navigation background, especially on compact devices.
+        BacklotNavigationSurface,
         border = BorderStroke(1.dp, CinemaLine),
         shadowElevation = 12.dp,
     ) {
