@@ -180,6 +180,7 @@ class V211HeldDraftReviewUiTest {
             }
         }
         composeRule.waitForIdle()
+        composeRule.onNodeWithText("తెలుగు 🎬 previous Creator notes").performScrollTo()
         captureVisualEvidence("c3-script-recovered-notes.png")
         composeRule.onNodeWithText("SAVE & PUBLISH").performClick()
         composeRule.runOnIdle {
@@ -322,6 +323,7 @@ class V211HeldDraftReviewUiTest {
             }
         }
         composeRule.waitForIdle()
+        composeRule.onNodeWithText("తెలుగు 🎬 earlier caption").performScrollTo()
         captureVisualEvidence("c3-publish-description.png")
         composeRule.onNodeWithText("SAVE PUBLISH DETAILS").performClick()
         composeRule.runOnIdle {
