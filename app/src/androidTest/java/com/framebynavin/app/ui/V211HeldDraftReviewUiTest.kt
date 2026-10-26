@@ -55,7 +55,7 @@ class V211HeldDraftReviewUiTest {
         val preview = CreatorEditorDraftStore.HeldDraftPreview(
             sourceId = "held:project:test:01",
             editor = "project",
-            savedAtMillis = 42_000L,
+            savedAtMillis = 1_792_904_400_000L,
             restoreGeneration = 0L,
             baseWorkspaceRevision = 1L,
             fields = listOf(
@@ -63,14 +63,15 @@ class V211HeldDraftReviewUiTest {
             ),
         )
         composeRule.setContent {
-            V211HeldDraftReviewDialog(drafts = listOf(preview), onDismiss = {})
+            V211HeldDraftReviewDialog(drafts = listOf(preview), onDismiss = {}, projectId = "test")
         }
         composeRule.onNodeWithText("Earlier drafts").assertIsDisplayed()
-        composeRule.onNodeWithText("COPY LEARNINGS").assertIsDisplayed()
-        composeRule.onNodeWithText("SAVE TEXT").assertIsDisplayed()
+        composeRule.onNodeWithText("COPY LEARNINGS").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("SAVE TEXT").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("SAVE DRAFT TEXT").assertIsDisplayed()
         composeRule.onNodeWithText("APPLY DRAFT").assertDoesNotExist()
         composeRule.onNodeWithText("DONE").assertIsDisplayed()
+        composeRule.onNodeWithText("SAVE ORIGINAL JSON").performScrollTo().assertIsDisplayed()
         captureVisualEvidence("c3-earlier-drafts-review.png", dialog = true)
     }
 
