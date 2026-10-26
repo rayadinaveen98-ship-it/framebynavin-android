@@ -136,6 +136,8 @@ class V212HomeNavVisualEvidenceUiTest {
                 hasLayout && lines.isNotEmpty())
             assertTrue("$label wrapped across ${lines.single().lineCount} rows",
                 lines.single().lineCount == 1)
+            assertTrue("$label has an ellipsis instead of its full visible name",
+                !lines.single().isLineEllipsized(0))
         }
         rule.onNodeWithContentDescription("Create project").assertExists()
         capture("bottom-nav-largefont")
