@@ -2,6 +2,8 @@ package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.app.UiAutomation
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
@@ -129,22 +131,41 @@ class V214QuickActionsSheetVisualUiTest {
      * Dismiss only the specifically identified Quickstep error; never dismiss
      * unknown system dialogs or app windows just to obtain a passing screenshot.
      */
-    private fun dismissKnownEmulatorLauncherError() {
+    private fun knownQuickstepPopupRoot(automation: UiAutomation): AccessibilityNodeInfo? {
+        // A Quickstep crash alert can be a *secondary* window while the
+        // Compose ModalBottomSheet remains the accessibility-active window.
+        // Inspect all windows, never infer popup identity from screenshot color.
+        val info = automation.serviceInfo
+        if (info.flags and AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS == 0) {
+            info.flags = info.flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            automation.serviceInfo = info
+        }
+        val roots = buildList {
+            automation.rootInActiveWindow?.let(::add)
+            automation.windows.forEach { window -> window.root?.let(::add) }
+        }
+        return roots.firstOrNull {
+            it.findAccessibilityNodeInfosByText("Quickstep keeps stopping").isNotEmpty()
+        }
+    }
+
+    private fun dismissKnownEmulatorLauncherError(): Boolean {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        var dismissed = false
         repeat(3) {
-            val root = automation.rootInActiveWindow ?: return
-            if (root.findAccessibilityNodeInfosByText("Quickstep keeps stopping").isEmpty()) return
-            val close = root.findAccessibilityNodeInfosByText("Close app").firstOrNull()
+            val popup = knownQuickstepPopupRoot(automation) ?: return dismissed
+            val close = popup.findAccessibilityNodeInfosByText("Close app").firstOrNull()
             check(close != null && close.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
                 "Known Android emulator Quickstep crash obscures Quick Actions; cannot dismiss safely"
             }
-            Log.w("V214VisualQA", "Dismissed Android emulator Quickstep error before screenshot")
-            SystemClock.sleep(500)
+            dismissed = true
+            Log.w("V214VisualQA", "Dismissed identified Android Quickstep system crash window")
+            SystemClock.sleep(650)
         }
-        check(automation.rootInActiveWindow
-            ?.findAccessibilityNodeInfosByText("Quickstep keeps stopping").isNullOrEmpty()) {
+        check(knownQuickstepPopupRoot(automation) == null) {
             "Recurring Android Quickstep launcher crash prevents real-window screenshot QA"
         }
+        return dismissed
     }
 
     /**
@@ -153,7 +174,7 @@ class V214QuickActionsSheetVisualUiTest {
      * This fixture renders a dark full-width sheet, so central white pixels
      * across multiple rows signal an occluding Android dialog.
      */
-    private fun assertSheetScreenshotIsUnobscured(bitmap: Bitmap) {
+    private fun centralBrightPixelCount(bitmap: Bitmap): Int {
         val xs = intArrayOf(bitmap.width * 45 / 100, bitmap.width / 2, bitmap.width * 55 / 100)
         val ys = intArrayOf(bitmap.height * 40 / 100, bitmap.height / 2, bitmap.height * 60 / 100)
         var brightSamples = 0
@@ -163,9 +184,7 @@ class V214QuickActionsSheetVisualUiTest {
                 brightSamples++
             }
         }
-        check(brightSamples < 5) {
-            "Quick Actions screenshot obscured by bright Android system dialog ($brightSamples/9 samples)"
-        }
+        return brightSamples
     }
 
     private fun capture(state: String, position: String) {
@@ -175,22 +194,38 @@ class V214QuickActionsSheetVisualUiTest {
         rule.waitForIdle()
         // The material sheet's entrance animation runs in its own dialog window.
         SystemClock.sleep(500)
-        dismissKnownEmulatorLauncherError()
-        val screenshot = requireNotNull(instrument.uiAutomation.takeScreenshot()) {
-            "Could not capture device pixels including Quick Actions dialog"
-        }
         val folder = File(instrument.targetContext.filesDir, "v214-quick-actions-visual")
         check(folder.isDirectory || folder.mkdirs())
         val destination = File(folder, "v214-${state}-${position}-${profileName}.png")
-        try {
-            assertSheetScreenshotIsUnobscured(screenshot)
-            destination.outputStream().use {
-                check(screenshot.compress(Bitmap.CompressFormat.PNG, 100, it))
+        repeat(4) { attempt ->
+            dismissKnownEmulatorLauncherError()
+            val screenshot = requireNotNull(instrument.uiAutomation.takeScreenshot()) {
+                "Could not capture device pixels including Quick Actions dialog"
             }
-        } finally {
-            screenshot.recycle()
+            try {
+                val bright = centralBrightPixelCount(screenshot)
+                if (bright < 5) {
+                    destination.outputStream().use {
+                        check(screenshot.compress(Bitmap.CompressFormat.PNG, 100, it))
+                    }
+                    assertTrue("Missing device screenshot: $destination", destination.length() > 256L)
+                    return
+                }
+                // A fresh system crash dialog can appear between the preliminary
+                // accessibility check and the pixel capture. Only retry when the
+                // *named* Android launcher error is present; never hide unknown
+                // white overlays or overwrite suspicious screenshots as accepted.
+                val handled = dismissKnownEmulatorLauncherError()
+                check(handled && attempt < 3) {
+                    "Quick Actions screenshot obscured by unexplained system dialog ($bright/9 samples)"
+                }
+                Log.w("V214VisualQA", "Retrying screenshot after identified Quickstep popup")
+                SystemClock.sleep(450)
+            } finally {
+                screenshot.recycle()
+            }
         }
-        assertTrue("Missing device screenshot: $destination", destination.length() > 256L)
+        error("Could not capture an unobscured Quick Actions screen")
     }
 
     private fun showLastActionAboveSystemNavigation() {
