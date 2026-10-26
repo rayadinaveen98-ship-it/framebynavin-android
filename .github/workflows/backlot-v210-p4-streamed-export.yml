@@ -525,7 +525,13 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v215-slideshow-default.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v215-slideshow-default.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V216IdeaEditorSafeFooterUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v216-idea-default.log
-            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v216-idea-default.log; then exit 1; fi
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v216-idea-default.log; then
+              # Export real keyboard pixels even on a failed assertion; never
+              # hide evidence by making only green builds produce screenshots.
+              mkdir -p v216-idea-visual-evidence
+              adb exec-out run-as com.framebynavin.app cat files/v216-idea-editor-visual/v216-editor-keyboard-default.png > v216-idea-visual-evidence/v216-editor-keyboard-default.png || true
+              exit 1
+            fi
             grep -Fq 'OK (4 tests)' v216-idea-default.log
             # Inherited Home-layout suite: keep all 11 UI integration tests, including photo reorder
             # before the inherited data-changing recovery suites.
@@ -667,7 +673,13 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V216IdeaEditorSafeFooterUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v216-idea-compact.log
             adb shell wm size reset
             adb shell settings put system font_scale 1.0
-            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v216-idea-compact.log; then exit 1; fi
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v216-idea-compact.log; then
+              # Export real keyboard pixels even on a failed assertion; never
+              # hide evidence by making only green builds produce screenshots.
+              mkdir -p v216-idea-visual-evidence
+              adb exec-out run-as com.framebynavin.app cat files/v216-idea-editor-visual/v216-editor-keyboard-compact.png > v216-idea-visual-evidence/v216-editor-keyboard-compact.png || true
+              exit 1
+            fi
             grep -Fq 'OK (4 tests)' v216-idea-compact.log
             mkdir -p v216-idea-visual-evidence
             adb exec-out run-as com.framebynavin.app cat files/v216-idea-editor-visual/v216-editor-top-default.png > v216-idea-visual-evidence/v216-editor-top-default.png
