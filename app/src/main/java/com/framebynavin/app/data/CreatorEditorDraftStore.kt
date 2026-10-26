@@ -99,7 +99,15 @@ class CreatorEditorDraftStore(context: Context) {
         }
 
     /** Copy-only presentation of a held journal. Never contains an apply action. */
-    data class HeldDraftField(val label: String, val value: String)
+    data class HeldDraftField(
+        val label: String,
+        val value: String,
+        // Identity metadata is never rendered or exported. It only constrains
+        // targeted Publish recovery; output list index is never a destination.
+        val deliverableId: String? = null,
+        val deliverablePlatform: String? = null,
+        val deliverableFormat: String? = null,
+    )
     data class HeldDraftPreview(
         val sourceId: String,
         val editor: String,
@@ -188,6 +196,32 @@ class CreatorEditorDraftStore(context: Context) {
             ?.fields?.any { it.label == label && it.value == expectedText } == true
     }
 
+    /**
+     * Verify the unique historical output, including its original platform,
+     * format and full Description text. Reordered output labels have NO role
+     * in this authorization. Duplicate IDs in an older journal fail closed.
+     */
+    fun verifiedHistoricalPublishDescription(
+        projectId: String,
+        sourceId: String,
+        deliverableId: String,
+        platform: String,
+        format: String,
+        expectedText: String,
+    ): Boolean {
+        if (deliverableId.isBlank() || platform.isBlank() || format.isBlank() || expectedText.isBlank()) {
+            return false
+        }
+        val descriptions = heldDrafts(projectId, "publish")
+            .firstOrNull { it.sourceId == sourceId }?.fields
+            ?.filter { it.deliverableId == deliverableId && it.label.endsWith(" · Description") }
+            ?: return false
+        return descriptions.size == 1 &&
+            descriptions.single().deliverablePlatform == platform &&
+            descriptions.single().deliverableFormat == format &&
+            descriptions.single().value == expectedText
+    }
+
     fun hasHeldDraftForEditor(projectId: String, editor: String): Boolean {
         require(editor == "project" || editor == "script" || editor == "publish")
         val key = "$editor:$projectId"
@@ -255,20 +289,27 @@ class CreatorEditorDraftStore(context: Context) {
         val result = mutableListOf<HeldDraftField>()
         array.objects().forEachIndexed { i, item ->
             val prefix = "Output ${i + 1}"
+            val outputId = item.optString("id").takeIf { it.isNotBlank() }
+            val platform = item.optString("platform").takeIf { it.isNotBlank() }
+            val format = item.optString("format").takeIf { it.isNotBlank() }
+            fun historicalField(label: String, value: String): HeldDraftField = HeldDraftField(
+                label = label, value = value, deliverableId = outputId,
+                deliverablePlatform = platform, deliverableFormat = format,
+            )
             listOf(
                 "title" to "Title", "description" to "Description",
                 "tags" to "Tags", "thumbnailConcept" to "Cover idea",
             ).forEach { (key, label) ->
                 val value = item.optString(key)
-                if (value.isNotBlank()) result += HeldDraftField("$prefix · $label", value)
+                if (value.isNotBlank()) result += historicalField("$prefix · $label", value)
             }
             item.optJSONArray("titleVariants").objects().forEachIndexed { j, variant ->
                 val value = variant.optString("text")
-                if (value.isNotBlank()) result += HeldDraftField("$prefix · Title option ${j + 1}", value)
+                if (value.isNotBlank()) result += historicalField("$prefix · Title option ${j + 1}", value)
             }
             item.optJSONArray("thumbnailVariants").objects().forEachIndexed { j, variant ->
                 val value = variant.optString("text")
-                if (value.isNotBlank()) result += HeldDraftField("$prefix · Cover option ${j + 1}", value)
+                if (value.isNotBlank()) result += historicalField("$prefix · Cover option ${j + 1}", value)
             }
         }
         return result
