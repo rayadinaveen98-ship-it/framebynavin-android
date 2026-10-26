@@ -80,6 +80,9 @@ internal fun V211HeldDraftReviewDialog(
     onStagePlanField: (String, String, String) -> Unit = { _, _, _ -> },
     allowScriptNotesStaging: Boolean = false,
     onStageScriptNotes: (String, String, String) -> Unit = { _, _, _ -> },
+    eligiblePublishOutputIds: Set<String> = emptySet(),
+    onStagePublishDescription: (String, String, String, String, String) -> Unit =
+        { _, _, _, _, _ -> },
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -201,6 +204,20 @@ internal fun V211HeldDraftReviewDialog(
                                             TextButton(onClick = {
                                                 onStageScriptNotes(draft.sourceId, field.label, field.value)
                                             }) { Text("USE IN SCRIPT", color = MutedGold) }
+                                        }
+                                        val outputId = field.deliverableId
+                                        val platform = field.deliverablePlatform
+                                        val format = field.deliverableFormat
+                                        if (draft.editor == "publish" &&
+                                            field.label.endsWith(" · Description") &&
+                                            outputId != null && outputId in eligiblePublishOutputIds &&
+                                            platform != null && format != null
+                                        ) {
+                                            TextButton(onClick = {
+                                                onStagePublishDescription(
+                                                    draft.sourceId, outputId, platform, format, field.value,
+                                                )
+                                            }) { Text("USE IN PUBLISH", color = MutedGold) }
                                         }
                                     }
                                 }
