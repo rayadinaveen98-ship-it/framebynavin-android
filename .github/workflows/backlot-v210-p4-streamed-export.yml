@@ -1,10 +1,10 @@
-name: Backlot V213 — Full Today Screen and Navigation Clearance QA
+name: Backlot V214 — Quick Actions Full-Window Visual QA
 on:
   push:
-    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export, feature/backlot-c3-visual-acceptance-evidence, feature/backlot-visual-home-nav-baseline, feature/backlot-v213-home-full-scroll-qa]
+    branches: [feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export, feature/backlot-c3-visual-acceptance-evidence, feature/backlot-visual-home-nav-baseline, feature/backlot-v213-home-full-scroll-qa, feature/backlot-v214-quick-actions-sheet-visual-qa]
   workflow_dispatch:
   pull_request:
-    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export, feature/backlot-c3-visual-acceptance-evidence, feature/backlot-visual-home-nav-baseline]
+    branches: [feature/backlot-v210-p4-integrated-acceptance, feature/backlot-v210-p4-streamed-frame-export, feature/backlot-home-greeting-slideshow-phase-a, feature/backlot-home-photo-manager-phase-b1, feature/backlot-home-photos-settings-entry-b2, feature/backlot-home-photo-import-safety-b3, feature/backlot-home-playback-accessibility-b4, feature/backlot-home-append-photos-b5, feature/backlot-creator-draft-fingerprint-c1, feature/backlot-creator-c2-draft-restore-generation, feature/backlot-creator-c3-held-draft-review, feature/backlot-creator-c3-plan-field-recovery, feature/backlot-creator-c3-whole-draft-text-export, feature/backlot-creator-c3-script-notes-recovery, feature/backlot-creator-c3-publish-description-recovery, feature/backlot-creator-c3-p6-lossless-held-draft-export, feature/backlot-c3-visual-acceptance-evidence, feature/backlot-visual-home-nav-baseline, feature/backlot-v213-home-full-scroll-qa]
 permissions:
   contents: read
 concurrency:
@@ -515,6 +515,9 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V213TodayFullScreenVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v213-today-default.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v213-today-default.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v213-today-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V214QuickActionsSheetVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v214-quick-actions-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v214-quick-actions-default.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v214-quick-actions-default.log
             # Inherited Home-layout suite: keep all 11 UI integration tests, including photo reorder
             # before the inherited data-changing recovery suites.
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V18CinematicHomeHeroAlpha16UiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v211-home-greeting-ui.log
@@ -643,6 +646,24 @@ jobs:
             adb shell settings put system font_scale 1.0
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v213-today-compact.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v213-today-compact.log
+            # Capture the same bottom-sheet scenarios at 900x1600 + 1.5x font.
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V214QuickActionsSheetVisualUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v214-quick-actions-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v214-quick-actions-compact.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v214-quick-actions-compact.log
+            mkdir -p v214-quick-actions-visual-evidence
+            for state in empty overdue; do
+              for position in top bottom; do
+                for profile in default compact; do
+                  file="v214-${state}-${position}-${profile}.png"
+                  adb exec-out run-as com.framebynavin.app cat "files/v214-quick-actions-visual/${file}" > "v214-quick-actions-visual-evidence/${file}"
+                done
+              done
+            done
+            python3 -c 'from pathlib import Path; from struct import unpack; files=sorted(Path("v214-quick-actions-visual-evidence").glob("*.png")); assert len(files)==8,files; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in files}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in files),sizes; assert sizes["v214-empty-top-default.png"][0]>sizes["v214-empty-top-compact.png"][0],sizes; print("Verified eight full-device Quick Actions PNGs:",sizes)'
             mkdir -p v213-today-visual-evidence
             adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-empty-top-default.png > v213-today-visual-evidence/v213-empty-top-default.png
             adb exec-out run-as com.framebynavin.app cat files/v213-home-visual/v213-empty-top-compact.png > v213-today-visual-evidence/v213-empty-top-compact.png
@@ -755,6 +776,14 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v202-premium-particles-ui.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v202-premium-particles-ui.log
 
+      - name: Upload V214 Quick Actions device-window screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V214-Quick-Actions-Visual-Evidence-PNG
+          path: v214-quick-actions-visual-evidence/*.png
+          if-no-files-found: warn
+          retention-days: 30
       - name: Upload V213 complete Home real-emulator evidence
         if: always()
         uses: actions/upload-artifact@v4
