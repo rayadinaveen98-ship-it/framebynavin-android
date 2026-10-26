@@ -1,7 +1,10 @@
 package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.SystemClock
+import android.util.Log
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -119,6 +122,52 @@ class V214QuickActionsSheetVisualUiTest {
         rule.onNodeWithTag("quick-action-quick-capture").assertIsDisplayed()
     }
 
+    /**
+     * Android 11 emulator Quickstep may crash after wm-size/font-scale changes.
+     * This is a system launcher error (not Backlot), and its "keeps stopping"
+     * window can hide the real Quick Actions sheet despite green Compose tests.
+     * Dismiss only the specifically identified Quickstep error; never dismiss
+     * unknown system dialogs or app windows just to obtain a passing screenshot.
+     */
+    private fun dismissKnownEmulatorLauncherError() {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        repeat(3) {
+            val root = automation.rootInActiveWindow ?: return
+            if (root.findAccessibilityNodeInfosByText("Quickstep keeps stopping").isEmpty()) return
+            val close = root.findAccessibilityNodeInfosByText("Close app").firstOrNull()
+            check(close != null && close.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                "Known Android emulator Quickstep crash obscures Quick Actions; cannot dismiss safely"
+            }
+            Log.w("V214VisualQA", "Dismissed Android emulator Quickstep error before screenshot")
+            SystemClock.sleep(500)
+        }
+        check(automation.rootInActiveWindow
+            ?.findAccessibilityNodeInfosByText("Quickstep keeps stopping").isNullOrEmpty()) {
+            "Recurring Android Quickstep launcher crash prevents real-window screenshot QA"
+        }
+    }
+
+    /**
+     * Screenshots are visual evidence, not merely valid PNG bytes. Reject the
+     * large bright system error window seen in compact artifact 12645018487.
+     * This fixture renders a dark full-width sheet, so central white pixels
+     * across multiple rows signal an occluding Android dialog.
+     */
+    private fun assertSheetScreenshotIsUnobscured(bitmap: Bitmap) {
+        val xs = intArrayOf(bitmap.width * 45 / 100, bitmap.width / 2, bitmap.width * 55 / 100)
+        val ys = intArrayOf(bitmap.height * 40 / 100, bitmap.height / 2, bitmap.height * 60 / 100)
+        var brightSamples = 0
+        for (x in xs) for (y in ys) {
+            val pixel = bitmap.getPixel(x, y)
+            if (Color.red(pixel) >= 225 && Color.green(pixel) >= 225 && Color.blue(pixel) >= 225) {
+                brightSamples++
+            }
+        }
+        check(brightSamples < 5) {
+            "Quick Actions screenshot obscured by bright Android system dialog ($brightSamples/9 samples)"
+        }
+    }
+
     private fun capture(state: String, position: String) {
         val instrument = InstrumentationRegistry.getInstrumentation()
         val profileName = InstrumentationRegistry.getArguments().getString("backlotVisualProfile")
@@ -126,6 +175,7 @@ class V214QuickActionsSheetVisualUiTest {
         rule.waitForIdle()
         // The material sheet's entrance animation runs in its own dialog window.
         SystemClock.sleep(500)
+        dismissKnownEmulatorLauncherError()
         val screenshot = requireNotNull(instrument.uiAutomation.takeScreenshot()) {
             "Could not capture device pixels including Quick Actions dialog"
         }
@@ -133,6 +183,7 @@ class V214QuickActionsSheetVisualUiTest {
         check(folder.isDirectory || folder.mkdirs())
         val destination = File(folder, "v214-${state}-${position}-${profileName}.png")
         try {
+            assertSheetScreenshotIsUnobscured(screenshot)
             destination.outputStream().use {
                 check(screenshot.compress(Bitmap.CompressFormat.PNG, 100, it))
             }
