@@ -197,6 +197,26 @@ class V211HeldDraftReviewUiTest {
         }
     }
 
+    @Test fun losslessExportMustPrecedeAnyDisposalAction() {
+        val preview = CreatorEditorDraftStore.HeldDraftPreview(
+            sourceId = "held:script:test:legacy",
+            editor = "script", savedAtMillis = 10L,
+            restoreGeneration = 0L, baseWorkspaceRevision = 1L,
+            fields = listOf(CreatorEditorDraftStore.HeldDraftField(
+                "Creator notes", "Some earlier notes",
+            )),
+        )
+        composeRule.setContent {
+            V211HeldDraftReviewDialog(
+                drafts = listOf(preview), onDismiss = {},
+                projectId = "test",
+            )
+        }
+        composeRule.onNodeWithText("SAVE ORIGINAL JSON").assertIsDisplayed()
+        composeRule.onNodeWithText("SAVE DRAFT TEXT").assertIsDisplayed()
+        composeRule.onNodeWithText("DISCARD EARLIER DRAFT").assertDoesNotExist()
+    }
+
     @Test fun historicalPublishDescriptionSelectionUsesStableOutputIdNotListPosition() {
         val preview = CreatorEditorDraftStore.HeldDraftPreview(
             sourceId = "held:publish:project:before-restore",
