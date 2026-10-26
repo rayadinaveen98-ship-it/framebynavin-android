@@ -128,11 +128,12 @@ class V212HomeNavVisualEvidenceUiTest {
             assertTrue("$label clipped at nav edge: $bounds vs $bar",
                 bounds.left >= bar.left && bounds.right <= bar.right)
             val lines = mutableListOf<TextLayoutResult>()
-            val action = node.fetchSemanticsNode().config.getOrNull(
-                SemanticsActions.GetTextLayoutResult,
-            )
+            val hasLayout = runCatching {
+                node.fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult]
+                    .action?.invoke(lines) == true
+            }.getOrDefault(false)
             assertTrue("$label missing text-layout accessibility action",
-                action?.action?.invoke(lines) == true && lines.isNotEmpty())
+                hasLayout && lines.isNotEmpty())
             assertTrue("$label wrapped across ${lines.single().lineCount} rows",
                 lines.single().lineCount == 1)
         }
