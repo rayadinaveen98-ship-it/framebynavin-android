@@ -120,7 +120,16 @@ class V213TodayFullScreenVisualUiTest {
     }
 
     private fun assertBottomContentNotUnderNav() {
-        rule.onNodeWithText("REMINDERS").performScrollTo().assertIsDisplayed()
+        // performScrollTo() alone only places the heading inside the scroll
+        // viewport; it can still be beneath the floating bottom navigation.
+        // Exercise a real user's additional scrolls until the end padding
+        // and the bottom Reminders card are reached.
+        rule.onNodeWithText("REMINDERS").performScrollTo()
+        repeat(4) {
+            rule.onAllNodes(hasScrollAction()).onFirst().performTouchInput { swipeUp() }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("REMINDERS").assertIsDisplayed()
         rule.onNodeWithText("VIEW ALL").assertIsDisplayed()
         val reminders = rule.onNodeWithText("REMINDERS").getUnclippedBoundsInRoot()
         val nav = rule.onNodeWithTag("v213-bottom-nav").getUnclippedBoundsInRoot()
@@ -143,7 +152,10 @@ class V213TodayFullScreenVisualUiTest {
 
     @Test fun populatedTopShowsProjectQueueAndNavigation() {
         showHome(true)
-        rule.onNodeWithText("UP NEXT").assertExists()
+        // Both the project queue and the Next Move presentation may use
+        // "UP NEXT"; this is a legitimate repeated label, not a UI failure.
+        assertTrue("Expected an active Up Next project",
+            rule.onAllNodesWithText("UP NEXT").fetchSemanticsNodes().isNotEmpty())
         rule.onNodeWithText("Cinema craft analysis · తెలుగు").assertExists()
         capture("projects", "top")
     }
