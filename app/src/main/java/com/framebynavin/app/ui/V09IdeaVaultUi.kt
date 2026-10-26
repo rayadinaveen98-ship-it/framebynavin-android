@@ -783,13 +783,39 @@ private fun V09IdeaEditor(
         onDismiss()
     }
 
-    AlertDialog(
+    // V216: an AlertDialog footer is not reliable on compact devices when
+    // a tall notes/editor body and the on-screen keyboard compete for height.
+    // Keep the existing save/voice/reminder model, but make the footer a fixed
+    // sibling of a weighted, scrollable editor, inside safe drawing + IME insets.
+    Dialog(
         onDismissRequest = ::dismissEditor,
-        containerColor = CinemaSurfaceRaised,
-        title = { Text(if (idea.id.isBlank()) "New Idea" else "Edit Idea", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-        text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
-                OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Idea title") })
+        // A full-window Compose Dialog must opt out of platform decor-fitting
+        // so the soft keyboard resizes the dialog on Android 11. Otherwise its
+        // footer can be reported inside root bounds yet sit behind the IME.
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Surface(Modifier.fillMaxSize().testTag("v216-edit-editor"), color = CinemaBlack) {
+            Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("EDIT IDEA", modifier = Modifier.weight(1f), color = ProjectorIvory,
+                        fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    IconButton(onClick = ::dismissEditor) {
+                        Icon(Icons.Outlined.Close, "Close edit idea", tint = ProjectorIvory)
+                    }
+                }
+                Column(
+                    Modifier.weight(1f).fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp)
+                        .testTag("v216-edit-content"),
+                ) {
+                OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth().testTag("v216-edit-title"), singleLine = true, label = { Text("Idea title") })
                 IdeaVaultGuidance.similarTitles(title, existingIdeas, excludingId = idea.id).firstOrNull()?.let { duplicate ->
                     Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
                 }
@@ -806,7 +832,7 @@ private fun V09IdeaEditor(
                 }
 
                 Spacer(Modifier.height(9.dp))
-                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes · optional") })
+                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp).testTag("v216-edit-notes"), label = { Text("Notes · optional") })
                 Spacer(Modifier.height(8.dp))
                 V117VoiceIdeaInput(
                     onTranscript = { transcript ->
@@ -878,10 +904,20 @@ private fun V09IdeaEditor(
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("MOVE TO RECENTLY DELETED", color = RecRed) }
                 }
-            }
-        },
-        confirmButton = {
-            Button(
+                }
+                // Save/Cancel remain visible above system navigation and IME,
+                // regardless of optional organizing sections or long Telugu notes.
+                Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(
+                            onClick = ::dismissEditor,
+                            modifier = Modifier.weight(1f).height(52.dp).testTag("v216-edit-cancel"),
+                        ) { Text("CANCEL", color = ProjectorIvory) }
+                        Button(
                 onClick = {
                     val now = System.currentTimeMillis()
                     val finalizedRecording = voiceRecording
@@ -912,11 +948,18 @@ private fun V09IdeaEditor(
                     if (accepted) voiceRecording = null
                 },
                 enabled = title.isNotBlank() || voiceRecording != null,
+                modifier = Modifier.weight(1.55f).height(52.dp).testTag("v216-edit-save"),
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-            ) { Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE") }
-        },
-        dismissButton = { TextButton(onClick = ::dismissEditor) { Text("CANCEL", color = MutedText) } },
-    )
+                shape = RoundedCornerShape(15.dp),
+                        ) {
+                            Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE",
+                                fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
