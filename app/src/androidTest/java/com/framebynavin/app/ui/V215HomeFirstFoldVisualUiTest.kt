@@ -119,22 +119,23 @@ class V215HomeFirstFoldVisualUiTest {
         check(file.length() > 256)
     }
 
-    private fun assertBottomContentNotUnderNav() {
-        // performScrollTo() alone only places the heading inside the scroll
-        // viewport; it can still be beneath the floating bottom navigation.
-        // Exercise a real user's additional scrolls until the end padding
-        // and the bottom Reminders card are reached.
-        rule.onNodeWithText("REMINDERS").performScrollTo()
-        repeat(4) {
+    private fun assertUnifiedHubReachableWithoutNavOverlap() {
+        // V220: one Reminder Hub with an embedded next-alert preview replaces
+        // the old second REMINDERS / VIEW ALL panel at the bottom of Home.
+        val hub = rule.onNodeWithTag("v219-reminder-home-entry")
+        hub.performScrollTo()
+        rule.waitForIdle()
+        val navTop = rule.onNodeWithTag("v215-bottom-nav").getUnclippedBoundsInRoot().top
+        if (hub.getUnclippedBoundsInRoot().bottom + 4.dp >= navTop) {
             rule.onAllNodes(hasScrollAction()).onFirst().performTouchInput { swipeUp() }
         }
         rule.waitForIdle()
-        rule.onNodeWithText("REMINDERS").assertIsDisplayed()
-        rule.onNodeWithText("VIEW ALL").assertIsDisplayed()
-        val reminders = rule.onNodeWithText("REMINDERS").getUnclippedBoundsInRoot()
+        hub.assertIsDisplayed()
+        val hubBounds = hub.getUnclippedBoundsInRoot()
         val nav = rule.onNodeWithTag("v215-bottom-nav").getUnclippedBoundsInRoot()
-        assertTrue("Reminders header covered by nav: $reminders vs $nav",
-            reminders.bottom + 4.dp < nav.top)
+        assertTrue("Reminder Hub covered by bottom nav: $hubBounds vs $nav",
+            hubBounds.bottom + 4.dp < nav.top)
+        rule.onAllNodesWithText("REMINDERS").assertCountEquals(0)
     }
 
     @Test fun emptyTopShowsNoImagePlaceholderOrProjectCard() {
@@ -146,7 +147,7 @@ class V215HomeFirstFoldVisualUiTest {
 
     @Test fun emptyBottomKeepsRemindersAboveBottomNavigation() {
         showHome(false)
-        assertBottomContentNotUnderNav()
+        assertUnifiedHubReachableWithoutNavOverlap()
         capture("empty", "bottom")
     }
 
@@ -179,7 +180,7 @@ class V215HomeFirstFoldVisualUiTest {
 
     @Test fun populatedBottomKeepsRemindersReachableAboveBottomNavigation() {
         showHome(true)
-        assertBottomContentNotUnderNav()
+        assertUnifiedHubReachableWithoutNavOverlap()
         capture("projects", "bottom")
     }
 }
