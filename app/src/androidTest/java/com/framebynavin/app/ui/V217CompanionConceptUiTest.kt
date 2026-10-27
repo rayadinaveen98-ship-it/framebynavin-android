@@ -36,26 +36,14 @@ import org.junit.runner.RunWith
 class V217CompanionConceptUiTest {
     @get:Rule val rule = createComposeRule()
 
-    @Test fun existingCuteUsesAllFiveOriginalPoseFiles() {
-        val expected = mapOf(
-            CinePulseState.IDLE to R.drawable.guide_cute_welcome,
-            CinePulseState.WALK to R.drawable.guide_cute_encourage,
-            CinePulseState.POINT to R.drawable.guide_cute_encourage,
-            CinePulseState.PRESENT to R.drawable.guide_cute_encourage,
-            CinePulseState.LOOK to R.drawable.guide_cute_welcome,
-            CinePulseState.NOD to R.drawable.guide_cute_listening,
-            CinePulseState.WAVE to R.drawable.guide_cute_welcome,
-            CinePulseState.THINK to R.drawable.guide_cute_thinking,
-            CinePulseState.LISTEN to R.drawable.guide_cute_listening,
-            CinePulseState.SUCCESS to R.drawable.guide_cute_celebrate,
-            CinePulseState.CELEBRATE to R.drawable.guide_cute_celebrate,
-            CinePulseState.REST to R.drawable.guide_cute_welcome,
-        )
-        assertEquals(CinePulseState.entries.toSet(), expected.keys)
-        for ((state, drawable) in expected) {
-            assertEquals("Cute pose for $state", drawable, v144GuideDrawable(V144GuideIdentity.CUTE, state))
+    /** The old non-welcome Cute WebPs include corrupted/deformed frames.
+     *  Do not silently enable them without replacement asset approval. */
+    @Test fun existingCuteRemainsOnValidatedUndistortedMaster() {
+        for (state in CinePulseState.entries) {
+            assertEquals("Cute must stay visually safe at $state",
+                R.drawable.guide_cute_welcome,
+                v144GuideDrawable(V144GuideIdentity.CUTE, state))
         }
-        assertEquals(5, expected.values.toSet().size)
     }
 
     @Test fun sparkOriginalPoseMappingAndIdentityRemainUntouched() {
