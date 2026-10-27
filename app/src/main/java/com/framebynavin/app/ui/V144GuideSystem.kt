@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -198,11 +201,17 @@ private fun V144GuideChoiceCard(
             Spacer(Modifier.height(7.dp))
             Button(
                 onClick = onSelect,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+                    .testTag("v217-choose-button-${guide.name}")
+                    .semantics { contentDescription = "Select ${guide.displayName}" },
                 colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = Color.White),
                 shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
             ) {
-                Text("USE ${guide.displayName.uppercase()}", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                // One clear action word: labels such as USE SPARK/USE FRAME
+                // were visibly cut in half on compact screens with 1.5x fonts.
+                // The card title and full accessibility label identify the guide.
+                Text("SELECT", fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
             }
         }
     }
