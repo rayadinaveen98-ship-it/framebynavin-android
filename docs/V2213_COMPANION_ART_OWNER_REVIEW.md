@@ -39,3 +39,30 @@ Uniqueness tests prove that the drawings are different, **not** that they meet t
 **V221.3 pose catalog and vector review gallery are accepted as development/reference assets only. Production artwork replacement is BLOCKED on art approval.** Do not automatically merge this PR or start visual replacement in V221.4. The read-only V221.1/V221.2 decision and dismissal logic can remain independently tested.
 
 The user's V220.4.1 device/backup acceptance remains a separate release gate; this review does not claim it is closed.
+
+
+## Identity-locked review checkpoint — 27 October 2026 (continuation)
+
+The current approved V217 art was retrieved and inspected directly. Its defining visual identity is:
+
+- **Frame:** compact chibi metallic robot, rounded black glass face with bright amber eyes, copper/gold armor rings, distinctive segmented head/ear cups, aperture mark on its torso and substantial robotic boots. **Never reinterpret Frame as a human boy.**
+- **Navi:** single young explorer with tousled dark hair, navy blue hooded jacket, orange accents, a small compass/star insignia, dark cargo trousers and sneakers. Preserve this specific young explorer's face, clothing and proportions through every performance. **Never switch Navi into a different person or gender presentation.**
+- **Cute:** fluffy cream kitten with large violet eyes, subtle grey tabby markings, pink nose/collar, small gold charm and a long fluffy curved tail. **Never replace Cute with a robot or change species.**
+- **Spark:** all five original `guide_funny_*.webp` images remain unchanged; do not create or route replacement assets.
+
+A generated premium-style exploration did **not** maintain these identities (human Frame, different Navi, robotic Cute) and is therefore **rejected as character artwork**. Lighting quality alone is not an acceptance criterion. Never treat a generated concept board as proof of in-app integration.
+
+### Implemented review-application safeguards
+
+- Each of the nine expressions now displays **the approved original and the draft pose side-by-side at exactly 96dp** in the same review row. The original is intentionally repeated for all nine poses so that facial identity, silhouette, materials and costume remain directly comparable at eye level. This replaces the earlier 3x3 grid that showed a single, differently sized original.
+- Existing Android emulator UI tests assert an **identical rendered width and height** for original and candidate at both first and last poses, as well as genuine normal/compact-window screenshots. These tests verify comparison fairness and rendering; they do **not** assert artistic similarity.
+- CI now checks the exact **Git blob identity of eight untouched original WebPs** (three V217 designs and five Spark images). A changed original fails immediately, preventing accidental artwork drift. Those reference values are fixed from the approved source branch, not calculated from whatever new files are submitted.
+- The review-gallery code is isolated, and the CI continues to reject accidental wiring of the V221.3 experimental catalog into the existing V144/V217 production renderer.
+
+### Remaining blocked work
+
+**The 27 vector drawings remain unapproved flat 2D studies.** We have not yet authored or integrated an identity-faithful final 27-frame premium illustration pack.
+
+For an acceptable art production pass, create the Frame/Navi/Cute poses using the originals as direct visual references; validate identical face, silhouette, palette and costume/material for every state; render transparent previews at a consistent scale; and compare all nine poses per identity on normal and compact Android before requesting owner approval. After approval, convert to optimized display assets, add lightweight transitions with reduced-motion fallback and take real Home/onboarding/Settings screenshots on-device. Spark must remain byte-identical. V221.4 integration and the V220.4.1 owner device/backup gate are still separate.
+
+**Verification status:** source and tests committed to the development branch; new Android CI acceptance is required for this new checkpoint. Do not label it green until the exact commit run completes. Main/stable and owner-installed APK remain untouched.
