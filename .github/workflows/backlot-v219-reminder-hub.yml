@@ -62,7 +62,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Real Android Home to Reminders Hub screenshots
+      # Compose captureToImage() excludes Android system bars: validate root width and height range.\n      - name: Real Android Home to Reminders Hub screenshots
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -89,7 +89,7 @@ jobs:
             for scene in home-hub-card center-over-home hub-all hub-upcoming hub-today; do adb exec-out run-as com.framebynavin.app cat "files/v219-ui/v219-compact-${scene}.png" > "v219-evidence/v219-compact-${scene}.png"; done
             adb shell wm size reset
             adb shell settings put system font_scale 1.0
-            python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v219-evidence").glob("*.png")); assert len(fs)==10,len(fs); sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>10000 for p in fs); assert all(wh==(900,1600) for n,wh in sizes.items() if "compact" in n); assert all(wh==(1080,2400) for n,wh in sizes.items() if "default" in n); print(sizes)'
+            python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v219-evidence").glob("*.png")); assert len(fs)==10,len(fs); sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>10000 for p in fs); assert all(wh[0]==900 and 1300<=wh[1]<=1600 for n,wh in sizes.items() if "compact" in n); assert all(wh[0]==1080 and 2100<=wh[1]<=2400 for n,wh in sizes.items() if "default" in n); print(sizes)'
       - name: Upload real Android Home/Center PNGs
         if: always()
         uses: actions/upload-artifact@v4
