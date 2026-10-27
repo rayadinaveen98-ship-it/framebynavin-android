@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -84,6 +86,8 @@ internal fun V157ReminderCenterUi(
     var selected by remember { mutableStateOf(setOf<String>()) }
     var turnOffTarget by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // V219: presentation-only filter, never changes reminder storage or action tokens.
+    var hubFilter by remember { mutableStateOf(V219ReminderHubFilter.ALL) }
     val selectionMode = selected.isNotEmpty()
     // Recheck Android grants when the user returns from permission Settings.
     val notificationsReady = remember(permissionRefresh, context) {
@@ -163,11 +167,29 @@ internal fun V157ReminderCenterUi(
                     val todayCount = grouped[ReminderCenterGroup.TODAY].orEmpty().size
                     val postponedCount = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty().size
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        V157InboxCount("NEEDS ACTION", attentionCount, RecRed, Modifier.weight(1f))
+                        V157InboxCount("NEEDS", attentionCount, RecRed, Modifier.weight(1f))
                         V157InboxCount("TODAY", todayCount, MutedGold, Modifier.weight(1f))
-                        V157InboxCount("POSTPONED", postponedCount, ProjectorIvory, Modifier.weight(1f))
+                        V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
                     }
 
+                    Spacer(Modifier.height(13.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            .testTag("v219-hub-filters"),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        V219ReminderHubFilter.entries.forEach { filter ->
+                            FilterChip(
+                                selected = hubFilter == filter,
+                                onClick = { hubFilter = filter },
+                                label = {
+                                    Text("${filter.title} ${filter.count(grouped)}", fontSize = 11.sp,
+                                        maxLines = 1)
+                                },
+                                modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(13.dp))
                     V181ReminderResponseSection(
                         tasks = tasks,
@@ -233,7 +255,7 @@ internal fun V157ReminderCenterUi(
                         Spacer(Modifier.height(28.dp))
                         V157EmptyReminderCenter(onNew)
                     } else {
-                        V157ReminderGroup(
+                        if (hubFilter.includes(ReminderCenterGroup.NEEDS_ATTENTION)) V157ReminderGroup(
                             label = "NEEDS ATTENTION",
                             subtitle = "Overdue, at-risk or waiting for a check-in",
                             tasks = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty(),
@@ -253,7 +275,7 @@ internal fun V157ReminderCenterUi(
                             onReschedule = onReschedule,
                             onTurnOff = { turnOffTarget = it },
                         )
-                        V157ReminderGroup(
+                        if (hubFilter.includes(ReminderCenterGroup.TODAY)) V157ReminderGroup(
                             label = "TODAY",
                             subtitle = "Coming up in the next 24 hours",
                             tasks = grouped[ReminderCenterGroup.TODAY].orEmpty(),
@@ -273,7 +295,7 @@ internal fun V157ReminderCenterUi(
                             onReschedule = onReschedule,
                             onTurnOff = { turnOffTarget = it },
                         )
-                        V157ReminderGroup(
+                        if (hubFilter.includes(ReminderCenterGroup.SNOOZED_PAUSED)) V157ReminderGroup(
                             label = "SNOOZED / PAUSED",
                             subtitle = "Reminders you've delayed",
                             tasks = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty(),
@@ -293,7 +315,7 @@ internal fun V157ReminderCenterUi(
                             onReschedule = onReschedule,
                             onTurnOff = { turnOffTarget = it },
                         )
-                        V157ReminderGroup(
+                        if (hubFilter.includes(ReminderCenterGroup.UPCOMING)) V157ReminderGroup(
                             label = "UPCOMING",
                             subtitle = "Beyond the next 24 hours",
                             tasks = grouped[ReminderCenterGroup.UPCOMING].orEmpty(),
@@ -313,6 +335,11 @@ internal fun V157ReminderCenterUi(
                             onReschedule = onReschedule,
                             onTurnOff = { turnOffTarget = it },
                         )
+                        if (hubFilter.count(grouped) == 0) {
+                            Text("No reminders in this category", color = MutedText,
+                                modifier = Modifier.padding(vertical = 20.dp)
+                                    .testTag("v219-empty-filter"))
+                        }
                     }
                 }
     }

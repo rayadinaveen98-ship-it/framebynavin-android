@@ -211,6 +211,12 @@ internal fun PTodayScreen(
                 }
             }
 
+            // V219: Real reminder state is now reachable immediately after
+            // Up Next instead of below channel stats and weekly-focus content.
+            // One tap opens the existing V157 Center with unchanged safe actions.
+            Spacer(Modifier.height(12.dp))
+            V219ReminderHomeEntry(tasks = tasks, onOpenHub = onViewAllReminders)
+
             // Secondary progress and channel-performance information follows
             // the actionable project, instead of pushing it under navigation.
             Spacer(Modifier.height(18.dp))
