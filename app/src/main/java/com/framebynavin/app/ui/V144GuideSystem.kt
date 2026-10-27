@@ -216,7 +216,9 @@ private fun V144GuideChoiceCard(
                 modifier = Modifier.fillMaxWidth().height(48.dp)
                     .testTag("v217-choose-button-${guide.name}")
                     .semantics { contentDescription = "Select ${guide.displayName}" },
-                colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = Color.White),
+                // All four accent surfaces have >= 5.6:1 contrast with dark ink,
+                // while white labels ranged 1.5:1 to 3.7:1 (below AA).
+                colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = CinemaBlack),
                 shape = RoundedCornerShape(12.dp),
                 contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
             ) {
