@@ -117,17 +117,23 @@ class V217CompanionConceptUiTest {
             }
         }
         rule.waitForIdle()
+        captureVisual("top")
         for (guide in set) {
             for (dp in listOf(48, 96, 160)) {
                 rule.onNodeWithTag("v217-${guide.name}-${dp}").performScrollTo().assertExists()
             }
         }
+        captureVisual("bottom")
+    }
+
+    private fun captureVisual(position: String) {
+        rule.waitForIdle()
         val instrument = InstrumentationRegistry.getInstrumentation()
         val profile = InstrumentationRegistry.getArguments().getString("backlotVisualProfile") ?: "unspecified"
         val photo = requireNotNull(instrument.uiAutomation.takeScreenshot()) { "Device capture unavailable" }
         val dir = File(instrument.targetContext.filesDir, "v217-concept-visual")
         assertTrue("Cannot make screenshot directory", dir.isDirectory || dir.mkdirs())
-        val output = File(dir, "v217-${profile}-concept.png")
+        val output = File(dir, "v217-${profile}-${position}.png")
         try {
             output.outputStream().use { assertTrue(photo.compress(Bitmap.CompressFormat.PNG, 100, it)) }
         } finally {
