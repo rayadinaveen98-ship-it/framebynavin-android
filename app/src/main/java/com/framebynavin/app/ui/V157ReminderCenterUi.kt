@@ -89,6 +89,7 @@ internal fun V157ReminderCenterUi(
     var confirmDelete by remember { mutableStateOf(false) }
     // V219: presentation-only filter, never changes reminder storage or action tokens.
     var hubFilter by remember { mutableStateOf(V219ReminderHubFilter.ALL) }
+    var historyOpen by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     // Compute visible groups from real Center data; no synthetic reminders.
     val matchingGroups = V219ReminderSearchPolicy.filter(grouped, searchQuery)
@@ -278,7 +279,7 @@ internal fun V157ReminderCenterUi(
                             unfocusedLabelColor = MutedText,
                         ),
                     )
-                    if (searchQuery.isNotBlank()) {
+                    if (searchQuery.isNotBlank() && !historyOpen) {
                         Text(
                             "${V219ReminderHubFilter.ALL.count(matchingGroups)} matching reminders",
                             color = MutedText, fontSize = 11.sp,
@@ -294,8 +295,8 @@ internal fun V157ReminderCenterUi(
                     ) {
                         V219ReminderHubFilter.entries.forEach { filter ->
                             FilterChip(
-                                selected = hubFilter == filter,
-                                onClick = { hubFilter = filter; selected = emptySet() },
+                                selected = !historyOpen && hubFilter == filter,
+                                onClick = { hubFilter = filter; historyOpen = false; selected = emptySet() },
                                 label = {
                                     Text("${filter.title} ${filter.count(matchingGroups)}", fontSize = 11.sp,
                                         maxLines = 1)
@@ -303,9 +304,24 @@ internal fun V157ReminderCenterUi(
                                 modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
                             )
                         }
+                        FilterChip(
+                            selected = historyOpen,
+                            onClick = {
+                                historyOpen = !historyOpen
+                                hubFilter = V219ReminderHubFilter.ALL
+                                selected = emptySet()
+                            },
+                            label = { Text("History", fontSize = 11.sp, maxLines = 1) },
+                            modifier = Modifier.testTag("v2193-history-tab"),
+                        )
                     }
-                    if (searchQuery.isBlank()) reminderStatusPanels()
-                    if (activeIds.isEmpty()) {
+                    if (!historyOpen && searchQuery.isBlank()) reminderStatusPanels()
+                    if (historyOpen) {
+                        val historyWords = V219ReminderSearchPolicy.terms(searchQuery)
+                        val historyTasks = if (historyWords.isEmpty()) tasks else
+                            tasks.filter { V219ReminderSearchPolicy.matches(it, historyWords) }
+                        V2193ReminderHistorySection(tasks = historyTasks)
+                    } else if (activeIds.isEmpty()) {
                         Spacer(Modifier.height(28.dp))
                         V157EmptyReminderCenter(onNew)
                     } else {
@@ -399,7 +415,7 @@ internal fun V157ReminderCenterUi(
                         }
                     }
                     // Show matches before nonmatching response/status panels during search.
-                    if (searchQuery.isNotBlank()) reminderStatusPanels()
+                    if (!historyOpen && searchQuery.isNotBlank()) reminderStatusPanels()
                 }
     }
 
