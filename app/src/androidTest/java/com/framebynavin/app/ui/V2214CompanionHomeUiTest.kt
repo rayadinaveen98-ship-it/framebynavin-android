@@ -36,7 +36,7 @@ class V2214CompanionHomeUiTest {
 
     private fun screenshot(label: String) {
         val i = InstrumentationRegistry.getInstrumentation()
-        val profile = i.arguments.getString("backlotVisualProfile")
+        val profile = InstrumentationRegistry.getArguments().getString("backlotVisualProfile")
         require(profile == "default" || profile == "compact")
         rule.waitForIdle()
         i.waitForIdleSync()
