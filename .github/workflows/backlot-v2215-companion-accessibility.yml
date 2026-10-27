@@ -110,37 +110,26 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
             adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
             adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
             mkdir -p v2215-evidence
-            for visual in default compact; do
-              if [ "$visual" = compact ]; then
-                adb shell wm size 900x1600
-                adb shell settings put system font_scale 2.0
-              fi
-              for cls in V2215CompanionAccessibilityUiTest V2214CompanionHomeUiTest; do
-                adb shell am instrument -w -r -e class "com.framebynavin.app.ui.$cls" -e backlotVisualProfile "$visual" -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "v2215-$visual-$cls.log"
-                if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' "v2215-$visual-$cls.log"; then exit 1; fi
-                grep -Fq 'OK (3 tests)' "v2215-$visual-$cls.log"
-              done
-              for scene in settings-on settings-off card-actions; do
-                adb exec-out run-as com.framebynavin.app cat "files/v2215-a11y/v2215-$visual-$scene.png" > "v2215-evidence/v2215-$visual-$scene.png"
-              done
-            done
-            python3 - <<'PY'
-            from pathlib import Path
-            import struct
-            images=list(Path("v2215-evidence").glob("*.png"))
-            assert len(images)==6,len(images)
-            for img in images:
-                contents=img.read_bytes()
-                assert len(contents)>20000,img
-                assert contents[:8]==bytes.fromhex("89504e470d0a1a0a")
-                expected=900 if "compact" in img.name else 1080
-                assert struct.unpack(">I",contents[16:20])[0]==expected,img
-            print("Six genuine Android Settings/Card screenshots recorded")
-            PY
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2215CompanionAccessibilityUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2215-default-a11y.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2215-default-a11y.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2215-default-a11y.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2214CompanionHomeUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2215-default-home.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2215-default-home.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2215-default-home.log
+            for scene in settings-on settings-off card-actions; do adb exec-out run-as com.framebynavin.app cat "files/v2215-a11y/v2215-default-$scene.png" > "v2215-evidence/v2215-default-$scene.png"; done
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 2.0
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2215CompanionAccessibilityUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2215-compact-a11y.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2215-compact-a11y.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2215-compact-a11y.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2214CompanionHomeUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2215-compact-home.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2215-compact-home.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2215-compact-home.log
+            for scene in settings-on settings-off card-actions; do adb exec-out run-as com.framebynavin.app cat "files/v2215-a11y/v2215-compact-$scene.png" > "v2215-evidence/v2215-compact-$scene.png"; done
+            python3 -c 'from pathlib import Path; import struct; images=list(Path("v2215-evidence").glob("*.png")); assert len(images)==6,len(images); assert all(p.stat().st_size>20000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and struct.unpack(">I",p.read_bytes()[16:20])[0]==(900 if "compact" in p.name else 1080) for p in images); print("Six Android screenshots verified")'
       - name: Export emulator screenshots and test logs
         if: always()
         uses: actions/upload-artifact@v4
