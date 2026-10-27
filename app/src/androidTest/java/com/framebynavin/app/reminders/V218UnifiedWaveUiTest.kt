@@ -5,12 +5,14 @@ import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -42,6 +44,36 @@ class V218UnifiedWaveUiTest {
     @Test fun batterySaverVoiceRetainsWaveAndManualReveal() =
         captureAndCheck(ReminderCheckInKind.VOICE, true)
 
+    @Test fun actualAlarmActionScreenRemainsReadableAboveWave() =
+        actualControls(ReminderCheckInKind.ALARM)
+
+    @Test fun actualVoiceActionScreenRetainsReplayAndSnooze() =
+        actualControls(ReminderCheckInKind.VOICE)
+
+    private fun actualControls(kind: ReminderCheckInKind) {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme {
+                ReminderCheckInScreen(
+                    kind = kind,
+                    title = "Prepare the next film scene",
+                    dueLabel = "Today",
+                    stageLabel = "Pre-production",
+                    suggestedAction = "Start the storyboard",
+                    notes = "", snoozeMinutes = 10, stageCheckIn = false,
+                    onStageDone = {}, onWorking = {}, onSnooze = {},
+                    onPause = {}, onReschedule = {}, onDismiss = {},
+                    onReplay = if (kind == ReminderCheckInKind.VOICE) ({}) else null,
+                )
+            }
+        }
+        val tap = rule.onAllNodesWithContentDescription("Show reminder controls")
+        if (tap.fetchSemanticsNodes().isNotEmpty()) tap.onFirst().performClick()
+        rule.onNodeWithTag("v200-primary-reminder-action").assertExists()
+        rule.onNodeWithTag("v1952-ambient-particles").assertExists()
+        capture("${kind.name.lowercase()}-actual-controls")
+    }
+
     private fun captureAndCheck(kind: ReminderCheckInKind, lowPower: Boolean) {
         HardeningTestEnvironment.requireCiEmulator()
         rule.setContent {
@@ -55,7 +87,7 @@ class V218UnifiedWaveUiTest {
                         // even with Android globally disabling animators.
                         motionEnabled = false,
                     )
-                    if (revealed) Text("ACTIONS READY")
+                    if (revealed) Text("ACTIONS READY", color = Color.White)
                 }
             }
         }
