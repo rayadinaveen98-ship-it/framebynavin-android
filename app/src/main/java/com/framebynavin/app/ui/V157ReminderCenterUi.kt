@@ -126,6 +126,70 @@ internal fun V157ReminderCenterUi(
         selected = if (id in selected) selected - id else selected + id
     }
 
+    val reminderStatusPanels: @Composable () -> Unit = {
+                    Spacer(Modifier.height(13.dp))
+                    V181ReminderResponseSection(
+                        tasks = responseTasks,
+                        nowMillis = now,
+                        snoozeMinutes = snoozeMinutes,
+                        onOpenProject = onEdit,
+                        onAcknowledge = onAcknowledge,
+                    )
+                    Spacer(Modifier.height(13.dp))
+                    Surface(
+                        onClick = {
+                            when (launchBlocker) {
+                                V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
+                                    V196ReminderLaunchReadiness.openFullScreenSettings(context)
+                                V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS,
+                                V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
+                                    V196ReminderLaunchReadiness.openNotificationSettings(context)
+                                else -> onOpenReminderSettings()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = CinemaSurface,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE)
+                                RecRed.copy(alpha = .5f) else CinemaLine,
+                        ),
+                    ) {
+                        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                if (launchBlocker == V196ReminderLaunchReadiness.Blocker.NONE)
+                                    Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber,
+                                null,
+                                tint = if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE)
+                                    RecRed else MutedGold,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                when (launchBlocker) {
+                                    V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS ->
+                                        "Notifications off · tap to enable"
+                                    V196ReminderLaunchReadiness.Blocker.EXACT_TIMING ->
+                                        "Precise reminders off · tap to fix"
+                                    V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
+                                        "Full-screen alerts off · tap to enable"
+                                    V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
+                                        "Alarm/voice alerts muted · tap to fix"
+                                    V196ReminderLaunchReadiness.Blocker.NONE ->
+                                        "Reminder alerts ready"
+                                },
+                                color = ProjectorIvory,
+                                fontSize = 11.5.sp,
+                                lineHeight = 17.sp,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Icon(Icons.Outlined.ChevronRight, "Reminder settings", tint = MutedGold)
+                        }
+                    }
+
+    }
+
     CreatorAdaptiveFullScreen(
         onDismissRequest = { if (selectionMode) selected = emptySet() else onDismiss() },
     ) {
@@ -203,7 +267,7 @@ internal fun V157ReminderCenterUi(
                             }
                         },
                         label = { Text("Search reminders") },
-                        placeholder = { Text("Title, project or notes") },
+                        placeholder = { Text("Title or notes", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         modifier = Modifier.fillMaxWidth().testTag("v219-search-input"),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MutedGold,
@@ -240,67 +304,7 @@ internal fun V157ReminderCenterUi(
                             )
                         }
                     }
-                    Spacer(Modifier.height(13.dp))
-                    V181ReminderResponseSection(
-                        tasks = responseTasks,
-                        nowMillis = now,
-                        snoozeMinutes = snoozeMinutes,
-                        onOpenProject = onEdit,
-                        onAcknowledge = onAcknowledge,
-                    )
-                    Spacer(Modifier.height(13.dp))
-                    Surface(
-                        onClick = {
-                            when (launchBlocker) {
-                                V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
-                                    V196ReminderLaunchReadiness.openFullScreenSettings(context)
-                                V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS,
-                                V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
-                                    V196ReminderLaunchReadiness.openNotificationSettings(context)
-                                else -> onOpenReminderSettings()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = CinemaSurface,
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE)
-                                RecRed.copy(alpha = .5f) else CinemaLine,
-                        ),
-                    ) {
-                        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                if (launchBlocker == V196ReminderLaunchReadiness.Blocker.NONE)
-                                    Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber,
-                                null,
-                                tint = if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE)
-                                    RecRed else MutedGold,
-                                modifier = Modifier.size(20.dp),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                when (launchBlocker) {
-                                    V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS ->
-                                        "Notifications off · tap to enable"
-                                    V196ReminderLaunchReadiness.Blocker.EXACT_TIMING ->
-                                        "Precise reminders off · tap to fix"
-                                    V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
-                                        "Full-screen alerts off · tap to enable"
-                                    V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
-                                        "Alarm/voice alerts muted · tap to fix"
-                                    V196ReminderLaunchReadiness.Blocker.NONE ->
-                                        "Reminder alerts ready"
-                                },
-                                color = ProjectorIvory,
-                                fontSize = 11.5.sp,
-                                lineHeight = 17.sp,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Icon(Icons.Outlined.ChevronRight, "Reminder settings", tint = MutedGold)
-                        }
-                    }
-
+                    if (searchQuery.isBlank()) reminderStatusPanels()
                     if (activeIds.isEmpty()) {
                         Spacer(Modifier.height(28.dp))
                         V157EmptyReminderCenter(onNew)
@@ -394,6 +398,8 @@ internal fun V157ReminderCenterUi(
                                     .testTag("v219-empty-filter"))
                         }
                     }
+                    // Show matches before nonmatching response/status panels during search.
+                    if (searchQuery.isNotBlank()) reminderStatusPanels()
                 }
     }
 
