@@ -40,6 +40,8 @@ jobs:
           test -f app/src/main/res/drawable-nodpi/guide_funny_celebrate.webp
           for guide in frame navi cute; do test -s "app/src/main/res/drawable-nodpi/guide_v217_${guide}_concept.webp"; done
           test -f app/src/androidTest/java/com/framebynavin/app/ui/V217CompanionConceptUiTest.kt
+      - name: Verify approved Spark resources and transparent concept artwork
+        run: python3 tools/check_v217_companion_assets.py --mode concept
       - name: Build, unit tests and Android instrumentation APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
       - name: Upload debug APKs for synthetic emulator only
