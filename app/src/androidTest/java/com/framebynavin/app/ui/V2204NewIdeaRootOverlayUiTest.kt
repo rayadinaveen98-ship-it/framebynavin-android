@@ -1,9 +1,9 @@
 package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.SystemClock
 import android.view.WindowManager
-import android.view.WindowInsets
 import androidx.core.view.WindowCompat
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
@@ -40,28 +40,6 @@ import org.junit.runner.RunWith
 class V2204NewIdeaRootOverlayUiTest {
     @get:Rule val rule = createComposeRule()
     private var composeDensity = 1f
-
-    private data class OSInsets(
-        val gestureOrNavPx: Int,
-        val imePx: Int,
-        val imeVisible: Boolean,
-    )
-
-    private fun readActualWindowInsets(): OSInsets {
-        var result = OSInsets(0, 0, false)
-        InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            val activity = ActivityLifecycleMonitorRegistry.getInstance()
-                .getActivitiesInStage(Stage.RESUMED).first()
-            val window = activity.window.decorView.rootWindowInsets
-            requireNotNull(window) { "Physical Activity window must expose system insets" }
-            result = OSInsets(
-                gestureOrNavPx = window.getInsets(WindowInsets.Type.navigationBars()).bottom,
-                imePx = window.getInsets(WindowInsets.Type.ime()).bottom,
-                imeVisible = window.isVisible(WindowInsets.Type.ime()),
-            )
-        }
-        return result
-    }
 
     private fun render(onAccepted: (CreatorIdea) -> Unit = {}) {
         HardeningTestEnvironment.requireCiEmulator()
@@ -121,17 +99,71 @@ class V2204NewIdeaRootOverlayUiTest {
             window.bottom >= root.bottom - 2.dp && window.top <= root.top + 2.dp)
         assertTrue("Save must be inside the Activity safe drawing region: $save vs $footer",
             save.top >= footer.top && save.bottom <= footer.bottom)
-        // Use Android's native decorView rootWindowInsets. Compose-test-only
-        // inset reads can remain zero despite the keyboard belonging to a
-        // separate OS window; that was another misleading green signal.
-        val system = readActualWindowInsets()
-        val physicalInsetDp = (if (system.imeVisible) system.imePx
-            else system.gestureOrNavPx) / composeDensity
-        assertTrue(
-            "Save overlaps Android reported system bar/IME: save=$save root=$root native=$system density=$composeDensity",
-            save.bottom <= root.bottom - physicalInsetDp.dp - 6.dp
-        )
-        rule.onNodeWithTag("v2203-new-idea-save").assertIsDisplayed()
+        // Geometry verifies the Activity layout, while the physical screenshot
+        // gate below catches the separately drawn IME covering Save.
+        assertTrue("Save must stay inside the Activity content viewport: $save vs $root",
+            save.bottom <= root.bottom - 8.dp)
+    }
+
+    /**
+     * Verify the actual 1080/900-pixel device output, not Compose semantics:
+     * Android IME can visually cover Save even if Compose and decorView report
+     * zero/incorrect IME insets. Both emulators use a light keyboard.
+     *
+     * A real keyboard occupies broad, continuous bright rows in the bottom
+     * half. A visible enabled SAVE IDEA is a broad, continuous coral-red
+     * horizontal band ending strictly ABOVE that keyboard.
+     */
+    private fun verifyRealKeyboardAndRedSaveAreSeparate() {
+        val bmp = requireNotNull(InstrumentationRegistry.getInstrumentation()
+            .uiAutomation.takeScreenshot())
+        try {
+            val width = bmp.width
+            val height = bmp.height
+            val stepX = maxOf(1, width / 90)
+            fun fraction(y: Int, isMatch: (Int) -> Boolean): Double {
+                var hits = 0
+                var total = 0
+                for (x in width / 8 until width * 7 / 8 step stepX) {
+                    if (isMatch(bmp.getPixel(x, y))) hits++
+                    total++
+                }
+                return if (total == 0) 0.0 else hits.toDouble() / total
+            }
+            fun isBright(pixel: Int): Boolean =
+                Color.red(pixel) > 183 && Color.green(pixel) > 183 &&
+                    Color.blue(pixel) > 183
+            fun isSaveRed(pixel: Int): Boolean =
+                Color.red(pixel) > 185 &&
+                    Color.green(pixel) in 35..135 &&
+                    Color.blue(pixel) < 160
+
+            // Three separated bright rows avoid falsely accepting a white
+            // text line or isolated icon as a keyboard.
+            val keyboardTop = (height * 3 / 10 until height * 86 / 100 step 4)
+                .firstOrNull { y ->
+                    fraction(y, ::isBright) > .57 &&
+                        fraction(y + 12, ::isBright) > .57 &&
+                        fraction(y + 24, ::isBright) > .57
+                }
+            assertTrue("Actual on-screen keyboard not visible in device screenshot",
+                keyboardTop != null)
+            val top = requireNotNull(keyboardTop)
+            val filledSaveRows = (height / 3 until top - 8 step 3).filter { y ->
+                fraction(y, ::isSaveRed) > .52 &&
+                    fraction(y + 3, ::isSaveRed) > .52 &&
+                    fraction(y + 6, ::isSaveRed) > .52 &&
+                    fraction(y + 9, ::isSaveRed) > .52
+            }
+            assertTrue(
+                "Enabled SAVE IDEA must be visually present above keyboard: keyboardTop=$top, redRows=${filledSaveRows.size}",
+                filledSaveRows.size >= 6,
+            )
+            assertTrue(
+                "SAVE IDEA visually overlaps the keyboard: lastRed=${filledSaveRows.maxOrNull()}, keyboardTop=$top",
+                requireNotNull(filledSaveRows.maxOrNull()) + 12 < top,
+            )
+        } finally { bmp.recycle() }
     }
 
     private fun capture(scene: String) {
@@ -163,9 +195,9 @@ class V2204NewIdeaRootOverlayUiTest {
         SystemClock.sleep(650)
         rule.waitForIdle()
         capture("keyboard-clear") // retain physical screen even on failure
-        val nativeIme = readActualWindowInsets()
-        assertTrue("The Android OS must report a real visible keyboard, not a simulated text entry: $nativeIme",
-            nativeIme.imeVisible && nativeIme.imePx / composeDensity >= 80f)
+        // This must fail if a keyboard screenshot hides Save, even if OS
+        // WindowInsets/Compose semantics incorrectly say everything fits.
+        verifyRealKeyboardAndRedSaveAreSeparate()
         checkOwnedWindowAndFooter()
         rule.onNodeWithTag("v2203-new-idea-save").performClick()
         rule.runOnIdle { assertEquals("నూతన సినిమా ఆలోచన", saved?.title) }
