@@ -223,8 +223,9 @@ internal fun PTodayScreen(
             V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
             V148HomeTopPerformersSection(onOpenInsights = onOpenInsights)
 
-            Spacer(Modifier.height(18.dp))
-            PTodayReminders(tasks = tasks, onViewAll = onViewAllReminders)
+            // V220: The Hub above contains the next-alert preview and the
+            // only Home entry to Reminders. Keep previous PTodayReminders code
+            // available for legacy callers; do not render a duplicate card.
 
         }
     }
