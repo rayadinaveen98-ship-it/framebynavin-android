@@ -265,10 +265,14 @@ internal class CreatorCloudVoiceMediaManager(context: Context) {
  * retain those paths because PortableCreatorBackupManager packages their media bytes.
  */
 internal object CreatorCloudPayloadSanitizer {
-    fun sanitize(raw: String): String {
+    /**
+     * Fail closed before and after removing private on-device recording paths.
+     * The canonical checksum is owned by CreatorBackupManager, not duplicated
+     * here; schema additions cannot invalidate every cloud upload again.
+     */
+    fun sanitize(raw: String, backup: CreatorBackupManager): String {
+        backup.validate(raw)
         val root = JSONObject(raw)
-        val schema = root.optInt("schemaVersion", -1)
-        require(schema == CreatorBackupManager.SCHEMA_VERSION) { "Cloud backup schema is out of date" }
         val ideas = JSONArray(root.getString("ideas"))
         for (index in 0 until ideas.length()) {
             val idea = ideas.getJSONObject(index)
@@ -277,25 +281,8 @@ internal object CreatorCloudPayloadSanitizer {
             }
         }
         root.put("ideas", ideas.toString())
-        root.put("payloadSha256", sha256(fingerprint(root)))
-        return root.toString()
+        val sanitized = backup.resealCloudSanitizedPayload(root.toString())
+        backup.validate(sanitized)
+        return sanitized
     }
-
-    private fun fingerprint(root: JSONObject): String = buildString {
-        CURRENT_KEYS.forEach { key ->
-            val value = root.optString(key, "")
-            append(key.length).append(':').append(key).append(value.length).append(':').append(value)
-        }
-    }
-
-    private fun sha256(raw: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(raw.toByteArray(Charsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
-
-    private val CURRENT_KEYS = listOf(
-        "format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
-        "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames",
-        "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
-        "projectPulseHistory", "workflowStageTimeline", "manifest",
-    )
 }

@@ -148,6 +148,25 @@ class CreatorBackupManager(private val context: Context) {
     fun validate(raw: String): BackupPreview = validateSnapshot(raw, null)
 
     /**
+     * Recalculate a cloud-sanitized copy using the SAME current-schema
+     * fingerprint as export/restore. This prevents a second checksum field
+     * list from silently drifting when backup sections are added.
+     *
+     * Called only after validate(original) by CreatorCloudPayloadSanitizer;
+     * callers must validate the sealed output again before upload.
+     */
+    internal fun resealCloudSanitizedPayload(raw: String): String {
+        val root = JSONObject(raw)
+        require(root.optString("format") == FORMAT &&
+            root.optInt("schemaVersion", -1) == SCHEMA_VERSION) {
+            "Cloud backup format is not current"
+        }
+        validateManifest(root, SCHEMA_VERSION)
+        return root.put("payloadSha256", fingerprintSha256(root, SCHEMA_VERSION)).toString()
+    }
+
+
+    /**
      * Entry only for ZIPs whose original Best Frames are fully staged,
      * individually verified and checksum-reconstructed by the media codec.
      * Never call this for an untrusted or unverified compact frame marker.

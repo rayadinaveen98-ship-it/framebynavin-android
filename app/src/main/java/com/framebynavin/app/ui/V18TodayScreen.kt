@@ -116,6 +116,10 @@ internal fun PTodayScreen(
                 openEditorNonce = homeSlideshowRequestNonce,
                 onEditorRequestHandled = onHomeSlideshowRequestHandled,
             )
+            // V220.3: when connected channel Insights has usable ranked videos,
+            // the existing Top 3 carousel must appear ABOVE the Up Next project.
+            // The section itself remains absent for disconnected/no-data users.
+            V148HomeTopPerformersSection(onOpenInsights = onOpenInsights)
             // V215: do not put weekly stats or motivational copy in front of a
             // creator's actionable project on compact/large-font phones.
             // No-image Home stays short; the creator can reach today's work first.
@@ -221,11 +225,9 @@ internal fun PTodayScreen(
             Spacer(Modifier.height(12.dp))
             V219ReminderHomeEntry(tasks = tasks, onOpenHub = onViewAllReminders)
 
-            // Secondary progress and channel-performance information follows
-            // the actionable project, instead of pushing it under navigation.
+            // Weekly focus is secondary; Top 3 remains above Up Next.
             Spacer(Modifier.height(18.dp))
             V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
-            V148HomeTopPerformersSection(onOpenInsights = onOpenInsights)
 
             // V220: The Hub above contains the next-alert preview and the
             // only Home entry to Reminders. Keep previous PTodayReminders code

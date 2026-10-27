@@ -455,9 +455,15 @@ private fun V09NewIdeaCleanEditor(
 
     Dialog(
         onDismissRequest = ::dismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        // New Idea is its own dialog, not the V216 existing-idea editor.
+        // Without edge-to-edge window ownership the decor can cover the Save
+        // footer on phones with gesture navigation (owner screenshot).
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
     ) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+        Surface(Modifier.fillMaxSize().testTag("v2203-new-idea-window"), color = CinemaBlack) {
             Column(
                 Modifier.fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing)
@@ -495,7 +501,7 @@ private fun V09NewIdeaCleanEditor(
                             OutlinedTextField(
                                 title,
                                 { title = it },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().testTag("v2203-new-idea-title"),
                                 placeholder = { Text("What's your idea?") },
                                 minLines = 3,
                                 maxLines = 6,
@@ -692,7 +698,14 @@ private fun V09NewIdeaCleanEditor(
                     Spacer(Modifier.height(20.dp))
                 }
 
-                Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
+                // Always keep the primary action outside the scrolling body.
+                // safeDrawing above reserves status/navigation system bars,
+                // imePadding reserves the soft keyboard when open.
+                Surface(
+                    modifier = Modifier.fillMaxWidth().testTag("v2203-new-idea-footer"),
+                    color = CinemaSurfaceRaised,
+                    tonalElevation = 8.dp,
+                ) {
                     Button(
                         onClick = {
                             val now = System.currentTimeMillis()
@@ -723,7 +736,10 @@ private fun V09NewIdeaCleanEditor(
                             if (accepted) voiceRecording = null
                         },
                         enabled = title.isNotBlank() || voiceRecording != null,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(52.dp),
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .height(52.dp)
+                            .testTag("v2203-new-idea-save"),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(15.dp),
                     ) {
