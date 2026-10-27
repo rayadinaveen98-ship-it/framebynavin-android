@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
+import android.os.SystemClock
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -55,6 +56,11 @@ class V2212CompanionBehaviorUiTest {
     private fun screenshot(name: String) {
         val profile = InstrumentationRegistry.getArguments().getString("backlotVisualProfile")
         require(profile == "default" || profile == "compact")
+        // Semantics can exist before Android's real display buffer presents
+        // its first frame. An older CI run captured blank screenshots.
+        rule.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        SystemClock.sleep(650)
         rule.waitForIdle()
         val app = InstrumentationRegistry.getInstrumentation().targetContext
         val screenshot = requireNotNull(InstrumentationRegistry.getInstrumentation()
@@ -67,7 +73,7 @@ class V2212CompanionBehaviorUiTest {
                 assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG, 100, it))
             }
         } finally { screenshot.recycle() }
-        assertTrue(output.length() > 10_000)
+        assertTrue("Suspiciously blank companion screenshot: $output", output.length() > 30_000)
     }
 
     @Test fun selectedOriginalSparkShowsTruthfulMessageReasonAndRoutesExistingAction() {
@@ -76,8 +82,8 @@ class V2212CompanionBehaviorUiTest {
         render(V144GuideIdentity.FUNNY,
             onAction = { tapped = it }, onDismiss = { dismissed = it })
         rule.onNodeWithTag("v2212-companion-card").assertIsDisplayed()
-        rule.onNodeWithText("SPARK · ON YOUR RADAR").assertExists()
-        rule.onNodeWithText(decision.message).assertExists()
+        rule.onNodeWithText("SPARK · ON YOUR RADAR").assertIsDisplayed()
+        rule.onNodeWithText(decision.message).assertIsDisplayed()
         rule.onNodeWithTag("v2212-companion-reason").assertDoesNotExist()
         screenshot("spark-collapsed")
         rule.onNodeWithTag("v2212-companion-why").performClick()
@@ -91,9 +97,9 @@ class V2212CompanionBehaviorUiTest {
 
     @Test fun frameUsesItsOwnArtworkAndDoesNotChangeEvidenceOrAction() {
         render(V144GuideIdentity.FRAME)
-        rule.onNodeWithText("FRAME · NEXT STEP").assertExists()
-        rule.onNodeWithText(decision.message).assertExists()
-        rule.onNodeWithText("Open Project").assertExists()
+        rule.onNodeWithText("FRAME · NEXT STEP").assertIsDisplayed()
+        rule.onNodeWithText(decision.message).assertIsDisplayed()
+        rule.onNodeWithText("Open Project").assertIsDisplayed()
         screenshot("frame-collapsed")
         val presentation = V221CompanionPresentationPolicy.present(decision, V144GuideIdentity.FRAME)
         assertEquals(CinePulseState.PRESENT, presentation.state)
