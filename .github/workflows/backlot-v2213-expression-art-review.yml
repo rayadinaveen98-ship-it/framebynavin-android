@@ -35,6 +35,28 @@ jobs:
           fs=sorted(glob.glob("app/src/main/res/drawable/guide_v2213_*.xml"))
           assert len(fs)==27,len(fs)
           hashes=set()
+          # Git blob OIDs from the approved V217 production concepts and the
+          # five ORIGINAL Spark/FUNNY WebPs. A visual review must not silently
+          # replace any of these known-good identities.
+          protected = {
+              "guide_v217_frame_concept.webp": "5e9c199052d4972122c694d405b59131306b970d",
+              "guide_v217_navi_concept.webp": "57f1a6977e4bdf705b5915afc62099b46738c2da",
+              "guide_v217_cute_concept.webp": "50adaef9f0dcb16a2a924203acdf1cbdc19342b6",
+              "guide_funny_celebrate.webp": "4504a832337ae1e28780de8018dfc60efdcc41dc",
+              "guide_funny_point.webp": "afa28b77a653d85e218cff23d175d82f615ba708",
+              "guide_funny_present.webp": "f13283b4b0c72e15ffe9e3220da38da1c09c16da",
+              "guide_funny_thinking.webp": "327871f41cbbd3d4c5100bc973e7f1f35bef3832",
+              "guide_funny_welcome.webp": "413866c546bd70b38d0a47861270492ad8187bc3",
+          }
+          directory=Path("app/src/main/res/drawable-nodpi")
+          for filename, expected in protected.items():
+              payload=(directory / filename).read_bytes()
+              oid=hashlib.sha1(b"blob " + str(len(payload)).encode() + b"\\0" + payload).hexdigest()
+              assert oid == expected, "Approved companion art changed without owner review: " + filename
+          review = Path("app/src/main/java/com/framebynavin/app/ui/V2213ExpressionArtReview.kt").read_text()
+          assert 'Modifier.size(96.dp)' in review
+          assert "v2213-compare-original-" in review
+          assert "Draft 2D study" in review and "Approved 3D original" in review
           for who in ("frame","navi","cute"):
               names=[f for f in fs if "/guide_v2213_"+who+"_" in f]
               assert len(names)==9,(who,len(names))
@@ -50,7 +72,7 @@ jobs:
           assert "V144RasterGuideCharacter(guide, state, modifier, pointRight)" in live
           assert "v217ConceptDrawable(guide)" in old
           assert "V2213PoseCatalog" not in live + old
-          print("27 unique vectors; original Frame/Navi/Cute and Spark rendering protected")
+          print("27 unique vector studies; eight approved WebPs byte-locked; scale-matched owner gallery; live renderer untouched")
           PY
       - name: All Kotlin unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
