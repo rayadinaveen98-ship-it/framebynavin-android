@@ -1,5 +1,8 @@
 package com.framebynavin.app.ui
 
+import android.graphics.Bitmap
+import android.os.SystemClock
+import java.io.File
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +26,26 @@ class V2215CompanionAccessibilityUiTest {
     @get:Rule val rule = createComposeRule()
 
     private fun context() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    private fun capture(scene: String) {
+        val profile = InstrumentationRegistry.getArguments().getString("backlotVisualProfile")
+        check(profile == "default" || profile == "compact")
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val dir = File(context().filesDir, "v2215-a11y")
+        assertTrue(dir.isDirectory || dir.mkdirs())
+        val out = File(dir, "v2215-$profile-$scene.png")
+        rule.waitForIdle()
+        instrumentation.waitForIdleSync()
+        // First presented frame may lag behind Compose semantics.
+        for (attempt in 1..4) {
+            SystemClock.sleep(400)
+            val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+            try { out.outputStream().use { assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, it)) } }
+            finally { image.recycle() }
+            if (out.length() > 20_000L) break
+        }
+        assertTrue("Blank V221.5 screen capture: $out", out.length() > 20_000L)
+    }
 
     private fun task() = CreatorTask(
         id = "v2215-project", title = "Draft film with a long but real working title",
@@ -60,8 +83,10 @@ class V2215CompanionAccessibilityUiTest {
             androidx.compose.ui.semantics.SemanticsProperties.ContentDescription,
             listOf("Helpful companion suggestions")
         ))
+        capture("settings-on")
         toggle.performClick()
         toggle.assertIsOff()
+        capture("settings-off")
         rule.onNodeWithText("Off · reminders and your chosen companion remain unchanged.").assertExists()
         toggle.performClick()
         toggle.assertIsOn()
@@ -93,6 +118,7 @@ class V2215CompanionAccessibilityUiTest {
         rule.onNodeWithContentDescription("Open recommended project").assertIsDisplayed()
         rule.onNodeWithContentDescription("Why this suggestion was shown").assertIsDisplayed()
         rule.onNodeWithContentDescription("Dismiss companion suggestion for now").assertIsDisplayed()
+        capture("card-actions")
         rule.onNodeWithTag("v2212-companion-why").performClick()
         rule.onNodeWithText(decision.reason).assertIsDisplayed()
         rule.onNodeWithTag("v2212-companion-dismiss").performClick()
