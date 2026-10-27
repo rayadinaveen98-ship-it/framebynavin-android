@@ -426,6 +426,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     bottomNavigationClearance = bottomNavClearanceDp.dp,
                     homeSlideshowRequestNonce = homeSlideshowRequestNonce,
                     onHomeSlideshowRequestHandled = { homeSlideshowRequestNonce = 0L },
+                    companionContent = {
+                        V2214HomeCompanion(
+                            tasks = vm.tasks,
+                            ideas = vm.ideas,
+                            onOpenReminders = { showReminders = true },
+                            onOpenProject = ::openProject,
+                            onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
+                        )
+                    },
                 )
                 PTab.IDEAS -> V09IdeaVaultScreen(
                     ideas = vm.ideas,
@@ -1182,6 +1191,13 @@ private fun PSettingsScreen(
 ) {
     val context = LocalContext.current
     val reminderSetupReady = permissions.notifications && permissions.preciseTiming && permissions.fullScreen && permissions.batteryAccess
+    // V221.4 suggestions are an optional local Home presentation, not reminders.
+    val companionStore = remember(context) {
+        V221CompanionDismissalStore(context.applicationContext)
+    }
+    var companionEnabled by remember(companionStore) {
+        mutableStateOf(companionStore.enabled())
+    }
     var showReminderSetup by rememberSaveable { mutableStateOf(false) }
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 44.dp)) {
@@ -1279,6 +1295,40 @@ private fun PSettingsScreen(
                         checked = settings.contextNudgesEnabled,
                         onCheckedChange = onContextNudges,
                         enabled = permissions.notifications,
+                        colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
+            PSettingsHeading("COMPANION", "Optional guidance while you use Home.")
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                Modifier.fillMaxWidth().testTag("v2214-companion-preference"),
+                RoundedCornerShape(16.dp),
+                CinemaSurface,
+                border = BorderStroke(1.dp, CinemaLine),
+            ) {
+                Row(
+                    Modifier.padding(13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Helpful companion suggestions", color = ProjectorIvory,
+                            fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (companionEnabled)
+                                "On · shows a single relevant tip on Home when there is real activity."
+                            else "Off · your projects, reminders and chosen character are unchanged.",
+                            color = MutedText, fontSize = 8.8.sp, lineHeight = 12.sp,
+                        )
+                    }
+                    Switch(
+                        checked = companionEnabled,
+                        onCheckedChange = { enabled ->
+                            if (companionStore.setEnabled(enabled)) companionEnabled = enabled
+                        },
+                        modifier = Modifier.testTag("v2214-companion-switch"),
                         colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
                     )
                 }
