@@ -446,14 +446,16 @@ private fun PNextMoveCard(
 
     Surface(
         onClick = { expanded = !expanded },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().testTag("v2202-next-move"),
         shape = RoundedCornerShape(19.dp),
         color = CinemaSurfaceRaised,
         border = BorderStroke(1.dp, if (expanded) RecRed.copy(alpha = .38f) else CinemaLine),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("UP NEXT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                // V220.2: Up Next identifies the project; this is the next
+                // recommended move, not another "UP NEXT" section.
+                Text("NEXT MOVE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.weight(1f))
                 Text(recommendation.urgencyLabel, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                 Spacer(Modifier.width(5.dp))
@@ -464,33 +466,22 @@ private fun PNextMoveCard(
                     modifier = Modifier.size(17.dp),
                 )
             }
-            Spacer(Modifier.height(5.dp))
-            Text(recommendation.action, color = ProjectorIvory, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
-                    Text(task.priority.name, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
-                }
-                Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
-                    Text("PRIORITY ${recommendation.score}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
-                }
-                next?.let {
-                    Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
-                        Text("NEXT · ${it.label.uppercase(Locale.getDefault())}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), maxLines = 1)
-                    }
-                }
-            }
+            Spacer(Modifier.height(4.dp))
+            Text(recommendation.action, color = ProjectorIvory, fontSize = 14.sp,
+                lineHeight = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = if (expanded) 6 else 2,
+                overflow = TextOverflow.Ellipsis)
 
             if (!expanded) {
-                Spacer(Modifier.height(9.dp))
+                Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Why this suggestion?", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                    Text("VIEW DETAILS", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.width(2.dp))
                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(14.dp))
                 }
             }
 
             AnimatedVisibility(
+                modifier = Modifier.testTag("v2202-next-move-details"),
                 visible = expanded,
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut(),
@@ -518,6 +509,23 @@ private fun PNextMoveCard(
                         lineHeight = 13.sp,
                     )
 
+                    // Priority indicators belong in the expanded reasoning,
+                    // not in the default Home first viewport.
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                            Text(task.priority.name, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                        }
+                        Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                            Text("PRIORITY ${recommendation.score}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                        }
+                        next?.let {
+                            Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                                Text("NEXT · ${it.label.uppercase(Locale.getDefault())}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), maxLines = 1)
+                            }
+                        }
+                    }
+        
                     Spacer(Modifier.height(13.dp))
                     Button(
                         onClick = onStart,
