@@ -295,7 +295,7 @@ internal fun V157ReminderCenterUi(
                     ) {
                         V219ReminderHubFilter.entries.forEach { filter ->
                             FilterChip(
-                                selected = hubFilter == filter,
+                                selected = !historyOpen && hubFilter == filter,
                                 onClick = { hubFilter = filter; historyOpen = false; selected = emptySet() },
                                 label = {
                                     Text("${filter.title} ${filter.count(matchingGroups)}", fontSize = 11.sp,
