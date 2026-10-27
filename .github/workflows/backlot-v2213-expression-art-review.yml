@@ -1,0 +1,126 @@
+name: Backlot V221.3 — Companion Art Review
+
+on:
+  push:
+    branches: [feature/backlot-v2213-expression-art-review]
+  pull_request:
+    branches: [feature/backlot-v2212-companion-behaviors]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v2213-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify 27 nonduplicate XML vector illustrations and unchanged original renderer
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import glob, hashlib, xml.etree.ElementTree as ET
+          fs=sorted(glob.glob("app/src/main/res/drawable/guide_v2213_*.xml"))
+          assert len(fs)==27,len(fs)
+          hashes=set()
+          for who in ("frame","navi","cute"):
+              names=[f for f in fs if "/guide_v2213_"+who+"_" in f]
+              assert len(names)==9,(who,len(names))
+              for f in names:
+                  root=ET.parse(f).getroot()
+                  assert root.tag=="vector"
+                  assert len(root.findall("path"))>12,f
+                  digest=hashlib.sha256(Path(f).read_bytes()).hexdigest()
+                  assert digest not in hashes,f
+                  hashes.add(digest)
+          live=Path("app/src/main/java/com/framebynavin/app/ui/V144GuideSystem.kt").read_text()
+          old=Path("app/src/main/java/com/framebynavin/app/ui/V217LiveCompanionCharacter.kt").read_text()
+          assert "V144RasterGuideCharacter(guide, state, modifier, pointRight)" in live
+          assert "v217ConceptDrawable(guide)" in old
+          assert "V2213PoseCatalog" not in live + old
+          print("27 unique vectors; original Frame/Navi/Cute and Spark rendering protected")
+          PY
+      - name: All Kotlin unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Full Backlot APKs and real Android UI tests
+        run: gradle :app:assembleDebug :app:assemblePersonalStable :app:assembleDebugAndroidTest --stacktrace
+      - name: Verify V221.3 contract unit tests
+        run: |
+          python3 - <<'PY'
+          import glob,xml.etree.ElementTree as ET
+          f=glob.glob("app/build/test-results/testDebugUnitTest/TEST-*V2213PoseCatalogTest.xml")
+          assert len(f)==1,f
+          x=ET.parse(f[0]).getroot()
+          assert int(x.attrib["tests"])==3 and int(x.attrib.get("failures","0"))==0,x.attrib
+          print(x.attrib)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2213-Preview-Builds-and-Tests
+          path: |
+            app/build/test-results/testDebugUnitTest/TEST-*V2213PoseCatalogTest.xml
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2213-Preview-Builds-and-Tests
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Real Android vector pixels and gallery screenshots, normal and compact
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            mkdir -p v2213-evidence
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2213ExpressionArtReviewUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2213-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2213-default.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v2213-default.log
+            for g in frame navi cute; do for scene in first-fold last-fold; do adb exec-out run-as com.framebynavin.app cat "files/v2213-art-review/v2213-default-$g-$scene.png" > "v2213-evidence/v2213-default-$g-$scene.png"; done; done
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2213ExpressionArtReviewUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2213-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2213-compact.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v2213-compact.log
+            for g in frame navi cute; do for scene in first-fold last-fold; do adb exec-out run-as com.framebynavin.app cat "files/v2213-art-review/v2213-compact-$g-$scene.png" > "v2213-evidence/v2213-compact-$g-$scene.png"; done; done
+            python3 -c 'from pathlib import Path; import struct; fs=list(Path("v2213-evidence").glob("*.png")); assert len(fs)==12,len(fs); assert all(p.stat().st_size>24000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") for p in fs); assert all(struct.unpack(">I",p.read_bytes()[16:20])[0]==(900 if "compact" in p.name else 1080) for p in fs); print("12 real Android screenshots verified")'
+      - name: Upload owner preview and test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2213-Real-Android-Art-Review
+          path: |
+            v2213-evidence/*.png
+            v2213-*.log
+          retention-days: 14
+          if-no-files-found: warn
