@@ -11,6 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.testTag
@@ -37,6 +38,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class V2204NewIdeaRootOverlayUiTest {
     @get:Rule val rule = createComposeRule()
+    private var measuredSafeBottomDp = 0.dp
+    private var measuredImeBottomDp = 0.dp
 
     private fun render(onAccepted: (CreatorIdea) -> Unit = {}) {
         HardeningTestEnvironment.requireCiEmulator()
@@ -51,6 +54,17 @@ class V2204NewIdeaRootOverlayUiTest {
         }
         rule.setContent {
             FrameByNavinTheme {
+                val density = LocalDensity.current
+                val imePx = WindowInsets.ime.getBottom(density)
+                val safePx = maxOf(
+                    WindowInsets.safeDrawing.getBottom(density),
+                    WindowInsets.navigationBars.getBottom(density),
+                    imePx,
+                )
+                SideEffect {
+                    measuredSafeBottomDp = with(density) { safePx.toDp() }
+                    measuredImeBottomDp = with(density) { imePx.toDp() }
+                }
                 var editorOpen by remember { mutableStateOf(false) }
                 Box(Modifier.fillMaxSize()) {
                     V09IdeaVaultScreen(
@@ -94,13 +108,13 @@ class V2204NewIdeaRootOverlayUiTest {
             window.bottom >= root.bottom - 2.dp && window.top <= root.top + 2.dp)
         assertTrue("Save must be inside the Activity safe drawing region: $save vs $footer",
             save.top >= footer.top && save.bottom <= footer.bottom)
-        // The ComposeTestActivity viewport excludes system bars on Android 11;
-        // its own root bottom is already the safe edge. Do not require a
-        // second fictitious 12dp inset after safeDrawing/Window decor.
-        // Production MainActivity uses edge-to-edge and the same Activity-owned
-        // safeDrawing + IME padding; newer gestural CI tests that separately.
-        assertTrue("Save must retain at least 8dp inside the safe Activity viewport: $save vs $root",
-            save.bottom <= root.bottom - 8.dp)
+        // Edge-to-edge + adjustResize are now explicitly enabled on the
+        // host Activity. Test the real reported *system* inset, not just the
+        // Compose root's own bounds (which cannot see a covering IME window).
+        assertTrue(
+            "Save overlaps real system nav/IME inset: save=$save root=$root system=$measuredSafeBottomDp",
+            save.bottom <= root.bottom - measuredSafeBottomDp - 6.dp
+        )
         rule.onNodeWithTag("v2203-new-idea-save").assertIsDisplayed()
     }
 
@@ -131,6 +145,9 @@ class V2204NewIdeaRootOverlayUiTest {
         render { saved = it }
         rule.onNodeWithTag("v2203-new-idea-title").performTextInput("నూతన సినిమా ఆలోచన")
         SystemClock.sleep(650)
+        rule.waitForIdle()
+        assertTrue("The test must display an actual IME; no fake keyboard success",
+            measuredImeBottomDp >= 80.dp)
         checkOwnedWindowAndFooter()
         capture("keyboard-clear")
         rule.onNodeWithTag("v2203-new-idea-save").performClick()
