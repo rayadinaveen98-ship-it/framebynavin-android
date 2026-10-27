@@ -121,7 +121,7 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2212-compact.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v2212-compact.log
             for scene in spark-collapsed spark-reason frame-collapsed; do adb exec-out run-as com.framebynavin.app cat "files/v2212-ui/v2212-compact-${scene}.png" > "v2212-evidence/v2212-compact-${scene}.png"; done
-            python3 -c 'from pathlib import Path; import struct; fs=list(Path("v2212-evidence").glob("*.png")); assert len(fs)==6,len(fs); assert all(p.stat().st_size>10000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") for p in fs); widths={p.name:struct.unpack(">I",p.read_bytes()[16:20])[0] for p in fs}; assert all(v==1080 for k,v in widths.items() if "default" in k); assert all(v==900 for k,v in widths.items() if "compact" in k); print(widths)'
+            python3 -c 'from pathlib import Path; import struct; fs=list(Path("v2212-evidence").glob("*.png")); assert len(fs)==6,len(fs); assert all(p.stat().st_size>30000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") for p in fs); widths={p.name:struct.unpack(">I",p.read_bytes()[16:20])[0] for p in fs}; assert all(v==1080 for k,v in widths.items() if "default" in k); assert all(v==900 for k,v in widths.items() if "compact" in k); print(widths)'
       - name: Upload actual Android visual and action evidence
         if: always()
         uses: actions/upload-artifact@v4
