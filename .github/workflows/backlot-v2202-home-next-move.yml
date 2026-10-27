@@ -5,7 +5,7 @@ on:
     branches: [feature/backlot-v2202-home-next-move-hierarchy]
   workflow_dispatch:
   pull_request:
-    branches: [feature/backlot-v2202-home-live-task-refresh]
+    branches: [feature/backlot-v2201-home-live-task-refresh]
 
 permissions:
   contents: read
