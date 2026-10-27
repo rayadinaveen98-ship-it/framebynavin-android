@@ -1,0 +1,111 @@
+name: Backlot V217 — Isolated Companion Preview QA
+
+on:
+  push:
+    branches: [feature/backlot-v217-companion-renderer-prototype]
+  workflow_dispatch:
+  pull_request:
+    branches: [design/backlot-v217-companion-art-direction]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v217-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Guard existing guide identities and packaged real Spark assets
+        run: |
+          set -euo pipefail
+          grep -Fq 'V144GuideIdentity.FUNNY -> when (state)' app/src/main/java/com/framebynavin/app/ui/V144RasterGuideCharacter.kt
+          grep -Fq 'private const val PREFS = "backlot_character_identity_v151"' app/src/main/java/com/framebynavin/app/ui/V144GuideSystem.kt
+          grep -Fq 'private const val KEY_CHARACTER = "selected_character"' app/src/main/java/com/framebynavin/app/ui/V144GuideSystem.kt
+          test -f app/src/main/res/drawable-nodpi/guide_funny_welcome.webp
+          test -f app/src/main/res/drawable-nodpi/guide_funny_point.webp
+          test -f app/src/main/res/drawable-nodpi/guide_funny_present.webp
+          test -f app/src/main/res/drawable-nodpi/guide_funny_thinking.webp
+          test -f app/src/main/res/drawable-nodpi/guide_funny_celebrate.webp
+          for guide in frame navi cute; do test -s "app/src/main/res/drawable-nodpi/guide_v217_${guide}_concept.webp"; done
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V217CompanionConceptUiTest.kt
+      - name: Verify approved Spark resources and transparent concept artwork
+        run: python3 tools/check_v217_companion_assets.py --mode concept
+      - name: Build, unit tests and Android instrumentation APK
+        run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - name: Upload debug APKs for synthetic emulator only
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V217-Preview-Instrumentation-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          retention-days: 14
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V217-Preview-Instrumentation-APKs
+          path: apks
+      - name: Enable KVM for the test-only Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 actual-screen concept validation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r apks/debug/app-debug.apk
+            adb install -r apks/androidTest/debug/app-debug-androidTest.apk
+            mkdir -p v217-evidence
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217CompanionConceptUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v217-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v217-default.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v217-default.log
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-top.png > v217-evidence/v217-default-top.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-bottom.png > v217-evidence/v217-default-bottom.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-compare-top.png > v217-evidence/v217-default-compare-top.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-compare-bottom.png > v217-evidence/v217-default-compare-bottom.png
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217CompanionConceptUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v217-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v217-compact.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v217-compact.log
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-top.png > v217-evidence/v217-compact-top.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-bottom.png > v217-evidence/v217-compact-bottom.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-compare-top.png > v217-evidence/v217-compact-compare-top.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-compare-bottom.png > v217-evidence/v217-compact-compare-bottom.png
+            python3 -c 'from pathlib import Path; from struct import unpack; files=sorted(Path("v217-evidence").glob("*.png")); assert len(files)==8,files; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in files}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in files),sizes; print(sizes)'
+      - name: Upload real Android window PNGs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V217-Concept-Real-Android-PNGs
+          path: |
+            v217-evidence/*.png
+            v217-default.log
+            v217-compact.log
+          if-no-files-found: warn
+          retention-days: 14

@@ -76,6 +76,8 @@ internal fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState):
         CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_funny_welcome
     }
 
+    // Safety-critical existing rule: only the undistorted kitten welcome master is approved.
+    // Legacy thinking/celebrate WebPs contain corrupted image regions; do not route to them.
     V144GuideIdentity.CUTE -> R.drawable.guide_cute_welcome
 
     // Defensive fallback; Frame/Navi normally stay on their vector renderer.
