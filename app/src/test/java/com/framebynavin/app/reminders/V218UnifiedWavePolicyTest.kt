@@ -12,11 +12,11 @@ class V218UnifiedWavePolicyTest {
         assertEquals(2184, normal.size)
         assertEquals(986, reduced.size)
         assertEquals(650, V218UnifiedWavePolicy.NORMAL_GLYPH_DOTS)
-        assertEquals(340, V218UnifiedWavePolicy.LOW_POWER_GLYPH_DOTS)
+        assertEquals(420, V218UnifiedWavePolicy.LOW_POWER_GLYPH_DOTS)
         for ((low, field) in listOf(false to normal, true to reduced)) {
             val stride = if (low) 2 else 3
             val slots = (field.size + stride - 1) / stride
-            val glyphCount = if (low) 340 else 650
+            val glyphCount = if (low) 420 else 650
             val assigned = field.indices.filter { index ->
                 index % stride == 0 && ((index / stride * 137) % slots) < glyphCount
             }
@@ -32,7 +32,7 @@ class V218UnifiedWavePolicyTest {
 
     @Test fun bothShapesRetainRecognizablePureTargetGeometry() {
         for (glyph in V195ReminderGlyph.entries) {
-            for (count in listOf(340, 650)) {
+            for (count in listOf(420, 650)) {
                 val points = V195ParticleGeometry.build(glyph, count)
                 assertEquals(count, points.size)
                 assertTrue(points.all { it.x in -1f..1f && it.y in -1f..1f })
