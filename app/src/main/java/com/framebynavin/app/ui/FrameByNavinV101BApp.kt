@@ -117,6 +117,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
+    var showNewIdeaEditor by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
     var quickCreateRequested by rememberSaveable { mutableStateOf(false) }
@@ -431,6 +432,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     deletedIdeas = vm.deletedIdeas,
                     onClose = null,
                     onSave = vm::saveIdea,
+                    // Draw New Idea in the app root AFTER floating bottom nav,
+                    // rather than within the Ideas tab below the navigation.
+                    onCreateIdeaRequested = { showNewIdeaEditor = true },
                     onDelete = vm::deleteIdea,
                     onRestore = vm::restoreIdea,
                     onArchive = vm::archiveIdea,
@@ -764,6 +768,21 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         .putExtra(com.framebynavin.app.reminders.ReminderConstants.EXTRA_OCCURRENCE_ID, token)
                 )
             },
+        )
+    }
+
+    // V220.4 owner RCA: this Activity-owned overlay is composed AFTER the
+    // app shell, its floating nav and all in-shell panels. It never creates a
+    // separate Android Dialog window, and it retains the existing save path.
+    if (showNewIdeaEditor) {
+        V09NewIdeaCleanEditor(
+            onDismiss = { showNewIdeaEditor = false },
+            onSave = { draft ->
+                val accepted = vm.saveIdea(draft) != null
+                if (accepted) showNewIdeaEditor = false
+                accepted
+            },
+            existingIdeas = vm.ideas,
         )
     }
 
