@@ -93,14 +93,18 @@ internal fun PTodayScreen(
     homeSlideshowRequestNonce: Long = 0L,
     onHomeSlideshowRequestHandled: () -> Unit = {},
 ) {
-    val queue by remember { derivedStateOf { pActiveQueue(tasks).take(10) } }
-    val queueIds by remember { derivedStateOf { queue.map { it.id } } }
+    // V220.1: derive Home content from the CURRENT task list. The previous
+    // unkeyed derivedStateOf closures captured the initial tasks parameter and
+    // could show an old Up Next queue / weekly totals after a ViewModel update.
+    // Keep this read-only: no task mutation, reminder scheduling or storage.
+    val queue = remember(tasks) { pActiveQueue(tasks).take(10) }
+    val queueIds = remember(queue) { queue.map { it.id } }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(queueIds) { if (queue.none { it.id == selectedId }) selectedId = queue.firstOrNull()?.id }
     val index = queue.indexOfFirst { it.id == selectedId }.let { if (it < 0) 0 else it }
     val selected = queue.getOrNull(index)
-    val personalization by remember(creatorProfile) {
-        derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
+    val personalization = remember(creatorProfile, tasks) {
+        CreatorPersonalizationEngine.snapshot(creatorProfile, tasks)
     }
     val haptics = LocalHapticFeedback.current
     var showWeeklyFocus by rememberSaveable { mutableStateOf(false) }

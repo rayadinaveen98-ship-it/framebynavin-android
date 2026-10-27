@@ -1,6 +1,9 @@
 package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -10,6 +13,7 @@ import com.framebynavin.app.data.CreatorProfile
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.data.ReminderMode
+import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -68,6 +72,46 @@ class V220HomeConsolidationUiTest {
         rule.onAllNodesWithText("REMINDERS").assertCountEquals(0)
         rule.onNodeWithTag("v219-reminder-home-entry").performScrollTo()
         capture("empty-hub-no-invented-alert")
+    }
+
+    @Test fun homeReflectsNewProjectAndWeeklyPublishWithoutRecreatingScreen() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val now = System.currentTimeMillis()
+        fun project(id: String, title: String, done: Boolean = false) = CreatorTask(
+            id = id, title = title, platform = "YouTube",
+            contentType = "Film", dueLabel = "Today",
+            status = if (done) TaskStatus.DONE else TaskStatus.PLANNED,
+            completedAtMillis = if (done) now else 0L,
+            publishedAtMillis = if (done) now else 0L,
+        )
+        var projects by mutableStateOf(listOf(project("first", "Draft one · తెలుగు")))
+        rule.setContent {
+            FrameByNavinTheme {
+                PTodayScreen(
+                    creatorProfile = profile,
+                    tasks = projects,
+                    onAdd = {}, onStart = {}, onAdvance = {},
+                    onViewAllReminders = {}, onFocus = {},
+                )
+            }
+        }
+        rule.onNodeWithText("Draft one · తెలుగు").assertExists()
+        rule.onNodeWithText("0/2").assertExists()
+        capture("live-before")
+        rule.runOnIdle {
+            // Same Compose screen + same creator profile. Only the supplied
+            // task list changes, as happens after saving/finishing a project.
+            projects = listOf(
+                project("second", "Draft two · తెలుగు"),
+                project("published", "Published short film", done = true),
+            )
+        }
+        rule.waitForIdle()
+        rule.onNodeWithText("Draft two · తెలుగు").assertExists()
+        rule.onNodeWithText("Draft one · తెలుగు").assertDoesNotExist()
+        rule.onNodeWithText("1/2").assertExists()
+        rule.onNodeWithTag("v219-reminder-home-entry").assertExists()
+        capture("live-after")
     }
 
     private fun capture(scene: String) {
