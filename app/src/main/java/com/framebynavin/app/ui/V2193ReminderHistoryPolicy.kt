@@ -66,7 +66,7 @@ internal object V2193ReminderHistoryPolicy {
 
     fun completedProjects(tasks: List<CreatorTask>): List<V2193CompletedProject> =
         tasks.asSequence()
-            .filter { it.status == TaskStatus.DONE && it.archivedAtMillis <= 0L }
+            .filter { it.status == TaskStatus.DONE }
             .map { V2193CompletedProject(it.id, it.title, it.completedAtMillis) }
             .sortedWith(
                 compareByDescending<V2193CompletedProject> { it.timeVerified }
