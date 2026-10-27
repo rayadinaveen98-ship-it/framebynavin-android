@@ -82,36 +82,53 @@ internal fun V2213ExpressionArtReview(guide: V144GuideIdentity) {
                 }
             }
             Spacer(Modifier.height(9.dp))
-            V2213Pose.entries.chunked(3).forEach { row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+            // Compare the SAME physical rendered size for every state.
+            // A reference shown only once at another scale hid identity drift.
+            V2213Pose.entries.forEach { pose ->
+                val drawable = requireNotNull(V2213PoseCatalog.drawable(guide, pose))
+                Surface(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("v2213-compare-" + guide.name + "-" + pose.name),
+                    color = CinemaSurface,
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, CinemaLine),
                 ) {
-                    row.forEach { pose ->
-                        val drawable = requireNotNull(V2213PoseCatalog.drawable(guide, pose))
-                        Surface(
-                            modifier = Modifier.weight(1f)
-                                .testTag("v2213-pose-${guide.name}-${pose.name}"),
-                            color = CinemaSurface,
-                            shape = RoundedCornerShape(14.dp),
-                            border = BorderStroke(1.dp, CinemaLine),
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            pose.name.lowercase().replaceFirstChar { it.titlecase() },
+                            fontSize = 13.sp, color = ProjectorIvory,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.Top,
                         ) {
-                            Column(
-                                modifier = Modifier.padding(5.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Image(
+                                    painter = painterResource(v217ConceptDrawable(guide)),
+                                    contentDescription = "Approved original reference for " +
+                                        guide.displayName + " — " + pose.name.lowercase(),
+                                    modifier = Modifier.size(96.dp)
+                                        .testTag("v2213-compare-original-" + guide.name + "-" + pose.name),
+                                    contentScale = ContentScale.Fit,
+                                )
+                                Text("Approved 3D original", fontSize = 10.sp, color = MutedGold)
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Image(
                                     painter = painterResource(drawable),
-                                    contentDescription = pose.name.lowercase(),
+                                    contentDescription = "Unapproved vector study: " +
+                                        guide.displayName + " — " + pose.name.lowercase(),
+                                    modifier = Modifier.size(96.dp)
+                                        .testTag("v2213-pose-art-" + guide.name + "-" + pose.name),
                                     contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxWidth().height(95.dp)
-                                        .testTag("v2213-pose-art-${guide.name}-${pose.name}"),
                                 )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    pose.name.lowercase().replaceFirstChar { it.titlecase() },
-                                    fontSize = 9.sp, color = ProjectorIvory, maxLines = 1,
-                                )
+                                Text("Draft 2D study", fontSize = 10.sp, color = MutedText)
                             }
                         }
                     }
