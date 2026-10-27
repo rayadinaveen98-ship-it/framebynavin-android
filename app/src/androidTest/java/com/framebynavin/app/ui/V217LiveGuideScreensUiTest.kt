@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
@@ -44,9 +45,13 @@ class V217LiveGuideScreensUiTest {
         for (guide in V144GuideIdentity.entries) {
             rule.onNodeWithTag("v217-choice-${guide.name}").assertExists()
         }
+        rule.onNodeWithTag("v217-choose-button-FRAME").assertIsDisplayed()
+        rule.onNodeWithTag("v217-choose-button-NAVI").assertIsDisplayed()
         capture("first-run-top")
         rule.onNodeWithTag("v217-choice-CUTE").performScrollTo()
         rule.waitForIdle()
+        rule.onNodeWithTag("v217-choose-button-FUNNY").assertIsDisplayed()
+        rule.onNodeWithTag("v217-choose-button-CUTE").assertIsDisplayed()
         capture("first-run-bottom")
     }
 
