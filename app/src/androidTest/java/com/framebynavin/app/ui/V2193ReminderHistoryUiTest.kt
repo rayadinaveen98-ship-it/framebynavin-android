@@ -54,6 +54,9 @@ class V2193ReminderHistoryUiTest {
         }
         rule.onNodeWithTag("v2193-history-section").assertDoesNotExist()
         rule.onNodeWithTag("v2193-history-tab").performScrollTo().performClick()
+        // History is the only active view; ALL must not also look selected.
+        rule.onNodeWithTag("v2193-history-tab").assertIsSelected()
+        rule.onNodeWithTag("v219-filter-all").assertIsNotSelected()
         rule.onNodeWithTag("v2193-history-section").assertExists()
         rule.onNodeWithText("Complete cinematic edit").assertExists()
         rule.onNodeWithText("Earlier film project").assertExists()
@@ -62,6 +65,8 @@ class V2193ReminderHistoryUiTest {
         rule.onNodeWithText("No confirmed reminder responses recorded for these projects.").assertExists()
         capture("verified-history")
         rule.onNodeWithTag("v219-filter-all").performScrollTo().performClick()
+        rule.onNodeWithTag("v219-filter-all").assertIsSelected()
+        rule.onNodeWithTag("v2193-history-tab").assertIsNotSelected()
         rule.onNodeWithTag("v2193-history-section").assertDoesNotExist()
         capture("return-to-active")
     }
