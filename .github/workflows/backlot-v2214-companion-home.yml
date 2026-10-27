@@ -1,0 +1,127 @@
+name: Backlot V221.4 — Real Home Companion Integration
+
+on:
+  push:
+    branches: [feature/backlot-v2214-live-companion-home]
+  pull_request:
+    branches: [feature/backlot-v2212-companion-behaviors]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v2214-home-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify original art, Home ordering and local-only navigation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          home=Path("app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt").read_text()
+          root=Path("app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt").read_text()
+          bridge=Path("app/src/main/java/com/framebynavin/app/ui/V2214HomeCompanion.kt").read_text()
+          assert home.index("V148HomeTopPerformersSection") < home.index('v215-up-next-header') < home.index("V219ReminderHomeEntry") < home.index("companionContent()") < home.index("V18CreatorFocusCard")
+          assert "companionContent = {" in root and "V2214HomeCompanion(" in root
+          assert "v2214-companion-switch" in root and "setEnabled(enabled)" in root
+          assert "V221CompanionEvidenceReader" in bridge
+          assert "V221CompanionBehaviorPolicy.select" in bridge
+          assert "V221CompanionSuggestionCard(" in bridge
+          assert all(t in bridge for t in ("onOpenReminders()", "onOpenIdeas()", "openableProjectId", "quietThisVisit = true"))
+          assert all(t not in bridge for t in ("ReminderScheduler(", "TaskStore(", "saveIdea(", "markResponded(", "markUnanswered(", "CloudSyncManager("))
+          original=Path("app/src/main/java/com/framebynavin/app/ui/V144GuideSystem.kt").read_text()
+          assert "V144RasterGuideCharacter(guide, state, modifier, pointRight)" in original
+          assert "V2213PoseCatalog" not in original
+          assert "V2213PoseCatalog" not in bridge
+          print("Home ordering, real routes, true opt-out, production art and read-only boundary verified")
+          PY
+      - name: Full JVM unit test regressions
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Full debug, personalStable and Android test APKs
+        run: gradle :app:assembleDebug :app:assemblePersonalStable :app:assembleDebugAndroidTest --stacktrace
+      - name: Verify V221.4 contract and release artifact existence
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -f app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -f app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          fs=list(Path("app/build/test-results/testDebugUnitTest").glob("TEST-*V2214HomeCompanionPolicyTest.xml"))
+          assert len(fs)==1,fs
+          root=ET.parse(fs[0]).getroot()
+          assert int(root.attrib.get("tests","0"))==3 and int(root.attrib.get("failures","0"))==0 and int(root.attrib.get("errors","0"))==0,root.attrib
+          print("V221.4 Home policy JVM 3/3 tests passed")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2214-Home-Integration-APKs-and-Tests
+          path: |
+            app/build/test-results/testDebugUnitTest/TEST-*V2214HomeCompanionPolicyTest.xml
+            app/build/test-results/testDebugUnitTest/TEST-*V221CompanionDecisionEngineTest.xml
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2214-Home-Integration-APKs-and-Tests
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Actual Android Home integration of projects, ideas, dismissal and opt-out
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            mkdir -p v2214-evidence
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2214CompanionHomeUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2214-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2214-default.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2214-default.log
+            for scene in project idea; do adb exec-out run-as com.framebynavin.app cat "files/v2214-home/v2214-default-${scene}.png" > "v2214-evidence/v2214-default-${scene}.png"; done
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2214CompanionHomeUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2214-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2214-compact.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2214-compact.log
+            for scene in project idea; do adb exec-out run-as com.framebynavin.app cat "files/v2214-home/v2214-compact-${scene}.png" > "v2214-evidence/v2214-compact-${scene}.png"; done
+            python3 -c 'from pathlib import Path; import struct; fs=list(Path("v2214-evidence").glob("*.png")); assert len(fs)==4,len(fs); assert all(p.stat().st_size>24000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") for p in fs); widths={p.name:struct.unpack(">I",p.read_bytes()[16:20])[0] for p in fs}; assert all(v==1080 for k,v in widths.items() if "default" in k); assert all(v==900 for k,v in widths.items() if "compact" in k); print(widths)'
+      - name: Upload actual Android visual and action evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2214-Home-Android-Evidence
+          path: |
+            v2214-evidence/*.png
+            v2214-*.log
+          retention-days: 14
+          if-no-files-found: warn
