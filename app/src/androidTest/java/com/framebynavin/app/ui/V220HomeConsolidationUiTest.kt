@@ -114,6 +114,42 @@ class V220HomeConsolidationUiTest {
         capture("live-after")
     }
 
+    @Test fun nextMoveIsCompactUntilExpandedAndKeepsExistingActions() {
+        HardeningTestEnvironment.requireCiEmulator()
+        var startCount = 0
+        val item = CreatorTask(
+            id = "next-move", title = "A cinematic project · తెలుగు",
+            platform = "YouTube", contentType = "Film", dueLabel = "Tomorrow",
+            status = TaskStatus.PLANNED,
+        )
+        rule.setContent {
+            FrameByNavinTheme {
+                PTodayScreen(
+                    creatorProfile = profile,
+                    tasks = listOf(item),
+                    onAdd = {}, onStart = { startCount++ }, onAdvance = {},
+                    onViewAllReminders = {}, onFocus = {},
+                )
+            }
+        }
+        // Project card owns the ONE Up Next heading. A different Next Move
+        // card stays collapsed until the creator asks for reasoning.
+        rule.onAllNodesWithText("UP NEXT", useUnmergedTree = true).assertCountEquals(1)
+        rule.onNodeWithTag("v2202-next-move").performScrollTo().assertExists()
+        rule.onNodeWithText("NEXT MOVE", useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("VIEW DETAILS", useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("WHY THIS MOVE", useUnmergedTree = true).assertDoesNotExist()
+        capture("next-move-compact")
+        rule.onNodeWithTag("v2202-next-move").performClick()
+        rule.onNodeWithText("WHY THIS MOVE", useUnmergedTree = true)
+            .performScrollTo().assertExists()
+        rule.onNodeWithText("START THIS MOVE", useUnmergedTree = true)
+            .performScrollTo().assertExists()
+        capture("next-move-expanded")
+        rule.onNodeWithText("START THIS MOVE", useUnmergedTree = true).performClick()
+        rule.runOnIdle { assertEquals(1, startCount) }
+    }
+
     private fun capture(scene: String) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val profileName = InstrumentationRegistry.getArguments().getString("backlotVisualProfile")
