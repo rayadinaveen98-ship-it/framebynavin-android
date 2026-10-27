@@ -107,13 +107,13 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2214CompanionHomeUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2214-default.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2214-default.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' v2214-default.log
-            for scene in project idea; do adb exec-out run-as com.framebynavin.app cat "files/v2214-ui/v2214-default-${scene}.png" > "v2214-evidence/v2214-default-${scene}.png"; done
+            for scene in project idea; do adb exec-out run-as com.framebynavin.app cat "files/v2214-home/v2214-default-${scene}.png" > "v2214-evidence/v2214-default-${scene}.png"; done
             adb shell wm size 900x1600
             adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2214CompanionHomeUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2214-compact.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2214-compact.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' v2214-compact.log
-            for scene in project idea; do adb exec-out run-as com.framebynavin.app cat "files/v2214-ui/v2214-compact-${scene}.png" > "v2214-evidence/v2214-compact-${scene}.png"; done
+            for scene in project idea; do adb exec-out run-as com.framebynavin.app cat "files/v2214-home/v2214-compact-${scene}.png" > "v2214-evidence/v2214-compact-${scene}.png"; done
             python3 -c 'from pathlib import Path; import struct; fs=list(Path("v2214-evidence").glob("*.png")); assert len(fs)==4,len(fs); assert all(p.stat().st_size>24000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") for p in fs); widths={p.name:struct.unpack(">I",p.read_bytes()[16:20])[0] for p in fs}; assert all(v==1080 for k,v in widths.items() if "default" in k); assert all(v==900 for k,v in widths.items() if "compact" in k); print(widths)'
       - name: Upload actual Android visual and action evidence
         if: always()
