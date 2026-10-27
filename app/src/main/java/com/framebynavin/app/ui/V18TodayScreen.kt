@@ -92,6 +92,7 @@ internal fun PTodayScreen(
     bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
     homeSlideshowRequestNonce: Long = 0L,
     onHomeSlideshowRequestHandled: () -> Unit = {},
+    companionContent: @Composable () -> Unit = {},
 ) {
     // V220.1: derive Home content from the CURRENT task list. The previous
     // unkeyed derivedStateOf closures captured the initial tasks parameter and
@@ -224,6 +225,11 @@ internal fun PTodayScreen(
             // One tap opens the existing V157 Center with unchanged safe actions.
             Spacer(Modifier.height(12.dp))
             V219ReminderHomeEntry(tasks = tasks, onOpenHub = onViewAllReminders)
+
+            // V221.4: optional, read-only guide recommendation. It can be quiet.
+            // NEVER move Top 3, Up Next or the real Reminders Hub below it.
+            // An empty companion contributes no extra space.
+            companionContent()
 
             // Weekly focus is secondary; Top 3 remains above Up Next.
             Spacer(Modifier.height(18.dp))
