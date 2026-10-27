@@ -53,6 +53,17 @@ class V2213ExpressionArtReviewUiTest {
         assertTrue("Blank V221.3 artwork after real-frame retries: $file", file.length() > 24_000)
     }
 
+    /** Identity comparisons cannot cheat by showing the reference at another scale. */
+    private fun assertReferenceAndDraftSameSize(guide: V144GuideIdentity, pose: V2213Pose) {
+        val suffix = guide.name + "-" + pose.name
+        val original = rule.onNodeWithTag("v2213-compare-original-" + suffix)
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val draft = rule.onNodeWithTag("v2213-pose-art-" + suffix)
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals("Reference vs draft width for " + suffix, original.width, draft.width, 0.5f)
+        assertEquals("Reference vs draft height for " + suffix, original.height, draft.height, 0.5f)
+    }
+
     private fun review(guide: V144GuideIdentity) {
         HardeningTestEnvironment.requireCiEmulator()
         rule.setContent {
@@ -61,10 +72,12 @@ class V2213ExpressionArtReviewUiTest {
         rule.onNodeWithTag("v2213-review-${guide.name}").assertIsDisplayed()
         rule.onNodeWithTag("v2213-original").assertIsDisplayed()
         rule.onNodeWithTag("v2213-pose-art-${guide.name}-IDLE").assertIsDisplayed()
+        assertReferenceAndDraftSameSize(guide, V2213Pose.IDLE)
         rule.onNodeWithTag("v2213-pose-art-${guide.name}-WELCOME").assertIsDisplayed()
         capture(guide,"first-fold")
         rule.onNodeWithTag("v2213-pose-art-${guide.name}-REST").performScrollTo()
         rule.onNodeWithTag("v2213-pose-art-${guide.name}-REST").assertIsDisplayed()
+        assertReferenceAndDraftSameSize(guide, V2213Pose.REST)
         rule.onNodeWithTag("v2213-pose-art-${guide.name}-CELEBRATE").assertExists()
         capture(guide,"last-fold")
     }
