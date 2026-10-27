@@ -157,7 +157,7 @@ internal object V221CompanionDecisionEngine {
                         id = "project-completed:${task.id}",
                         moment = V221CompanionMoment.RECENT_COMPLETION,
                         expression = V221CompanionExpression.CELEBRATE,
-                        message = "\"\${shortTitle(task.title)}\" is marked complete.",
+                        message = "\"${shortTitle(task.title)}\" is marked complete.",
                         reason = "The project has an explicit completion timestamp.",
                         actionLabel = null,
                         destination = V221CompanionDestination.NONE,
