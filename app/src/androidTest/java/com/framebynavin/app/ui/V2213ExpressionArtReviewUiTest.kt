@@ -29,14 +29,28 @@ class V2213ExpressionArtReviewUiTest {
         val i = InstrumentationRegistry.getInstrumentation()
         val profile = InstrumentationRegistry.getArguments().getString("backlotVisualProfile")
         require(profile == "default" || profile == "compact")
-        val bitmap = requireNotNull(i.uiAutomation.takeScreenshot())
         val folder = File(i.targetContext.filesDir, "v2213-art-review")
         assertTrue(folder.isDirectory || folder.mkdirs())
         val file = File(folder, "v2213-${profile}-${guide.name.lowercase()}-${scene}.png")
-        try {
-            file.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG,100,it)) }
-        } finally { bitmap.recycle() }
-        assertTrue("Blank V221.3 artwork review frame: $file", file.length() > 24_000)
+        // uiAutomation sometimes captures the launch/black surface before
+        // Android has presented the first real Compose frame, even after
+        // semantics report the gallery as displayed (observed in CI PR).
+        // Retry only that transient capture; a persistently blank window
+        // MUST still fail this visual gate, never be recorded as success.
+        for (attempt in 1..5) {
+            val bitmap = requireNotNull(i.uiAutomation.takeScreenshot())
+            try {
+                file.outputStream().use {
+                    assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG,100,it))
+                }
+            } finally { bitmap.recycle() }
+            if (file.length() > 24_000) break
+            if (attempt < 5) {
+                SystemClock.sleep(450)
+                i.waitForIdleSync()
+            }
+        }
+        assertTrue("Blank V221.3 artwork after real-frame retries: $file", file.length() > 24_000)
     }
 
     private fun review(guide: V144GuideIdentity) {
