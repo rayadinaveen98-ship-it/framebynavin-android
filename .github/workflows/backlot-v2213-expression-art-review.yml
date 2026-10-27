@@ -51,7 +51,7 @@ jobs:
           directory=Path("app/src/main/res/drawable-nodpi")
           for filename, expected in protected.items():
               payload=(directory / filename).read_bytes()
-              oid=hashlib.sha1(b"blob " + str(len(payload)).encode() + b"\\0" + payload).hexdigest()
+              oid=hashlib.sha1(b"blob " + str(len(payload)).encode() + b"\0" + payload).hexdigest()
               assert oid == expected, "Approved companion art changed without owner review: " + filename
           review = Path("app/src/main/java/com/framebynavin/app/ui/V2213ExpressionArtReview.kt").read_text()
           assert 'Modifier.size(96.dp)' in review
