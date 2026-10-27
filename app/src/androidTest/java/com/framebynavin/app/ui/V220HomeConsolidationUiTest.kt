@@ -139,7 +139,7 @@ class V220HomeConsolidationUiTest {
         rule.onNodeWithText("NEXT MOVE", useUnmergedTree = true).assertExists()
         rule.onNodeWithText("VIEW DETAILS", useUnmergedTree = true).assertExists()
         rule.onNodeWithText("WHY THIS MOVE", useUnmergedTree = true).assertDoesNotExist()
-        capture("next-move-compact")
+        capture("next-move-collapsed")
         rule.onNodeWithTag("v2202-next-move").performClick()
         rule.onNodeWithText("WHY THIS MOVE", useUnmergedTree = true)
             .performScrollTo().assertExists()
