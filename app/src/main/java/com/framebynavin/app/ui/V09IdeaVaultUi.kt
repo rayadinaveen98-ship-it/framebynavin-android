@@ -501,7 +501,7 @@ private fun V09NewIdeaCleanEditor(
                             OutlinedTextField(
                                 title,
                                 { title = it },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().testTag("v2203-new-idea-title"),
                                 placeholder = { Text("What's your idea?") },
                                 minLines = 3,
                                 maxLines = 6,
