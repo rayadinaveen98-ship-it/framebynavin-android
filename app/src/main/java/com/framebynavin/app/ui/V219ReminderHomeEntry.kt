@@ -12,11 +12,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.ReminderCenterGroup
 import com.framebynavin.app.data.ReminderCenterPolicy
+import com.framebynavin.app.reminders.SmartSessionStore
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -65,6 +70,13 @@ internal fun V219ReminderHomeEntry(
     now: Long = System.currentTimeMillis(),
 ) {
     val data = V219ReminderHomeSnapshot.from(tasks, now)
+    val context = LocalContext.current
+    val sessions = remember(context) { SmartSessionStore(context.applicationContext) }
+    val remindingTaskIds = tasks.asSequence()
+        .filter { it.reminderEnabled }
+        .filter { sessions.current(it.id) != null }
+        .map { it.id }.toSet()
+    val next = V220HomeReminderPreviewPolicy.pick(tasks, now, remindingTaskIds)
     Surface(
         onClick = onOpenHub,
         modifier = modifier.fillMaxWidth().testTag("v219-reminder-home-entry"),
@@ -96,6 +108,26 @@ internal fun V219ReminderHomeEntry(
                     if (data.attention > 0) RecRed else MutedText, Modifier.weight(1f))
                 V219ReminderCount("TODAY", data.today, MutedGold, Modifier.weight(1f))
                 V219ReminderCount("DELAYED", data.postponed, ProjectorIvory, Modifier.weight(1f))
+            }
+            // V220: Keep the actionable next-alert detail inside the same Hub.
+            // Do not place a second Reminders card at the end of Home.
+            if (next != null) {
+                HorizontalDivider(color = CinemaLine)
+                Column(Modifier.fillMaxWidth().testTag("v220-home-next-alert"),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(if (next.remindingNow) "REMINDING NOW" else "NEXT ALERT",
+                        color = if (next.remindingNow) RecRed else MutedGold,
+                        fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text(next.task.title, color = ProjectorIvory,
+                        fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        if (next.remindingNow) pModeLabel(next.task.reminderMode)
+                        else "${pHomeReminderTime(next.task.reminderAtMillis)} · ${pModeLabel(next.task.reminderMode)}",
+                        color = MutedText, fontSize = 10.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
