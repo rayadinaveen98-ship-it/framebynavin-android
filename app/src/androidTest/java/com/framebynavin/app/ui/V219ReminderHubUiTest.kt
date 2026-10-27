@@ -121,7 +121,7 @@ class V219ReminderHubUiTest {
         rule.onNodeWithText("UPCOMING").assertExists()
         capture("hub-upcoming")
         rule.onNodeWithTag("v219-filter-today").performScrollTo().performClick()
-        rule.onNodeWithText("TODAY").assertExists()
+        rule.onAllNodesWithText("TODAY").onFirst().assertExists()
         capture("hub-today")
         rule.runOnIdle { assertEquals(0, createCalls) }
     }
