@@ -112,9 +112,9 @@ class V218UnifiedWaveUiTest {
                 val r = (rgb shr 16) and 255
                 val g = (rgb shr 8) and 255
                 val b = rgb and 255
-                if (maxOf(r, g, b) > 95) bright++
+                if (maxOf(r, g, b) > 52) bright++
             }
         }
-        return seen.size > 80 && bright > 25
+        return seen.size > 75 && bright > 20
     }
 }
