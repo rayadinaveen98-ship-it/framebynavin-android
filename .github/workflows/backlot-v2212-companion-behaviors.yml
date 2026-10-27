@@ -1,0 +1,134 @@
+name: Backlot V221.2 — Companion Behaviors and Dismissals
+
+on:
+  push:
+    branches: [feature/backlot-v2212-companion-behaviors]
+  pull_request:
+    branches: [feature/backlot-v2211-companion-context-engine]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v2212-behaviors-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify local-only companion behavior boundary
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/framebynavin/app/data/V221CompanionDecisionEngine.kt
+          test -f app/src/main/java/com/framebynavin/app/data/V221CompanionEvidenceReader.kt
+          test -f app/src/main/java/com/framebynavin/app/data/V221CompanionCooldownPolicy.kt
+          test -f app/src/main/java/com/framebynavin/app/data/V221CompanionDismissalStore.kt
+          test -f app/src/main/java/com/framebynavin/app/ui/V221CompanionSuggestionCard.kt
+          test -f app/src/test/java/com/framebynavin/app/data/V221CompanionCooldownPolicyTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V2212CompanionBehaviorUiTest.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/src/main/java/com/framebynavin/app/data/V221CompanionCooldownPolicy.kt").read_text()
+          store=Path("app/src/main/java/com/framebynavin/app/data/V221CompanionDismissalStore.kt").read_text()
+          ui=Path("app/src/main/java/com/framebynavin/app/ui/V221CompanionSuggestionCard.kt").read_text()
+          assert "V221CompanionDecisionEngine.choose(" in p
+          assert "MAX_RECORDS = 80" in p
+          assert "SharedPreferences" not in p
+          assert "backlot_companion_suggestions_v2212" in store
+          assert "V144GuideCharacter(" in ui
+          assert "V144GuideIdentity.FUNNY" in ui
+          assert all(forbidden not in p+store+ui for forbidden in ("ReminderScheduler(", "markResponded(", "markUnanswered(", "TaskStore(", "CreatorCloudSyncManager("))
+          assert Path("app/src/test/java/com/framebynavin/app/data/V221CompanionCooldownPolicyTest.kt").read_text().count("@Test fun ") >= 9
+          print("Companion behavior isolation and dismissal safety verified")
+          PY
+      - name: Full JVM unit test regressions
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Full debug, personalStable and Android test APKs
+        run: gradle :app:assembleDebug :app:assemblePersonalStable :app:assembleDebugAndroidTest --stacktrace
+      - name: Verify behavior tests and full artifacts
+        run: |
+          set -euo pipefail
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -f app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -f app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          for name,min_cases in [("V221CompanionCooldownPolicyTest",9),("V221CompanionDecisionEngineTest",13)]:
+              fs=list(Path("app/build/test-results/testDebugUnitTest").glob("TEST-*"+name+".xml"))
+              assert len(fs)==1,(name,fs)
+              root=ET.parse(fs[0]).getroot()
+              assert int(root.attrib["tests"]) >= min_cases, root.attrib
+              assert int(root.attrib.get("failures","0"))==0 and int(root.attrib.get("errors","0"))==0,root.attrib
+              print(name,root.attrib)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2212-Companion-Behavior-APKs-and-Tests
+          path: |
+            app/build/test-results/testDebugUnitTest/TEST-*V221CompanionCooldownPolicyTest.xml
+            app/build/test-results/testDebugUnitTest/TEST-*V221CompanionDecisionEngineTest.xml
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2212-Companion-Behavior-APKs-and-Tests
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Actual Android companion suggestion / dismiss / preferences QA
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            mkdir -p v2212-evidence
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2212CompanionBehaviorUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2212-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2212-default.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v2212-default.log
+            for scene in spark-collapsed spark-reason frame-collapsed; do adb exec-out run-as com.framebynavin.app cat "files/v2212-ui/v2212-default-${scene}.png" > "v2212-evidence/v2212-default-${scene}.png"; done
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2212CompanionBehaviorUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2212-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2212-compact.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v2212-compact.log
+            for scene in spark-collapsed spark-reason frame-collapsed; do adb exec-out run-as com.framebynavin.app cat "files/v2212-ui/v2212-compact-${scene}.png" > "v2212-evidence/v2212-compact-${scene}.png"; done
+            python3 -c 'from pathlib import Path; import struct; fs=list(Path("v2212-evidence").glob("*.png")); assert len(fs)==6,len(fs); assert all(p.stat().st_size>30000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") for p in fs); widths={p.name:struct.unpack(">I",p.read_bytes()[16:20])[0] for p in fs}; assert all(v==1080 for k,v in widths.items() if "default" in k); assert all(v==900 for k,v in widths.items() if "compact" in k); print(widths)'
+      - name: Upload actual Android visual and action evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2212-Companion-Behavior-Android-Evidence
+          path: |
+            v2212-evidence/*.png
+            v2212-*.log
+          retention-days: 14
+          if-no-files-found: warn
