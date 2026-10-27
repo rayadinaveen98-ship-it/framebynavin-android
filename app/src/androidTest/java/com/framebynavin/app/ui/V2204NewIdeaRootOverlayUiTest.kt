@@ -3,6 +3,7 @@ package com.framebynavin.app.ui
 import android.graphics.Bitmap
 import android.os.SystemClock
 import android.view.WindowManager
+import android.view.WindowInsets
 import androidx.core.view.WindowCompat
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
@@ -38,8 +39,29 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class V2204NewIdeaRootOverlayUiTest {
     @get:Rule val rule = createComposeRule()
-    private var measuredSafeBottomDp = 0.dp
-    private var measuredImeBottomDp = 0.dp
+    private var composeDensity = 1f
+
+    private data class OSInsets(
+        val gestureOrNavPx: Int,
+        val imePx: Int,
+        val imeVisible: Boolean,
+    )
+
+    private fun readActualWindowInsets(): OSInsets {
+        var result = OSInsets(0, 0, false)
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val activity = ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(Stage.RESUMED).first()
+            val window = activity.window.decorView.rootWindowInsets
+            requireNotNull(window) { "Physical Activity window must expose system insets" }
+            result = OSInsets(
+                gestureOrNavPx = window.getInsets(WindowInsets.Type.navigationBars()).bottom,
+                imePx = window.getInsets(WindowInsets.Type.ime()).bottom,
+                imeVisible = window.isVisible(WindowInsets.Type.ime()),
+            )
+        }
+        return result
+    }
 
     private fun render(onAccepted: (CreatorIdea) -> Unit = {}) {
         HardeningTestEnvironment.requireCiEmulator()
@@ -55,16 +77,7 @@ class V2204NewIdeaRootOverlayUiTest {
         rule.setContent {
             FrameByNavinTheme {
                 val density = LocalDensity.current
-                val imePx = WindowInsets.ime.getBottom(density)
-                val safePx = maxOf(
-                    WindowInsets.safeDrawing.getBottom(density),
-                    WindowInsets.navigationBars.getBottom(density),
-                    imePx,
-                )
-                SideEffect {
-                    measuredSafeBottomDp = with(density) { safePx.toDp() }
-                    measuredImeBottomDp = with(density) { imePx.toDp() }
-                }
+                SideEffect { composeDensity = density.density }
                 var editorOpen by remember { mutableStateOf(false) }
                 Box(Modifier.fillMaxSize()) {
                     V09IdeaVaultScreen(
@@ -108,12 +121,15 @@ class V2204NewIdeaRootOverlayUiTest {
             window.bottom >= root.bottom - 2.dp && window.top <= root.top + 2.dp)
         assertTrue("Save must be inside the Activity safe drawing region: $save vs $footer",
             save.top >= footer.top && save.bottom <= footer.bottom)
-        // Edge-to-edge + adjustResize are now explicitly enabled on the
-        // host Activity. Test the real reported *system* inset, not just the
-        // Compose root's own bounds (which cannot see a covering IME window).
+        // Use Android's native decorView rootWindowInsets. Compose-test-only
+        // inset reads can remain zero despite the keyboard belonging to a
+        // separate OS window; that was another misleading green signal.
+        val system = readActualWindowInsets()
+        val physicalInsetDp = (if (system.imeVisible) system.imePx
+            else system.gestureOrNavPx) / composeDensity
         assertTrue(
-            "Save overlaps real system nav/IME inset: save=$save root=$root system=$measuredSafeBottomDp",
-            save.bottom <= root.bottom - measuredSafeBottomDp - 6.dp
+            "Save overlaps Android reported system bar/IME: save=$save root=$root native=$system density=$composeDensity",
+            save.bottom <= root.bottom - physicalInsetDp.dp - 6.dp
         )
         rule.onNodeWithTag("v2203-new-idea-save").assertIsDisplayed()
     }
@@ -136,8 +152,8 @@ class V2204NewIdeaRootOverlayUiTest {
 
     @Test fun ownerOverlayIsNotADialogAndSaveClearsSystemNavigation() {
         render()
-        checkOwnedWindowAndFooter()
         capture("nav-clear")
+        checkOwnedWindowAndFooter()
     }
 
     @Test fun keyboardKeepsActionAccessibleAndSavesTeluguIdea() {
@@ -146,10 +162,11 @@ class V2204NewIdeaRootOverlayUiTest {
         rule.onNodeWithTag("v2203-new-idea-title").performTextInput("నూతన సినిమా ఆలోచన")
         SystemClock.sleep(650)
         rule.waitForIdle()
-        assertTrue("The test must display an actual IME; no fake keyboard success",
-            measuredImeBottomDp >= 80.dp)
+        capture("keyboard-clear") // retain physical screen even on failure
+        val nativeIme = readActualWindowInsets()
+        assertTrue("The Android OS must report a real visible keyboard, not a simulated text entry: $nativeIme",
+            nativeIme.imeVisible && nativeIme.imePx / composeDensity >= 80f)
         checkOwnedWindowAndFooter()
-        capture("keyboard-clear")
         rule.onNodeWithTag("v2203-new-idea-save").performClick()
         rule.runOnIdle { assertEquals("నూతన సినిమా ఆలోచన", saved?.title) }
     }
