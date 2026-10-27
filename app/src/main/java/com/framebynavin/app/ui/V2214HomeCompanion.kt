@@ -59,6 +59,9 @@ internal fun V2214HomeCompanion(
     val store = remember(context) { V221CompanionDismissalStore(context.applicationContext) }
     val evidence = remember(context) { V221CompanionEvidenceReader(context.applicationContext) }
     var refreshVersion by remember { mutableIntStateOf(0) }
+    // Not now must close the card for this Home visit, even if another lower
+    // priority candidate exists. Persisted dismissal guards future visits.
+    var quietThisVisit by remember { mutableStateOf(false) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val lifecycle = (context as? ComponentActivity)?.lifecycle
 
@@ -104,7 +107,7 @@ internal fun V2214HomeCompanion(
     }
 
     // Silence is a correct result. Do not add padding or an empty placeholder.
-    if (decision != null) {
+    if (!quietThisVisit && decision != null) {
         Spacer(Modifier.height(12.dp))
         V221CompanionSuggestionCard(
             decision = decision,
@@ -122,6 +125,7 @@ internal fun V2214HomeCompanion(
                 }
             },
             onDismiss = { current ->
+                quietThisVisit = true
                 if (store.dismiss(current.id, System.currentTimeMillis())) {
                     nowMillis = System.currentTimeMillis()
                     refreshVersion += 1
