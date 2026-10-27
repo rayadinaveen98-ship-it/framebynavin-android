@@ -106,15 +106,7 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v220-consolidation-default.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v220-consolidation-default.log
             for scene in one-hub-with-next-alert empty-hub-no-invented-alert; do adb exec-out run-as com.framebynavin.app cat "files/v220-ui/v220-default-${scene}.png" > "v220-evidence/v220-default-${scene}.png"; done
-            for spec in V213TodayFullScreenVisualUiTest:213 V215HomeFirstFoldVisualUiTest:215; do
-              klass="${spec%%:*}"; version="${spec##*:}"
-              adb shell am instrument -w -r -e class "com.framebynavin.app.ui.${klass}" -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "v220-home-${version}-default.log"
-              if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' "v220-home-${version}-default.log"; then exit 1; fi
-              grep -Fq 'OK (4 tests)' "v220-home-${version}-default.log"
-              for scenario in empty projects; do for position in top bottom; do
-                adb exec-out run-as com.framebynavin.app cat "files/v${version}-home-visual/v${version}-${scenario}-${position}-default.png" > "v220-evidence/v${version}-${scenario}-${position}-default.png"
-              done; done
-            done
+            set -e; for spec in V213TodayFullScreenVisualUiTest:213 V215HomeFirstFoldVisualUiTest:215; do klass="${spec%%:*}"; version="${spec##*:}"; adb shell am instrument -w -r -e class "com.framebynavin.app.ui.${klass}" -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "v220-home-${version}-default.log"; if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' "v220-home-${version}-default.log"; then exit 1; fi; grep -Fq 'OK (4 tests)' "v220-home-${version}-default.log" || exit 1; for scenario in empty projects; do for position in top bottom; do adb exec-out run-as com.framebynavin.app cat "files/v${version}-home-visual/v${version}-${scenario}-${position}-default.png" > "v220-evidence/v${version}-${scenario}-${position}-default.png"; done; done; done
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V157ReminderCenterUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2192-center-regression.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2192-center-regression.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' v2192-center-regression.log
@@ -136,15 +128,7 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v220-consolidation-compact.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v220-consolidation-compact.log
             for scene in one-hub-with-next-alert empty-hub-no-invented-alert; do adb exec-out run-as com.framebynavin.app cat "files/v220-ui/v220-compact-${scene}.png" > "v220-evidence/v220-compact-${scene}.png"; done
-            for spec in V213TodayFullScreenVisualUiTest:213 V215HomeFirstFoldVisualUiTest:215; do
-              klass="${spec%%:*}"; version="${spec##*:}"
-              adb shell am instrument -w -r -e class "com.framebynavin.app.ui.${klass}" -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "v220-home-${version}-compact.log"
-              if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' "v220-home-${version}-compact.log"; then exit 1; fi
-              grep -Fq 'OK (4 tests)' "v220-home-${version}-compact.log"
-              for scenario in empty projects; do for position in top bottom; do
-                adb exec-out run-as com.framebynavin.app cat "files/v${version}-home-visual/v${version}-${scenario}-${position}-compact.png" > "v220-evidence/v${version}-${scenario}-${position}-compact.png"
-              done; done
-            done
+            set -e; for spec in V213TodayFullScreenVisualUiTest:213 V215HomeFirstFoldVisualUiTest:215; do klass="${spec%%:*}"; version="${spec##*:}"; adb shell am instrument -w -r -e class "com.framebynavin.app.ui.${klass}" -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "v220-home-${version}-compact.log"; if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' "v220-home-${version}-compact.log"; then exit 1; fi; grep -Fq 'OK (4 tests)' "v220-home-${version}-compact.log" || exit 1; for scenario in empty projects; do for position in top bottom; do adb exec-out run-as com.framebynavin.app cat "files/v${version}-home-visual/v${version}-${scenario}-${position}-compact.png" > "v220-evidence/v${version}-${scenario}-${position}-compact.png"; done; done; done
             adb shell wm size reset
             adb shell settings put system font_scale 1.0
             python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v220-evidence").glob("*.png")); assert len(fs)==46,len(fs); sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>10000 for p in fs); assert all(wh[0]==900 and 650<=wh[1]<=1600 for n,wh in sizes.items() if "compact" in n); assert all(wh[0]==1080 and 900<=wh[1]<=2400 for n,wh in sizes.items() if "default" in n); print(sizes)'
