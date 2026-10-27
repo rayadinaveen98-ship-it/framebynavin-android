@@ -1,0 +1,80 @@
+name: Backlot V221.1 — Read-Only Companion Decision Policy
+
+on:
+  push:
+    branches: [feature/backlot-v2211-companion-context-engine]
+  pull_request:
+    branches: [feature/backlot-v2204-new-idea-activity-owned]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v2211-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify policy implementation is isolated from reminder mutations
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/framebynavin/app/data/V221CompanionDecisionEngine.kt
+          test -f app/src/main/java/com/framebynavin/app/data/V221CompanionEvidenceReader.kt
+          test -f app/src/test/java/com/framebynavin/app/data/V221CompanionDecisionEngineTest.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          policy = Path("app/src/main/java/com/framebynavin/app/data/V221CompanionDecisionEngine.kt").read_text()
+          reader = Path("app/src/main/java/com/framebynavin/app/data/V221CompanionEvidenceReader.kt").read_text()
+          tests = Path("app/src/test/java/com/framebynavin/app/data/V221CompanionDecisionEngineTest.kt").read_text()
+          assert "fun choose(" in policy
+          assert "fun snapshot(" in reader
+          assert "awaitingResponse(task)" in reader
+          assert "ReminderAckState.UNANSWERED" in reader
+          for forbidden in ("schedule(", "markResponded(", "markUnanswered(", ".save(", "CloudApiClient(", "SharedPreferences.Editor"):
+              assert forbidden not in policy + reader, forbidden
+          assert tests.count("@Test fun ") >= 13
+          print("V221.1 pure decision and readonly adapter checks passed.")
+          PY
+      - name: Run all Kotlin JVM regression suites
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Build full Backlot debug and signed personalStable APKs
+        run: gradle :app:assembleDebug :app:assemblePersonalStable --stacktrace
+      - name: Verify compiled decision engine and APK outputs
+        run: |
+          set -euo pipefail
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -f app/build/outputs/apk/personalStable/app-personalStable.apk
+          find app/build/test-results/testDebugUnitTest -name 'TEST-*V221CompanionDecisionEngineTest.xml' -print -quit | grep -q V221
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          paths=glob.glob("app/build/test-results/testDebugUnitTest/TEST-*V221CompanionDecisionEngineTest.xml")
+          assert len(paths)==1,paths
+          data=ET.parse(paths[0]).getroot()
+          assert int(data.attrib["tests"])>=13,data.attrib
+          assert int(data.attrib.get("failures","0"))==0,data.attrib
+          assert int(data.attrib.get("errors","0"))==0,data.attrib
+          print("V221.1 unit test suite:",data.attrib)
+          PY
+      - name: Upload policy tests and full app APK evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2211-Companion-Brain-Build-and-Tests
+          path: |
+            app/build/test-results/testDebugUnitTest/TEST-*V221CompanionDecisionEngineTest.xml
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+          if-no-files-found: warn
+          retention-days: 14
