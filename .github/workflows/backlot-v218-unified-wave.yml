@@ -1,0 +1,139 @@
+name: Backlot V218 — Unified Reminder Waves
+
+on:
+  push:
+    branches: [feature/backlot-v218-unified-reminder-wave]
+  workflow_dispatch:
+  pull_request:
+    branches: [feature/backlot-v217-live-companion-application]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v218-wave-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Assert production reminder action paths unchanged
+        run: |
+          set -euo pipefail
+          grep -Fq 'V195ReminderParticleScene(' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
+          grep -Fq 'V218UnifiedWavePolicy.glyphBlend(' app/src/main/java/com/framebynavin/app/reminders/V195ReminderParticleScene.kt
+          grep -Fq 'V202PremiumParticleGeometry.build(lowPower)' app/src/main/java/com/framebynavin/app/reminders/V195ReminderParticleScene.kt
+          grep -Fq 'onReveal = { revealed = true }' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
+          test -f app/src/test/java/com/framebynavin/app/reminders/V218UnifiedWavePolicyTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/reminders/V218UnifiedWaveUiTest.kt
+          if grep -Fq 'glyphColor' app/src/main/java/com/framebynavin/app/reminders/V195ReminderParticleScene.kt; then exit 1; fi
+          if grep -Fq 'V195ReminderParticleScene(' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt; then exit 1; fi
+      - name: Full unit tests and Android app/instrumentation build
+        run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - name: Build separate V218 offline review APK
+        run: gradle :v218review:assembleDebug --stacktrace
+      - name: Verify isolated package and permission-less manifest
+        run: |
+          test -s v218review/build/outputs/apk/debug/v218review-debug.apk
+          grep -Fq 'applicationId = "com.framebynavin.v218review"' v218review/build.gradle.kts
+          ! grep -Eq '^[[:space:]]*<uses-permission' v218review/src/main/AndroidManifest.xml
+          test -f scripts/v218-review-smoke.sh
+      - name: Upload independently installable offline V218 review APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V218-Wave-Review-APK
+          path: v218review/build/outputs/apk/debug/v218review-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload sandbox APKs for CI emulator only
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V218-Android-CI-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V218-Wave-Review-APK
+          path: review-apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V218-Android-CI-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Real Android unified wave screenshots / controls regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r apks/debug/app-debug.apk
+            adb install -r apks/androidTest/debug/app-debug-androidTest.apk
+            mkdir -p v218-evidence
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V218UnifiedWaveUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v218-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v218-default.log; then exit 1; fi
+            grep -Fq 'OK (6 tests)' v218-default.log
+            for scene in alarm-normal-intro alarm-normal-revealed voice-normal-intro voice-normal-revealed alarm-saver-intro alarm-saver-revealed voice-saver-intro voice-saver-revealed; do adb exec-out run-as com.framebynavin.app cat "files/v218-wave-evidence/default-${scene}.png" > "v218-evidence/default-${scene}.png"; done
+            for scene in alarm-actual-controls voice-actual-controls; do adb exec-out run-as com.framebynavin.app cat "files/v218-wave-evidence/default-${scene}.png" > "v218-evidence/default-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V195ReminderSceneUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v218-reminder-controls.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v218-reminder-controls.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v218-reminder-controls.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V197ImmersiveSceneUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v218-reveal.log
+            grep -Fq 'OK (2 tests)' v218-reveal.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V202PremiumParticlesUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v218-particles.log
+            grep -Fq 'OK (2 tests)' v218-particles.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V218UnifiedWaveUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v218-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v218-compact.log; then exit 1; fi
+            grep -Fq 'OK (6 tests)' v218-compact.log
+            for scene in alarm-normal-intro alarm-normal-revealed voice-normal-intro voice-normal-revealed alarm-saver-intro alarm-saver-revealed voice-saver-intro voice-saver-revealed; do adb exec-out run-as com.framebynavin.app cat "files/v218-wave-evidence/compact-${scene}.png" > "v218-evidence/compact-${scene}.png"; done
+            for scene in alarm-actual-controls voice-actual-controls; do adb exec-out run-as com.framebynavin.app cat "files/v218-wave-evidence/compact-${scene}.png" > "v218-evidence/compact-${scene}.png"; done
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v218-evidence").glob("*.png")); assert len(fs)==20,len(fs); sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>2000 for p in fs); assert all(wh==(900,1600) for n,wh in sizes.items() if n.startswith("compact")); assert all(wh==(1080,2400) for n,wh in sizes.items() if n.startswith("default")); print(sizes)'
+            bash scripts/v218-review-smoke.sh
+      - name: Upload review app alarm/voice screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V218-Review-App-Phone-Screenshots
+          path: v218-review-evidence/*
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload real Android V218 wave evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V218-Real-Android-Waves
+          path: |
+            v218-evidence/*.png
+            v218-*.log
+          if-no-files-found: warn
+          retention-days: 14

@@ -34,7 +34,14 @@ import com.framebynavin.app.data.IdeaVaultLabels
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.voice.VoiceIdeaRecording
 import com.framebynavin.app.voice.VoiceIdeaText
-import java.io.File
+import com.framebynavin.app.data.QuickCaptureDraft
+import com.framebynavin.app.data.QuickCaptureDraftStore
+import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.IdeaVaultStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -47,66 +54,74 @@ import java.util.Locale
 internal fun V14QuickCaptureDialog(
     onDismiss: () -> Unit,
     onSave: (CreatorIdea) -> Boolean,
+    onSaveDurably: (suspend (CreatorIdea, Long) -> Boolean)? = null,
 ) {
     val context = LocalContext.current
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
-    var title by rememberSaveable { mutableStateOf("") }
-    var notes by rememberSaveable { mutableStateOf("") }
+    val draftStore = remember { QuickCaptureDraftStore(context) }
+    val recovered = remember { draftStore.load() }
+    val draftId = remember { recovered?.id ?: java.util.UUID.randomUUID().toString() }
+    val draftGeneration = remember { recovered?.generation ?: CreatorDataGate.generation(context) }
+    val scope = rememberCoroutineScope()
+    var title by remember { mutableStateOf(recovered?.title.orEmpty()) }
+    var notes by remember { mutableStateOf(recovered?.notes.orEmpty()) }
+    var draftError by remember { mutableStateOf<String?>(null) }
+    var confirmClose by remember { mutableStateOf(false) }
+    var recorderActive by remember { mutableStateOf(false) }
+    var checkingRecovery by remember { mutableStateOf(recovered != null) }
     var showDictation by rememberSaveable { mutableStateOf(false) }
-    var showRecording by rememberSaveable { mutableStateOf(false) }
-    var showNotes by rememberSaveable { mutableStateOf(false) }
+    var showRecording by rememberSaveable { mutableStateOf(recovered?.recording != null) }
+    var showNotes by rememberSaveable { mutableStateOf(recovered?.notes?.isNotBlank() == true) }
     var showSuggestion by rememberSaveable { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
     var submitting by remember { mutableStateOf(false) }
-    var voiceRecording by remember { mutableStateOf<VoiceIdeaRecording?>(null) }
-    val cleanupRecording = remember { mutableStateOf<VoiceIdeaRecording?>(null) }
-    val recordingCommitted = remember { mutableStateOf(false) }
+    var voiceRecording by remember { mutableStateOf(recovered?.recording) }
     val suggestion = remember(title, notes, creatorProfile) {
         CreatorQuickCaptureEngine.suggest("$title $notes", creatorProfile)
+    }
+    fun currentDraft() = QuickCaptureDraft(draftId, draftGeneration, title, notes, voiceRecording)
+    fun preserveDraft(): Boolean = runCatching { draftStore.save(currentDraft()) }
+        .onSuccess { draftError = null }.onFailure { draftError = it.message }.isSuccess
+
+    // Recover a crash after the vault commit but before the draft was cleared without a second save.
+    LaunchedEffect(Unit) {
+        if (recovered == null) return@LaunchedEffect
+        try {
+            val alreadySaved = withContext(Dispatchers.IO) {
+                CreatorDataGate.readyTransaction(context) {
+                    IdeaVaultStore(context).load().any { it.id == draftId }
+                }
+            }
+            if (alreadySaved) {
+                draftStore.clear(currentDraft())
+                onDismiss()
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Throwable) { draftError = "Could not check saved ideas. Reopen capture before saving." }
+        finally { checkingRecovery = false }
     }
 
     fun updateRecording(recording: VoiceIdeaRecording?) {
         voiceRecording = recording
-        cleanupRecording.value = recording
-        recordingCommitted.value = false
         saveFailed = false
-    }
-
-    fun discardRecording() {
-        cleanupRecording.value?.localPath
-            ?.takeIf { it.isNotBlank() }
-            ?.let { path -> runCatching { File(path).delete() } }
-        voiceRecording = null
-        cleanupRecording.value = null
-        recordingCommitted.value = false
+        preserveDraft()
     }
 
     fun dismissQuickCapture() {
-        discardRecording()
-        onDismiss()
+        if (submitting || checkingRecovery) return
+        if (recorderActive) {
+            draftError = "Stop and keep your recording before closing."
+        } else if (currentDraft().hasContent) confirmClose = true
+        else onDismiss()
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            if (!recordingCommitted.value) {
-                cleanupRecording.value?.localPath
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { path -> runCatching { File(path).delete() } }
-            }
-        }
-    }
 
-    Dialog(
-        onDismissRequest = ::dismissQuickCapture,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
+    CreatorAdaptiveFullScreen(onDismissRequest = ::dismissQuickCapture) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = ::dismissQuickCapture) {
+                    IconButton(onClick = ::dismissQuickCapture, modifier = Modifier.testTag("quick-capture-close")) {
                         Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory)
                     }
                     Spacer(Modifier.width(4.dp))
@@ -123,9 +138,12 @@ internal fun V14QuickCaptureDialog(
                         .verticalScroll(rememberScrollState()),
                 ) {
                     Spacer(Modifier.height(12.dp))
+                    if (recovered != null) Text("Your unfinished idea was recovered.", color = MutedGold, fontSize = 12.sp)
+                    draftError?.let { Text(it, color = RecRed, fontSize = 12.sp) }
                     OutlinedTextField(
                         value = title,
-                        onValueChange = { title = it; saveFailed = false },
+                        enabled = !submitting && !checkingRecovery,
+                        onValueChange = { title = it; saveFailed = false; preserveDraft() },
                         modifier = Modifier.fillMaxWidth().testTag("quick-capture-title"),
                         label = { Text("Your idea") },
                         placeholder = { Text("A scene, a title, a thought…") },
@@ -166,6 +184,7 @@ internal fun V14QuickCaptureDialog(
                                 onTranscript = { spoken ->
                                     title = VoiceIdeaText.append(title, spoken)
                                     saveFailed = false
+                                    preserveDraft()
                                 },
                             )
                         }
@@ -178,6 +197,8 @@ internal fun V14QuickCaptureDialog(
                             VoiceIdeaRecorderInput(
                                 recording = voiceRecording,
                                 onRecordingChanged = ::updateRecording,
+                                onActiveChanged = { recorderActive = it },
+                                enabled = !submitting && !checkingRecovery,
                             )
                         }
                     }
@@ -206,7 +227,8 @@ internal fun V14QuickCaptureDialog(
                             Spacer(Modifier.height(9.dp))
                             OutlinedTextField(
                                 value = notes,
-                                onValueChange = { notes = it; saveFailed = false },
+                                enabled = !submitting && !checkingRecovery,
+                                onValueChange = { notes = it; saveFailed = false; preserveDraft() },
                                 modifier = Modifier.fillMaxWidth().testTag("quick-capture-notes"),
                                 label = { Text("Notes") },
                                 placeholder = { Text("Anything else worth remembering?") },
@@ -276,20 +298,24 @@ internal fun V14QuickCaptureDialog(
                                 )
                             } ?: baseIdea
 
-                            // Keep the recording owned while the host processes the save; a
-                            // successful host callback may synchronously close this dialog.
-                            recordingCommitted.value = finalized != null
-                            val accepted = runCatching { onSave(idea) }.getOrDefault(false)
-                            if (accepted) {
-                                cleanupRecording.value = null
-                                voiceRecording = null
-                            } else {
-                                recordingCommitted.value = false
-                                saveFailed = true
+                            if (!preserveDraft()) { submitting = false; return@Button }
+                            val candidate = idea.copy(id = draftId)
+                            scope.launch {
+                                try {
+                                    CreatorDataGate.checkGeneration(context, draftGeneration)
+                                    val accepted = onSaveDurably?.invoke(candidate, draftGeneration)
+                                        ?: runCatching { onSave(candidate) }.getOrDefault(false)
+                                    if (accepted) {
+                                        // No delete: audio now belongs to the durable vault item.
+                                        draftStore.clear(currentDraft())
+                                        voiceRecording = null
+                                    } else saveFailed = true
+                                } catch (cancelled: CancellationException) { throw cancelled }
+                                catch (error: Throwable) { saveFailed = true; draftError = error.message }
+                                finally { submitting = false }
                             }
-                            submitting = false
                         },
-                        enabled = (title.isNotBlank() || voiceRecording != null) && !submitting,
+                        enabled = (title.isNotBlank() || voiceRecording != null) && !submitting && !recorderActive && !checkingRecovery,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
                             .heightIn(min = 54.dp).testTag("quick-capture-save"),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
@@ -301,9 +327,42 @@ internal fun V14QuickCaptureDialog(
                         )
                     }
                 }
-            }
-        }
     }
+    if (confirmClose) {
+        AlertDialog(
+            onDismissRequest = { if (!submitting) confirmClose = false },
+            title = { Text("Keep this idea for later?") },
+            text = { Text("Your text and completed recording can stay on this phone until you return.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (preserveDraft()) { confirmClose = false; onDismiss() }
+                }, enabled = !submitting, modifier = Modifier.testTag("quick-capture-keep-draft")) { Text("KEEP DRAFT & CLOSE") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { confirmClose = false }, enabled = !submitting) { Text("KEEP EDITING") }
+                    TextButton(onClick = {
+                        submitting = true
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    CreatorDataGate.readyTransaction(context) {
+                                        val paths = IdeaVaultStore(context).load().map { it.audioLocalPath }.toSet()
+                                        draftStore.discard(currentDraft(), paths)
+                                    }
+                                }
+                                confirmClose = false
+                                onDismiss()
+                            } catch (cancelled: CancellationException) { throw cancelled }
+                            catch (error: Throwable) { draftError = error.message; confirmClose = false }
+                            finally { submitting = false }
+                        }
+                    }, enabled = !submitting, modifier = Modifier.testTag("quick-capture-discard-draft")) { Text("DISCARD") }
+                }
+            },
+        )
+    }
+
 }
 
 private fun v14DefaultVoiceIdeaTitle(): String =

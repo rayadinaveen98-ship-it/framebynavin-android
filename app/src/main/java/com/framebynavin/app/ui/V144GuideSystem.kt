@@ -3,7 +3,12 @@ package com.framebynavin.app.ui
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -26,6 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -39,30 +50,27 @@ import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
 
 enum class V144GuideIdentity(val displayName: String, val description: String) {
-    // Kept only as compatibility values for older persisted installs. They are no longer selectable.
     FRAME("Frame", "Simple. Expressive. Always with you."),
     NAVI("Navi", "Curious. Calm. Creative."),
-    // Keep the persisted enum key FUNNY to migrate V151 installations without erasing preferences.
     FUNNY("Spark", "Lively. Creative. Always moving forward."),
     CUTE("Cute", "Warm. Gentle. Always encouraging."),
 }
 
-/** Active roster until the next two approved raster guides are designed. */
-internal val V145SelectableGuides = listOf(V144GuideIdentity.FUNNY)
+/** The original companion choice experience, restored for first-time creators. */
+internal val V145SelectableGuides = listOf(
+    V144GuideIdentity.FRAME,
+    V144GuideIdentity.NAVI,
+    V144GuideIdentity.FUNNY,
+    V144GuideIdentity.CUTE,
+)
 
-internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? {
-    val parsed = value?.let { saved ->
-        V144GuideIdentity.entries.firstOrNull { it.name == saved }
-    } ?: return null
-    return when (parsed) {
-        V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
-        V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> V144GuideIdentity.FUNNY
-    }
-}
+/** Keep already selected companions intact on upgrades; do not silently overwrite choices. */
+internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? =
+    value?.let { saved -> V144GuideIdentity.entries.firstOrNull { it.name == saved } }
 
 /**
  * Guide preference remains on the historical key so existing installs migrate in place.
- * Legacy Frame/Navi selections are normalized to Funny and are not exposed in V145 UI.
+ * Restore the creator's saved Frame / Navi / Spark / Cute selection in place.
  */
 object V144GuidePrefs {
     private const val PREFS = "backlot_character_identity_v151"
@@ -72,7 +80,7 @@ object V144GuidePrefs {
     var selectedGuide by mutableStateOf<V144GuideIdentity?>(null)
         private set
 
-    val hasSelection: Boolean get() = true // Spark is automatic; no first-run character gate.
+    val hasSelection: Boolean get() = selectedGuide != null
     val currentGuide: V144GuideIdentity get() = selectedGuide ?: V144GuideIdentity.FUNNY
 
     fun initialize(context: Context) {
@@ -88,13 +96,9 @@ object V144GuidePrefs {
     }
 
     fun select(guide: V144GuideIdentity) {
-        val normalized = when (guide) {
-            V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> V144GuideIdentity.FUNNY
-            V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE -> V144GuideIdentity.FUNNY
-        }
-        selectedGuide = normalized
+        selectedGuide = guide
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            ?.edit()?.putString(KEY_CHARACTER, normalized.name)?.apply()
+            ?.edit()?.putString(KEY_CHARACTER, guide.name)?.apply()
     }
 }
 
@@ -112,9 +116,18 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
         return
     }
 
+    V217GuideChoiceContent(onSelect = { guide -> V144GuidePrefs.select(guide) })
+}
+
+/** Reused production first-run companion UI, independently testable without clearing saved setup. */
+@Composable
+internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
-            Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 24.dp),
+            Modifier.fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -132,12 +145,17 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
             Spacer(Modifier.height(18.dp))
 
             V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Measure the tallest card once per row; shorter descriptions
+                // must not leave one SELECT button floating above its neighbor.
+                Row(
+                    Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     guides.forEach { guide ->
                         V144GuideChoiceCard(
                             guide = guide,
-                            onSelect = { V144GuidePrefs.select(guide) },
-                            modifier = Modifier.weight(1f),
+                            onSelect = { onSelect(guide) },
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
                     if (guides.size == 1) Spacer(Modifier.weight(1f))
@@ -156,12 +174,15 @@ private fun V144GuideChoiceCard(
 ) {
     val identity = v144GuideIdentityColor(guide)
     Surface(
-        modifier = modifier,
+        modifier = modifier.testTag("v217-choice-${guide.name}"),
         shape = RoundedCornerShape(20.dp),
         color = CinemaSurface,
         border = BorderStroke(1.2.dp, identity.copy(alpha = .76f)),
     ) {
-        Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.fillMaxHeight().padding(9.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Surface(
                 modifier = Modifier.fillMaxWidth().height(112.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -182,19 +203,30 @@ private fun V144GuideChoiceCard(
             Text(
                 guide.description,
                 color = MutedText,
-                fontSize = 7.6.sp,
-                lineHeight = 10.sp,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
                 textAlign = TextAlign.Center,
                 minLines = 2,
             )
+            // Fill only the difference in row content height, pinning both
+            // actions to one baseline on 1.0x and 1.5x system font sizes.
+            Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(7.dp))
             Button(
                 onClick = onSelect,
-                modifier = Modifier.fillMaxWidth().height(35.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = Color.White),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+                    .testTag("v217-choose-button-${guide.name}")
+                    .semantics { contentDescription = "Select ${guide.displayName}" },
+                // All four accent surfaces have >= 5.6:1 contrast with dark ink,
+                // while white labels ranged 1.5:1 to 3.7:1 (below AA).
+                colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = CinemaBlack),
                 shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
             ) {
-                Text("USE ${guide.displayName.uppercase()}", fontSize = 7.2.sp, fontWeight = FontWeight.Black)
+                // One clear action word: labels such as USE SPARK/USE FRAME
+                // were visibly cut in half on compact screens with 1.5x fonts.
+                // The card title and full accessibility label identify the guide.
+                Text("SELECT", fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
             }
         }
     }
@@ -209,8 +241,8 @@ internal fun V144GuidePicker() {
     Column(Modifier.fillMaxWidth()) {
         Text("GUIDE CHARACTER", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Spark, your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("One lively guide, ready whenever you create.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("Choose your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("You can change guides whenever you like.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(10.dp))
 
         V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
@@ -219,7 +251,8 @@ internal fun V144GuidePicker() {
                     val active = guide == selected
                     val identity = v144GuideIdentityColor(guide)
                     Surface(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) }
+                            .testTag("v217-settings-${guide.name}"),
                         shape = RoundedCornerShape(18.dp),
                         color = if (active) CinemaSurfaceRaised else CinemaSurface,
                         border = BorderStroke(1.2.dp, if (active) identity else CinemaLine),
@@ -264,10 +297,10 @@ internal fun V144GuideCharacter(
     pointRight: Boolean = true,
 ) {
     when (guide) {
-        V144GuideIdentity.FRAME -> BacklotGuideCharacter(BacklotCharacter.FRAME, state, modifier, pointRight)
-        V144GuideIdentity.NAVI -> BacklotGuideCharacter(BacklotCharacter.NAVI, state, modifier, pointRight)
+        V144GuideIdentity.FRAME, V144GuideIdentity.NAVI, V144GuideIdentity.CUTE ->
+            V217LiveCompanionCharacter(guide, state, modifier, pointRight)
+        // The original Spark code path and all five original Spark WebPs are preserved.
         V144GuideIdentity.FUNNY -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
-        V144GuideIdentity.CUTE -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
     }
 }
 

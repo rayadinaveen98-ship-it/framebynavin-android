@@ -437,11 +437,9 @@ internal fun PProjectComposer(
         return
     }
 
-    Dialog(onDismissRequest = { requestExit() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
+    CreatorAdaptiveFullScreen(onDismissRequest = { requestExit() }) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
+                    IconButton(onClick = { requestExit() }) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Spacer(Modifier.width(4.dp))
                     Column(Modifier.weight(1f)) {
                         Text(if (task == null) "NEW PROJECT" else "EDIT PROJECT", color = RecRed, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
@@ -608,7 +606,7 @@ internal fun PProjectComposer(
                                 lineHeight = 16.sp,
                             )
                             Spacer(Modifier.height(12.dp))
-                            V140VoiceStudioPicker(
+                            V207ProjectVoiceSelector(
                                 selected = voice,
                                 onSelected = { voice = it },
                                 onPreview = { pComposerPreviewVoice(context, it) },
@@ -700,8 +698,6 @@ internal fun PProjectComposer(
                         Text(if (task == null) "CREATE PROJECT" else "SAVE PROJECT", fontSize = V173ProjectUiMetrics.actionText, fontWeight = FontWeight.Black)
                     }
                 }
-            }
-        }
     }
     if (confirmDiscard) {
         V172ConfirmDiscardDialog(onKeep = { confirmDiscard = false }, onDiscard = onDismiss)

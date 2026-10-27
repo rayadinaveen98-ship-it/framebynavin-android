@@ -210,7 +210,7 @@ class CreatorCloudSyncManager(context: Context) {
 
     private suspend fun prepare(session: CloudSession): PreparedCreatorSnapshot {
         voiceMedia.protectLocal(session)
-        val payload = CreatorCloudPayloadSanitizer.sanitize(backup.createBackup())
+        val payload = CreatorCloudPayloadSanitizer.sanitize(backup.createBackup(), backup)
         val preview = backup.validate(payload)
         return PreparedCreatorSnapshot(
             payload = payload,

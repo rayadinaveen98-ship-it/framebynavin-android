@@ -62,7 +62,7 @@ internal fun V08WeeklyScheduleScreen(
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 42.dp),
         ) {
             item {
@@ -121,41 +121,24 @@ internal fun V08WeeklyScheduleScreen(
                 }
 
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { confirmGenerate = true },
-                        enabled = autoPlanEnabled && preview.missing.isNotEmpty(),
-                        modifier = Modifier.weight(1f).testTag("v164-create-preview"),
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        Icon(Icons.Outlined.Refresh, null, modifier = Modifier.size(17.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("PREVIEW ${preview.missing.size} PROJECTS", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            editorSlot = WeeklyScheduleSlot(
-                                id = "",
-                                title = "New Creator Slot",
-                                dayOfWeek = DayOfWeek.MONDAY,
-                                hour = 19,
-                                minute = 0,
-                                platform = primaryPlatform,
-                                contentType = CreatorPlatformRegistry.defaultFormat(primaryPlatform),
-                                reminderMode = ReminderMode.SMART,
-                                priority = TaskPriority.IMPORTANT,
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        Icon(Icons.Outlined.Add, null, modifier = Modifier.size(17.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("ADD WEEKLY POST", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
+                V197WeeklyPlanActions(
+                    previewCount = preview.missing.size,
+                    previewEnabled = autoPlanEnabled && preview.missing.isNotEmpty(),
+                    onPreview = { confirmGenerate = true },
+                    onAdd = {
+                        editorSlot = WeeklyScheduleSlot(
+                            id = "",
+                            title = "New Creator Slot",
+                            dayOfWeek = DayOfWeek.MONDAY,
+                            hour = 19,
+                            minute = 0,
+                            platform = primaryPlatform,
+                            contentType = CreatorPlatformRegistry.defaultFormat(primaryPlatform),
+                            reminderMode = ReminderMode.SMART,
+                            priority = TaskPriority.IMPORTANT,
+                        )
+                    },
+                )
                 Spacer(Modifier.height(8.dp))
                 Text("${preview.alreadyCreated} upcoming slots already have projects. Existing projects won't be replaced.", color = MutedText, fontSize = 10.sp)
                 Spacer(Modifier.height(18.dp))

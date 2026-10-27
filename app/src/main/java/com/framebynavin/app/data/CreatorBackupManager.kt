@@ -42,6 +42,11 @@ class CreatorBackupManager(private val context: Context) {
         val weeklySlotCount: Int,
         val activeReminderCount: Int,
         val settingsIncluded: Boolean,
+        /** Actual image bytes embedded in the core backup (Best Frames). */
+        val personalFrameCount: Int = 0,
+        val personalFramesIncluded: Boolean = false,
+        /** Workspace asset locations are references only; media bytes are not packaged. */
+        val externalProjectAssetCount: Int = 0,
     )
 
     private data class Snapshot(
@@ -78,10 +83,100 @@ class CreatorBackupManager(private val context: Context) {
 
     suspend fun createBackup(): String = CreatorDataGate.transaction {
         recoverPendingRestoreUnlocked()
+        IdeaProjectConversion(appContext).recoverPendingUnlocked()
         encode(snapshot(), System.currentTimeMillis())
     }
 
-    fun validate(raw: String): BackupPreview {
+    /**
+     * Portable ZIP export must never build a giant canonical root JSON only
+     * to parse it again. Build the compact envelope from the same locked
+     * creator-data snapshot, preserving schema and integrity semantics.
+     */
+    internal suspend fun createPortableBackup(): PortablePackedFrames = CreatorDataGate.transaction {
+        recoverPendingRestoreUnlocked()
+        IdeaProjectConversion(appContext).recoverPendingUnlocked()
+        // Do not allocate the complete Base64 Best Frames array first.
+        // Hash the legacy-canonical JSON representation from files in bounded
+        // chunks, and serialize only the compact ZIP metadata in memory.
+        val originalSnapshot = snapshot(includeHero = false)
+        val prepared = PortableBestFrameMedia.prepareFromFiles(
+            appContext.filesDir,
+            CreatorHeroArchive.orderedSourceNames(appContext),
+        )
+        val compact = encode(
+            originalSnapshot.copy(heroJson = prepared.personalFramesSection),
+            System.currentTimeMillis(),
+        )
+        PortablePackedFrames(compact, prepared.frames)
+    }
+
+    /** Check the original compact ZIP JSON BEFORE reconstruction or re-signing.
+     * Otherwise altered tasks/ideas could be silently legitimized by frame hydration.
+     * This intentionally checks the envelope, not the Base64 image array, which is
+     * temporarily replaced by a manifest marker in the new portable representation.
+     */
+    internal fun verifyPortableJsonEnvelope(raw: String) {
+        val root = JSONObject(raw)
+        require(root.optString("format") == FORMAT) { "This is not a Backlot backup." }
+        val schema = root.optInt("schemaVersion", -1)
+        require(schema in 1..SCHEMA_VERSION) { "Unsupported portable backup version." }
+        if (schema >= 5) validateManifest(root, schema)
+        if (schema >= 3) {
+            require(root.has("payloadSha256") &&
+                fingerprintSha256(root, schema) == root.optString("payloadSha256")) {
+                "Portable backup JSON integrity check failed"
+            }
+        }
+    }
+
+    /**
+     * Used ONLY by the portable ZIP frame codec. The installed/core backup
+     * schema is not migrated; the ZIP carries a marker while its image media
+     * is external, and is expanded and fully validated before any restore.
+     */
+    internal fun rewritePortablePersonalFrames(raw: String, value: String): String {
+        val root = JSONObject(raw)
+        require(root.optInt("schemaVersion", -1) == SCHEMA_VERSION) {
+            "Best Frames portable format requires the current backup schema"
+        }
+        require(root.has("personalFrames")) { "Missing Best Frames backup section" }
+        root.put("personalFrames", value)
+        root.put("payloadSha256", fingerprintSha256(root, SCHEMA_VERSION))
+        return root.toString()
+    }
+
+    fun validate(raw: String): BackupPreview = validateSnapshot(raw, null)
+
+    /**
+     * Recalculate a cloud-sanitized copy using the SAME current-schema
+     * fingerprint as export/restore. This prevents a second checksum field
+     * list from silently drifting when backup sections are added.
+     *
+     * Called only after validate(original) by CreatorCloudPayloadSanitizer;
+     * callers must validate the sealed output again before upload.
+     */
+    internal fun resealCloudSanitizedPayload(raw: String): String {
+        val root = JSONObject(raw)
+        require(root.optString("format") == FORMAT &&
+            root.optInt("schemaVersion", -1) == SCHEMA_VERSION) {
+            "Cloud backup format is not current"
+        }
+        validateManifest(root, SCHEMA_VERSION)
+        return root.put("payloadSha256", fingerprintSha256(root, SCHEMA_VERSION)).toString()
+    }
+
+
+    /**
+     * Entry only for ZIPs whose original Best Frames are fully staged,
+     * individually verified and checksum-reconstructed by the media codec.
+     * Never call this for an untrusted or unverified compact frame marker.
+     */
+    internal fun validatePortableCompact(raw: String, verifiedFrameCount: Int): BackupPreview {
+        require(verifiedFrameCount in 1..10) { "Invalid verified Best Frames count" }
+        return validateSnapshot(raw, verifiedFrameCount)
+    }
+
+    private fun validateSnapshot(raw: String, verifiedFrameCount: Int?): BackupPreview {
         val root = JSONObject(raw)
         require(root.optString("format") == FORMAT) { "This is not a Backlot backup." }
         val schema = root.optInt("schemaVersion", -1)
@@ -98,9 +193,13 @@ class CreatorBackupManager(private val context: Context) {
         if (schema >= 5) validateManifest(root, schema)
         if (schema >= 3) {
             require(root.has("payloadSha256")) { "Backup integrity information is missing" }
-            require(sha256(fingerprint(root, schema)) == root.getString("payloadSha256")) { "Backup integrity check failed" }
+            require(fingerprintSha256(root, schema) == root.getString("payloadSha256")) { "Backup integrity check failed" }
         }
-        optionalSection(root, "personalFrames")?.let(CreatorHeroArchive::validate)
+        val personalFramesRaw = optionalSection(root, "personalFrames")
+        val personalFrameCount = verifiedFrameCount ?: (personalFramesRaw?.let(CreatorHeroArchive::validate) ?: 0)
+        if (verifiedFrameCount != null) require(personalFramesRaw != null) {
+            "Missing portable Best Frames section"
+        }
         if (schema >= 4) {
             require(root.has("youtubeProjectLinks") && root.has("youtubeMilestones")) {
                 "Backup is missing YouTube project metadata"
@@ -135,8 +234,19 @@ class CreatorBackupManager(private val context: Context) {
 
         val taskArray = JSONArray(tasksRaw)
         var activeReminders = 0
+        var externalProjectAssets = 0
         for (i in 0 until taskArray.length()) {
             val item = taskArray.getJSONObject(i)
+            // TaskStore exports workspace asset LOCATION strings, not the source files.
+            // Count references so backup preview cannot imply that attachments are portable.
+            val assets = item.optJSONObject("workspace")?.optJSONArray("assets")
+            if (assets != null) {
+                for (assetIndex in 0 until assets.length()) {
+                    if (assets.optJSONObject(assetIndex)?.optString("location", "").orEmpty().isNotBlank()) {
+                        externalProjectAssets++
+                    }
+                }
+            }
             if (item.optBoolean("reminderEnabled", false) &&
                 item.optString("reminderMode", ReminderMode.NONE.name) != ReminderMode.NONE.name &&
                 item.optString("status", TaskStatus.PLANNED.name) !in setOf(TaskStatus.DONE.name, TaskStatus.SKIPPED.name)
@@ -153,6 +263,9 @@ class CreatorBackupManager(private val context: Context) {
             weeklySlotCount = weeklyCount,
             activeReminderCount = activeReminders,
             settingsIncluded = true,
+            personalFrameCount = personalFrameCount,
+            personalFramesIncluded = personalFramesRaw != null,
+            externalProjectAssetCount = externalProjectAssets,
         )
     }
 
@@ -160,6 +273,7 @@ class CreatorBackupManager(private val context: Context) {
     suspend fun restore(raw: String): BackupPreview = CreatorDataGate.transaction {
         val preview = validate(raw)
         recoverPendingRestoreUnlocked()
+        IdeaProjectConversion(appContext).recoverPendingUnlocked()
         val before = encode(snapshot(), System.currentTimeMillis())
         val recovery = retainRecovery(before)
         val marker = JSONObject().put("file", recovery.name).put("sha256", sha256(before))
@@ -189,6 +303,65 @@ class CreatorBackupManager(private val context: Context) {
         }
     }
 
+    /**
+     * Dedicated ZIP restore for the verified v9 Best Frames manifest.
+     * The canonical/legacy restore above is preserved as-is. Never hydrate
+     * original images into a giant Base64 JSON string for this format.
+     */
+    internal suspend fun restorePortableCompact(
+        raw: String,
+        frames: List<PortableBestFrame>,
+        // Only supplied by emulator QA. Null in every normal app caller.
+        afterImagesCommittedForTest: (() -> Unit)? = null,
+    ): BackupPreview = CreatorDataGate.transaction {
+        verifyPortableJsonEnvelope(raw)
+        require(PortableBestFrameMedia.verifyCompactPreview(raw, frames, true) == frames.size) {
+            "Best Frames portable recovery manifest is inconsistent"
+        }
+        val preview = validatePortableCompact(raw, frames.size)
+        recoverPendingRestoreUnlocked()
+        IdeaProjectConversion(appContext).recoverPendingUnlocked()
+
+        // Old originals are retained by the Hero archive and recorded by
+        // filename+hash; the pre-restore creator JSON need not Base64 them.
+        val oldFrames = CreatorHeroArchive.captureOriginalOrder(appContext)
+        val before = encode(snapshot(includeHero = false), System.currentTimeMillis())
+        val recovery = retainRecovery(before)
+        val marker = JSONObject().put("file", recovery.name)
+            .put("sha256", sha256(before))
+            .put("originalFrames", oldFrames)
+            .put("originalFramesSha256", sha256(oldFrames))
+        atomicWrite(pendingFile(), marker.toString())
+        CreatorDataGate.invalidate(appContext)
+        try {
+            stopAndCancel(taskStore.load())
+            smartSessions.clearAll()
+            importSnapshot(decodeSnapshot(raw).copy(heroJson = null))
+            CreatorHeroArchive.importVerifiedFiles(appContext, frames)
+            // Explicit test seam AFTER the new order is visible and BEFORE the
+            // durable recovery marker is cleared. Production passes null.
+            afterImagesCommittedForTest?.invoke()
+            scheduleFuture(taskStore.load())
+            clearPending()
+            preview
+        } catch (error: Throwable) {
+            CreatorDataGate.nonCancellable {
+                try {
+                    stopAndCancel(taskStore.load())
+                    smartSessions.clearAll()
+                    importSnapshot(decodeSnapshot(before).copy(heroJson = null))
+                    CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)
+                    scheduleFuture(taskStore.load())
+                    clearPending()
+                } catch (rollbackError: Throwable) {
+                    error.addSuppressed(rollbackError)
+                    // Pending journal intentionally remains for crash recovery.
+                }
+            }
+            throw error
+        }
+    }
+
     /** Called before normal app startup and by maintenance workers. Never silently discard a journal. */
     suspend fun recoverPendingRestore(): Boolean = CreatorDataGate.transaction {
         recoverPendingRestoreUnlocked()
@@ -204,10 +377,22 @@ class CreatorBackupManager(private val context: Context) {
         val raw = AtomicFile(recovery).openRead().bufferedReader().use { it.readText() }
         require(sha256(raw) == marker.getString("sha256")) { "Recovery integrity check failed" }
         validate(raw)
+        val oldFrames = if (marker.has("originalFrames")) {
+            val checkpoint = marker.getString("originalFrames")
+            require(marker.optString("originalFramesSha256") == sha256(checkpoint)) {
+                "Portable restore recovery frame checkpoint integrity check failed"
+            }
+            // This is a small, checksum-bound list of app-owned original files.
+            // Reverify BEFORE changing tasks/reminders. Never trust an external path.
+            CreatorHeroArchive.restoreOriginalOrder(appContext, checkpoint)
+            checkpoint
+        } else null
         CreatorDataGate.invalidate(appContext)
         stopAndCancel(taskStore.load())
         smartSessions.clearAll()
-        importSnapshot(decodeSnapshot(raw))
+        val snapshot = decodeSnapshot(raw)
+        importSnapshot(if (oldFrames == null) snapshot else snapshot.copy(heroJson = null))
+        if (oldFrames != null) CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)
         scheduleFuture(taskStore.load())
         clearPending()
         return true
@@ -244,7 +429,7 @@ class CreatorBackupManager(private val context: Context) {
         .filter { it.name.startsWith("pre-restore-") && it.name.endsWith(".fbnbackup") }
         .sortedByDescending { it.lastModified() }
 
-    private suspend fun snapshot(): Snapshot = Snapshot(
+    private suspend fun snapshot(includeHero: Boolean = true): Snapshot = Snapshot(
         tasksJson = taskStore.exportJson(),
         ideasJson = ideaStore.exportJson(),
         weeklyJson = weeklyStore.exportJson(),
@@ -252,7 +437,7 @@ class CreatorBackupManager(private val context: Context) {
         smartConfigJson = smartConfigStore.exportJson(),
         postPublishJson = postPublishStore.exportJson(),
         rewardsJson = rewardStore.exportJson(),
-        heroJson = CreatorHeroArchive.export(appContext),
+        heroJson = if (includeHero) CreatorHeroArchive.export(appContext) else "[]",
         youtubeLinksJson = youtubeLinksRaw(),
         youtubeMilestonesJson = youtubeMilestonesRaw(),
         youtubePublishCheckpointsJson = youtubePublishCheckpointsRaw(),
@@ -281,11 +466,15 @@ class CreatorBackupManager(private val context: Context) {
             .put("workflowStageTimeline", requireNotNull(snapshot.workflowTimelineJson))
             .put("automationPreferences", requireNotNull(snapshot.automationPrefsJson))
             .put("manifest", backupManifest())
-        return root.put("payloadSha256", sha256(fingerprint(root, SCHEMA_VERSION))).toString()
+        return root.put("payloadSha256", fingerprintSha256(root, SCHEMA_VERSION)).toString()
     }
 
-    /** Schema 1–4 fingerprint order is deliberately unchanged for existing backups. */
-    private fun fingerprint(root: JSONObject, schema: Int): String = buildString {
+    /**
+     * EXACT legacy fingerprint bytes without an O(payload) StringBuilder allocation:
+     * <key UTF-16 length>:<key><value UTF-16 length>:<value>, in schema order.
+     * Streaming the digest preserves checksums for every existing backup schema.
+     */
+    private fun fingerprintSha256(root: JSONObject, schema: Int): String {
         val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
             "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
         val allKeys = when {
@@ -296,9 +485,26 @@ class CreatorBackupManager(private val context: Context) {
             schema >= 4 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones")
             else -> keys
         }
+        val digest = MessageDigest.getInstance("SHA-256")
         (if (schema >= 5) allKeys + "manifest" else allKeys).forEach { key ->
             val value = root.optString(key, "")
-            append(key.length).append(':').append(key).append(value.length).append(':').append(value)
+            updateDigestUtf8(digest, "${key.length}:$key${value.length}:")
+            updateDigestUtf8(digest, value)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /** Bound transient UTF-8 encoding buffers; keep surrogate pairs intact. */
+    private fun updateDigestUtf8(digest: MessageDigest, value: String) {
+        var index = 0
+        while (index < value.length) {
+            var end = minOf(index + 4096, value.length)
+            if (end < value.length && Character.isHighSurrogate(value[end - 1]) &&
+                Character.isLowSurrogate(value[end])) {
+                end--
+            }
+            digest.update(value.substring(index, end).toByteArray(Charsets.UTF_8))
+            index = end
         }
     }
 
@@ -336,8 +542,10 @@ class CreatorBackupManager(private val context: Context) {
         }
     }
 
-    private fun sha256(raw: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(raw.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    private fun sha256(raw: String): String = MessageDigest.getInstance("SHA-256").let { digest ->
+        updateDigestUtf8(digest, raw)
+        digest.digest().joinToString("") { "%02x".format(it) }
+    }
 
     private fun decodeSnapshot(raw: String): Snapshot {
         val root = JSONObject(raw)
@@ -399,7 +607,7 @@ class CreatorBackupManager(private val context: Context) {
         val schema = root.getInt("schemaVersion")
         if (!root.has("youtubeProjectLinks") && links != null) root.put("youtubeProjectLinks", links)
         if (!root.has("youtubeMilestones") && milestones != null) root.put("youtubeMilestones", milestones)
-        if (schema >= 3) root.put("payloadSha256", sha256(fingerprint(root, schema)))
+        if (schema >= 3) root.put("payloadSha256", fingerprintSha256(root, schema))
         return root.toString().also(::validate)
     }
 

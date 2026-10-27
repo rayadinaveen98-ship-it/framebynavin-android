@@ -19,7 +19,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -35,15 +37,33 @@ import java.util.Locale
 import java.util.UUID
 
 private enum class Alpha3Section(val label: String) {
-    OVERVIEW("Overview"), BRIEF("Brief"), SCRIPT("Script"), RESEARCH("Research"), ASSETS("Assets"),
-    PRODUCTION("Production"), DELIVERABLES("Deliverables"), LEARN("Learn")
+    OVERVIEW("Overview"), BRIEF("Brief"), RESEARCH("Sources"), ASSETS("Assets"),
+    PRODUCTION("Tasks"), DELIVERABLES("Outputs"), LEARN("Notes")
 }
 
+/**
+ * Only one owner-approved, validated historical text field is staged at a
+ * time. This changes an unsaved editor field, not canonical project data.
+ */
+internal data class V211PlanFieldRecovery(
+    val nonce: Long,
+    val projectId: String,
+    val workspaceRevision: Long,
+    val label: String,
+    val text: String,
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun V19ContentWorkspaceAlpha3Dialog(
     task: CreatorTask,
     onDismiss: () -> Unit,
     onSave: (String, Long, CreatorContentWorkspace) -> Unit,
+    onSaveAndScript: (String, Long, CreatorContentWorkspace) -> Unit,
+    hasHeldDraft: Boolean = false,
+    onReviewHeld: () -> Unit = {},
+    pendingFieldRecovery: V211PlanFieldRecovery? = null,
+    onFieldRecoveryHandled: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
@@ -64,8 +84,30 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     var assets by remember(task.id, originalRevision) { mutableStateOf(initial.assets) }
     var deliverables by remember(task.id, originalRevision) { mutableStateOf(initial.deliverables) }
     var learnings by remember(task.id, originalRevision) { mutableStateOf(initial.learnings) }
+
+    // A direct field recovery never writes canonical content. Existing 350ms
+    // local draft autosave and explicit Save both retain C2 epoch/revision gates.
+    LaunchedEffect(pendingFieldRecovery?.nonce) {
+        val selection = pendingFieldRecovery ?: return@LaunchedEffect
+        if (selection.projectId != task.id || selection.workspaceRevision != originalRevision) {
+            onFieldRecoveryHandled(selection.nonce)
+            return@LaunchedEffect
+        }
+        when (selection.label) {
+            "Audience" -> audience = selection.text
+            "Viewer problem" -> viewerProblem = selection.text
+            "Promise" -> promise = selection.text
+            "Angle" -> angle = selection.text
+            "Learnings" -> learnings = selection.text
+        }
+        // Consuming prevents a later tab switch or editor remount from
+        // re-applying a historical field over more recent unsaved work.
+        onFieldRecoveryHandled(selection.nonce)
+    }
     var appliedTemplate by remember { mutableStateOf("") }
+    var pendingRemovalId by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
     var assetError by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
+    var openError by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
 
     fun draft() = CreatorContentWorkspace(
         revision = originalRevision,
@@ -83,12 +125,23 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         scriptStudio = task.workspace.scriptStudio,
     )
 
+    var draftWarningShown by remember(task.id, originalRevision) { mutableStateOf(false) }
     LaunchedEffect(audience, viewerProblem, promise, angle, references, checklist, assets, deliverables, learnings) {
         delay(350)
         val snapshot = draft()
-        withContext(Dispatchers.IO) {
+        val saveError = withContext(Dispatchers.IO) {
+            runCatching {
             if (snapshot == task.workspace) draftStore.clearProject(task.id)
             else draftStore.saveProject(task.id, originalRevision, snapshot)
+            }.exceptionOrNull()
+        }
+        if (saveError != null && !draftWarningShown) {
+            draftWarningShown = true
+            android.widget.Toast.makeText(
+                context,
+                "Could not save this draft. Reopen the project if a backup was restored.",
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
         }
     }
 
@@ -130,7 +183,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 assetError = "This file provider did not grant durable read access. Choose the file from another provider so the project does not keep a broken asset link."
             } else {
                 assetError = null
-                val mime = context.contentResolver.getType(uri).orEmpty()
+                val mime = runCatching { context.contentResolver.getType(uri).orEmpty() }.getOrDefault("")
                 val label = runCatching {
                     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
                         if (cursor.moveToFirst()) cursor.getString(0) else null
@@ -153,19 +206,21 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    WorkspaceAdaptiveFrame {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("PLAN", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                        Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text("PLAN", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    Text("R$originalRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    if (hasHeldDraft) {
+                        TextButton(onClick = onReviewHeld) {
+                            Text("EARLIER DRAFT", color = MutedGold, fontSize = 10.sp)
+                        }
+                    }
                 }
 
                 if (recovered != null) {
@@ -174,15 +229,20 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                     }
                 }
 
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ScrollableTabRow(
+                    selectedTabIndex = section.ordinal,
+                    modifier = Modifier.fillMaxWidth(),
+                    edgePadding = 12.dp,
+                    containerColor = CinemaBlack,
+                    divider = {},
+                    indicator = {},
                 ) {
                     Alpha3Section.entries.forEach { item ->
                         FilterChip(
                             selected = section == item,
-                            onClick = { section = item },
-                            label = { Text(item.label, fontSize = 8.5.sp) },
+                            onClick = { section = item; openError = null },
+                            label = { Text(item.label, fontSize = 12.sp) },
+                            modifier = Modifier.heightIn(min = 48.dp).padding(end = 7.dp),
                         )
                     }
                 }
@@ -200,7 +260,6 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                                 deliverables = merged.deliverables
                                 appliedTemplate = template.name
                             },
-                            onJump = { section = it },
                         )
                         Alpha3Section.BRIEF -> {
                             A3Title("BRIEF", "Define the audience, tension, promise and angle.")
@@ -209,28 +268,33 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             A3Field("PROMISE", promise, { promise = it }, "What will they get by staying?")
                             A3Field("ANGLE", angle, { angle = it }, "Why is your take different?")
                         }
-                        Alpha3Section.SCRIPT -> {
-                            A3Title("SCRIPT", "Write your hook, script and narration in Script.")
-                            A3ReadOnly("CURRENT HOOK", hook.ifBlank { "No hook saved yet." })
-                            Spacer(Modifier.height(10.dp))
-                            A3ReadOnly("COMPILED SCRIPT", script.ifBlank { "No script yet. Open Script to get started." })
-                        }
                         Alpha3Section.RESEARCH -> {
-                            A3Title("RESEARCH", "Sources stay attached to the project.")
+                            A3Title("SOURCES", "")
+                            openError?.let { Text(it, color = RecRed, fontSize = 12.sp); Spacer(Modifier.height(8.dp)) }
                             Button(onClick = { references = references + CreatorProjectReference(id = UUID.randomUUID().toString()) }) {
                                 Icon(Icons.Outlined.AddLink, null); Spacer(Modifier.width(5.dp)); Text("ADD SOURCE")
                             }
                             Spacer(Modifier.height(10.dp))
                             references.forEach { ref ->
-                                A3ReferenceCard(ref, { changed -> references = references.map { if (it.id == changed.id) changed else it } }) {
-                                    references = references.filterNot { it.id == ref.id }
-                                }
+                                A3ReferenceCard(
+                                    ref = ref,
+                                    onChange = { changed ->
+                                        openError = null
+                                        references = references.map { if (it.id == changed.id) changed else it }
+                                    },
+                                    onOpen = { openError = CreatorWorkspaceExternalOpen.openSource(context, ref.url) },
+                                    onRemove = {
+                                        openError = null
+                                        references = references.filterNot { it.id == ref.id }
+                                    },
+                                )
                                 Spacer(Modifier.height(8.dp))
                             }
                             if (references.isEmpty()) A3Empty("No research sources yet.")
                         }
                         Alpha3Section.ASSETS -> {
-                            A3Title("ASSETS", "Attach a file from your phone. Backlot saves a link to it, not another copy.")
+                            A3Title("ASSETS", "")
+                            openError?.let { Text(it, color = RecRed, fontSize = 12.sp); Spacer(Modifier.height(8.dp)) }
                             Button(onClick = { assetPicker.launch(arrayOf("image/*", "video/*", "audio/*", "application/pdf", "text/*")) }) {
                                 Icon(Icons.Outlined.AttachFile, null); Spacer(Modifier.width(5.dp)); Text("PICK FROM DEVICE")
                             }
@@ -240,9 +304,18 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             }
                             Spacer(Modifier.height(10.dp))
                             assets.forEach { asset ->
-                                A3AssetCard(asset, { changed -> assets = assets.map { if (it.id == changed.id) changed else it } }) {
-                                    assets = assets.filterNot { it.id == asset.id }
-                                }
+                                A3AssetCard(
+                                    asset = asset,
+                                    onChange = { changed ->
+                                        openError = null
+                                        assets = assets.map { if (it.id == changed.id) changed else it }
+                                    },
+                                    onOpen = { openError = CreatorWorkspaceExternalOpen.openAsset(context, asset.location) },
+                                    onRemove = {
+                                        openError = null
+                                        assets = assets.filterNot { it.id == asset.id }
+                                    },
+                                )
                                 Spacer(Modifier.height(8.dp))
                             }
                             if (assets.isEmpty()) A3Empty("No assets linked yet.")
@@ -291,10 +364,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                                     onDown = { moveDeliverable(index, 1) },
                                     onChange = { changed -> deliverables = deliverables.map { if (it.id == changed.id) changed else it } },
                                     onDerivative = { addDeliverable(if (d.platform.equals("Instagram", true)) "YouTube" else "Instagram", if (d.platform.equals("Instagram", true)) "Short" else "Reel", d.id) },
-                                    onRemove = {
-                                        val removed = CreatorContentStabilization.descendantIds(deliverables, setOf(d.id))
-                                        deliverables = deliverables.filterNot { it.id in removed }
-                                    },
+                                    onRemove = { pendingRemovalId = d.id },
                                 )
                                 Spacer(Modifier.height(8.dp))
                             }
@@ -308,15 +378,45 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                 }
 
                 Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
-                    Button(
-                        onClick = { onSave(task.id, originalRevision, draft()) },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp).height(50.dp),
-                        shape = RoundedCornerShape(15.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                    ) { Text("SAVE PLAN", fontWeight = FontWeight.Black) }
+                    WorkspaceAdaptiveSaveActions(
+                        primaryLabel = "SAVE & SCRIPT",
+                        onPrimary = { onSaveAndScript(task.id, originalRevision, draft()) },
+                        onSecondary = { onSave(task.id, originalRevision, draft()) },
+                    )
                 }
-            }
-        }
+    }
+
+    pendingRemovalId?.let { rootId ->
+        val affectedIds = CreatorContentStabilization.descendantIds(deliverables, setOf(rootId))
+        val protectedIds = CreatorContentStabilization.protectedRemovalIds(deliverables, setOf(rootId))
+        val count = affectedIds.size
+        AlertDialog(
+            onDismissRequest = { pendingRemovalId = null },
+            title = { Text(if (protectedIds.isNotEmpty()) "Cannot remove published work" else "Remove output?") },
+            text = {
+                Text(
+                    if (protectedIds.isNotEmpty())
+                        "This output or a linked output has a publication record. It cannot be removed from the plan."
+                    else if (count > 1)
+                        "This will remove $count linked outputs from your draft plan. Save Plan to make the removal permanent."
+                    else
+                        "This will remove the output from your draft plan. Save Plan to make the removal permanent."
+                )
+            },
+            confirmButton = {
+                if (protectedIds.isEmpty()) {
+                    TextButton(onClick = {
+                        deliverables = deliverables.filterNot { it.id in affectedIds }
+                        pendingRemovalId = null
+                    }) { Text("REMOVE") }
+                } else {
+                    TextButton(onClick = { pendingRemovalId = null }) { Text("OK") }
+                }
+            },
+            dismissButton = {
+                if (protectedIds.isEmpty()) TextButton(onClick = { pendingRemovalId = null }) { Text("CANCEL") }
+            },
+        )
     }
 }
 
@@ -325,97 +425,138 @@ private fun Alpha3Overview(
     workspace: CreatorContentWorkspace,
     appliedTemplate: String,
     onApplyTemplate: (CreatorContentTemplate) -> Unit,
-    onJump: (Alpha3Section) -> Unit,
 ) {
     val progress = workspace.productionProgressPercent()
     val next = workspace.nextProductionStep()?.title ?: "No checklist step queued"
     val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
     val pending = workspace.deliverables.size - published
-    A3Title("PROJECT COMMAND CENTER", "Checklist completion is supporting context; main project workflow remains the execution authority.")
+    A3Title("OVERVIEW", "")
     if (appliedTemplate.isNotBlank()) Text("Template merged: $appliedTemplate", color = SuccessGreen, fontSize = 9.sp)
     Spacer(Modifier.height(8.dp))
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
-            Text("CHECKLIST $progress%", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 12.sp)
+            Text("TASKS $progress%", color = ProjectorIvory, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Spacer(Modifier.height(7.dp)); LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(10.dp)); Text("Next checklist item: $next", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            if (workspace.nextProductionStep() != null) {
+                Spacer(Modifier.height(10.dp))
+                Text("Next · $next", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            }
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                A3Metric("Sources", workspace.references.size.toString())
-                A3Metric("Assets", workspace.assets.size.toString())
-                A3Metric("Pending", pending.toString())
-                A3Metric("Published", published.toString())
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val compact = maxWidth < 350.dp || LocalDensity.current.fontScale >= 1.3f
+                if (compact) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                            A3Metric("Sources", workspace.references.size.toString())
+                            A3Metric("Assets", workspace.assets.size.toString())
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                            A3Metric("Pending", pending.toString())
+                            A3Metric("Published", published.toString())
+                        }
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        A3Metric("Sources", workspace.references.size.toString())
+                        A3Metric("Assets", workspace.assets.size.toString())
+                        A3Metric("Pending", pending.toString())
+                        A3Metric("Published", published.toString())
+                    }
+                }
             }
         }
     }
     Spacer(Modifier.height(18.dp))
     Text("TEMPLATES", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
     Spacer(Modifier.height(6.dp))
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        CreatorProjectTemplates.contentTemplates.chunked(2).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                row.forEach { template ->
-                    OutlinedButton(onClick = { onApplyTemplate(template) }, modifier = Modifier.weight(1f)) {
-                        Text(template.name, fontSize = 8.sp)
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val narrow = maxWidth < 350.dp || LocalDensity.current.fontScale >= 1.3f
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            CreatorProjectTemplates.contentTemplates.chunked(if (narrow) 1 else 2).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    row.forEach { template ->
+                        OutlinedButton(
+                            onClick = { onApplyTemplate(template) },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        ) { Text(template.name, fontSize = 12.sp) }
                     }
+                    if (row.size == 1 && !narrow) Spacer(Modifier.weight(1f))
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
-    Spacer(Modifier.height(18.dp))
-    Text("JUMP TO", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
-    Spacer(Modifier.height(6.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        listOf(Alpha3Section.SCRIPT, Alpha3Section.PRODUCTION, Alpha3Section.ASSETS, Alpha3Section.DELIVERABLES).forEach { target ->
-            OutlinedButton(onClick = { onJump(target) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
-                Text(target.label, fontSize = 7.4.sp)
-            }
-        }
-    }
+
 }
 
-@Composable private fun A3Metric(label: String, value: String) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(value, color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 16.sp); Text(label, color = MutedText, fontSize = 7.5.sp) } }
-@Composable private fun A3Title(title: String, subtitle: String) { Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black); Text(subtitle, color = MutedText, fontSize = 8.7.sp); Spacer(Modifier.height(10.dp)) }
-@Composable private fun A3Empty(text: String) { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) { Text(text, color = MutedText, fontSize = 9.sp, modifier = Modifier.padding(14.dp)) } }
+@Composable private fun A3Metric(label: String, value: String) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(value, color = ProjectorIvory, fontWeight = FontWeight.Bold, fontSize = 18.sp); Text(label, color = MutedText, fontSize = 11.sp) } }
+@Composable private fun A3Title(title: String, @Suppress("UNUSED_PARAMETER") subtitle: String) { Text(title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp)) }
+@Composable private fun A3Empty(text: String) { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) { Text(text, color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(14.dp)) } }
 
 @Composable
 private fun A3ReadOnly(label: String, value: String) {
-    Text(label, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+    Text(label, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     Spacer(Modifier.height(4.dp))
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(value, color = ProjectorIvory, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(13.dp))
+        Text(value, color = ProjectorIvory, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(13.dp))
     }
 }
 
 @Composable
 private fun A3Field(label: String, value: String, onChange: (String) -> Unit, placeholder: String, minLines: Int = 1) {
-    Text(label, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+    Text(label, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     Spacer(Modifier.height(4.dp))
     OutlinedTextField(value, onChange, Modifier.fillMaxWidth(), placeholder = { Text(placeholder) }, minLines = minLines, shape = RoundedCornerShape(14.dp))
     Spacer(Modifier.height(11.dp))
 }
 
 @Composable
-private fun A3ReferenceCard(ref: CreatorProjectReference, onChange: (CreatorProjectReference) -> Unit, onRemove: () -> Unit) {
+private fun A3ReferenceCard(
+    ref: CreatorProjectReference,
+    onChange: (CreatorProjectReference) -> Unit,
+    onOpen: () -> Unit,
+    onRemove: () -> Unit,
+) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             OutlinedTextField(ref.label, { onChange(ref.copy(label = it)) }, Modifier.fillMaxWidth(), label = { Text("Label") }, singleLine = true)
             Spacer(Modifier.height(6.dp)); OutlinedTextField(ref.url, { onChange(ref.copy(url = it)) }, Modifier.fillMaxWidth(), label = { Text("URL") }, singleLine = true)
-            TextButton(onClick = onRemove, modifier = Modifier.align(Alignment.End)) { Text("REMOVE") }
+            Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                if (CreatorWorkspaceLinkRules.isWebUrl(ref.url)) {
+                    TextButton(onClick = onOpen, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Icon(Icons.Outlined.OpenInNew, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("OPEN")
+                    }
+                }
+                TextButton(onClick = onRemove, modifier = Modifier.heightIn(min = 48.dp)) { Text("REMOVE") }
+            }
         }
     }
 }
 
 @Composable
-private fun A3AssetCard(asset: CreatorProjectAsset, onChange: (CreatorProjectAsset) -> Unit, onRemove: () -> Unit) {
+private fun A3AssetCard(
+    asset: CreatorProjectAsset,
+    onChange: (CreatorProjectAsset) -> Unit,
+    onOpen: () -> Unit,
+    onRemove: () -> Unit,
+) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.AttachFile, null, tint = MutedGold); Spacer(Modifier.width(6.dp)); Text(asset.kind.name, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.height(6.dp)); OutlinedTextField(asset.label, { onChange(asset.copy(label = it)) }, Modifier.fillMaxWidth(), label = { Text("Label") }, singleLine = true)
             Spacer(Modifier.height(6.dp)); Text(asset.location, color = MutedText, fontSize = 7.5.sp, maxLines = 2)
             Spacer(Modifier.height(6.dp)); OutlinedTextField(asset.notes, { onChange(asset.copy(notes = it)) }, Modifier.fillMaxWidth(), label = { Text("Notes") }, minLines = 2)
-            TextButton(onClick = onRemove, modifier = Modifier.align(Alignment.End)) { Text("REMOVE") }
+            Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                if (CreatorWorkspaceLinkRules.isAssetLocation(asset.location)) {
+                    TextButton(onClick = onOpen, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Icon(Icons.Outlined.OpenInNew, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("OPEN")
+                    }
+                }
+                TextButton(onClick = onRemove, modifier = Modifier.heightIn(min = 48.dp)) { Text("REMOVE") }
+            }
         }
     }
 }

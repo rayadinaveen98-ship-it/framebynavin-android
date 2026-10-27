@@ -3,6 +3,7 @@ package com.framebynavin.app.data
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -40,6 +41,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private val publicationRecoveryReady = CompletableDeferred<Unit>()
 
     val tasks = mutableStateListOf<CreatorTask>()
+    /** Emitted ONLY after TaskStore.applyDelta completes inside a successful transaction. */
+    data class DurableProjectSave(val revision: Long, val task: CreatorTask)
+    private val durableProjectSaves = mutableStateMapOf<String, DurableProjectSave>()
+    fun durableProjectSave(id: String): DurableProjectSave? = durableProjectSaves[id]
     val weeklySlots = mutableStateListOf<WeeklyScheduleSlot>()
     val ideas = mutableStateListOf<CreatorIdea>()
     /** Deleted ideas remain in the same backed-up store, but are never counted as active work. */
@@ -121,7 +126,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 try {
                     publicationRecoveryReady.await()
                     if (writeError == null && write.batch == writeBatch && write.generation == CreatorDataGate.generation(getApplication())) {
-                        write.apply(write.generation)
+                        CreatorDataGate.readyTransaction(getApplication()) { write.apply(write.generation) }
                     }
                 } catch (error: Throwable) {
                     if (error is kotlinx.coroutines.CancellationException) throw error
@@ -353,7 +358,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             val task = ProjectPulseEngine.applyAttentionPlan(baseTask, attentionPlan)
             if (task.reminderMode == ReminderMode.SMART) putSmartConfig(task)
             tasks.add(0, task)
-            persist()
+            persist(committedProjectId = task.id)
             return task.id
         }
 
@@ -421,7 +426,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         val updated = if (refreshReminders) ProjectPulseEngine.applyAttentionPlan(configured, attentionPlan) else configured
         if (refreshReminders && updated.reminderMode == ReminderMode.SMART) putSmartConfig(updated)
         tasks[index] = updated
-        persist()
+        persist(committedProjectId = updated.id)
         return updated.id
     }
 
@@ -757,6 +762,30 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteTask(id: String) = deleteTasks(setOf(id))
 
+    /** Quick Capture closes only after the vault has accepted the original text/audio. */
+    suspend fun captureQuickIdea(idea: CreatorIdea, generation: Long): String? {
+        publicationRecoveryReady.await()
+        if (writeError != null || pendingWrites != 0 || idea.title.isBlank()) return null
+        val saved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            CreatorDataGate.readyTransaction(getApplication()) {
+                CreatorDataGate.checkGeneration(getApplication(), generation)
+                val existing = ideaStore.load().firstOrNull { it.id == idea.id }
+                if (existing != null) {
+                    check(!existing.isTrashed && existing.title == idea.title.trim() &&
+                        existing.notes == idea.notes.trim() && existing.audioLocalPath == idea.audioLocalPath) {
+                        "This idea was already saved with different details. Open Idea Vault to review it."
+                    }
+                    existing
+                } else ideaStore.capture(idea, generation)
+            }
+        }
+        CreatorDataGate.checkGeneration(getApplication(), generation)
+        if (pendingWrites == 0) refreshCanonicalState()
+        if (saved.title.length >= 3) recordReward(CreatorRewardEngine.ideaDailyCapture(saved.id, saved.createdAtMillis))
+        CreatorCloudSyncWorker.enqueueSoon(getApplication())
+        return saved.id
+    }
+
     fun saveIdea(idea: CreatorIdea): String? {
         if (writeError != null || idea.title.isBlank()) return null
         val now = System.currentTimeMillis()
@@ -820,61 +849,17 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         persistIdeas()
     }
 
-    fun convertIdeaToProject(id: String, platform: String, contentType: String, dueAtMillis: Long): String? {
-        if (writeError != null) return null
-        val ideaIndex = ideas.indexOfFirst { it.id == id }
-        if (ideaIndex == -1) return null
-        val idea = ideas[ideaIndex]
-        if (idea.isTrashed || idea.status == IdeaStatus.ARCHIVED) return null
-        // Do not generate a second project when a linked task is temporarily missing.
-        if (idea.projectTaskId.isNotBlank()) return tasks.firstOrNull { it.id == idea.projectTaskId }?.id
-        if (idea.status == IdeaStatus.CONVERTED) return null
-
-        val now = System.currentTimeMillis()
-        val due = dueAtMillis.coerceAtLeast(now + 5 * 60_000L)
-        val template = CreatorWorkflowEngine.templateFor(platform, contentType)
-        val defaults = settingsStore.snapshot()
-        val taskId = UUID.randomUUID().toString()
-        val baseTask = CreatorTask(
-            id = taskId,
-            title = idea.title,
-            platform = platform,
-            contentType = contentType,
-            dueLabel = WeeklyScheduleEngine.dueLabel(due),
-            dueAtMillis = due,
-            status = TaskStatus.PLANNED,
-            progress = 0,
-            workflowStageIndex = 0.coerceAtMost(template.stages.lastIndex),
-            reminderEnabled = false,
-            reminderAtMillis = 0L,
-            priority = TaskPriority.IMPORTANT,
-            notes = IdeaProjectBridge.projectNotes(idea),
-            alertType = ReminderAlertType.NOTIFICATION,
-            voiceEnabled = false,
-            smartEscalationEnabled = false,
-            reminderMode = ReminderMode.NONE,
-            voicePersona = defaults.defaultVoicePersona,
-            voiceRepeatIntervalSeconds = 10,
-            alarmTimeoutSeconds = defaults.defaultAlarmTimeoutSeconds,
-            origin = CreatorTaskOrigin.IDEA_VAULT,
-            sourceRefId = idea.id,
-        )
-        val task = ProjectPulseEngine.applyAttentionPlan(baseTask, ProjectAttentionPlan.GUIDED, now)
-        if (task.reminderMode == ReminderMode.SMART) putSmartConfig(task)
-        tasks.add(0, task)
-        ideas[ideaIndex] = idea.copy(
-            status = IdeaStatus.CONVERTED,
-            projectTaskId = taskId,
-            platformHint = platform,
-            formatHint = contentType,
-            reminderAtMillis = 0L,
-            reminderCadence = IdeaReminderCadence.ONCE,
-            updatedAtMillis = now,
-        )
-        persist()
-        persistIdeas()
-        recordReward(CreatorRewardEngine.ideaConverted(idea.id, taskId, now))
-        return taskId
+    internal suspend fun convertIdeaToProject(request: IdeaProjectConversionRequest): String? {
+        publicationRecoveryReady.await()
+        if (writeError != null || pendingWrites != 0) return null
+        val projectId = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            IdeaProjectConversion(getApplication()).convert(request)
+        }
+        CreatorDataGate.checkGeneration(getApplication(), request.generation)
+        if (pendingWrites == 0) refreshCanonicalState()
+        ideaReminderScheduler.reconcile()
+        CreatorCloudSyncWorker.enqueueSoon(getApplication())
+        return projectId
     }
 
     fun createReleaseBurst(request: ReleaseBurstRequest): ReleaseLaunchResult {
@@ -1232,11 +1217,12 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun persist() {
+    private fun persist(committedProjectId: String? = null) {
         val base = optimisticTasks
         val desired = tasks.toList()
         optimisticTasks = desired
-        enqueueWrite { epoch -> CreatorDataGate.transaction {
+        enqueueWrite { epoch ->
+            val committedSnapshot = CreatorDataGate.transaction {
             val committed = store.applyDelta(base, desired, epoch)
             val before = base.associateBy { it.id }
             val after = committed.associateBy { it.id }
@@ -1251,6 +1237,16 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                     scheduleTask(current)
                 }
             }
-        } }
+            committed
+            }
+            // The transaction returned successfully: this is a *durable* receipt,
+            // not the optimistic editor state or a generic queue-idle observation.
+            committedProjectId?.let { taskId ->
+                committedSnapshot.firstOrNull { it.id == taskId }?.let { saved ->
+                    val nextRevision = (durableProjectSaves[taskId]?.revision ?: 0L) + 1L
+                    durableProjectSaves[taskId] = DurableProjectSave(nextRevision, saved)
+                }
+            }
+        }
     }
 }

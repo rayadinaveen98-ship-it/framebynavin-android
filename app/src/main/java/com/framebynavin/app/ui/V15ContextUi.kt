@@ -50,8 +50,9 @@ internal fun V15DailyBriefScreen(
     val brief = CreatorDailyBriefEngine.build(tasks, weeklySlots)
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding()
-                .padding(horizontal = 20.dp).padding(bottom = 42.dp)
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp).padding(bottom = 36.dp)
         ) {
             V15BackHeader("DAILY BRIEF", "What matters today", onClose)
             Spacer(Modifier.height(18.dp))
@@ -143,6 +144,7 @@ internal fun V15ContentCalendarScreen(
     onClose: (() -> Unit)?,
     onOpenProject: (String) -> Unit = {},
     onOpenWeeklyPlan: () -> Unit = {},
+    bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
 ) {
     val zone = remember { ZoneId.systemDefault() }
     val today = LocalDate.now(zone)
@@ -155,8 +157,11 @@ internal fun V15ContentCalendarScreen(
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding()
-                .padding(horizontal = 20.dp).padding(bottom = 124.dp)
+            Modifier.fillMaxSize().statusBarsPadding()
+                .then(if (onClose == null) Modifier else Modifier.navigationBarsPadding())
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = bottomNavigationClearance)
         ) {
             V15BackHeader("CONTENT CALENDAR", "Your next 14 days", onClose)
             Spacer(Modifier.height(8.dp))
@@ -246,7 +251,7 @@ private fun V15CalendarRow(
             Box(Modifier.size(8.dp).background(accent, CircleShape))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(item.title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(item.title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text("${item.platform} · ${item.contentType}", color = MutedText, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(CreatorCalendarNavigationPolicy.kindLabel(item) + " · tap to open", color = accent, fontSize = 9.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }

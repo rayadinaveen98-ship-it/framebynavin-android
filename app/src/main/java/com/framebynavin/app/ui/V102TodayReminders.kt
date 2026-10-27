@@ -118,7 +118,7 @@ internal fun PTodayReminders(
     }
 }
 
-private fun pHomeReminderTime(millis: Long): String {
+internal fun pHomeReminderTime(millis: Long): String {
     if (millis <= 0L) return "No time"
     return SimpleDateFormat("EEE · h:mm a", Locale.getDefault()).format(Date(millis))
 }

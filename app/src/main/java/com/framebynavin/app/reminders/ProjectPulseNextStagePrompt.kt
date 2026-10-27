@@ -1,5 +1,7 @@
 package com.framebynavin.app.reminders
 
+import com.framebynavin.app.R
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -23,7 +25,7 @@ object ProjectPulseNextStagePrompt {
         val stage = CreatorWorkflowEngine.currentStage(task)
         val generation = CreatorDataGate.generation(app)
         val builder = NotificationCompat.Builder(app, ReminderConstants.PULSE_PROMPT_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle("${stage.label} is next")
             .setContentText("When should Backlot check this stage?")
             .setStyle(NotificationCompat.BigTextStyle().bigText(
@@ -43,7 +45,7 @@ object ProjectPulseNextStagePrompt {
         if (!ReminderNotifications.canPost(app)) return
         ensureChannel(app)
         NotificationCompat.Builder(app, ReminderConstants.PULSE_PROMPT_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle("Publication still needs confirmation")
             .setContentText("Open Prepare to Publish before finishing ${CreatorWorkflowEngine.currentStage(task).label}.")
             .setStyle(NotificationCompat.BigTextStyle().bigText(

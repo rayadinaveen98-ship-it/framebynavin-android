@@ -50,6 +50,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import androidx.compose.ui.platform.testTag
 
 @Composable
 internal fun V09IdeaVaultScreen(
@@ -61,9 +64,14 @@ internal fun V09IdeaVaultScreen(
     onRestore: (String) -> Unit = {},
     onArchive: (String) -> Unit,
     onConvert: (String, String, String, Long) -> String?,
+    onConvertDurably: (suspend (IdeaProjectConversionRequest) -> String?)? = null,
     externalIdeaId: String = "",
     externalIdeaMode: String = "",
     externalLaunchNonce: Long = 0L,
+    bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
+    // Root route owns New Idea, above bottom nav; standalone previews can
+    // still use the same Activity-owned overlay locally.
+    onCreateIdeaRequested: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
@@ -152,7 +160,7 @@ internal fun V09IdeaVaultScreen(
                     Text(if (showDeleted) "ALL IDEAS" else "DELETED (${deletedIdeas.size})",
                         color = MutedGold, fontSize = 10.sp)
                 }
-                IconButton(onClick = { creating = true }) {
+                IconButton(onClick = { onCreateIdeaRequested?.invoke() ?: run { creating = true } }) {
                     Icon(Icons.Outlined.Add, "New idea", tint = ProjectorIvory)
                 }
             }
@@ -221,13 +229,13 @@ internal fun V09IdeaVaultScreen(
                     Text("Keep ideas here until you're ready to use them.", color = MutedText, fontSize = 10.sp)
                     if (!showDeleted && ideas.isEmpty()) {
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = { creating = true }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("SAVE YOUR FIRST IDEA") }
+                        Button(onClick = { onCreateIdeaRequested?.invoke() ?: run { creating = true } }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("SAVE YOUR FIRST IDEA") }
                     }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 124.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = bottomNavigationClearance),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filtered, key = { it.id }) { idea ->
@@ -312,11 +320,9 @@ internal fun V09IdeaVaultScreen(
             idea = idea,
             onDismiss = { converting = null; conversionFailed = false },
             conversionFailed = conversionFailed,
-            onConvert = { platform, format, due ->
-                val projectId = onConvert(idea.id, platform, format, due)
-                if (projectId != null) { converting = null; conversionFailed = false }
-                else conversionFailed = true
-            },
+            onConvert = { platform, format, due -> onConvert(idea.id, platform, format, due) },
+            onConvertDurably = onConvertDurably,
+            onConverted = { converting = null; conversionFailed = false },
         )
     }
 }
@@ -405,7 +411,7 @@ private fun V09IdeaCard(
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun V09NewIdeaCleanEditor(
+internal fun V09NewIdeaCleanEditor(
     onDismiss: () -> Unit,
     onSave: (CreatorIdea) -> Boolean,
     existingIdeas: List<CreatorIdea>,
@@ -450,18 +456,14 @@ private fun V09NewIdeaCleanEditor(
         onDismiss()
     }
 
-    Dialog(
+    // V220.4: NO Dialog window. Root draws this AFTER the floating bottom
+    // navigation; the Activity owns edge-to-edge and the real IME/nav insets.
+    // CreatorAdaptiveFullScreen consumes system insets once and provides a
+    // fixed ColumnScope for the independent scrolling body and Save footer.
+    CreatorAdaptiveFullScreen(
         onDismissRequest = ::dismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.testTag("v2203-new-idea-window"),
     ) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .imePadding(),
-            ) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -494,7 +496,7 @@ private fun V09NewIdeaCleanEditor(
                             OutlinedTextField(
                                 title,
                                 { title = it },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().testTag("v2203-new-idea-title"),
                                 placeholder = { Text("What's your idea?") },
                                 minLines = 3,
                                 maxLines = 6,
@@ -691,7 +693,14 @@ private fun V09NewIdeaCleanEditor(
                     Spacer(Modifier.height(20.dp))
                 }
 
-                Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
+                // Always keep the primary action outside the scrolling body.
+                // safeDrawing above reserves status/navigation system bars,
+                // imePadding reserves the soft keyboard when open.
+                Surface(
+                    modifier = Modifier.fillMaxWidth().testTag("v2203-new-idea-footer"),
+                    color = CinemaSurfaceRaised,
+                    tonalElevation = 8.dp,
+                ) {
                     Button(
                         onClick = {
                             val now = System.currentTimeMillis()
@@ -722,15 +731,16 @@ private fun V09NewIdeaCleanEditor(
                             if (accepted) voiceRecording = null
                         },
                         enabled = title.isNotBlank() || voiceRecording != null,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(52.dp),
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .height(52.dp)
+                            .testTag("v2203-new-idea-save"),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(15.dp),
                     ) {
                         Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE IDEA", fontSize = 10.sp, fontWeight = FontWeight.Black)
                     }
                 }
-            }
-        }
     }
 }
 
@@ -782,13 +792,39 @@ private fun V09IdeaEditor(
         onDismiss()
     }
 
-    AlertDialog(
+    // V216: an AlertDialog footer is not reliable on compact devices when
+    // a tall notes/editor body and the on-screen keyboard compete for height.
+    // Keep the existing save/voice/reminder model, but make the footer a fixed
+    // sibling of a weighted, scrollable editor, inside safe drawing + IME insets.
+    Dialog(
         onDismissRequest = ::dismissEditor,
-        containerColor = CinemaSurfaceRaised,
-        title = { Text(if (idea.id.isBlank()) "New Idea" else "Edit Idea", color = ProjectorIvory, fontWeight = FontWeight.Black) },
-        text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
-                OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Idea title") })
+        // A full-window Compose Dialog must opt out of platform decor-fitting
+        // so the soft keyboard resizes the dialog on Android 11. Otherwise its
+        // footer can be reported inside root bounds yet sit behind the IME.
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Surface(Modifier.fillMaxSize().testTag("v216-edit-editor"), color = CinemaBlack) {
+            Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("EDIT IDEA", modifier = Modifier.weight(1f), color = ProjectorIvory,
+                        fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    IconButton(onClick = ::dismissEditor) {
+                        Icon(Icons.Outlined.Close, "Close edit idea", tint = ProjectorIvory)
+                    }
+                }
+                Column(
+                    Modifier.weight(1f).fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp)
+                        .testTag("v216-edit-content"),
+                ) {
+                OutlinedTextField(title, { title = it }, modifier = Modifier.fillMaxWidth().testTag("v216-edit-title"), singleLine = true, label = { Text("Idea title") })
                 IdeaVaultGuidance.similarTitles(title, existingIdeas, excludingId = idea.id).firstOrNull()?.let { duplicate ->
                     Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
                 }
@@ -805,7 +841,7 @@ private fun V09IdeaEditor(
                 }
 
                 Spacer(Modifier.height(9.dp))
-                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp), label = { Text("Notes · optional") })
+                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp).testTag("v216-edit-notes"), label = { Text("Notes · optional") })
                 Spacer(Modifier.height(8.dp))
                 V117VoiceIdeaInput(
                     onTranscript = { transcript ->
@@ -877,10 +913,20 @@ private fun V09IdeaEditor(
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("MOVE TO RECENTLY DELETED", color = RecRed) }
                 }
-            }
-        },
-        confirmButton = {
-            Button(
+                }
+                // Save/Cancel remain visible above system navigation and IME,
+                // regardless of optional organizing sections or long Telugu notes.
+                Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(
+                            onClick = ::dismissEditor,
+                            modifier = Modifier.weight(1f).height(52.dp).testTag("v216-edit-cancel"),
+                        ) { Text("CANCEL", color = ProjectorIvory) }
+                        Button(
                 onClick = {
                     val now = System.currentTimeMillis()
                     val finalizedRecording = voiceRecording
@@ -911,22 +957,36 @@ private fun V09IdeaEditor(
                     if (accepted) voiceRecording = null
                 },
                 enabled = title.isNotBlank() || voiceRecording != null,
+                modifier = Modifier.weight(1.55f).height(52.dp).testTag("v216-edit-save"),
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-            ) { Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE") }
-        },
-        dismissButton = { TextButton(onClick = ::dismissEditor) { Text("CANCEL", color = MutedText) } },
-    )
+                shape = RoundedCornerShape(15.dp),
+                        ) {
+                            Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE",
+                                fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun V09ConvertIdeaDialog(
+internal fun V09ConvertIdeaDialog(
     idea: CreatorIdea,
     onDismiss: () -> Unit,
     conversionFailed: Boolean,
-    onConvert: (String, String, Long) -> Unit,
+    onConvert: (String, String, Long) -> String?,
+    onConvertDurably: (suspend (IdeaProjectConversionRequest) -> String?)? = null,
+    onConverted: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val generation = remember { CreatorDataGate.generation(context) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var plan by remember { mutableStateOf(IdeaProjectConversion(context).rememberedPlan()) }
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
     val defaultPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
     var platform by remember { mutableStateOf(idea.platformHint.ifBlank { defaultPlatform }) }
@@ -968,40 +1028,72 @@ private fun V09ConvertIdeaDialog(
     val display = remember(due) { SimpleDateFormat("EEE, d MMM · h:mm a", Locale.getDefault()).format(due) }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!saving) onDismiss() },
         containerColor = CinemaSurfaceRaised,
         title = { Text("Turn into Project", color = ProjectorIvory, fontWeight = FontWeight.Black) },
         text = {
-            Column(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Text(idea.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(13.dp)); V09VaultLabel("PLATFORM")
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 10.sp) }) }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 12.sp) }, enabled = !saving) }
                 }
                 Spacer(Modifier.height(10.dp)); V09VaultLabel("FORMAT")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 10.sp) }) }
+                    formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 12.sp) }, enabled = !saving) }
                 }
                 Spacer(Modifier.height(12.dp)); V09VaultLabel("PUBLISH DEADLINE")
                 Text(display, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { pickDate() }, modifier = Modifier.weight(1f)) { Text("DATE", fontSize = 10.sp) }
-                    OutlinedButton(onClick = { pickTime() }, modifier = Modifier.weight(1f)) { Text("TIME", fontSize = 10.sp) }
+                    OutlinedButton(enabled = !saving, onClick = { pickDate() }, modifier = Modifier.weight(1f)) { Text("DATE", fontSize = 10.sp) }
+                    OutlinedButton(enabled = !saving, onClick = { pickTime() }, modifier = Modifier.weight(1f)) { Text("TIME", fontSize = 10.sp) }
                 }
+                Spacer(Modifier.height(12.dp))
+                Text("Project reminders", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    IdeaProjectConversion.supportedPlans.forEach { option ->
+                        FilterChip(selected = plan == option, onClick = { plan = option }, enabled = !saving,
+                            modifier = Modifier.testTag("conversion-plan-${option.name}"),
+                            label = { Text(ProjectPulseEngine.planLabel(option), fontSize = 12.sp) })
+                    }
+                }
+                Text(when (plan) {
+                    ProjectAttentionPlan.OFF -> "No automatic reminders. You can add them in the project."
+                    ProjectAttentionPlan.LIGHT -> "Quiet notifications with longer gaps between check-ins."
+                    ProjectAttentionPlan.GUIDED -> "Stage check-ins; voice or alarms may be used near the deadline."
+                    else -> "Closer check-ins with voice or alarms near the deadline."
+                }, color = MutedText, fontSize = 13.sp, modifier = Modifier.testTag("conversion-plan-description"))
                 Spacer(Modifier.height(8.dp))
-                Text("We'll open your new project so you can start working.", color = MutedText, fontSize = 9.3.sp)
-                if (conversionFailed) {
+                Text("Your idea and original voice note stay in Idea Vault. We'll open the project after it is saved.", color = MutedText, fontSize = 13.sp)
+                if (error != null || conversionFailed) {
                     Spacer(Modifier.height(8.dp))
-                    Text("Conversion did not complete. Check the linked project or reload saved data before retrying.", color = RecRed, fontSize = 11.sp)
+                    Text(error ?: "Could not finish creating the project. Your idea was kept. Try again.",
+                        color = RecRed, fontSize = 13.sp, modifier = Modifier.testTag("conversion-error"))
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { onConvert(platform, format, due) }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) {
-                Icon(Icons.Outlined.RocketLaunch, null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(5.dp)); Text("CREATE PROJECT")
+            Button(enabled = !saving, modifier = Modifier.testTag("conversion-create"), onClick = {
+                if (!saving) {
+                    saving = true; error = null
+                    scope.launch {
+                        try {
+                            val id = if (onConvertDurably != null) onConvertDurably(
+                                IdeaProjectConversionRequest(idea.id, platform, format, due, plan, generation))
+                            else onConvert(platform, format, due)
+                            if (id != null) onConverted()
+                            else error = "Could not finish creating the project. Your idea was kept. Try again."
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (failure: Throwable) { error = failure.message ?: "Could not save. Your idea was kept. Try again." }
+                        finally { saving = false }
+                    }
+                }
+            }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) {
+                Icon(Icons.Outlined.RocketLaunch, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(5.dp)); Text(if (saving) "SAVING…" else "CREATE PROJECT")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL", color = MutedText) } },
+        dismissButton = { TextButton(enabled = !saving, onClick = onDismiss, modifier = Modifier.testTag("conversion-cancel")) { Text("CANCEL", color = MutedText) } },
     )
 }
 

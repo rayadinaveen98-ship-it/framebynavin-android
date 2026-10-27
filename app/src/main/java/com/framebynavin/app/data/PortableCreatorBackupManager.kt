@@ -21,29 +21,108 @@ class PortableCreatorBackupManager(context: Context) {
     private val creatorBackup = CreatorBackupManager(appContext)
 
     suspend fun writeBackup(output: OutputStream) {
-        val raw = creatorBackup.createBackup()
-        PortableBackupArchive.write(raw, exportableVoiceMedia(raw), output)
+        // The core snapshot remains schema v9; the PORTABLE representation
+        // is built compactly while holding the same creator-data transaction.
+        // Never reparse the massive Base64 canonical JSON just to split images.
+        val packed = creatorBackup.createPortableBackup()
+        PortableBackupArchive.write(
+            packed.compactJson,
+            exportableVoiceMedia(packed.compactJson),
+            output,
+            packed.frames,
+        )
     }
 
-    fun validate(input: InputStream): CreatorBackupManager.BackupPreview =
-        creatorBackup.validate(PortableBackupArchive.readBackupJson(input))
+    /**
+     * A restore preview must verify the ENTIRE portable archive, including
+     * voice-media manifest, sizes and SHA-256 checksums. The older preview
+     * stopped at the first ZIP entry (backlot.json), falsely showing a safe
+     * restore even when later voice entries were truncated or corrupted.
+     */
+    fun validate(input: InputStream): CreatorBackupManager.BackupPreview {
+        val staged = PortableBackupArchive.stage(input, appContext.cacheDir)
+        try {
+            // Preview does not need to materialize the full Base64 canonical
+            // JSON. Validate the original compact envelope, staged media, exact
+            // original-frame hash, and every regular creator-data section.
+            creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)
+            val verifiedFrames = PortableBestFrameMedia.verifyCompactPreview(
+                staged.backupJson, staged.bestFrames, staged.hasFrameManifest,
+            )
+            val preview = if (verifiedFrames == null) {
+                creatorBackup.validate(staged.backupJson) // legacy raw JSON / ZIP
+            } else {
+                creatorBackup.validatePortableCompact(staged.backupJson, verifiedFrames)
+            }
+            verifyArchiveVoiceReferences(staged)
+            return preview
+        } finally {
+            staged.cleanup()
+        }
+    }
 
     suspend fun restore(input: InputStream): CreatorBackupManager.BackupPreview {
         val staged = PortableBackupArchive.stage(input, appContext.cacheDir)
         try {
-            val original = staged.backupJson
-            creatorBackup.validate(original)
+            creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)
+            // Compact ZIP images stay on disk. Legacy backups still take
+            // their well-tested canonical JSON restore path.
+            val frameCount = PortableBestFrameMedia.verifyCompactPreview(
+                staged.backupJson, staged.bestFrames, staged.hasFrameManifest,
+            )
+            val original = if (frameCount == null) fullyHydratedBackup(staged)
+                else staged.backupJson
+            if (frameCount == null) creatorBackup.validate(original)
+            else creatorBackup.validatePortableCompact(original, frameCount)
+            verifyArchiveVoiceReferences(staged)
             if (!staged.isArchive) return creatorBackup.restore(original)
 
             val installed = installVoiceMedia(original, staged.mediaByIdeaId)
             return try {
-                creatorBackup.restore(rewritePortableVoicePaths(original, installed))
+                val rewritten = rewritePortableVoicePaths(original, installed, frameCount)
+                if (frameCount == null) creatorBackup.restore(rewritten)
+                else creatorBackup.restorePortableCompact(rewritten, staged.bestFrames)
             } catch (error: Throwable) {
                 installed.values.forEach { runCatching { it.delete() } }
                 throw error
             }
         } finally {
             staged.cleanup()
+        }
+    }
+
+    private fun fullyHydratedBackup(staged: StagedPortableBackup): String {
+        // Verify the ORIGINAL portable envelope before any frame hydration
+        // recomputes its checksum. Corrupted project/idea JSON must fail closed.
+        creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)
+        return PortableBestFrameMedia.expand(
+            staged.backupJson,
+            staged.bestFrames,
+            staged.hasFrameManifest,
+            creatorBackup::rewritePortablePersonalFrames,
+        )
+    }
+
+    /**
+     * A portable ZIP must contain exactly one verified media item per idea
+     * that references an owned local Voice Idea recording. Do not erase valid
+     * local recording references merely because an archive silently omitted
+     * them. Legacy raw-JSON backups retain their existing compatibility path.
+     */
+    private fun verifyArchiveVoiceReferences(staged: StagedPortableBackup) {
+        if (!staged.isArchive) return
+        val ideas = JSONArray(JSONObject(staged.backupJson).getString("ideas"))
+        val expectedIds = linkedSetOf<String>()
+        for (index in 0 until ideas.length()) {
+            val idea = ideas.getJSONObject(index)
+            if (idea.optString("audioLocalPath", "").isBlank()) continue
+            val id = idea.optString("id", "").trim()
+            require(id.isNotBlank() && expectedIds.add(id)) {
+                "Backup has an invalid or repeated Voice Idea reference"
+            }
+        }
+        require(expectedIds == staged.mediaByIdeaId.keys) {
+            "Backup voice recordings are missing or do not match saved ideas. No data was restored."
         }
     }
 
@@ -99,7 +178,11 @@ class PortableCreatorBackupManager(context: Context) {
         }
     }
 
-    private fun rewritePortableVoicePaths(raw: String, installed: Map<String, File>): String {
+    private fun rewritePortableVoicePaths(
+        raw: String,
+        installed: Map<String, File>,
+        compactFrameCount: Int? = null,
+    ): String {
         val root = JSONObject(raw)
         require(root.optInt("schemaVersion", -1) in 8..CreatorBackupManager.SCHEMA_VERSION) {
             "Portable voice media requires a supported Backlot backup schema"
@@ -127,7 +210,10 @@ class PortableCreatorBackupManager(context: Context) {
         require(consumed == installed.keys) { "Not all restored Voice Idea media was referenced" }
         root.put("ideas", ideas.toString())
         root.put("payloadSha256", sha256(fingerprintSupportedSchema(root)))
-        return root.toString().also(creatorBackup::validate)
+        return root.toString().also {
+            if (compactFrameCount == null) creatorBackup.validate(it)
+            else creatorBackup.validatePortableCompact(it, compactFrameCount)
+        }
     }
 
     private fun uniqueVoiceDestination(root: File): File {

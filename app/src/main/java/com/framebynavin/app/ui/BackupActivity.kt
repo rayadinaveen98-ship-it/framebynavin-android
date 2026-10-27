@@ -63,7 +63,12 @@ private fun BackupScreen(onClose: () -> Unit) {
     val recoveryManager = remember { CreatorBackupManager(context.applicationContext) }
     val ideaStore = remember { IdeaVaultStore(context.applicationContext) }
     val voiceStorage = remember {
-        VoiceIdeaStorage(File(context.applicationContext.filesDir, VoiceIdeaStorage.DIRECTORY_NAME))
+        VoiceIdeaStorage(
+            File(context.applicationContext.filesDir, VoiceIdeaStorage.DIRECTORY_NAME),
+            protectedPaths = {
+                setOfNotNull(com.framebynavin.app.data.QuickCaptureDraftStore(context).load()?.recording?.localPath)
+            },
+        )
     }
     val scope = rememberCoroutineScope()
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
@@ -103,14 +108,19 @@ private fun BackupScreen(onClose: () -> Unit) {
                         context.contentResolver.openOutputStream(uri)?.use { output ->
                             manager.writeBackup(output)
                         } ?: error("Could not open the selected file.")
+                        // Do not tell the creator "Backup saved" until the copy
+                        // actually written through the document provider can
+                        // be reopened and fully checksum-verified from disk.
+                        context.contentResolver.openInputStream(uri)?.use(manager::validate)
+                            ?: error("Could not verify the exported backup file.")
                     }
                 }
                 busy = false
                 isError = result.isFailure
                 message = if (result.isSuccess) {
-                    "Backup saved with supported voice recordings. This file is not encrypted; store it privately. Calendar connections, theme, launch sound and app icon are not included."
+                    "Backup verified. Saved Voice Idea recordings and original Best Frames are included where present. Project asset files are NOT included—only their references. This file is not encrypted; store it privately."
                 } else {
-                    "Could not save the backup. Try another location."
+                    V208BackupErrorCopy.forExport(result.exceptionOrNull())
                 }
             }
         }
@@ -135,7 +145,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 }.onFailure {
                     pendingRestoreUri = null
                     isError = true
-                    message = "This file did not pass Backlot backup validation. No data was restored."
+                    message = V208BackupErrorCopy.forValidation(it)
                 }
             }
         }
@@ -160,7 +170,7 @@ private fun BackupScreen(onClose: () -> Unit) {
 
             BackupActionCard(
                 title = "Export backup",
-                body = "Projects, ideas, saved Voice Idea recordings, workflows, reminders, rewards and core settings. Your app theme, icon, launch sound, phone Calendar connection and Google sign-in are not exported. Files are not encrypted.",
+                body = "Includes projects, ideas, saved Voice Idea recordings, original Best Frames, workflows, reminders and core settings. Project attachments are links only—not the files. Companion choice, theme, app icon, launch sound, Calendar connection and sign-in are excluded. Not encrypted.",
                 icon = Icons.Outlined.CloudUpload,
                 button = "EXPORT BACKUP",
                 enabled = !actionBusy,
@@ -315,8 +325,10 @@ private fun BackupScreen(onClose: () -> Unit) {
                     BackupPreviewRow("Weekly slots", checked.weeklySlotCount.toString())
                     BackupPreviewRow("Active reminders", checked.activeReminderCount.toString())
                     BackupPreviewRow("Settings", if (checked.settingsIncluded) "Included" else "Missing")
+                    BackupPreviewRow("Best Frames", if (checked.personalFramesIncluded) "${checked.personalFrameCount} images included" else "Not in this backup")
+                    BackupPreviewRow("Project attachments", "${checked.externalProjectAssetCount} references only")
                     Spacer(Modifier.height(10.dp))
-                    Text("Restoring replaces supported creator data on this phone. Backlot keeps a recovery copy first. Older files may not include voice recordings or personal frames. Theme, app icon, launch sound and Google Calendar connection remain device-specific and are not restored.", color = MutedText, fontSize = 12.sp)
+                    Text("Restoring replaces supported creator data on this phone. Backlot keeps a recovery copy first. Project attachment files are NOT bundled; their original links may not open on another device. Older backups may omit Voice Ideas or Best Frames. Companion choice, theme, app icon, launch sound and Calendar connection remain device-specific.", color = MutedText, fontSize = 12.sp)
                 }
             },
             confirmButton = {
@@ -344,7 +356,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                                 }
                             } else {
                                 isError = true
-                                message = "Restore failed or could not be confirmed. Check your existing work before retrying; retained recovery copies remain available."
+                                message = V208BackupErrorCopy.forRestore(result.exceptionOrNull())
                             }
                         }
                     },

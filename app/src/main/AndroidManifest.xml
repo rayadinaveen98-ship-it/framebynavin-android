@@ -20,8 +20,8 @@
     <application
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
-        android:icon="@drawable/backlot_icon_cinematic"
-        android:roundIcon="@drawable/backlot_icon_cinematic"
+        android:icon="@mipmap/backlot_v198_launcher"
+        android:roundIcon="@mipmap/backlot_v198_launcher"
         android:label="Backlot"
         android:supportsRtl="true"
         android:theme="@style/Theme.FrameByNavin">
@@ -40,6 +40,7 @@
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.EscalationReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderActionReceiver" android:exported="false" />
+        <receiver android:name=".reminders.V205NudgePauseReceiver" android:exported="false" />
         <receiver android:name=".reminders.IdeaReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.IdeaReminderActionReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderRecoveryReceiver" android:enabled="true" android:exported="false">
@@ -89,14 +90,14 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_insights_info" />
         </receiver>
 
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/Theme.FrameByNavin.Starting" />
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.FrameByNavin.Starting" />
 
         <!-- Backlot launcher identity. Exactly one alias is enabled at first install. -->
         <activity-alias
             android:name=".launcher.BacklotCinematicAlias"
             android:enabled="true"
             android:exported="true"
-            android:icon="@drawable/backlot_icon_cinematic"
+            android:icon="@mipmap/backlot_v198_launcher"
             android:label="Backlot"
             android:targetActivity=".MainActivity">
             <intent-filter>
@@ -108,7 +109,7 @@
             android:name=".launcher.BacklotMinimalAlias"
             android:enabled="false"
             android:exported="true"
-            android:icon="@drawable/backlot_icon_minimal"
+            android:icon="@mipmap/backlot_v198_launcher"
             android:label="Backlot"
             android:targetActivity=".MainActivity">
             <intent-filter>
@@ -120,7 +121,7 @@
             android:name=".launcher.BacklotLightAlias"
             android:enabled="false"
             android:exported="true"
-            android:icon="@drawable/backlot_icon_light"
+            android:icon="@mipmap/backlot_v198_launcher"
             android:label="Backlot"
             android:targetActivity=".MainActivity">
             <intent-filter>
@@ -132,7 +133,7 @@
             android:name=".launcher.BacklotHorizontalAlias"
             android:enabled="false"
             android:exported="true"
-            android:icon="@drawable/backlot_icon_horizontal"
+            android:icon="@mipmap/backlot_v198_launcher"
             android:label="Backlot"
             android:targetActivity=".MainActivity">
             <intent-filter>

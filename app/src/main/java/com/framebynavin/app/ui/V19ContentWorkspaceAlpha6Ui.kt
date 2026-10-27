@@ -6,16 +6,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.CloudDone
-import androidx.compose.material.icons.outlined.Dashboard
-import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.Publish
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -23,19 +19,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.framebynavin.app.data.CreatorChecklistStatus
-import com.framebynavin.app.data.CreatorContentBlueprint
-import com.framebynavin.app.data.CreatorDeliverableStatus
-import com.framebynavin.app.data.CreatorTask
-import com.framebynavin.app.data.CreatorWorkflowEngine
-import com.framebynavin.app.data.WorkflowStage
-import com.framebynavin.app.data.productionProgressPercent
+import com.framebynavin.app.data.*
 import com.framebynavin.app.ui.theme.*
 
 /**
- * V150 project command center. Existing Blueprint, Production Board, Script Studio and Publish
- * Studio remain intact; this screen changes hierarchy so a creator can immediately see where the
- * project is, what comes next and which workspace should be opened.
+ * V196.2 Content Workspace: one truthful project step, four equal tools, optional stage detail.
+ * The editor callbacks and source-of-truth engines remain unchanged.
  */
 @Composable
 internal fun V19ContentWorkspaceAlpha6Hub(
@@ -52,314 +41,204 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     val stageIndex = CreatorWorkflowEngine.stageIndex(task)
     val currentStage = CreatorWorkflowEngine.currentStage(task)
     val nextAction = CreatorWorkflowEngine.nextAction(task)
-    val workflowProgress = CreatorWorkflowEngine.progress(task)
-    val workspaceProgress = workspace.productionProgressPercent()
-    val overallProgress = maxOf(workflowProgress, workspaceProgress).coerceIn(0, 100)
-
+    // This remains workflow progress; a completed optional checklist is not project completion.
+    val overallProgress = CreatorWorkflowEngine.progress(task).coerceIn(0, 100)
+    val completed = task.status == TaskStatus.DONE
     val checklistDone = workspace.checklist.count { it.status == CreatorChecklistStatus.DONE }
     val checklistTotal = workspace.checklist.size
-    val ready = workspace.deliverables.count { it.status == CreatorDeliverableStatus.READY }
     val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
     val scriptBeats = workspace.scriptStudio?.beats?.size ?: 0
-    val scriptMeta = when {
-        scriptBeats > 0 -> "$scriptBeats script beat${if (scriptBeats == 1) "" else "s"} ready"
-        workspace.script.isNotBlank() || workspace.hook.isNotBlank() -> "Draft in progress"
-        else -> "Not started"
-    }
+    val hasScript = scriptBeats > 0 || workspace.script.isNotBlank() || workspace.hook.isNotBlank()
+    var showStages by rememberSaveable(task.id) { mutableStateOf(false) }
 
-    val primaryAction = workspaceActionForStage(
+    val primaryAction = if (completed) onOpenProject else workspaceActionForStage(
         stage = currentStage,
         onOpenProject = onOpenProject,
         onOpenScript = onOpenScript,
         onOpenPublish = onOpenPublish,
     )
     val primaryLabel = when {
+        completed -> "OPEN PLAN"
         currentStage.id in SCRIPT_STAGE_IDS -> "CONTINUE SCRIPT"
-        currentStage.id in PUBLISH_STAGE_IDS || CreatorWorkflowEngine.isPublicationStage(currentStage) -> "PREPARE PUBLISH"
-        task.status.name == "DONE" -> "OPEN PROJECT"
-        else -> "CONTINUE ${currentStage.label.uppercase()}"
+        currentStage.id in PUBLISH_STAGE_IDS || CreatorWorkflowEngine.isPublicationStage(currentStage) -> "PREPARE TO PUBLISH"
+        else -> "CONTINUE " + currentStage.label.uppercase()
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 18.dp),
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = onDismiss) { Text("CLOSE") }
+    WorkspaceAdaptiveFrame {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+        ) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Outlined.ArrowBack, contentDescription = "Close project", tint = ProjectorIvory)
+                    }
+                    Spacer(Modifier.width(7.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("YOUR PROJECT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
-                        Text(task.title, color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(100.dp),
-                        color = MutedGold.copy(alpha = .09f),
-                        border = BorderStroke(1.dp, MutedGold.copy(alpha = .3f)),
-                    ) {
-                        Text("$overallProgress%", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                        Text("PROJECT", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            task.title,
+                            color = ProjectorIvory,
+                            fontSize = 21.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
 
-                Spacer(Modifier.height(11.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    WorkspacePill(blueprint.modeLabel)
-                    WorkspacePill(blueprint.archetypeLabel)
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    WorkspacePill(task.platform)
-                    WorkspacePill(task.contentType)
-                }
-
-                Spacer(Modifier.height(16.dp))
-                LinearProgressIndicator(
-                    progress = { overallProgress / 100f },
-                    modifier = Modifier.fillMaxWidth().height(5.dp),
-                    color = RecRed,
-                    trackColor = CinemaLine,
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    listOf(task.platform, task.contentType).filter { it.isNotBlank() }.joinToString(" · "),
+                    color = MutedText, fontSize = 13.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
+                Spacer(Modifier.height(20.dp))
 
-                Spacer(Modifier.height(14.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(22.dp),
                     color = CinemaSurfaceRaised,
-                    border = BorderStroke(1.dp, RecRed.copy(alpha = .45f)),
-                ) {
-                    Column(Modifier.padding(17.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("CURRENT STEP", color = RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                                Spacer(Modifier.height(3.dp))
-                                Text(currentStage.label, color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                            }
-                            Text("${stageIndex + 1}/${template.stages.size}", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.height(9.dp))
-                        Text("UP NEXT", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                        Text(nextAction, color = ProjectorIvory, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(14.dp))
-                        Button(
-                            onClick = primaryAction,
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        ) {
-                            Text(primaryLabel, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(14.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = CinemaSurface,
                     border = BorderStroke(1.dp, CinemaLine),
                 ) {
-                    Row(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.CloudDone, null, tint = MutedGold, modifier = Modifier.size(19.dp))
-                        Spacer(Modifier.width(9.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("SAVED", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                            Text("Your changes are saved with this project.", color = MutedText, fontSize = 8.5.sp)
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(22.dp))
-                SectionEyebrow("PROJECT STEPS")
-                Text(template.label, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Text("Track your progress and continue where you left off.", color = MutedText, fontSize = 9.5.sp)
-                Spacer(Modifier.height(12.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    color = CinemaSurface,
-                    border = BorderStroke(1.dp, CinemaLine),
-                ) {
-                    Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                        template.stages.forEachIndexed { index, stage ->
-                            WorkflowTimelineRow(
-                                stage = stage,
-                                completed = task.status.name == "DONE" || index < stageIndex,
-                                current = task.status.name != "DONE" && index == stageIndex,
-                                isLast = index == template.stages.lastIndex,
+                    Column(Modifier.padding(18.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (completed) "FINISHED" else "CURRENT STEP", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                (if (completed) template.stages.size else stageIndex + 1).toString() + "/" + template.stages.size,
+                                color = MutedText, fontSize = 13.sp,
                             )
                         }
+                        Spacer(Modifier.height(9.dp))
+                        Text(
+                            if (completed) "Project complete" else currentStage.label,
+                            color = ProjectorIvory, fontSize = 27.sp, fontWeight = FontWeight.Bold,
+                        )
+                        if (!completed && nextAction.isNotBlank()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(nextAction, color = MutedText, fontSize = 13.sp, lineHeight = 18.sp)
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("PROGRESS", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.weight(1f))
+                            Text(overallProgress.toString() + "%", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { overallProgress / 100f },
+                            modifier = Modifier.fillMaxWidth().height(5.dp),
+                            color = RecRed, trackColor = CinemaLine,
+                        )
+                        Spacer(Modifier.height(19.dp))
+                        Button(
+                            onClick = primaryAction,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        ) {
+                            Text(primaryLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
-                SectionEyebrow("YOUR TOOLS")
-                Text("Everything you need", color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Black)
-                Text("Plan, write and prepare your post in one place.", color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
-
-                Spacer(Modifier.height(14.dp))
-                WorkspaceToolCard(
-                    icon = Icons.Outlined.AutoAwesome,
-                    eyebrow = "BLUEPRINT",
-                    title = blueprint.headline,
-                    body = "Strategy, workflow guidance and project-specific prompts.",
-                    meta = "${blueprint.modeLabel} · ${blueprint.archetypeLabel}",
-                    status = "READY",
-                    onClick = onOpenBlueprint,
-                )
-                Spacer(Modifier.height(9.dp))
-                WorkspaceToolCard(
-                    icon = Icons.Outlined.Dashboard,
-                    eyebrow = "PRODUCTION BOARD",
-                    title = "Plan",
-                    body = "Brief, research, references, assets, checklist and outputs.",
-                    meta = if (checklistTotal > 0) "$checklistDone/$checklistTotal checklist · ${workspace.assets.size} assets" else "${workspace.assets.size} assets · ${workspace.deliverables.size} outputs",
-                    status = when {
-                        checklistTotal > 0 && checklistDone == checklistTotal -> "READY"
-                        workspace.isEmpty() -> "NOT STARTED"
-                        else -> "IN PROGRESS"
-                    },
-                    onClick = onOpenProject,
-                )
-                Spacer(Modifier.height(9.dp))
-                WorkspaceToolCard(
-                    icon = Icons.Outlined.EditNote,
-                    eyebrow = "SCRIPT STUDIO",
-                    title = "Script",
-                    body = "Hook, narration, structured beats and visual notes.",
-                    meta = scriptMeta,
-                    status = when {
-                        scriptBeats > 0 || workspace.script.isNotBlank() -> "IN PROGRESS"
-                        else -> "NOT STARTED"
-                    },
-                    onClick = onOpenScript,
-                )
-                Spacer(Modifier.height(9.dp))
-                WorkspaceToolCard(
-                    icon = Icons.Outlined.Publish,
-                    eyebrow = "PUBLISH STUDIO",
-                    title = "Prepare to Publish",
-                    body = "Titles, covers, descriptions, deliverables and final publish checks.",
-                    meta = "$ready ready · $published published",
-                    status = when {
-                        published > 0 -> "LIVE"
-                        ready > 0 -> "READY"
-                        workspace.deliverables.isNotEmpty() -> "IN PROGRESS"
-                        else -> "NOT STARTED"
-                    },
-                    onClick = onOpenPublish,
-                )
-
-                Spacer(Modifier.height(28.dp))
-                Text(
-                    "Your work stays together in this project.",
-                    color = MutedText,
-                    fontSize = 8.5.sp,
-                    modifier = Modifier.padding(bottom = 22.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WorkspacePill(label: String) {
-    if (label.isBlank()) return
-    Surface(
-        shape = RoundedCornerShape(100.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
-    ) {
-        Text(label, color = MutedText, fontSize = 8.3.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), maxLines = 1)
-    }
-}
-
-@Composable
-private fun SectionEyebrow(text: String) {
-    Text(text, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-    Spacer(Modifier.height(3.dp))
-}
-
-@Composable
-private fun WorkflowTimelineRow(
-    stage: WorkflowStage,
-    completed: Boolean,
-    current: Boolean,
-    isLast: Boolean,
-) {
-    Row(Modifier.fillMaxWidth()) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                when {
-                    completed -> "✓"
-                    current -> "●"
-                    else -> "○"
-                },
-                color = when {
-                    completed -> MutedGold
-                    current -> RecRed
-                    else -> MutedText
-                },
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Black,
-            )
-            if (!isLast) {
-                Box(Modifier.width(1.dp).height(28.dp), contentAlignment = Alignment.Center) {
-                    Divider(color = if (completed) MutedGold.copy(alpha = .5f) else CinemaLine, modifier = Modifier.fillMaxHeight().width(1.dp))
+                Spacer(Modifier.height(26.dp))
+                Text("WORKSPACE", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MinimalWorkspaceToolCard(
+                        title = "Plan", detail = if (checklistTotal == 0) "Start planning" else checklistDone.toString() + "/" + checklistTotal + " tasks",
+                        icon = Icons.Outlined.Dashboard, modifier = Modifier.weight(1f), onClick = onOpenProject,
+                    )
+                    MinimalWorkspaceToolCard(
+                        title = "Script", detail = when {
+                            scriptBeats > 0 -> scriptBeats.toString() + " beats"
+                            hasScript -> "Draft started"
+                            else -> "Not started"
+                        },
+                        icon = Icons.Outlined.EditNote, modifier = Modifier.weight(1f), onClick = onOpenScript,
+                    )
                 }
-            }
-        }
-        Spacer(Modifier.width(11.dp))
-        Column(Modifier.weight(1f).padding(bottom = if (isLast) 3.dp else 8.dp)) {
-            Text(stage.label, color = if (current) ProjectorIvory else if (completed) ProjectorIvory.copy(alpha = .82f) else MutedText, fontSize = 11.sp, fontWeight = if (current) FontWeight.Black else FontWeight.Bold)
-            if (current) Text(stage.action, color = MutedText, fontSize = 8.7.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MinimalWorkspaceToolCard(
+                        title = "Publish", detail = if (published > 0) published.toString() + " published"
+                            else if (workspace.deliverables.isNotEmpty()) workspace.deliverables.size.toString() + " planned"
+                            else "Not started",
+                        icon = Icons.Outlined.Publish, modifier = Modifier.weight(1f), onClick = onOpenPublish,
+                    )
+                    MinimalWorkspaceToolCard(
+                        title = "Guide", detail = blueprint.archetypeLabel.ifBlank { "Creative guide" },
+                        icon = Icons.Outlined.AutoAwesome, modifier = Modifier.weight(1f), onClick = onOpenBlueprint,
+                    )
+                }
+
+                Spacer(Modifier.height(26.dp))
+                HorizontalDivider(color = CinemaLine)
+                Spacer(Modifier.height(8.dp))
+                TextButton(
+                    onClick = { showStages = !showStages },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                ) {
+                    Text("PROJECT STEPS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    Text(if (showStages) "HIDE" else "VIEW ALL", color = MutedGold, fontSize = 12.sp)
+                    Spacer(Modifier.width(4.dp))
+                    Icon(if (showStages) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                        contentDescription = null, tint = MutedGold)
+                }
+                if (showStages) {
+                    Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                            template.stages.forEachIndexed { index, stage ->
+                                Row(
+                                    Modifier.fillMaxWidth().heightIn(min = 40.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    val done = completed || index < stageIndex
+                                    Text(
+                                        when { done -> "✓"; index == stageIndex -> "●"; else -> "○" },
+                                        color = when { done -> MutedGold; index == stageIndex -> RecRed; else -> MutedText },
+                                        fontSize = 17.sp, modifier = Modifier.width(30.dp),
+                                    )
+                                    Text(
+                                        stage.label, color = if (index == stageIndex || done) ProjectorIvory else MutedText,
+                                        fontSize = 13.sp, fontWeight = if (index == stageIndex) FontWeight.Bold else FontWeight.Normal,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(28.dp))
         }
     }
 }
 
 @Composable
-private fun WorkspaceToolCard(
-    icon: ImageVector,
-    eyebrow: String,
+private fun MinimalWorkspaceToolCard(
     title: String,
-    body: String,
-    meta: String,
-    status: String,
+    detail: String,
+    icon: ImageVector,
+    modifier: Modifier,
     onClick: () -> Unit,
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(19.dp),
+        modifier = modifier.heightIn(min = 124.dp),
+        shape = RoundedCornerShape(18.dp),
         color = CinemaSurface,
         border = BorderStroke(1.dp, CinemaLine),
     ) {
-        Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MutedGold.copy(alpha = .08f),
-                border = BorderStroke(1.dp, MutedGold.copy(alpha = .18f)),
-            ) {
-                Icon(icon, null, tint = MutedGold, modifier = Modifier.padding(10.dp).size(23.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(eyebrow, color = RecRed, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                    Spacer(Modifier.weight(1f))
-                    Text(status, color = statusColor(status), fontSize = 7.4.sp, fontWeight = FontWeight.Black)
-                }
-                Spacer(Modifier.height(2.dp))
-                Text(title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(body, color = MutedText, fontSize = 8.9.sp, lineHeight = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(5.dp))
-                Text(meta, color = MutedGold, fontSize = 8.1.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+        Column(Modifier.fillMaxWidth().padding(15.dp)) {
+            Icon(icon, contentDescription = null, tint = MutedGold, modifier = Modifier.size(23.dp))
+            Spacer(Modifier.height(11.dp))
+            Text(title, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(2.dp))
+            Text(detail, color = MutedText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -373,12 +252,6 @@ private fun workspaceActionForStage(
     stage.id in SCRIPT_STAGE_IDS -> onOpenScript
     stage.id in PUBLISH_STAGE_IDS || stage.id == "published" || stage.id == "send" -> onOpenPublish
     else -> onOpenProject
-}
-
-private fun statusColor(status: String): Color = when (status) {
-    "READY", "LIVE" -> MutedGold
-    "IN PROGRESS" -> RecRed
-    else -> MutedText
 }
 
 private val SCRIPT_STAGE_IDS = setOf("script", "narration", "outline", "draft", "commentary", "guide_script")

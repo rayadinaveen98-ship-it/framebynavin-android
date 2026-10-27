@@ -21,6 +21,7 @@ data class YouTubeVideoSnapshot(
     val subscribersLost: Long,
     val likes: Long,
     val comments: Long,
+    val hasPeriodData: Boolean = true,
 ) {
     val netSubscribers: Long get() = subscribersGained - subscribersLost
 }
@@ -49,6 +50,25 @@ data class YouTubePeriodSnapshot(
     val netSubscribers: Long get() = subscribersGained - subscribersLost
 }
 
+/**
+ * Distinguishes observed YouTube Analytics values from absent rows and fields.
+ * The daily dates reflect returned rows, not guaranteed complete processing.
+ * Null evidence on legacy cache means unverified.
+ */
+data class YouTubeReportEvidence(
+    val summaryPresent: Boolean,
+    val previousSummaryPresent: Boolean,
+    val summaryMetricKeys: Set<String>,
+    val previousMetricKeys: Set<String>,
+    val returnedDailyDates: List<String>,
+) {
+    fun hasMetric(key: String): Boolean = summaryPresent && key in summaryMetricKeys
+    fun canCompare(key: String): Boolean =
+        hasMetric(key) && previousSummaryPresent && key in previousMetricKeys
+    val firstReturnedDay: String? get() = returnedDailyDates.minOrNull()
+    val lastReturnedDay: String? get() = returnedDailyDates.maxOrNull()
+}
+
 data class YouTubeAnalyticsSnapshot(
     val channel: YouTubeChannelSnapshot,
     val windowDays: Int,
@@ -66,6 +86,7 @@ data class YouTubeAnalyticsSnapshot(
     val trend: List<YouTubeTrendPoint>,
     val fetchedAtMillis: Long,
     val previousPeriod: YouTubePeriodSnapshot? = null,
+    val reportEvidence: YouTubeReportEvidence? = null,
 ) {
     val netSubscribers: Long get() = subscribersGained - subscribersLost
 }

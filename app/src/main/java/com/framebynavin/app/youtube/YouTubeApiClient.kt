@@ -8,7 +8,69 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 
+/** A page of actual uploads, not a claim that every channel video was loaded. */
+data class YouTubeVideoCatalogPage(
+    val videos: List<YouTubeVideoSnapshot>,
+    val nextPageToken: String?,
+)
+
 class YouTubeApiClient {
+    /**
+     * Reads 25 uploads per request and the matching report rows. Any upload with no
+     * analytics row remains present, but its period statistics are explicitly missing.
+     * The account must own the exact visible channel before any data is returned.
+     */
+    fun catalogPage(
+        accessToken: String,
+        expectedChannelId: String,
+        uploadsPlaylistId: String,
+        startDate: String,
+        endDate: String,
+        pageToken: String? = null,
+    ): YouTubeVideoCatalogPage {
+        require(expectedChannelId.isNotBlank() && uploadsPlaylistId.isNotBlank())
+        require(java.time.LocalDate.parse(startDate) <= java.time.LocalDate.parse(endDate))
+        val channel = fetchChannel(accessToken)
+        if (channel.channelId != expectedChannelId ||
+            channel.uploadsPlaylistId != uploadsPlaylistId
+        ) throw YouTubeApiException("YouTube channel changed. Reconnect the selected channel.")
+
+        val params = mutableMapOf(
+            "part" to "contentDetails",
+            "playlistId" to uploadsPlaylistId,
+            "maxResults" to "25",
+        )
+        if (!pageToken.isNullOrBlank()) params["pageToken"] = pageToken
+        val page = getJson(DATA_API + "/playlistItems", accessToken, params)
+        val items = page.optJSONArray("items") ?: JSONArray()
+        val ids = buildList {
+            for (i in 0 until items.length()) {
+                items.optJSONObject(i)?.optJSONObject("contentDetails")
+                    ?.optString("videoId")?.takeIf { it.isNotBlank() }?.let(::add)
+            }
+        }.distinct()
+        if (ids.isEmpty()) {
+            return YouTubeVideoCatalogPage(emptyList(),
+                page.optString("nextPageToken").takeIf { it.isNotBlank() && it != pageToken })
+        }
+
+        val details = fetchVideoDetails(accessToken, ids)
+        val reports = queryReport(accessToken, mapOf(
+            "ids" to "channel==$expectedChannelId",
+            "startDate" to startDate,
+            "endDate" to endDate,
+            "dimensions" to "video",
+            "filters" to "video==${ids.joinToString(",")}",
+            "metrics" to "views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost,likes,comments",
+            "maxResults" to "25",
+        ))
+        val rows = reports.rows.associateBy { it["video"]?.toString() }
+        val videos = ids.mapNotNull { id ->
+            details[id]?.let { videoFrom(it, rows[id]) }
+        }
+        val next = page.optString("nextPageToken").takeIf { it.isNotBlank() && it != pageToken }
+        return YouTubeVideoCatalogPage(videos, next)
+    }
     fun sync(accessToken: String, windowDays: Int): YouTubeAnalyticsSnapshot {
         require(windowDays in setOf(7, 28, 90))
         val channel = fetchChannel(accessToken)
@@ -101,6 +163,18 @@ class YouTubeApiClient {
             )
         }
 
+        val evidence = YouTubeReportEvidence(
+            summaryPresent = summary.rows.isNotEmpty(),
+            previousSummaryPresent = previousSummary.rows.isNotEmpty(),
+            summaryMetricKeys = summaryRow.filter { (_, value) ->
+                value?.toString()?.toDoubleOrNull() != null
+            }.keys,
+            previousMetricKeys = previousRow.filter { (_, value) ->
+                value?.toString()?.toDoubleOrNull() != null
+            }.keys,
+            returnedDailyDates = trend.map { it.date }.distinct().sorted(),
+        )
+
         return YouTubeAnalyticsSnapshot(
             channel = channel,
             windowDays = windowDays,
@@ -117,7 +191,7 @@ class YouTubeApiClient {
             recentVideos = recentVideos,
             trend = trend,
             fetchedAtMillis = System.currentTimeMillis(),
-            previousPeriod = YouTubePeriodSnapshot(
+            previousPeriod = if (evidence.previousSummaryPresent) YouTubePeriodSnapshot(
                 startDate = previousStart.toString(),
                 endDate = previousEnd.toString(),
                 views = previousRow.long("views"),
@@ -127,7 +201,8 @@ class YouTubeApiClient {
                 subscribersLost = previousRow.long("subscribersLost"),
                 likes = previousRow.long("likes"),
                 comments = previousRow.long("comments"),
-            ),
+            ) else null,
+            reportEvidence = evidence,
         )
     }
 
@@ -228,6 +303,7 @@ class YouTubeApiClient {
             subscribersLost = row.long("subscribersLost"),
             likes = YouTubeAnalyticsQueryPolicy.periodCount(row, "likes"),
             comments = YouTubeAnalyticsQueryPolicy.periodCount(row, "comments"),
+            hasPeriodData = analytics != null,
         )
     }
 

@@ -1,51 +1,64 @@
-# Backlot Current Stable
+# Backlot current personal stable and active candidate
 
-## Stable checkpoint
+## V210 P4.6 engineering checkpoint — 23 October 2026
 
-**Backlot V149 / RC26 – Supabase Voice Reminder Fix** is the current stable daily-use checkpoint.
+**Latest CI-green development candidate, NOT installed/approved stable:** `2.8.7-v210-streamed-export-preview` (versionCode **237**, `com.framebynavin.app`), stacked draft [PR #100](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/100).
 
-- Version code: `149`
-- Binary version name: `2.0.0-rc26-supabase-voice-reminder-fix`
-- Stable branch: `stable/backlot-v149`
-- Manually verified application source head: `ac4b7b3ff961d7af39bcdfa3b88c3ffe17a2bed1`
-- Android APK workflow run for verified source: `36799359846`
-- CI result: `success`
-- Manual/real-device verification: passed on October 1, 2026
+- Final runtime/test source commit: `92ef3a6b3aa7fb2ca28c09abe665bdf33bd34f78`; [green exact-head pipeline from QA-doc commit `7c18d0c`](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089). Both the full build and Android 11 emulator jobs passed. Subsequent documentation-only commits do not modify runtime or APK bytes; any new CI checks must be reported separately.
+- Built APK file SHA-256: `b0ddf66445fbac95e2d464ed559875a0c24fce25a061be5a6a70a39ad07b1191`; signer certificate: `f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0`.
+- [GitHub Actions installable candidate ZIP](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089/artifacts/12493452576). Verify the **inner APK** fingerprint before installation. This is a personal preview, not production/Play signing.
+- Verified Android 11 acceptance includes normal/multi-chunk/empty-frame legacy-checksum compatibility, large original-frame ZIP, process-kill restore recovery and backup I/O failure tests. Physical Samsung in-place upgrade and preservation, backup preview, real-world 65–100 MiB photo sets, low memory, disk-full, provider failure and sudden power loss remain unverified.
+- The creator's last personally reported working installation is the V208 preview (build 232). Do not equate a GitHub artifact with an installed build. **Do not uninstall or clear an existing app to test upgrade.**
+- **Release decision:** Keep both PR #100 and earlier stacked PRs as draft, preserve `stable/backlot-v195-5`, and do not promote any new stable/tag/main ref until accepted device checks. Avoid expanding V210 into unrelated UI improvements. The next product milestone after sign-off is whole-app creator-facing UX/Insights consolidation, following the [master plan](../roadmap/BACKLOT_IMPROVEMENT_MASTER_PLAN.md).
+- [Detailed P4.6 manual acceptance and stop-ship criteria](../qa/V210_P4_6_STREAMED_FRAME_EXPORT.md#p46-engineering-acceptance-and-release-freeze-23-october-2026).
 
-## Stable scope
+**Historical details below** preserve earlier stable, V208 and V209 draft lineage; V210 above supersedes them as the newest **CI-green engineering candidate**, not as a promoted stable or user-installed release.
 
-The V149 stable checkpoint includes the Supabase/voice-reminder reliability work and the V149 hardening pass. In particular, it preserves:
+## Latest frozen personal stable: V195.5
 
-- Google/cached account first-name preference for spoken reminders, with safe fallbacks;
-- `given_name` identity support;
-- duplicate reminder-occurrence suppression so speech does not restart unexpectedly;
-- full reminder sentence freezing before TTS starts;
-- repeat timing that waits for the current utterance to complete;
-- explicit manual Replay behavior;
-- reminder scheduling and recovery hardening;
-- secure backup/restore hardening;
-- creator/settings/cloud-sync reliability coverage added during V149.
+The latest preserved personal-sideload stable **branch** is `stable/backlot-v195-5`,
+currently at `957bfe0f17ca26e695371cd38f4a2bd29dea121e`.
+Its release version is **2.5.3-v195.5-stable** (`versionCode 203`),
+with package `com.framebynavin.app` and the intentionally public personal-preview
+signing certificate. This is not a Google Play / privately signed production release.
 
-## Verification decision
+- [V195.5 stable release record](../releases/BACKLOT_V195_5_STABLE.md)
+- [Reference accepted V195.5 CI](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39313436911)
+- Accepted source SHA recorded in the release record: `ba1d0ce0cdd53b21003ee6de31cf5877ff88e99b`
+- Branch head also contains stable-only release metadata/verification.
+- Preserve this branch and its compatible signing identity as the tested rollback reference.
 
-The application source at `ac4b7b3ff961d7af39bcdfa3b88c3ffe17a2bed1` passed the repository Android pipeline and was manually verified on a real device. The Supabase identity and voice-reminder behavior were reported working as expected, so RC26 is promoted to the current stable checkpoint.
+## Historical main-line personal stable: V183
 
-The binary version string remains unchanged intentionally. Changing the application version payload after manual verification would create a different build than the one that was actually tested. Stability is therefore recorded by this frozen Git checkpoint and release documentation.
+`main` and earlier documentation retain the historical **V183 / 2.3.3-stable**
+(`versionCode 183`) checkpoint at
+`aa9e1aab939b7b075b50f9d5a952c6fb86b901eb`.
+[Historical V183 CI](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39129657906)
+was successful. V183 is **not** the latest frozen personal stable because a distinct
+V195.5 stable branch was created later. Do not force-move `main` or stable refs
+to conflate these lines.
 
-## Branch policy
+## Current development: V208 preview and V209 maintenance
 
-- `stable/backlot-v149` is the frozen rollback/reference branch for this checkpoint.
-- Do not add feature work directly to the stable branch.
-- `main` should represent this checkpoint after integration.
-- New product work should start from the updated `main`/V149 stable baseline.
+- **V208 / 2.8.2-v208-setup-backup-preview / versionCode 232** is the verified
+  personal-preview candidate at exact commit
+  `05a082d73696892764e77fa12edf3df07985d582` on
+  `feature/backlot-v208-restore-setup-backup-validation`.
+- [V208 draft PR #87](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/87)
+  and [exact-commit green CI #39750705638](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39750705638).
+  The creator reports this personal installation works on their device.
+- **V209 P1** is a *non-functional* hygiene/doc gate stacked on the V208 SHA.
+  It does not change the APK, version, app ID or signing identity, and must not
+  be represented as a newer installed app or commercial release.
+- The V195.5 stable snapshot remains untouched. V197 was a release candidate,
+  not a promoted stable branch; V208 is still a personal preview.
+- **V209 P2 / 2.8.3-v209-backup-coverage-preview / versionCode 233** is a new draft personal-preview candidate with an accurate backup coverage screen, built on V209 P1. It has its own CI gates and must not be promoted until exact-commit CI, emulator and device checks pass. V209 P2 remains separate from the frozen V195.5 stable branch.
 
-## Ongoing beta validation
+No CI result or single-device test alone certifies public release readiness,
+full backup restoration, Play policy compliance, privately controlled signing,
+cross-device alarm delivery or complete personal-data export. Do not uninstall
+a populated app or change its signing certificate as an update procedure.
 
-The following are useful broader beta-validation areas, but they are not blockers for the V149 stable checkpoint:
+## Pending V209 P3 engineering candidate
 
-- additional offline/online sync and account-switch stress coverage;
-- backup/restore testing across more devices/accounts;
-- YouTube Insights comparisons against YouTube Studio across additional data sets;
-- onboarding usability studies with new creators.
-
-Preserve an independent backup before installing future development candidates with irreplaceable creator data.
+The V209 P3 source branch adds separately checksummed original Best Frames media to portable ZIP backups, versionCode 234 and versionName `2.8.4-v209-best-frames-portable-preview`. This is an unpromoted personal preview, stacked on V209 P2. Exact-head CI, emulator and device validation are mandatory before using it as a stable baseline. The older V195.5 stable branch remains frozen. See [P3 QA](../qa/V209_P3_PORTABLE_BEST_FRAMES.md).

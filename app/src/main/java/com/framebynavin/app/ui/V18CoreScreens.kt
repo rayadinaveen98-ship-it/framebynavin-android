@@ -125,7 +125,7 @@ private fun PPlanSection(label: String, tasks: List<CreatorTask>, accent: Color,
     Text(label, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
     Spacer(Modifier.height(8.dp))
     tasks.forEach { task ->
-        val progress = CreatorWorkflowEngine.progress(task)
+        val projectFacts = CreatorProjectFactsV186Policy.facts(task)
         Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, if (label == "OVERDUE") RecRed.copy(alpha = .35f) else CinemaLine)) {
             Column(Modifier.padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -137,10 +137,10 @@ private fun PPlanSection(label: String, tasks: List<CreatorTask>, accent: Color,
                     Text(CreatorWorkflowEngine.currentStage(task).label, color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth().height(3.dp), color = if (label == "OVERDUE") RecRed else MutedGold, trackColor = CinemaLine)
+                LinearProgressIndicator(progress = { projectFacts.workflowFraction }, modifier = Modifier.fillMaxWidth().height(3.dp), color = if (label == "OVERDUE") RecRed else MutedGold, trackColor = CinemaLine)
                 Spacer(Modifier.height(7.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$progress%", color = MutedText, fontSize = 8.5.sp)
+                    Text(projectFacts.workflowLabel, color = MutedText, fontSize = 9.2.sp)
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = { onStart(task.id) }) { Text(if (task.status == TaskStatus.WORKING) "CONTINUE" else "START", color = ProjectorIvory, fontSize = 10.sp) }
                     TextButton(onClick = { onDone(task.id) }) { Text("DONE", color = SuccessGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
@@ -232,7 +232,7 @@ internal fun PStudioProject(
     onLongPress: () -> Unit = {},
 ) {
     val current = CreatorWorkflowEngine.currentStage(task)
-    val progress = CreatorWorkflowEngine.progress(task)
+    val projectFacts = CreatorProjectFactsV186Policy.facts(task)
     val done = task.status == TaskStatus.DONE
     val compactCard = selectionMode || (done && !expanded)
     val pulse = ProjectPulseEngine.snapshot(task)
@@ -277,7 +277,7 @@ internal fun PStudioProject(
                             fontWeight = FontWeight.Black,
                         )
                         Spacer(Modifier.weight(1f))
-                        Text("$progress%", color = if (done) SuccessGreen else MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                        Text(projectFacts.workflowLabel, color = if (done) SuccessGreen else MutedGold, fontSize = 8.8.sp, fontWeight = FontWeight.Bold)
                     }
                 } else {
                 Spacer(Modifier.height(11.dp))
@@ -286,7 +286,7 @@ internal fun PStudioProject(
                             Text(pulse.stateLabel, color = pulseAccent, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                         }
                         Spacer(Modifier.weight(1f))
-                        Text("$progress%", color = if (done) SuccessGreen else MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                        Text(projectFacts.workflowLabel, color = if (done) SuccessGreen else MutedGold, fontSize = 9.2.sp, fontWeight = FontWeight.Bold)
                     }
                     if (!done) {
                         Spacer(Modifier.height(9.dp))
@@ -298,6 +298,8 @@ internal fun PStudioProject(
                     }
                     Spacer(Modifier.height(8.dp))
                     PStageRail(task)
+                    Spacer(Modifier.height(5.dp))
+                    Text("${projectFacts.checklistLabel} · ${projectFacts.publicationLabel}", color = MutedText, fontSize = 9.4.sp, lineHeight = 13.sp)
                     }
             }
         }
@@ -406,8 +408,8 @@ internal fun PInsightsScreen(tasks: List<CreatorTask>, ideas: List<CreatorIdea>,
     val done = tasks.count { it.status == TaskStatus.DONE }
     val skipped = tasks.count { it.status == TaskStatus.SKIPPED }
     val finished = done + skipped
-    val completionRate = if (finished == 0) 0 else done * 100 / finished
-    val avg = if (active.isEmpty()) 0 else active.sumOf { CreatorWorkflowEngine.progress(it) } / active.size
+    val completionRate = if (finished == 0) "—" else "${done * 100 / finished}%"
+    val published = tasks.count { it.publishedAtMillis > 0L }
     val stageCounts = active.groupingBy { CreatorWorkflowEngine.currentStage(it).label }.eachCount().entries.sortedByDescending { it.value }
     val maxStage = stageCounts.maxOfOrNull { it.value } ?: 1
     val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
@@ -423,12 +425,12 @@ internal fun PInsightsScreen(tasks: List<CreatorTask>, ideas: List<CreatorIdea>,
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PMetric("COMPLETED", done.toString(), SuccessGreen, Modifier.weight(1f))
-            PMetric("FINISH RATE", "$completionRate%", MutedGold, Modifier.weight(1f))
+            PMetric("FINISH RATE", completionRate, MutedGold, Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PMetric("ACTIVE", active.size.toString(), RecRed, Modifier.weight(1f))
-            PMetric("AVG PROGRESS", "$avg%", ProjectorIvory, Modifier.weight(1f))
+            PMetric("PUBLISHED", published.toString(), ProjectorIvory, Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(20.dp))

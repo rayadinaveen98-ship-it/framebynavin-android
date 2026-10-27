@@ -50,6 +50,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,33 +89,51 @@ internal fun PTodayScreen(
     onOpenIdeaVault: () -> Unit = {},
     onOpenInsights: () -> Unit = {},
     onOpenProject: (String) -> Unit = {},
+    bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
+    homeSlideshowRequestNonce: Long = 0L,
+    onHomeSlideshowRequestHandled: () -> Unit = {},
+    companionContent: @Composable () -> Unit = {},
 ) {
-    val queue by remember { derivedStateOf { pActiveQueue(tasks).take(10) } }
-    val queueIds by remember { derivedStateOf { queue.map { it.id } } }
+    // V220.1: derive Home content from the CURRENT task list. The previous
+    // unkeyed derivedStateOf closures captured the initial tasks parameter and
+    // could show an old Up Next queue / weekly totals after a ViewModel update.
+    // Keep this read-only: no task mutation, reminder scheduling or storage.
+    val queue = remember(tasks) { pActiveQueue(tasks).take(10) }
+    val queueIds = remember(queue) { queue.map { it.id } }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(queueIds) { if (queue.none { it.id == selectedId }) selectedId = queue.firstOrNull()?.id }
     val index = queue.indexOfFirst { it.id == selectedId }.let { if (it < 0) 0 else it }
     val selected = queue.getOrNull(index)
-    val personalization by remember(creatorProfile) {
-        derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
+    val personalization = remember(creatorProfile, tasks) {
+        CreatorPersonalizationEngine.snapshot(creatorProfile, tasks)
     }
     val haptics = LocalHapticFeedback.current
     var showWeeklyFocus by rememberSaveable { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(RecRed.copy(alpha = .055f), CinemaBlack), radius = 980f))) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 124.dp)) {
-            V18CinematicHomeHero(creatorProfile.safeDisplayName)
-            Spacer(Modifier.height(20.dp))
-            Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-            Spacer(Modifier.height(4.dp))
-            Text(personalization.focusTitle, color = ProjectorIvory, fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Black)
-            if (personalization.focusBody.isNotBlank()) {
-                Text(personalization.focusBody, color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
-            }
-            Spacer(Modifier.height(14.dp))
-            V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = bottomNavigationClearance)) {
+            V18CinematicHomeHero(
+                creatorName = creatorProfile.safeDisplayName,
+                openEditorNonce = homeSlideshowRequestNonce,
+                onEditorRequestHandled = onHomeSlideshowRequestHandled,
+            )
+            // V220.3: when connected channel Insights has usable ranked videos,
+            // the existing Top 3 carousel must appear ABOVE the Up Next project.
+            // The section itself remains absent for disconnected/no-data users.
             V148HomeTopPerformersSection(onOpenInsights = onOpenInsights)
-            Spacer(Modifier.height(18.dp))
+            // V215: do not put weekly stats or motivational copy in front of a
+            // creator's actionable project on compact/large-font phones.
+            // No-image Home stays short; the creator can reach today's work first.
+            Spacer(Modifier.height(12.dp))
+            if (selected == null) {
+                Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                Spacer(Modifier.height(4.dp))
+                Text(personalization.focusTitle, color = ProjectorIvory, fontSize = 23.sp, lineHeight = 28.sp, fontWeight = FontWeight.Black)
+                if (personalization.focusBody.isNotBlank()) {
+                    Text(personalization.focusBody, color = MutedText, fontSize = 11.5.sp, lineHeight = 16.sp)
+                }
+                Spacer(Modifier.height(12.dp))
+            }
 
             if (selected == null) {
                 PEmptyState(
@@ -125,7 +144,7 @@ internal fun PTodayScreen(
                     onClick = onAdd,
                 )
             } else {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().testTag("v215-up-next-header"), verticalAlignment = Alignment.CenterVertically) {
                     Text("UP NEXT", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                     Spacer(Modifier.width(8.dp))
                     Text("${index + 1} / ${queue.size}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -135,7 +154,7 @@ internal fun PTodayScreen(
                 Spacer(Modifier.height(8.dp))
 
                 var dragTotal by remember { mutableFloatStateOf(0f) }
-                Box(Modifier.pointerInput(queue.size, index) {
+                Box(Modifier.testTag("v215-project-entry").pointerInput(queue.size, index) {
                     detectHorizontalDragGestures(
                         onDragStart = { dragTotal = 0f },
                         onHorizontalDrag = { _, amount -> dragTotal += amount },
@@ -201,8 +220,24 @@ internal fun PTodayScreen(
                 }
             }
 
-            Spacer(Modifier.height(22.dp))
-            PTodayReminders(tasks = tasks, onViewAll = onViewAllReminders)
+            // V219: Real reminder state is now reachable immediately after
+            // Up Next instead of below channel stats and weekly-focus content.
+            // One tap opens the existing V157 Center with unchanged safe actions.
+            Spacer(Modifier.height(12.dp))
+            V219ReminderHomeEntry(tasks = tasks, onOpenHub = onViewAllReminders)
+
+            // V221.4: optional, read-only guide recommendation. It can be quiet.
+            // NEVER move Top 3, Up Next or the real Reminders Hub below it.
+            // An empty companion contributes no extra space.
+            companionContent()
+
+            // Weekly focus is secondary; Top 3 remains above Up Next.
+            Spacer(Modifier.height(18.dp))
+            V18CreatorFocusCard(creatorProfile, personalization, onClick = { showWeeklyFocus = true })
+
+            // V220: The Hub above contains the next-alert preview and the
+            // only Home entry to Reminders. Keep previous PTodayReminders code
+            // available for legacy callers; do not render a duplicate card.
 
         }
     }
@@ -419,14 +454,16 @@ private fun PNextMoveCard(
 
     Surface(
         onClick = { expanded = !expanded },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().testTag("v2202-next-move"),
         shape = RoundedCornerShape(19.dp),
         color = CinemaSurfaceRaised,
         border = BorderStroke(1.dp, if (expanded) RecRed.copy(alpha = .38f) else CinemaLine),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("UP NEXT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                // V220.2: Up Next identifies the project; this is the next
+                // recommended move, not another "UP NEXT" section.
+                Text("NEXT MOVE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.weight(1f))
                 Text(recommendation.urgencyLabel, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                 Spacer(Modifier.width(5.dp))
@@ -437,33 +474,22 @@ private fun PNextMoveCard(
                     modifier = Modifier.size(17.dp),
                 )
             }
-            Spacer(Modifier.height(5.dp))
-            Text(recommendation.action, color = ProjectorIvory, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
-                    Text(task.priority.name, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
-                }
-                Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
-                    Text("PRIORITY ${recommendation.score}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
-                }
-                next?.let {
-                    Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
-                        Text("NEXT · ${it.label.uppercase(Locale.getDefault())}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), maxLines = 1)
-                    }
-                }
-            }
+            Spacer(Modifier.height(4.dp))
+            Text(recommendation.action, color = ProjectorIvory, fontSize = 14.sp,
+                lineHeight = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = if (expanded) 6 else 2,
+                overflow = TextOverflow.Ellipsis)
 
             if (!expanded) {
-                Spacer(Modifier.height(9.dp))
+                Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Why this suggestion?", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                    Text("VIEW DETAILS", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.width(2.dp))
                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(14.dp))
                 }
             }
 
             AnimatedVisibility(
+                modifier = Modifier.testTag("v2202-next-move-details"),
                 visible = expanded,
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut(),
@@ -491,6 +517,23 @@ private fun PNextMoveCard(
                         lineHeight = 13.sp,
                     )
 
+                    // Priority indicators belong in the expanded reasoning,
+                    // not in the default Home first viewport.
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                            Text(task.priority.name, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                        }
+                        Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                            Text("PRIORITY ${recommendation.score}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                        }
+                        next?.let {
+                            Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
+                                Text("NEXT · ${it.label.uppercase(Locale.getDefault())}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), maxLines = 1)
+                            }
+                        }
+                    }
+        
                     Spacer(Modifier.height(13.dp))
                     Button(
                         onClick = onStart,

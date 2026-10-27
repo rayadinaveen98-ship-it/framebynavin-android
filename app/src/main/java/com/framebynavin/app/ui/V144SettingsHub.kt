@@ -1,5 +1,6 @@
 package com.framebynavin.app.ui
 
+import android.content.Context
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
@@ -30,8 +31,11 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.QuietHoursPolicy
+import com.framebynavin.app.reminders.V205NudgePausePolicy
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
+import java.text.DateFormat
+import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -64,6 +68,9 @@ internal fun V144SettingsHub(
     onYouTube: () -> Unit,
     onOpenWeeklyPlan: () -> Unit = {},
     onOpenAutomation: () -> Unit = {},
+    onOpenHomeSlideshow: () -> Unit = {},
+    companionEnabled: Boolean = true,
+    onCompanionEnabledChange: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     var sectionName by rememberSaveable { mutableStateOf(V167SettingsSection.HOME.name) }
@@ -80,8 +87,15 @@ internal fun V144SettingsHub(
         if (section == V167SettingsSection.HOME) onClose() else navigateBack()
     }
 
-    Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-        when (section) {
+    // V207: the OPAQUE surface must cover the entire shared Activity root.
+    // Only content receives system/keyboard insets, or Home can bleed through
+    // status/navigation bar strips while a Settings page is open.
+    Surface(
+        modifier = Modifier.fillMaxSize().testTag("v207-settings-fullscreen"),
+        color = CinemaBlack,
+    ) {
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+            when (section) {
             V167SettingsSection.HOME -> V144SettingsHome(
                 settings = settings,
                 weeklyAutoPlanEnabled = weeklyAutoPlanEnabled,
@@ -98,7 +112,10 @@ internal fun V144SettingsHub(
                 V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) {
                     sectionName = V167SettingsSection.APPEARANCE.name
                 }
-                V144CategoryCard("Spark", "Your creative companion", Icons.Outlined.Face, MutedGold) {
+                V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
+                    onOpenHomeSlideshow()
+                }
+                V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
                 }
                 V144CategoryCard("Voice", "Reminder voice and previews", Icons.Outlined.RecordVoiceOver, RecRed) {
@@ -111,10 +128,17 @@ internal fun V144SettingsHub(
                 V127AppearanceSettings(showGuidePicker = false)
             }
 
-            V167SettingsSection.GUIDE -> V144SettingsPage("SPARK", "Your creative companion", ::navigateBack) {
+            V167SettingsSection.GUIDE -> V144SettingsPage("COMPANION", "Your creative companion", ::navigateBack) {
                 V144GuidePicker()
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("HELPFUL SUGGESTIONS", "Optional, private guidance on Home.")
+                Spacer(Modifier.height(8.dp))
+                V2215CompanionControls(
+                    enabled = companionEnabled,
+                    onEnabledChange = onCompanionEnabledChange,
+                )
                 Spacer(Modifier.height(12.dp))
-                V144SettingsNote("Choose the companion you want to see in Backlot. This changes your experience, not your saved work.")
+                V144SettingsNote("Choose the companion you want to see in Backlot. Suggestions never create, complete or reschedule reminders or projects. Turning them off does not change your guide.")
             }
 
             V167SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", ::navigateBack) {
@@ -281,6 +305,16 @@ internal fun V144SettingsHub(
                             Text(
                                 when {
                                     !notificationsReady -> "Enable notifications first."
+                                    settings.contextNudgesEnabled && V205NudgePausePolicy.isPaused(
+                                        System.currentTimeMillis(),
+                                        context.getSharedPreferences(V205NudgePausePolicy.PREFS, Context.MODE_PRIVATE)
+                                            .getLong(V205NudgePausePolicy.KEY_PAUSED_UNTIL, 0L),
+                                    ) -> {
+                                        val until = context.getSharedPreferences(
+                                            V205NudgePausePolicy.PREFS, Context.MODE_PRIVATE
+                                        ).getLong(V205NudgePausePolicy.KEY_PAUSED_UNTIL, 0L)
+                                        "Paused · resumes ${DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(until))}"
+                                    }
                                     settings.contextNudgesEnabled -> "On · optional check-ins when work may need attention."
                                     else -> "Off · your scheduled project reminders still work."
                                 },
@@ -369,9 +403,10 @@ internal fun V144SettingsHub(
                 )
                 Spacer(Modifier.height(12.dp))
                 V144SettingsNote(
-                    "A portable backup includes projects, ideas and supported voice recordings, reminder preferences and the weekly plan. " +
-                        "It does not export Google sign-in, cloud tokens, phone Calendar connection, app icon, launch sound or theme selection. " +
-                        "Exported backup files are not encrypted: keep them private."
+                    "A portable backup includes projects, ideas, supported Voice Idea recordings, original Best Frames, reminders and planning. " +
+                        "Project attachments keep their links only: the referenced files are not included. " +
+                        "Companion, theme, app icon, launch sound, Calendar connection and sign-in remain device-specific. " +
+                        "Exported files are not encrypted: keep them private."
                 )
             }
 
@@ -392,6 +427,7 @@ internal fun V144SettingsHub(
                     }
                 }
             }
+        }
         }
     }
     if (confirmAutoPlan) {
@@ -436,7 +472,7 @@ private fun V144SettingsHome(
 ) {
     val reminderReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader("SETTINGS", "Backlot, your way", onClose)
         Spacer(Modifier.height(10.dp))
@@ -484,7 +520,7 @@ private fun V144SettingsHome(
 @Composable
 private fun V144SettingsPage(kicker: String, title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 28.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader(kicker, title, onBack)
         Spacer(Modifier.height(18.dp))

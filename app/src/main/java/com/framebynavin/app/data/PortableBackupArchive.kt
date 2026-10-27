@@ -21,6 +21,8 @@ internal data class StagedPortableBackup(
     val backupJson: String,
     val isArchive: Boolean,
     val mediaByIdeaId: Map<String, File>,
+    val bestFrames: List<PortableBestFrame> = emptyList(),
+    val hasFrameManifest: Boolean = false,
     private val stagingDirectory: File? = null,
 ) {
     fun cleanup() {
@@ -40,15 +42,39 @@ internal object PortableBackupArchive {
     private const val MANIFEST_ENTRY = "voice_media.tsv"
     private const val MANIFEST_HEADER = "BacklotVoiceMedia\t1"
     private const val MEDIA_PREFIX = "voice_ideas/"
+    private const val FRAME_MANIFEST_ENTRY = "best_frames.tsv"
+    private const val FRAME_MANIFEST_HEADER = "BacklotBestFrames\t1"
+    private const val FRAME_PREFIX = "best_frames/"
+    private val frameEntryPattern = Regex("best_frames/frame-[0-9]+\\.img")
     private const val MAX_JSON_BYTES = 32L * 1024L * 1024L
     private const val MAX_MANIFEST_BYTES = 4L * 1024L * 1024L
     private const val MAX_MEDIA_FILE_BYTES = 512L * 1024L * 1024L
     private const val MAX_TOTAL_MEDIA_BYTES = 1024L * 1024L * 1024L
     private val mediaEntryPattern = Regex("voice_ideas/media-[0-9]+-[a-f0-9]{16}\\.m4a")
 
-    fun write(backupJson: String, media: List<PortableBackupMedia>, output: OutputStream) {
+    fun write(
+        backupJson: String,
+        media: List<PortableBackupMedia>,
+        output: OutputStream,
+        frames: List<PortableBestFrame> = emptyList(),
+    ) {
+        require(backupJson.toByteArray(Charsets.UTF_8).size.toLong() <= MAX_JSON_BYTES) {
+            "Portable creator data exceeds the JSON limit"
+        }
         require(media.map { it.ideaId }.distinct().size == media.size) { "Duplicate voice idea media" }
         preflightMedia(media)
+        require(frames.size <= 10 && frames.map { it.name }.distinct().size == frames.size) {
+            "Invalid duplicate or excessive Best Frames"
+        }
+        var frameBudget = 0L
+        frames.forEach { frame ->
+            val size = frame.file.length()
+            require(frame.file.isFile && size in 1..PortableBestFrameMedia.MAX_FILE_BYTES &&
+                frameBudget <= PortableBestFrameMedia.MAX_TOTAL_BYTES - size) {
+                "Best Frames exceed portable backup limits"
+            }
+            frameBudget += size
+        }
         ZipOutputStream(BufferedOutputStream(output)).use { zip ->
             zip.putNextEntry(ZipEntry(BACKUP_ENTRY))
             zip.write(backupJson.toByteArray(Charsets.UTF_8))
@@ -91,6 +117,40 @@ internal object PortableBackupArchive {
             zip.putNextEntry(ZipEntry(MANIFEST_ENTRY))
             zip.write(manifestLines.joinToString("\n").toByteArray(Charsets.UTF_8))
             zip.closeEntry()
+
+            if (frames.isNotEmpty()) {
+                val frameLines = mutableListOf(FRAME_MANIFEST_HEADER)
+                frames.forEachIndexed { index, frame ->
+                    val entryName = "${FRAME_PREFIX}frame-$index.img"
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    var copied = 0L
+                    zip.putNextEntry(ZipEntry(entryName))
+                    frame.file.inputStream().buffered().use { input ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            copied += read
+                            require(copied <= PortableBestFrameMedia.MAX_FILE_BYTES) {
+                                "Original Best Frame exceeded its allowed size"
+                            }
+                            digest.update(buffer, 0, read)
+                            zip.write(buffer, 0, read)
+                        }
+                    }
+                    require(copied == frame.file.length() && copied > 0L &&
+                        digest.digest().toHex() == frame.sha256) {
+                        "Original Best Frame changed during backup export"
+                    }
+                    zip.closeEntry()
+                    val name = Base64.getUrlEncoder().withoutPadding()
+                        .encodeToString(frame.name.toByteArray(Charsets.UTF_8))
+                    frameLines += listOf(name, entryName, copied.toString(), frame.sha256).joinToString("\t")
+                }
+                zip.putNextEntry(ZipEntry(FRAME_MANIFEST_ENTRY))
+                zip.write(frameLines.joinToString("\n").toByteArray(Charsets.UTF_8))
+                zip.closeEntry()
+            }
         }
     }
 
@@ -137,10 +197,14 @@ internal object PortableBackupArchive {
         try {
             var backupJson: String? = null
             var manifestRaw: String? = null
+            var frameManifestRaw: String? = null
             val stagedByEntry = linkedMapOf<String, File>()
+            val framesByEntry = linkedMapOf<String, File>()
             val seenEntries = mutableSetOf<String>()
             var totalMediaBytes = 0L
             var mediaIndex = 0
+            var frameIndex = 0
+            var totalFrameBytes = 0L
 
             ZipInputStream(buffered).use { zip ->
                 while (true) {
@@ -160,6 +224,10 @@ internal object PortableBackupArchive {
                             require(manifestRaw == null) { "Duplicate voice media manifest" }
                             manifestRaw = zip.readUtf8Limited(MAX_MANIFEST_BYTES)
                         }
+                        name == FRAME_MANIFEST_ENTRY -> {
+                            require(frameManifestRaw == null) { "Duplicate Best Frames manifest" }
+                            frameManifestRaw = zip.readUtf8Limited(MAX_MANIFEST_BYTES)
+                        }
                         mediaEntryPattern.matches(name) -> {
                             val staged = File(directory, "media-${mediaIndex++}.m4a")
                             val copied = staged.outputStream().buffered().use { output ->
@@ -168,6 +236,18 @@ internal object PortableBackupArchive {
                             totalMediaBytes += copied
                             require(totalMediaBytes <= MAX_TOTAL_MEDIA_BYTES) { "Portable backup voice media is too large" }
                             stagedByEntry[name] = staged
+                        }
+                        frameEntryPattern.matches(name) -> {
+                            require(frameIndex < 10) { "Too many original Best Frames" }
+                            val staged = File(directory, "best-frame-${frameIndex++}.img")
+                            val copied = staged.outputStream().buffered().use { output ->
+                                zip.copyLimited(output, PortableBestFrameMedia.MAX_FILE_BYTES)
+                            }
+                            require(copied > 0 && totalFrameBytes <= PortableBestFrameMedia.MAX_TOTAL_BYTES - copied) {
+                                "Original Best Frames exceed portable backup limits"
+                            }
+                            totalFrameBytes += copied
+                            framesByEntry[name] = staged
                         }
                         else -> error("Unexpected portable backup entry")
                     }
@@ -189,10 +269,25 @@ internal object PortableBackupArchive {
                 require(mediaByIdea.put(item.ideaId, file) == null) { "Duplicate voice idea in media manifest" }
             }
 
+            val frameManifest = frameManifestRaw?.let(::parseFrameManifest).orEmpty()
+            require(framesByEntry.keys == frameManifest.map { it.entryName }.toSet()) {
+                "Best Frames manifest does not match media entries"
+            }
+            val stagedFrames = frameManifest.map { frame ->
+                val file = requireNotNull(framesByEntry[frame.entryName]) {
+                    "An original Best Frame is missing"
+                }
+                require(file.length() == frame.sizeBytes && sha256(file) == frame.sha256) {
+                    "Best Frames integrity check failed"
+                }
+                PortableBestFrame(frame.name, frame.sha256, file)
+            }
             return StagedPortableBackup(
                 backupJson = canonicalJson,
                 isArchive = true,
                 mediaByIdeaId = mediaByIdea,
+                bestFrames = stagedFrames,
+                hasFrameManifest = frameManifestRaw != null,
                 stagingDirectory = directory,
             )
         } catch (error: Throwable) {
@@ -228,6 +323,46 @@ internal object PortableBackupArchive {
         }.also { items ->
             require(items.map { it.entryName }.distinct().size == items.size) { "Duplicate voice media entry" }
             require(items.map { it.ideaId }.distinct().size == items.size) { "Duplicate voice media idea id" }
+        }
+    }
+
+    private data class FrameManifestItem(
+        val name: String,
+        val entryName: String,
+        val sizeBytes: Long,
+        val sha256: String,
+    )
+
+    private fun parseFrameManifest(raw: String): List<FrameManifestItem> {
+        val lines = raw.lineSequence().filter { it.isNotBlank() }.toList()
+        require(lines.firstOrNull() == FRAME_MANIFEST_HEADER) {
+            "Unsupported Best Frames manifest"
+        }
+        require(lines.size in 2..11) { "Invalid Best Frames manifest item count" }
+        val decoder = Base64.getUrlDecoder()
+        return lines.drop(1).mapIndexed { index, line ->
+            val parts = line.split('\t')
+            require(parts.size == 4) { "Invalid Best Frames manifest row" }
+            val name = runCatching { String(decoder.decode(parts[0]), Charsets.UTF_8) }
+                .getOrElse { throw IllegalArgumentException("Invalid Best Frames name", it) }
+            val entry = parts[1]
+            val size = parts[2].toLongOrNull() ?: error("Invalid Best Frames media size")
+            val hash = parts[3]
+            require(name.matches(Regex("[a-zA-Z0-9._-]{1,128}")) && name != "." && name != "..") {
+                "Invalid Best Frames filename"
+            }
+            require(entry == "${FRAME_PREFIX}frame-$index.img" &&
+                frameEntryPattern.matches(entry)) { "Best Frames order or entry mismatch" }
+            require(size in 1..PortableBestFrameMedia.MAX_FILE_BYTES &&
+                hash.matches(Regex("[a-f0-9]{64}"))) {
+                "Invalid Best Frames size or checksum"
+            }
+            FrameManifestItem(name, entry, size, hash)
+        }.also { items ->
+            require(items.map { it.name }.distinct().size == items.size &&
+                items.sumOf { it.sizeBytes } <= PortableBestFrameMedia.MAX_TOTAL_BYTES) {
+                "Duplicate or excessive Best Frames"
+            }
         }
     }
 
