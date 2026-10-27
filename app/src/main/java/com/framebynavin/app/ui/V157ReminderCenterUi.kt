@@ -279,7 +279,7 @@ internal fun V157ReminderCenterUi(
                             unfocusedLabelColor = MutedText,
                         ),
                     )
-                    if (searchQuery.isNotBlank()) {
+                    if (searchQuery.isNotBlank() && !historyOpen) {
                         Text(
                             "${V219ReminderHubFilter.ALL.count(matchingGroups)} matching reminders",
                             color = MutedText, fontSize = 11.sp,
