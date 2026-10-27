@@ -57,7 +57,7 @@ class V2203CloudChecksumSafetyTest {
         assertEquals(manager.validate(fixture).ideaCount, manager.validate(cloud).ideaCount)
     }
 
-    @Test fun tamperedOriginalAndTamperedSanitizedSnapshotFailClosed() = runBlocking {
+    @Test fun tamperedOriginalAndTamperedSanitizedSnapshotFailClosed(): Unit = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val manager = CreatorBackupManager(InstrumentationRegistry.getInstrumentation().targetContext)
         val valid = manager.createBackup()
