@@ -16,3 +16,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "FrameByNavin"
 include(":app")
+
+// Isolated companion review app. Does not link Firebase, creators' data or reminders.
+include(":v217review")
