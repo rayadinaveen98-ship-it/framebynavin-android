@@ -23,11 +23,16 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.min
 
 /**
- * V195.5 – visible circular cores, soft supporting bokeh, true independent
- * full-screen travel, smooth reflected motion at every viewport boundary.
+ * Backlot V218 — one continuous premium particle field for alarm AND voice.
  *
- * All geometry and palettes are remembered; no per-particle Composables.
- * One Canvas, no GPU blur/shaders, no navigation/service/audio changes.
+ * Previous animation rendered independent ambient particles, a dark hole and
+ * an unrelated mono-color dotted glyph on top. This replaces all three with
+ * ONE colorful wave: a sampled subset of ambient particles gently migrates
+ * into clock or microphone trajectories without changing colors or radius.
+ * Other particles keep crossing the entire viewport. No black icon sticker.
+ *
+ * Manual tap-to-reveal, reduced motion, battery saver, content overlays and
+ * every reminder acknowledgement / service / watchdog are unchanged.
  */
 @Composable
 internal fun V195ReminderParticleScene(
@@ -40,13 +45,13 @@ internal fun V195ReminderParticleScene(
 ) {
     val glyph = if (kind == ReminderCheckInKind.ALARM)
         V195ReminderGlyph.CLOCK else V195ReminderGlyph.MICROPHONE
+    val ambient = remember(lowPower) { V202PremiumParticleGeometry.build(lowPower) }
     val glyphDots = remember(glyph, lowPower) {
         V195ParticleGeometry.build(
-            glyph,
-            if (lowPower) V195ParticleGeometry.LOW_POWER_DOTS else V195ParticleGeometry.DEFAULT_DOTS,
+            glyph, if (lowPower) V218UnifiedWavePolicy.LOW_POWER_GLYPH_DOTS
+                else V218UnifiedWavePolicy.NORMAL_GLYPH_DOTS,
         )
     }
-    val ambient = remember(lowPower) { V202PremiumParticleGeometry.build(lowPower) }
     val palette = remember(kind) {
         if (kind == ReminderCheckInKind.ALARM) listOf(
             Color(0xFFFFCF52), Color(0xFFFFA724), Color(0xFFFF793B), Color(0xFFFF527D),
@@ -62,32 +67,39 @@ internal fun V195ReminderParticleScene(
                 Color(0xFF1B1021), Color(0xFF211328), Color(0xFF0A1729),
             ) else listOf(
                 Color(0xFF100F2D), Color(0xFF1A1435), Color(0xFF0B202D),
-            ),
+            )
         )
     }
-    val glyphColor = if (kind == ReminderCheckInKind.ALARM)
-        Color(0xFFFFE7A0) else Color(0xFFE2D3FF)
     val revealProgress by animateFloatAsState(
         targetValue = if (revealed) 1f else 0f,
-        animationSpec = tween(durationMillis = if (motionEnabled) 650 else 0),
-        label = "v1955-premium-reveal",
+        animationSpec = tween(durationMillis = if (motionEnabled) 560 else 0),
+        label = "v218-wave-controls-reveal",
     )
 
-    // Monotonic frame time never restarts at an arbitrary 3.8-second boundary.
-    // Producing state is lifecycle-bound; when animations are disabled, no loop runs.
-    val elapsedSeconds by produceState(0.0, motionEnabled) {
+    // One lifecycle-bound compositor. Cap work at about 30fps, or 20fps under
+    // power saver. No timer on the reminder engine, no frame allocations.
+    val elapsedSeconds by produceState(
+        initialValue = if (motionEnabled) 0.0 else 2.5,
+        key1 = motionEnabled,
+        key2 = lowPower,
+    ) {
         if (motionEnabled) {
             var startedAt = 0L
+            var lastPresented = 0L
+            val intervalNs = if (lowPower) 50_000_000L else 33_333_333L
             while (true) {
                 withFrameNanos { frame ->
                     if (startedAt == 0L) startedAt = frame
-                    value = (frame - startedAt).toDouble() / 1_000_000_000.0
+                    if (lastPresented == 0L || frame - lastPresented >= intervalNs) {
+                        value = (frame - startedAt).toDouble() / 1_000_000_000.0
+                        lastPresented = frame
+                    }
                 }
             }
+        } else {
+            value = 2.5
         }
     }
-    val iconPhase = ((elapsedSeconds * V198ParticleMotion.PHASE_END / 3.8)
-        % V198ParticleMotion.PHASE_END).toFloat()
     val interactions = remember { MutableInteractionSource() }
     val touch = if (revealed) Modifier else Modifier
         .semantics { contentDescription = "Show reminder controls" }
@@ -95,74 +107,82 @@ internal fun V195ReminderParticleScene(
 
     Canvas(modifier = modifier.fillMaxSize().testTag("v1952-ambient-particles").then(touch)) {
         drawRect(brush = atmosphere)
-        val farRadius = 1.45.dp.toPx()
-        val midRadius = 2.15.dp.toPx()
-        val nearRadius = 2.90.dp.toPx()
-        val scrimmed = 1f - .58f * revealProgress
-        // Every particle moves across the *entire* screen at a distinct angle and
-        // pace. Positions reflect with zero velocity at the edge, then reverse.
-        for (dot in ambient) {
-            val normalizedX = if (motionEnabled)
-                V202InfiniteBounce.position(dot.x, dot.velocityX, elapsedSeconds) else dot.x
-            val normalizedY = if (motionEnabled)
-                V202InfiniteBounce.position(dot.y, dot.velocityY, elapsedSeconds) else dot.y
-            val center = Offset(normalizedX * size.width, normalizedY * size.height)
-            val blend = if (motionEnabled)
-                V202InfiniteBounce.colorBlend(elapsedSeconds, dot.colorPhase, dot.colorRate) else .5f
-            val pigment = lerp(palette[dot.colorIndex], palette[(dot.colorIndex + 1) % 8], blend)
-            val depth = when (dot.depth) { 0 -> .68f; 1 -> .88f; else -> 1f }
-            val radius = when (dot.depth) { 0 -> farRadius; 1 -> midRadius; else -> nearRadius }
-            // Background glow only. Crisp anti-aliased circular core is always drawn last.
-            if (!lowPower && dot.depth == 2) {
-                drawCircle(pigment.copy(alpha = .045f * scrimmed * depth),
-                    radius = radius * 3.9f, center = center)
+
+        val center = Offset(size.width * .5f, size.height * .42f)
+        val glyphRadius = when (glyph) {
+            V195ReminderGlyph.CLOCK -> min(size.width * .395f, size.height * .30f)
+            V195ReminderGlyph.MICROPHONE -> min(size.width * .48f, size.height * .31f)
+        }
+        val attraction = V218UnifiedWavePolicy.glyphBlend(elapsedSeconds, revealProgress)
+        val scrim = 1f - .60f * revealProgress
+        val small = 1.32.dp.toPx()
+        val mid = 1.68.dp.toPx()
+        val large = 2.12.dp.toPx()
+        val slowTime = if (motionEnabled) elapsedSeconds else 0.0
+
+        // The ambient particles that form the icon are spread deterministically
+        // across the ENTIRE screen rather than pulled from a single row.
+        val stride = if (lowPower) 2 else 3
+        val slots = (ambient.size + stride - 1) / stride
+
+        ambient.forEachIndexed { index, particle ->
+            val baseX = V202InfiniteBounce.position(particle.x, particle.velocityX, slowTime)
+            val baseY = V202InfiniteBounce.position(particle.y, particle.velocityY, slowTime)
+            val wavePhase = particle.colorPhase
+            val flowX = V218UnifiedWavePolicy.wave(slowTime, baseY, wavePhase) * size.width * .017f
+            val flowY = V218UnifiedWavePolicy.wave(slowTime, baseX, wavePhase + 1.8f) * size.height * .012f
+            val ambientX = baseX * size.width + flowX
+            val ambientY = baseY * size.height + flowY
+
+            val ordinal = if (index % stride == 0) (index / stride * 137) % slots else -1
+            val assigned = ordinal in glyphDots.indices
+            val x: Float
+            val y: Float
+            if (assigned && attraction > 0f) {
+                val target = glyphDots[ordinal]
+                val (driftX, driftY) = if (motionEnabled)
+                    V218UnifiedWavePolicy.iconDrift(slowTime, target) else 0f to 0f
+                val targetX = center.x + (target.x + driftX) * glyphRadius
+                val targetY = center.y + (target.y + driftY) * glyphRadius
+                x = ambientX + (targetX - ambientX) * attraction
+                y = ambientY + (targetY - ambientY) * attraction
+            } else {
+                x = ambientX
+                y = ambientY
             }
-            drawCircle(pigment.copy(alpha = .10f * scrimmed * depth),
-                radius = radius * 2.2f, center = center)
-            drawCircle(pigment.copy(alpha = .88f * scrimmed * depth),
-                radius = radius, center = center)
+
+            val blend = if (motionEnabled)
+                V202InfiniteBounce.colorBlend(slowTime, particle.colorPhase, particle.colorRate)
+                else .5f
+            val pigment = lerp(
+                palette[particle.colorIndex], palette[(particle.colorIndex + 1) % palette.size], blend,
+            )
+            val radius = when (particle.depth) {
+                0 -> small
+                1 -> mid
+                else -> large
+            }
+            val intensity = if (assigned) .80f + .18f * attraction else .77f
+            val position = Offset(x, y)
+
+            // Only occasional glow; many full-radius blurs at 2,184 particles
+            // are expensive on entry-level Android hardware.
+            if (!lowPower && index % 13 == 0) {
+                drawCircle(
+                    pigment.copy(alpha = .070f * scrim),
+                    radius = radius * 2.9f, center = position,
+                )
+            }
+            drawCircle(
+                pigment.copy(alpha = (intensity * scrim).coerceIn(0f, 1f)),
+                radius = radius, center = position,
+            )
         }
 
-        // Clear content labels and buttons against a much brighter ambient field.
-        if (revealProgress > 0f) drawRect(Color.Black.copy(alpha = .32f * revealProgress))
-
-        // Keep the icon sharply legible. Its dots move locally, never scatter.
-        if (revealProgress < 1f) {
-            val glyphRadius = if (glyph == V195ReminderGlyph.CLOCK)
-                min(size.width * .43f, size.height * .31f)
-                else min(size.width * .66f, size.height * .34f)
-            val center = Offset(size.width * .5f, size.height * .43f)
-            val fade = 1f - revealProgress
-            val pulse = if (motionEnabled) V198ParticleMotion.iconPulse(iconPhase) else 1f
-            val opacity = fade * pulse
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(
-                        Color(0xFF060717).copy(alpha = .85f * fade),
-                        Color(0xFF060717).copy(alpha = .35f * fade),
-                        Color.Transparent,
-                    ), center = center, radius = glyphRadius * 1.35f,
-                ),
-                center = center, radius = glyphRadius * 1.35f,
-            )
-            val dotRadius = if (lowPower) 2.15.dp.toPx() else 1.95.dp.toPx()
-            for (dot in glyphDots) {
-                val harmonic = dot.speed.toInt().coerceIn(1, 3).toFloat()
-                val dx = if (motionEnabled)
-                    V198ParticleMotion.wave(iconPhase, harmonic, dot.phase) * .003f else 0f
-                val dy = if (motionEnabled)
-                    V198ParticleMotion.wave(iconPhase, harmonic, dot.phase + 1.57f) * .003f else 0f
-                val position = Offset(
-                    center.x + (dot.x + dx) * glyphRadius,
-                    center.y + (dot.y + dy) * glyphRadius,
-                )
-                val shine = if (motionEnabled)
-                    V198ParticleMotion.colorMix(iconPhase, 2f, dot.phase) else .5f
-                drawCircle(glyphColor.copy(alpha = (.13f + .10f * shine) * opacity),
-                    radius = dotRadius * 2.25f, center = position)
-                drawCircle(glyphColor.copy(alpha = opacity.coerceIn(0f, 1f)),
-                    radius = dotRadius, center = position)
-            }
+        // Text and action buttons maintain contrast after manual reveal. Icon
+        // attraction releases automatically so the action labels aren't covered.
+        if (revealProgress > 0f) {
+            drawRect(Color.Black.copy(alpha = .26f * revealProgress))
         }
     }
 }
