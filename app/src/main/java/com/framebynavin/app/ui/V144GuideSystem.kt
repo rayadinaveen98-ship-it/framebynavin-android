@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.CinemaBlack
 import com.framebynavin.app.ui.theme.CinemaLine
@@ -143,12 +144,17 @@ internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
             Spacer(Modifier.height(18.dp))
 
             V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Measure the tallest card once per row; shorter descriptions
+                // must not leave one SELECT button floating above its neighbor.
+                Row(
+                    Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     guides.forEach { guide ->
                         V144GuideChoiceCard(
                             guide = guide,
                             onSelect = { onSelect(guide) },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
                     if (guides.size == 1) Spacer(Modifier.weight(1f))
@@ -172,7 +178,10 @@ private fun V144GuideChoiceCard(
         color = CinemaSurface,
         border = BorderStroke(1.2.dp, identity.copy(alpha = .76f)),
     ) {
-        Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.fillMaxHeight().padding(9.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Surface(
                 modifier = Modifier.fillMaxWidth().height(112.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -198,6 +207,9 @@ private fun V144GuideChoiceCard(
                 textAlign = TextAlign.Center,
                 minLines = 2,
             )
+            // Fill only the difference in row content height, pinning both
+            // actions to one baseline on 1.0x and 1.5x system font sizes.
+            Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(7.dp))
             Button(
                 onClick = onSelect,
