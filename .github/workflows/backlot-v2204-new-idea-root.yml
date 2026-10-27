@@ -55,7 +55,7 @@ jobs:
           grep -Fq 'nextMoveIsCompactUntilExpandedAndKeepsExistingActions' app/src/androidTest/java/com/framebynavin/app/ui/V220HomeConsolidationUiTest.kt
           grep -Fq 'CreatorAdaptiveFullScreen(' app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt
           grep -Fq 'onCreateIdeaRequested = { showNewIdeaEditor = true }' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
-          grep -Fq 'versionName = "2.8.8-v2204-new-idea-root-fix"' app/build.gradle.kts
+          grep -Fq 'versionName = "2.8.9-v2204.1-ime-safe"' app/build.gradle.kts
           test -f app/src/androidTest/java/com/framebynavin/app/ui/V2204NewIdeaRootOverlayUiTest.kt
           python3 -c 'from pathlib import Path; s=Path("app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt").read_text(); start=s.index("internal fun V09NewIdeaCleanEditor("); stop=s.index("private fun V09IdeaEditor(", start); assert "Dialog(" not in s[start:stop]; a=Path("app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt").read_text(); assert a.index("V09NewIdeaCleanEditor(")>a.index("PBottomNav(")'
           grep -Fq 'resealCloudSanitizedPayload' app/src/main/java/com/framebynavin/app/cloud/CreatorCloudVoiceMedia.kt
