@@ -167,9 +167,9 @@ internal fun V157ReminderCenterUi(
                     val todayCount = grouped[ReminderCenterGroup.TODAY].orEmpty().size
                     val postponedCount = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty().size
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        V157InboxCount("NEEDS ACTION", attentionCount, RecRed, Modifier.weight(1f))
+                        V157InboxCount("NEEDS", attentionCount, RecRed, Modifier.weight(1f))
                         V157InboxCount("TODAY", todayCount, MutedGold, Modifier.weight(1f))
-                        V157InboxCount("POSTPONED", postponedCount, ProjectorIvory, Modifier.weight(1f))
+                        V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
                     }
 
                     Spacer(Modifier.height(13.dp))
