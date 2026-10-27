@@ -78,8 +78,9 @@ jobs:
             mkdir -p v218-evidence
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V218UnifiedWaveUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v218-default.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v218-default.log; then exit 1; fi
-            grep -Fq 'OK (4 tests)' v218-default.log
+            grep -Fq 'OK (6 tests)' v218-default.log
             for scene in alarm-normal-intro alarm-normal-revealed voice-normal-intro voice-normal-revealed alarm-saver-intro alarm-saver-revealed voice-saver-intro voice-saver-revealed; do adb exec-out run-as com.framebynavin.app cat "files/v218-wave-evidence/default-${scene}.png" > "v218-evidence/default-${scene}.png"; done
+            for scene in alarm-actual-controls voice-actual-controls; do adb exec-out run-as com.framebynavin.app cat "files/v218-wave-evidence/default-${scene}.png" > "v218-evidence/default-${scene}.png"; done
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V195ReminderSceneUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v218-reminder-controls.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v218-reminder-controls.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v218-reminder-controls.log
@@ -91,11 +92,12 @@ jobs:
             adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V218UnifiedWaveUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v218-compact.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v218-compact.log; then exit 1; fi
-            grep -Fq 'OK (4 tests)' v218-compact.log
+            grep -Fq 'OK (6 tests)' v218-compact.log
             for scene in alarm-normal-intro alarm-normal-revealed voice-normal-intro voice-normal-revealed alarm-saver-intro alarm-saver-revealed voice-saver-intro voice-saver-revealed; do adb exec-out run-as com.framebynavin.app cat "files/v218-wave-evidence/compact-${scene}.png" > "v218-evidence/compact-${scene}.png"; done
+            for scene in alarm-actual-controls voice-actual-controls; do adb exec-out run-as com.framebynavin.app cat "files/v218-wave-evidence/compact-${scene}.png" > "v218-evidence/compact-${scene}.png"; done
             adb shell wm size reset
             adb shell settings put system font_scale 1.0
-            python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v218-evidence").glob("*.png")); assert len(fs)==16,len(fs); sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>2000 for p in fs); assert all(wh==(900,1600) for n,wh in sizes.items() if n.startswith("compact")); assert all(wh==(1080,2400) for n,wh in sizes.items() if n.startswith("default")); print(sizes)'
+            python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v218-evidence").glob("*.png")); assert len(fs)==20,len(fs); sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>2000 for p in fs); assert all(wh==(900,1600) for n,wh in sizes.items() if n.startswith("compact")); assert all(wh==(1080,2400) for n,wh in sizes.items() if n.startswith("default")); print(sizes)'
       - name: Upload real Android V218 wave evidence
         if: always()
         uses: actions/upload-artifact@v4
