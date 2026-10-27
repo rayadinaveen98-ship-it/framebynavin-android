@@ -40,6 +40,21 @@ jobs:
           if grep -Fq 'V195ReminderParticleScene(' app/src/main/java/com/framebynavin/app/reminders/AlarmActivity.kt; then exit 1; fi
       - name: Full unit tests and Android app/instrumentation build
         run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - name: Build separate V218 offline review APK
+        run: gradle :v218review:assembleDebug --stacktrace
+      - name: Verify isolated package and permission-less manifest
+        run: |
+          test -s v218review/build/outputs/apk/debug/v218review-debug.apk
+          grep -Fq 'applicationId = "com.framebynavin.v218review"' v218review/build.gradle.kts
+          ! grep -Eq '^[[:space:]]*<uses-permission' v218review/src/main/AndroidManifest.xml
+          test -f scripts/v218-review-smoke.sh
+      - name: Upload independently installable offline V218 review APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V218-Wave-Review-APK
+          path: v218review/build/outputs/apk/debug/v218review-debug.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload sandbox APKs for CI emulator only
         uses: actions/upload-artifact@v4
         with:
@@ -53,8 +68,13 @@ jobs:
   emulator:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V218-Wave-Review-APK
+          path: review-apk
       - uses: actions/download-artifact@v4
         with:
           name: Backlot-V218-Android-CI-APKs
@@ -98,6 +118,15 @@ jobs:
             adb shell wm size reset
             adb shell settings put system font_scale 1.0
             python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v218-evidence").glob("*.png")); assert len(fs)==20,len(fs); sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>2000 for p in fs); assert all(wh==(900,1600) for n,wh in sizes.items() if n.startswith("compact")); assert all(wh==(1080,2400) for n,wh in sizes.items() if n.startswith("default")); print(sizes)'
+            bash scripts/v218-review-smoke.sh
+      - name: Upload review app alarm/voice screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V218-Review-App-Phone-Screenshots
+          path: v218-review-evidence/*
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload real Android V218 wave evidence
         if: always()
         uses: actions/upload-artifact@v4
