@@ -78,6 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: Backlot-V217-Preview-Instrumentation-APKs
@@ -137,8 +138,8 @@ jobs:
             adb shell settings put system font_scale 1.0
             for scene in first-run-top first-run-bottom settings-top settings-bottom; do adb exec-out run-as com.framebynavin.app cat "files/v217-live-screens/v217-compact-${scene}.png" > "v217-evidence/v217-compact-${scene}.png"; done
             python3 -c 'from pathlib import Path; from struct import unpack; fs=sorted(Path("v217-evidence").glob("*.png")); assert len(fs)==16,fs; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in fs),sizes; assert sizes["v217-compact-first-run-top.png"]==(900,1600),sizes; assert sizes["v217-compact-settings-top.png"]==(900,1600),sizes; assert sizes["v217-default-first-run-top.png"]!=(900,1600),sizes; print(sizes)'
-      - name: Verify independent review app on emulator without touching Backlot
-        run: bash scripts/v217-review-smoke.sh
+            # The runner owns/emulates Android only inside this script section.
+            bash scripts/v217-review-smoke.sh
       - name: Upload real Android window PNGs
         if: always()
         uses: actions/upload-artifact@v4
