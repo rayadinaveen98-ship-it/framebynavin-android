@@ -3,6 +3,8 @@ package com.framebynavin.app.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,6 +76,7 @@ internal object V221CompanionPresentationPolicy {
  * It does NOT appear in Home or Settings automatically in V221.2.
  * Parent routes the action; this card never schedules or edits creator data.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun V221CompanionSuggestionCard(
     decision: V221CompanionDecision,
@@ -110,8 +116,8 @@ internal fun V221CompanionSuggestionCard(
                         color = ProjectorIvory,
                         fontSize = 12.sp,
                         lineHeight = 17.sp,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
+                        // Do not truncate meaningful project or reminder context
+                        // at 1.5–2.0x system font sizes.
                         modifier = Modifier.testTag("v2212-companion-message"),
                     )
                 }
@@ -125,26 +131,45 @@ internal fun V221CompanionSuggestionCard(
                     modifier = Modifier.testTag("v2212-companion-reason"),
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            // Wrap controls at large system fonts instead of clipping the
+            // third button beyond the edge on compact One UI viewports.
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().testTag("v2215-companion-actions"),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (decision.actionLabel != null) {
                     OutlinedButton(
                         onClick = { onAction(decision) },
-                        modifier = Modifier.testTag("v2212-companion-action"),
-                    ) { Text(decision.actionLabel, fontSize = 10.sp) }
+                        modifier = Modifier.heightIn(min = 48.dp)
+                            .testTag("v2212-companion-action")
+                            .semantics {
+                                contentDescription = when (decision.destination) {
+                                    com.framebynavin.app.data.V221CompanionDestination.PROJECT -> "Open recommended project"
+                                    com.framebynavin.app.data.V221CompanionDestination.REMINDER_HUB -> "Open reminders hub"
+                                    com.framebynavin.app.data.V221CompanionDestination.IDEA_VAULT -> "Open idea vault"
+                                    com.framebynavin.app.data.V221CompanionDestination.NONE -> "Open recommendation"
+                                }
+                            },
+                    ) { Text(decision.actionLabel, fontSize = 11.sp) }
                 }
                 TextButton(
                     onClick = { showReason = !showReason },
-                    modifier = Modifier.testTag("v2212-companion-why"),
-                ) { Text(if (showReason) "Less" else "Why?", fontSize = 10.sp) }
-                Spacer(Modifier.weight(1f))
+                    modifier = Modifier.heightIn(min = 48.dp)
+                        .testTag("v2212-companion-why")
+                        .semantics {
+                            contentDescription = "Why this suggestion was shown"
+                            stateDescription = if (showReason) "Expanded" else "Collapsed"
+                        },
+                ) { Text(if (showReason) "Less" else "Why?", fontSize = 11.sp) }
                 TextButton(
                     onClick = { onDismiss(decision) },
-                    modifier = Modifier.testTag("v2212-companion-dismiss"),
-                ) { Text("Not now", fontSize = 10.sp) }
+                    modifier = Modifier.heightIn(min = 48.dp)
+                        .testTag("v2212-companion-dismiss")
+                        .semantics {
+                            contentDescription = "Dismiss companion suggestion for now"
+                        },
+                ) { Text("Not now", fontSize = 11.sp) }
             }
         }
     }

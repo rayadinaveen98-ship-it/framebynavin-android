@@ -69,6 +69,8 @@ internal fun V144SettingsHub(
     onOpenWeeklyPlan: () -> Unit = {},
     onOpenAutomation: () -> Unit = {},
     onOpenHomeSlideshow: () -> Unit = {},
+    companionEnabled: Boolean = true,
+    onCompanionEnabledChange: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     var sectionName by rememberSaveable { mutableStateOf(V167SettingsSection.HOME.name) }
@@ -113,7 +115,7 @@ internal fun V144SettingsHub(
                 V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
                     onOpenHomeSlideshow()
                 }
-                V144CategoryCard("Spark", "Your creative companion", Icons.Outlined.Face, MutedGold) {
+                V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
                 }
                 V144CategoryCard("Voice", "Reminder voice and previews", Icons.Outlined.RecordVoiceOver, RecRed) {
@@ -126,10 +128,17 @@ internal fun V144SettingsHub(
                 V127AppearanceSettings(showGuidePicker = false)
             }
 
-            V167SettingsSection.GUIDE -> V144SettingsPage("SPARK", "Your creative companion", ::navigateBack) {
+            V167SettingsSection.GUIDE -> V144SettingsPage("COMPANION", "Your creative companion", ::navigateBack) {
                 V144GuidePicker()
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("HELPFUL SUGGESTIONS", "Optional, private guidance on Home.")
+                Spacer(Modifier.height(8.dp))
+                V2215CompanionControls(
+                    enabled = companionEnabled,
+                    onEnabledChange = onCompanionEnabledChange,
+                )
                 Spacer(Modifier.height(12.dp))
-                V144SettingsNote("Choose the companion you want to see in Backlot. This changes your experience, not your saved work.")
+                V144SettingsNote("Choose the companion you want to see in Backlot. Suggestions never create, complete or reschedule reminders or projects. Turning them off does not change your guide.")
             }
 
             V167SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", ::navigateBack) {

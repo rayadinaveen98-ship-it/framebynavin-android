@@ -54,6 +54,7 @@ internal fun V2214HomeCompanion(
     onOpenProject: (String) -> Unit,
     onOpenIdeas: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val context = LocalContext.current
     val store = remember(context) { V221CompanionDismissalStore(context.applicationContext) }
@@ -91,7 +92,7 @@ internal fun V2214HomeCompanion(
     // after saves, changes, deletions, restores and idea status transitions.
     val taskSnapshot = tasks.toList()
     val ideaSnapshot = ideas.toList()
-    val decision = remember(taskSnapshot, ideaSnapshot, nowMillis, refreshVersion) {
+    val decision = remember(taskSnapshot, ideaSnapshot, nowMillis, refreshVersion, enabled) {
         runCatching {
             val contextSnapshot = evidence.snapshot(
                 tasks = taskSnapshot,
@@ -100,7 +101,7 @@ internal fun V2214HomeCompanion(
             )
             V221CompanionBehaviorPolicy.select(
                 context = contextSnapshot,
-                enabled = store.enabled(),
+                enabled = enabled && store.enabled(),
                 dismissals = store.records(),
             )
         }.getOrNull() // Fail closed when evidence/preferences cannot be read.
