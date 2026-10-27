@@ -78,9 +78,17 @@ class V221CompanionCooldownPolicyTest {
 
     @Test fun userAndEngineSuppressedIdsAreCombinedNotOverridden() {
         val ctx = context(listOf(task("first"), task("second"))).copy(
-            suppressedDecisionIds = setOf("project-overdue:first"))
-        val rows = V221CompanionCooldownPolicy.dismiss(emptyList(),
-            "project-overdue:second", now)
+            suppressedDecisionIds = setOf(
+                "project-overdue:first", "project-review:first",
+            ))
+        // The engine has both urgent AND lower-priority fallback decisions
+        // for planned projects. Silence only after all four are suppressed.
+        val rows = V221CompanionCooldownPolicy.dismiss(
+            V221CompanionCooldownPolicy.dismiss(
+                emptyList(), "project-overdue:second", now,
+            ),
+            "project-review:second", now,
+        )
         assertNull(V221CompanionBehaviorPolicy.select(ctx, true, rows))
     }
 
