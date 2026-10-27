@@ -52,8 +52,8 @@ class V220HomeConsolidationUiTest {
             reminderAtMillis = System.currentTimeMillis() + 7_200_000L,
         )), onOpen = { opens++ })
         rule.onAllNodesWithTag("v219-reminder-home-entry").assertCountEquals(1)
-        rule.onNodeWithTag("v220-home-next-alert").performScrollTo().assertExists()
-        rule.onNodeWithText("NEXT ALERT").assertExists()
+        rule.onNodeWithTag("v220-home-next-alert", useUnmergedTree = true).performScrollTo().assertExists()
+        rule.onNodeWithText("NEXT ALERT", useUnmergedTree = true).assertExists()
         rule.onAllNodesWithText("REMINDERS").assertCountEquals(0)
         capture("one-hub-with-next-alert")
         rule.onNodeWithTag("v219-reminder-home-entry").performClick()
