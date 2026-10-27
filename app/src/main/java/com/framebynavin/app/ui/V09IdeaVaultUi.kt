@@ -69,6 +69,9 @@ internal fun V09IdeaVaultScreen(
     externalIdeaMode: String = "",
     externalLaunchNonce: Long = 0L,
     bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
+    // Root route owns New Idea, above bottom nav; standalone previews can
+    // still use the same Activity-owned overlay locally.
+    onCreateIdeaRequested: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
@@ -157,7 +160,7 @@ internal fun V09IdeaVaultScreen(
                     Text(if (showDeleted) "ALL IDEAS" else "DELETED (${deletedIdeas.size})",
                         color = MutedGold, fontSize = 10.sp)
                 }
-                IconButton(onClick = { creating = true }) {
+                IconButton(onClick = { onCreateIdeaRequested?.invoke() ?: run { creating = true } }) {
                     Icon(Icons.Outlined.Add, "New idea", tint = ProjectorIvory)
                 }
             }
@@ -226,7 +229,7 @@ internal fun V09IdeaVaultScreen(
                     Text("Keep ideas here until you're ready to use them.", color = MutedText, fontSize = 10.sp)
                     if (!showDeleted && ideas.isEmpty()) {
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = { creating = true }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("SAVE YOUR FIRST IDEA") }
+                        Button(onClick = { onCreateIdeaRequested?.invoke() ?: run { creating = true } }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("SAVE YOUR FIRST IDEA") }
                     }
                 }
             } else {
@@ -408,7 +411,7 @@ private fun V09IdeaCard(
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun V09NewIdeaCleanEditor(
+internal fun V09NewIdeaCleanEditor(
     onDismiss: () -> Unit,
     onSave: (CreatorIdea) -> Boolean,
     existingIdeas: List<CreatorIdea>,
@@ -453,22 +456,14 @@ private fun V09NewIdeaCleanEditor(
         onDismiss()
     }
 
-    Dialog(
+    // V220.4: NO Dialog window. Root draws this AFTER the floating bottom
+    // navigation; the Activity owns edge-to-edge and the real IME/nav insets.
+    // CreatorAdaptiveFullScreen consumes system insets once and provides a
+    // fixed ColumnScope for the independent scrolling body and Save footer.
+    CreatorAdaptiveFullScreen(
         onDismissRequest = ::dismiss,
-        // New Idea is its own dialog, not the V216 existing-idea editor.
-        // Without edge-to-edge window ownership the decor can cover the Save
-        // footer on phones with gesture navigation (owner screenshot).
-        properties = androidx.compose.ui.window.DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false,
-        ),
+        modifier = Modifier.testTag("v2203-new-idea-window"),
     ) {
-        Surface(Modifier.fillMaxSize().testTag("v2203-new-idea-window"), color = CinemaBlack) {
-            Column(
-                Modifier.fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
-                    .imePadding(),
-            ) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -746,8 +741,6 @@ private fun V09NewIdeaCleanEditor(
                         Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE IDEA", fontSize = 10.sp, fontWeight = FontWeight.Black)
                     }
                 }
-            }
-        }
     }
 }
 
