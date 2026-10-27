@@ -12,9 +12,9 @@ import kotlin.math.sin
  */
 internal object V218UnifiedWavePolicy {
     const val NORMAL_GLYPH_DOTS = 650
-    const val LOW_POWER_GLYPH_DOTS = 340
+    const val LOW_POWER_GLYPH_DOTS = 420
     const val FORM_SECONDS = 1.8
-    const val PEAK_GLYPH_STRENGTH = .965f
+    const val PEAK_GLYPH_STRENGTH = 1f
     // Fluidity is intentionally low; excessive drift erases recognizability.
     const val GLYPH_FLOW_AMPLITUDE = .009f
 
