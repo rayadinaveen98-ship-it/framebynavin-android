@@ -88,6 +88,14 @@ internal fun V157ReminderCenterUi(
     var confirmDelete by remember { mutableStateOf(false) }
     // V219: presentation-only filter, never changes reminder storage or action tokens.
     var hubFilter by remember { mutableStateOf(V219ReminderHubFilter.ALL) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    // Compute visible groups from real Center data; no synthetic reminders.
+    val matchingGroups = V219ReminderSearchPolicy.filter(grouped, searchQuery)
+    val visibleSelectionIds = V219ReminderSearchPolicy.visibleIds(matchingGroups, hubFilter)
+    val responseTasks = if (searchQuery.isBlank()) tasks else {
+        val words = V219ReminderSearchPolicy.terms(searchQuery)
+        tasks.filter { V219ReminderSearchPolicy.matches(it, words) }
+    }
     val selectionMode = selected.isNotEmpty()
     // Recheck Android grants when the user returns from permission Settings.
     val notificationsReady = remember(permissionRefresh, context) {
@@ -139,7 +147,7 @@ internal fun V157ReminderCenterUi(
                     }
                     if (selectionMode) {
                         TextButton(onClick = {
-                            selected = if (selected.size == activeIds.size) emptySet() else activeIds
+                            selected = if (selected == visibleSelectionIds) emptySet() else visibleSelectionIds
                         }) { Text("SELECT ALL", fontSize = 11.sp) }
                         IconButton(onClick = { confirmDelete = true }) {
                             Icon(Icons.Outlined.DeleteOutline, "Delete selected", tint = RecRed)
@@ -172,7 +180,48 @@ internal fun V157ReminderCenterUi(
                         V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
                     }
 
+                    // V219.2: on-device search, directly composed with V219 chips.
                     Spacer(Modifier.height(13.dp))
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { updated ->
+                            searchQuery = updated.take(160)
+                            // Never leave destructive bulk selections hidden by a search.
+                            selected = emptySet()
+                        },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { searchQuery = ""; selected = emptySet() },
+                                    modifier = Modifier.testTag("v219-search-clear"),
+                                ) {
+                                    Icon(Icons.Outlined.Close, contentDescription = "Clear reminder search")
+                                }
+                            }
+                        },
+                        label = { Text("Search reminders") },
+                        placeholder = { Text("Title, project or notes") },
+                        modifier = Modifier.fillMaxWidth().testTag("v219-search-input"),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MutedGold,
+                            unfocusedBorderColor = CinemaLine,
+                            focusedTextColor = ProjectorIvory,
+                            unfocusedTextColor = ProjectorIvory,
+                            focusedLabelColor = MutedGold,
+                            unfocusedLabelColor = MutedText,
+                        ),
+                    )
+                    if (searchQuery.isNotBlank()) {
+                        Text(
+                            "${V219ReminderHubFilter.ALL.count(matchingGroups)} matching reminders",
+                            color = MutedText, fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 6.dp)
+                                .testTag("v219-search-result-count"),
+                        )
+                    }
+                    Spacer(Modifier.height(9.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                             .testTag("v219-hub-filters"),
@@ -181,9 +230,9 @@ internal fun V157ReminderCenterUi(
                         V219ReminderHubFilter.entries.forEach { filter ->
                             FilterChip(
                                 selected = hubFilter == filter,
-                                onClick = { hubFilter = filter },
+                                onClick = { hubFilter = filter; selected = emptySet() },
                                 label = {
-                                    Text("${filter.title} ${filter.count(grouped)}", fontSize = 11.sp,
+                                    Text("${filter.title} ${filter.count(matchingGroups)}", fontSize = 11.sp,
                                         maxLines = 1)
                                 },
                                 modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
@@ -192,7 +241,7 @@ internal fun V157ReminderCenterUi(
                     }
                     Spacer(Modifier.height(13.dp))
                     V181ReminderResponseSection(
-                        tasks = tasks,
+                        tasks = responseTasks,
                         nowMillis = now,
                         snoozeMinutes = snoozeMinutes,
                         onOpenProject = onEdit,
@@ -258,7 +307,7 @@ internal fun V157ReminderCenterUi(
                         if (hubFilter.includes(ReminderCenterGroup.NEEDS_ATTENTION)) V157ReminderGroup(
                             label = "NEEDS ATTENTION",
                             subtitle = "Overdue, at-risk or waiting for a check-in",
-                            tasks = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty(),
+                            tasks = matchingGroups[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty(),
                             accent = RecRed,
                             now = now,
                             selectionMode = selectionMode,
@@ -278,7 +327,7 @@ internal fun V157ReminderCenterUi(
                         if (hubFilter.includes(ReminderCenterGroup.TODAY)) V157ReminderGroup(
                             label = "TODAY",
                             subtitle = "Coming up in the next 24 hours",
-                            tasks = grouped[ReminderCenterGroup.TODAY].orEmpty(),
+                            tasks = matchingGroups[ReminderCenterGroup.TODAY].orEmpty(),
                             accent = MutedGold,
                             now = now,
                             selectionMode = selectionMode,
@@ -298,7 +347,7 @@ internal fun V157ReminderCenterUi(
                         if (hubFilter.includes(ReminderCenterGroup.SNOOZED_PAUSED)) V157ReminderGroup(
                             label = "SNOOZED / PAUSED",
                             subtitle = "Reminders you've delayed",
-                            tasks = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty(),
+                            tasks = matchingGroups[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty(),
                             accent = MutedText,
                             now = now,
                             selectionMode = selectionMode,
@@ -318,7 +367,7 @@ internal fun V157ReminderCenterUi(
                         if (hubFilter.includes(ReminderCenterGroup.UPCOMING)) V157ReminderGroup(
                             label = "UPCOMING",
                             subtitle = "Beyond the next 24 hours",
-                            tasks = grouped[ReminderCenterGroup.UPCOMING].orEmpty(),
+                            tasks = matchingGroups[ReminderCenterGroup.UPCOMING].orEmpty(),
                             accent = MutedText,
                             now = now,
                             selectionMode = selectionMode,
@@ -335,8 +384,11 @@ internal fun V157ReminderCenterUi(
                             onReschedule = onReschedule,
                             onTurnOff = { turnOffTarget = it },
                         )
-                        if (hubFilter.count(grouped) == 0) {
-                            Text("No reminders in this category", color = MutedText,
+                        if (hubFilter.count(matchingGroups) == 0) {
+                            Text(
+                                if (searchQuery.isNotBlank()) "No reminders match your search"
+                                else "No reminders in this category",
+                                color = MutedText,
                                 modifier = Modifier.padding(vertical = 20.dp)
                                     .testTag("v219-empty-filter"))
                         }
@@ -345,7 +397,7 @@ internal fun V157ReminderCenterUi(
     }
 
     if (confirmDelete || turnOffTarget != null) {
-        val targets = turnOffTarget?.let { setOf(it) } ?: selected
+        val targets = turnOffTarget?.let { setOf(it) } ?: selected.intersect(visibleSelectionIds)
         AlertDialog(
             onDismissRequest = { confirmDelete = false; turnOffTarget = null },
             title = {
