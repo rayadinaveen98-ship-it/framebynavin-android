@@ -92,10 +92,10 @@ internal fun V219ReminderHomeEntry(
                     tint = MutedGold)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                V219ReminderCount("NEEDS ACTION", data.attention,
+                V219ReminderCount("NEEDS", data.attention,
                     if (data.attention > 0) RecRed else MutedText, Modifier.weight(1f))
                 V219ReminderCount("TODAY", data.today, MutedGold, Modifier.weight(1f))
-                V219ReminderCount("POSTPONED", data.postponed, ProjectorIvory, Modifier.weight(1f))
+                V219ReminderCount("DELAYED", data.postponed, ProjectorIvory, Modifier.weight(1f))
             }
         }
     }
