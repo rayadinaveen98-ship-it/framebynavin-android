@@ -53,10 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V188 Phase 1B revenue and audience preview on top of V187.
-        // Same application and signing identity; no destructive creator-data migration.
-        versionCode = 239
-        versionName = "2.8.9-v2204.1-ime-safe"
+        // V221.5 personally signed stable candidate: increment from V221.5 preview (239).
+        // Keep the original package and prototype signing identity for safe in-place sideloads.
+        versionCode = 240
+        versionName = "2.9.0-v2215-personal-stable"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
