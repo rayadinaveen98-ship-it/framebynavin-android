@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
+import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -117,15 +118,64 @@ class V217CompanionConceptUiTest {
         rule.waitForIdle()
         val instrument = InstrumentationRegistry.getInstrumentation()
         val profile = InstrumentationRegistry.getArguments().getString("backlotVisualProfile") ?: "unspecified"
-        val photo = requireNotNull(instrument.uiAutomation.takeScreenshot()) { "Device capture unavailable" }
+        // Compose test rule can report idle before the Android SurfaceFlinger layer
+        // has presented its first frame. Real V217 top screenshots were black even
+        // though UI assertions passed. Capture and CHECK rendered pixels, retrying
+        // a bounded number of times, rather than accepting only a valid PNG header.
+        var rendered = false
+        var photo: Bitmap? = null
+        for (attempt in 0..2) {
+            instrument.waitForIdleSync()
+            SystemClock.sleep(350L + attempt * 200L)
+            val candidate = requireNotNull(instrument.uiAutomation.takeScreenshot()) {
+                "Device screenshot unavailable at attempt $attempt"
+            }
+            rendered = containsActualCharacterPixels(candidate)
+            if (rendered || attempt == 2) {
+                photo = candidate
+                break
+            }
+            candidate.recycle()
+        }
+
+        val bitmap = requireNotNull(photo)
         val dir = File(instrument.targetContext.filesDir, "v217-concept-visual")
         assertTrue("Cannot make screenshot directory", dir.isDirectory || dir.mkdirs())
         val output = File(dir, "v217-${profile}-${position}.png")
         try {
-            output.outputStream().use { assertTrue(photo.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+            output.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
         } finally {
-            photo.recycle()
+            bitmap.recycle()
         }
         assertTrue("Empty screenshot", output.length() > 256)
+        assertTrue("Screenshot is a blank Android window despite a green Compose test: $output", rendered)
+    }
+
+    /**
+     * Pixel acceptance is intentionally independent of the screenshot PNG header
+     * and status/nav bar: the actual character content is bright and colorful,
+     * unlike the dark stage. This rejects the black top captures from the first
+     * otherwise-green V217 emulator run.
+     */
+    private fun containsActualCharacterPixels(bitmap: Bitmap): Boolean {
+        val colors = HashSet<Int>()
+        var colorful = 0
+        val dx = maxOf(4, bitmap.width / 64)
+        val dy = maxOf(4, bitmap.height / 64)
+        val x0 = bitmap.width / 12
+        val x1 = bitmap.width * 11 / 12
+        val y0 = bitmap.height / 12
+        val y1 = bitmap.height * 11 / 12
+        for (y in y0 until y1 step dy) {
+            for (x in x0 until x1 step dx) {
+                val rgb = bitmap.getPixel(x, y) and 0x00FFFFFF
+                colors.add(rgb)
+                val r = (rgb shr 16) and 0xFF
+                val g = (rgb shr 8) and 0xFF
+                val b = rgb and 0xFF
+                if (maxOf(r, g, b) > 110) colorful++
+            }
+        }
+        return colors.size >= 32 && colorful >= 28
     }
 }
