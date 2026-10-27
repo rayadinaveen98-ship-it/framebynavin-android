@@ -1,0 +1,138 @@
+name: Backlot V221.3 — 27 Companion Pose Concept QA
+
+on:
+  push:
+    branches: [feature/backlot-v2213-companion-pose-variants]
+  pull_request:
+    branches: [feature/backlot-v2212-companion-behaviors]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v2213-poses-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Audit all 27 distinct Android VectorDrawable pose concepts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, xml.etree.ElementTree as ET
+          folder=Path("app/src/main/res/drawable-nodpi")
+          names=("welcome","listen","think","point","encourage","present","celebrate","rest","move")
+          files=[folder/f"guide_v2213_{who}_{pose}.xml"
+                 for who in ("frame","navi","cute") for pose in names]
+          assert len(files)==27 and all(f.exists() for f in files)
+          hashes={hashlib.sha256(f.read_bytes()).hexdigest() for f in files}
+          assert len(hashes)==27, "Every pose must have its own art geometry"
+          for f in files:
+              root=ET.parse(f).getroot()
+              assert root.tag=="vector" or root.tag.endswith("}vector")
+              assert len(list(root)) >= 13, (f, len(list(root)))
+              assert b"android:pathData=" in f.read_bytes()
+          # The approved original 5 Spark WebPs and 3 V217 concepts stay.
+          for name in ("guide_funny_welcome.webp","guide_funny_celebrate.webp",
+                       "guide_v217_frame_concept.webp","guide_v217_navi_concept.webp",
+                       "guide_v217_cute_concept.webp"):
+              assert (folder/name).exists(),name
+          live=Path("app/src/main/java/com/framebynavin/app/ui/V144GuideSystem.kt").read_text()
+          assert "V217LiveCompanionCharacter(guide, state, modifier, pointRight)" in live
+          assert "V144RasterGuideCharacter(guide, state, modifier, pointRight)" in live
+          print("27 independently drawn assets exist; live approved routes unchanged")
+          PY
+      - name: Full Backlot JVM regression tests and Android build
+        run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assemblePersonalStable :app:assembleDebugAndroidTest --stacktrace
+      - name: Check staged catalog unit test and full APKs
+        run: |
+          set -euo pipefail
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -f app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -f app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          names=("V2213PoseCatalogTest","V221CompanionCooldownPolicyTest",
+                 "V221CompanionDecisionEngineTest")
+          mins=(4,9,13)
+          for name,expected in zip(names,mins):
+              paths=list(Path("app/build/test-results/testDebugUnitTest")
+                  .glob("TEST-*"+name+".xml"))
+              assert len(paths)==1,(name,paths)
+              root=ET.parse(paths[0]).getroot()
+              assert int(root.attrib["tests"])>=expected,root.attrib
+              assert int(root.attrib.get("failures",0))==0 and int(root.attrib.get("errors",0))==0
+              print(name,root.attrib)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2213-Review-APKs-and-Pose-Tests
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            app/build/test-results/testDebugUnitTest/TEST-*V2213PoseCatalogTest.xml
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2213-Review-APKs-and-Pose-Tests
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Inflate 27 vectors and visually check all nine poses
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            mkdir -p v2213-evidence
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2213PoseConceptGalleryUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2213-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2213-default.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v2213-default.log
+            for who in frame navi cute; do adb exec-out run-as com.framebynavin.app cat "files/v2213-gallery/v2213-default-${who}-nine-poses.png" > "v2213-evidence/v2213-default-${who}-nine-poses.png"; done
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2213PoseConceptGalleryUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2213-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2213-compact.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v2213-compact.log
+            for who in frame navi cute; do adb exec-out run-as com.framebynavin.app cat "files/v2213-gallery/v2213-compact-${who}-nine-poses.png" > "v2213-evidence/v2213-compact-${who}-nine-poses.png"; done
+            python3 -c 'from pathlib import Path; import struct; fs=list(Path("v2213-evidence").glob("*.png")); assert len(fs)==6,len(fs); assert all(p.stat().st_size>15000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") for p in fs); assert all(struct.unpack(">I",p.read_bytes()[16:20])[0]==1080 for p in fs if "default" in p.name); assert all(struct.unpack(">I",p.read_bytes()[16:20])[0]==900 for p in fs if "compact" in p.name); print([p.name for p in fs])'
+      - name: Upload real Android 9-pose review sheets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2213-27-Vector-Visual-Review
+          path: |
+            v2213-evidence/*.png
+            v2213-*.log
+          retention-days: 14
+          if-no-files-found: warn
