@@ -76,17 +76,9 @@ internal fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState):
         CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_funny_welcome
     }
 
-    // V217 preview branch: honor the five existing kitten poses instead of treating
-    // every semantic action as welcome. No resource, identity or Spark changes.
-    V144GuideIdentity.CUTE -> when (state) {
-        CinePulseState.LISTEN, CinePulseState.NOD -> R.drawable.guide_cute_listening
-        CinePulseState.THINK -> R.drawable.guide_cute_thinking
-        CinePulseState.POINT, CinePulseState.PRESENT, CinePulseState.WALK ->
-            R.drawable.guide_cute_encourage
-        CinePulseState.SUCCESS, CinePulseState.CELEBRATE -> R.drawable.guide_cute_celebrate
-        CinePulseState.IDLE, CinePulseState.LOOK, CinePulseState.WAVE,
-        CinePulseState.REST -> R.drawable.guide_cute_welcome
-    }
+    // Safety-critical existing rule: only the undistorted kitten welcome master is approved.
+    // Legacy thinking/celebrate WebPs contain corrupted image regions; do not route to them.
+    V144GuideIdentity.CUTE -> R.drawable.guide_cute_welcome
 
     // Defensive fallback; Frame/Navi normally stay on their vector renderer.
     V144GuideIdentity.FRAME, V144GuideIdentity.NAVI -> R.drawable.guide_funny_welcome
