@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.CinePulseState
 import com.framebynavin.app.ui.V144GuideCharacter
-import com.framebynavin.app.ui.V144GuideChoiceGate
 import com.framebynavin.app.ui.V144GuideIdentity
 import com.framebynavin.app.ui.V144GuidePicker
 import com.framebynavin.app.ui.V144GuidePrefs
@@ -110,18 +109,15 @@ private fun CompanionReviewScreen(
             CinePulseState.entries.chunked(3).forEach { states ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     states.forEach { option ->
-                        val select: @Composable () -> Unit = {
-                            if (state == option) {
-                                Button(onClick = { onState(option) }, modifier = Modifier.weight(1f)) {
-                                    Text(option.name, fontSize = 9.sp, maxLines = 1)
-                                }
-                            } else {
-                                OutlinedButton(onClick = { onState(option) }, modifier = Modifier.weight(1f)) {
-                                    Text(option.name, fontSize = 9.sp, maxLines = 1)
-                                }
+                        if (state == option) {
+                            Button(onClick = { onState(option) }, modifier = Modifier.weight(1f)) {
+                                Text(option.name, fontSize = 9.sp, maxLines = 1)
+                            }
+                        } else {
+                            OutlinedButton(onClick = { onState(option) }, modifier = Modifier.weight(1f)) {
+                                Text(option.name, fontSize = 9.sp, maxLines = 1)
                             }
                         }
-                        select()
                     }
                 }
             }
