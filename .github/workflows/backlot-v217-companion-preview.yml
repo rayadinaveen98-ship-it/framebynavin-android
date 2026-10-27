@@ -1,11 +1,11 @@
-name: Backlot V217 — Isolated Companion Preview QA
+name: Backlot V217 — Live Companion App Acceptance
 
 on:
   push:
-    branches: [feature/backlot-v217-companion-renderer-prototype]
+    branches: [feature/backlot-v217-live-companion-application]
   workflow_dispatch:
   pull_request:
-    branches: [design/backlot-v217-companion-art-direction]
+    branches: [feature/backlot-v217-companion-renderer-prototype]
 
 permissions:
   contents: read
@@ -40,10 +40,30 @@ jobs:
           test -f app/src/main/res/drawable-nodpi/guide_funny_celebrate.webp
           for guide in frame navi cute; do test -s "app/src/main/res/drawable-nodpi/guide_v217_${guide}_concept.webp"; done
           test -f app/src/androidTest/java/com/framebynavin/app/ui/V217CompanionConceptUiTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V217LiveGuideScreensUiTest.kt
+          grep -Fq 'V217LiveCompanionCharacter(guide, state, modifier, pointRight)' app/src/main/java/com/framebynavin/app/ui/V144GuideSystem.kt
       - name: Verify approved Spark resources and transparent concept artwork
         run: python3 tools/check_v217_companion_assets.py --mode concept
       - name: Build, unit tests and Android instrumentation APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - name: Build isolated side-by-side Backlot V217 Review APK
+        run: gradle :v217review:assembleDebug --stacktrace
+      - name: Verify review app package and permission isolation
+        run: |
+          test -s v217review/build/outputs/apk/debug/v217review-debug.apk
+          grep -Fq 'applicationId = "com.framebynavin.v217review"' v217review/build.gradle.kts
+          if grep -Eq '<uses-permission|INTERNET|RECORD_AUDIO|READ_CALENDAR|SCHEDULE_EXACT_ALARM' v217review/src/main/AndroidManifest.xml; then
+            # Source comments mention permissions, but no actual uses-permission elements.
+            if grep -Eq '^[[:space:]]*<uses-permission' v217review/src/main/AndroidManifest.xml; then exit 1; fi
+          fi
+          test -f scripts/v217-review-smoke.sh
+      - name: Upload independent safe review APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V217-Isolated-Review-APK
+          path: v217review/build/outputs/apk/debug/v217review-debug.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload debug APKs for synthetic emulator only
         uses: actions/upload-artifact@v4
         with:
@@ -58,10 +78,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: Backlot-V217-Preview-Instrumentation-APKs
           path: apks
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V217-Isolated-Review-APK
+          path: apks/review
       - name: Enable KVM for the test-only Android emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -86,6 +111,11 @@ jobs:
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-bottom.png > v217-evidence/v217-default-bottom.png
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-compare-top.png > v217-evidence/v217-default-compare-top.png
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-compare-bottom.png > v217-evidence/v217-default-compare-bottom.png
+            # Exercise the actual first-run and Settings UI, not a copied mockup.
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217LiveGuideScreensUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v217-live-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v217-live-default.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v217-live-default.log
+            for scene in first-run-top first-run-bottom settings-top settings-bottom; do adb exec-out run-as com.framebynavin.app cat "files/v217-live-screens/v217-default-${scene}.png" > "v217-evidence/v217-default-${scene}.png"; done
             adb shell wm size 900x1600
             adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217CompanionConceptUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v217-compact.log
@@ -97,15 +127,29 @@ jobs:
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-bottom.png > v217-evidence/v217-compact-bottom.png
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-compare-top.png > v217-evidence/v217-compact-compare-top.png
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-compare-bottom.png > v217-evidence/v217-compact-compare-bottom.png
-            python3 -c 'from pathlib import Path; from struct import unpack; files=sorted(Path("v217-evidence").glob("*.png")); assert len(files)==8,files; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in files}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in files),sizes; print(sizes)'
+            # Restore the actual compact viewport: the older concept test resets it.
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            # Exercise the actual first-run and Settings UI, not a copied mockup.
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217LiveGuideScreensUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v217-live-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v217-live-compact.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v217-live-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            for scene in first-run-top first-run-bottom settings-top settings-bottom; do adb exec-out run-as com.framebynavin.app cat "files/v217-live-screens/v217-compact-${scene}.png" > "v217-evidence/v217-compact-${scene}.png"; done
+            python3 -c 'from pathlib import Path; from struct import unpack; fs=sorted(Path("v217-evidence").glob("*.png")); assert len(fs)==16,fs; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in fs),sizes; assert sizes["v217-compact-first-run-top.png"]==(900,1600),sizes; assert sizes["v217-compact-settings-top.png"]==(900,1600),sizes; assert sizes["v217-default-first-run-top.png"]!=(900,1600),sizes; print(sizes)'
+            # The runner owns/emulates Android only inside this script section.
+            bash scripts/v217-review-smoke.sh
       - name: Upload real Android window PNGs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-V217-Concept-Real-Android-PNGs
+          name: Backlot-V217-Live-FirstRun-Settings-Android-PNGs
           path: |
             v217-evidence/*.png
             v217-default.log
             v217-compact.log
+            v217-live-default.log
+            v217-live-compact.log
           if-no-files-found: warn
           retention-days: 14

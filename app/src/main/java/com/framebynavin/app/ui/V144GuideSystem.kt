@@ -6,6 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -110,6 +116,12 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
         return
     }
 
+    V217GuideChoiceContent(onSelect = { guide -> V144GuidePrefs.select(guide) })
+}
+
+/** Reused production first-run companion UI, independently testable without clearing saved setup. */
+@Composable
+internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
             Modifier.fillMaxSize()
@@ -133,12 +145,17 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
             Spacer(Modifier.height(18.dp))
 
             V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Measure the tallest card once per row; shorter descriptions
+                // must not leave one SELECT button floating above its neighbor.
+                Row(
+                    Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     guides.forEach { guide ->
                         V144GuideChoiceCard(
                             guide = guide,
-                            onSelect = { V144GuidePrefs.select(guide) },
-                            modifier = Modifier.weight(1f),
+                            onSelect = { onSelect(guide) },
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
                     if (guides.size == 1) Spacer(Modifier.weight(1f))
@@ -157,12 +174,15 @@ private fun V144GuideChoiceCard(
 ) {
     val identity = v144GuideIdentityColor(guide)
     Surface(
-        modifier = modifier,
+        modifier = modifier.testTag("v217-choice-${guide.name}"),
         shape = RoundedCornerShape(20.dp),
         color = CinemaSurface,
         border = BorderStroke(1.2.dp, identity.copy(alpha = .76f)),
     ) {
-        Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.fillMaxHeight().padding(9.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Surface(
                 modifier = Modifier.fillMaxWidth().height(112.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -188,14 +208,25 @@ private fun V144GuideChoiceCard(
                 textAlign = TextAlign.Center,
                 minLines = 2,
             )
+            // Fill only the difference in row content height, pinning both
+            // actions to one baseline on 1.0x and 1.5x system font sizes.
+            Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(7.dp))
             Button(
                 onClick = onSelect,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = Color.White),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+                    .testTag("v217-choose-button-${guide.name}")
+                    .semantics { contentDescription = "Select ${guide.displayName}" },
+                // All four accent surfaces have >= 5.6:1 contrast with dark ink,
+                // while white labels ranged 1.5:1 to 3.7:1 (below AA).
+                colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = CinemaBlack),
                 shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
             ) {
-                Text("USE ${guide.displayName.uppercase()}", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                // One clear action word: labels such as USE SPARK/USE FRAME
+                // were visibly cut in half on compact screens with 1.5x fonts.
+                // The card title and full accessibility label identify the guide.
+                Text("SELECT", fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
             }
         }
     }
@@ -220,7 +251,8 @@ internal fun V144GuidePicker() {
                     val active = guide == selected
                     val identity = v144GuideIdentityColor(guide)
                     Surface(
-                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) },
+                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) }
+                            .testTag("v217-settings-${guide.name}"),
                         shape = RoundedCornerShape(18.dp),
                         color = if (active) CinemaSurfaceRaised else CinemaSurface,
                         border = BorderStroke(1.2.dp, if (active) identity else CinemaLine),
@@ -265,10 +297,10 @@ internal fun V144GuideCharacter(
     pointRight: Boolean = true,
 ) {
     when (guide) {
-        V144GuideIdentity.FRAME -> BacklotGuideCharacter(BacklotCharacter.FRAME, state, modifier, pointRight)
-        V144GuideIdentity.NAVI -> BacklotGuideCharacter(BacklotCharacter.NAVI, state, modifier, pointRight)
+        V144GuideIdentity.FRAME, V144GuideIdentity.NAVI, V144GuideIdentity.CUTE ->
+            V217LiveCompanionCharacter(guide, state, modifier, pointRight)
+        // The original Spark code path and all five original Spark WebPs are preserved.
         V144GuideIdentity.FUNNY -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
-        V144GuideIdentity.CUTE -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
     }
 }
 
