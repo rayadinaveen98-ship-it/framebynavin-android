@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
@@ -22,6 +24,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import java.io.File
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,11 +37,12 @@ class V217LiveGuideScreensUiTest {
     @get:Rule val rule = createComposeRule()
 
     @Test fun actualFirstRunCompanionChoicesShowStaged3DArtwork() {
+        val selected = mutableListOf<V144GuideIdentity>()
         rule.setContent {
             FrameByNavinTheme {
                 // V217GuideChoiceContent is used by the REAL V144GuideChoiceGate,
                 // not a hand-built imitation for screenshot purposes.
-                V217GuideChoiceContent(onSelect = {})
+                V217GuideChoiceContent(onSelect = { selected.add(it) })
             }
         }
         rule.waitForIdle()
@@ -47,12 +51,30 @@ class V217LiveGuideScreensUiTest {
         }
         rule.onNodeWithTag("v217-choose-button-FRAME").assertIsDisplayed()
         rule.onNodeWithTag("v217-choose-button-NAVI").assertIsDisplayed()
+        assertAligned("FRAME", "NAVI")
         capture("first-run-top")
         rule.onNodeWithTag("v217-choice-CUTE").performScrollTo()
         rule.waitForIdle()
         rule.onNodeWithTag("v217-choose-button-FUNNY").assertIsDisplayed()
         rule.onNodeWithTag("v217-choose-button-CUTE").assertIsDisplayed()
+        assertAligned("FUNNY", "CUTE")
         capture("first-run-bottom")
+        // Verify real button callback without mutating app's persisted guide.
+        rule.onNodeWithTag("v217-choose-button-CUTE").performClick()
+        assertEquals(listOf(V144GuideIdentity.CUTE), selected)
+    }
+
+    private fun assertAligned(first: String, second: String) {
+        val a = rule.onNodeWithTag("v217-choice-$first").getUnclippedBoundsInRoot()
+        val b = rule.onNodeWithTag("v217-choice-$second").getUnclippedBoundsInRoot()
+        assertTrue("Card tops misaligned: $first=$a, $second=$b",
+            a.top <= b.top + 1.dp && b.top <= a.top + 1.dp)
+        assertTrue("Card bottoms differ: $first=$a, $second=$b",
+            a.bottom <= b.bottom + 1.dp && b.bottom <= a.bottom + 1.dp)
+        val buttonA = rule.onNodeWithTag("v217-choose-button-$first").getUnclippedBoundsInRoot()
+        val buttonB = rule.onNodeWithTag("v217-choose-button-$second").getUnclippedBoundsInRoot()
+        assertTrue("Button baselines differ: $first=$buttonA, $second=$buttonB",
+            buttonA.bottom <= buttonB.bottom + 1.dp && buttonB.bottom <= buttonA.bottom + 1.dp)
     }
 
     @Test fun realSettingsGuidePickerShowsStaged3DArtwork() {
