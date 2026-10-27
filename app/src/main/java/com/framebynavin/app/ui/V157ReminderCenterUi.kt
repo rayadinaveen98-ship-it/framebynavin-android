@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -88,6 +89,14 @@ internal fun V157ReminderCenterUi(
     var confirmDelete by remember { mutableStateOf(false) }
     // V219: presentation-only filter, never changes reminder storage or action tokens.
     var hubFilter by remember { mutableStateOf(V219ReminderHubFilter.ALL) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    // Compute visible groups from real Center data; no synthetic reminders.
+    val matchingGroups = V219ReminderSearchPolicy.filter(grouped, searchQuery)
+    val visibleSelectionIds = V219ReminderSearchPolicy.visibleIds(matchingGroups, hubFilter)
+    val responseTasks = if (searchQuery.isBlank()) tasks else {
+        val words = V219ReminderSearchPolicy.terms(searchQuery)
+        tasks.filter { V219ReminderSearchPolicy.matches(it, words) }
+    }
     val selectionMode = selected.isNotEmpty()
     // Recheck Android grants when the user returns from permission Settings.
     val notificationsReady = remember(permissionRefresh, context) {
@@ -117,82 +126,10 @@ internal fun V157ReminderCenterUi(
         selected = if (id in selected) selected - id else selected + id
     }
 
-    CreatorAdaptiveFullScreen(
-        onDismissRequest = { if (selectionMode) selected = emptySet() else onDismiss() },
-    ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = { if (selectionMode) selected = emptySet() else onDismiss() }) {
-                        Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory)
-                    }
-                    Spacer(Modifier.width(3.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("REMINDERS", color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        Text(
-                            if (selectionMode) "${selected.size} SELECTED" else "Stay on track",
-                            color = ProjectorIvory,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                    if (selectionMode) {
-                        TextButton(onClick = {
-                            selected = if (selected.size == activeIds.size) emptySet() else activeIds
-                        }) { Text("SELECT ALL", fontSize = 11.sp) }
-                        IconButton(onClick = { confirmDelete = true }) {
-                            Icon(Icons.Outlined.DeleteOutline, "Delete selected", tint = RecRed)
-                        }
-                    } else {
-                        IconButton(onClick = onNew) {
-                            Icon(Icons.Outlined.Add, "Add", tint = ProjectorIvory)
-                        }
-                    }
-                }
-
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                        .padding(horizontal = 18.dp)
-                        .padding(bottom = 45.dp),
-                ) {
-                    Text(
-                        "Manage the next check-in without changing your project.",
-                        color = MutedText,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    val attentionCount = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size
-                    val todayCount = grouped[ReminderCenterGroup.TODAY].orEmpty().size
-                    val postponedCount = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty().size
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        V157InboxCount("NEEDS", attentionCount, RecRed, Modifier.weight(1f))
-                        V157InboxCount("TODAY", todayCount, MutedGold, Modifier.weight(1f))
-                        V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
-                    }
-
-                    Spacer(Modifier.height(13.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                            .testTag("v219-hub-filters"),
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    ) {
-                        V219ReminderHubFilter.entries.forEach { filter ->
-                            FilterChip(
-                                selected = hubFilter == filter,
-                                onClick = { hubFilter = filter },
-                                label = {
-                                    Text("${filter.title} ${filter.count(grouped)}", fontSize = 11.sp,
-                                        maxLines = 1)
-                                },
-                                modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
-                            )
-                        }
-                    }
+    val reminderStatusPanels: @Composable () -> Unit = {
                     Spacer(Modifier.height(13.dp))
                     V181ReminderResponseSection(
-                        tasks = tasks,
+                        tasks = responseTasks,
                         nowMillis = now,
                         snoozeMinutes = snoozeMinutes,
                         onOpenProject = onEdit,
@@ -251,6 +188,123 @@ internal fun V157ReminderCenterUi(
                         }
                     }
 
+    }
+
+    CreatorAdaptiveFullScreen(
+        onDismissRequest = { if (selectionMode) selected = emptySet() else onDismiss() },
+    ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { if (selectionMode) selected = emptySet() else onDismiss() }) {
+                        Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory)
+                    }
+                    Spacer(Modifier.width(3.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("REMINDERS", color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        Text(
+                            if (selectionMode) "${selected.size} SELECTED" else "Stay on track",
+                            color = ProjectorIvory,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    if (selectionMode) {
+                        TextButton(onClick = {
+                            selected = if (selected == visibleSelectionIds) emptySet() else visibleSelectionIds
+                        }) { Text("SELECT ALL", fontSize = 11.sp) }
+                        IconButton(onClick = { confirmDelete = true }) {
+                            Icon(Icons.Outlined.DeleteOutline, "Delete selected", tint = RecRed)
+                        }
+                    } else {
+                        IconButton(onClick = onNew) {
+                            Icon(Icons.Outlined.Add, "Add", tint = ProjectorIvory)
+                        }
+                    }
+                }
+
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                        .padding(horizontal = 18.dp)
+                        .padding(bottom = 45.dp),
+                ) {
+                    Text(
+                        "Manage the next check-in without changing your project.",
+                        color = MutedText,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    val attentionCount = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size
+                    val todayCount = grouped[ReminderCenterGroup.TODAY].orEmpty().size
+                    val postponedCount = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty().size
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        V157InboxCount("NEEDS", attentionCount, RecRed, Modifier.weight(1f))
+                        V157InboxCount("TODAY", todayCount, MutedGold, Modifier.weight(1f))
+                        V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
+                    }
+
+                    // V219.2: on-device search, directly composed with V219 chips.
+                    Spacer(Modifier.height(13.dp))
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { updated ->
+                            searchQuery = updated.take(160)
+                            // Never leave destructive bulk selections hidden by a search.
+                            selected = emptySet()
+                        },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { searchQuery = ""; selected = emptySet() },
+                                    modifier = Modifier.testTag("v219-search-clear"),
+                                ) {
+                                    Icon(Icons.Outlined.Close, contentDescription = "Clear reminder search")
+                                }
+                            }
+                        },
+                        label = { Text("Search reminders") },
+                        placeholder = { Text("Title or notes", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        modifier = Modifier.fillMaxWidth().testTag("v219-search-input"),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MutedGold,
+                            unfocusedBorderColor = CinemaLine,
+                            focusedTextColor = ProjectorIvory,
+                            unfocusedTextColor = ProjectorIvory,
+                            focusedLabelColor = MutedGold,
+                            unfocusedLabelColor = MutedText,
+                        ),
+                    )
+                    if (searchQuery.isNotBlank()) {
+                        Text(
+                            "${V219ReminderHubFilter.ALL.count(matchingGroups)} matching reminders",
+                            color = MutedText, fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 6.dp)
+                                .testTag("v219-search-result-count"),
+                        )
+                    }
+                    Spacer(Modifier.height(9.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            .testTag("v219-hub-filters"),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        V219ReminderHubFilter.entries.forEach { filter ->
+                            FilterChip(
+                                selected = hubFilter == filter,
+                                onClick = { hubFilter = filter; selected = emptySet() },
+                                label = {
+                                    Text("${filter.title} ${filter.count(matchingGroups)}", fontSize = 11.sp,
+                                        maxLines = 1)
+                                },
+                                modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
+                            )
+                        }
+                    }
+                    if (searchQuery.isBlank()) reminderStatusPanels()
                     if (activeIds.isEmpty()) {
                         Spacer(Modifier.height(28.dp))
                         V157EmptyReminderCenter(onNew)
@@ -258,7 +312,7 @@ internal fun V157ReminderCenterUi(
                         if (hubFilter.includes(ReminderCenterGroup.NEEDS_ATTENTION)) V157ReminderGroup(
                             label = "NEEDS ATTENTION",
                             subtitle = "Overdue, at-risk or waiting for a check-in",
-                            tasks = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty(),
+                            tasks = matchingGroups[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty(),
                             accent = RecRed,
                             now = now,
                             selectionMode = selectionMode,
@@ -278,7 +332,7 @@ internal fun V157ReminderCenterUi(
                         if (hubFilter.includes(ReminderCenterGroup.TODAY)) V157ReminderGroup(
                             label = "TODAY",
                             subtitle = "Coming up in the next 24 hours",
-                            tasks = grouped[ReminderCenterGroup.TODAY].orEmpty(),
+                            tasks = matchingGroups[ReminderCenterGroup.TODAY].orEmpty(),
                             accent = MutedGold,
                             now = now,
                             selectionMode = selectionMode,
@@ -298,7 +352,7 @@ internal fun V157ReminderCenterUi(
                         if (hubFilter.includes(ReminderCenterGroup.SNOOZED_PAUSED)) V157ReminderGroup(
                             label = "SNOOZED / PAUSED",
                             subtitle = "Reminders you've delayed",
-                            tasks = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty(),
+                            tasks = matchingGroups[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty(),
                             accent = MutedText,
                             now = now,
                             selectionMode = selectionMode,
@@ -318,7 +372,7 @@ internal fun V157ReminderCenterUi(
                         if (hubFilter.includes(ReminderCenterGroup.UPCOMING)) V157ReminderGroup(
                             label = "UPCOMING",
                             subtitle = "Beyond the next 24 hours",
-                            tasks = grouped[ReminderCenterGroup.UPCOMING].orEmpty(),
+                            tasks = matchingGroups[ReminderCenterGroup.UPCOMING].orEmpty(),
                             accent = MutedText,
                             now = now,
                             selectionMode = selectionMode,
@@ -335,17 +389,22 @@ internal fun V157ReminderCenterUi(
                             onReschedule = onReschedule,
                             onTurnOff = { turnOffTarget = it },
                         )
-                        if (hubFilter.count(grouped) == 0) {
-                            Text("No reminders in this category", color = MutedText,
+                        if (hubFilter.count(matchingGroups) == 0) {
+                            Text(
+                                if (searchQuery.isNotBlank()) "No reminders match your search"
+                                else "No reminders in this category",
+                                color = MutedText,
                                 modifier = Modifier.padding(vertical = 20.dp)
                                     .testTag("v219-empty-filter"))
                         }
                     }
+                    // Show matches before nonmatching response/status panels during search.
+                    if (searchQuery.isNotBlank()) reminderStatusPanels()
                 }
     }
 
     if (confirmDelete || turnOffTarget != null) {
-        val targets = turnOffTarget?.let { setOf(it) } ?: selected
+        val targets = turnOffTarget?.let { setOf(it) } ?: selected.intersect(visibleSelectionIds)
         AlertDialog(
             onDismissRequest = { confirmDelete = false; turnOffTarget = null },
             title = {
