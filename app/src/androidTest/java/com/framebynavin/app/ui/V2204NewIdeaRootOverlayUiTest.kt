@@ -2,6 +2,10 @@ package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
 import android.os.SystemClock
+import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,6 +40,15 @@ class V2204NewIdeaRootOverlayUiTest {
 
     private fun render(onAccepted: (CreatorIdea) -> Unit = {}) {
         HardeningTestEnvironment.requireCiEmulator()
+        // ComposeTestActivity otherwise defaults to a decor-fitted window;
+        // the test previously passed semantics even when the separate IME
+        // window obscured Save. Mirror production MainActivity exactly.
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val activity = ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(Stage.RESUMED).first()
+            WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+            activity.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
         rule.setContent {
             FrameByNavinTheme {
                 var editorOpen by remember { mutableStateOf(false) }
