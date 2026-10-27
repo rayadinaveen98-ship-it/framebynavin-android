@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -110,6 +111,12 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
         return
     }
 
+    V217GuideChoiceContent(onSelect = { guide -> V144GuidePrefs.select(guide) })
+}
+
+/** Reused production first-run companion UI, independently testable without clearing saved setup. */
+@Composable
+internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
             Modifier.fillMaxSize()
@@ -137,7 +144,7 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
                     guides.forEach { guide ->
                         V144GuideChoiceCard(
                             guide = guide,
-                            onSelect = { V144GuidePrefs.select(guide) },
+                            onSelect = { onSelect(guide) },
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -157,7 +164,7 @@ private fun V144GuideChoiceCard(
 ) {
     val identity = v144GuideIdentityColor(guide)
     Surface(
-        modifier = modifier,
+        modifier = modifier.testTag("v217-choice-${guide.name}"),
         shape = RoundedCornerShape(20.dp),
         color = CinemaSurface,
         border = BorderStroke(1.2.dp, identity.copy(alpha = .76f)),
@@ -220,7 +227,8 @@ internal fun V144GuidePicker() {
                     val active = guide == selected
                     val identity = v144GuideIdentityColor(guide)
                     Surface(
-                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) },
+                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) }
+                            .testTag("v217-settings-${guide.name}"),
                         shape = RoundedCornerShape(18.dp),
                         color = if (active) CinemaSurfaceRaised else CinemaSurface,
                         border = BorderStroke(1.2.dp, if (active) identity else CinemaLine),
