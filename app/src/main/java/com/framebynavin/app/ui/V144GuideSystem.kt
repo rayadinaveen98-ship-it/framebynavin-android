@@ -265,10 +265,10 @@ internal fun V144GuideCharacter(
     pointRight: Boolean = true,
 ) {
     when (guide) {
-        V144GuideIdentity.FRAME -> BacklotGuideCharacter(BacklotCharacter.FRAME, state, modifier, pointRight)
-        V144GuideIdentity.NAVI -> BacklotGuideCharacter(BacklotCharacter.NAVI, state, modifier, pointRight)
+        V144GuideIdentity.FRAME, V144GuideIdentity.NAVI, V144GuideIdentity.CUTE ->
+            V217LiveCompanionCharacter(guide, state, modifier, pointRight)
+        // The original Spark code path and all five original Spark WebPs are preserved.
         V144GuideIdentity.FUNNY -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
-        V144GuideIdentity.CUTE -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
     }
 }
 
