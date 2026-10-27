@@ -114,6 +114,58 @@ class V217CompanionConceptUiTest {
         captureVisual("bottom")
     }
 
+    /**
+     * Real Spark must appear beside real existing Frame/Navi/Cute and the three
+     * staged concept cutouts. Synthetic, screen-test only: no preference mutation.
+     */
+    @Test fun compareOriginalGuidesToStagedCutoutsAtAppSizes() {
+        val guides = listOf(
+            V144GuideIdentity.FUNNY,
+            V144GuideIdentity.FRAME,
+            V144GuideIdentity.NAVI,
+            V144GuideIdentity.CUTE,
+        )
+        rule.setContent {
+            FrameByNavinTheme {
+                Column(
+                    Modifier.fillMaxSize()
+                        .background(Color(0xFF141923))
+                        .verticalScroll(rememberScrollState())
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    for (guide in guides) {
+                        Text(guide.displayName + " · Existing / V217 study", color = Color.White)
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            V144GuideCharacter(
+                                guide = guide,
+                                state = CinePulseState.IDLE,
+                                modifier = Modifier.size(96.dp).testTag("v217-current-${guide.name}"),
+                            )
+                            V217CompanionConceptPreview(
+                                identity = guide,
+                                modifier = Modifier.size(96.dp).testTag("v217-study-${guide.name}"),
+                            )
+                            V217CompanionConceptPreview(
+                                identity = guide,
+                                modifier = Modifier.size(48.dp).testTag("v217-study-small-${guide.name}"),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("v217-current-FUNNY").assertExists()
+        rule.onNodeWithTag("v217-study-FUNNY").assertExists()
+        captureVisual("compare-top")
+        for (guide in guides) {
+            rule.onNodeWithTag("v217-study-small-${guide.name}").performScrollTo().assertExists()
+            rule.onNodeWithTag("v217-current-${guide.name}").performScrollTo().assertExists()
+        }
+        captureVisual("compare-bottom")
+    }
+
     private fun captureVisual(position: String) {
         rule.waitForIdle()
         val instrument = InstrumentationRegistry.getInstrumentation()
