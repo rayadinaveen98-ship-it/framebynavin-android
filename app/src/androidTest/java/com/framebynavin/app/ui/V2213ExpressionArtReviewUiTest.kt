@@ -27,7 +27,7 @@ class V2213ExpressionArtReviewUiTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         SystemClock.sleep(350)
         val i = InstrumentationRegistry.getInstrumentation()
-        val profile = i.arguments.getString("backlotVisualProfile")
+        val profile = InstrumentationRegistry.getArguments().getString("backlotVisualProfile")
         require(profile == "default" || profile == "compact")
         val bitmap = requireNotNull(i.uiAutomation.takeScreenshot())
         val folder = File(i.targetContext.filesDir, "v2213-art-review")
@@ -77,7 +77,7 @@ class V2213ExpressionArtReviewUiTest {
                     assertTrue("Empty pose for $guide/$pose", pixels.count { it ushr 24 > 80 } > 2500)
                     val digest = MessageDigest.getInstance("SHA-256")
                     val bb = java.nio.ByteBuffer.allocate(pixels.size * 4)
-                    pixels.forEach(bb::putInt)
+                    pixels.forEach { bb.putInt(it) }
                     val hash = digest.digest(bb.array()).joinToString("") { "%02x".format(it) }
                     assertTrue("Duplicate pose art for $guide/$pose", current.add(hash))
                     assertTrue("Accidental cross-guide duplicate for $guide/$pose", allDigests.add(hash))
