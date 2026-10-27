@@ -1,0 +1,195 @@
+name: Backlot V220.4 — Activity-Owned New Idea Footer
+
+on:
+  push:
+    branches: [feature/backlot-v2204-new-idea-activity-owned]
+  workflow_dispatch:
+  pull_request:
+    branches: [feature/backlot-v2203-owner-reported-blockers]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v2204-root-idea-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Static release-safety gate
+        run: |
+          set -euo pipefail
+          grep -Fq 'V219ReminderHomeEntry(tasks = tasks' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'V219ReminderHubFilter.entries.forEach' app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt
+          grep -Fq 'V157ReminderCenterUi(' app/src/main/java/com/framebynavin/app/ui/V131PolishUi.kt
+          grep -Fq 'PTab.CREATE, Icons.Outlined.MovieEdit, "Projects"' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          test -f app/src/test/java/com/framebynavin/app/ui/V219ReminderHubPolicyTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V219ReminderHubUiTest.kt
+          test -f app/src/test/java/com/framebynavin/app/ui/V219ReminderSearchPolicyTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V219ReminderSearchUiTest.kt
+          test -f app/src/main/java/com/framebynavin/app/ui/V2193ReminderHistoryPolicy.kt
+          test -f app/src/main/java/com/framebynavin/app/ui/V2193ReminderHistoryUi.kt
+          test -f app/src/test/java/com/framebynavin/app/ui/V2193ReminderHistoryPolicyTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V2193ReminderHistoryUiTest.kt
+          test -f app/src/main/java/com/framebynavin/app/ui/V220HomeReminderPreviewPolicy.kt
+          test -f app/src/test/java/com/framebynavin/app/ui/V220HomeReminderPreviewPolicyTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V220HomeConsolidationUiTest.kt
+          grep -Fq 'V220HomeReminderPreviewPolicy.pick' app/src/main/java/com/framebynavin/app/ui/V219ReminderHomeEntry.kt
+          ! grep -Fq 'PTodayReminders(tasks = tasks' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'remember(tasks) { pActiveQueue(tasks).take(10) }' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'remember(creatorProfile, tasks)' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'homeReflectsNewProjectAndWeeklyPublishWithoutRecreatingScreen' app/src/androidTest/java/com/framebynavin/app/ui/V220HomeConsolidationUiTest.kt
+          grep -Fq 'Text("NEXT MOVE"' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'v2202-next-move' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'nextMoveIsCompactUntilExpandedAndKeepsExistingActions' app/src/androidTest/java/com/framebynavin/app/ui/V220HomeConsolidationUiTest.kt
+          grep -Fq 'CreatorAdaptiveFullScreen(' app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt
+          grep -Fq 'onCreateIdeaRequested = { showNewIdeaEditor = true }' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq 'versionName = "2.8.8-v2204-new-idea-root-fix"' app/build.gradle.kts
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V2204NewIdeaRootOverlayUiTest.kt
+          python3 -c 'from pathlib import Path; s=Path("app/src/main/java/com/framebynavin/app/ui/V09IdeaVaultUi.kt").read_text(); start=s.index("internal fun V09NewIdeaCleanEditor("); stop=s.index("private fun V09IdeaEditor(", start); assert "Dialog(" not in s[start:stop]; a=Path("app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt").read_text(); assert a.index("V09NewIdeaCleanEditor(")>a.index("PBottomNav(")'
+          grep -Fq 'resealCloudSanitizedPayload' app/src/main/java/com/framebynavin/app/cloud/CreatorCloudVoiceMedia.kt
+          grep -Fq 'backup.validate(sanitized)' app/src/main/java/com/framebynavin/app/cloud/CreatorCloudVoiceMedia.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/cloud/V2203CloudChecksumSafetyTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V2203NewIdeaSafeFooterUiTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/V2203TopPerformersOrderUiTest.kt
+          python3 -c 'from pathlib import Path; s=Path("app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt").read_text(); assert s.count("V148HomeTopPerformersSection(")==1; assert s.index("V148HomeTopPerformersSection(")<s.index("v215-up-next-header")'
+          grep -Fq 'V2193ReminderHistorySection(tasks = historyTasks)' app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt
+          grep -Fq 'record.state == ReminderAckState.RESPONDED' app/src/main/java/com/framebynavin/app/ui/V2193ReminderHistoryPolicy.kt
+          grep -Fq 'V219ReminderSearchPolicy.filter(grouped, searchQuery)' app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt
+          grep -Fq 'visibleSelectionIds' app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt
+      - name: Test all unit policies and compile complete Backlot
+        run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - name: Upload full Backlot synthetic-test APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2204-Full-App-Android-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2204-Full-App-Android-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      # Compose captureToImage() excludes Android system bars: validate root width and height range.
+      - name: Real Android Home to Reminders Hub screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r apks/debug/app-debug.apk
+            adb install -r apks/androidTest/debug/app-debug-androidTest.apk
+            mkdir -p v220-evidence v2203-evidence v2204-evidence
+            adb shell am instrument -w -r -e class com.framebynavin.app.cloud.V2203CloudChecksumSafetyTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2203-cloud-checksum.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2203-cloud-checksum.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2203-cloud-checksum.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2204-root-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2204-root-default.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2204-root-default.log
+            for scene in nav-clear keyboard-clear; do adb exec-out run-as com.framebynavin.app cat "files/v2204-idea-evidence/v2204-default-${scene}.png" > "v2204-evidence/v2204-default-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2203NewIdeaSafeFooterUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2203-idea-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2203-idea-default.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2203-idea-default.log
+            for scene in empty-safe-footer keyboard-safe-footer; do adb exec-out run-as com.framebynavin.app cat "files/v2203-new-idea-evidence/v2203-default-${scene}.png" > "v2203-evidence/v2203-default-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2203TopPerformersOrderUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2203-top-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2203-top-default.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v2203-top-default.log
+            adb exec-out run-as com.framebynavin.app cat "files/v2203-top-video-evidence/v2203-default-top-three-above-up-next.png" > "v2203-evidence/v2203-default-top-three-above-up-next.png"
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V219ReminderHubUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2192-home-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2192-home-default.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2192-home-default.log
+            for scene in home-hub-card center-over-home hub-all hub-upcoming hub-today; do adb exec-out run-as com.framebynavin.app cat "files/v219-ui/v219-default-${scene}.png" > "v220-evidence/v219-default-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V219ReminderSearchUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2192-search-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2192-search-default.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2192-search-default.log
+            for scene in search-shoot search-no-results search-cleared search-multiterm; do adb exec-out run-as com.framebynavin.app cat "files/v2192-ui/v2192-default-${scene}.png" > "v220-evidence/v2192-default-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2193ReminderHistoryUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2193-history-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2193-history-default.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2193-history-default.log
+            for scene in verified-history return-to-active history-search history-clear; do adb exec-out run-as com.framebynavin.app cat "files/v2193-ui/v2193-default-${scene}.png" > "v220-evidence/v2193-default-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V220HomeConsolidationUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v220-consolidation-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v220-consolidation-default.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v220-consolidation-default.log
+            for scene in one-hub-with-next-alert empty-hub-no-invented-alert live-before live-after next-move-collapsed next-move-expanded; do adb exec-out run-as com.framebynavin.app cat "files/v220-ui/v220-default-${scene}.png" > "v220-evidence/v220-default-${scene}.png"; done
+            set -e; for spec in V213TodayFullScreenVisualUiTest:213 V215HomeFirstFoldVisualUiTest:215; do klass="${spec%%:*}"; version="${spec##*:}"; adb shell am instrument -w -r -e class "com.framebynavin.app.ui.${klass}" -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "v220-home-${version}-default.log"; if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' "v220-home-${version}-default.log"; then exit 1; fi; grep -Fq 'OK (4 tests)' "v220-home-${version}-default.log" || exit 1; for scenario in empty projects; do for position in top bottom; do adb exec-out run-as com.framebynavin.app cat "files/v${version}-home-visual/v${version}-${scenario}-${position}-default.png" > "v220-evidence/v${version}-${scenario}-${position}-default.png"; done; done; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V157ReminderCenterUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2192-center-regression.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2192-center-regression.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2192-center-regression.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2204-root-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2204-root-compact.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2204-root-compact.log
+            for scene in nav-clear keyboard-clear; do adb exec-out run-as com.framebynavin.app cat "files/v2204-idea-evidence/v2204-compact-${scene}.png" > "v2204-evidence/v2204-compact-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2203NewIdeaSafeFooterUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2203-idea-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2203-idea-compact.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2203-idea-compact.log
+            for scene in empty-safe-footer keyboard-safe-footer; do adb exec-out run-as com.framebynavin.app cat "files/v2203-new-idea-evidence/v2203-compact-${scene}.png" > "v2203-evidence/v2203-compact-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2203TopPerformersOrderUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2203-top-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2203-top-compact.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v2203-top-compact.log
+            adb exec-out run-as com.framebynavin.app cat "files/v2203-top-video-evidence/v2203-compact-top-three-above-up-next.png" > "v2203-evidence/v2203-compact-top-three-above-up-next.png"
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V219ReminderHubUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2192-home-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2192-home-compact.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2192-home-compact.log
+            for scene in home-hub-card center-over-home hub-all hub-upcoming hub-today; do adb exec-out run-as com.framebynavin.app cat "files/v219-ui/v219-compact-${scene}.png" > "v220-evidence/v219-compact-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V219ReminderSearchUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2192-search-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2192-search-compact.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2192-search-compact.log
+            for scene in search-shoot search-no-results search-cleared search-multiterm; do adb exec-out run-as com.framebynavin.app cat "files/v2192-ui/v2192-compact-${scene}.png" > "v220-evidence/v2192-compact-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2193ReminderHistoryUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2193-history-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2193-history-compact.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2193-history-compact.log
+            for scene in verified-history return-to-active history-search history-clear; do adb exec-out run-as com.framebynavin.app cat "files/v2193-ui/v2193-compact-${scene}.png" > "v220-evidence/v2193-compact-${scene}.png"; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V220HomeConsolidationUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v220-consolidation-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v220-consolidation-compact.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v220-consolidation-compact.log
+            for scene in one-hub-with-next-alert empty-hub-no-invented-alert live-before live-after next-move-collapsed next-move-expanded; do adb exec-out run-as com.framebynavin.app cat "files/v220-ui/v220-compact-${scene}.png" > "v220-evidence/v220-compact-${scene}.png"; done
+            set -e; for spec in V213TodayFullScreenVisualUiTest:213 V215HomeFirstFoldVisualUiTest:215; do klass="${spec%%:*}"; version="${spec##*:}"; adb shell am instrument -w -r -e class "com.framebynavin.app.ui.${klass}" -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "v220-home-${version}-compact.log"; if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' "v220-home-${version}-compact.log"; then exit 1; fi; grep -Fq 'OK (4 tests)' "v220-home-${version}-compact.log" || exit 1; for scenario in empty projects; do for position in top bottom; do adb exec-out run-as com.framebynavin.app cat "files/v${version}-home-visual/v${version}-${scenario}-${position}-compact.png" > "v220-evidence/v${version}-${scenario}-${position}-compact.png"; done; done; done
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v220-evidence").glob("*.png")); assert len(fs)==54,len(fs); sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>10000 for p in fs); assert all(wh[0]==900 and 650<=wh[1]<=1600 for n,wh in sizes.items() if "compact" in n); assert all(wh[0]==1080 and 900<=wh[1]<=2400 for n,wh in sizes.items() if "default" in n); print(sizes)'
+            python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v2203-evidence").glob("*.png")); assert len(fs)==6,len(fs); assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>10000 for p in fs); sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in fs}; assert all(wh[0]==900 for n,wh in sizes.items() if "compact" in n); assert all(wh[0]==1080 for n,wh in sizes.items() if "default" in n); print(sizes)'
+            python3 -c 'from pathlib import Path; from struct import unpack; fs=list(Path("v2204-evidence").glob("*.png")); assert len(fs)==4,len(fs); assert all(p.stat().st_size>10000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") for p in fs); assert all(unpack(">I",p.read_bytes()[16:20])[0]==900 for p in fs if "compact" in p.name); assert all(unpack(">I",p.read_bytes()[16:20])[0]==1080 for p in fs if "default" in p.name)'
+      - name: Upload real Android Home/Center PNGs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2204-Android-UI-Evidence
+          path: |
+            v220-evidence/*.png
+            v2203-evidence/*.png
+            v2204-evidence/*.png
+            v220-*.log
+            v2203-*.log
+            v2204-*.log
+          if-no-files-found: warn
+          retention-days: 14
