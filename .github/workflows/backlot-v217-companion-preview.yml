@@ -79,19 +79,23 @@ jobs:
             mkdir -p v217-evidence
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217CompanionConceptUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v217-default.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v217-default.log; then exit 1; fi
-            grep -Fq 'OK (3 tests)' v217-default.log
+            grep -Fq 'OK (4 tests)' v217-default.log
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-top.png > v217-evidence/v217-default-top.png
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-bottom.png > v217-evidence/v217-default-bottom.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-compare-top.png > v217-evidence/v217-default-compare-top.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-default-compare-bottom.png > v217-evidence/v217-default-compare-bottom.png
             adb shell wm size 900x1600
             adb shell settings put system font_scale 1.5
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217CompanionConceptUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v217-compact.log
             adb shell wm size reset
             adb shell settings put system font_scale 1.0
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v217-compact.log; then exit 1; fi
-            grep -Fq 'OK (3 tests)' v217-compact.log
+            grep -Fq 'OK (4 tests)' v217-compact.log
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-top.png > v217-evidence/v217-compact-top.png
             adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-bottom.png > v217-evidence/v217-compact-bottom.png
-            python3 -c 'from pathlib import Path; from struct import unpack; files=sorted(Path("v217-evidence").glob("*.png")); assert len(files)==4,files; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in files}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in files),sizes; print(sizes)'
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-compare-top.png > v217-evidence/v217-compact-compare-top.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-concept-visual/v217-compact-compare-bottom.png > v217-evidence/v217-compact-compare-bottom.png
+            python3 -c 'from pathlib import Path; from struct import unpack; files=sorted(Path("v217-evidence").glob("*.png")); assert len(files)==8,files; sizes={p.name:unpack(">II",p.read_bytes()[16:24]) for p in files}; assert all(p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and p.stat().st_size>256 for p in files),sizes; print(sizes)'
       - name: Upload real Android window PNGs
         if: always()
         uses: actions/upload-artifact@v4
