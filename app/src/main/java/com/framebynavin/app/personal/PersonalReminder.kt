@@ -48,6 +48,8 @@ internal data class PersonalReminder(
     val pendingFireAtMillis: Long = 0L,
     /** Rotated for every re-armed occurrence, prevents replay of old alarm/actions. */
     val pendingToken: String = "",
+    /** Posted notification handoff token; prevents repeat delivery on reconciliation. */
+    val presentedToken: String = "",
     val lastResponse: PersonalResponse = PersonalResponse.NONE,
     val lastResponseAtMillis: Long = 0L,
     val createdAtMillis: Long = System.currentTimeMillis(),
@@ -67,6 +69,9 @@ internal data class PersonalReminder(
         require(lastAcknowledgedOccurrenceMillis >= 0L && snoozedUntilMillis >= 0L &&
             pendingOccurrenceMillis >= 0L && pendingFireAtMillis >= 0L && lastResponseAtMillis >= 0L) {
             "Invalid personal occurrence state"
+        }
+        require(presentedToken.isEmpty() || presentedToken == pendingToken) {
+            "Stale presented occurrence token"
         }
         require(pendingToken.isEmpty() || pendingToken.matches(Regex("[a-f0-9-]{36}"))) {
             "Invalid personal occurrence token"
