@@ -81,6 +81,9 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-ui.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-ui.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' personal-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2232PersonalNotificationDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-real-notification.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-real-notification.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' personal-real-notification.log
             adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2231PersonalDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-actions.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-actions.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' personal-actions.log
@@ -96,6 +99,7 @@ jobs:
           name: Backlot-V2232-Personal-Hub-Android-Results
           path: |
             personal-ui.log
+            personal-real-notification.log
             personal-actions.log
             personal-store.log
             home-cold-start.log
