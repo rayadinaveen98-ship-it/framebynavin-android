@@ -48,7 +48,7 @@ jobs:
           assert 'setShowWhenLocked(' not in alert and 'FLAG_SHOW_WHEN_LOCKED' not in alert
           assert 'V2233PersonalParticleWave' in alert
           for source in (service,alert,policy,notifications):
-              for forbidden in ('TaskStore(', 'CreatorTask(', 'ProjectPulseEngine.', 'CreatorWorkflowEngine.', 'ReminderActionReceiver::class.java'):
+              for forbidden in ('TaskStore(', 'CreatorTask(', 'ProjectPulseEngine.', 'CreatorWorkflowEngine.', 'Intent(context, com.framebynavin.app.reminders.ReminderActionReceiver::class.java)'):
                   assert forbidden not in source, forbidden
           print("Personal audio boundary/privacy checks pass")
           PY
