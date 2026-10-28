@@ -62,7 +62,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                 withContext(Dispatchers.IO) {
                     val raw = transfer.export()
                     val encoded = raw.toByteArray(Charsets.UTF_8)
-                    context.contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
                         output.write(encoded)
                         output.flush()
                     } ?: error("Could not open the chosen Personal backup destination")
