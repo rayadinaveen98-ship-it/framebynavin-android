@@ -45,6 +45,14 @@ class ReminderReceiver : BroadcastReceiver() {
         ledger: AlarmLedger,
     ) {
         val firedAt = System.currentTimeMillis()
+        if (!V225CreatorLateAudioPolicy.shouldDeliverAtAll(
+                scheduledAt, task.dueAtMillis, firedAt,
+            )) {
+            // An old OS broadcast is not a new user response. The ledger was
+            // consumed under CreatorDataGate already; never issue a fresh
+            // action token or interrupt the user with an irrelevant alarm.
+            return
+        }
         val exactDelivery = intent.getBooleanExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, false)
         val delayMillis = (firedAt - scheduledAt).coerceAtLeast(0L)
         val allowAudible = V225CreatorLateAudioPolicy.allowAudible(
