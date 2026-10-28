@@ -2,8 +2,23 @@ package com.framebynavin.app.ui
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -12,19 +27,35 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.CinemaLine
+import com.framebynavin.app.ui.theme.CinemaSurfaceRaised
+import com.framebynavin.app.ui.theme.MutedGold
+import com.framebynavin.app.ui.theme.MutedText
+import com.framebynavin.app.ui.theme.ProjectorIvory
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.framebynavin.app.data.*
 import kotlinx.coroutines.delay
 
 /**
- * V221.4: home-only, read-only decision wiring.
- * Not an overlay, background service, notification or replacement for Up Next.
- * The existing V217 guides and original Spark raster renderer remain in use.
+ * V222.1: the same V221.4 evidence/dismissal/action policy, now hosted inside
+ * a 48dp Home-header portrait and a tap-to-open sheet instead of a tall inline
+ * card below the creator's actual work. No new evidence, inferred delivery,
+ * background service, notification or reminder mutations.
  */
 internal object V2214HomeCompanionPolicy {
     fun unorganizedCount(ideas: List<CreatorIdea>): Int = ideas.count {
@@ -46,6 +77,7 @@ internal object V2214HomeCompanionPolicy {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun V2214HomeCompanion(
     tasks: List<CreatorTask>,
@@ -63,6 +95,7 @@ internal fun V2214HomeCompanion(
     // Not now must close the card for this Home visit, even if another lower
     // priority candidate exists. Persisted dismissal guards future visits.
     var quietThisVisit by remember { mutableStateOf(false) }
+    var sheetOpen by rememberSaveable { mutableStateOf(false) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val lifecycle = (context as? ComponentActivity)?.lifecycle
 
@@ -107,31 +140,126 @@ internal fun V2214HomeCompanion(
         }.getOrNull() // Fail closed when evidence/preferences cannot be read.
     }
 
-    // Silence is a correct result. Do not add padding or an empty placeholder.
-    if (!quietThisVisit && decision != null) {
-        Spacer(Modifier.height(12.dp))
-        V221CompanionSuggestionCard(
-            decision = decision,
-            identity = V144GuidePrefs.currentGuide,
-            modifier = modifier,
-            onAction = { current ->
-                when (current.destination) {
-                    V221CompanionDestination.REMINDER_HUB -> onOpenReminders()
-                    V221CompanionDestination.IDEA_VAULT -> onOpenIdeas()
-                    V221CompanionDestination.PROJECT -> {
-                        V2214HomeCompanionPolicy.openableProjectId(current, tasks.toList())
-                            ?.let(onOpenProject)
+    // The actual settings preference owns visibility; off means no avatar,
+    // sheet or unnecessary suggested-action affordance on Home.
+    if (!enabled || !store.enabled()) return
+
+    val identity = V144GuidePrefs.currentGuide
+    V2221CompanionPortrait(
+        guide = identity,
+        hasSuggestion = decision != null && !quietThisVisit,
+        onClick = { sheetOpen = true },
+        modifier = modifier,
+    )
+
+    if (sheetOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { sheetOpen = false },
+            containerColor = CinemaSurfaceRaised,
+            modifier = Modifier.testTag("v2221-companion-sheet"),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    V144GuideCharacter(
+                        guide = identity,
+                        state = CinePulseState.IDLE,
+                        modifier = Modifier.size(52.dp),
+                    )
+                    Spacer(Modifier.size(12.dp))
+                    Column {
+                        Text(
+                            text = identity.displayName,
+                            color = ProjectorIvory,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 19.sp,
+                        )
+                        Text(
+                            text = "Your Backlot companion",
+                            color = MutedText,
+                            fontSize = 12.sp,
+                        )
                     }
-                    V221CompanionDestination.NONE -> Unit
                 }
-            },
-            onDismiss = { current ->
-                quietThisVisit = true
-                if (store.dismiss(current.id, System.currentTimeMillis())) {
-                    nowMillis = System.currentTimeMillis()
-                    refreshVersion += 1
+                // A suppressed/unavailable decision must never be replaced by
+                // fabricated project or reminder evidence.
+                val visibleDecision = decision?.takeUnless { quietThisVisit }
+                if (visibleDecision != null) {
+                    V221CompanionSuggestionCard(
+                        decision = visibleDecision,
+                        identity = identity,
+                        onAction = { current ->
+                            sheetOpen = false
+                            when (current.destination) {
+                                V221CompanionDestination.REMINDER_HUB -> onOpenReminders()
+                                V221CompanionDestination.IDEA_VAULT -> onOpenIdeas()
+                                V221CompanionDestination.PROJECT ->
+                                    V2214HomeCompanionPolicy.openableProjectId(
+                                        current, tasks.toList(),
+                                    )?.let(onOpenProject)
+                                V221CompanionDestination.NONE -> Unit
+                            }
+                        },
+                        onDismiss = { current ->
+                            sheetOpen = false
+                            quietThisVisit = true
+                            if (store.dismiss(current.id, System.currentTimeMillis())) {
+                                nowMillis = System.currentTimeMillis()
+                                refreshVersion += 1
+                            }
+                        },
+                    )
+                } else {
+                    Text(
+                        text = "No companion suggestions available right now.",
+                        color = MutedText,
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("v2221-companion-empty")
+                            .padding(vertical = 14.dp),
+                    )
                 }
-            },
-        )
+                Spacer(Modifier.height(6.dp))
+            }
+        }
+    }
+}
+
+/** Approved character artwork, rendered static in a 48dp circular Home control.
+ * Neither Spark nor the three approved V217 character illustrations are redrawn.
+ */
+@Composable
+internal fun V2221CompanionPortrait(
+    guide: V144GuideIdentity,
+    hasSuggestion: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val drawable = if (guide == V144GuideIdentity.FUNNY) {
+        v144GuideDrawable(guide, CinePulseState.IDLE)
+    } else {
+        v217ConceptDrawable(guide)
+    }
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(48.dp)
+            .testTag("v2221-companion-avatar")
+            .semantics { contentDescription = "Open ${guide.displayName} companion" },
+        shape = CircleShape,
+        color = CinemaSurfaceRaised,
+        border = BorderStroke(if (hasSuggestion) 1.7.dp else 1.dp,
+            if (hasSuggestion) MutedGold else CinemaLine),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Image(
+                painter = painterResource(drawable),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(43.dp).clip(CircleShape),
+            )
+        }
     }
 }
