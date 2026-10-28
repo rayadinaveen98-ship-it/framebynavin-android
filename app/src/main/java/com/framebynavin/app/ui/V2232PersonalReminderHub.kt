@@ -205,7 +205,7 @@ internal fun V2232PersonalReminderHub(
             }
             // The standalone Personal media/ringing services are intentionally
             // not enabled: a selected Voice or Alarm is clearly labeled fallback.
-            Text("Voice and Alarm selections currently notify normally. Dedicated sound and voice are coming after delivery QA.",
+            Text("Voice and Alarm attempt short audio playback when Android permits; notifications and response buttons stay available.",
                 color = MutedText, fontSize = 10.sp,
                 modifier = Modifier.testTag("v2232-personal-fallback-notice"))
 
