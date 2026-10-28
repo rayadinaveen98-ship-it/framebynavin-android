@@ -6,6 +6,6 @@ package com.framebynavin.app.widget
  * Unknown size hints use the normal layout, matching preview defaults.
  */
 internal object V2241WidgetSizingPolicy {
-    fun compact(minWidthDp: Int, minHeightDp: Int): Boolean =
-        (minWidthDp in 1..224) || (minHeightDp in 1..174)
+    fun compact(minWidthDp: Int, minHeightDp: Int, fontScale: Float = 1f): Boolean =
+        (minWidthDp in 1..224) || (minHeightDp in 1..174) || fontScale >= 1.3f
 }
