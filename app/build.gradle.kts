@@ -53,10 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V222 private visual preview from certified V221.5 personal stable (240).
+        // V222.1 private circular companion preview from V222 visual preview (241).
         // Keep package ID and prototypeStable signer for safe in-place testing.
-        versionCode = 241
-        versionName = "2.9.1-v222-visual-preview"
+        versionCode = 242
+        versionName = "2.9.2-v2221-circular-companion-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
