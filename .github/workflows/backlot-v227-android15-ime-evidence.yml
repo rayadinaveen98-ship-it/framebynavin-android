@@ -1,0 +1,57 @@
+name: Backlot V227 Android15 IME Screen Evidence
+
+on:
+  push:
+    branches: [qa/backlot-v227-android15-ime-evidence]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  android15-screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V227-Device-QA-Test-APKs
+          path: apks
+          run-id: 40722917363
+          github-token: ${{ github.token }}
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Capture ACTUAL Android15 gestural screen even on assertion failure
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural
+            adb shell settings put secure show_ime_with_hard_keyboard 1
+            mkdir -p v227-evidence
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile gestural -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-android15-ime-evidence.log
+            adb exec-out run-as com.framebynavin.app cat files/v2204-idea-evidence/v2204-gestural-keyboard-clear.png > v227-evidence/v2204-gestural-keyboard-clear.png || true
+            adb exec-out run-as com.framebynavin.app cat files/v2204-idea-evidence/v2204-gestural-nav-clear.png > v227-evidence/v2204-gestural-nav-clear.png || true
+            ls -lh v227-evidence/ || true
+            test -s v227-evidence/v2204-gestural-keyboard-clear.png
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-android15-ime-evidence.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v227-android15-ime-evidence.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V227-Android15-Actual-Screen-Evidence
+          path: |
+            v227-evidence/
+            v227-android15-ime-evidence.log
+          if-no-files-found: warn
