@@ -41,7 +41,7 @@ internal object V224WidgetUpdater {
         }
         if (today.isNotEmpty()) {
             today.forEach { id ->
-                manager.updateAppWidget(id, todayViews(app, tasks, compact(manager, id)))
+                manager.updateAppWidget(id, todayViews(app, tasks, compact(app, manager, id)))
             }
         }
         if (myDay.isNotEmpty()) {
@@ -53,7 +53,7 @@ internal object V224WidgetUpdater {
                 )
             }.getOrNull()
             myDay.forEach { id ->
-                manager.updateAppWidget(id, myDayViews(app, tasks, personal, compact(manager, id)))
+                manager.updateAppWidget(id, myDayViews(app, tasks, personal, compact(app, manager, id)))
             }
         }
     }
