@@ -15,12 +15,22 @@ class ReminderHealthWorker(
     appContext: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
-    override suspend fun doWork(): Result = runCatching {
-        ReminderRecoveryEngine.reconcile(applicationContext)
-    }.fold(
-        onSuccess = { Result.success() },
-        onFailure = { Result.retry() },
-    )
+    override suspend fun doWork(): Result {
+        val app = applicationContext
+        val outcome = V225RecoveryLanes.run(
+            creator = { ReminderRecoveryEngine.reconcile(app) },
+            personal = { com.framebynavin.app.personal.PersonalDeliveryCoordinator(app).reconcile() },
+            ideas = { IdeaReminderScheduler(app).reconcile() },
+        )
+        if (!outcome.allSucceeded) {
+            android.util.Log.w(
+                "BacklotReminderHealth",
+                "Recovery retry: creator=${outcome.creatorRecovered}, " +
+                    "personal=${outcome.personalRecovered}, ideas=${outcome.ideasRecovered}",
+            )
+        }
+        return if (outcome.allSucceeded) Result.success() else Result.retry()
+    }
 }
 
 object ReminderHealthScheduler {
