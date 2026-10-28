@@ -1,0 +1,98 @@
+name: Backlot V223 Personal Foundation QA
+
+on:
+  push:
+    branches: [feature/backlot-v223-personal-reminders-foundation]
+    paths:
+      - .github/workflows/backlot-v223-personal-foundation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Require separate Personal store, no Personal alarms or creator-store writes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("app/src/main/java/com/framebynavin/app/personal")
+          model=(root/"PersonalReminder.kt").read_text()
+          codec=(root/"PersonalReminderCodec.kt").read_text()
+          store=(root/"PersonalReminderStore.kt").read_text()
+          recurrence=(root/"PersonalRecurrence.kt").read_text()
+          assert "data class PersonalReminder" in model
+          assert 'preferencesDataStore(name = "backlot_personal_reminders_v1")' in store
+          assert "PERSONAL" in codec and "itemsSha256" in codec
+          assert "lastGoodKey" in store and "readChecked(currentRaw)" in store
+          assert "nextAfter" in recurrence
+          for file in root.glob("*.kt"):
+              data=file.read_text()
+              for banned in ("CreatorTask(", "TaskStore(", "ReminderScheduler(", "AlarmManager(", "PendingIntent(", "CreatorWidgetUpdater(", "CloudSyncActivity(", "YouTube"):
+                  assert banned not in data, (file, banned)
+          for file in ("app/src/main/AndroidManifest.xml",):
+              assert "PersonalReminderReceiver" not in Path(file).read_text()
+          print("Personal data fully separated; delivery not falsely enabled.")
+          PY
+      - name: Full Android JVM regression, lint, debug and instrumentation APK build
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V223-Personal-Foundation-Test-Inputs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          retention-days: 30
+          if-no-files-found: error
+
+  android-foundation:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V223-Personal-Foundation-Test-Inputs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify independent Personal DataStore + backup on Android 11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r apks/app-debug.apk
+            adb install -r apks/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V223PersonalFoundationTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v223-foundation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v223-foundation.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v223-foundation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V222ColdStartProjectsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee cold-start.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' cold-start.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' cold-start.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V223-Personal-Foundation-Android-Results
+          path: |
+            v223-foundation.log
+            cold-start.log
+          if-no-files-found: warn
