@@ -196,7 +196,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                 border = BorderStroke(1.dp, CinemaLine),
             ) {
                 Text(
-                    "PRIVACY NOTE  •  Personal exports are not encrypted. Anyone with the file can read its reminder titles and notes. Store it in a private location. Backlot keeps one prior Personal data revision on this device as an additional safety net.",
+                    "PRIVACY NOTE  •  Personal exports are not encrypted. Anyone with the file can read its reminder titles and notes. Store it in a private location. Backlot retains up to five pre-restore Personal recovery copies locally as an additional safety net.",
                     color = MutedText,
                     fontSize = 12.sp, lineHeight = 18.sp,
                     modifier = Modifier.padding(16.dp),
@@ -224,7 +224,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                         color = ProjectorIvory, fontSize = 14.sp)
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "All existing Personal Reminders on this phone will be replaced. A previous data revision is retained locally. Imported alarm tokens are reset and future reminders are rescheduled. Creator projects and ideas stay untouched.",
+                        "All existing Personal Reminders on this phone will be replaced. An independent pre-restore recovery copy is retained locally. Imported alarm tokens are reset and future reminders are rescheduled. Creator projects and ideas stay untouched.",
                         color = MutedText, fontSize = 12.sp,
                     )
                     if (checked.reminderCount == 0) {
