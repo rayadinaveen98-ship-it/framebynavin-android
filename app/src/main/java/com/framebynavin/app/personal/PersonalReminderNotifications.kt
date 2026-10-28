@@ -51,7 +51,7 @@ internal object PersonalReminderNotifications {
             context,
             reminder.id.hashCode(),
             Intent(context, MainActivity::class.java).apply {
-                action = "backlot.personal.OPEN"
+                action = PersonalDeliveryContract.ACTION_OPEN_PERSONAL
                 data = PersonalDeliveryContract.uri(reminder.id, "open")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
