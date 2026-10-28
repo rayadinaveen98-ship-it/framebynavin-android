@@ -104,7 +104,7 @@ internal fun V2272PersonalParticleWave(
         else Color(0xFF5D8EFF)
     }
     val time by produceState(
-        initialValue = V2272PersonalWavePolicy.elapsedWhenMotionDisabled(),
+        initialValue = if (motionEnabled) 0.0 else V2272PersonalWavePolicy.elapsedWhenMotionDisabled(),
         key1 = motionEnabled, key2 = lowPower,
     ) {
         if (!motionEnabled) {
@@ -139,6 +139,9 @@ internal fun V2272PersonalParticleWave(
         val t = if (motionEnabled) time else 0.0
         val stride = V2272PersonalWavePolicy.GLYPH_EVERY
         val slots = V2272PersonalWavePolicy.glyphCount(lowPower)
+        val small = 1.3.dp.toPx()
+        val medium = 1.65.dp.toPx()
+        val large = 2.0.dp.toPx()
         ambient.forEachIndexed { index, particle ->
             val baseX = V202InfiniteBounce.position(particle.x, particle.velocityX, t)
             val baseY = V202InfiniteBounce.position(particle.y, particle.velocityY, t)
@@ -168,9 +171,9 @@ internal fun V2272PersonalParticleWave(
                 blend,
             )
             val dot = when (particle.depth) {
-                0 -> 1.3.dp.toPx()
-                1 -> 1.65.dp.toPx()
-                else -> 2.0.dp.toPx()
+                0 -> small
+                1 -> medium
+                else -> large
             }
             val at = Offset(x, y)
             if (!lowPower && index % 23 == 0) {
