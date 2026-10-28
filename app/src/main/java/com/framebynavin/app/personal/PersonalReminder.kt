@@ -41,6 +41,8 @@ internal data class PersonalReminder(
     val paused: Boolean = false,
     /** Highest *scheduled* occurrence explicitly acknowledged; never infer Done from no response. */
     val lastAcknowledgedOccurrenceMillis: Long = 0L,
+    /** Old unanswered delivery retired after the recovery grace window; NOT a user response. */
+    val lastMissedOccurrenceMillis: Long = 0L,
     /** Optional one-off user snooze for the currently due occurrence. */
     val snoozedUntilMillis: Long = 0L,
     /** Original scheduled occurrence, distinct from later snooze/fire times. */
@@ -66,7 +68,8 @@ internal data class PersonalReminder(
         require(repeat != PersonalRepeat.WEEKLY || weeklyDays.isNotEmpty()) {
             "Weekly recurrence must select at least one day"
         }
-        require(lastAcknowledgedOccurrenceMillis >= 0L && snoozedUntilMillis >= 0L &&
+        require(lastAcknowledgedOccurrenceMillis >= 0L && lastMissedOccurrenceMillis >= 0L &&
+            snoozedUntilMillis >= 0L &&
             pendingOccurrenceMillis >= 0L && pendingFireAtMillis >= 0L && lastResponseAtMillis >= 0L) {
             "Invalid personal occurrence state"
         }
