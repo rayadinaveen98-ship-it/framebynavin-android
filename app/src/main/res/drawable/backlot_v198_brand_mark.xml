@@ -18,9 +18,9 @@
         <aapt:attr name="android:fillColor">
             <gradient android:type="linear" android:startX="27" android:startY="16"
                 android:endX="83" android:endY="46">
-                <item android:offset="0.0" android:color="#3B9EFF"/>
-                <item android:offset="0.52" android:color="#5687FF"/>
-                <item android:offset="1.0" android:color="#9874EC"/>
+                <item android:offset="0.0" android:color="#26ACFF"/>
+                <item android:offset="0.52" android:color="#527DFF"/>
+                <item android:offset="1.0" android:color="#9266FF"/>
             </gradient>
         </aapt:attr>
     </path>
@@ -29,9 +29,9 @@
         <aapt:attr name="android:fillColor">
             <gradient android:type="linear" android:startX="26" android:startY="45"
                 android:endX="63" android:endY="65">
-                <item android:offset="0.0" android:color="#D0B9FF"/>
-                <item android:offset="0.52" android:color="#B596F8"/>
-                <item android:offset="1.0" android:color="#9883EE"/>
+                <item android:offset="0.0" android:color="#DDC7FF"/>
+                <item android:offset="0.52" android:color="#BD91FF"/>
+                <item android:offset="1.0" android:color="#9475FF"/>
             </gradient>
         </aapt:attr>
     </path>
@@ -40,9 +40,9 @@
         <aapt:attr name="android:fillColor">
             <gradient android:type="linear" android:startX="27" android:startY="85"
                 android:endX="84" android:endY="65">
-                <item android:offset="0.0" android:color="#FA748E"/>
-                <item android:offset="0.46" android:color="#FF9E91"/>
-                <item android:offset="1.0" android:color="#FFCD92"/>
+                <item android:offset="0.0" android:color="#FF688F"/>
+                <item android:offset="0.46" android:color="#FF9682"/>
+                <item android:offset="1.0" android:color="#FFD18A"/>
             </gradient>
         </aapt:attr>
     </path>
