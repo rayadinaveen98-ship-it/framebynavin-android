@@ -407,14 +407,19 @@ internal fun V2232PersonalEditor(
         daySelection.split(",").mapNotNull { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }.toSet()
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(
+        usePlatformDefaultWidth = false, decorFitsSystemWindows = false,
+    )) {
         Surface(
-            modifier = Modifier.fillMaxWidth(.96f).fillMaxHeight(.92f)
+            modifier = Modifier.fillMaxSize()
                 .testTag("v2232-personal-editor"),
             color = CinemaSurfaceRaised,
             shape = RoundedCornerShape(20.dp),
         ) {
-            Column(Modifier.fillMaxSize().imePadding().padding(18.dp)) {
+            Column(Modifier.fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .imePadding()
+                .padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(if (existing == null) "NEW PERSONAL REMINDER" else "EDIT PERSONAL REMINDER",
@@ -493,16 +498,11 @@ internal fun V2232PersonalEditor(
                         Text(it, color = RecRed, modifier = Modifier.testTag("v2232-editor-error"))
                     }
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                        Text("CANCEL")
-                    }
-                    Button(
-                        enabled = !saving,
-                        onClick = {
+                // V227.1: keyboard-safe, adaptive actions; retains all validation.
+                V2271PersonalEditorFooter(
+                    saving = saving,
+                    onCancel = onDismiss,
+                        onSave = {
                             try {
                                 val chosen = Instant.ofEpochMilli(selectedTime).atZone(zone)
                                 val draft = PersonalReminderDraft(
@@ -521,11 +521,8 @@ internal fun V2232PersonalEditor(
                             } catch (invalid: Exception) {
                                 error = invalid.message ?: "Check the reminder details."
                             }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        modifier = Modifier.weight(1f).testTag("v2232-personal-save"),
-                    ) { Text(if (saving) "SAVING" else "SAVE") }
-                }
+                },
+                )
             }
         }
     }
