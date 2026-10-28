@@ -31,6 +31,8 @@ class V223PersonalFoundationTest {
         repeat = PersonalRepeat.WEEKLY,
         weeklyDays = setOf(DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
         alert = PersonalAlert.VOICE,
+        createdAtMillis = 1_000L,
+        updatedAtMillis = 1_000L,
     )
 
     @Test fun savesUpdatesReopensWithoutWritingIntoCreatorProjects() = runBlocking {
