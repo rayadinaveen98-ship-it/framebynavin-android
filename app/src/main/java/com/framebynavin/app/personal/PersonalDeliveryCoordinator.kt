@@ -56,8 +56,38 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                 return@forEach
             }
             var record = original
-            // A posted notification remains actionable after process restart.
-            // Do NOT schedule it again just because its due time is in the past.
+            // An unanswered or never-presented occurrence must not block a
+            // recurring series forever. After the explicit 24h grace window,
+            // archive it as MISSED (NOT Done/Dismissed) and permit next scheduling.
+            // CAS by immutable lease so a concurrent user action/new lease wins.
+            if (PersonalRecoveryPolicy.shouldArchiveUnanswered(record, nowMillis)) {
+                val expired = record
+                record = store.update(record.id) { latest ->
+                    if (latest.paused || latest.pendingToken != expired.pendingToken ||
+                        latest.pendingOccurrenceMillis != expired.pendingOccurrenceMillis ||
+                        latest.presentedToken != expired.presentedToken) latest
+                    else latest.copy(
+                        lastMissedOccurrenceMillis = maxOf(
+                            latest.lastMissedOccurrenceMillis, latest.pendingOccurrenceMillis,
+                        ),
+                        pendingOccurrenceMillis = 0L,
+                        pendingFireAtMillis = 0L,
+                        pendingToken = "",
+                        presentedToken = "",
+                        snoozedUntilMillis = 0L,
+                    )
+                }.first { it.id == expired.id }
+                if (record.pendingToken.isBlank()) {
+                    cancelPending(record.id)
+                    // Old action tokens are invalidated in DataStore first.
+                    // Then remove an unanswered stale notification, if posted.
+                    if (expired.presentedToken == expired.pendingToken) {
+                        PersonalReminderNotifications.cancel(app, record.id)
+                    }
+                }
+            }
+            // Within the grace window, a posted reminder stays actionable
+            // across process restart. Do not double-deliver it.
             if (record.pendingToken.isNotBlank() && record.presentedToken == record.pendingToken) {
                 cancelPending(record.id)
                 return@forEach
@@ -82,13 +112,9 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             }
             if (record.pendingToken.isBlank() || record.paused) return@forEach
             if (record.pendingFireAtMillis <= nowMillis) {
-                if (nowMillis - record.pendingFireAtMillis > 24L * 60 * 60 * 1000) {
-                    // Long-overdue occurrence remains uncompleted, not falsely
-                    // "Done". Reconciliation moves to future scheduling only
-                    // after an explicit later policy revision for missed alerts.
-                    cancelPending(record.id)
-                    return@forEach
-                }
+                // A recently overdue unposted event may be re-armed; playback
+                // checks ORIGINAL occurrence age, so a late delivery cannot
+                // become an audible alarm merely by rotating its fire time.
                 record = store.update(record.id) { current ->
                     if (current.pendingToken != record.pendingToken || current.presentedToken.isNotEmpty()) current
                     else current.copy(
