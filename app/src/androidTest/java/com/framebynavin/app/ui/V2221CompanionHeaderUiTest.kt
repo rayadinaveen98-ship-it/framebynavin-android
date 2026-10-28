@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -37,8 +36,13 @@ class V2221CompanionHeaderUiTest {
         assertTrue(dir.isDirectory || dir.mkdirs())
         val out = File(dir, "v2221-$name-$scene.png")
         rule.waitForIdle()
-        rule.onRoot().captureToImage().asAndroidBitmap().let { bitmap ->
+        // ModalBottomSheet owns a second Compose root: onRoot() can become
+        // ambiguous. Capture the real physical display to include sheet + scrim.
+        val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        try {
             out.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+        } finally {
+            bitmap.recycle()
         }
         assertTrue(out.length() > 5000L)
     }
