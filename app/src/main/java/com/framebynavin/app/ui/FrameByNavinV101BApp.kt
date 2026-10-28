@@ -368,6 +368,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             CreatorWidgetContract.ACTION_OPEN_INSIGHTS -> { overlay = POverlay.NONE; tab = PTab.INSIGHTS }
             CreatorWidgetContract.ACTION_AUTOMATION_CENTER -> overlay = POverlay.AUTOMATION
             CreatorWidgetContract.ACTION_OPEN_REMINDERS -> { overlay = POverlay.NONE; showReminders = true }
+            com.framebynavin.app.personal.PersonalDeliveryContract.ACTION_OPEN_PERSONAL -> {
+                overlay = POverlay.NONE
+                personalReminderSpace = true
+                showReminders = true
+            }
         }
     }
 
