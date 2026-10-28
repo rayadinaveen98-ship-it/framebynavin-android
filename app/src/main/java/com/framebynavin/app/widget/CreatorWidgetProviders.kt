@@ -25,6 +25,11 @@ abstract class BaseCreatorWidgetProvider : AppWidgetProvider() {
     }
 }
 
+/** V224 new picker entries; legacy providers remain until owner migration approval. */
+class V224QuickCaptureWidgetProvider : BaseCreatorWidgetProvider()
+class V224TodayFocusWidgetProvider : BaseCreatorWidgetProvider()
+class V224MyDayWidgetProvider : BaseCreatorWidgetProvider()
+
 class CreatorCompactWidgetProvider : BaseCreatorWidgetProvider()
 class CreatorLargeWidgetProvider : BaseCreatorWidgetProvider()
 class QuickIdeaWidgetProvider : BaseCreatorWidgetProvider()
