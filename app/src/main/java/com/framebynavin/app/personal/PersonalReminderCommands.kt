@@ -82,6 +82,7 @@ internal class PersonalReminderCommands(context: Context) {
             )
         }
         delivery.cancelPending(id)
+        PersonalPlaybackService.stopForReminder(id)
         PersonalReminderNotifications.cancel(app, id)
         delivery.reconcile()
     }
@@ -99,6 +100,7 @@ internal class PersonalReminderCommands(context: Context) {
             )
         }
         delivery.cancelPending(id)
+        PersonalPlaybackService.stopForReminder(id)
         PersonalReminderNotifications.cancel(app, id)
         if (!paused) delivery.reconcile()
     }
@@ -108,6 +110,7 @@ internal class PersonalReminderCommands(context: Context) {
         // fails lookup and cannot post a valid notification.
         store.delete(id)
         delivery.cancelPending(id)
+        PersonalPlaybackService.stopForReminder(id)
         PersonalReminderNotifications.cancel(app, id)
     }
 }

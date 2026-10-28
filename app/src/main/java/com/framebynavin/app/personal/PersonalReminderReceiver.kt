@@ -26,7 +26,12 @@ internal class PersonalReminderReceiver : BroadcastReceiver() {
                 val delivery = PersonalDeliveryCoordinator(app)
                 val reminder = delivery.currentLease(id, occurrence, fireAt, token)
                 if (reminder != null && PersonalReminderNotifications.show(app, reminder)) {
-                    delivery.acknowledgePosted(id, occurrence, fireAt, token)
+                    if (delivery.acknowledgePosted(id, occurrence, fireAt, token) &&
+                        reminder.alert != PersonalAlert.NOTIFICATION) {
+                        PersonalPlaybackService.tryStart(
+                            app, reminder.copy(presentedToken = token),
+                        )
+                    }
                 }
             } catch (failure: Exception) {
                 android.util.Log.e("BacklotPersonal", "Personal delivery handoff failed", failure)

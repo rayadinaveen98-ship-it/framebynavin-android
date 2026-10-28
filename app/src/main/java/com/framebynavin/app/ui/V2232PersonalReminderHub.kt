@@ -205,7 +205,7 @@ internal fun V2232PersonalReminderHub(
             }
             // The standalone Personal media/ringing services are intentionally
             // not enabled: a selected Voice or Alarm is clearly labeled fallback.
-            Text("Voice and Alarm selections currently notify normally. Dedicated sound and voice are coming after delivery QA.",
+            Text("Voice and Alarm attempt short audio playback when Android permits; notifications and response buttons stay available.",
                 color = MutedText, fontSize = 10.sp,
                 modifier = Modifier.testTag("v2232-personal-fallback-notice"))
 
@@ -338,7 +338,7 @@ private fun V2232PersonalItem(
                 }
             }
             Text("${reminder.repeat.name.replace('_', ' ')} · ${reminder.alert.name}" +
-                    "${if (reminder.alert == PersonalAlert.NOTIFICATION) "" else " (notification fallback)"}",
+                    "${if (reminder.alert == PersonalAlert.NOTIFICATION) "" else " (audio when permitted)"}",
                 color = MutedText, fontSize = 10.sp)
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -479,7 +479,7 @@ internal fun V2232PersonalEditor(
                         }
                     }
                     if (alert != PersonalAlert.NOTIFICATION.name) {
-                        Text("Voice and Alarm currently use a notification until standalone audio QA passes.",
+                        Text("Voice and Alarm play short audio when Android allows; the notification remains your fallback.",
                             color = MutedGold, fontSize = 11.sp)
                     }
                     error?.let {
