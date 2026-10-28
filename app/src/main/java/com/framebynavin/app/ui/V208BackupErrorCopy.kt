@@ -9,6 +9,10 @@ internal object V208BackupErrorCopy {
     private fun reason(error: Throwable?): String {
         val msg = error?.message.orEmpty()
         return when {
+            msg.contains("Could not verify the exported backup file", ignoreCase = true) ||
+                msg.contains("Could not reopen", ignoreCase = true) ||
+                msg.contains("Could not open the selected file", ignoreCase = true) ->
+                "The selected file provider could not reopen or verify the export. It may have saved a partial file; try a local Files/Downloads destination."
             msg.contains("Voice Idea", ignoreCase = true) ||
                 msg.contains("voice media", ignoreCase = true) ||
                 msg.contains("voice recording", ignoreCase = true) ->

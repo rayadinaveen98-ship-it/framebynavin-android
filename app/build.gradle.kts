@@ -53,10 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V225 Reminder Reliability engineering preview. Prototype signer and app ID
-        // intentionally match installed V224.1 (246) for in-place sideload QA.
-        versionCode = 247
-        versionName = "2.11.0-v225-reminder-reliability-preview"
+        // V226 Personal Data Safety engineering preview. Prototype signer and app ID
+        // intentionally match installed V225 (247) for in-place sideload QA.
+        versionCode = 248
+        versionName = "2.12.0-v226-personal-backup-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
