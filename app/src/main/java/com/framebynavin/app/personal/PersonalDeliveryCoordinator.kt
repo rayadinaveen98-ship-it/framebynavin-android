@@ -26,6 +26,12 @@ internal object PersonalDeliveryContract {
     fun notificationTag(id: String): String = "backlot:personal:$id"
     fun uri(id: String, action: String) =
         Uri.parse("backlot-personal://reminders/${Uri.encode(id)}/${Uri.encode(action)}")
+
+    // Android PendingIntent identity excludes Intent extras. Action URIs MUST
+    // carry each immutable lease token so old notifications cannot inherit a
+    // new Snooze / Done token through FLAG_UPDATE_CURRENT.
+    fun actionUri(id: String, action: String, token: String) =
+        Uri.parse("backlot-personal://actions/${Uri.encode(id)}/${Uri.encode(action)}/${Uri.encode(token)}")
 }
 
 internal enum class PersonalApplyResult {
