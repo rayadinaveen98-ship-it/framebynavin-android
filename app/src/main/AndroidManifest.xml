@@ -28,6 +28,9 @@
 
         <service android:name=".reminders.AlarmRingingService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".reminders.VoiceReminderService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <!-- Dedicated Personal audio. No creator TaskStore or full-screen intent. -->
+        <service android:name=".personal.PersonalPlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <activity android:name=".personal.PersonalAlertActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:theme="@style/Theme.FrameByNavin" />
 
         <activity android:name=".reminders.AlarmActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="standard" android:showWhenLocked="true" android:turnScreenOn="true" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".reminders.VoiceReminderActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="standard" android:showWhenLocked="true" android:turnScreenOn="true" android:theme="@style/Theme.FrameByNavin" />
