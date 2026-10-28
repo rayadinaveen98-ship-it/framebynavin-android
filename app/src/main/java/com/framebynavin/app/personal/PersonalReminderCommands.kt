@@ -1,6 +1,7 @@
 package com.framebynavin.app.personal
 
 import android.content.Context
+import com.framebynavin.app.widget.V224WidgetUpdater
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -51,6 +52,7 @@ internal class PersonalReminderCommands(context: Context) {
         val checked = draft.checked().toRecord()
         store.create(checked)
         delivery.reconcile()
+        V224WidgetUpdater.refresh(app)
         return checked
     }
 
@@ -86,6 +88,7 @@ internal class PersonalReminderCommands(context: Context) {
         PersonalPlaybackService.stopForReminder(id)
         PersonalReminderNotifications.cancel(app, id)
         delivery.reconcile()
+        V224WidgetUpdater.refresh(app)
     }
 
     suspend fun setPaused(id: String, paused: Boolean) {
@@ -104,6 +107,7 @@ internal class PersonalReminderCommands(context: Context) {
         PersonalPlaybackService.stopForReminder(id)
         PersonalReminderNotifications.cancel(app, id)
         if (!paused) delivery.reconcile()
+        V224WidgetUpdater.refresh(app)
     }
 
     suspend fun delete(id: String) {
@@ -113,5 +117,6 @@ internal class PersonalReminderCommands(context: Context) {
         delivery.cancelPending(id)
         PersonalPlaybackService.stopForReminder(id)
         PersonalReminderNotifications.cancel(app, id)
+        V224WidgetUpdater.refresh(app)
     }
 }
