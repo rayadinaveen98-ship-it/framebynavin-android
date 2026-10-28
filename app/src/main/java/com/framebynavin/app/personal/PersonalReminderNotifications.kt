@@ -97,7 +97,7 @@ internal object PersonalReminderNotifications {
     ): PendingIntent {
         val intent = Intent(context, PersonalReminderActionReceiver::class.java)
             .setAction(action)
-            .setData(PersonalDeliveryContract.uri(reminder.id, action))
+            .setData(PersonalDeliveryContract.actionUri(reminder.id, action, reminder.pendingToken))
             .putExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID, reminder.id)
             .putExtra(PersonalDeliveryContract.EXTRA_OCCURRENCE, reminder.pendingOccurrenceMillis)
             .putExtra(PersonalDeliveryContract.EXTRA_TOKEN, reminder.pendingToken)
