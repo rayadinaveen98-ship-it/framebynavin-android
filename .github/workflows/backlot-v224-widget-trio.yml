@@ -143,7 +143,7 @@ jobs:
             adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
             adb shell am instrument -w -r -e class com.framebynavin.app.widget.V224WidgetRegistryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee widget-registry.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' widget-registry.log; then exit 1; fi
-            grep -Fq 'OK (2 tests)' widget-registry.log
+            grep -Fq 'OK (3 tests)' widget-registry.log
             adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2234PersonalMissedRecoveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-missed-recovery.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-missed-recovery.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' personal-missed-recovery.log
