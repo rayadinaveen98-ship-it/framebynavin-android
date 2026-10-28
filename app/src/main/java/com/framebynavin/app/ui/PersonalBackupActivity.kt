@@ -52,6 +52,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
     var pendingDigest by remember { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf<PersonalBackupPreview?>(null) }
+    var restorePrevious by remember { mutableStateOf(false) }
 
     val createDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -101,6 +102,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                     transfer.preview(raw) to digest(raw)
                 }
                 pendingUri = uri
+                restorePrevious = false
                 preview = checked.first
                 pendingDigest = checked.second
                 isError = false
@@ -156,6 +158,38 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                 openDocument.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*"))
             }
             Spacer(Modifier.height(14.dp))
+            PersonalBackupCard(
+                "Recover an earlier Personal revision",
+                "Backlot retains up to five local pre-restore recovery copies. This can undo a prior Personal import without touching Creator projects.",
+                "REVIEW RECOVERY COPY",
+                enabled = !busy,
+            ) {
+                scope.launch {
+                    busy = true
+                    try {
+                        val found = withContext(Dispatchers.IO) {
+                            transfer.previousRecoveryPreview()
+                        }
+                        if (found == null) {
+                            isError = true
+                            message = "No verified pre-restore Personal recovery copy is available on this device."
+                        } else {
+                            preview = found
+                            restorePrevious = true
+                            pendingUri = null
+                            pendingDigest = null
+                            isError = false
+                            message = null
+                        }
+                    } catch (failure: Exception) {
+                        isError = true
+                        message = "Could not open the local Personal recovery copy. Your current reminders were not changed."
+                    } finally {
+                        busy = false
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
             Surface(
                 color = CinemaSurface,
                 shape = RoundedCornerShape(16.dp),
@@ -183,7 +217,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
         AlertDialog(
             onDismissRequest = { if (!busy) { preview = null; pendingUri = null; pendingDigest = null } },
             containerColor = CinemaSurfaceRaised,
-            title = { Text("Replace Personal Reminders?", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
+            title = { Text(if (restorePrevious) "Recover older Personal data?" else "Replace Personal Reminders?", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     Text("Verified backup: ${checked.reminderCount} reminders, ${checked.activeCount} active.",
@@ -204,17 +238,24 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
             },
             confirmButton = {
                 Button(onClick = {
-                    val selected = pendingUri ?: return@Button
-                    val expected = pendingDigest ?: return@Button
+                    val useRecovery = restorePrevious
+                    val selected = pendingUri
+                    val expected = pendingDigest
+                    if (!useRecovery && (selected == null || expected == null)) return@Button
                     scope.launch {
                         busy = true
                         try {
                             val receipt = withContext(Dispatchers.IO) {
-                                val raw = context.contentResolver.openInputStream(selected)?.use {
-                                    PersonalBackupIo.readUtf8(it)
-                                } ?: error("Could not reopen Personal backup")
-                                require(digest(raw) == expected) { "The selected file changed" }
-                                transfer.restoreApproved(raw)
+                                if (useRecovery) {
+                                    transfer.restorePreviousApproved()
+                                } else {
+                                    val file = requireNotNull(selected)
+                                    val raw = context.contentResolver.openInputStream(file)?.use {
+                                        PersonalBackupIo.readUtf8(it)
+                                    } ?: error("Could not reopen Personal backup")
+                                    require(digest(raw) == expected) { "The selected file changed" }
+                                    transfer.restoreApproved(raw)
+                                }
                             }
                             isError = receipt.recoveryAttentionNeeded
                             message = if (receipt.recoveryAttentionNeeded) {
@@ -230,6 +271,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                             preview = null
                             pendingUri = null
                             pendingDigest = null
+                            restorePrevious = false
                         }
                     }
                 }, enabled = !busy) {
@@ -241,6 +283,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                     preview = null
                     pendingUri = null
                     pendingDigest = null
+                    restorePrevious = false
                 }, enabled = !busy) { Text("CANCEL", color = MutedText) }
             },
         )
