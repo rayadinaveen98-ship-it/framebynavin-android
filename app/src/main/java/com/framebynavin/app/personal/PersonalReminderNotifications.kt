@@ -64,8 +64,8 @@ internal object PersonalReminderNotifications {
         )
         val detail = when (reminder.alert) {
             PersonalAlert.NOTIFICATION -> "Personal reminder"
-            PersonalAlert.VOICE -> "Voice presentation not yet enabled · notification fallback"
-            PersonalAlert.ALARM -> "Alarm presentation not yet enabled · notification fallback"
+            PersonalAlert.VOICE -> "Voice will speak if Android permits · notification remains actionable"
+            PersonalAlert.ALARM -> "Alarm will ring if Android permits · notification remains actionable"
         }
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
