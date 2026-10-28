@@ -10,7 +10,7 @@ V223.4 has nine legacy registered widget providers: Creator Compact, Creator Des
 
 ## Update model
 - Existing CreatorWidgetUpdater calls the V224 renderer whenever Creator tasks refresh.
-- Personal commands, responses, received notifications and missed recovery best-effort refresh widget data. Widget failure is never a prerequisite for saving a reminder, nor will it reset the Personal DataStore.
+- Personal commands, responses, received notifications and missed recovery send a best-effort explicit same-app broadcast to pinned My Day widgets. The provider performs TaskStore/Personal DataStore reads off the reminder-critical receiver on its own IO coroutine; no widget render is awaited before completing the reminder action. Widget failure is never a prerequisite for saving a reminder, nor will it reset the Personal DataStore.
 - Android AppWidgetProvider updates and 30min periodic fallback ensure launcher recovery. Widgets use Android RemoteViews, no unsupported embedded Compose or silent direct actions.
 - All actions are explicit immutable PendingIntents with V224 URI namespacing; no direct Done/Snooze interaction on a non-private launcher.
 - UI uses scalable sp, independent 45–48dp tap targets, maxLines/ellipsize for large fonts and darker high-contrast surfaces; final real-device and tablet legibility remain owner QA.
