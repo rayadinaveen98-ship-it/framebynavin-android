@@ -2,6 +2,8 @@ package com.framebynavin.app.widget
 
 import android.content.ComponentName
 import android.content.pm.PackageManager
+import android.widget.FrameLayout
+import android.widget.RemoteViews
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.R
@@ -23,8 +25,13 @@ class V224WidgetRegistryTest {
             V224MyDayWidgetProvider::class.java,
         )
         providers.forEach {
-            val receiver = app.packageManager.getReceiverInfo(ComponentName(app, it), 0)
+            val receiver = app.packageManager.getReceiverInfo(
+                ComponentName(app, it), PackageManager.GET_META_DATA,
+            )
             assertTrue(receiver.enabled)
+            assertTrue(
+                receiver.metaData?.getInt("android.appwidget.provider", 0) != 0,
+            )
         }
         listOf(
             R.layout.widget_v224_capture,
@@ -32,6 +39,17 @@ class V224WidgetRegistryTest {
             R.layout.widget_v224_myday,
         ).forEach { id ->
             assertNotNull(app.resources.getLayout(id))
+        }
+    }
+
+    @Test fun allThreeRemoteViewsInflateOnActualAndroidRuntime() {
+        listOf(
+            R.layout.widget_v224_capture,
+            R.layout.widget_v224_today,
+            R.layout.widget_v224_myday,
+        ).forEach { layout ->
+            val view = RemoteViews(app.packageName, layout).apply(app, FrameLayout(app))
+            assertNotNull(view)
         }
     }
 
