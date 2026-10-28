@@ -38,4 +38,18 @@ class PersonalRecoveryPolicyTest {
                 pendingFireAtMillis = 0), afterGrace,
         ))
     }
+
+    @Test fun osRearmCannotExtendTheOriginalMissedDeadline() {
+        val window = PersonalRecoveryPolicy.UNANSWERED_GRACE_MILLIS
+        val newFireTime = due + window + 10_000L
+        val osRecovered = reminder().copy(pendingFireAtMillis = newFireTime)
+        assertTrue(PersonalRecoveryPolicy.shouldArchiveUnanswered(osRecovered, due + window + 1))
+        assertTrue(PersonalRecoveryPolicy.recoveryAlarmAtMillis(osRecovered) < newFireTime)
+        val userSnoozed = osRecovered.copy(
+            snoozedUntilMillis = newFireTime, lastResponse = PersonalResponse.SNOOZED,
+        )
+        assertFalse(PersonalRecoveryPolicy.shouldArchiveUnanswered(userSnoozed, due + window + 1))
+        assertTrue(PersonalRecoveryPolicy.recoveryAlarmAtMillis(userSnoozed) > newFireTime)
+    }
+
 }
