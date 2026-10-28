@@ -35,7 +35,7 @@ class V224WidgetPolicyTest {
         assertEquals(2, summary.upcomingCount)
         assertEquals(now + 10_000, summary.nextAtMillis)
         val text = V224WidgetPolicy.personalSafeLabel(summary)
-        assertTrue(text.contains("2 upcoming"))
+        assertTrue(text.contains("2 today"))
         assertFalse(text.contains("PRIVATE"))
         assertFalse(text.contains("Secret"))
     }
@@ -50,6 +50,32 @@ class V224WidgetPolicyTest {
 
     @Test fun unreadablePersonalStoreMustNotBeShownAsZero() {
         assertTrue(V224WidgetPolicy.personalSafeLabel(null).contains("Open to check"))
-        assertFalse(V224WidgetPolicy.personalSafeLabel(null).contains("Nothing upcoming"))
+        assertFalse(V224WidgetPolicy.personalSafeLabel(null).contains("None left today"))
     }
+    @Test fun tomorrowIsNotCountedAsToday() {
+        val zone = ZoneId.of("Asia/Kolkata")
+        val cutoff = V224WidgetPolicy.tomorrowStartMillis(now, zone)
+        val future = record("personal:tomorrow", cutoff + 60_000)
+        val today = record("personal:today", cutoff - 60_000)
+        val summary = V224WidgetPolicy.personalSummary(listOf(future, today), now, zone)
+        assertEquals(1, summary.upcomingCount)
+        assertEquals(cutoff - 60_000, summary.nextAtMillis)
+    }
+
+    @Test fun overdueUnpostedLeaseCannotFakeAnotherFutureOccurrence() {
+        val overdue = record("personal:late", now - 60_000)
+            .copy(repeat = com.framebynavin.app.personal.PersonalRepeat.DAILY)
+        val summary = V224WidgetPolicy.personalSummary(listOf(overdue), now)
+        assertEquals(0, summary.upcomingCount)
+        assertNull(summary.nextAtMillis)
+    }
+
+    @Test fun dstAwareLocalTomorrowCanBeOnlyTwentyThreeHoursAway() {
+        val zone = ZoneId.of("America/New_York")
+        val start = java.time.LocalDate.of(2027, 3, 14).atStartOfDay(zone)
+            .toInstant().toEpochMilli()
+        val end = V224WidgetPolicy.tomorrowStartMillis(start, zone)
+        assertEquals(23L * 60L * 60L * 1000L, end - start)
+    }
+
 }
