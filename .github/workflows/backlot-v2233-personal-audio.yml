@@ -3,8 +3,6 @@ name: Backlot V2233 Personal Voice Alarm QA
 on:
   push:
     branches: [feature/backlot-v2233-personal-voice-alarm]
-    paths:
-      - .github/workflows/backlot-v2233-personal-audio.yml
   workflow_dispatch:
 
 permissions:
