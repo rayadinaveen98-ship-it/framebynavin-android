@@ -41,10 +41,14 @@ class V2232PersonalReminderUiTest {
             rule.onNodeWithTag("v2232-personal-editor").assertExists()
             rule.onNodeWithTag("v2232-personal-title").performTextInput("Pay electricity bill")
             rule.onNodeWithTag("v2232-personal-save").performClick()
+            // Storage can commit before Compose receives the DataStore flow
+            // emission and removes the modal editor. Wait for the actual card.
             rule.waitUntil(12_000) {
-                runBlocking { store.load().any { it.title == "Pay electricity bill" } }
+                runBlocking { store.load().any { it.title == "Pay electricity bill" } } &&
+                    rule.onAllNodesWithTag("v2232-personal-item").fetchSemanticsNodes().isNotEmpty() &&
+                    rule.onAllNodesWithTag("v2232-personal-editor").fetchSemanticsNodes().isEmpty()
             }
-            rule.onNodeWithText("Pay electricity bill").assertExists()
+            rule.onAllNodesWithText("Pay electricity bill").assertCountEquals(1)
             val personal = runBlocking { store.load() }
             assertEquals(1, personal.size)
             assertTrue(personal.single().pendingToken.isNotBlank())
