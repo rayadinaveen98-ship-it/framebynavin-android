@@ -62,6 +62,7 @@ internal fun V157ReminderCenterUi(
     onReschedule: ((CreatorTask) -> Unit)?,
     snoozeMinutes: Int,
     onAcknowledge: ((CreatorTask, String, String) -> Unit)? = null,
+    onPersonal: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
