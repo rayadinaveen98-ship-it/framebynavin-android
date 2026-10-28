@@ -39,7 +39,7 @@ jobs:
           assert 'PersonalDeliveryCoordinator(appContext).reconcile()' in Path("app/src/main/java/com/framebynavin/app/reminders/ReminderRecoveryReceiver.kt").read_text()
           for file in root.glob("*.kt"):
               s=file.read_text()
-              for forbidden in ('TaskStore(', 'CreatorTask(', 'ProjectPulseEngine.', 'ReminderScheduler(', 'ReminderActionReceiver::class', 'VoiceReminderService.start(', 'AlarmRingingService.start('):
+              for forbidden in ('TaskStore(', 'CreatorTask(', 'ProjectPulseEngine.', 'ReminderScheduler(', 'Intent(context, com.framebynavin.app.reminders.ReminderActionReceiver::class.java)', 'VoiceReminderService.start(', 'AlarmRingingService.start('):
                   assert forbidden not in s, (file, forbidden)
           assert 'versionCode = 242' in Path("app/build.gradle.kts").read_text()
           print("Personal namespaced delivery and action boundaries verified.")
