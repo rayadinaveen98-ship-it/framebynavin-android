@@ -22,6 +22,11 @@ internal enum class PersonalAlert {
     NOTIFICATION, VOICE, ALARM,
 }
 
+/** A record of actual user response, never inferred from display or timeout. */
+internal enum class PersonalResponse {
+    NONE, DONE, DISMISSED, SNOOZED, RESCHEDULED,
+}
+
 internal data class PersonalReminder(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
@@ -38,6 +43,15 @@ internal data class PersonalReminder(
     val lastAcknowledgedOccurrenceMillis: Long = 0L,
     /** Optional one-off user snooze for the currently due occurrence. */
     val snoozedUntilMillis: Long = 0L,
+    /** Original scheduled occurrence, distinct from later snooze/fire times. */
+    val pendingOccurrenceMillis: Long = 0L,
+    val pendingFireAtMillis: Long = 0L,
+    /** Rotated for every re-armed occurrence, prevents replay of old alarm/actions. */
+    val pendingToken: String = "",
+    /** Posted notification handoff token; prevents repeat delivery on reconciliation. */
+    val presentedToken: String = "",
+    val lastResponse: PersonalResponse = PersonalResponse.NONE,
+    val lastResponseAtMillis: Long = 0L,
     val createdAtMillis: Long = System.currentTimeMillis(),
     val updatedAtMillis: Long = createdAtMillis,
 ) {
@@ -52,8 +66,19 @@ internal data class PersonalReminder(
         require(repeat != PersonalRepeat.WEEKLY || weeklyDays.isNotEmpty()) {
             "Weekly recurrence must select at least one day"
         }
-        require(lastAcknowledgedOccurrenceMillis >= 0L && snoozedUntilMillis >= 0L) {
+        require(lastAcknowledgedOccurrenceMillis >= 0L && snoozedUntilMillis >= 0L &&
+            pendingOccurrenceMillis >= 0L && pendingFireAtMillis >= 0L && lastResponseAtMillis >= 0L) {
             "Invalid personal occurrence state"
+        }
+        require(presentedToken.isEmpty() || presentedToken == pendingToken) {
+            "Stale presented occurrence token"
+        }
+        require(pendingToken.isEmpty() || pendingToken.matches(Regex("[a-f0-9-]{36}"))) {
+            "Invalid personal occurrence token"
+        }
+        require((pendingOccurrenceMillis == 0L && pendingFireAtMillis == 0L && pendingToken.isEmpty()) ||
+            (pendingOccurrenceMillis > 0L && pendingFireAtMillis > 0L && pendingToken.isNotEmpty())) {
+            "Incomplete personal occurrence journal"
         }
         require(createdAtMillis >= 0L && updatedAtMillis >= 0L) { "Invalid timestamps" }
         return this

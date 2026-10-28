@@ -18,6 +18,13 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
                 ReminderHealthScheduler.ensurePeriodic(appContext)
                 ReminderRecoveryEngine.reconcile(appContext)
                 IdeaReminderScheduler(appContext).reconcile()
+                // Personal data is isolated; a Personal failure must not block
+                // creator reminder recovery.
+                runCatching {
+                    com.framebynavin.app.personal.PersonalDeliveryCoordinator(appContext).reconcile()
+                }.onFailure {
+                    android.util.Log.e("BacklotPersonal", "Personal recovery reconcile failed", it)
+                }
             } finally {
                 pendingResult.finish()
             }

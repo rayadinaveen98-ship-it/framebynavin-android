@@ -38,6 +38,9 @@
         <activity android:name=".widget.QuickIdeaActivity" android:exported="false" android:excludeFromRecents="true" android:theme="@style/Theme.FrameByNavin" />
 
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
+        <!-- V223.1 Personal domain: separate non-exported PendingIntent targets. -->
+        <receiver android:name=".personal.PersonalReminderReceiver" android:exported="false" />
+        <receiver android:name=".personal.PersonalReminderActionReceiver" android:exported="false" />
         <receiver android:name=".reminders.EscalationReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderActionReceiver" android:exported="false" />
         <receiver android:name=".reminders.V205NudgePauseReceiver" android:exported="false" />
