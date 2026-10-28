@@ -225,6 +225,8 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2272-personal-wave-android15.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v2272-personal-wave-android15.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2271-personal-android15.log
+            mkdir -p v2271-personal-android15-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v2271-personal-editor-evidence/personal-editor-occlusion.png > v2271-personal-android15-evidence/personal-editor-occlusion.png || true
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2271-personal-android15.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v2271-personal-android15.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V227IdeaFooterAdaptiveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-footer-default.log
@@ -366,6 +368,7 @@ jobs:
           name: Backlot-V2272-Android15-Gestural-Results
           path: |
             v227-android15-evidence/
+            v2271-personal-android15-evidence/
             v2272-personal-wave-android15.log
             v2271-personal-android15.log
             v227-android15-footer.log
