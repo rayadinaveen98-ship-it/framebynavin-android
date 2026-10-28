@@ -82,6 +82,7 @@ internal class PersonalReminderCommands(context: Context) {
             )
         }
         delivery.cancelPending(id)
+        PersonalPlaybackService.stopForReminder(id)
         PersonalReminderNotifications.cancel(app, id)
         delivery.reconcile()
     }
