@@ -80,8 +80,8 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set -e
-            adb install -r apks/app-debug.apk
-            adb install -r apks/app-debug-androidTest.apk
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
             adb shell am instrument -w -r -e class com.framebynavin.app.personal.V223PersonalFoundationTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v223-foundation.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v223-foundation.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' v223-foundation.log
