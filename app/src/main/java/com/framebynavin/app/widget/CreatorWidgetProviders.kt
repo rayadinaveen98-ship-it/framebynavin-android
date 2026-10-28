@@ -41,13 +41,24 @@ abstract class V224BaseWidgetProvider : AppWidgetProvider() {
         renderDuringBroadcast(context)
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: android.os.Bundle,
+    ) {
+        // Some launchers do not send APPWIDGET_UPDATE when the user resizes.
+        // Re-read each widget's current minWidth/minHeight hint immediately.
+        renderDuringBroadcast(context)
+    }
+
     private fun renderDuringBroadcast(context: Context) {
         val app = context.applicationContext
         val pending = goAsync()
         widgetScope.launch {
             try {
                 withTimeout(9_000L) {
-                    CreatorWidgetUpdater.updateAll(app, TaskStore(app).load())
+                    V224WidgetUpdater.update(app, TaskStore(app).load())
                 }
             } catch (error: Exception) {
                 android.util.Log.w("BacklotWidgets", "V224 widget update interrupted; next refresh can retry", error)
