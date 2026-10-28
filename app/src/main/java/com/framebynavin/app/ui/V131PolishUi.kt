@@ -330,6 +330,7 @@ internal fun V131ReminderCenter(
         onReschedule = onRescheduleReminder,
         snoozeMinutes = snoozeMinutes,
         onAcknowledge = onAcknowledgeReminder,
+        onPersonal = onPersonal,
     )
 }
 
