@@ -92,7 +92,7 @@ internal fun PTodayScreen(
     bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
     homeSlideshowRequestNonce: Long = 0L,
     onHomeSlideshowRequestHandled: () -> Unit = {},
-    companionContent: @Composable () -> Unit = {},
+    companionAvatar: @Composable () -> Unit = {},
 ) {
     // V222 pre-Play cold-start fix: CreatorViewModel.tasks is a mutableStateListOf.
     // The list object keeps its identity while DataStore loads projects into it,
@@ -119,6 +119,7 @@ internal fun PTodayScreen(
                 creatorName = creatorProfile.safeDisplayName,
                 openEditorNonce = homeSlideshowRequestNonce,
                 onEditorRequestHandled = onHomeSlideshowRequestHandled,
+                companionAvatar = companionAvatar,
             )
             // V220.3: when connected channel Insights has usable ranked videos,
             // the existing Top 3 carousel must appear ABOVE the Up Next project.
@@ -229,10 +230,8 @@ internal fun PTodayScreen(
             Spacer(Modifier.height(12.dp))
             V219ReminderHomeEntry(tasks = tasks, onOpenHub = onViewAllReminders)
 
-            // V221.4: optional, read-only guide recommendation. It can be quiet.
-            // NEVER move Top 3, Up Next or the real Reminders Hub below it.
-            // An empty companion contributes no extra space.
-            companionContent()
+            // V222.1: companion is now in the Home greeting header.
+            // No duplicate suggestion card or reserved vertical space here.
 
             // Weekly focus is secondary; Top 3 remains above Up Next.
             Spacer(Modifier.height(18.dp))
