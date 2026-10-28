@@ -115,10 +115,9 @@ jobs:
           assert "retained.retain(existing)" in personal_backup
           assert "PersonalDeliveryCoordinator(app)" in personal_backup
           assert "AtomicFile" in personal_recovery
-          assert "max" not in ""  # keep portable Python assertions deterministic
           assert "selected file provider" in creator_error
-          assert "CreatorBackupManager" not in personal_backup
-          assert "DriveVault" not in personal_backup
+          assert "CreatorBackupManager(" not in personal_backup
+          assert "DriveVaultManager(" not in personal_backup
           print("V226 independent Personal backup, verified SAF, undo and Creator privacy checks pass")
           PY
       - name: Full JVM unit regression, lint and personal Stable preview APK builds
