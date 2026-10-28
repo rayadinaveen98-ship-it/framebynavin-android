@@ -733,12 +733,18 @@ internal fun V09NewIdeaCleanEditor(
                         enabled = title.isNotBlank() || voiceRecording != null,
                         modifier = Modifier.fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 10.dp)
-                            .height(52.dp)
+                            .heightIn(min = 52.dp)
                             .testTag("v2203-new-idea-save"),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(15.dp),
                     ) {
-                        Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE IDEA", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text(
+                            if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE IDEA",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
                     }
                 }
     }
@@ -914,20 +920,13 @@ private fun V09IdeaEditor(
                     TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("MOVE TO RECENTLY DELETED", color = RecRed) }
                 }
                 }
-                // Save/Cancel remain visible above system navigation and IME,
-                // regardless of optional organizing sections or long Telugu notes.
-                Surface(color = CinemaSurfaceRaised, tonalElevation = 8.dp) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TextButton(
-                            onClick = ::dismissEditor,
-                            modifier = Modifier.weight(1f).height(52.dp).testTag("v216-edit-cancel"),
-                        ) { Text("CANCEL", color = ProjectorIvory) }
-                        Button(
-                onClick = {
+                // V227: safe, full-width primary on narrow phones / large fonts.
+                // Preserve the exact existing data-save callback and test tags.
+                V227IdeaEditorActionFooter(
+                    saveEnabled = title.isNotBlank() || voiceRecording != null,
+                    isVoiceIdea = voiceRecording != null,
+                    onCancel = ::dismissEditor,
+                onSave = {
                     val now = System.currentTimeMillis()
                     val finalizedRecording = voiceRecording
                     val newVoiceIdea = idea.id.isBlank() && finalizedRecording != null
@@ -956,16 +955,7 @@ private fun V09IdeaEditor(
                     // If rejected, retain the unsaved original recording and editor draft.
                     if (accepted) voiceRecording = null
                 },
-                enabled = title.isNotBlank() || voiceRecording != null,
-                modifier = Modifier.weight(1.55f).height(52.dp).testTag("v216-edit-save"),
-                colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                shape = RoundedCornerShape(15.dp),
-                        ) {
-                            Text(if (voiceRecording != null) "SAVE VOICE IDEA" else "SAVE",
-                                fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        }
-                    }
-                }
+                )
             }
         }
     }
