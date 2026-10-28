@@ -152,6 +152,7 @@ class MainActivity : ComponentActivity() {
             CreatorWidgetContract.ACTION_OPEN_INSIGHTS,
             CreatorWidgetContract.ACTION_AUTOMATION_CENTER,
             CreatorWidgetContract.ACTION_OPEN_REMINDERS,
+            com.framebynavin.app.personal.PersonalDeliveryContract.ACTION_OPEN_PERSONAL,
         )
         if (action !in supported) return null
         return CreatorWidgetLaunch(
