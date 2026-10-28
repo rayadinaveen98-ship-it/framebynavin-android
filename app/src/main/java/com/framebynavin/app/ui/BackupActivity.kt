@@ -192,6 +192,17 @@ private fun BackupScreen(onClose: () -> Unit) {
 
             Spacer(Modifier.height(12.dp))
             BackupActionCard(
+                title = "Personal Reminders — separate backup",
+                body = "Personal reminders are NOT included in Creator backups. Export or explicitly restore them in their own private, checksum-verified file.",
+                icon = Icons.Outlined.Restore,
+                button = "PERSONAL BACKUP & RESTORE",
+                enabled = !actionBusy,
+            ) {
+                context.startActivity(Intent(context, PersonalBackupActivity::class.java))
+            }
+
+            Spacer(Modifier.height(12.dp))
+            BackupActionCard(
                 title = "Voice storage",
                 body = buildString {
                     append("${voiceStorageSnapshot.referencedCount} saved ${if (voiceStorageSnapshot.referencedCount == 1) "recording" else "recordings"} use ${formatVoiceStorageBytes(voiceStorageSnapshot.referencedBytes)}. ")
