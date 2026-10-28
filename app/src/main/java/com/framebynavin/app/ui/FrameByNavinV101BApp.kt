@@ -121,6 +121,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
+    // V223.2 remembers the chosen Reminders space; never translates Personal into CreatorTask.
+    var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
     var showNewIdeaEditor by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -366,6 +368,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             CreatorWidgetContract.ACTION_OPEN_INSIGHTS -> { overlay = POverlay.NONE; tab = PTab.INSIGHTS }
             CreatorWidgetContract.ACTION_AUTOMATION_CENTER -> overlay = POverlay.AUTOMATION
             CreatorWidgetContract.ACTION_OPEN_REMINDERS -> { overlay = POverlay.NONE; showReminders = true }
+            com.framebynavin.app.personal.PersonalDeliveryContract.ACTION_OPEN_PERSONAL -> {
+                overlay = POverlay.NONE
+                personalReminderSpace = true
+                showReminders = true
+            }
         }
     }
 
@@ -746,6 +753,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     if (showReminders) {
+        if (personalReminderSpace) {
+            V2232PersonalReminderHub(
+                onClose = { showReminders = false },
+                onCreator = { personalReminderSpace = false },
+            )
+        } else {
         V131ReminderCenter(
             tasks = vm.tasks,
             onDismiss = { showReminders = false },
@@ -787,7 +800,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         .putExtra(com.framebynavin.app.reminders.ReminderConstants.EXTRA_OCCURRENCE_ID, token)
                 )
             },
+            onPersonal = { personalReminderSpace = true },
         )
+        }
     }
 
     // V220.4 owner RCA: this Activity-owned overlay is composed AFTER the

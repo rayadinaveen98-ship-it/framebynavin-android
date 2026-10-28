@@ -1,0 +1,106 @@
+name: Backlot V2232 Personal Hub UI QA
+
+on:
+  push:
+    branches: [feature/backlot-v2232-personal-hub-ui]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Validate Personal Hub has real storage and safe Creator switch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('app/src/main/java/com/framebynavin/app')
+          hub=(root/'ui/V2232PersonalReminderHub.kt').read_text()
+          command=(root/'personal/PersonalReminderCommands.kt').read_text()
+          shell=(root/'ui/FrameByNavinV101BApp.kt').read_text()
+          creator=(root/'ui/V157ReminderCenterUi.kt').read_text()
+          assert 'store.remindersFlow.collect' in hub
+          assert 'V2232PersonalReminderHub(' in shell
+          assert 'personalReminderSpace by rememberSaveable' in shell
+          assert 'testTag("v2232-open-personal")' in creator
+          assert 'PersonalReminderCommands(context)' in hub
+          assert 'V2232PersonalEditor(' in hub
+          assert 'notification fallback' in hub
+          assert 'delivery.cancelPending(id)' in command
+          for s in (hub,command):
+              for forbidden in ('TaskStore(', 'CreatorTask(', 'ProjectPulseEngine.', 'ReminderActionReceiver::class.java'):
+                  assert forbidden not in s, forbidden
+          PY
+      - name: Full JVM suite, Android lint, debug APK and Android test APK
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2232-Personal-UI-Android-Inputs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+
+  android:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2232-Personal-UI-Android-Inputs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 real UI create, recurrence engine and creator regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2232PersonalNotificationDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-real-notification.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-real-notification.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' personal-real-notification.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2231PersonalDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-actions.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-actions.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' personal-actions.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V223PersonalFoundationTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-store.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-store.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' personal-store.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V222ColdStartProjectsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee home-cold-start.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' home-cold-start.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' home-cold-start.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2232-Personal-Hub-Android-Results
+          path: |
+            personal-ui.log
+            personal-real-notification.log
+            personal-actions.log
+            personal-store.log
+            home-cold-start.log
+          if-no-files-found: warn

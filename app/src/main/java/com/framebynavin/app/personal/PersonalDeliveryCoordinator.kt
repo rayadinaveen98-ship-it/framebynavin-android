@@ -16,6 +16,7 @@ internal object PersonalDeliveryContract {
     const val EXTRA_FIRE_AT = "backlot.personal.fire_at"
     const val EXTRA_TOKEN = "backlot.personal.token"
     const val EXTRA_ACTION = "backlot.personal.action"
+    const val ACTION_OPEN_PERSONAL = "com.framebynavin.app.personal.OPEN"
     const val ACTION_FIRE = "com.framebynavin.app.personal.FIRE"
     const val ACTION_DONE = "com.framebynavin.app.personal.DONE"
     const val ACTION_SNOOZE = "com.framebynavin.app.personal.SNOOZE"
