@@ -338,7 +338,7 @@ private fun V2232PersonalItem(
                 }
             }
             Text("${reminder.repeat.name.replace('_', ' ')} · ${reminder.alert.name}" +
-                    "${if (reminder.alert == PersonalAlert.NOTIFICATION) "" else " (notification fallback)"}",
+                    "${if (reminder.alert == PersonalAlert.NOTIFICATION) "" else " (audio when permitted)"}",
                 color = MutedText, fontSize = 10.sp)
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(5.dp)) {
