@@ -13,7 +13,14 @@ internal object PersonalPlaybackPolicy {
         if (reminder.id != id || reminder.pendingToken != token ||
             reminder.presentedToken != token || reminder.pendingOccurrenceMillis != originalMillis ||
             reminder.pendingFireAtMillis != fireMillis) return false
-        // Delayed OS delivery must never ring an alarm hours after its due time.
-        return nowMillis >= fireMillis - 5_000L && nowMillis - fireMillis <= MAX_AUDIO_AGE_MILLIS
+        // A recovery may re-arm an old event at 'now + 2s'. That new fire time
+        // must not make yesterday's original reminder eligible for loud audio.
+        // Only an explicit user Snooze/Reschedule may change the audio age anchor.
+        val userDeferred = reminder.snoozedUntilMillis == fireMillis &&
+            reminder.lastResponse in setOf(PersonalResponse.SNOOZED, PersonalResponse.RESCHEDULED)
+        val ageAnchor = if (userDeferred) fireMillis else originalMillis
+        return nowMillis >= fireMillis - 5_000L &&
+            nowMillis - fireMillis <= MAX_AUDIO_AGE_MILLIS &&
+            nowMillis - ageAnchor <= MAX_AUDIO_AGE_MILLIS
     }
 }
