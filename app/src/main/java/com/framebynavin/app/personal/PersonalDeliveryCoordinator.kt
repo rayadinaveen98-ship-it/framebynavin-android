@@ -210,6 +210,9 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             }
         }
         if (result == PersonalApplyResult.ACCEPTED) {
+            // Silence ONLY the exact occurrence that just received a real
+            // user response. A later lease may be ringing independently.
+            PersonalPlaybackService.stopMatching(id, token)
             cancelPending(id)
             PersonalReminderNotifications.cancel(app, id)
             reconcile(nowMillis)
