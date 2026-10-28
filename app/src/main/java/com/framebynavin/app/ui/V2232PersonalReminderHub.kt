@@ -25,6 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -101,6 +104,14 @@ internal fun V2232PersonalReminderHub(
     }
 
     var permissionRevision by remember { mutableIntStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) permissionRevision++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { permissionRevision++ }
@@ -439,7 +450,7 @@ internal fun V2232PersonalEditor(
                     if (repeat == PersonalRepeat.WEEKLY.name) {
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            DayOfWeek.entries.forEach { day ->
+                            DayOfWeek.values().forEach { day ->
                                 FilterChip(selected = day in weekDays,
                                     onClick = {
                                         val next = if (day in weekDays) weekDays - day else weekDays + day
