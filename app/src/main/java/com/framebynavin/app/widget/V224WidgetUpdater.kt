@@ -128,7 +128,9 @@ internal object V224WidgetUpdater {
         val personalText = V224WidgetPolicy.personalSafeLabel(personal) +
             (personal?.nextAtMillis?.let { "\nNext ${clock(it)}" } ?: "")
         views.setTextViewText(R.id.v224_day_creator, creatorText)
+        views.setContentDescription(R.id.v224_day_creator, creatorText.replace("\\n", ". "))
         views.setTextViewText(R.id.v224_day_personal, personalText)
+        views.setContentDescription(R.id.v224_day_personal, personalText.replace("\\n", ". "))
         views.setOnClickPendingIntent(
             R.id.v224_day_open_creator,
             launchIntent(context, CreatorWidgetContract.ACTION_OPEN_REMINDERS),
