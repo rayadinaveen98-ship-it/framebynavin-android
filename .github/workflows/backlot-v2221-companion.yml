@@ -1,0 +1,131 @@
+name: Backlot V2221 Circular Companion QA
+
+on:
+  push:
+    branches: [feature/backlot-v2221-circular-companion]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify single avatar integration and no Home inline recommendation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          home=Path("app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt").read_text()
+          activity=Path("app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt").read_text()
+          hero=Path("app/src/main/java/com/framebynavin/app/ui/V175BestFramesUi.kt").read_text()
+          companion=Path("app/src/main/java/com/framebynavin/app/ui/V2214HomeCompanion.kt").read_text()
+          assert "companionAvatar = companionAvatar" in home
+          assert "companionContent()" not in home
+          assert "companionAvatar = {" in activity
+          assert "V18HeroPhotoButton(hasFrames, importing, onPhotoClick)" in hero
+          assert "V2221CompanionPortrait(" in companion
+          assert "ModalBottomSheet(" in companion
+          assert 'testTag("v2221-companion-avatar")' in companion
+          assert "V221CompanionSuggestionCard(" in companion
+          assert "V2214HomeCompanionPolicy.openableProjectId" in companion
+          assert 'versionCode = 242' in Path("app/build.gradle.kts").read_text()
+          PY
+      - name: Unit tests, lint, personalStable and emulator test APKs
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assemblePersonalStable :app:assembleDebugAndroidTest --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V222-Visual-Preview-APK-and-Comparison
+          run-id: 40641972797
+          github-token: ${{ github.token }}
+          path: previous
+      - name: Verify in-place sideload signing identity, package and version increase
+        run: |
+          set -euo pipefail
+          OLD="$(find previous -type f -name Backlot-V222-visual-preview-personalStable.apk -print -quit)"
+          NEW=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$OLD" && test -s "$NEW"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --print-certs "$OLD" > before-cert.txt
+          "$APKSIGNER" verify --print-certs "$NEW" > after-cert.txt
+          BEFORE="$(grep -m1 'certificate SHA-256 digest' before-cert.txt)"
+          AFTER="$(grep -m1 'certificate SHA-256 digest' after-cert.txt)"
+          test "$BEFORE" = "$AFTER"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='241'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='242'"
+          mkdir -p v2221-build
+          cp "$NEW" v2221-build/Backlot-V2221-Circular-Companion-Personal-Stable-Preview.apk
+          cp app/build/outputs/apk/debug/app-debug.apk v2221-build/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk v2221-build/app-debug-androidTest.apk
+          cp before-cert.txt after-cert.txt v2221-build/
+          sha256sum v2221-build/*.apk > v2221-build/SHA256SUMS.txt
+          printf 'V222.1 private test build, 242, preserves V221.5 / V222 data+certificate; not Play Store ready. Commit %s\n' "$(git rev-parse HEAD)" > v2221-build/README.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2221-Companion-Preview-APKs
+          path: v2221-build/
+          retention-days: 45
+          if-no-files-found: error
+
+  device:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2221-Companion-Preview-APKs
+          path: v2221-build
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify Home header + real sheet + Settings opt-out + previous Home tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r v2221-build/app-debug.apk
+            adb install -r v2221-build/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee companion.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' companion.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' companion.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2215CompanionAccessibilityUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee optout.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' optout.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' optout.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V222ColdStartProjectsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee cold-start.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' cold-start.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' cold-start.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V220HomeConsolidationUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee previous-home.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' previous-home.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' previous-home.log
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-default-header-art-and-gallery.png > circular-companion-header.png || true
+            test -s circular-companion-header.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2221-Companion-Android-Results
+          path: |
+            companion.log
+            optout.log
+            cold-start.log
+            previous-home.log
+            circular-companion-header.png
+          if-no-files-found: warn
