@@ -37,7 +37,7 @@ internal object V224WidgetUpdater {
         if (capture.isEmpty() && today.isEmpty() && myDay.isEmpty()) return
 
         capture.forEach { id ->
-            manager.updateAppWidget(id, captureViews(app, compact(manager, id)))
+            manager.updateAppWidget(id, captureViews(app, compact(app, manager, id)))
         }
         if (today.isNotEmpty()) {
             today.forEach { id ->
@@ -85,11 +85,12 @@ internal object V224WidgetUpdater {
     private inline fun <reified T> ids(context: Context, manager: AppWidgetManager): IntArray =
         manager.getAppWidgetIds(ComponentName(context, T::class.java))
 
-    private fun compact(manager: AppWidgetManager, id: Int): Boolean {
+    private fun compact(context: Context, manager: AppWidgetManager, id: Int): Boolean {
         val options = manager.getAppWidgetOptions(id)
         return V2241WidgetSizingPolicy.compact(
             options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0),
             options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0),
+            context.resources.configuration.fontScale,
         )
     }
 
@@ -97,6 +98,8 @@ internal object V224WidgetUpdater {
         RemoteViews(context.packageName, R.layout.widget_v224_capture).apply {
             if (compact) {
                 setViewVisibility(R.id.v224_capture_prompt, View.GONE)
+                setTextViewTextSize(R.id.v224_capture_idea, TypedValue.COMPLEX_UNIT_SP, 10f)
+                setTextViewTextSize(R.id.v224_capture_project, TypedValue.COMPLEX_UNIT_SP, 10f)
             }
             setOnClickPendingIntent(R.id.v224_capture_idea, ideaIntent(context))
             setOnClickPendingIntent(
@@ -126,6 +129,8 @@ internal object V224WidgetUpdater {
             views.setViewVisibility(R.id.v224_today_detail, View.GONE)
             views.setViewVisibility(R.id.v224_today_reminder, View.GONE)
             views.setTextViewTextSize(R.id.v224_today_title, TypedValue.COMPLEX_UNIT_SP, 15f)
+            views.setTextViewTextSize(R.id.v224_today_open, TypedValue.COMPLEX_UNIT_SP, 9f)
+            views.setTextViewTextSize(R.id.v224_today_reminders, TypedValue.COMPLEX_UNIT_SP, 9f)
         }
         views.setTextViewText(
             R.id.v224_today_detail,
@@ -169,6 +174,8 @@ internal object V224WidgetUpdater {
             views.setViewVisibility(R.id.v224_day_headline, View.GONE)
             views.setTextViewTextSize(R.id.v224_day_creator, TypedValue.COMPLEX_UNIT_SP, 11f)
             views.setTextViewTextSize(R.id.v224_day_personal, TypedValue.COMPLEX_UNIT_SP, 11f)
+            views.setTextViewTextSize(R.id.v224_day_open_creator, TypedValue.COMPLEX_UNIT_SP, 9f)
+            views.setTextViewTextSize(R.id.v224_day_open_personal, TypedValue.COMPLEX_UNIT_SP, 9f)
         }
         views.setTextViewText(R.id.v224_day_creator, creatorText)
         views.setContentDescription(R.id.v224_day_creator, creatorText.replace("\n", ". "))
