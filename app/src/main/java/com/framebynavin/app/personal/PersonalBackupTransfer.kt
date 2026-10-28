@@ -27,12 +27,23 @@ internal class PersonalBackupTransfer(context: Context) {
     private val app = context.applicationContext
     private val store = PersonalReminderStore(app)
     private val delivery = PersonalDeliveryCoordinator(app)
+    private val retained = PersonalPreRestoreRecovery(app)
 
     suspend fun export(): String = store.exportPersonalJson()
 
     fun preview(raw: String): PersonalBackupPreview {
         val imported = PersonalReminderCodec.decode(raw)
         return PersonalBackupPreview(imported.size, imported.count { !it.paused })
+    }
+
+    fun previousRecoveryPreview(): PersonalBackupPreview? =
+        retained.latestVerified()?.let(::preview)
+
+    suspend fun restorePreviousApproved(): PersonalBackupRestoreReceipt {
+        val previous = requireNotNull(retained.latestVerified()) {
+            "No verified Personal pre-restore copy is available"
+        }
+        return restoreApproved(previous)
     }
 
     suspend fun restoreApproved(raw: String): PersonalBackupRestoreReceipt {
@@ -42,6 +53,9 @@ internal class PersonalBackupTransfer(context: Context) {
         // Capture the actual previous revision inside the same serialized
         // DataStore mutation. A racing edit cannot escape the recovery copy.
         store.mutate { existing ->
+            // Persist a verified, independent undo image BEFORE changing the
+            // atomic DataStore primary. Failure aborts the entire replacement.
+            retained.retain(existing)
             previous = existing
             clean
         }
