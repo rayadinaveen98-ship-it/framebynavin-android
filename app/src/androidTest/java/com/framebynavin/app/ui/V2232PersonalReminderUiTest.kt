@@ -50,7 +50,6 @@ class V2232PersonalReminderUiTest {
             assertTrue(personal.single().pendingToken.isNotBlank())
             assertEquals(before, runBlocking { TaskStore(app).load() })
         } finally {
-            PersonalDeliveryCoordinator(app).cancelPending("not-used")
             runBlocking {
                 store.load().forEach {
                     PersonalDeliveryCoordinator(app).cancelPending(it.id)
