@@ -1,0 +1,93 @@
+name: Backlot V222 Visual Preview Release Checks
+
+on:
+  push:
+    branches: [feature/backlot-v222-preplay-final-refinements]
+    paths:
+      - .github/workflows/backlot-v222-visual-preview.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  visual-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/backlot-v222-preplay-final-refinements
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prepare approved logo recolor
+        run: python -m pip install --quiet Pillow
+      - name: Recolor existing approved B icon (exact geometry)
+        run: |
+          set -euo pipefail
+          cp app/src/main/res/drawable-nodpi/backlot_v198_approved_icon.webp /tmp/backlot-v2215-original.webp
+          python scripts/v222_refresh_approved_logo.py
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          original=Image.open('/tmp/backlot-v2215-original.webp').convert('RGB')
+          updated=Image.open('app/src/main/res/drawable-nodpi/backlot_v198_approved_icon.webp').convert('RGB')
+          assert original.size==updated.size==(256,256)
+          for point in ((0,0),(0,255),(255,0),(255,255)):
+              assert original.getpixel(point)==updated.getpixel(point)
+          assert original.tobytes()!=updated.tobytes()
+          Path('v222-evidence').mkdir(exist_ok=True)
+          original.resize((512,512)).save('v222-evidence/backlot-before.png')
+          updated.resize((512,512)).save('v222-evidence/backlot-vibrant-after.png')
+          print('Approved B mask/layout untouched; corners and pixel geometry retained.')
+          PY
+      - name: Commit only brighter original-geometry launcher bitmap
+        run: |
+          set -euo pipefail
+          git add app/src/main/res/drawable-nodpi/backlot_v198_approved_icon.webp
+          git diff --cached --quiet && { echo "Expected approved icon enhancement missing"; exit 1; }
+          git -c user.name="backlot-release-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "V222 richer approved launcher icon: color-only, shape unchanged"
+          git push origin HEAD:refs/heads/feature/backlot-v222-preplay-final-refinements
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Full Android unit regression, lint, instrumentation and two APKs
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assemblePersonalStable :app:assembleDebugAndroidTest --stacktrace
+      - name: Retrieve previous V221.5 certified stable for signature comparison
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2215-2.9.0-Personal-Stable
+          run-id: 40547971646
+          github-token: ${{ github.token }}
+          path: previous
+      - name: Verify V222 signed in-place upgrade from certified V221.5
+        run: |
+          set -euo pipefail
+          OLD="$(find previous -type f -name 'Backlot-V2215-2.9.0-Personal-Stable.apk' -print -quit)"
+          STABLE=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$OLD" && test -s "$STABLE"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --print-certs "$OLD" > v222-evidence/old-cert.txt
+          "$APKSIGNER" verify --print-certs "$STABLE" > v222-evidence/new-cert.txt
+          OLD_SHA="$(grep -m1 'certificate SHA-256 digest' v222-evidence/old-cert.txt | sed 's/.*: //')"
+          NEW_SHA="$(grep -m1 'certificate SHA-256 digest' v222-evidence/new-cert.txt | sed 's/.*: //')"
+          test -n "$OLD_SHA" && test "$OLD_SHA" = "$NEW_SHA"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='240'"
+          "$AAPT" dump badging "$STABLE" | grep -F "package: name='com.framebynavin.app' versionCode='241' versionName='2.9.1-v222-visual-preview'"
+          cp "$STABLE" v222-evidence/Backlot-V222-visual-preview-personalStable.apk
+          sha256sum v222-evidence/Backlot-V222-visual-preview-personalStable.apk > v222-evidence/SHA256SUMS.txt
+          echo "SHA $(git rev-parse HEAD); preview build 241; exact V221.5 original signing identity" > v222-evidence/BUILD-INFO.txt
+          echo "Preview only; NOT Play Store signing or public production release" >> v222-evidence/BUILD-INFO.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V222-Visual-Preview-APK-and-Comparison
+          path: v222-evidence/
+          retention-days: 45
+          if-no-files-found: error

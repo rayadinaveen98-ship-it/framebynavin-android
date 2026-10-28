@@ -52,23 +52,33 @@ internal fun V195ReminderParticleScene(
                 else V218UnifiedWavePolicy.NORMAL_GLYPH_DOTS,
         )
     }
+    // V222: higher-chroma pigment while preserving the original unified particle
+    // trajectories, clock/mic shape, reveal mechanics and accessible actions.
     val palette = remember(kind) {
         if (kind == ReminderCheckInKind.ALARM) listOf(
-            Color(0xFFFFCF52), Color(0xFFFFA724), Color(0xFFFF793B), Color(0xFFFF527D),
-            Color(0xFFFF4BB9), Color(0xFFE065FF), Color(0xFFA56DFF), Color(0xFFFF9473),
+            Color(0xFFFFE16B), Color(0xFFFFB437), Color(0xFFFF6B3E), Color(0xFFFF497B),
+            Color(0xFFFF35BD), Color(0xFFDA52FF), Color(0xFF9460FF), Color(0xFFFF8660),
         ) else listOf(
-            Color(0xFF3EEDFF), Color(0xFF48B6FF), Color(0xFF677FFF), Color(0xFFA376FF),
-            Color(0xFFDB69FF), Color(0xFFFF69D4), Color(0xFF45F3C9), Color(0xFF73C7FF),
+            Color(0xFF4CF5FF), Color(0xFF319EFF), Color(0xFF6475FF), Color(0xFFAB69FF),
+            Color(0xFFE65DFF), Color(0xFFFF52C6), Color(0xFF28F5D9), Color(0xFF6DC7FF),
         )
     }
     val atmosphere = remember(kind) {
         Brush.verticalGradient(
             if (kind == ReminderCheckInKind.ALARM) listOf(
-                Color(0xFF1B1021), Color(0xFF211328), Color(0xFF0A1729),
+                Color(0xFF221027), Color(0xFF23132D), Color(0xFF101A32),
             ) else listOf(
-                Color(0xFF100F2D), Color(0xFF1A1435), Color(0xFF0B202D),
+                Color(0xFF0C1835), Color(0xFF1C1642), Color(0xFF092B36),
             )
         )
+    }
+    val centralGlow = remember(kind) {
+        if (kind == ReminderCheckInKind.ALARM)
+            Color(0xFFFF5988) else Color(0xFF4D8BFF)
+    }
+    val rimGlow = remember(kind) {
+        if (kind == ReminderCheckInKind.ALARM)
+            Color(0xFFFFB43B) else Color(0xFF38EBE4)
     }
     val revealProgress by animateFloatAsState(
         targetValue = if (revealed) 1f else 0f,
@@ -109,12 +119,40 @@ internal fun V195ReminderParticleScene(
         drawRect(brush = atmosphere)
 
         val center = Offset(size.width * .5f, size.height * .42f)
+        // Two fixed-cost radial blooms behind the wave; never blur every dot.
+        // Lower-power devices skip these extra draws entirely.
+        if (!lowPower) {
+            val bloomRadius = min(size.width * .67f, size.height * .43f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(centralGlow.copy(alpha = .24f), centralGlow.copy(alpha = 0f)),
+                    center = center,
+                    radius = bloomRadius,
+                ),
+                center = center,
+                radius = bloomRadius,
+            )
+            val rimCenter = Offset(size.width * .69f, size.height * .29f)
+            val rimRadius = min(size.width * .43f, size.height * .29f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(rimGlow.copy(alpha = .16f), rimGlow.copy(alpha = 0f)),
+                    center = rimCenter,
+                    radius = rimRadius,
+                ),
+                center = rimCenter,
+                radius = rimRadius,
+            )
+        }
         val glyphRadius = when (glyph) {
             V195ReminderGlyph.CLOCK -> min(size.width * .395f, size.height * .30f)
             V195ReminderGlyph.MICROPHONE -> min(size.width * .48f, size.height * .31f)
         }
         val attraction = V218UnifiedWavePolicy.glyphBlend(elapsedSeconds, revealProgress)
-        val scrim = 1f - .60f * revealProgress
+        // V218 dimmed particles to 40%, then darkened the entire scene again
+        // by 26% after reveal. That made the rich pigment look nearly black.
+        // Keep about 82% of particle brightness when controls are present.
+        val scrim = 1f - .18f * revealProgress
         val small = 1.32.dp.toPx()
         val mid = 1.68.dp.toPx()
         val large = 2.12.dp.toPx()
@@ -162,15 +200,15 @@ internal fun V195ReminderParticleScene(
                 1 -> mid
                 else -> large
             }
-            val intensity = if (assigned) .80f + .18f * attraction else .77f
+            val intensity = if (assigned) .89f + .11f * attraction else .87f
             val position = Offset(x, y)
 
-            // Only occasional glow; many full-radius blurs at 2,184 particles
-            // are expensive on entry-level Android hardware.
-            if (!lowPower && index % 13 == 0) {
+            // Selectively halo ~1/17 particles; preserve low-power draw budget.
+            // The pigment itself still forms the silhouette, never a separate icon.
+            if (!lowPower && index % 17 == 0) {
                 drawCircle(
-                    pigment.copy(alpha = .070f * scrim),
-                    radius = radius * 2.9f, center = position,
+                    pigment.copy(alpha = .17f * scrim),
+                    radius = radius * 3.4f, center = position,
                 )
             }
             drawCircle(
@@ -182,7 +220,7 @@ internal fun V195ReminderParticleScene(
         // Text and action buttons maintain contrast after manual reveal. Icon
         // attraction releases automatically so the action labels aren't covered.
         if (revealProgress > 0f) {
-            drawRect(Color.Black.copy(alpha = .26f * revealProgress))
+            drawRect(Color.Black.copy(alpha = .12f * revealProgress))
         }
     }
 }
