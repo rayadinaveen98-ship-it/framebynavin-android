@@ -13,6 +13,28 @@ import kotlinx.coroutines.launch
  */
 internal class PersonalReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == PersonalDeliveryContract.ACTION_RECOVER) {
+            val id = intent.getStringExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID).orEmpty()
+            val token = intent.getStringExtra(PersonalDeliveryContract.EXTRA_TOKEN).orEmpty()
+            if (id.isBlank() || token.isBlank()) return
+            val pending = goAsync()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val app = context.applicationContext
+                    // Old watchdogs cannot run an action for a newer lease.
+                    if (PersonalReminderStore(app).load().any {
+                            it.id == id && it.pendingToken == token
+                        }) {
+                        PersonalDeliveryCoordinator(app).reconcile()
+                    }
+                } catch (failure: Exception) {
+                    android.util.Log.e("BacklotPersonal", "Personal recovery watchdog failed", failure)
+                } finally {
+                    pending.finish()
+                }
+            }
+            return
+        }
         if (intent.action != PersonalDeliveryContract.ACTION_FIRE) return
         val id = intent.getStringExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID).orEmpty()
         val occurrence = intent.getLongExtra(PersonalDeliveryContract.EXTRA_OCCURRENCE, 0L)
