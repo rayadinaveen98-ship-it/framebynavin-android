@@ -53,10 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V221.5 personally signed stable candidate: increment from V221.5 preview (239).
-        // Keep the original package and prototype signing identity for safe in-place sideloads.
-        versionCode = 240
-        versionName = "2.9.0-v2215-personal-stable"
+        // V222 private visual preview from certified V221.5 personal stable (240).
+        // Keep package ID and prototypeStable signer for safe in-place testing.
+        versionCode = 241
+        versionName = "2.9.1-v222-visual-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
