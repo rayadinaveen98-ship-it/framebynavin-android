@@ -226,6 +226,38 @@ internal fun V157ReminderCenterUi(
                     }
                 }
 
+                // V223.2: explicit workspace separation. This callback only
+                // switches presentation; it never migrates CreatorTask data.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 7.dp)
+                        .testTag("v2232-reminders-space-switcher"),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    Surface(
+                        modifier = Modifier.weight(1f).height(43.dp),
+                        color = RecRed.copy(alpha = .17f),
+                        shape = RoundedCornerShape(13.dp),
+                        border = BorderStroke(1.dp, RecRed.copy(alpha = .65f)),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("CREATOR", color = ProjectorIvory,
+                                fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                    Surface(
+                        onClick = onPersonal,
+                        modifier = Modifier.weight(1f).height(43.dp).testTag("v2232-open-personal"),
+                        color = CinemaSurface,
+                        shape = RoundedCornerShape(13.dp),
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("PERSONAL", color = ProjectorIvory,
+                                fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                }
+
                 Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                         .padding(horizontal = 18.dp)
