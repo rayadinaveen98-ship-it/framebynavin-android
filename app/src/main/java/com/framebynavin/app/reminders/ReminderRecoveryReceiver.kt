@@ -6,7 +6,12 @@ import android.content.Intent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
+/**
+ * Boot / timezone / exact-permission recovery. Failed Creator recovery must not
+ * starve Personal; a single lane's error does not crash this system receiver.
+ */
 class ReminderRecoveryReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action !in SUPPORTED_ACTIONS) return
@@ -14,17 +19,31 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val appContext = context.applicationContext
-                ReminderHealthScheduler.ensurePeriodic(appContext)
-                ReminderRecoveryEngine.reconcile(appContext)
-                IdeaReminderScheduler(appContext).reconcile()
-                // Personal data is isolated; a Personal failure must not block
-                // creator reminder recovery.
-                runCatching {
-                    com.framebynavin.app.personal.PersonalDeliveryCoordinator(appContext).reconcile()
-                }.onFailure {
-                    android.util.Log.e("BacklotPersonal", "Personal recovery reconcile failed", it)
+                withTimeout(9_000L) {
+                    val app = context.applicationContext
+                    runCatching { ReminderHealthScheduler.ensurePeriodic(app) }
+                        .onFailure {
+                            android.util.Log.w("BacklotReminderHealth", "Could not register periodic health", it)
+                        }
+                    val outcome = V225RecoveryLanes.run(
+                        creator = { ReminderRecoveryEngine.reconcile(app) },
+                        personal = { com.framebynavin.app.personal.PersonalDeliveryCoordinator(app).reconcile() },
+                        ideas = { IdeaReminderScheduler(app).reconcile() },
+                    )
+                    if (!outcome.allSucceeded) {
+                        android.util.Log.w(
+                            "BacklotReminderHealth",
+                            "Boot recovery partial failure: creator=${outcome.creatorRecovered}, " +
+                                "personal=${outcome.personalRecovered}, ideas=${outcome.ideasRecovered}",
+                        )
+                    }
                 }
+            } catch (error: Exception) {
+                android.util.Log.e(
+                    "BacklotReminderHealth",
+                    "Boot recovery interrupted; periodic health will retry when available",
+                    error,
+                )
             } finally {
                 pendingResult.finish()
             }
