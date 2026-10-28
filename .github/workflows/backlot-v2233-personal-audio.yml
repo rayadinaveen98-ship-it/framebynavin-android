@@ -1,0 +1,121 @@
+name: Backlot V2233 Personal Voice Alarm QA
+
+on:
+  push:
+    branches: [feature/backlot-v2233-personal-voice-alarm]
+    paths:
+      - .github/workflows/backlot-v2233-personal-audio.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Guard Personal audio isolation, privacy and bounded playback
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("app/src/main/java/com/framebynavin/app")
+          service=(root/"personal/PersonalPlaybackService.kt").read_text()
+          alert=(root/"personal/PersonalAlertActivity.kt").read_text()
+          policy=(root/"personal/PersonalPlaybackPolicy.kt").read_text()
+          notifications=(root/"personal/PersonalReminderNotifications.kt").read_text()
+          receiver=(root/"personal/PersonalReminderReceiver.kt").read_text()
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text()
+          assert 'PersonalPlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback"' in manifest
+          assert 'PersonalAlertActivity" android:excludeFromRecents="true" android:exported="false"' in manifest
+          assert 'PersonalPlaybackPolicy.isEligible' in service
+          assert 'if (delivery.acknowledgePosted(id, occurrence, fireAt, token)' in receiver
+          assert 'PersonalPlaybackService.tryStart' in receiver
+          assert 'setPublicVersion(generic)' in notifications
+          assert 'PersonalAlertActivity::class.java' in notifications
+          assert 'MAX_AUDIO_AGE_MILLIS' in policy
+          assert 'VOICE_MAX_MILLIS = 35_000L' in policy
+          assert 'ALARM_MAX_MILLIS = 60_000L' in policy
+          assert 'setFullScreenIntent(' not in service + alert + notifications
+          assert 'setShowWhenLocked(' not in alert and 'FLAG_SHOW_WHEN_LOCKED' not in alert
+          assert 'V2233PersonalParticleWave' in alert
+          for source in (service,alert,policy,notifications):
+              for forbidden in ('TaskStore(', 'CreatorTask(', 'ProjectPulseEngine.', 'CreatorWorkflowEngine.', 'ReminderActionReceiver::class.java'):
+                  assert forbidden not in source, forbidden
+          print("Personal audio boundary/privacy checks pass")
+          PY
+      - name: Full JVM unit regression, lint and both APK builds
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2233-Personal-Audio-Test-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  android:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2233-Personal-Audio-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 Personal audio UI, real notification, privacy and Creator regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2233PersonalAlertUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-alert-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-alert-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-alert-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-hub-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-hub-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-hub-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2232PersonalNotificationDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-delivery.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-delivery.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' personal-delivery.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2231PersonalDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee action-ledger.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' action-ledger.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' action-ledger.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V223PersonalFoundationTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-storage.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-storage.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' personal-storage.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V222ColdStartProjectsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee creator-cold-start.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' creator-cold-start.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' creator-cold-start.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2233-Personal-Audio-Android-Results
+          path: |
+            personal-alert-ui.log
+            personal-hub-ui.log
+            personal-delivery.log
+            action-ledger.log
+            personal-storage.log
+            creator-cold-start.log
+          if-no-files-found: warn
