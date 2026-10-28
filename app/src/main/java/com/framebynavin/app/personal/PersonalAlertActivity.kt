@@ -197,45 +197,11 @@ internal fun V2233PersonalAlertScreen(
     }
 }
 
-/** 100 small points, deterministic positions, a low-complexity animated ring. */
+/**
+ * Kept under the existing public-internal name and UI tag so prior tests,
+ * reminder actions and screen routing are completely unchanged.
+ */
 @Composable
 internal fun V2233PersonalParticleWave(alert: PersonalAlert) {
-    val transition = rememberInfiniteTransition(label = "personal-particle-wave")
-    val phase by transition.animateFloat(
-        initialValue = 0f, targetValue = (2.0 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(tween(6_800, easing = LinearEasing), RepeatMode.Restart),
-        label = "personal-orbit",
-    )
-    val first = if (alert == PersonalAlert.ALARM) Color(0xFFFF7299) else Color(0xFF50CFFF)
-    val second = Color(0xFFAA78FF)
-    Canvas(Modifier.fillMaxWidth().height(252.dp).testTag("v2233-particle-wave")) {
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val extent = minOf(size.width, size.height)
-        drawCircle(
-            Brush.radialGradient(
-                listOf(first.copy(alpha = .25f), second.copy(alpha = .09f), Color.Transparent),
-                center = center, radius = extent * .60f,
-            ), radius = extent * .60f, center = center,
-        )
-        for (i in 0 until 100) {
-            val position = i.toFloat()
-            val ring = (i % 5).toFloat()
-            val angle = (position * 2.399963f + phase * if (i % 2 == 0) 1f else -.55f)
-            val radius = extent * (.19f + ring * .051f) *
-                (1f + .035f * sin(phase + ring))
-            val p = Offset(
-                center.x + radius * cos(angle),
-                center.y + radius * sin(angle) * .72f,
-            )
-            val color = if (i % 3 == 0) first else second
-            drawCircle(color.copy(alpha = .46f + (i % 4) * .12f),
-                radius = (1.1f + (i % 5) * .53f) * density,
-                center = p,
-            )
-        }
-        drawCircle(first.copy(alpha = .35f),
-            radius = extent * .12f, center = center, style = Stroke(width = 1.8f * density))
-        drawCircle(second.copy(alpha = .20f),
-            radius = extent * .15f, center = center, style = Stroke(width = 1.0f * density))
-    }
+    V2272PersonalParticleWave(alert)
 }
