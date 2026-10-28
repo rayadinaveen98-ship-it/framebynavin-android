@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
@@ -50,8 +51,38 @@ jobs:
                   assert forbidden not in source, forbidden
           print("Personal audio boundary/privacy checks pass")
           PY
-      - name: Full JVM unit regression, lint and both APK builds
-        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - name: Full JVM unit regression, lint and personal Stable preview APK builds
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2221-Companion-Preview-APKs
+          run-id: 40645496694
+          github-token: ${{ github.token }}
+          path: previous-personal
+      - name: Validate sideload identity against V222.1 and stage preview APK
+        run: |
+          set -euo pipefail
+          OLD="$(find previous-personal -type f -name 'Backlot-V2221-Circular-Companion-Personal-Stable-Preview.apk' -print -quit)"
+          NEW="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$OLD" && test -s "$NEW"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs "$OLD" > old-cert.txt
+          "$APKSIGNER" verify --print-certs "$NEW" > new-cert.txt
+          test "$(grep -m1 'certificate SHA-256 digest' old-cert.txt)" = "$(grep -m1 'certificate SHA-256 digest' new-cert.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='242'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='243'"
+          mkdir -p owner-preview
+          cp "$NEW" owner-preview/Backlot-V2233-Personal-Voice-Alarm-Preview.apk
+          cp new-cert.txt owner-preview/
+          sha256sum owner-preview/*.apk > owner-preview/SHA256SUMS.txt
+          printf 'Private QA ONLY. V223.3 versionCode 243, same prototype sideload certificate as V222.1. Not Play Store signed. Not physically validated for audible delivery.\\n' > owner-preview/README.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2233-Owner-Personal-Preview-APK
+          path: owner-preview/
+          retention-days: 45
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: Backlot-V2233-Personal-Audio-Test-APKs
