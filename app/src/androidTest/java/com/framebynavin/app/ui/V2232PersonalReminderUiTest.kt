@@ -7,6 +7,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.PersonalDeliveryCoordinator
+import com.framebynavin.app.personal.PersonalReminderNotifications
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -48,7 +50,14 @@ class V2232PersonalReminderUiTest {
             assertTrue(personal.single().pendingToken.isNotBlank())
             assertEquals(before, runBlocking { TaskStore(app).load() })
         } finally {
-            runBlocking { store.mutate { emptyList() } }
+            PersonalDeliveryCoordinator(app).cancelPending("not-used")
+            runBlocking {
+                store.load().forEach {
+                    PersonalDeliveryCoordinator(app).cancelPending(it.id)
+                    PersonalReminderNotifications.cancel(app, it.id)
+                }
+                store.mutate { emptyList() }
+            }
         }
     }
 
