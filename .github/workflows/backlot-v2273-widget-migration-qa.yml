@@ -1,0 +1,406 @@
+name: Backlot V2273 Widget Migration QA
+
+on:
+  push:
+    branches: [feature/backlot-v2273-safe-widget-migration]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+# Each new commit supersedes older drafts; keep only the newest V224 validation
+# running to avoid queuing many expensive Android emulator/Gradle jobs.
+concurrency:
+  group: backlot-v2273-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Guard Personal audio isolation, privacy and bounded playback
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("app/src/main/java/com/framebynavin/app")
+          service=(root/"personal/PersonalPlaybackService.kt").read_text()
+          alert=(root/"personal/PersonalAlertActivity.kt").read_text()
+          policy=(root/"personal/PersonalPlaybackPolicy.kt").read_text()
+          notifications=(root/"personal/PersonalReminderNotifications.kt").read_text()
+          receiver=(root/"personal/PersonalReminderReceiver.kt").read_text()
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text()
+          assert 'PersonalPlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback"' in manifest
+          assert 'PersonalAlertActivity" android:excludeFromRecents="true" android:exported="false"' in manifest
+          assert 'PersonalPlaybackPolicy.isEligible' in service
+          assert 'if (delivery.acknowledgePosted(id, occurrence, fireAt, token)' in receiver
+          assert 'PersonalPlaybackService.tryStart' in receiver
+          assert 'setPublicVersion(generic)' in notifications
+          assert 'PersonalAlertActivity::class.java' in notifications
+          assert 'MAX_AUDIO_AGE_MILLIS' in policy
+          assert 'VOICE_MAX_MILLIS = 35_000L' in policy
+          assert 'ALARM_MAX_MILLIS = 60_000L' in policy
+          assert 'setFullScreenIntent(' not in service + alert + notifications
+          assert 'setShowWhenLocked(' not in alert and 'FLAG_SHOW_WHEN_LOCKED' not in alert
+          assert 'V2233PersonalParticleWave' in alert
+          for source in (service,alert,policy,notifications):
+              for forbidden in ('TaskStore(', 'CreatorTask(', 'ProjectPulseEngine.', 'CreatorWorkflowEngine.', 'Intent(context, com.framebynavin.app.reminders.ReminderActionReceiver::class.java)'):
+                  assert forbidden not in source, forbidden
+          recovery=(root/"personal/PersonalRecoveryPolicy.kt").read_text()
+          coordinator=(root/"personal/PersonalDeliveryCoordinator.kt").read_text()
+          codec=(root/"personal/PersonalReminderCodec.kt").read_text()
+          assert "UNANSWERED_GRACE_MILLIS" in recovery
+          assert "shouldArchiveUnanswered" in coordinator
+          assert "lastMissedOccurrenceMillis" in codec
+          assert "PersonalReminderNotifications.cancel(app, record.id)" in coordinator
+          widget=(root/"widget/V224WidgetUpdater.kt").read_text()
+          widget_policy=(root/"widget/V224WidgetPolicy.kt").read_text()
+          widget_providers=(root/"widget/CreatorWidgetProviders.kt").read_text()
+          assert all(x in manifest for x in (
+              "V224QuickCaptureWidgetProvider", "V224TodayFocusWidgetProvider",
+              "V224MyDayWidgetProvider"))
+          assert all(x in widget_providers for x in (
+              "V224QuickCaptureWidgetProvider", "V224TodayFocusWidgetProvider",
+              "V224MyDayWidgetProvider"))
+          assert "PersonalReminderStore(app).load()" in widget
+          assert "V224WidgetPolicy.personalSafeLabel" in widget
+          assert "record.title" not in widget and "record.notes" not in widget
+          assert "lastMissedOccurrenceMillis" in codec
+          assert "QuickIdeaActivity::class.java" in widget
+          assert "ACTION_OPEN_PERSONAL" in widget
+          assert "CreatorCompactWidgetProvider" in manifest
+          sizing=(root/"widget/V2241WidgetSizingPolicy.kt").read_text()
+          assert "OPTION_APPWIDGET_MIN_WIDTH" in widget
+          assert "OPTION_APPWIDGET_MIN_HEIGHT" in widget
+          assert "tomorrowStartMillis" in widget_policy
+          assert "record.title" not in widget and "record.notes" not in widget
+          assert "fontScale" in sizing
+          assert "onAppWidgetOptionsChanged" in widget_providers
+          assert "V224WidgetUpdater.update(app, TaskStore(app).load())" in widget_providers
+          late=(root/"reminders/V225CreatorLateAudioPolicy.kt").read_text()
+          regular=(root/"reminders/ReminderReceiver.kt").read_text()
+          health=(root/"reminders/ReminderHealthWorker.kt").read_text()
+          reboot=(root/"reminders/ReminderRecoveryReceiver.kt").read_text()
+          lanes=(root/"reminders/V225RecoveryLanes.kt").read_text()
+          assert "MAX_AUDIBLE_DELAY_MILLIS" in late
+          assert "V225CreatorLateAudioPolicy.allowAudible" in regular
+          assert "V225CreatorLateAudioPolicy.shouldDeliverAtAll" in regular
+          assert "PersonalDeliveryCoordinator(app).reconcile()" in health
+          assert "IdeaReminderScheduler(app).reconcile()" in health
+          assert "V225RecoveryLanes.run" in health and "V225RecoveryLanes.run" in reboot
+          assert "CancellationException" in lanes
+          assert "ACTION_BOOT_COMPLETED" in reboot
+          assert "PersonalDeliveryCoordinator" in reboot
+          personal_backup=(root/"personal/PersonalBackupTransfer.kt").read_text()
+          personal_recovery=(root/"personal/PersonalPreRestoreRecovery.kt").read_text()
+          personal_screen=(root/"ui/PersonalBackupActivity.kt").read_text()
+          backup_screen=(root/"ui/BackupActivity.kt").read_text()
+          creator_error=(root/"ui/V208BackupErrorCopy.kt").read_text()
+          assert 'PersonalBackupActivity" android:exported="false"' in manifest
+          assert "PersonalBackupActivity::class.java" in backup_screen
+          assert "PersonalBackupIo.readUtf8" in personal_screen
+          assert "digest(saved) == digest(raw)" in personal_screen
+          assert "digest(raw) == expected" in personal_screen
+          assert "PersonalReminderCodec.decode(raw)" in personal_backup
+          assert "resetDeviceLeases(imported)" in personal_backup
+          assert "retained.retain(existing)" in personal_backup
+          assert "PersonalDeliveryCoordinator(app)" in personal_backup
+          assert "AtomicFile" in personal_recovery
+          assert "selected file provider" in creator_error
+          assert "CreatorBackupManager(" not in personal_backup
+          assert "DriveVaultManager(" not in personal_backup
+          idea=(root/"ui/V09IdeaVaultUi.kt").read_text()
+          adaptive=(root/"ui/V227IdeaEditorActionFooter.kt").read_text()
+          assert "V227IdeaEditorActionFooter(" in idea
+          assert 'heightIn(min = 52.dp)' in idea
+          assert "fun stacked(" in adaptive and "fontScale >= 1.3f" in adaptive
+          assert 'testTag("v216-edit-save")' in adaptive
+          assert 'testTag("v216-edit-cancel")' in adaptive
+          assert 'TextOverflow.Ellipsis' in adaptive
+          assert "CreatorAdaptiveFullScreen(" in idea
+          personal_editor=(root/"ui/V2232PersonalReminderHub.kt").read_text()
+          personal_actions=(root/"ui/V2271PersonalEditorFooter.kt").read_text()
+          assert "V2271PersonalEditorFooter(" in personal_editor
+          assert "WindowInsets.safeDrawing" in personal_editor
+          assert "decorFitsSystemWindows = false" in personal_editor
+          assert "imePadding()" in personal_editor
+          assert "V2271PersonalFooterPolicy.vertical" in personal_actions
+          assert 'testTag("v2232-personal-save")' in personal_actions
+          assert 'testTag("v2271-personal-cancel")' in personal_actions
+          assert "PersonalReminderDraft(" in personal_editor
+          personal_alert=(root/"personal/PersonalAlertActivity.kt").read_text()
+          personal_wave=(root/"personal/V2272PersonalParticleWave.kt").read_text()
+          assert "V2272PersonalParticleWave(alert)" in personal_alert
+          assert "V218UnifiedWavePolicy.glyphBlend" in personal_wave
+          assert "V195ParticleGeometry.build" in personal_wave
+          assert "ValueAnimator.areAnimatorsEnabled()" in personal_wave
+          assert "PowerManager::class.java" in personal_wave
+          assert "ActivityManager::class.java" in personal_wave
+          assert "v2233-particle-wave" in personal_wave
+          assert "onDone" not in personal_wave and "onSnooze" not in personal_wave
+          migration=(root/"widget/V2273WidgetMigrationPolicy.kt").read_text()
+          migration_ui=(root/"ui/WidgetMigrationActivity.kt").read_text()
+          settings=(root/"ui/V144SettingsHub.kt").read_text()
+          providers=(root/"widget/CreatorWidgetProviders.kt").read_text()
+          assert 'WidgetMigrationActivity" android:exported="false"' in manifest
+          assert "WidgetMigrationActivity::class.java" in settings
+          assert "requestPinAppWidget(" in migration_ui
+          assert "isRequestPinAppWidgetSupported" in migration_ui
+          assert "V2273WidgetInventoryReader.snapshot(this)" in migration_ui
+          assert "AppWidgetManager.getInstance" in migration
+          assert "setComponentEnabledSetting" not in migration_ui and "deleteAppWidgetId" not in migration_ui
+          legacy=["CreatorCompactWidgetProvider", "CreatorLargeWidgetProvider",
+                  "QuickIdeaWidgetProvider","NewProjectWidgetProvider",
+                  "CurrentProjectWidgetProvider", "NextReminderWidgetProvider",
+                  "ContentCalendarWidgetProvider","DailyBriefWidgetProvider",
+                  "CreatorInsightsWidgetProvider"]
+          for name in legacy:
+              assert name in manifest and ("class "+name) in providers
+          assert "V224QuickCaptureWidgetProvider" in migration and "V224MyDayWidgetProvider" in migration
+          print("V227.3 opt-in migration, nine legacy providers and prior safety gates pass")
+          PY
+      - name: Full JVM unit regression, lint and personal Stable preview APK builds
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2272-Owner-Personal-Preview-APK
+          run-id: 40730509440
+          github-token: ${{ github.token }}
+          path: previous-personal
+      - name: Validate sideload identity against V227.2 and stage V227.3 full app
+        run: |
+          set -euo pipefail
+          OLD="$(find previous-personal -type f -name 'Backlot-V2272-Full-App-Cinematic-Personal-Wave.apk' -print -quit)"
+          NEW="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$OLD" && test -s "$NEW"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs "$OLD" > old-cert.txt
+          "$APKSIGNER" verify --print-certs "$NEW" > new-cert.txt
+          test "$(grep -m1 'certificate SHA-256 digest' old-cert.txt)" = "$(grep -m1 'certificate SHA-256 digest' new-cert.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='251'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='252'"
+          mkdir -p owner-preview
+          cp "$NEW" owner-preview/Backlot-V2273-Full-App-Widget-Migration.apk
+          cp new-cert.txt owner-preview/
+          sha256sum owner-preview/*.apk > owner-preview/SHA256SUMS.txt
+          printf 'Private QA ONLY. V227.3 versionCode 252, same prototype sideload certificate as V222.1. Not Play Store signed. Not physically validated for audible delivery.\\n' > owner-preview/README.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2273-Owner-Personal-Preview-APK
+          path: owner-preview/
+          retention-days: 45
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2273-Device-QA-Test-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  android:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2273-Device-QA-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 widget migration, Personal UI, Creator/Backup regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            # Real Personal reminder editor in a separate full-window Dialog.
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2271-personal-editor-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2271-personal-editor-default.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2271-personal-editor-default.log
+            # Use actual Compose root bounds at standard and compact Android display settings.
+            adb shell am instrument -w -r -e class com.framebynavin.app.widget.V2273WidgetMigrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2273-widget-migration-android11.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2273-widget-migration-android11.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2273-widget-migration-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2272PersonalWaveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2272-personal-wave-android15.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2272-personal-wave-android15.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2272-personal-wave-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.widget.V2273WidgetMigrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2273-widget-migration-android15.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2273-widget-migration-android15.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2273-widget-migration-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2271-personal-android15.log
+            mkdir -p v2271-personal-android15-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v2271-personal-editor-evidence/personal-editor-occlusion.png > v2271-personal-android15-evidence/personal-editor-occlusion.png || true
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2271-personal-android15.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2271-personal-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V227IdeaFooterAdaptiveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-footer-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-footer-default.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v227-footer-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V216IdeaEditorSafeFooterUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-edit-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-edit-default.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v227-edit-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-new-idea-default.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-new-idea-default.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v227-new-idea-default.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2271-personal-editor-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2271-personal-editor-compact.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2271-personal-editor-compact.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V216IdeaEditorSafeFooterUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-edit-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-edit-compact.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' v227-edit-compact.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-new-idea-compact.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-new-idea-compact.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v227-new-idea-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-backup-v226.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-backup-v226.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-backup-v226.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V210BackupIoFailureTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee backup-io-failure-v210.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' backup-io-failure-v210.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' backup-io-failure-v210.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V209BackupCoverageTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee backup-archive-coverage-v209.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' backup-archive-coverage-v209.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' backup-archive-coverage-v209.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V155ReminderRecoveryIsolationInstrumentedTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee creator-recovery-isolation.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' creator-recovery-isolation.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' creator-recovery-isolation.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.widget.V224WidgetRegistryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee widget-registry.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' widget-registry.log; then exit 1; fi
+            grep -Fq 'OK (4 tests)' widget-registry.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2234PersonalMissedRecoveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-missed-recovery.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-missed-recovery.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-missed-recovery.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2272PersonalWaveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2272-personal-wave-android11.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2272-personal-wave-android11.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2272-personal-wave-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2233PersonalAlertUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-alert-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-alert-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-alert-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-hub-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-hub-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-hub-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2232PersonalNotificationDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-delivery.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-delivery.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' personal-delivery.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2231PersonalDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee action-ledger.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' action-ledger.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' action-ledger.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V223PersonalFoundationTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-storage.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-storage.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' personal-storage.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V222ColdStartProjectsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee creator-cold-start.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' creator-cold-start.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' creator-cold-start.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2273-Android11-Device-Results
+          path: |
+            v2271-personal-editor-default.log
+            v2271-personal-editor-compact.log
+            v227-footer-default.log
+            v227-edit-default.log
+            v227-new-idea-default.log
+            v227-edit-compact.log
+            v227-new-idea-compact.log
+            personal-backup-v226.log
+            backup-io-failure-v210.log
+            backup-archive-coverage-v209.log
+            creator-recovery-isolation.log
+            widget-registry.log
+            personal-missed-recovery.log
+            v2273-widget-migration-android11.log
+            v2272-personal-wave-android11.log
+            personal-alert-ui.log
+            personal-hub-ui.log
+            personal-delivery.log
+            action-ledger.log
+            personal-storage.log
+            creator-cold-start.log
+          if-no-files-found: warn
+
+  android15:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2273-Device-QA-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 widget migration, Personal wave and keyboard QA
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural
+            adb shell settings put secure show_ime_with_hard_keyboard 1
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2272PersonalWaveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2272-personal-wave-android15.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2272-personal-wave-android15.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2272-personal-wave-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.widget.V2273WidgetMigrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2273-widget-migration-android15.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2273-widget-migration-android15.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2273-widget-migration-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2271-personal-android15.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2271-personal-android15.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v2271-personal-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V227IdeaFooterAdaptiveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-android15-footer.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-android15-footer.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v227-android15-footer.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile gestural -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-android15-ime.log
+            # Collect real Android UI pixels BEFORE evaluating the test result:
+            # this preserves the failing state on OEM/IME regressions.
+            mkdir -p v227-android15-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v2204-idea-evidence/v2204-gestural-keyboard-clear.png > v227-android15-evidence/keyboard-first.png || true
+            adb exec-out run-as com.framebynavin.app cat files/v2204-idea-evidence/v2204-gestural-keyboard-settled.png > v227-android15-evidence/keyboard-settled.png || true
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-android15-ime.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' v227-android15-ime.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2273-Android15-Gestural-Results
+          path: |
+            v227-android15-evidence/
+            v2271-personal-android15-evidence/
+            v2273-widget-migration-android15.log
+            v2272-personal-wave-android15.log
+            v2271-personal-android15.log
+            v227-android15-footer.log
+            v227-android15-ime.log
+          if-no-files-found: warn
