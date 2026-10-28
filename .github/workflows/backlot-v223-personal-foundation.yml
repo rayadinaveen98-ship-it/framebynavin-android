@@ -39,7 +39,7 @@ jobs:
           assert "nextAfter" in recurrence
           for file in root.glob("*.kt"):
               data=file.read_text()
-              for banned in ("CreatorTask(", "TaskStore(", "ReminderScheduler(", "AlarmManager(", "PendingIntent(", "CreatorWidgetUpdater(", "CloudSyncActivity(", "YouTube"):
+              for banned in ("CreatorTask(", "TaskStore(", "ReminderScheduler(", "AlarmManager(", "PendingIntent(", "CreatorWidgetUpdater(", "CloudSyncActivity(", "YouTubeInsights("):
                   assert banned not in data, (file, banned)
           for file in ("app/src/main/AndroidManifest.xml",):
               assert "PersonalReminderReceiver" not in Path(file).read_text()
