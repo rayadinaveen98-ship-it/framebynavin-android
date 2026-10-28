@@ -18,6 +18,7 @@ internal object PersonalDeliveryContract {
     const val EXTRA_ACTION = "backlot.personal.action"
     const val ACTION_OPEN_PERSONAL = "com.framebynavin.app.personal.OPEN"
     const val ACTION_FIRE = "com.framebynavin.app.personal.FIRE"
+    const val ACTION_RECOVER = "com.framebynavin.app.personal.RECOVER"
     const val ACTION_DONE = "com.framebynavin.app.personal.DONE"
     const val ACTION_SNOOZE = "com.framebynavin.app.personal.SNOOZE"
     const val ACTION_DISMISS = "com.framebynavin.app.personal.DISMISS"
@@ -56,10 +57,41 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                 return@forEach
             }
             var record = original
-            // A posted notification remains actionable after process restart.
-            // Do NOT schedule it again just because its due time is in the past.
+            // An unanswered or never-presented occurrence must not block a
+            // recurring series forever. After the explicit 24h grace window,
+            // archive it as MISSED (NOT Done/Dismissed) and permit next scheduling.
+            // CAS by immutable lease so a concurrent user action/new lease wins.
+            if (PersonalRecoveryPolicy.shouldArchiveUnanswered(record, nowMillis)) {
+                val expired = record
+                record = store.update(record.id) { latest ->
+                    if (latest.paused || latest.pendingToken != expired.pendingToken ||
+                        latest.pendingOccurrenceMillis != expired.pendingOccurrenceMillis ||
+                        latest.presentedToken != expired.presentedToken) latest
+                    else latest.copy(
+                        lastMissedOccurrenceMillis = maxOf(
+                            latest.lastMissedOccurrenceMillis, latest.pendingOccurrenceMillis,
+                        ),
+                        pendingOccurrenceMillis = 0L,
+                        pendingFireAtMillis = 0L,
+                        pendingToken = "",
+                        presentedToken = "",
+                        snoozedUntilMillis = 0L,
+                    )
+                }.first { it.id == expired.id }
+                if (record.pendingToken.isBlank()) {
+                    cancelPending(record.id)
+                    // Old action tokens are invalidated in DataStore first.
+                    // Then remove an unanswered stale notification, if posted.
+                    if (expired.presentedToken == expired.pendingToken) {
+                        PersonalReminderNotifications.cancel(app, record.id)
+                    }
+                }
+            }
+            // Within the grace window, a posted reminder stays actionable
+            // across process restart. Do not double-deliver it.
             if (record.pendingToken.isNotBlank() && record.presentedToken == record.pendingToken) {
-                cancelPending(record.id)
+                cancelFire(record.id)
+                armRecovery(record)
                 return@forEach
             }
             if (record.pendingToken.isBlank()) {
@@ -82,13 +114,9 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             }
             if (record.pendingToken.isBlank() || record.paused) return@forEach
             if (record.pendingFireAtMillis <= nowMillis) {
-                if (nowMillis - record.pendingFireAtMillis > 24L * 60 * 60 * 1000) {
-                    // Long-overdue occurrence remains uncompleted, not falsely
-                    // "Done". Reconciliation moves to future scheduling only
-                    // after an explicit later policy revision for missed alerts.
-                    cancelPending(record.id)
-                    return@forEach
-                }
+                // A recently overdue unposted event may be re-armed; playback
+                // checks ORIGINAL occurrence age, so a late delivery cannot
+                // become an audible alarm merely by rotating its fire time.
                 record = store.update(record.id) { current ->
                     if (current.pendingToken != record.pendingToken || current.presentedToken.isNotEmpty()) current
                     else current.copy(
@@ -103,6 +131,12 @@ internal class PersonalDeliveryCoordinator(context: Context) {
     }
 
     fun cancelPending(id: String) {
+        cancelFire(id)
+        recoveryIntent(id, flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+            ?.let { alarms.cancel(it) }
+    }
+
+    private fun cancelFire(id: String) {
         fireIntent(id, flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
             ?.let { alarms.cancel(it) }
     }
@@ -125,6 +159,35 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         }.onFailure {
             android.util.Log.w("BacklotPersonal", "Could not schedule personal occurrence", it)
         }
+        // Independent best-effort watchdog: a posted notification needs an
+        // expiration wakeup even if the app is not opened for days. Android may
+        // defer this in Doze; reconcile remains idempotent on eventual delivery.
+        armRecovery(reminder)
+    }
+
+    private fun armRecovery(reminder: PersonalReminder) {
+        val intent = recoveryIntent(
+            reminder.id, reminder.pendingToken,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: return
+        runCatching {
+            alarms.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                PersonalRecoveryPolicy.recoveryAlarmAtMillis(reminder),
+                intent,
+            )
+        }.onFailure {
+            android.util.Log.w("BacklotPersonal", "Could not arm personal missed-recovery watchdog", it)
+        }
+    }
+
+    private fun recoveryIntent(id: String, token: String = "", flags: Int): PendingIntent? {
+        val intent = Intent(app, PersonalReminderReceiver::class.java)
+            .setAction(PersonalDeliveryContract.ACTION_RECOVER)
+            .setData(PersonalDeliveryContract.uri(id, "recover"))
+            .putExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID, id)
+            .putExtra(PersonalDeliveryContract.EXTRA_TOKEN, token)
+        return PendingIntent.getBroadcast(app, id.hashCode(), intent, flags)
     }
 
     private fun fireIntent(

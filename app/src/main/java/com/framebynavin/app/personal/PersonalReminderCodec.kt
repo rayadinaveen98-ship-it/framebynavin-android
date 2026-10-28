@@ -43,6 +43,7 @@ internal object PersonalReminderCodec {
                 .put("alert", it.alert.name)
                 .put("paused", it.paused)
                 .put("lastAcknowledgedOccurrenceMillis", it.lastAcknowledgedOccurrenceMillis)
+                .put("lastMissedOccurrenceMillis", it.lastMissedOccurrenceMillis)
                 .put("snoozedUntilMillis", it.snoozedUntilMillis)
                 .put("pendingOccurrenceMillis", it.pendingOccurrenceMillis)
                 .put("pendingFireAtMillis", it.pendingFireAtMillis)
@@ -97,6 +98,7 @@ internal object PersonalReminderCodec {
                     alert = PersonalAlert.valueOf(item.getString("alert")),
                     paused = item.getBoolean("paused"),
                     lastAcknowledgedOccurrenceMillis = item.getLong("lastAcknowledgedOccurrenceMillis"),
+                    lastMissedOccurrenceMillis = item.optLong("lastMissedOccurrenceMillis", 0L),
                     snoozedUntilMillis = item.getLong("snoozedUntilMillis"),
                     pendingOccurrenceMillis = item.optLong("pendingOccurrenceMillis", 0L),
                     pendingFireAtMillis = item.optLong("pendingFireAtMillis", 0L),

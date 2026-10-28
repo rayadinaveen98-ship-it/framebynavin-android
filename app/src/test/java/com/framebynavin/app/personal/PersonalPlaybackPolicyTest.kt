@@ -52,4 +52,32 @@ class PersonalPlaybackPolicyTest {
             record, id, due, due - 1, token, due,
         ))
     }
+
+    @Test fun recoveryFireTimeCannotReviveAnHoursOldAlarm() {
+        val lateFire = due + PersonalPlaybackPolicy.MAX_AUDIO_AGE_MILLIS + 60_000L
+        val recovered = record(PersonalAlert.ALARM).copy(
+            pendingFireAtMillis = lateFire,
+        )
+        assertFalse(PersonalPlaybackPolicy.isEligible(
+            recovered, id, due, lateFire, token, lateFire,
+        ))
+        // An explicit user Snooze / Reschedule is different from an OS recovery.
+        val snoozedByUser = recovered.copy(
+            snoozedUntilMillis = lateFire,
+            lastResponse = PersonalResponse.SNOOZED,
+        )
+        assertTrue(PersonalPlaybackPolicy.isEligible(
+            snoozedByUser, id, due, lateFire, token, lateFire,
+        ))
+        val manuallyRescheduled = snoozedByUser.copy(
+            lastResponse = PersonalResponse.RESCHEDULED,
+        )
+        assertTrue(PersonalPlaybackPolicy.isEligible(
+            manuallyRescheduled, id, due, lateFire, token, lateFire,
+        ))
+        assertFalse(PersonalPlaybackPolicy.isEligible(
+            manuallyRescheduled.copy(paused = true), id, due, lateFire, token, lateFire,
+        ))
+    }
+
 }

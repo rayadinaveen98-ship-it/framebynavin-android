@@ -53,10 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V223.3 Personal Audio engineering preview. Prototype signer and app ID
-        // intentionally match installed V222.1 (242) for in-place sideload QA.
-        versionCode = 243
-        versionName = "2.9.3-v2233-personal-audio-preview"
+        // V223.4 Personal missed recovery engineering preview. Prototype signer and app ID
+        // intentionally match installed V223.3 (243) for in-place sideload QA.
+        versionCode = 244
+        versionName = "2.9.4-v2234-personal-recovery-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
