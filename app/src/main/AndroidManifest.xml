@@ -59,6 +59,24 @@
             </intent-filter>
         </receiver>
 
+
+        <!-- V224 widget trilogy. Legacy providers remain for installed launcher widgets
+             during opt-in migration; no creator or personal data is removed. -->
+        <receiver android:name=".widget.V224QuickCaptureWidgetProvider"
+            android:exported="false" android:label="Backlot Quick Capture">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_v224_capture_info" />
+        </receiver>
+        <receiver android:name=".widget.V224TodayFocusWidgetProvider"
+            android:exported="false" android:label="Backlot Today Focus">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_v224_today_info" />
+        </receiver>
+        <receiver android:name=".widget.V224MyDayWidgetProvider"
+            android:exported="false" android:label="Backlot My Day">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_v224_myday_info" />
+        </receiver>
         <receiver android:name=".widget.CreatorCompactWidgetProvider" android:exported="false" android:label="Backlot Compact">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_creator_compact_info" />

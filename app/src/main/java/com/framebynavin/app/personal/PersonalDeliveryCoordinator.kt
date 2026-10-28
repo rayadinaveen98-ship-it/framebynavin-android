@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import com.framebynavin.app.MainActivity
+import com.framebynavin.app.widget.V224WidgetUpdater
 import java.util.UUID
 
 /** Distinct receivers + URI namespaces ensure no collision with creator PendingIntents. */
@@ -279,6 +280,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             cancelPending(id)
             PersonalReminderNotifications.cancel(app, id)
             reconcile(nowMillis)
+            V224WidgetUpdater.refresh(app)
         }
         return result
     }

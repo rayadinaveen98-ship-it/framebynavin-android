@@ -1,0 +1,187 @@
+name: Backlot V224 Widget Trio QA
+
+on:
+  push:
+    branches: [feature/backlot-v224-widget-trio-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+# Each new commit supersedes older drafts; keep only the newest V224 validation
+# running to avoid queuing many expensive Android emulator/Gradle jobs.
+concurrency:
+  group: backlot-v224-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Guard Personal audio isolation, privacy and bounded playback
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("app/src/main/java/com/framebynavin/app")
+          service=(root/"personal/PersonalPlaybackService.kt").read_text()
+          alert=(root/"personal/PersonalAlertActivity.kt").read_text()
+          policy=(root/"personal/PersonalPlaybackPolicy.kt").read_text()
+          notifications=(root/"personal/PersonalReminderNotifications.kt").read_text()
+          receiver=(root/"personal/PersonalReminderReceiver.kt").read_text()
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text()
+          assert 'PersonalPlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback"' in manifest
+          assert 'PersonalAlertActivity" android:excludeFromRecents="true" android:exported="false"' in manifest
+          assert 'PersonalPlaybackPolicy.isEligible' in service
+          assert 'if (delivery.acknowledgePosted(id, occurrence, fireAt, token)' in receiver
+          assert 'PersonalPlaybackService.tryStart' in receiver
+          assert 'setPublicVersion(generic)' in notifications
+          assert 'PersonalAlertActivity::class.java' in notifications
+          assert 'MAX_AUDIO_AGE_MILLIS' in policy
+          assert 'VOICE_MAX_MILLIS = 35_000L' in policy
+          assert 'ALARM_MAX_MILLIS = 60_000L' in policy
+          assert 'setFullScreenIntent(' not in service + alert + notifications
+          assert 'setShowWhenLocked(' not in alert and 'FLAG_SHOW_WHEN_LOCKED' not in alert
+          assert 'V2233PersonalParticleWave' in alert
+          for source in (service,alert,policy,notifications):
+              for forbidden in ('TaskStore(', 'CreatorTask(', 'ProjectPulseEngine.', 'CreatorWorkflowEngine.', 'Intent(context, com.framebynavin.app.reminders.ReminderActionReceiver::class.java)'):
+                  assert forbidden not in source, forbidden
+          recovery=(root/"personal/PersonalRecoveryPolicy.kt").read_text()
+          coordinator=(root/"personal/PersonalDeliveryCoordinator.kt").read_text()
+          codec=(root/"personal/PersonalReminderCodec.kt").read_text()
+          assert "UNANSWERED_GRACE_MILLIS" in recovery
+          assert "shouldArchiveUnanswered" in coordinator
+          assert "lastMissedOccurrenceMillis" in codec
+          assert "PersonalReminderNotifications.cancel(app, record.id)" in coordinator
+          widget=(root/"widget/V224WidgetUpdater.kt").read_text()
+          widget_policy=(root/"widget/V224WidgetPolicy.kt").read_text()
+          widget_providers=(root/"widget/CreatorWidgetProviders.kt").read_text()
+          assert all(x in manifest for x in (
+              "V224QuickCaptureWidgetProvider", "V224TodayFocusWidgetProvider",
+              "V224MyDayWidgetProvider"))
+          assert all(x in widget_providers for x in (
+              "V224QuickCaptureWidgetProvider", "V224TodayFocusWidgetProvider",
+              "V224MyDayWidgetProvider"))
+          assert "PersonalReminderStore(app).load()" in widget
+          assert "V224WidgetPolicy.personalSafeLabel" in widget
+          assert "record.title" not in widget and "record.notes" not in widget
+          assert "lastMissedOccurrenceMillis" in codec
+          assert "QuickIdeaActivity::class.java" in widget
+          assert "ACTION_OPEN_PERSONAL" in widget
+          assert "CreatorCompactWidgetProvider" in manifest
+          print("Personal recovery and widget privacy / migration boundary checks pass")
+          PY
+      - name: Full JVM unit regression, lint and personal Stable preview APK builds
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2234-Owner-Personal-Preview-APK
+          run-id: 40668860763
+          github-token: ${{ github.token }}
+          path: previous-personal
+      - name: Validate sideload identity against V223.4 and stage widget preview APK
+        run: |
+          set -euo pipefail
+          OLD="$(find previous-personal -type f -name 'Backlot-V2234-Personal-Missed-Recovery-Preview.apk' -print -quit)"
+          NEW="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$OLD" && test -s "$NEW"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs "$OLD" > old-cert.txt
+          "$APKSIGNER" verify --print-certs "$NEW" > new-cert.txt
+          test "$(grep -m1 'certificate SHA-256 digest' old-cert.txt)" = "$(grep -m1 'certificate SHA-256 digest' new-cert.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='244'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='245'"
+          mkdir -p owner-preview
+          cp "$NEW" owner-preview/Backlot-V224-Widget-Trio-Preview.apk
+          cp new-cert.txt owner-preview/
+          sha256sum owner-preview/*.apk > owner-preview/SHA256SUMS.txt
+          printf 'Private QA ONLY. V224 versionCode 245, same prototype sideload certificate as V222.1. Not Play Store signed. Not physically validated for audible delivery.\\n' > owner-preview/README.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V224-Owner-Personal-Preview-APK
+          path: owner-preview/
+          retention-days: 45
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V224-Widget-Trio-Test-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  android:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V224-Widget-Trio-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 widget registry, Personal recovery, audio, privacy, Creator regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.widget.V224WidgetRegistryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee widget-registry.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' widget-registry.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' widget-registry.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2234PersonalMissedRecoveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-missed-recovery.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-missed-recovery.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-missed-recovery.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2233PersonalAlertUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-alert-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-alert-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-alert-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-hub-ui.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-hub-ui.log; then exit 1; fi
+            grep -Fq 'OK (2 tests)' personal-hub-ui.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2232PersonalNotificationDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-delivery.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-delivery.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' personal-delivery.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2231PersonalDeliveryTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee action-ledger.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' action-ledger.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' action-ledger.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V223PersonalFoundationTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee personal-storage.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' personal-storage.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' personal-storage.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V222ColdStartProjectsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee creator-cold-start.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' creator-cold-start.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' creator-cold-start.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V224-Widget-Trio-Android-Results
+          path: |
+            widget-registry.log
+            personal-missed-recovery.log
+            personal-alert-ui.log
+            personal-hub-ui.log
+            personal-delivery.log
+            action-ledger.log
+            personal-storage.log
+            creator-cold-start.log
+          if-no-files-found: warn

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="16dp"
+    android:background="@drawable/widget_v224_surface">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:text="BACKLOT  /  TODAY"
+            android:textColor="#FF9FAD" android:textSize="10sp" android:textStyle="bold"/>
+        <TextView android:id="@+id/v224_today_due" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textColor="#FFCF92"
+            android:textSize="10sp" android:textStyle="bold"/>
+    </LinearLayout>
+    <TextView android:id="@+id/v224_today_title" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1"
+        android:gravity="center_vertical" android:maxLines="2" android:ellipsize="end"
+        android:text="Your creator desk" android:textColor="#FFFFFF"
+        android:textSize="19sp" android:textStyle="bold"/>
+    <TextView android:id="@+id/v224_today_detail" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end"
+        android:text="Projects and reminders" android:textColor="#C7C3D5" android:textSize="11sp"/>
+    <TextView android:id="@+id/v224_today_reminder" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="7dp"
+        android:maxLines="1" android:ellipsize="end" android:textColor="#FFCF92"
+        android:textSize="11sp"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="45dp"
+        android:layout_marginTop="10dp" android:orientation="horizontal">
+        <TextView android:id="@+id/v224_today_open" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1" android:gravity="center"
+            android:background="@drawable/widget_v224_primary"
+            android:text="OPEN TODAY" android:textColor="#FFFFFF" android:textSize="11sp"
+            android:textStyle="bold" android:contentDescription="Open today in Backlot"/>
+        <TextView android:id="@+id/v224_today_reminders" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1"
+            android:layout_marginStart="9dp" android:gravity="center"
+            android:background="@drawable/widget_v224_secondary"
+            android:text="REMINDERS" android:textColor="#FFFFFF" android:textSize="11sp"
+            android:textStyle="bold" android:contentDescription="Open Creator reminders"/>
+    </LinearLayout>
+</LinearLayout>

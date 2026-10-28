@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="16dp"
+    android:background="@drawable/widget_v224_surface">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="BACKLOT  /  MY DAY" android:textColor="#FF9FAD"
+        android:textSize="10sp" android:textStyle="bold"/>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:text="One day. Two worlds."
+        android:textColor="#FFFFFF" android:textSize="18sp" android:textStyle="bold"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+        <TextView android:id="@+id/v224_day_creator" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1"
+            android:gravity="center_vertical" android:maxLines="3"
+            android:textColor="#EAD2A1" android:textSize="13sp"
+            android:contentDescription="Creator reminder summary"/>
+        <TextView android:id="@+id/v224_day_personal" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1"
+            android:layout_marginStart="12dp" android:gravity="center_vertical"
+            android:maxLines="3" android:textColor="#C4B4FF" android:textSize="13sp"
+            android:contentDescription="Private personal reminder summary, without titles"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="45dp"
+        android:layout_marginTop="9dp" android:orientation="horizontal">
+        <TextView android:id="@+id/v224_day_open_creator" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1"
+            android:gravity="center" android:background="@drawable/widget_v224_secondary"
+            android:text="CREATOR" android:textColor="#FFFFFF" android:textSize="11sp"
+            android:textStyle="bold" android:contentDescription="Open Creator reminders"/>
+        <TextView android:id="@+id/v224_day_open_personal" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1"
+            android:layout_marginStart="9dp" android:gravity="center"
+            android:background="@drawable/widget_v224_primary"
+            android:text="PERSONAL" android:textColor="#FFFFFF" android:textSize="11sp"
+            android:textStyle="bold" android:contentDescription="Open Personal reminders"/>
+    </LinearLayout>
+</LinearLayout>
