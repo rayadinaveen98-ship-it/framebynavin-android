@@ -9,6 +9,12 @@ permissions:
   contents: read
   actions: read
 
+# Each new commit supersedes older drafts; keep only the newest V224 validation
+# running to avoid queuing many expensive Android emulator/Gradle jobs.
+concurrency:
+  group: backlot-v224-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
