@@ -6,7 +6,7 @@
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="BACKLOT  /  MY DAY" android:textColor="#FF9FAD"
         android:textSize="10sp" android:textStyle="bold"/>
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+    <TextView android:id="@+id/v224_day_headline" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="8dp" android:text="One day. Two worlds."
         android:textColor="#FFFFFF" android:textSize="18sp" android:textStyle="bold"/>
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp"
