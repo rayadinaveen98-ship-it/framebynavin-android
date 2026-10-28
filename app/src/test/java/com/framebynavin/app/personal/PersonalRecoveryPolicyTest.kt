@@ -3,6 +3,7 @@ package com.framebynavin.app.personal
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,9 +22,10 @@ class PersonalRecoveryPolicyTest {
 
     @Test fun graceBoundaryDoesNotExpireAnActionableReminderEarly() {
         val window = PersonalRecoveryPolicy.UNANSWERED_GRACE_MILLIS
-        assertFalse(PersonalRecoveryPolicy.shouldArchiveUnanswered(reminder(), due - 1))
-        assertFalse(PersonalRecoveryPolicy.shouldArchiveUnanswered(reminder(), due + window))
-        assertTrue(PersonalRecoveryPolicy.shouldArchiveUnanswered(reminder(), due + window + 1))
+        val oneTime = reminder().copy(repeat = PersonalRepeat.ONCE)
+        assertFalse(PersonalRecoveryPolicy.shouldArchiveUnanswered(oneTime, due - 1))
+        assertFalse(PersonalRecoveryPolicy.shouldArchiveUnanswered(oneTime, due + window))
+        assertTrue(PersonalRecoveryPolicy.shouldArchiveUnanswered(oneTime, due + window + 1))
     }
 
     @Test fun postedAndUnpostedCanBothRecoverWithoutAnInventedResponse() {
@@ -50,6 +52,20 @@ class PersonalRecoveryPolicyTest {
         )
         assertFalse(PersonalRecoveryPolicy.shouldArchiveUnanswered(userSnoozed, due + window + 1))
         assertTrue(PersonalRecoveryPolicy.recoveryAlarmAtMillis(userSnoozed) > newFireTime)
+    }
+
+
+    @Test fun unansweredDailyReminderExpiresBeforeNextDaysDueTime() {
+        val daily = reminder(posted = true)
+        val next = requireNotNull(PersonalRecurrence.nextAfter(daily, due))
+        val deadline = PersonalRecoveryPolicy.expiresAtMillis(daily)
+        assertEquals(minOf(
+            due + PersonalRecoveryPolicy.UNANSWERED_GRACE_MILLIS,
+            maxOf(due, next - 2L * 60L * 60L * 1000L),
+        ), deadline)
+        assertTrue(deadline < next)
+        assertFalse(PersonalRecoveryPolicy.shouldArchiveUnanswered(daily, deadline))
+        assertTrue(PersonalRecoveryPolicy.shouldArchiveUnanswered(daily, deadline + 1))
     }
 
 }
