@@ -11,7 +11,6 @@ import com.framebynavin.app.MainActivity
 import com.framebynavin.app.R
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.TaskStatus
-import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.personal.PersonalDeliveryContract
 import com.framebynavin.app.personal.PersonalReminderStore
 import java.time.Instant
@@ -51,13 +50,25 @@ internal object V224WidgetUpdater {
         }
     }
 
-    /** Non-critical refresh after Personal writes or response, never a write prerequisite. */
-    suspend fun refresh(context: Context) {
+    /**
+     * Notify the pinned My Day widget without performing TaskStore disk I/O
+     * inside a Personal alarm broadcast or save path. BaseCreatorWidgetProvider
+     * performs the actual read/render on its independent IO coroutine.
+     * Explicit same-package broadcast; no external data or permissions.
+     */
+    fun refresh(context: Context) {
         runCatching {
-            CreatorWidgetUpdater.updateAll(
-                context.applicationContext,
-                TaskStore(context.applicationContext).load(),
-            )
+            val app = context.applicationContext
+            val manager = AppWidgetManager.getInstance(app)
+            val component = ComponentName(app, V224MyDayWidgetProvider::class.java)
+            val pinned = manager.getAppWidgetIds(component)
+            if (pinned.isNotEmpty()) {
+                app.sendBroadcast(
+                    Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                        .setComponent(component)
+                        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, pinned),
+                )
+            }
         }.onFailure {
             android.util.Log.w("BacklotWidgets", "V224 widget refresh unavailable", it)
         }
