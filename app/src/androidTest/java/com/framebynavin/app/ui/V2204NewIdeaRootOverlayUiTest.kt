@@ -114,7 +114,32 @@ class V2204NewIdeaRootOverlayUiTest {
      * half. A visible enabled SAVE IDEA is a broad, continuous coral-red
      * horizontal band ending strictly ABOVE that keyboard.
      */
+    /**
+     * V227 Android 15: IME/window resize animation can transiently expose the
+     * full keyboard while Compose is still re-positioning the Save footer.
+     * Keep the strict screenshot pixel gate, but evaluate settled frames for
+     * up to ~2 seconds rather than failing on a transitional first frame.
+     * This is NOT a semantic visibility shortcut: every successful attempt
+     * still requires a real red Save band entirely above the real IME.
+     */
     private fun verifyRealKeyboardAndRedSaveAreSeparate() {
+        var lastFailure: AssertionError? = null
+        repeat(8) { index ->
+            try {
+                verifyOneKeyboardScreenshot()
+                return
+            } catch (error: AssertionError) {
+                lastFailure = error
+                if (index < 7) {
+                    SystemClock.sleep(280)
+                    rule.waitForIdle()
+                }
+            }
+        }
+        throw lastFailure ?: AssertionError("No stable Android keyboard and Save screenshot")
+    }
+
+    private fun verifyOneKeyboardScreenshot() {
         val bmp = requireNotNull(InstrumentationRegistry.getInstrumentation()
             .uiAutomation.takeScreenshot())
         try {
@@ -198,6 +223,7 @@ class V2204NewIdeaRootOverlayUiTest {
         // This must fail if a keyboard screenshot hides Save, even if OS
         // WindowInsets/Compose semantics incorrectly say everything fits.
         verifyRealKeyboardAndRedSaveAreSeparate()
+        capture("keyboard-settled")
         checkOwnedWindowAndFooter()
         rule.onNodeWithTag("v2203-new-idea-save").performClick()
         rule.runOnIdle { assertEquals("నూతన సినిమా ఆలోచన", saved?.title) }
