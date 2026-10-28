@@ -34,6 +34,7 @@ object CreatorWidgetUpdater {
         ids<ContentCalendarWidgetProvider>(app, manager).forEach { manager.updateAppWidget(it, actionViews(app, ActionWidget.CALENDAR, tasks)) }
         ids<DailyBriefWidgetProvider>(app, manager).forEach { manager.updateAppWidget(it, actionViews(app, ActionWidget.DAILY_BRIEF, tasks)) }
         ids<CreatorInsightsWidgetProvider>(app, manager).forEach { manager.updateAppWidget(it, actionViews(app, ActionWidget.INSIGHTS, tasks)) }
+        V224WidgetUpdater.update(app, tasks)
     }
 
     private inline fun <reified T> ids(context: Context, manager: AppWidgetManager): IntArray =
