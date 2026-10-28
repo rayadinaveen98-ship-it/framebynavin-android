@@ -47,7 +47,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
     val transfer = remember { PersonalBackupTransfer(context.applicationContext) }
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf(false) }
+    var isError by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
     var pendingDigest by remember { mutableStateOf<String?>(null) }
@@ -77,10 +77,10 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                     }
                     transfer.preview(saved)
                 }
-                error = false
+                isError = false
                 message = "Personal backup saved and verified. Keep the file private: it includes reminder names and notes and is not encrypted."
             } catch (failure: Exception) {
-                error = true
+                isError = true
                 message = "Personal backup could not be verified at the selected destination. A partial file may exist. Try exporting again to local storage; your reminders were not changed."
             } finally {
                 busy = false
@@ -103,13 +103,13 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                 pendingUri = uri
                 preview = checked.first
                 pendingDigest = checked.second
-                error = false
+                isError = false
                 message = null
             } catch (failure: Exception) {
                 pendingUri = null
                 pendingDigest = null
                 preview = null
-                error = true
+                isError = true
                 message = "This Personal backup could not be verified. Nothing was replaced. Select the original unmodified JSON export."
             } finally {
                 busy = false
@@ -174,7 +174,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
             }
             message?.let {
                 Spacer(Modifier.height(16.dp))
-                Text(it, color = if (error) RecRed else ProjectorIvory, fontSize = 12.sp)
+                Text(it, color = if (isError) RecRed else ProjectorIvory, fontSize = 12.sp)
             }
         }
     }
@@ -216,14 +216,14 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                                 require(digest(raw) == expected) { "The selected file changed" }
                                 transfer.restoreApproved(raw)
                             }
-                            error = receipt.recoveryAttentionNeeded
+                            isError = receipt.recoveryAttentionNeeded
                             message = if (receipt.recoveryAttentionNeeded) {
                                 "${receipt.importedCount} Personal Reminders restored, but some alarm cleanup or rescheduling needs attention. Reopen Backlot and check your next reminder."
                             } else {
                                 "${receipt.importedCount} Personal Reminders restored. Upcoming schedules have been requested; please check your next reminder on this phone."
                             }
                         } catch (failure: Exception) {
-                            error = true
+                            isError = true
                             message = "Personal restore could not be confirmed. Verify existing reminders before retrying; the app retains a previous revision locally."
                         } finally {
                             busy = false
