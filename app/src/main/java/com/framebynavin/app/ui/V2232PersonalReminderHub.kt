@@ -479,7 +479,7 @@ internal fun V2232PersonalEditor(
                         }
                     }
                     if (alert != PersonalAlert.NOTIFICATION.name) {
-                        Text("Voice and Alarm currently use a notification until standalone audio QA passes.",
+                        Text("Voice and Alarm play short audio when Android allows; the notification remains your fallback.",
                             color = MutedGold, fontSize = 11.sp)
                     }
                     error?.let {
