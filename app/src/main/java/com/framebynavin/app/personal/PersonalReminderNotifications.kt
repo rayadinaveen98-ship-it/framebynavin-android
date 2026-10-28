@@ -50,9 +50,14 @@ internal object PersonalReminderNotifications {
         val opening = PendingIntent.getActivity(
             context,
             reminder.id.hashCode(),
-            Intent(context, MainActivity::class.java).apply {
+            Intent(context, if (reminder.alert == PersonalAlert.NOTIFICATION)
+                MainActivity::class.java else PersonalAlertActivity::class.java).apply {
                 action = PersonalDeliveryContract.ACTION_OPEN_PERSONAL
-                data = PersonalDeliveryContract.uri(reminder.id, "open")
+                // The alert activity is bound to the exact posted occurrence,
+                // so old notifications cannot control newer personal reminders.
+                data = PersonalDeliveryContract.actionUri(reminder.id, "open", reminder.pendingToken)
+                putExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID, reminder.id)
+                putExtra(PersonalDeliveryContract.EXTRA_TOKEN, reminder.pendingToken)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
