@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.R
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,6 +52,20 @@ class V224WidgetRegistryTest {
             val view = RemoteViews(app.packageName, layout).apply(app, FrameLayout(app))
             assertNotNull(view)
         }
+    }
+
+    @Test fun compactLayoutsExposeTheExpectedResizeTargets() {
+        val capture = RemoteViews(app.packageName, R.layout.widget_v224_capture)
+            .apply(app, FrameLayout(app))
+        val focus = RemoteViews(app.packageName, R.layout.widget_v224_today)
+            .apply(app, FrameLayout(app))
+        val day = RemoteViews(app.packageName, R.layout.widget_v224_myday)
+            .apply(app, FrameLayout(app))
+        assertNotNull(capture.findViewById<android.view.View>(R.id.v224_capture_prompt))
+        assertNotNull(focus.findViewById<android.view.View>(R.id.v224_today_detail))
+        assertNotNull(focus.findViewById<android.view.View>(R.id.v224_today_reminder))
+        assertNotNull(day.findViewById<android.view.View>(R.id.v224_day_headline))
+        assertNotNull(day.findViewById<android.view.View>(R.id.v224_day_open_personal))
     }
 
     @Test fun oldWidgetProviderNamesRemainForAlreadyPinnedLauncherInstances() {

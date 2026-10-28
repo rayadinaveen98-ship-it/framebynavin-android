@@ -53,10 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V224 Widget Trio engineering preview. Prototype signer and app ID
-        // intentionally match installed V223.4 (244) for in-place sideload QA.
-        versionCode = 245
-        versionName = "2.10.0-v224-widget-trio-preview"
+        // V224.1 Adaptive Widget engineering preview. Prototype signer and app ID
+        // intentionally match installed V224 (245) for in-place sideload QA.
+        versionCode = 246
+        versionName = "2.10.1-v2241-widget-adaptive-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

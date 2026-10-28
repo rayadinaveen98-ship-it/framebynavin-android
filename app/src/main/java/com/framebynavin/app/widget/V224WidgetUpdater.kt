@@ -6,6 +6,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.R
@@ -34,9 +36,13 @@ internal object V224WidgetUpdater {
         val myDay = ids<V224MyDayWidgetProvider>(app, manager)
         if (capture.isEmpty() && today.isEmpty() && myDay.isEmpty()) return
 
-        capture.forEach { manager.updateAppWidget(it, captureViews(app)) }
+        capture.forEach { id ->
+            manager.updateAppWidget(id, captureViews(app, compact(app, manager, id)))
+        }
         if (today.isNotEmpty()) {
-            today.forEach { manager.updateAppWidget(it, todayViews(app, tasks)) }
+            today.forEach { id ->
+                manager.updateAppWidget(id, todayViews(app, tasks, compact(app, manager, id)))
+            }
         }
         if (myDay.isNotEmpty()) {
             // Corrupted / temporarily unreadable Personal DataStore must never
@@ -46,7 +52,9 @@ internal object V224WidgetUpdater {
                     PersonalReminderStore(app).load(), System.currentTimeMillis(),
                 )
             }.getOrNull()
-            myDay.forEach { manager.updateAppWidget(it, myDayViews(app, tasks, personal)) }
+            myDay.forEach { id ->
+                manager.updateAppWidget(id, myDayViews(app, tasks, personal, compact(app, manager, id)))
+            }
         }
     }
 
@@ -77,8 +85,22 @@ internal object V224WidgetUpdater {
     private inline fun <reified T> ids(context: Context, manager: AppWidgetManager): IntArray =
         manager.getAppWidgetIds(ComponentName(context, T::class.java))
 
-    private fun captureViews(context: Context): RemoteViews =
+    private fun compact(context: Context, manager: AppWidgetManager, id: Int): Boolean {
+        val options = manager.getAppWidgetOptions(id)
+        return V2241WidgetSizingPolicy.compact(
+            options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0),
+            options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0),
+            context.resources.configuration.fontScale,
+        )
+    }
+
+    private fun captureViews(context: Context, compact: Boolean): RemoteViews =
         RemoteViews(context.packageName, R.layout.widget_v224_capture).apply {
+            if (compact) {
+                setViewVisibility(R.id.v224_capture_prompt, View.GONE)
+                setTextViewTextSize(R.id.v224_capture_idea, TypedValue.COMPLEX_UNIT_SP, 10f)
+                setTextViewTextSize(R.id.v224_capture_project, TypedValue.COMPLEX_UNIT_SP, 10f)
+            }
             setOnClickPendingIntent(R.id.v224_capture_idea, ideaIntent(context))
             setOnClickPendingIntent(
                 R.id.v224_capture_project,
@@ -86,7 +108,7 @@ internal object V224WidgetUpdater {
             )
         }
 
-    private fun todayViews(context: Context, tasks: List<CreatorTask>): RemoteViews {
+    private fun todayViews(context: Context, tasks: List<CreatorTask>, compact: Boolean): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_v224_today)
         val active = tasks.filter { it.status == TaskStatus.WORKING || it.status == TaskStatus.PLANNED }
         val current = active.sortedWith(
@@ -103,6 +125,13 @@ internal object V224WidgetUpdater {
             .minByOrNull { it.reminderAtMillis }
         views.setTextViewText(R.id.v224_today_due, "$dueToday DUE TODAY")
         views.setTextViewText(R.id.v224_today_title, current?.title ?: "Your creator desk is clear")
+        if (compact) {
+            views.setViewVisibility(R.id.v224_today_detail, View.GONE)
+            views.setViewVisibility(R.id.v224_today_reminder, View.GONE)
+            views.setTextViewTextSize(R.id.v224_today_title, TypedValue.COMPLEX_UNIT_SP, 15f)
+            views.setTextViewTextSize(R.id.v224_today_open, TypedValue.COMPLEX_UNIT_SP, 9f)
+            views.setTextViewTextSize(R.id.v224_today_reminders, TypedValue.COMPLEX_UNIT_SP, 9f)
+        }
         views.setTextViewText(
             R.id.v224_today_detail,
             if (current == null) "Capture an idea to begin"
@@ -127,17 +156,27 @@ internal object V224WidgetUpdater {
         context: Context,
         tasks: List<CreatorTask>,
         personal: V224PrivateDaySummary?,
+        compact: Boolean,
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_v224_myday)
         val now = System.currentTimeMillis()
+        val endToday = V224WidgetPolicy.tomorrowStartMillis(now, ZoneId.systemDefault())
         val creatorTimes = tasks.asSequence()
             .filter { it.status == TaskStatus.WORKING || it.status == TaskStatus.PLANNED }
-            .filter { it.reminderEnabled && it.reminderAtMillis > now }
+            .filter { it.reminderEnabled && it.reminderAtMillis > now && it.reminderAtMillis < endToday }
             .map { it.reminderAtMillis }.toList()
-        val creatorText = if (creatorTimes.isEmpty()) "CREATOR\nNothing upcoming"
-            else "CREATOR\n${creatorTimes.size} upcoming\nNext ${clock(creatorTimes.min())}"
+        val creatorText = if (creatorTimes.isEmpty()) "CREATOR\nNone left today"
+            else "CREATOR\n${creatorTimes.size} today" +
+                (if (compact) "" else "\nNext ${clock(creatorTimes.min())}")
         val personalText = V224WidgetPolicy.personalSafeLabel(personal) +
-            (personal?.nextAtMillis?.let { "\nNext ${clock(it)}" } ?: "")
+            (if (compact) "" else personal?.nextAtMillis?.let { "\nNext ${clock(it)}" }.orEmpty())
+        if (compact) {
+            views.setViewVisibility(R.id.v224_day_headline, View.GONE)
+            views.setTextViewTextSize(R.id.v224_day_creator, TypedValue.COMPLEX_UNIT_SP, 11f)
+            views.setTextViewTextSize(R.id.v224_day_personal, TypedValue.COMPLEX_UNIT_SP, 11f)
+            views.setTextViewTextSize(R.id.v224_day_open_creator, TypedValue.COMPLEX_UNIT_SP, 9f)
+            views.setTextViewTextSize(R.id.v224_day_open_personal, TypedValue.COMPLEX_UNIT_SP, 9f)
+        }
         views.setTextViewText(R.id.v224_day_creator, creatorText)
         views.setContentDescription(R.id.v224_day_creator, creatorText.replace("\n", ". "))
         views.setTextViewText(R.id.v224_day_personal, personalText)
