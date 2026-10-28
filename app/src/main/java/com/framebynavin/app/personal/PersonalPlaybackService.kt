@@ -296,5 +296,12 @@ internal class PersonalPlaybackService : Service() {
         fun stopMatching(id: String, token: String) {
             currentService?.get()?.requestStop(id, token)
         }
+
+        /** Editing/pausing/deleting an entire reminder also silences its audio. */
+        fun stopForReminder(id: String) {
+            currentService?.get()?.let { service ->
+                if (service.currentId == id) service.endPlayback()
+            }
+        }
     }
 }
