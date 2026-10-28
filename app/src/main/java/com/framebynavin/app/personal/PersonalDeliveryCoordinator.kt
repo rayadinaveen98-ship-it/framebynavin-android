@@ -18,6 +18,7 @@ internal object PersonalDeliveryContract {
     const val EXTRA_ACTION = "backlot.personal.action"
     const val ACTION_OPEN_PERSONAL = "com.framebynavin.app.personal.OPEN"
     const val ACTION_FIRE = "com.framebynavin.app.personal.FIRE"
+    const val ACTION_RECOVER = "com.framebynavin.app.personal.RECOVER"
     const val ACTION_DONE = "com.framebynavin.app.personal.DONE"
     const val ACTION_SNOOZE = "com.framebynavin.app.personal.SNOOZE"
     const val ACTION_DISMISS = "com.framebynavin.app.personal.DISMISS"
@@ -89,7 +90,8 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             // Within the grace window, a posted reminder stays actionable
             // across process restart. Do not double-deliver it.
             if (record.pendingToken.isNotBlank() && record.presentedToken == record.pendingToken) {
-                cancelPending(record.id)
+                cancelFire(record.id)
+                armRecovery(record)
                 return@forEach
             }
             if (record.pendingToken.isBlank()) {
@@ -129,6 +131,12 @@ internal class PersonalDeliveryCoordinator(context: Context) {
     }
 
     fun cancelPending(id: String) {
+        cancelFire(id)
+        recoveryIntent(id, flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+            ?.let { alarms.cancel(it) }
+    }
+
+    private fun cancelFire(id: String) {
         fireIntent(id, flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
             ?.let { alarms.cancel(it) }
     }
@@ -151,6 +159,35 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         }.onFailure {
             android.util.Log.w("BacklotPersonal", "Could not schedule personal occurrence", it)
         }
+        // Independent best-effort watchdog: a posted notification needs an
+        // expiration wakeup even if the app is not opened for days. Android may
+        // defer this in Doze; reconcile remains idempotent on eventual delivery.
+        armRecovery(reminder)
+    }
+
+    private fun armRecovery(reminder: PersonalReminder) {
+        val intent = recoveryIntent(
+            reminder.id, reminder.pendingToken,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: return
+        runCatching {
+            alarms.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                PersonalRecoveryPolicy.recoveryAlarmAtMillis(reminder),
+                intent,
+            )
+        }.onFailure {
+            android.util.Log.w("BacklotPersonal", "Could not arm personal missed-recovery watchdog", it)
+        }
+    }
+
+    private fun recoveryIntent(id: String, token: String = "", flags: Int): PendingIntent? {
+        val intent = Intent(app, PersonalReminderReceiver::class.java)
+            .setAction(PersonalDeliveryContract.ACTION_RECOVER)
+            .setData(PersonalDeliveryContract.uri(id, "recover"))
+            .putExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID, id)
+            .putExtra(PersonalDeliveryContract.EXTRA_TOKEN, token)
+        return PendingIntent.getBroadcast(app, id.hashCode(), intent, flags)
     }
 
     private fun fireIntent(
