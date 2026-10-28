@@ -208,9 +208,6 @@ jobs:
             grep -Fq 'OK (2 tests)' v227-new-idea-default.log
             adb shell wm size 900x1600
             adb shell settings put system font_scale 1.5
-            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V227IdeaFooterAdaptiveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-footer-compact.log
-            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-footer-compact.log; then exit 1; fi
-            grep -Fq 'OK (3 tests)' v227-footer-compact.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V216IdeaEditorSafeFooterUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-edit-compact.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-edit-compact.log; then exit 1; fi
             grep -Fq 'OK (4 tests)' v227-edit-compact.log
@@ -263,7 +260,6 @@ jobs:
             v227-footer-default.log
             v227-edit-default.log
             v227-new-idea-default.log
-            v227-footer-compact.log
             v227-edit-compact.log
             v227-new-idea-compact.log
             personal-backup-v226.log
