@@ -67,6 +67,11 @@ class V226PersonalBackupTransferTest {
             val recoveryRaw = PersonalPreRestoreRecovery(app).latestVerified()
             assertTrue(recoveryRaw != null)
             assertEquals(listOf(previouslyActive), PersonalReminderCodec.decode(requireNotNull(recoveryRaw)))
+            assertEquals(1, transfer.previousRecoveryPreview()?.reminderCount)
+            val undone = transfer.restorePreviousApproved()
+            assertEquals(1, undone.importedCount)
+            assertEquals(previouslyActive.title, store.load().single().title)
+            assertEquals(oldCreator, TaskStore(app).load())
         } finally {
             coordinator.cancelPending(original.id)
             coordinator.cancelPending(previouslyActive.id)
