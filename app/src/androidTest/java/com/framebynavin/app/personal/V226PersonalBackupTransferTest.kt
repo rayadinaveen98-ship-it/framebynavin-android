@@ -62,8 +62,11 @@ class V226PersonalBackupTransferTest {
                 coordinator.apply(original.id, original.pendingOccurrenceMillis,
                     oldToken, PersonalDeliveryContract.ACTION_DONE),
             )
-            val recovery = store.validatedPreviousRevision()
-            assertEquals(listOf(previouslyActive), recovery)
+            // Re-arming the imported schedule rotates DataStore lastGood,
+            // so only the dedicated pre-restore copy is a durable undo point.
+            val recoveryRaw = PersonalPreRestoreRecovery(app).latestVerified()
+            assertTrue(recoveryRaw != null)
+            assertEquals(listOf(previouslyActive), PersonalReminderCodec.decode(requireNotNull(recoveryRaw)))
         } finally {
             coordinator.cancelPending(original.id)
             coordinator.cancelPending(previouslyActive.id)
