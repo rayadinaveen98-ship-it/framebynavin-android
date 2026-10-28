@@ -1,5 +1,7 @@
 package com.framebynavin.app.personal
 
+import android.app.PendingIntent
+import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
@@ -53,6 +55,14 @@ class V2234PersonalMissedRecoveryTest {
             assertTrue(recovered.pendingOccurrenceMillis > now)
             assertTrue(recovered.pendingFireAtMillis > now)
             assertNotEquals(original.pendingToken, recovered.pendingToken)
+            val watchdog = PendingIntent.getBroadcast(
+                app, recovered.id.hashCode(),
+                Intent(app, PersonalReminderReceiver::class.java)
+                    .setAction(PersonalDeliveryContract.ACTION_RECOVER)
+                    .setData(PersonalDeliveryContract.uri(recovered.id, "recover")),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+            )
+            assertTrue("Unanswered recurrence requires a background recovery alarm", watchdog != null)
             assertNull(delivery.currentLease(original.id, original.pendingOccurrenceMillis,
                 original.pendingFireAtMillis, token))
             delivery.reconcile(now + 100L)
