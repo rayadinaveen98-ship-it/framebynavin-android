@@ -3,6 +3,7 @@ package com.framebynavin.app.personal
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.framebynavin.app.widget.V224WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,6 +27,7 @@ internal class PersonalReminderReceiver : BroadcastReceiver() {
                             it.id == id && it.pendingToken == token
                         }) {
                         PersonalDeliveryCoordinator(app).reconcile()
+                        V224WidgetUpdater.refresh(app)
                     }
                 } catch (failure: Exception) {
                     android.util.Log.e("BacklotPersonal", "Personal recovery watchdog failed", failure)
@@ -54,6 +56,7 @@ internal class PersonalReminderReceiver : BroadcastReceiver() {
                             app, reminder.copy(presentedToken = token),
                         )
                     }
+                    V224WidgetUpdater.refresh(app)
                 }
             } catch (failure: Exception) {
                 android.util.Log.e("BacklotPersonal", "Personal delivery handoff failed", failure)
