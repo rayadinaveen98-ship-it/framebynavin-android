@@ -232,7 +232,8 @@ internal class PersonalPlaybackService : Service() {
     }
 
     private fun requestStop(id: String, token: String) {
-        if (id == currentId && token == currentToken) endPlayback()
+        // Response receivers run on IO; audio teardown must occur on Main.
+        handler.post { if (id == currentId && token == currentToken) endPlayback() }
     }
 
     private fun endPlayback() {
@@ -300,7 +301,9 @@ internal class PersonalPlaybackService : Service() {
         /** Editing/pausing/deleting an entire reminder also silences its audio. */
         fun stopForReminder(id: String) {
             currentService?.get()?.let { service ->
-                if (service.currentId == id) service.endPlayback()
+                service.handler.post {
+                    if (service.currentId == id) service.endPlayback()
+                }
             }
         }
     }
