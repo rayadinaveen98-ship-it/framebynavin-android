@@ -371,40 +371,78 @@ internal object V18HeroPlaybackPolicy {
  * the greeting for zero and multiple image states.
  */
 @Composable
+private fun V18GreetingText(greeting: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+        Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun V18HeroPhotoButton(
+    hasFrames: Boolean,
+    importing: Boolean,
+    onPhotoClick: () -> Unit,
+) {
+    Surface(
+        onClick = { if (!importing) onPhotoClick() },
+        modifier = Modifier.size(48.dp).testTag("v2221-home-gallery"),
+        shape = CircleShape,
+        color = CinemaSurfaceRaised,
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (importing) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
+            } else {
+                Icon(
+                    if (hasFrames) Icons.Outlined.Collections else Icons.Outlined.Add,
+                    contentDescription = if (hasFrames) "Manage slideshow images" else "Add slideshow images",
+                    tint = ProjectorIvory,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * V222.1 selected guide sits beside the existing Gallery +, never over media,
+ * Top 3 or project actions. At narrow widths / large accessibility text both
+ * actions wrap to their own line rather than compressing greeting or touch areas.
+ */
+@Composable
 internal fun V18HeroGreetingBar(
     greeting: String,
     hasFrames: Boolean,
     importing: Boolean,
     onPhotoClick: () -> Unit,
+    companionAvatar: @Composable () -> Unit = {},
 ) {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-            Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
-        }
-        Surface(
-            onClick = { if (!importing) onPhotoClick() },
-            modifier = Modifier.size(48.dp),
-            shape = CircleShape,
-            color = CinemaSurfaceRaised,
-            border = BorderStroke(1.dp, CinemaLine),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (importing) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
-                } else {
-                    Icon(
-                        if (hasFrames) Icons.Outlined.Collections else Icons.Outlined.Add,
-                        contentDescription = if (hasFrames) "Manage slideshow images" else "Add slideshow images",
-                        tint = ProjectorIvory,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+    val wrapActions = LocalConfiguration.current.screenWidthDp < 360 ||
+        LocalDensity.current.fontScale >= 1.55f
+    if (wrapActions) {
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            V18GreetingText(greeting)
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.align(Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                companionAvatar()
+                V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
             }
+        }
+    } else {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            V18GreetingText(greeting, Modifier.weight(1f))
+            companionAvatar()
+            V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
         }
     }
 }
@@ -415,6 +453,7 @@ internal fun V18CinematicHomeHero(
     autoPlay: Boolean = true,
     openEditorNonce: Long = 0L,
     onEditorRequestHandled: () -> Unit = {},
+    companionAvatar: @Composable () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -560,6 +599,7 @@ internal fun V18CinematicHomeHero(
                 if (frames.isEmpty()) chooseReplaceFrames()
                 else manageExpanded = !manageExpanded
             },
+            companionAvatar = companionAvatar,
         )
 
         // Never reserve banner space on an empty collection; the greeting

@@ -124,7 +124,7 @@ class V2215CompanionAccessibilityUiTest {
         rule.runOnIdle { assertEquals(1, dismissals) }
     }
 
-    @Test fun persistedOptOutHidesAlreadyVisibleHomeCardImmediately() {
+    @Test fun persistedOptOutHidesCircularHomeCompanionImmediately() {
         HardeningTestEnvironment.requireCiEmulator()
         val prefs = context().getSharedPreferences("backlot_companion_suggestions_v2212", 0)
         prefs.edit().clear().commit()
@@ -148,14 +148,16 @@ class V2215CompanionAccessibilityUiTest {
                     }
                 }
             }
-            rule.onNodeWithTag("v2212-companion-card").assertIsDisplayed()
-            rule.onNodeWithTag("v2215-companion-switch").performClick()
+            rule.onNodeWithTag("v2221-companion-avatar").assertIsDisplayed()
+            // V222.1 intentionally no longer reserves a large inline card.
             rule.onNodeWithTag("v2212-companion-card").assertDoesNotExist()
+            rule.onNodeWithTag("v2215-companion-switch").performClick()
+            rule.onNodeWithTag("v2221-companion-avatar").assertDoesNotExist()
             rule.runOnIdle {
                 assertTrue(!V221CompanionDismissalStore(context()).enabled())
             }
             rule.onNodeWithTag("v2215-companion-switch").performClick()
-            rule.onNodeWithTag("v2212-companion-card").assertIsDisplayed()
+            rule.onNodeWithTag("v2221-companion-avatar").assertIsDisplayed()
         } finally { prefs.edit().clear().commit() }
     }
 }
