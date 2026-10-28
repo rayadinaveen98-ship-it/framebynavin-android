@@ -94,18 +94,21 @@ internal fun PTodayScreen(
     onHomeSlideshowRequestHandled: () -> Unit = {},
     companionContent: @Composable () -> Unit = {},
 ) {
-    // V220.1: derive Home content from the CURRENT task list. The previous
-    // unkeyed derivedStateOf closures captured the initial tasks parameter and
-    // could show an old Up Next queue / weekly totals after a ViewModel update.
-    // Keep this read-only: no task mutation, reminder scheduling or storage.
-    val queue = remember(tasks) { pActiveQueue(tasks).take(10) }
+    // V222 pre-Play cold-start fix: CreatorViewModel.tasks is a mutableStateListOf.
+    // The list object keeps its identity while DataStore loads projects into it,
+    // so remember(tasks) previously froze Home's initial EMPTY queue until a tab
+    // switch recreated PTodayScreen. Read a StateList snapshot in composition:
+    // it invalidates on insert/remove/update, and the memoized summaries receive
+    // a new structural key. This never mutates project or reminder data.
+    val visibleTasks = tasks.toList()
+    val queue = remember(visibleTasks) { pActiveQueue(visibleTasks).take(10) }
     val queueIds = remember(queue) { queue.map { it.id } }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(queueIds) { if (queue.none { it.id == selectedId }) selectedId = queue.firstOrNull()?.id }
     val index = queue.indexOfFirst { it.id == selectedId }.let { if (it < 0) 0 else it }
     val selected = queue.getOrNull(index)
-    val personalization = remember(creatorProfile, tasks) {
-        CreatorPersonalizationEngine.snapshot(creatorProfile, tasks)
+    val personalization = remember(creatorProfile, visibleTasks) {
+        CreatorPersonalizationEngine.snapshot(creatorProfile, visibleTasks)
     }
     val haptics = LocalHapticFeedback.current
     var showWeeklyFocus by rememberSaveable { mutableStateOf(false) }
