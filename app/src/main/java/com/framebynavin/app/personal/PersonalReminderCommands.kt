@@ -75,6 +75,7 @@ internal class PersonalReminderCommands(context: Context) {
                 presentedToken = "",
                 snoozedUntilMillis = 0L,
                 lastAcknowledgedOccurrenceMillis = 0L,
+                lastMissedOccurrenceMillis = 0L,
                 lastResponse = PersonalResponse.NONE,
                 lastResponseAtMillis = 0L,
                 paused = false,
