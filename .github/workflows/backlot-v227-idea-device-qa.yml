@@ -308,6 +308,11 @@ jobs:
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-android15-footer.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' v227-android15-footer.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile gestural -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-android15-ime.log
+            # Collect real Android UI pixels BEFORE evaluating the test result:
+            # this preserves the failing state on OEM/IME regressions.
+            mkdir -p v227-android15-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v2204-idea-evidence/v2204-gestural-keyboard-clear.png > v227-android15-evidence/keyboard-first.png || true
+            adb exec-out run-as com.framebynavin.app cat files/v2204-idea-evidence/v2204-gestural-keyboard-settled.png > v227-android15-evidence/keyboard-settled.png || true
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-android15-ime.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v227-android15-ime.log
       - uses: actions/upload-artifact@v4
@@ -315,6 +320,7 @@ jobs:
         with:
           name: Backlot-V227-Android15-Gestural-Results
           path: |
+            v227-android15-evidence/
             v227-android15-footer.log
             v227-android15-ime.log
           if-no-files-found: warn
