@@ -2,7 +2,7 @@ name: Backlot RC6 Focused UI + Preserved Data QA
 
 on:
   push:
-    branches: [feature/backlot-rc6-inplace-upgrade-data-qa]
+    branches: [feature/backlot-rc6-focused-ui-polish]
   workflow_dispatch:
 
 permissions:
