@@ -139,7 +139,6 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
     var guidedTourStepName by rememberSaveable { mutableStateOf<String?>(null) }
     val guideTargets = remember { mutableStateMapOf<CreatorGuidedTourStep, Rect>() }
-    var stageCompletionEvent by rememberSaveable { mutableLongStateOf(0L) }
     var pendingReminderConfirmation by remember { mutableStateOf<V203PendingReminderConfirmation?>(null) }
     var savedReminderConfirmation by remember { mutableStateOf<String?>(null) }
 
@@ -322,7 +321,6 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         val taskBeforeAdvance = vm.tasks.firstOrNull { it.id == id }
         val destination = taskBeforeAdvance?.let(V18CreatorJourney::afterWorkflowAdvance)
         vm.advanceWorkflow(id)
-        stageCompletionEvent = System.nanoTime()
         routeJourney(destination)
     }
 
@@ -698,7 +696,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     .padding(bottom = 28.dp, start = 18.dp, end = 18.dp),
             )
         }
-        V127StageCompletionPulse(stageCompletionEvent, modifier = Modifier.align(Alignment.Center))
+        // Celebrate a confirmed, durable stage reward, never an optimistic tap.
+        V127StageCompletionPulse(
+            eventKey = V2284StageCelebrationPolicy.confirmedStageKey(vm.rewardFeedback),
+            modifier = Modifier.align(Alignment.Center),
+        )
 
         vm.rewardFeedback?.let { reward ->
             LaunchedEffect(reward.eventKey) {
