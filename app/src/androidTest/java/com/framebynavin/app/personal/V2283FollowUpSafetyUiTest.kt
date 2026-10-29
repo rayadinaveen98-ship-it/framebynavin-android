@@ -77,6 +77,9 @@ class V2283FollowUpSafetyUiTest {
             // the durable one-shot claim, not a claimed visual delivery, is tested.
             runBlocking { coordinator.deliverFollowUp(id, due, token, now) }
             assertEquals(token, runBlocking { data.load().first { it.id == id }.followUpSentToken })
+            assertEquals(due, runBlocking {
+                data.load().first { it.id == id }.followUpSentOccurrenceMillis
+            })
             assertFalse(runBlocking { coordinator.deliverFollowUp(id, due, token, now) })
             runBlocking {
                 data.update(id) { it.copy(

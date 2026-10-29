@@ -27,6 +27,14 @@ class V2283PersonalFollowUpPolicyTest {
         assertNull(PersonalFollowUpPolicy.dueAt(r.copy(paused = true), enabled, time(11), zone))
         assertNull(PersonalFollowUpPolicy.dueAt(r.copy(presentedToken = ""), enabled, time(11), zone))
         assertNull(PersonalFollowUpPolicy.dueAt(r.copy(followUpSentToken = token), enabled, time(11), zone))
+        val snoozeAfterFollowUp = r.copy(
+            pendingToken = "b1b2c3d4-0000-4000-9000-0123456789ab",
+            presentedToken = "b1b2c3d4-0000-4000-9000-0123456789ab",
+            followUpSentToken = token,
+            followUpSentOccurrenceMillis = r.pendingOccurrenceMillis,
+        )
+        assertNull(PersonalFollowUpPolicy.dueAt(snoozeAfterFollowUp,
+            enabled, time(11), zone))
     }
 
     @Test fun boundedDeliveryOneHourAfterPostedLease() {

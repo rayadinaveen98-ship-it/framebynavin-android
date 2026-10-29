@@ -75,6 +75,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                         latest.presentedToken != expired.presentedToken) latest
                     else latest.copy(
                         followUpSentToken = "",
+                        followUpSentOccurrenceMillis = 0L,
                         lastMissedOccurrenceMillis = maxOf(
                             latest.lastMissedOccurrenceMillis, latest.pendingOccurrenceMillis,
                         ),
@@ -118,6 +119,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                         presentedToken = "",
                         presentedAtMillis = 0L,
                         followUpSentToken = "",
+                        followUpSentOccurrenceMillis = 0L,
                         snoozedUntilMillis = 0L,
                     )
                 }.first { it.id == record.id }
@@ -306,6 +308,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                             presentedToken = "",
                             presentedAtMillis = 0L,
                             followUpSentToken = "",
+                            followUpSentOccurrenceMillis = 0L,
                             snoozedUntilMillis = 0L,
                             lastResponse = if (action == PersonalDeliveryContract.ACTION_DONE)
                                 PersonalResponse.DONE else PersonalResponse.DISMISSED,
@@ -320,7 +323,8 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                             pendingToken = UUID.randomUUID().toString(),
                             presentedToken = "",
                             presentedAtMillis = 0L,
-                            followUpSentToken = "",
+                            followUpSentToken = item.followUpSentToken,
+                            followUpSentOccurrenceMillis = item.followUpSentOccurrenceMillis,
                             lastResponse = if (action == PersonalDeliveryContract.ACTION_SNOOZE)
                                 PersonalResponse.SNOOZED else PersonalResponse.RESCHEDULED,
                         )
@@ -388,7 +392,10 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                     PersonalFollowUpPolicy.mayDeliver(item, settings, nowMillis)
                 ) {
                     accepted = item
-                    item.copy(followUpSentToken = token)
+                    item.copy(
+                        followUpSentToken = token,
+                        followUpSentOccurrenceMillis = occurrence,
+                    )
                 } else item
             }
         }
@@ -397,6 +404,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             store.load().any {
                 it.id == id && !it.paused && it.pendingToken == token &&
                     it.presentedToken == token && it.followUpSentToken == token &&
+                    it.followUpSentOccurrenceMillis == occurrence &&
                     it.pendingOccurrenceMillis == occurrence
             }
         }

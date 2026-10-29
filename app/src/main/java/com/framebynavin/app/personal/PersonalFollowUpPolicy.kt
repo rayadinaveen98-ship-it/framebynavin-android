@@ -24,7 +24,8 @@ internal object PersonalFollowUpPolicy {
         settings.checked()
         if (!settings.enabled || reminder.paused || reminder.pendingToken.isBlank() ||
             reminder.pendingToken != reminder.presentedToken ||
-            reminder.followUpSentToken == reminder.pendingToken ||
+            (reminder.followUpSentToken == reminder.pendingToken ||
+                reminder.followUpSentOccurrenceMillis == reminder.pendingOccurrenceMillis) ||
             reminder.pendingOccurrenceMillis <= 0L || reminder.pendingFireAtMillis <= 0L ||
             reminder.presentedAtMillis <= 0L
         ) return null
