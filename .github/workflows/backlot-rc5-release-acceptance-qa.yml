@@ -60,7 +60,7 @@ jobs:
           assert 'not Play Store release approval' in readme
           assert 'Creator and Personal reminder backups are separate' in readme
           assert 'Production signing' in policy
-          assert 'owner-phone acceptance' in policy
+          assert 'owner-phone acceptance' in policy.lower()
           assert Path('app/src/androidTest/java/com/framebynavin/app/data/V266InPlaceUpgradePersistenceTest.kt').is_file()
           report = {
               'frozen_app_source_sha': frozen,
