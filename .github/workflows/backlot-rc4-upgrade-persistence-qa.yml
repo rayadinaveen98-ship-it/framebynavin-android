@@ -353,19 +353,17 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
-            PREVIOUS="$(find previous -type f -name app-debug.apk -print -quit)"
-            NEW="$(find current -type f -name app-debug.apk -print -quit)"
-            TEST="$(find current -type f -name app-debug-androidTest.apk -print -quit)"
-            test -s "$PREVIOUS" && test -s "$NEW" && test -s "$TEST"
-            adb install -r "$PREVIOUS"
-            adb install -r "$TEST"
+            # android-emulator-runner starts a fresh shell for EACH script line.
+            # Inline artifact resolution; do not depend on ephemeral shell vars.
+            test -s "$(find previous -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
+            adb install -r "$(find previous -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
             adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V266InPlaceUpgradePersistenceTest#phase1SeedOlderAppAndCaptureVerifiedBackup' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc4-upgrade-old-30.log
             grep -Fq 'OK (1 test)' rc4-upgrade-old-30.log
             adb shell am force-stop com.framebynavin.app
             # Crucial proof: same Android application ID and same debug signer.
             # Never use uninstall, pm clear or a fresh data directory.
-            adb install -r "$NEW"
+            adb install -r "$(find current -type f -name app-debug.apk -print -quit)"
             adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V266InPlaceUpgradePersistenceTest#phase2VerifyUpgradeWithoutUninstall' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc4-upgrade-new-30.log
             grep -Fq 'OK (1 test)' rc4-upgrade-new-30.log
             adb shell am start -n com.framebynavin.app/.MainActivity
@@ -412,19 +410,17 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
-            PREVIOUS="$(find previous -type f -name app-debug.apk -print -quit)"
-            NEW="$(find current -type f -name app-debug.apk -print -quit)"
-            TEST="$(find current -type f -name app-debug-androidTest.apk -print -quit)"
-            test -s "$PREVIOUS" && test -s "$NEW" && test -s "$TEST"
-            adb install -r "$PREVIOUS"
-            adb install -r "$TEST"
+            # android-emulator-runner starts a fresh shell for EACH script line.
+            # Inline artifact resolution; do not depend on ephemeral shell vars.
+            test -s "$(find previous -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
+            adb install -r "$(find previous -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
             adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V266InPlaceUpgradePersistenceTest#phase1SeedOlderAppAndCaptureVerifiedBackup' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc4-upgrade-old-35.log
             grep -Fq 'OK (1 test)' rc4-upgrade-old-35.log
             adb shell am force-stop com.framebynavin.app
             # Crucial proof: same Android application ID and same debug signer.
             # Never use uninstall, pm clear or a fresh data directory.
-            adb install -r "$NEW"
+            adb install -r "$(find current -type f -name app-debug.apk -print -quit)"
             adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V266InPlaceUpgradePersistenceTest#phase2VerifyUpgradeWithoutUninstall' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc4-upgrade-new-35.log
             grep -Fq 'OK (1 test)' rc4-upgrade-new-35.log
             adb shell am start -n com.framebynavin.app/.MainActivity
