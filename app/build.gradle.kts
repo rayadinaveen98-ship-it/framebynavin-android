@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V229.5 evidence-based Content Workspace Publish guidance; upgrade Build261.
-        versionCode = 262
-        versionName = "2.14.3-v2295-workspace-publish-readiness-preview"
+        // RC1 full-app preview: observable cold-start project load and regression gates.
+        versionCode = 263
+        versionName = "2.15.0-rc1-cold-start-integrity-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
