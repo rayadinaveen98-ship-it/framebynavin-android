@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // RC1 full-app preview: observable cold-start project load and regression gates.
-        versionCode = 263
-        versionName = "2.15.0-rc1-cold-start-integrity-preview"
+        // RC2 legacy starter cleanup: preserve any creator-modified project; upgrade Build263.
+        versionCode = 264
+        versionName = "2.15.1-rc2-starter-project-safety-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
