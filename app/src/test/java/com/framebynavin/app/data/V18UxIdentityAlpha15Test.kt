@@ -7,10 +7,12 @@ import org.junit.Test
 
 class V18UxIdentityAlpha15Test {
     @Test
-    fun freshWeeklyScheduleUsesFrameByNavinV4Preset() {
+    fun freshBacklotWeeklyScheduleIsEmptyWhileLegacyPresetRemainsRecognizable() {
         val defaults = WeeklyScheduleEngine.defaultSlots()
-        assertEquals(FrameByNavinV4Preset.MASTER_PROJECTS_PER_WEEK, defaults.size)
-        assertTrue(WeeklyScheduleEngine.isFrameByNavinV4Preset(defaults))
+        assertTrue(defaults.isEmpty())
+        val legacy = WeeklyScheduleEngine.frameByNavinV4Slots()
+        assertEquals(FrameByNavinV4Preset.MASTER_PROJECTS_PER_WEEK, legacy.size)
+        assertTrue(WeeklyScheduleEngine.isFrameByNavinV4Preset(legacy))
     }
 
     @Test
