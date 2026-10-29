@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,22 +33,43 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun V127StageCompletionPulse(eventKey: Long, modifier: Modifier = Modifier) {
+internal fun V127StageCompletionPulse(eventKey: String?, modifier: Modifier = Modifier) {
     val progress = remember { Animatable(0f) }
     val opacity = remember { Animatable(0f) }
     val haptics = LocalHapticFeedback.current
-
-    LaunchedEffect(eventKey) {
-        if (eventKey <= 0L) return@LaunchedEffect
-        progress.snapTo(0f)
-        opacity.snapTo(1f)
-        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        launch { progress.animateTo(1f, tween(760, easing = FastOutSlowInEasing)) }
-        delay(590L)
-        opacity.animateTo(0f, tween(280, easing = FastOutSlowInEasing))
+    val context = LocalContext.current
+    // Respect Android's explicit "Remove animations" accessibility setting.
+    val reduceMotion = remember(context) {
+        runCatching {
+            android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f,
+            ) == 0f
+        }.getOrDefault(false)
     }
 
-    if (eventKey > 0L && opacity.value > 0f) {
+    LaunchedEffect(eventKey, reduceMotion) {
+        if (eventKey.isNullOrBlank()) {
+            opacity.snapTo(0f)
+            return@LaunchedEffect
+        }
+        progress.snapTo(0f)
+        opacity.snapTo(1f)
+        if (reduceMotion) {
+            // One brief static confirmation, without a moving ring or haptics.
+            progress.snapTo(1f)
+            delay(400L)
+            opacity.snapTo(0f)
+        } else {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            launch { progress.animateTo(1f, tween(950, easing = FastOutSlowInEasing)) }
+            delay(1600L)
+            opacity.animateTo(0f, tween(400, easing = FastOutSlowInEasing))
+        }
+    }
+
+    if (!eventKey.isNullOrBlank() && opacity.value > 0f) {
         Box(modifier.fillMaxSize().alpha(opacity.value), contentAlignment = Alignment.Center) {
             Canvas(Modifier.size(150.dp)) {
                 val p = progress.value
@@ -75,7 +97,7 @@ internal fun V127StageCompletionPulse(eventKey: Long, modifier: Modifier = Modif
                 "STAGE COMPLETE",
                 modifier = Modifier.offset(y = 52.dp),
                 color = ProjectorIvory,
-                fontSize = 8.5.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.2.sp,
             )

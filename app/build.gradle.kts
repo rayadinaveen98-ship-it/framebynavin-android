@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V228.3 opt-in personal follow-ups; upgrade from V228.2 build 254.
-        versionCode = 255
-        versionName = "2.13.6-v2283-opt-in-followups-preview"
+        // V228.4 durable stage celebration; upgrade from V228.3 build 255.
+        versionCode = 256
+        versionName = "2.13.7-v2284-stage-celebration-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
