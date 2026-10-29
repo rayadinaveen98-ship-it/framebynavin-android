@@ -66,6 +66,12 @@ internal class V2293SparkVoiceSession(
 
     fun startListening() {
         if (closed || listening) return
+        // Explicit SDK guard keeps the API 31+ recognizer out of Android 8–11 paths.
+        // Runtime availability alone is not a sufficient API guard for Android lint.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            status = "On-device dictation needs Android 12 or newer. Type instead."
+            return
+        }
         if (!canUseMic) {
             status = "On-device dictation isn't available here. Type your question instead."
             return
