@@ -19,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -96,6 +97,7 @@ internal fun V2214HomeCompanion(
     // priority candidate exists. Persisted dismissal guards future visits.
     var quietThisVisit by remember { mutableStateOf(false) }
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
+    var talkingToSpark by rememberSaveable { mutableStateOf(false) }
     var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val lifecycle = (context as? ComponentActivity)?.lifecycle
 
@@ -148,13 +150,13 @@ internal fun V2214HomeCompanion(
     V2221CompanionPortrait(
         guide = identity,
         hasSuggestion = decision != null && !quietThisVisit,
-        onClick = { sheetOpen = true },
+        onClick = { talkingToSpark = false; sheetOpen = true },
         modifier = modifier,
     )
 
     if (sheetOpen) {
         ModalBottomSheet(
-            onDismissRequest = { sheetOpen = false },
+            onDismissRequest = { talkingToSpark = false; sheetOpen = false },
             containerColor = CinemaSurfaceRaised,
             modifier = Modifier.testTag("v2221-companion-sheet"),
         ) {
@@ -164,6 +166,35 @@ internal fun V2214HomeCompanion(
                     .padding(horizontal = 18.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                if (talkingToSpark) {
+                    V2292SparkConversationPanel(
+                        tasks = taskSnapshot,
+                        ideas = ideaSnapshot,
+                        onBack = { talkingToSpark = false },
+                        onOpenProject = { id ->
+                            // Never route a saved chat reply to a deleted or
+                            // completed project after the project list changed.
+                            if (tasks.any {
+                                it.id == id && it.archivedAtMillis <= 0L &&
+                                    (it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING)
+                            }) {
+                                talkingToSpark = false
+                                sheetOpen = false
+                                onOpenProject(id)
+                            }
+                        },
+                        onOpenIdeas = {
+                            talkingToSpark = false
+                            sheetOpen = false
+                            onOpenIdeas()
+                        },
+                        onOpenReminders = {
+                            talkingToSpark = false
+                            sheetOpen = false
+                            onOpenReminders()
+                        },
+                    )
+                } else {
                 // Suggestion card already shows Spark and the next action; no duplicate header.
                 // A suppressed/unavailable decision must never be replaced by
                 // fabricated project or reminder evidence.
@@ -209,6 +240,14 @@ internal fun V2214HomeCompanion(
                         Text("Nothing needs your attention right now.",
                             color = MutedText, modifier = Modifier.weight(1f))
                     }
+                }
+                TextButton(
+                    onClick = { talkingToSpark = true },
+                    modifier = Modifier.testTag("v2292-spark-open-chat")
+                        .fillMaxWidth(),
+                ) {
+                    Text("ASK SPARK · OFFLINE", color = MutedGold, fontSize = 12.sp)
+                }
                 }
                 Spacer(Modifier.height(6.dp))
             }
