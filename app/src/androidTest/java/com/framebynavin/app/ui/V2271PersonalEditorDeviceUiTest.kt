@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import android.os.SystemClock
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -39,7 +40,48 @@ class V2271PersonalEditorDeviceUiTest {
         rule.waitForIdle()
     }
 
+    /**
+     * Dialog IME insets arrive asynchronously on API35. Verify that BOTH
+     * actions are actually displayed after Android settles, not just present
+     * in the Compose tree or nominally within the dialog bounds. A persistently
+     * obstructed footer still fails and saves an actual device screenshot.
+     */
     private fun boundsSafe() {
+        var failure: AssertionError? = null
+        repeat(10) { step ->
+            try {
+                boundsSafeOnce()
+                return
+            } catch (error: AssertionError) {
+                failure = error
+                if (step < 9) {
+                    SystemClock.sleep(280)
+                    rule.waitForIdle()
+                }
+            }
+        }
+        runCatching {
+            // A Compose Dialog may occupy its own window. Capture *its actual
+            // rendering*, not just UiAutomation's default Activity screenshot.
+            // Do not weaken assertIsDisplayed: it must still pass above IME.
+            val image = rule.onNodeWithTag("v2232-personal-editor")
+                .captureToImage().asAndroidBitmap()
+            val folder = java.io.File(
+                androidx.test.platform.app.InstrumentationRegistry
+                    .getInstrumentation().targetContext.filesDir,
+                "v2271-personal-editor-evidence",
+            )
+            folder.mkdirs()
+            java.io.File(folder, "personal-editor-occlusion.png").outputStream().use { stream ->
+                check(image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream))
+            }
+        }.onFailure {
+            android.util.Log.e("BacklotPersonalEditorQA", "Could not capture dialog pixels", it)
+        }
+        throw failure ?: AssertionError("Personal editor did not settle with visible Save and Cancel")
+    }
+
+    private fun boundsSafeOnce() {
         rule.waitForIdle()
         val editor = rule.onNodeWithTag("v2232-personal-editor").getUnclippedBoundsInRoot()
         val footer = rule.onNodeWithTag("v2271-personal-footer").getUnclippedBoundsInRoot()

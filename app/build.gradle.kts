@@ -53,10 +53,10 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V227.1 Personal Editor Device QA engineering preview. Prototype signer and app ID
-        // intentionally match installed V227 (249) for in-place sideload QA.
-        versionCode = 250
-        versionName = "2.13.1-v2271-personal-editor-preview"
+        // V227.2 Personal Particle Device QA engineering preview. Prototype signer and app ID
+        // intentionally match installed V227.1 (250) for in-place sideload QA.
+        versionCode = 251
+        versionName = "2.13.2-v2272-personal-wave-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
