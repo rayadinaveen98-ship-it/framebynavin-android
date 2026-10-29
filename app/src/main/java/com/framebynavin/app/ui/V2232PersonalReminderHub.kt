@@ -32,8 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.personal.*
 import com.framebynavin.app.ui.theme.*
 import java.time.DayOfWeek
@@ -407,19 +405,18 @@ internal fun V2232PersonalEditor(
         daySelection.split(",").mapNotNull { runCatching { DayOfWeek.valueOf(it) }.getOrNull() }.toSet()
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(
-        usePlatformDefaultWidth = false, decorFitsSystemWindows = false,
-    )) {
+    // V227.3: avoid a second Android Dialog window. On API 35, a separately
+    // inset Dialog can shift its Cancel button outside the display despite
+    // the Compose root measuring it inside its own bounds. The existing
+    // Activity-owned overlay handles safe drawing and IME exactly once.
+    CreatorAdaptiveFullScreen(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier.fillMaxSize()
                 .testTag("v2232-personal-editor"),
             color = CinemaSurfaceRaised,
             shape = RoundedCornerShape(20.dp),
         ) {
-            Column(Modifier.fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .imePadding()
-                .padding(18.dp)) {
+            Column(Modifier.fillMaxSize().padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(if (existing == null) "NEW PERSONAL REMINDER" else "EDIT PERSONAL REMINDER",
