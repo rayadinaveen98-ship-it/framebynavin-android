@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V228.1 Spark-first development preview; same signer/app ID as V227.3 (252).
-        versionCode = 253
-        versionName = "2.13.4-v2281-spark-visual-preview"
+        // V228.2 Personal Agenda engineering preview; compatible with V228.1 build 253.
+        versionCode = 254
+        versionName = "2.13.5-v2282-personal-agenda-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
