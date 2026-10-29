@@ -130,9 +130,11 @@ jobs:
           personal_editor=(root/"ui/V2232PersonalReminderHub.kt").read_text()
           personal_actions=(root/"ui/V2271PersonalEditorFooter.kt").read_text()
           assert "V2271PersonalEditorFooter(" in personal_editor
-          assert "WindowInsets.safeDrawing" in personal_editor
-          assert "decorFitsSystemWindows = false" in personal_editor
-          assert "imePadding()" in personal_editor
+          assert "CreatorAdaptiveFullScreen(onDismissRequest = onDismiss)" in personal_editor
+          assert "Dialog(onDismissRequest = onDismiss" not in personal_editor
+          overlay=(root/"ui/CreatorAdaptiveFullScreen.kt").read_text()
+          assert "windowInsetsPadding(WindowInsets.safeDrawing)" in overlay
+          assert "imePadding()" in overlay
           assert "V2271PersonalFooterPolicy.vertical" in personal_actions
           assert 'testTag("v2232-personal-save")' in personal_actions
           assert 'testTag("v2271-personal-cancel")' in personal_actions
@@ -235,7 +237,7 @@ jobs:
             set -e
             adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
             adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
-            # Real Personal reminder editor in a separate full-window Dialog.
+            # Real Personal reminder editor in Activity-owned full-screen overlay.
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2271-personal-editor-default.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2271-personal-editor-default.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v2271-personal-editor-default.log
@@ -249,7 +251,7 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.widget.V2273WidgetMigrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2273-widget-migration-android15.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2273-widget-migration-android15.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v2273-widget-migration-android15.log
-            # Run each real-Dialog case in an independent instrumentation process.
+            # Run each real-editor case in an independent instrumentation process.
             # API35 occasionally carries an IME from the keyboard test into the
             # normal-font test when both share one process; neither strict
             # assertIsDisplayed check is removed or weakened.
