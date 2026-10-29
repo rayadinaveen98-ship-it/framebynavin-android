@@ -101,7 +101,7 @@ internal fun V221CompanionSuggestionCard(
                 V144GuideCharacter(
                     guide = identity,
                     state = display.state,
-                    modifier = Modifier.size(54.dp).testTag("v2212-companion-character"),
+                    modifier = Modifier.size(81.dp).testTag("v2212-companion-character"),
                 )
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {

@@ -66,9 +66,9 @@ internal fun V195ReminderParticleScene(
     val atmosphere = remember(kind) {
         Brush.verticalGradient(
             if (kind == ReminderCheckInKind.ALARM) listOf(
-                Color(0xFF221027), Color(0xFF23132D), Color(0xFF101A32),
+                Color(0xFF2A1231), Color(0xFF2A153B), Color(0xFF142341),
             ) else listOf(
-                Color(0xFF0C1835), Color(0xFF1C1642), Color(0xFF092B36),
+                Color(0xFF0F2148), Color(0xFF211A54), Color(0xFF0C3544),
             )
         )
     }
@@ -125,7 +125,7 @@ internal fun V195ReminderParticleScene(
             val bloomRadius = min(size.width * .67f, size.height * .43f)
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(centralGlow.copy(alpha = .24f), centralGlow.copy(alpha = 0f)),
+                    colors = listOf(centralGlow.copy(alpha = .34f), centralGlow.copy(alpha = 0f)),
                     center = center,
                     radius = bloomRadius,
                 ),
@@ -136,7 +136,7 @@ internal fun V195ReminderParticleScene(
             val rimRadius = min(size.width * .43f, size.height * .29f)
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(rimGlow.copy(alpha = .16f), rimGlow.copy(alpha = 0f)),
+                    colors = listOf(rimGlow.copy(alpha = .23f), rimGlow.copy(alpha = 0f)),
                     center = rimCenter,
                     radius = rimRadius,
                 ),
@@ -151,8 +151,8 @@ internal fun V195ReminderParticleScene(
         val attraction = V218UnifiedWavePolicy.glyphBlend(elapsedSeconds, revealProgress)
         // V218 dimmed particles to 40%, then darkened the entire scene again
         // by 26% after reveal. That made the rich pigment look nearly black.
-        // Keep about 82% of particle brightness when controls are present.
-        val scrim = 1f - .18f * revealProgress
+        // Keep about 94% of pigment brightness when controls appear.
+        val scrim = 1f - .06f * revealProgress
         val small = 1.32.dp.toPx()
         val mid = 1.68.dp.toPx()
         val large = 2.12.dp.toPx()
@@ -207,8 +207,8 @@ internal fun V195ReminderParticleScene(
             // The pigment itself still forms the silhouette, never a separate icon.
             if (!lowPower && index % 17 == 0) {
                 drawCircle(
-                    pigment.copy(alpha = .17f * scrim),
-                    radius = radius * 3.4f, center = position,
+                    pigment.copy(alpha = .28f * scrim),
+                    radius = radius * 4.0f, center = position,
                 )
             }
             drawCircle(
@@ -220,7 +220,7 @@ internal fun V195ReminderParticleScene(
         // Text and action buttons maintain contrast after manual reveal. Icon
         // attraction releases automatically so the action labels aren't covered.
         if (revealProgress > 0f) {
-            drawRect(Color.Black.copy(alpha = .12f * revealProgress))
+            drawRect(Color.Black.copy(alpha = .05f * revealProgress))
         }
     }
 }
