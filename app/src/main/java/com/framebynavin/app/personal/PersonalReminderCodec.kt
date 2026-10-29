@@ -49,6 +49,7 @@ internal object PersonalReminderCodec {
                 .put("pendingFireAtMillis", it.pendingFireAtMillis)
                 .put("pendingToken", it.pendingToken)
                 .put("presentedToken", it.presentedToken)
+                .put("presentedAtMillis", it.presentedAtMillis)
                 .put("followUpSentToken", it.followUpSentToken)
                 .put("lastResponse", it.lastResponse.name)
                 .put("lastResponseAtMillis", it.lastResponseAtMillis)
@@ -105,6 +106,7 @@ internal object PersonalReminderCodec {
                     pendingFireAtMillis = item.optLong("pendingFireAtMillis", 0L),
                     pendingToken = item.optString("pendingToken", ""),
                     presentedToken = item.optString("presentedToken", ""),
+                    presentedAtMillis = item.optLong("presentedAtMillis", 0L),
                     followUpSentToken = item.optString("followUpSentToken", ""),
                     lastResponse = PersonalResponse.valueOf(item.optString("lastResponse", PersonalResponse.NONE.name)),
                     lastResponseAtMillis = item.optLong("lastResponseAtMillis", 0L),

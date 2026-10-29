@@ -116,6 +116,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                         pendingFireAtMillis = next,
                         pendingToken = token,
                         presentedToken = "",
+                        presentedAtMillis = 0L,
                         followUpSentToken = "",
                         snoozedUntilMillis = 0L,
                     )
@@ -303,6 +304,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                             pendingFireAtMillis = 0L,
                             pendingToken = "",
                             presentedToken = "",
+                            presentedAtMillis = 0L,
                             followUpSentToken = "",
                             snoozedUntilMillis = 0L,
                             lastResponse = if (action == PersonalDeliveryContract.ACTION_DONE)
@@ -317,6 +319,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                             snoozedUntilMillis = next,
                             pendingToken = UUID.randomUUID().toString(),
                             presentedToken = "",
+                            presentedAtMillis = 0L,
                             followUpSentToken = "",
                             lastResponse = if (action == PersonalDeliveryContract.ACTION_SNOOZE)
                                 PersonalResponse.SNOOZED else PersonalResponse.RESCHEDULED,
@@ -350,7 +353,8 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                     item.pendingOccurrenceMillis == occurrence && item.pendingFireAtMillis == fireAt &&
                     item.presentedToken.isBlank() && !item.paused) {
                     claimed = true
-                    item.copy(presentedToken = token)
+                    item.copy(presentedToken = token,
+                        presentedAtMillis = System.currentTimeMillis())
                 } else item
             }
         }

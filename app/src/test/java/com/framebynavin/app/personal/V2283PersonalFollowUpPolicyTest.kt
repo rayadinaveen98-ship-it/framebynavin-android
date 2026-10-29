@@ -18,6 +18,7 @@ class V2283PersonalFollowUpPolicyTest {
         zoneId = zone, repeat = PersonalRepeat.DAILY,
         pendingOccurrenceMillis = due, pendingFireAtMillis = due,
         pendingToken = token, presentedToken = token,
+        presentedAtMillis = due,
     )
 
     @Test fun optOutPausedStaleAndAlreadySentNeverSchedule() {
@@ -43,6 +44,14 @@ class V2283PersonalFollowUpPolicyTest {
         assertEquals(morning, PersonalFollowUpPolicy.dueAt(r, enabled, time(22), zone))
         assertFalse(PersonalFollowUpPolicy.mayDeliver(r, enabled, time(23), zone))
         assertTrue(PersonalFollowUpPolicy.mayDeliver(r, enabled, morning, zone))
+    }
+
+    @Test fun delayStartsAtRecordedPostNotOriginalSchedule() {
+        val latePosted = record(time(11)).copy(presentedAtMillis = time(11, 45))
+        assertEquals(time(12, 45),
+            PersonalFollowUpPolicy.dueAt(latePosted, enabled, time(12), zone))
+        assertNull(PersonalFollowUpPolicy.dueAt(
+            record(time(11)).copy(presentedAtMillis = 0L), enabled, time(11), zone))
     }
 
     @Test fun timePreferencesAreBoundedAndQuietHoursAreLocal() {

@@ -52,6 +52,8 @@ internal data class PersonalReminder(
     val pendingToken: String = "",
     /** Posted notification handoff token; prevents repeat delivery on reconciliation. */
     val presentedToken: String = "",
+    /** Actual original posting time, not the scheduled Android alarm time. */
+    val presentedAtMillis: Long = 0L,
     /** Durable one-shot receipt for the exact opt-in follow-up lease. */
     val followUpSentToken: String = "",
     val lastResponse: PersonalResponse = PersonalResponse.NONE,
@@ -72,7 +74,8 @@ internal data class PersonalReminder(
         }
         require(lastAcknowledgedOccurrenceMillis >= 0L && lastMissedOccurrenceMillis >= 0L &&
             snoozedUntilMillis >= 0L &&
-            pendingOccurrenceMillis >= 0L && pendingFireAtMillis >= 0L && lastResponseAtMillis >= 0L) {
+            pendingOccurrenceMillis >= 0L && pendingFireAtMillis >= 0L &&
+            presentedAtMillis >= 0L && lastResponseAtMillis >= 0L) {
             "Invalid personal occurrence state"
         }
         require(presentedToken.isEmpty() || presentedToken == pendingToken) {

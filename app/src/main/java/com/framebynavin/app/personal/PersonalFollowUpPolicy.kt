@@ -25,9 +25,12 @@ internal object PersonalFollowUpPolicy {
         if (!settings.enabled || reminder.paused || reminder.pendingToken.isBlank() ||
             reminder.pendingToken != reminder.presentedToken ||
             reminder.followUpSentToken == reminder.pendingToken ||
-            reminder.pendingOccurrenceMillis <= 0L || reminder.pendingFireAtMillis <= 0L
+            reminder.pendingOccurrenceMillis <= 0L || reminder.pendingFireAtMillis <= 0L ||
+            reminder.presentedAtMillis <= 0L
         ) return null
-        val normal = reminder.pendingFireAtMillis + settings.delayMinutes * 60_000L
+        // Actual recorded notification handoff, never merely its nominal schedule.
+        // Legacy posted records without a receipt time are safely ineligible.
+        val normal = reminder.presentedAtMillis + settings.delayMinutes * 60_000L
         val local = Instant.ofEpochMilli(normal).atZone(zone)
         val target = if (isQuiet(normal, zone)) {
             val day = if (local.hour >= QUIET_START_HOUR) local.toLocalDate().plusDays(1)

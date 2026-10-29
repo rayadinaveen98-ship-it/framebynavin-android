@@ -66,6 +66,7 @@ class V2283FollowUpSafetyUiTest {
                 repeat = PersonalRepeat.DAILY,
                 pendingOccurrenceMillis = due, pendingFireAtMillis = due,
                 pendingToken = token, presentedToken = token,
+                presentedAtMillis = due,
             ))
         }
         try {
