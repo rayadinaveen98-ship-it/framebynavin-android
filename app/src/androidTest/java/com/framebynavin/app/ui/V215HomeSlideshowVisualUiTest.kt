@@ -163,10 +163,17 @@ class V215HomeSlideshowVisualUiTest {
     @Test fun onePhotoTop() = withSyntheticPhotos(1) { render(); capture("photo-one-top") }
     @Test fun onePhotoBottom() = withSyntheticPhotos(1) { render(); checkBottom(); capture("photo-one-bottom") }
     @Test fun multiPhotoTop() = withSyntheticPhotos(3) {
-        render(); rule.onNodeWithContentDescription("Pause slideshow").assertIsDisplayed(); capture("photo-multi-top")
+        render()
+        rule.onNodeWithContentDescription("Pause slideshow").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Show slideshow controls").performClick()
+        rule.onNodeWithContentDescription("Pause slideshow").assertIsDisplayed()
+        capture("photo-multi-top")
     }
     @Test fun multiPhotoBottom() = withSyntheticPhotos(3) {
-        render(); rule.onNodeWithContentDescription("Pause slideshow").assertIsDisplayed()
+        render()
+        rule.onNodeWithContentDescription("Pause slideshow").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Show slideshow controls").performClick()
+        rule.onNodeWithContentDescription("Pause slideshow").assertIsDisplayed()
         checkBottom(); capture("photo-multi-bottom")
     }
 }
