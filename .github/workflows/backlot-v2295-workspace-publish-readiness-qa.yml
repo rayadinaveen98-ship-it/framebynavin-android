@@ -111,7 +111,7 @@ jobs:
           readiness=(root/'ui/V2295PublishReadinessPolicy.kt').read_text()
           focus=(root/'ui/V2285WorkspaceFocusPolicy.kt').read_text()
           assert 'V2295PublishReadinessPolicy.hint(outputs)' in focus
-          assert 'CreatorDeliverableStatus.PUBLISHED' in readiness
+          assert 'CreatorDeliverableStatus.PLANNED' in readiness and 'CreatorDeliverableStatus.READY' in readiness
           assert 'CreatorPublishGateStatus.TODO' in readiness
           for forbidden in ('TaskStore(', 'CreatorDataGate(', 'DataStore(', 'AlarmManager(', 'updateTask(', 'saveProject(', '.copy(status ='):
               assert forbidden not in readiness, forbidden
