@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -36,32 +37,22 @@ import org.junit.runner.RunWith
 class V217LiveGuideScreensUiTest {
     @get:Rule val rule = createComposeRule()
 
-    @Test fun actualFirstRunCompanionChoicesShowStaged3DArtwork() {
+    @Test fun actualFirstRunShowsOnlySparkAndItsRealSelection() {
         val selected = mutableListOf<V144GuideIdentity>()
         rule.setContent {
             FrameByNavinTheme {
-                // V217GuideChoiceContent is used by the REAL V144GuideChoiceGate,
-                // not a hand-built imitation for screenshot purposes.
                 V217GuideChoiceContent(onSelect = { selected.add(it) })
             }
         }
         rule.waitForIdle()
-        for (guide in V144GuideIdentity.entries) {
-            rule.onNodeWithTag("v217-choice-${guide.name}").assertExists()
-        }
-        rule.onNodeWithTag("v217-choose-button-FRAME").assertIsDisplayed()
-        rule.onNodeWithTag("v217-choose-button-NAVI").assertIsDisplayed()
-        assertAligned("FRAME", "NAVI")
-        capture("first-run-top")
-        rule.onNodeWithTag("v217-choice-CUTE").performScrollTo()
-        rule.waitForIdle()
+        rule.onNodeWithTag("v217-choice-FUNNY").assertIsDisplayed()
         rule.onNodeWithTag("v217-choose-button-FUNNY").assertIsDisplayed()
-        rule.onNodeWithTag("v217-choose-button-CUTE").assertIsDisplayed()
-        assertAligned("FUNNY", "CUTE")
-        capture("first-run-bottom")
-        // Verify real button callback without mutating app's persisted guide.
-        rule.onNodeWithTag("v217-choose-button-CUTE").performClick()
-        assertEquals(listOf(V144GuideIdentity.CUTE), selected)
+        for (unused in listOf("FRAME", "NAVI", "CUTE")) {
+            rule.onNodeWithTag("v217-choice-$unused").assertDoesNotExist()
+        }
+        capture("first-run-spark")
+        rule.onNodeWithTag("v217-choose-button-FUNNY").performClick()
+        assertEquals(listOf(V144GuideIdentity.FUNNY), selected)
     }
 
     private fun assertAligned(first: String, second: String) {
@@ -92,13 +83,11 @@ class V217LiveGuideScreensUiTest {
             }
         }
         rule.waitForIdle()
-        for (guide in V144GuideIdentity.entries) {
-            rule.onNodeWithTag("v217-settings-${guide.name}").assertExists()
+        rule.onNodeWithTag("v217-settings-FUNNY").assertIsDisplayed()
+        for (unused in listOf("FRAME", "NAVI", "CUTE")) {
+            rule.onNodeWithTag("v217-settings-$unused").assertDoesNotExist()
         }
-        capture("settings-top")
-        rule.onNodeWithTag("v217-settings-CUTE").performScrollTo()
-        rule.waitForIdle()
-        capture("settings-bottom")
+        capture("settings-spark")
     }
 
     private fun capture(name: String) {
