@@ -20,6 +20,19 @@ class V170LocalBackupScreenUiTest {
         rule.onNodeWithText("CHOOSE BACKUP").assertExists()
     }
 
+    @Test fun creatorBackupExplainsPersonalReminderSeparationBeforeAnyExportOrRestore() {
+        rule.onNodeWithText(
+            "Personal Reminders require their own separate backup.", substring = true,
+        ).assertExists()
+        rule.onNodeWithText("Personal Reminders — separate backup").assertExists()
+        rule.onNodeWithText(
+            "Personal reminders are NOT included in Creator backups.", substring = true,
+        ).assertExists()
+        rule.onNodeWithText(
+            "Personal Reminders are NOT included and will not be replaced.", substring = true,
+        ).assertExists()
+    }
+
     @Test fun recoveryAndVoiceActionsRemainDiscoverable() {
         rule.onNodeWithText("OPEN RECOVERY COPIES").assertExists()
         rule.onNodeWithText("Voice storage").assertExists()
