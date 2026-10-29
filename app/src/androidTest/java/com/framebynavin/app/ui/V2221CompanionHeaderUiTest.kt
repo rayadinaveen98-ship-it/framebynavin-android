@@ -76,9 +76,9 @@ class V2221CompanionHeaderUiTest {
         assertTrue("No visible companion/controls in actual Android pixels: $out", containsPaintedArtwork)
     }
 
-    /** Real pixel proof for the 72dp portrait and action UI. Pure white/black
+    /** Real pixel proof for the 48dp icon and action UI. Pure white/black
      * emulator launch screens do not qualify even when Compose nodes exist.
-     * Sample at 128 columns: 72dp artwork is smaller than the previous cards.
+     * Sample at 128 columns: 48dp icon is smaller than the previous portrait.
      */
     private fun hasVisibleRealPixels(bitmap: Bitmap): Boolean {
         val colors = HashSet<Int>()
@@ -125,8 +125,8 @@ class V2221CompanionHeaderUiTest {
         plus.assertIsDisplayed()
         val avatarBounds = avatar.getUnclippedBoundsInRoot()
         val galleryBounds = plus.getUnclippedBoundsInRoot()
-        assertTrue("Spark must retain the enlarged 72dp touch surface: $avatarBounds",
-            (avatarBounds.right - avatarBounds.left) >= 71.dp)
+        assertTrue("Companion icon must match 48dp Gallery button: $avatarBounds",
+            (avatarBounds.right - avatarBounds.left) == (galleryBounds.right - galleryBounds.left))
         assertTrue("Spark and Gallery + overlap: $avatarBounds vs $galleryBounds",
             avatarBounds.right <= galleryBounds.left)
         rule.onNodeWithContentDescription("Open Spark companion").assertExists()
