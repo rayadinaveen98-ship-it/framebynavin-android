@@ -179,7 +179,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     )
                 }
 
-                if (!completed) {
+                if (!completed && task.status != TaskStatus.SKIPPED) {
                     Spacer(Modifier.height(24.dp))
                     Text(
                         "NEXT USEFUL MOVES", color = ProjectorIvory, fontSize = 17.sp,

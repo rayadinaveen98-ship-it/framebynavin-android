@@ -32,11 +32,21 @@ class V2285WorkspaceFocusPolicyTest {
     @Test fun writtenProjectSurfacesPublishSetupAndUnfinishedPlan() {
         val ws = CreatorContentWorkspace(
             audience = "Film students", promise = "Understand why silence matters",
-            hook = "Why does this shot stay quiet?",
+            hook = "Why does this shot stay quiet?", script = "A full outline",
             checklist = listOf(CreatorChecklistItem(title = "Record", status = CreatorChecklistStatus.TODO)),
         )
         val result = V2285WorkspaceFocusPolicy.hints(task(ws))
         assertEquals(listOf("checklist", "output"), result.map { it.key })
+    }
+
+    @Test fun hookAloneDoesNotPretendThatFullNarrativeIsWritten() {
+        val ws = CreatorContentWorkspace(
+            audience = "Directors", promise = "Understand silence",
+            hook = "What if sound disappeared?",
+        )
+        val hints = V2285WorkspaceFocusPolicy.hints(task(ws))
+        assertEquals("script", hints.first().key)
+        assertTrue(hints.first().title.contains("hook"))
     }
 
     @Test fun readyOrPublishedDeliverableIsNotFlaggedAsUnplanned() {

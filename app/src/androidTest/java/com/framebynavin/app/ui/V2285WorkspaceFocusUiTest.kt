@@ -64,4 +64,19 @@ class V2285WorkspaceFocusUiTest {
         }
         rule.onNodeWithTag("v2285-workspace-focus").assertDoesNotExist()
     }
+
+    @Test fun skippedProjectDoesNotShowWorkSuggestions() {
+        val candidate = task(TaskStatus.SKIPPED)
+        rule.setContent {
+            FrameByNavinTheme {
+                V19ContentWorkspaceAlpha6Hub(
+                    task = candidate,
+                    blueprint = CreatorContentBlueprintEngine.forTask(candidate),
+                    onDismiss = {}, onOpenBlueprint = {}, onOpenProject = {},
+                    onOpenScript = {}, onOpenPublish = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("v2285-workspace-focus").assertDoesNotExist()
+    }
 }

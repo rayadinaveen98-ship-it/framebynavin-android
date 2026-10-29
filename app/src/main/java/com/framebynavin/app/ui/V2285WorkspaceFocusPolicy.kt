@@ -28,12 +28,16 @@ internal object V2285WorkspaceFocusPolicy {
                     V2285WorkspaceDestination.PLAN,
                 ),
             )
-            val hasScript = ws.script.isNotBlank() || ws.hook.isNotBlank() ||
+            val hasNarrative = ws.script.isNotBlank() ||
                 (ws.scriptStudio?.beats?.isNotEmpty() == true)
-            if (!hasScript) add(
+            if (!hasNarrative) add(
                 V2285WorkspaceFocusHint(
-                    "script", "Shape the opening and narrative",
-                    "Build a hook, outline or script before the production edit.",
+                    "script",
+                    if (ws.hook.isNotBlank()) "Turn the hook into a full narrative"
+                    else "Shape the opening and narrative",
+                    if (ws.hook.isNotBlank())
+                        "Your opening is saved. Continue with the outline or script."
+                    else "Build a hook, outline or script before the production edit.",
                     V2285WorkspaceDestination.SCRIPT,
                 ),
             )
