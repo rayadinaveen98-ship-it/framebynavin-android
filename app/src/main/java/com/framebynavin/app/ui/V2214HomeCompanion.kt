@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -255,8 +258,8 @@ internal fun V2214HomeCompanion(
     }
 }
 
-/** Approved character artwork, rendered static in a 72dp circular Home control.
- * Neither Spark nor the three approved V217 character illustrations are redrawn.
+/** Compact 48dp Spark / companion entry, same diameter as the adjoining
+ * slideshow +. Existing suggestion badge, sheet, guide art and navigation stay intact.
  */
 @Composable
 internal fun V2221CompanionPortrait(
@@ -265,14 +268,9 @@ internal fun V2221CompanionPortrait(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val drawable = if (guide == V144GuideIdentity.FUNNY) {
-        v144GuideDrawable(guide, CinePulseState.IDLE)
-    } else {
-        v217ConceptDrawable(guide)
-    }
     Surface(
         onClick = onClick,
-        modifier = modifier.size(72.dp)
+        modifier = modifier.size(48.dp)
             .testTag("v2221-companion-avatar")
             .semantics { contentDescription = "Open ${guide.displayName} companion" },
         shape = CircleShape,
@@ -281,11 +279,11 @@ internal fun V2221CompanionPortrait(
             if (hasSuggestion) MutedGold else CinemaLine),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Image(
-                painter = painterResource(drawable),
+            Icon(
+                imageVector = Icons.Outlined.AutoAwesome,
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(64.5.dp).clip(CircleShape),
+                tint = if (hasSuggestion) MutedGold else ProjectorIvory,
+                modifier = Modifier.size(22.dp),
             )
         }
     }

@@ -71,7 +71,8 @@ class V218UnifiedWaveUiTest {
         val tap = rule.onAllNodesWithContentDescription("Show reminder controls")
         if (tap.fetchSemanticsNodes().isNotEmpty()) tap.onFirst().performClick()
         rule.onNodeWithTag("v200-primary-reminder-action").assertExists()
-        rule.onNodeWithTag("v1952-ambient-particles").assertExists()
+        rule.onNodeWithTag("v231-cinematic-wave-backdrop").assertExists()
+        rule.onNodeWithTag("v1952-ambient-particles").assertDoesNotExist()
         capture("${kind.name.lowercase()}-actual-controls")
     }
 

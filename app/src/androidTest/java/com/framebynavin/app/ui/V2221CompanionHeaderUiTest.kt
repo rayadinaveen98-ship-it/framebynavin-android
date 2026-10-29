@@ -58,7 +58,9 @@ class V2221CompanionHeaderUiTest {
             } else {
                 requireNotNull(instrument.uiAutomation.takeScreenshot())
             }
-            val visible = hasVisibleRealPixels(screenshot)
+            val visible = if (scene == "header-art-and-gallery") {
+                hasVisibleMinimalHeaderPixels(screenshot)
+            } else hasVisibleRealPixels(screenshot)
             if (visible || attempt == 3) {
                 captured = screenshot
                 containsPaintedArtwork = visible
@@ -76,9 +78,36 @@ class V2221CompanionHeaderUiTest {
         assertTrue("No visible companion/controls in actual Android pixels: $out", containsPaintedArtwork)
     }
 
-    /** Real pixel proof for the 72dp portrait and action UI. Pure white/black
+    /** The replacement 48dp icon is deliberately monochrome and minimal.
+     * Check real foreground pixels rather than requiring portrait-like saturated
+     * color variety from the *removed* full-color companion artwork.
+     * Compose node geometry and tap behavior are separately checked below.
+     */
+    private fun hasVisibleMinimalHeaderPixels(bitmap: Bitmap): Boolean {
+        val colors = HashSet<Int>()
+        var foreground = 0
+        val dx = maxOf(1, bitmap.width / 120)
+        val dy = maxOf(1, bitmap.height / 120)
+        for (y in 0 until bitmap.height step dy) {
+            for (x in 0 until bitmap.width step dx) {
+                val rgb = bitmap.getPixel(x, y) and 0xFFFFFF
+                colors += rgb
+                val red = (rgb shr 16) and 255
+                val green = (rgb shr 8) and 255
+                val blue = rgb and 255
+                // White text/icon OR accent label, including antialiased pixels.
+                if (maxOf(red, green, blue) >= 115 && (
+                    minOf(red, green, blue) >= 85 ||
+                    maxOf(red, green, blue) - minOf(red, green, blue) >= 24
+                )) foreground++
+            }
+        }
+        return colors.size >= 8 && foreground >= 12
+    }
+
+    /** Real pixel proof for the 48dp icon and action UI. Pure white/black
      * emulator launch screens do not qualify even when Compose nodes exist.
-     * Sample at 128 columns: 72dp artwork is smaller than the previous cards.
+     * Sample at 128 columns: 48dp icon is smaller than the previous portrait.
      */
     private fun hasVisibleRealPixels(bitmap: Bitmap): Boolean {
         val colors = HashSet<Int>()
@@ -125,8 +154,8 @@ class V2221CompanionHeaderUiTest {
         plus.assertIsDisplayed()
         val avatarBounds = avatar.getUnclippedBoundsInRoot()
         val galleryBounds = plus.getUnclippedBoundsInRoot()
-        assertTrue("Spark must retain the enlarged 72dp touch surface: $avatarBounds",
-            (avatarBounds.right - avatarBounds.left) >= 71.dp)
+        assertTrue("Companion icon must match 48dp Gallery button: $avatarBounds",
+            (avatarBounds.right - avatarBounds.left) == (galleryBounds.right - galleryBounds.left))
         assertTrue("Spark and Gallery + overlap: $avatarBounds vs $galleryBounds",
             avatarBounds.right <= galleryBounds.left)
         rule.onNodeWithContentDescription("Open Spark companion").assertExists()

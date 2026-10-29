@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // RC4: physical in-place version upgrade persistence proof; upgrade Build265.
-        versionCode = 266
-        versionName = "2.15.3-rc4-inplace-upgrade-data-preview"
+        // RC6: focused companion button, clean slideshow controls, and post-touch cinematic waves.
+        versionCode = 267
+        versionName = "2.15.4-rc6-focused-ui-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
