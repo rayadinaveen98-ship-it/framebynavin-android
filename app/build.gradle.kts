@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // RC3 clarify Creator vs private Personal backup scope; upgrade Build264.
-        versionCode = 265
-        versionName = "2.15.2-rc3-backup-scope-clarity-preview"
+        // RC4: physical in-place version upgrade persistence proof; upgrade Build265.
+        versionCode = 266
+        versionName = "2.15.3-rc4-inplace-upgrade-data-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
