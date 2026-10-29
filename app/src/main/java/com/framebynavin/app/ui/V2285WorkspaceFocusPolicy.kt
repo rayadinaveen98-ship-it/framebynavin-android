@@ -1,7 +1,6 @@
 package com.framebynavin.app.ui
 
 import com.framebynavin.app.data.CreatorChecklistStatus
-import com.framebynavin.app.data.CreatorDeliverableStatus
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskStatus
@@ -55,13 +54,9 @@ internal object V2285WorkspaceFocusPolicy {
                     "Add a target platform and format before preparing metadata.",
                     V2285WorkspaceDestination.PUBLISH,
                 ),
-            ) else if (outputs.any { it.status == CreatorDeliverableStatus.PLANNED }) add(
-                V2285WorkspaceFocusHint(
-                    "output", "Prepare your planned output",
-                    "Review title, thumbnail and publishing checks for your deliverable.",
-                    V2285WorkspaceDestination.PUBLISH,
-                ),
-            )
+            ) else {
+                V2295PublishReadinessPolicy.hint(outputs)?.let { add(it) }
+            }
         }
 
         val stageId = CreatorWorkflowEngine.currentStage(task).id
