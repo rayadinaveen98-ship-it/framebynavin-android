@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +33,9 @@ import com.framebynavin.app.reminders.CreatorAutoPlanWorker
 import com.framebynavin.app.reminders.CreatorContextNudgeWorker
 import com.framebynavin.app.reminders.CreatorRoutineWorker
 import com.framebynavin.app.reminders.ReminderNotifications
+import com.framebynavin.app.reminders.V2291CreatorNudgeControls
+import com.framebynavin.app.reminders.V2291NudgeControlPolicy
+import com.framebynavin.app.reminders.V2291NudgeControlState
 import com.framebynavin.app.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -60,6 +64,10 @@ internal fun V17AutomationCenterScreen(
     var helpRunRequested by remember { mutableStateOf(false) }
     var nudgesEnabled by remember(contextNudgesEnabled) {
         mutableStateOf(settingsStore.snapshot().contextNudgesEnabled)
+    }
+    val nudgeControls = remember(context) { V2291CreatorNudgeControls(context.applicationContext) }
+    var nudgePausedUntil by remember(nudgeControls) {
+        mutableLongStateOf(nudgeControls.pausedUntil())
     }
     val notificationsReady = ReminderNotifications.canPost(context)
 
@@ -167,6 +175,19 @@ internal fun V17AutomationCenterScreen(
                 enabled = nudgesEnabled,
                 notificationsReady = notificationsReady,
                 checkRequested = helpRunRequested,
+                pausedUntilMillis = nudgePausedUntil,
+                onPauseWeek = {
+                    if (nudgeControls.pauseForWeek(System.currentTimeMillis())) {
+                        nudgePausedUntil = nudgeControls.pausedUntil()
+                        helpRunRequested = false
+                    }
+                },
+                onResume = {
+                    if (nudgeControls.resume()) {
+                        nudgePausedUntil = nudgeControls.pausedUntil()
+                        helpRunRequested = false
+                    }
+                },
                 onEnabledChange = { enabled ->
                     settingsStore.setContextNudgesEnabled(enabled)
                     nudgesEnabled = enabled
@@ -312,9 +333,15 @@ private fun V17AutomaticHelpRow(
     enabled: Boolean,
     notificationsReady: Boolean,
     checkRequested: Boolean,
+    pausedUntilMillis: Long,
+    onPauseWeek: () -> Unit,
+    onResume: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
     onCheckNow: () -> Unit,
 ) {
+    val status = V2291NudgeControlPolicy.status(
+        enabled, notificationsReady, pausedUntilMillis, System.currentTimeMillis(),
+    )
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, if (enabled) RecRed.copy(alpha = .40f) else CinemaLine)) {
         Column(Modifier.padding(13.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -323,10 +350,11 @@ private fun V17AutomaticHelpRow(
                 Column(Modifier.weight(1f)) {
                     Text("Helpful reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        when {
-                            !notificationsReady -> "Turn on notifications in Settings to get alerts."
-                            enabled -> "On · Get alerts when active projects need attention"
-                            else -> "Off · enable proactive project checks"
+                        when (status) {
+                            V2291NudgeControlState.OFF -> "Off · optional checks stay disabled"
+                            V2291NudgeControlState.PAUSED -> "Paused · no optional project nudges"
+                            V2291NudgeControlState.BLOCKED -> "On, but Android notifications are unavailable"
+                            V2291NudgeControlState.ACTIVE -> "On · up to one relevant nudge per day"
                         },
                         color = MutedText,
                         fontSize = 8.6.sp,
@@ -343,15 +371,31 @@ private fun V17AutomaticHelpRow(
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        if (checkRequested) "Check requested · delivery unconfirmed" else "Android checks in the background when available",
+                        when (status) {
+                            V2291NudgeControlState.PAUSED -> "Optional checks stay paused until you resume"
+                            V2291NudgeControlState.BLOCKED -> "Allow notifications to receive optional alerts"
+                            V2291NudgeControlState.ACTIVE ->
+                                if (checkRequested) "Check requested · delivery unconfirmed"
+                                else "Android checks in the background when available"
+                            V2291NudgeControlState.OFF -> "Disabled"
+                        },
                         color = if (checkRequested) SuccessGreen else MutedText,
                         fontSize = 8.3.sp,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = onCheckNow) {
-                        Text("CHECK PROJECTS", color = RecRed, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                    if (status == V2291NudgeControlState.ACTIVE) {
+                        TextButton(onClick = onCheckNow) {
+                            Text("CHECK PROJECTS", color = RecRed, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                        }
                     }
                 }
+                Spacer(Modifier.height(6.dp))
+                V2291NudgePauseControls(
+                    paused = status == V2291NudgeControlState.PAUSED,
+                    pausedUntilMillis = pausedUntilMillis,
+                    onPauseWeek = onPauseWeek,
+                    onResume = onResume,
+                )
             }
         }
     }

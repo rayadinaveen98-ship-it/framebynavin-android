@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V228.5 read-only Workspace focus; upgrade from V228.4 build 256.
-        versionCode = 257
-        versionName = "2.13.8-v2285-workspace-focus-preview"
+        // V229.1 Creator nudge pause/resume controls; upgrade from Build257.
+        versionCode = 258
+        versionName = "2.13.9-v2291-nudge-controls-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
