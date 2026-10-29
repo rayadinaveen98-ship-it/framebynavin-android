@@ -118,7 +118,7 @@ private fun BackupScreen(onClose: () -> Unit) {
                 busy = false
                 isError = result.isFailure
                 message = if (result.isSuccess) {
-                    "Backup verified. Saved Voice Idea recordings and original Best Frames are included where present. Project asset files are NOT included—only their references. This file is not encrypted; store it privately."
+                    "Creator backup verified. Project reminders, saved Voice Idea recordings and original Best Frames are included where present. Personal Reminders are NOT included—export them separately using Personal Backup & Restore. Project asset files are references only. This file is not encrypted; store it privately."
                 } else {
                     V208BackupErrorCopy.forExport(result.exceptionOrNull())
                 }
@@ -170,7 +170,7 @@ private fun BackupScreen(onClose: () -> Unit) {
 
             BackupActionCard(
                 title = "Export backup",
-                body = "Includes projects, ideas, saved Voice Idea recordings, original Best Frames, workflows, reminders and core settings. Project attachments are links only—not the files. Companion choice, theme, app icon, launch sound, Calendar connection and sign-in are excluded. Not encrypted.",
+                body = "Includes projects, ideas, saved Voice Idea recordings, original Best Frames, workflows, PROJECT reminders and core settings. Personal Reminders require their own separate backup. Project attachments are links only—not the files. Companion choice, theme, app icon, launch sound, Calendar connection and sign-in are excluded. Not encrypted.",
                 icon = Icons.Outlined.CloudUpload,
                 button = "EXPORT BACKUP",
                 enabled = !actionBusy,
@@ -182,7 +182,7 @@ private fun BackupScreen(onClose: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             BackupActionCard(
                 title = "Restore backup",
-                body = "Check the number of projects and ideas before you approve a restore. Existing supported creator data on this phone will be replaced.",
+                body = "Review the saved projects, ideas and PROJECT reminders before restoring. Existing creator data will be replaced; Personal Reminders are NOT included and will not be replaced.",
                 icon = Icons.Outlined.CloudDownload,
                 button = "CHOOSE BACKUP",
                 enabled = !actionBusy,
@@ -334,11 +334,13 @@ private fun BackupScreen(onClose: () -> Unit) {
                     BackupPreviewRow("Projects", checked.projectCount.toString())
                     BackupPreviewRow("Ideas", checked.ideaCount.toString())
                     BackupPreviewRow("Weekly slots", checked.weeklySlotCount.toString())
-                    BackupPreviewRow("Active reminders", checked.activeReminderCount.toString())
+                    BackupPreviewRow("Project reminders", checked.activeReminderCount.toString())
                     BackupPreviewRow("Settings", if (checked.settingsIncluded) "Included" else "Missing")
                     BackupPreviewRow("Best Frames", if (checked.personalFramesIncluded) "${checked.personalFrameCount} images included" else "Not in this backup")
                     BackupPreviewRow("Project attachments", "${checked.externalProjectAssetCount} references only")
                     Spacer(Modifier.height(10.dp))
+                    Text("Personal Reminders are NOT in this Creator backup. Restoring will not replace them; use Personal Backup & Restore for a separate private backup.", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
                     Text("Restoring replaces supported creator data on this phone. Backlot keeps a recovery copy first. Project attachment files are NOT bundled; their original links may not open on another device. Older backups may omit Voice Ideas or Best Frames. Companion choice, theme, app icon, launch sound and Calendar connection remain device-specific.", color = MutedText, fontSize = 12.sp)
                 }
             },

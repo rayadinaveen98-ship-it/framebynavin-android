@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // RC2 legacy starter cleanup: preserve any creator-modified project; upgrade Build263.
-        versionCode = 264
-        versionName = "2.15.1-rc2-starter-project-safety-preview"
+        // RC3 clarify Creator vs private Personal backup scope; upgrade Build264.
+        versionCode = 265
+        versionName = "2.15.2-rc3-backup-scope-clarity-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
