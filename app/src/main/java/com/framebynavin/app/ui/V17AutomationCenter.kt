@@ -173,7 +173,7 @@ internal fun V17AutomationCenterScreen(
             Spacer(Modifier.height(7.dp))
             V17AutomaticHelpRow(
                 enabled = nudgesEnabled,
-                notificationsReady = notificationsReady,
+                notificationsReady = CreatorContextNudgeWorker.notificationsAvailable(context),
                 checkRequested = helpRunRequested,
                 pausedUntilMillis = nudgePausedUntil,
                 onPauseWeek = {
