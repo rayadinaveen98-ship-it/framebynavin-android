@@ -1,0 +1,194 @@
+name: Backlot V228.5 Content Workspace Focus QA
+
+on:
+  push:
+    branches: [feature/backlot-v2285-content-workspace-focus]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v2285-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Protect Workspace read-only hints, stage celebration and Personal reminders
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('app/src/main/java/com/framebynavin/app')
+          policy=(root/'personal/PersonalAgendaPolicy.kt').read_text()
+          ui=(root/'ui/V2232PersonalReminderHub.kt').read_text()
+          assert 'PersonalAgendaPolicy.groups(reminders, agendaNowMillis)' in ui
+          assert 'v2282-personal-section-' in ui
+          assert 'lastMissedOccurrenceMillis > reminder.lastAcknowledgedOccurrenceMillis' in policy
+          assert 'presentedToken == reminder.pendingToken' in policy
+          for forbidden in ('TaskStore(', 'CreatorTask(', 'PersonalReminderStore(', 'AlarmManager', 'setExact', 'apply(', 'save(', '.delete('):
+              assert forbidden not in policy, forbidden
+          reminders=(root/'personal/PersonalReminder.kt').read_text()
+          codec=(root/'personal/PersonalReminderCodec.kt').read_text()
+          delivery=(root/'personal/PersonalDeliveryCoordinator.kt').read_text()
+          follow=(root/'personal/PersonalFollowUpPolicy.kt').read_text()
+          settings=(root/'personal/PersonalFollowUpSettingsStore.kt').read_text()
+          ui=(root/'ui/V2232PersonalReminderHub.kt').read_text()
+          assert 'val enabled: Boolean = false' in settings
+          assert 'followUpSentToken' in reminders and 'optString("followUpSentToken", "")' in codec
+          assert 'PersonalFollowUpPolicy.mayDeliver' in delivery
+          assert 'v2283-follow-up-toggle' in ui
+          assert 'QUIET_START_HOUR = 22' in follow and 'QUIET_END_HOUR = 8' in follow
+          assert 'PersonalDeliveryContract.ACTION_FOLLOW_UP' in (root/'personal/PersonalReminderReceiver.kt').read_text()
+          celebration=(root/'ui/V2284StageCelebrationPolicy.kt').read_text()
+          motion=(root/'ui/V127MotionUi.kt').read_text()
+          app=(root/'ui/FrameByNavinV101BApp.kt').read_text()
+          assert 'PROJECT_STAGE_COMPLETED' in celebration
+          assert 'V2284StageCelebrationPolicy.confirmedStageKey(vm.rewardFeedback)' in app
+          assert 'stageCompletionEvent = System.nanoTime()' not in app
+          assert 'delay(1600L)' in motion and 'tween(400' in motion
+          focus=(root/'ui/V2285WorkspaceFocusPolicy.kt').read_text()
+          workspace=(root/'ui/V19ContentWorkspaceAlpha6Ui.kt').read_text()
+          assert 'NEXT USEFUL MOVES' in workspace
+          assert 'V2285WorkspaceFocusPolicy.hints(task)' in workspace
+          assert 'take(2)' in focus and 'distinctBy' in focus
+          for forbidden in ('TaskStore(', 'CreatorDataGate(', 'AlarmManager', 'PersonalReminderStore(', 'updateTask(', 'saveProject('):
+              assert forbidden not in focus, forbidden
+          print('V228.5 read-only creator workspace focus checks passed')
+          PY
+      - name: Full JVM test regression, lint, test APK and owner full APK
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2283-Owner-Full-App-APK
+          run-id: 40842123456
+          github-token: ${{ github.token }}
+          path: previous-full
+      - name: Validate Build 257 signer against verified Build255 and stage full app
+        run: |
+          set -euo pipefail
+          OLD="$(find previous-full -type f -name 'Backlot-V2283-Full-App-Opt-In-Followups.apk' -print -quit)"
+          NEW="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$OLD" && test -s "$NEW"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$SIGNER" verify --print-certs "$OLD" > old-cert.txt
+          "$SIGNER" verify --print-certs "$NEW" > new-cert.txt
+          test "$(grep -m1 'certificate SHA-256 digest' old-cert.txt)" = "$(grep -m1 'certificate SHA-256 digest' new-cert.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='255'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='257'"
+          mkdir -p owner-preview test-apks
+          cp "$NEW" owner-preview/Backlot-V2285-Full-App-Workspace-Focus.apk
+          (cd owner-preview && sha256sum Backlot-V2285-Full-App-Workspace-Focus.apk > SHA256SUMS.txt)
+          cp app/build/outputs/apk/debug/app-debug.apk test-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk test-apks/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2285-Owner-Full-App-APK
+          path: owner-preview/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2285-Test-APKs
+          path: test-apks/
+          retention-days: 7
+
+  android11:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2285-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 opt-in follow-ups, reminders and stale leases
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-personal-android11.log
+            grep -Fq "OK (2 tests)" v2285-personal-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2283FollowUpSafetyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-followups-android11.log
+            grep -Fq "OK (2 tests)" v2285-followups-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2284StageCelebrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-stage-android11.log
+            grep -Fq "OK (2 tests)" v2285-stage-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2285WorkspaceFocusUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-workspace-android11.log
+            grep -Fq "OK (2 tests)" v2285-workspace-android11.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2285-Android11-Evidence
+          path: |
+            v2285-personal-android11.log
+            v2285-followups-android11.log
+            v2285-stage-android11.log
+            v2285-workspace-android11.log
+          if-no-files-found: warn
+
+  android15:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2285-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 opt-in follow-ups, reminders and stale leases
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-personal-android15.log
+            grep -Fq "OK (2 tests)" v2285-personal-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2283FollowUpSafetyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-followups-android15.log
+            grep -Fq "OK (2 tests)" v2285-followups-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2284StageCelebrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-stage-android15.log
+            grep -Fq "OK (2 tests)" v2285-stage-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2285WorkspaceFocusUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-workspace-android15.log
+            grep -Fq "OK (2 tests)" v2285-workspace-android15.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2285-Android15-Evidence
+          path: |
+            v2285-personal-android15.log
+            v2285-followups-android15.log
+            v2285-stage-android15.log
+            v2285-workspace-android15.log
+          if-no-files-found: warn
