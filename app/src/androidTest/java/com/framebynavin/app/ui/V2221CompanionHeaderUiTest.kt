@@ -1,11 +1,13 @@
 package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.CreatorTask
@@ -35,16 +37,55 @@ class V2221CompanionHeaderUiTest {
         val dir = File(context.filesDir, "v2221-companion-header")
         assertTrue(dir.isDirectory || dir.mkdirs())
         val out = File(dir, "v2221-$name-$scene.png")
-        rule.waitForIdle()
-        // ModalBottomSheet owns a second Compose root: onRoot() can become
-        // ambiguous. Capture the real physical display to include sheet + scrim.
-        val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        // The test node tree can be ready before Android's compositor presents
+        // the Activity window. Retry actual OS screenshots, never semantic-only
+        // acceptance; a blank wallpaper / all-black capture is a real QA failure.
+        val instrument = InstrumentationRegistry.getInstrumentation()
+        var captured: Bitmap? = null
+        var containsPaintedArtwork = false
+        for (attempt in 0..3) {
+            rule.waitForIdle()
+            instrument.waitForIdleSync()
+            SystemClock.sleep(400L + attempt * 240L)
+            val screenshot = requireNotNull(instrument.uiAutomation.takeScreenshot())
+            val visible = hasVisibleRealPixels(screenshot)
+            if (visible || attempt == 3) {
+                captured = screenshot
+                containsPaintedArtwork = visible
+                break
+            }
+            screenshot.recycle()
+        }
+        val bitmap = requireNotNull(captured)
         try {
             out.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
         } finally {
             bitmap.recycle()
         }
         assertTrue(out.length() > 5000L)
+        assertTrue("No visible companion/controls in actual Android pixels: $out", containsPaintedArtwork)
+    }
+
+    /** Real pixel proof for the 72dp portrait and action UI. Pure white/black
+     * emulator launch screens do not qualify even when Compose nodes exist.
+     * Sample at 128 columns: 72dp artwork is smaller than the previous cards.
+     */
+    private fun hasVisibleRealPixels(bitmap: Bitmap): Boolean {
+        val colors = HashSet<Int>()
+        var rich = 0
+        val dx = maxOf(4, bitmap.width / 128)
+        val dy = maxOf(4, bitmap.height / 128)
+        for (y in bitmap.height / 12 until bitmap.height * 11 / 12 step dy) {
+            for (x in bitmap.width / 12 until bitmap.width * 11 / 12 step dx) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = (pixel shr 16) and 255
+                val g = (pixel shr 8) and 255
+                val b = pixel and 255
+                colors += pixel and 0xFFFFFF
+                if (maxOf(r, g, b) > 100 && maxOf(r, g, b) - minOf(r, g, b) >= 25) rich++
+            }
+        }
+        return colors.size >= 40 && rich >= 8
     }
 
     @Test fun greetingHasCompanionBesideExistingGalleryAction() {
@@ -72,6 +113,12 @@ class V2221CompanionHeaderUiTest {
         val plus = rule.onNodeWithTag("v2221-home-gallery")
         avatar.assertIsDisplayed()
         plus.assertIsDisplayed()
+        val avatarBounds = avatar.getUnclippedBoundsInRoot()
+        val galleryBounds = plus.getUnclippedBoundsInRoot()
+        assertTrue("Spark must retain the enlarged 72dp touch surface: $avatarBounds",
+            avatarBounds.width >= 71.dp)
+        assertTrue("Spark and Gallery + overlap: $avatarBounds vs $galleryBounds",
+            avatarBounds.right <= galleryBounds.left)
         rule.onNodeWithContentDescription("Open Spark companion").assertExists()
         rule.onNodeWithContentDescription("Add slideshow images").assertExists()
         capture("header-art-and-gallery")
