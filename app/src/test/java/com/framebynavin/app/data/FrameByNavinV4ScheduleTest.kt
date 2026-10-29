@@ -15,7 +15,7 @@ class FrameByNavinV5ScheduleTest {
         assertEquals(28, slots.map { it.id }.distinct().size)
         assertTrue(slots.all { it.id.startsWith("fbn_v4_") })
         assertTrue(WeeklyScheduleEngine.isFrameByNavinV5Preset(slots))
-        assertEquals(slots, WeeklyScheduleEngine.defaultSlots())
+        assertTrue("New users should start with no preset", WeeklyScheduleEngine.defaultSlots().isEmpty())
         assertEquals(slots, WeeklyScheduleEngine.frameByNavinV4Slots())
     }
 

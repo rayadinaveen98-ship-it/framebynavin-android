@@ -164,27 +164,7 @@ internal fun V2214HomeCompanion(
                     .padding(horizontal = 18.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    V144GuideCharacter(
-                        guide = identity,
-                        state = CinePulseState.IDLE,
-                        modifier = Modifier.size(52.dp),
-                    )
-                    Spacer(Modifier.size(12.dp))
-                    Column {
-                        Text(
-                            text = identity.displayName,
-                            color = ProjectorIvory,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 19.sp,
-                        )
-                        Text(
-                            text = "Your Backlot companion",
-                            color = MutedText,
-                            fontSize = 12.sp,
-                        )
-                    }
-                }
+                // Suggestion card already shows Spark and the next action; no duplicate header.
                 // A suppressed/unavailable decision must never be replaced by
                 // fabricated project or reminder evidence.
                 val visibleDecision = decision?.takeUnless { quietThisVisit }
@@ -214,13 +194,21 @@ internal fun V2214HomeCompanion(
                         },
                     )
                 } else {
-                    Text(
-                        text = "No companion suggestions available right now.",
-                        color = MutedText,
+                    Row(
                         modifier = Modifier.fillMaxWidth()
                             .testTag("v2221-companion-empty")
                             .padding(vertical = 14.dp),
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        V144GuideCharacter(
+                            guide = identity,
+                            state = CinePulseState.REST,
+                            modifier = Modifier.size(78.dp),
+                        )
+                        Text("Nothing needs your attention right now.",
+                            color = MutedText, modifier = Modifier.weight(1f))
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
             }
@@ -228,7 +216,7 @@ internal fun V2214HomeCompanion(
     }
 }
 
-/** Approved character artwork, rendered static in a 48dp circular Home control.
+/** Approved character artwork, rendered static in a 72dp circular Home control.
  * Neither Spark nor the three approved V217 character illustrations are redrawn.
  */
 @Composable
@@ -245,7 +233,7 @@ internal fun V2221CompanionPortrait(
     }
     Surface(
         onClick = onClick,
-        modifier = modifier.size(48.dp)
+        modifier = modifier.size(72.dp)
             .testTag("v2221-companion-avatar")
             .semantics { contentDescription = "Open ${guide.displayName} companion" },
         shape = CircleShape,
@@ -258,7 +246,7 @@ internal fun V2221CompanionPortrait(
                 painter = painterResource(drawable),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(43.dp).clip(CircleShape),
+                modifier = Modifier.size(64.5.dp).clip(CircleShape),
             )
         }
     }

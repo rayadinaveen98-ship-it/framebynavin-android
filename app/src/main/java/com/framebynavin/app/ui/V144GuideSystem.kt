@@ -57,12 +57,9 @@ enum class V144GuideIdentity(val displayName: String, val description: String) {
 }
 
 /** The original companion choice experience, restored for first-time creators. */
-internal val V145SelectableGuides = listOf(
-    V144GuideIdentity.FRAME,
-    V144GuideIdentity.NAVI,
-    V144GuideIdentity.FUNNY,
-    V144GuideIdentity.CUTE,
-)
+// Spark is the sole newly selectable companion until consistent pose packs ship.
+// Keep Frame, Navi and Cute IDs/resources for backward compatibility.
+internal val V145SelectableGuides = listOf(V144GuideIdentity.FUNNY)
 
 /** Keep already selected companions intact on upgrades; do not silently overwrite choices. */
 internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? =
@@ -81,7 +78,9 @@ object V144GuidePrefs {
         private set
 
     val hasSelection: Boolean get() = selectedGuide != null
-    val currentGuide: V144GuideIdentity get() = selectedGuide ?: V144GuideIdentity.FUNNY
+    // Honor legacy saved choice in storage without showing incomplete artwork.
+    val currentGuide: V144GuideIdentity get() =
+        selectedGuide?.takeIf { it in V145SelectableGuides } ?: V144GuideIdentity.FUNNY
 
     fun initialize(context: Context) {
         if (appContext != null) return
@@ -96,9 +95,10 @@ object V144GuidePrefs {
     }
 
     fun select(guide: V144GuideIdentity) {
-        selectedGuide = guide
+        val supported = guide.takeIf { it in V145SelectableGuides } ?: V144GuideIdentity.FUNNY
+        selectedGuide = supported
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            ?.edit()?.putString(KEY_CHARACTER, guide.name)?.apply()
+            ?.edit()?.putString(KEY_CHARACTER, supported.name)?.apply()
     }
 }
 
@@ -133,10 +133,10 @@ internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
         ) {
             Text("BACKLOT", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 2.4.sp)
             Spacer(Modifier.height(7.dp))
-            Text("Choose your guide", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
+            Text("Meet Spark", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(5.dp))
             Text(
-                "Pick the companion you want across setup, onboarding and Backlot. You can change it later in Settings.",
+                "Spark helps you stay focused on creating. More companions may join Backlot in a later version.",
                 color = MutedText,
                 fontSize = 10.sp,
                 lineHeight = 15.sp,
@@ -158,7 +158,7 @@ internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
-                    if (guides.size == 1) Spacer(Modifier.weight(1f))
+                    // Single Spark card fills the row instead of an empty second column.
                 }
                 if (index < V145SelectableGuides.chunked(2).lastIndex) Spacer(Modifier.height(10.dp))
             }
@@ -184,7 +184,7 @@ private fun V144GuideChoiceCard(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth().height(112.dp),
+                modifier = Modifier.fillMaxWidth().height(174.dp),
                 shape = RoundedCornerShape(16.dp),
                 color = V144GuideStage,
                 border = BorderStroke(1.dp, identity.copy(alpha = .25f)),
@@ -193,7 +193,7 @@ private fun V144GuideChoiceCard(
                     V144GuideCharacter(
                         guide = guide,
                         state = CinePulseState.WAVE,
-                        modifier = Modifier.size(96.dp),
+                        modifier = Modifier.size(144.dp),
                     )
                 }
             }
@@ -239,10 +239,10 @@ internal fun V144GuidePicker() {
     val selected = V144GuidePrefs.currentGuide
 
     Column(Modifier.fillMaxWidth()) {
-        Text("GUIDE CHARACTER", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("SPARK COMPANION", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Choose your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("You can change guides whenever you like.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("Your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("More companions may arrive in a later version.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(10.dp))
 
         V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
@@ -259,7 +259,7 @@ internal fun V144GuidePicker() {
                     ) {
                         Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Surface(
-                                modifier = Modifier.height(92.dp).fillMaxWidth(),
+                                modifier = Modifier.height(138.dp).fillMaxWidth(),
                                 color = V144GuideStage,
                                 shape = RoundedCornerShape(14.dp),
                             ) {
@@ -267,7 +267,7 @@ internal fun V144GuidePicker() {
                                     V144GuideCharacter(
                                         guide = guide,
                                         state = CinePulseState.IDLE,
-                                        modifier = Modifier.size(82.dp),
+                                        modifier = Modifier.size(123.dp),
                                     )
                                 }
                             }
@@ -282,7 +282,7 @@ internal fun V144GuidePicker() {
                         }
                     }
                 }
-                if (guides.size == 1) Spacer(Modifier.weight(1f))
+                // Single Spark card fills the row instead of an empty second column.
             }
             if (index < V145SelectableGuides.chunked(2).lastIndex) Spacer(Modifier.height(8.dp))
         }

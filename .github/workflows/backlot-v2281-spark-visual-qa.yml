@@ -1,0 +1,205 @@
+name: Backlot V228.1 Spark and Visual QA
+
+on:
+  push:
+    branches: [feature/backlot-v2281-spark-visual-seed-cleanup]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v2281-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Static safety gate — no reset of creator or personal data
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('app/src/main/java/com/framebynavin/app')
+          guide=(root/'ui/V144GuideSystem.kt').read_text()
+          home=(root/'ui/V2214HomeCompanion.kt').read_text()
+          weekly=(root/'data/WeeklySchedule.kt').read_text()
+          store=(root/'data/WeeklyScheduleStore.kt').read_text()
+          creator=(root/'reminders/V195ReminderParticleScene.kt').read_text()
+          personal=(root/'personal/V2272PersonalParticleWave.kt').read_text()
+          assert 'V145SelectableGuides = listOf(V144GuideIdentity.FUNNY)' in guide
+          assert 'v145NormalizeSavedGuide' in guide
+          assert 'selectedGuide?.takeIf { it in V145SelectableGuides }' in guide
+          assert 'modifier = modifier.size(72.dp)' in home
+          assert 'modifier = Modifier.size(64.5.dp)' in home
+          assert 'Your Backlot companion' not in home
+          assert 'fun defaultSlots(): List<WeeklyScheduleSlot> = emptyList()' in weekly
+          assert 'isUntouchedFrameByNavinStarterSchedule(migrated)' in store
+          assert 'CreatorDataGate.transaction' in store
+          assert 'val scrim = 1f - .06f * revealProgress' in creator
+          assert 'if (!lowPower && index % 17 == 0)' in creator
+          assert 'if (!lowPower && index % 23 == 0)' in personal
+          assert 'Modifier.size(144.dp)' in guide
+          assert 'Modifier.size(81.dp)' in (root/'ui/V221CompanionSuggestionCard.kt').read_text()
+          assert (root/'data/TaskStore.kt').exists()
+          assert (root/'personal/PersonalReminderStore.kt').exists()
+          print('V228.1 Spark and data-protection safety checks passed')
+          PY
+      - name: JVM regression, lint, debug instrumentation APKs and complete personal preview
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2273-Owner-Personal-Preview-APK
+          run-id: 40823533606
+          github-token: ${{ github.token }}
+          path: previous-full
+      - name: Verify APK identity and package upgrade
+        run: |
+          set -euo pipefail
+          OLD="$(find previous-full -type f -name 'Backlot-V2273-Full-App-Widget-Migration.apk' -print -quit)"
+          NEW="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$OLD" && test -s "$NEW"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$SIGNER" verify --print-certs "$OLD" > old-cert.txt
+          "$SIGNER" verify --print-certs "$NEW" > new-cert.txt
+          test "$(grep -m1 'certificate SHA-256 digest' old-cert.txt)" = "$(grep -m1 'certificate SHA-256 digest' new-cert.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='252'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='253'"
+          mkdir -p owner-preview test-apks
+          cp "$NEW" owner-preview/Backlot-V2281-Full-App-Spark-Visual.apk
+          (cd owner-preview && sha256sum Backlot-V2281-Full-App-Spark-Visual.apk > SHA256SUMS.txt)
+          cp app/build/outputs/apk/debug/app-debug.apk test-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk test-apks/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2281-Owner-Full-App-APK
+          path: owner-preview/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2281-Instrumentation-APKs
+          path: test-apks/
+          retention-days: 7
+
+  android11:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2281-Instrumentation-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Real Android 11 Spark UI, reminder and widget tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217LiveGuideScreensUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-guide-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-header-default.log
+            mkdir -p android11-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-first-run-spark.png > android11-evidence/first-run-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-settings-spark.png > android11-evidence/settings-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-default-header-art-and-gallery.png > android11-evidence/header-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-default-real-suggestion-sheet.png > android11-evidence/suggestion-default.png
+            test -s android11-evidence/first-run-default.png
+            test -s android11-evidence/header-default.png
+            grep -Fq "OK (2 tests)" android11-guide-default.log
+            grep -Fq "OK (2 tests)" android11-header-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2272PersonalWaveUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-personal-wave.log
+            grep -Fq "OK (2 tests)" android11-personal-wave.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.widget.V2273WidgetMigrationUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-widget-migration.log
+            grep -Fq "OK (2 tests)" android11-widget-migration.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217LiveGuideScreensUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-guide-compact.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-header-compact.log
+            mkdir -p android11-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-compact-first-run-spark.png > android11-evidence/first-run-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-compact-settings-spark.png > android11-evidence/settings-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-compact-header-art-and-gallery.png > android11-evidence/header-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-compact-real-suggestion-sheet.png > android11-evidence/suggestion-compact.png
+            test -s android11-evidence/first-run-compact.png
+            test -s android11-evidence/header-compact.png
+            grep -Fq "OK (2 tests)" android11-guide-compact.log
+            grep -Fq "OK (2 tests)" android11-header-compact.log
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2281-Android11-Results
+          path: |
+            android11-*.log
+            android11-evidence/*.png
+          if-no-files-found: warn
+
+  android15:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2281-Instrumentation-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Real Android 15 Spark UI and Personal Wave
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -name app-debug-androidTest.apk -print -quit)"
+            adb shell cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217LiveGuideScreensUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android15-guide-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android15-header-default.log
+            mkdir -p android15-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-first-run-spark.png > android15-evidence/first-run-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-settings-spark.png > android15-evidence/settings-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-default-header-art-and-gallery.png > android15-evidence/header-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-default-real-suggestion-sheet.png > android15-evidence/suggestion-default.png
+            test -s android15-evidence/first-run-default.png
+            test -s android15-evidence/header-default.png
+            grep -Fq "OK (2 tests)" android15-guide-default.log
+            grep -Fq "OK (2 tests)" android15-header-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2272PersonalWaveUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android15-personal-wave.log
+            grep -Fq "OK (2 tests)" android15-personal-wave.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2281-Android15-Results
+          path: |
+            android15-*.log
+            android15-evidence/*.png
+          if-no-files-found: warn

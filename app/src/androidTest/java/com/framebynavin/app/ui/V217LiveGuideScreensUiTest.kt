@@ -6,16 +6,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
@@ -36,32 +41,22 @@ import org.junit.runner.RunWith
 class V217LiveGuideScreensUiTest {
     @get:Rule val rule = createComposeRule()
 
-    @Test fun actualFirstRunCompanionChoicesShowStaged3DArtwork() {
+    @Test fun actualFirstRunShowsOnlySparkAndItsRealSelection() {
         val selected = mutableListOf<V144GuideIdentity>()
         rule.setContent {
             FrameByNavinTheme {
-                // V217GuideChoiceContent is used by the REAL V144GuideChoiceGate,
-                // not a hand-built imitation for screenshot purposes.
                 V217GuideChoiceContent(onSelect = { selected.add(it) })
             }
         }
         rule.waitForIdle()
-        for (guide in V144GuideIdentity.entries) {
-            rule.onNodeWithTag("v217-choice-${guide.name}").assertExists()
-        }
-        rule.onNodeWithTag("v217-choose-button-FRAME").assertIsDisplayed()
-        rule.onNodeWithTag("v217-choose-button-NAVI").assertIsDisplayed()
-        assertAligned("FRAME", "NAVI")
-        capture("first-run-top")
-        rule.onNodeWithTag("v217-choice-CUTE").performScrollTo()
-        rule.waitForIdle()
+        rule.onNodeWithTag("v217-choice-FUNNY").assertIsDisplayed()
         rule.onNodeWithTag("v217-choose-button-FUNNY").assertIsDisplayed()
-        rule.onNodeWithTag("v217-choose-button-CUTE").assertIsDisplayed()
-        assertAligned("FUNNY", "CUTE")
-        capture("first-run-bottom")
-        // Verify real button callback without mutating app's persisted guide.
-        rule.onNodeWithTag("v217-choose-button-CUTE").performClick()
-        assertEquals(listOf(V144GuideIdentity.CUTE), selected)
+        for (unused in listOf("FRAME", "NAVI", "CUTE")) {
+            rule.onNodeWithTag("v217-choice-$unused").assertDoesNotExist()
+        }
+        capture("first-run-spark")
+        rule.onNodeWithTag("v217-choose-button-FUNNY").performClick()
+        assertEquals(listOf(V144GuideIdentity.FUNNY), selected)
     }
 
     private fun assertAligned(first: String, second: String) {
@@ -83,6 +78,8 @@ class V217LiveGuideScreensUiTest {
                 Column(
                     Modifier.fillMaxSize()
                         .background(Color(0xFF0F1219))
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp),
                 ) {
@@ -92,13 +89,11 @@ class V217LiveGuideScreensUiTest {
             }
         }
         rule.waitForIdle()
-        for (guide in V144GuideIdentity.entries) {
-            rule.onNodeWithTag("v217-settings-${guide.name}").assertExists()
+        rule.onNodeWithTag("v217-settings-FUNNY").assertIsDisplayed()
+        for (unused in listOf("FRAME", "NAVI", "CUTE")) {
+            rule.onNodeWithTag("v217-settings-$unused").assertDoesNotExist()
         }
-        capture("settings-top")
-        rule.onNodeWithTag("v217-settings-CUTE").performScrollTo()
-        rule.waitForIdle()
-        capture("settings-bottom")
+        capture("settings-spark")
     }
 
     private fun capture(name: String) {
@@ -111,8 +106,16 @@ class V217LiveGuideScreensUiTest {
             rule.waitForIdle()
             instrument.waitForIdleSync()
             SystemClock.sleep(500L + attempt * 250L)
-            val screenshot = requireNotNull(instrument.uiAutomation.takeScreenshot())
-            realPixels = hasArtwork(screenshot)
+            // The emulator's Quickstep/SystemUI ANR prompt may cover the
+            // Activity screen without any Backlot UI fault. For the standalone
+            // Settings Compose root, capture composited app pixels directly;
+            // onboarding remains a full-window capture.
+            val screenshot = if (name == "settings-spark") {
+                rule.onRoot().captureToImage().asAndroidBitmap()
+            } else {
+                requireNotNull(instrument.uiAutomation.takeScreenshot())
+            }
+            realPixels = hasArtwork(screenshot, name)
             if (realPixels || attempt == 2) {
                 image = screenshot
                 break
@@ -132,18 +135,34 @@ class V217LiveGuideScreensUiTest {
         assertTrue("Blank Android capture instead of real live UI: $output", realPixels)
     }
 
-    private fun hasArtwork(bitmap: Bitmap): Boolean {
+    /** A single Spark card has far fewer bright pixels than the old four-card
+     * chooser. Keep the old strict overview check for onboarding. For Settings
+     * require *chromatic artwork in the center*, not just colorful card borders.
+     * Thresholds were measured from real API35 screenshots (not mock images).
+     */
+    private fun hasArtwork(bitmap: Bitmap, scene: String): Boolean {
         val colors = HashSet<Int>()
         var bright = 0
+        var centerChromatic = 0
         val dx = maxOf(4, bitmap.width / 64)
         val dy = maxOf(4, bitmap.height / 64)
         for (y in bitmap.height / 12 until bitmap.height * 11 / 12 step dy) {
             for (x in bitmap.width / 12 until bitmap.width * 11 / 12 step dx) {
                 val rgb = bitmap.getPixel(x, y) and 0xFFFFFF
+                val r = (rgb shr 16) and 255
+                val g = (rgb shr 8) and 255
+                val b = rgb and 255
+                val high = maxOf(r, g, b)
+                val low = minOf(r, g, b)
                 colors.add(rgb)
-                if (maxOf((rgb shr 16) and 255, (rgb shr 8) and 255, rgb and 255) > 110) bright++
+                if (high > 110) bright++
+                if (x in bitmap.width / 4 until bitmap.width * 3 / 4 &&
+                    y < bitmap.height / 2 && high > 75 && high - low >= 20
+                ) centerChromatic++
             }
         }
-        return colors.size >= 32 && bright >= 28
+        return if (scene.startsWith("settings-")) {
+            colors.size >= 32 && bright >= 6 && centerChromatic >= 7
+        } else colors.size >= 32 && bright >= 28
     }
 }

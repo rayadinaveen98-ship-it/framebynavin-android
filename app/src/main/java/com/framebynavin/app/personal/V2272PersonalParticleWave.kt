@@ -130,7 +130,7 @@ internal fun V2272PersonalParticleWave(
         if (!lowPower) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    listOf(glow.copy(alpha = .22f), Color.Transparent),
+                    listOf(glow.copy(alpha = .32f), Color.Transparent),
                     center = center, radius = radius * 1.9f,
                 ), center = center, radius = radius * 1.9f,
             )
@@ -177,10 +177,10 @@ internal fun V2272PersonalParticleWave(
             }
             val at = Offset(x, y)
             if (!lowPower && index % 23 == 0) {
-                drawCircle(pigment.copy(alpha = .16f), radius = dot * 3f, center = at)
+                drawCircle(pigment.copy(alpha = .27f), radius = dot * 3.8f, center = at)
             }
             drawCircle(
-                pigment.copy(alpha = if (target != null) .97f else .82f),
+                pigment.copy(alpha = if (target != null) 1f else .95f),
                 radius = dot, center = at,
             )
         }

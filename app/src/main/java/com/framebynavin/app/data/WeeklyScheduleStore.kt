@@ -32,9 +32,10 @@ class WeeklyScheduleStore(private val context: Context) {
         val prefs = context.weeklyScheduleDataStore.data.first()
         val raw = prefs[slotsKey]
         if (raw == null) {
-            val seeded = WeeklyScheduleEngine.defaultSlots()
-            mutationMutex.withLock { saveUnlocked(seeded) }
-            return@transaction seeded
+            // No creator-specific sample slots on a new Backlot install.
+            val empty = WeeklyScheduleEngine.defaultSlots()
+            mutationMutex.withLock { saveUnlocked(empty) }
+            return@transaction empty
         }
         val decoded = runCatching { decode(raw) }.getOrElse { cause ->
             val backup = prefs[backupKey] ?: throw IllegalStateException("Weekly plan is unreadable. The original has been retained.", cause)
@@ -43,9 +44,10 @@ class WeeklyScheduleStore(private val context: Context) {
         // A legacy slot ID is not proof that a creator hasn't customized that slot.
         // Preserve it; retire or migrate old templates only with explicit user control.
         val migrated = decoded.map(WeeklyScheduleEngine::migratePresetSlot)
-        // Only a genuinely new install (raw == null above) receives starter slots.
-        // An existing empty list is intentional and must survive restarts and restores.
-        val resolved = migrated
+        // Retire only the exact untouched factory preset, not customized/partial schedules.
+        // An existing empty list intentionally survives restarts and restores.
+        val resolved = if (WeeklyScheduleEngine.isUntouchedFrameByNavinStarterSchedule(migrated))
+            emptyList() else migrated
         if (resolved != decoded) {
             mutationMutex.withLock { saveUnlocked(resolved) }
         }

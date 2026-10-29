@@ -53,10 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V227.3 Widget Migration Device QA engineering preview. Prototype signer and app ID
-        // intentionally match installed V227.2 (251) for in-place sideload QA.
-        versionCode = 252
-        versionName = "2.13.3-v2273-widget-migration-preview"
+        // V228.1 Spark-first development preview; same signer/app ID as V227.3 (252).
+        versionCode = 253
+        versionName = "2.13.4-v2281-spark-visual-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
