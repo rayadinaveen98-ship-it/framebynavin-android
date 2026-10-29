@@ -652,7 +652,7 @@ internal fun V18CinematicHomeHero(
                         }
                     }
 
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = mediaControlsVisible && frames.size > 1,
                         modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
                         enter = fadeIn(tween(220)),
@@ -686,7 +686,7 @@ internal fun V18CinematicHomeHero(
                             }
                         }
                     } else {
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = mediaControlsVisible || manageExpanded,
                             modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
                             enter = fadeIn(tween(220)),
