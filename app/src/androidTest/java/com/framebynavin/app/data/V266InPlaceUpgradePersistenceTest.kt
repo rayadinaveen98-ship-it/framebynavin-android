@@ -94,6 +94,7 @@ class V266InPlaceUpgradePersistenceTest {
         privateStore.create(privateRecord())
 
         val canonical = store.exportJson()
+        val savedTasks = store.load()
         val privateBackup = privateStore.exportPersonalJson()
         val creatorBackup = CreatorBackupManager(app).createBackup()
         assertTrue(CreatorBackupManager(app).validate(creatorBackup).projectCount >= 2)
@@ -102,6 +103,8 @@ class V266InPlaceUpgradePersistenceTest {
 
         val snapshot = JSONObject()
             .put("tasks", canonical)
+            .put("expectedProject", store.encodeRecoveryTask(savedTasks.first { it.id == projectId }))
+            .put("expectedEditedLegacy", store.encodeRecoveryTask(savedTasks.first { it.id == editedLegacyId }))
             .put("personal", privateBackup)
             .put("privateId", privateId)
             .put("projectId", projectId)
@@ -144,8 +147,10 @@ class V266InPlaceUpgradePersistenceTest {
         val personalStore = PersonalReminderStore(app)
 
         val currentProjects = projectStore.load()
-        val originalProjects = projectStore.decodeForUpgradeProof(snapshot.getString("tasks"))
-        val expected = originalProjects.filter { it.id in setOf(projectId, editedLegacyId) }
+        val expected = listOf(
+            projectStore.decodeRecoveryTask(snapshot.getString("expectedProject")),
+            projectStore.decodeRecoveryTask(snapshot.getString("expectedEditedLegacy")),
+        )
         assertEquals("Two seeded creator projects must survive in-place upgrade", 2, expected.size)
         assertEquals(expected, currentProjects.filter { it.id in setOf(projectId, editedLegacyId) })
         assertEquals("Creator project must still have its saved script",
