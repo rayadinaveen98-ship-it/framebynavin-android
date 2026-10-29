@@ -80,6 +80,7 @@ import java.util.Locale
 internal fun PTodayScreen(
     creatorProfile: CreatorProfile,
     tasks: List<CreatorTask>,
+    projectsLoaded: Boolean = true,
     ideas: List<CreatorIdea> = emptyList(),
     onAdd: () -> Unit,
     onStart: (String) -> Unit,
@@ -129,7 +130,7 @@ internal fun PTodayScreen(
             // creator's actionable project on compact/large-font phones.
             // No-image Home stays short; the creator can reach today's work first.
             Spacer(Modifier.height(12.dp))
-            if (selected == null) {
+            if (selected == null && projectsLoaded) {
                 Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                 Spacer(Modifier.height(4.dp))
                 Text(personalization.focusTitle, color = ProjectorIvory, fontSize = 23.sp, lineHeight = 28.sp, fontWeight = FontWeight.Black)
@@ -139,7 +140,24 @@ internal fun PTodayScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            if (selected == null) {
+            if (selected == null && !projectsLoaded) {
+                // An empty StateList before the first DataStore emission is not
+                // an empty creator account. Avoid a misleading first-launch CTA.
+                Row(
+                    Modifier.fillMaxWidth()
+                        .testTag("v230-projects-loading")
+                        .padding(vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = MutedGold,
+                        strokeWidth = 2.dp,
+                    )
+                    Text("Opening saved projects…", color = MutedText, fontSize = 12.sp)
+                }
+            } else if (selected == null) {
                 PEmptyState(
                     icon = Icons.Outlined.MovieCreation,
                     title = "Nothing needs your attention",
