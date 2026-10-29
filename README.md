@@ -2,6 +2,14 @@
 
 Backlot is an Android-first, offline-first creator workspace built with Kotlin and Jetpack Compose. Capture ideas, develop scripts/projects, manage production and reminders, record publication and review authorized channel results.
 
+## Latest verified candidate — RC7 audit of Build267 (29 October 2026)
+
+**Build267 RC6 source** `5b0682140ae19ec698c0c84aa2be8a9939844500` has a [five-job green Android 11/15 and real 266→267 upgrade matrix](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/40922583197). The compact Home companion icon, tap-to-reveal slideshow controls and post-tap cinematic Voice/Alarm wave background are covered by the updated tests. The mic/clock particle introduction is unchanged. Latest owner preview file `Backlot-RC6-Build267-Full-App.apk`, SHA256 `02827066650f7f725ef712c7a2119f20746fec5198fd1b7cfdc0be709e8d0d7d`.
+
+**RC7 is only a release verification branch.** It adds Android 16 API36 device, 266→267 in-place upgrade, unsigned AAB structure and source/hash/certificate integrity checks against **unchanged** Build267 artifacts. [RC7 acceptance dossier](docs/release/RC7_BUILD267_ANDROID16_RELEASE_VERIFICATION.md). `main` stays untouched. No new Build268 or production key is implied.
+
+**Do not equate QA-green preview with Play ready.** Owner physical-device validation, separate Creator and private Personal backup/restore, reliable exact alarms, private Play signing and [signer-migration issue #180](https://github.com/rayadinaveen98-ship-it/framebynavin-android/issues/180) remain open. Do not uninstall an existing prototype-signed app to swap certificates without an explicit safe migration plan and verified off-device backups.
+
 ## Current engineering gate — 29 October 2026
 
 **Frozen candidate:** **Backlot RC4 Build266** (`2.15.3-rc4-inplace-upgrade-data-preview`, application ID `com.framebynavin.app`) from exact source commit `7fdda27b22dfe7e971ce370ab366a33520ee691a`. [RC4 five-job GitHub QA](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/40889471748) passed JVM/lint/build, Android 11 + 15 regression, and real 265→266 `adb install -r` persistence on disposable emulators. **This is not Play Store release approval and has not been accepted on the owner's physical phone.**
