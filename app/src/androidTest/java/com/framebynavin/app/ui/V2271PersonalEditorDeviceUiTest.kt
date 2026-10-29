@@ -60,8 +60,11 @@ class V2271PersonalEditorDeviceUiTest {
             }
         }
         runCatching {
-            val screenshot = androidx.test.platform.app.InstrumentationRegistry
-                .getInstrumentation().uiAutomation.takeScreenshot()
+            // A Compose Dialog may occupy its own window. Capture *its actual
+            // rendering*, not just UiAutomation's default Activity screenshot.
+            // Do not weaken assertIsDisplayed: it must still pass above IME.
+            val image = rule.onNodeWithTag("v2232-personal-editor")
+                .captureToImage().asAndroidBitmap()
             val folder = java.io.File(
                 androidx.test.platform.app.InstrumentationRegistry
                     .getInstrumentation().targetContext.filesDir,
@@ -69,8 +72,10 @@ class V2271PersonalEditorDeviceUiTest {
             )
             folder.mkdirs()
             java.io.File(folder, "personal-editor-occlusion.png").outputStream().use { stream ->
-                screenshot?.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+                check(image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream))
             }
+        }.onFailure {
+            android.util.Log.e("BacklotPersonalEditorQA", "Could not capture dialog pixels", it)
         }
         throw failure ?: AssertionError("Personal editor did not settle with visible Save and Cancel")
     }
