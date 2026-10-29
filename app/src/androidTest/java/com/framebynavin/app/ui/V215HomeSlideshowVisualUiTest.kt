@@ -135,7 +135,11 @@ class V215HomeSlideshowVisualUiTest {
     }
 
     private fun capture(name: String) {
-        val profileName = InstrumentationRegistry.getArguments().getString("backlotVisualProfile")
+        // CI's focused test runner may omit the optional visual profile.
+        // Preserve explicit compact coverage when supplied, but default to
+        // the normal device screenshot instead of failing before capturing.
+        val profileName = InstrumentationRegistry.getArguments()
+            .getString("backlotVisualProfile") ?: "default"
         check(profileName in setOf("default", "compact"))
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val folder = File(context.filesDir, "v215-home-slideshow-visual")
@@ -150,12 +154,15 @@ class V215HomeSlideshowVisualUiTest {
     }
 
     private fun checkBottom() {
-        rule.onNodeWithText("REMINDERS").performScrollTo()
+        // V219 replaced the old REMINDERS / VIEW ALL section with one
+        // actionable REMINDER HUB card. Verify that real current section is
+        // scrollable, visible and clear of the floating bottom navigation.
+        rule.onNodeWithTag("v219-reminder-home-entry").performScrollTo()
         repeat(4) { rule.onAllNodes(hasScrollAction()).onFirst().performTouchInput { swipeUp() } }
         rule.waitForIdle()
-        rule.onNodeWithText("REMINDERS").assertIsDisplayed()
-        rule.onNodeWithText("VIEW ALL").assertIsDisplayed()
-        val reminder = rule.onNodeWithText("REMINDERS").getUnclippedBoundsInRoot()
+        rule.onNodeWithText("REMINDER HUB").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Open Reminders Hub").assertExists()
+        val reminder = rule.onNodeWithTag("v219-reminder-home-entry").getUnclippedBoundsInRoot()
         val nav = rule.onNodeWithTag("v215-slideshow-bottom-nav").getUnclippedBoundsInRoot()
         assertTrue("Slideshow pushed Reminders behind bottom nav", reminder.bottom + 4.dp < nav.top)
     }
@@ -165,15 +172,19 @@ class V215HomeSlideshowVisualUiTest {
     @Test fun multiPhotoTop() = withSyntheticPhotos(3) {
         render()
         rule.onNodeWithContentDescription("Pause slideshow").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Slideshow options").assertDoesNotExist()
         rule.onNodeWithContentDescription("Show slideshow controls").performClick()
         rule.onNodeWithContentDescription("Pause slideshow").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Slideshow options").assertIsDisplayed()
         capture("photo-multi-top")
     }
     @Test fun multiPhotoBottom() = withSyntheticPhotos(3) {
         render()
         rule.onNodeWithContentDescription("Pause slideshow").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Slideshow options").assertDoesNotExist()
         rule.onNodeWithContentDescription("Show slideshow controls").performClick()
         rule.onNodeWithContentDescription("Pause slideshow").assertIsDisplayed()
+        rule.onNodeWithContentDescription("Slideshow options").assertIsDisplayed()
         checkBottom(); capture("photo-multi-bottom")
     }
 }
