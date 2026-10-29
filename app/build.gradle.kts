@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V228.4 durable stage celebration; upgrade from V228.3 build 255.
-        versionCode = 256
-        versionName = "2.13.7-v2284-stage-celebration-preview"
+        // V228.5 read-only Workspace focus; upgrade from V228.4 build 256.
+        versionCode = 257
+        versionName = "2.13.8-v2285-workspace-focus-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

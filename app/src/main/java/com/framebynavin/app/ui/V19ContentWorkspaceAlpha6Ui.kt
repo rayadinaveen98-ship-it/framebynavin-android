@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,8 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     val scriptBeats = workspace.scriptStudio?.beats?.size ?: 0
     val hasScript = scriptBeats > 0 || workspace.script.isNotBlank() || workspace.hook.isNotBlank()
     var showStages by rememberSaveable(task.id) { mutableStateOf(false) }
+    // Read-only prompts derived from canonical saved project content.
+    val focusHints = V2285WorkspaceFocusPolicy.hints(task)
 
     val primaryAction = if (completed) onOpenProject else workspaceActionForStage(
         stage = currentStage,
@@ -174,6 +177,67 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         title = "Guide", detail = blueprint.archetypeLabel.ifBlank { "Creative guide" },
                         icon = Icons.Outlined.AutoAwesome, modifier = Modifier.weight(1f), onClick = onOpenBlueprint,
                     )
+                }
+
+                if (!completed && task.status != TaskStatus.SKIPPED) {
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        "NEXT USEFUL MOVES", color = ProjectorIvory, fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.testTag("v2285-workspace-focus"),
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        "Based on saved materials · suggestions don't advance your project",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                    )
+                    Spacer(Modifier.height(11.dp))
+                    if (focusHints.isEmpty()) {
+                        Text(
+                            "Core materials are recorded. Continue your current project step.",
+                            color = MutedText, fontSize = 12.sp,
+                            modifier = Modifier.testTag("v2285-focus-clear"),
+                        )
+                    } else {
+                        focusHints.forEach { hint ->
+                            val openEditor = when (hint.destination) {
+                                V2285WorkspaceDestination.PLAN -> onOpenProject
+                                V2285WorkspaceDestination.SCRIPT -> onOpenScript
+                                V2285WorkspaceDestination.PUBLISH -> onOpenPublish
+                            }
+                            Surface(
+                                modifier = Modifier.fillMaxWidth()
+                                    .padding(bottom = 9.dp)
+                                    .testTag("v2285-focus-${hint.key}"),
+                                shape = RoundedCornerShape(16.dp),
+                                color = CinemaSurface,
+                                border = BorderStroke(1.dp, CinemaLine),
+                            ) {
+                                Column(Modifier.padding(13.dp)) {
+                                    Text(
+                                        hint.title, color = ProjectorIvory,
+                                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        hint.description, color = MutedText,
+                                        fontSize = 12.sp, lineHeight = 17.sp,
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    TextButton(
+                                        onClick = openEditor,
+                                        modifier = Modifier.testTag("v2285-open-${hint.destination.name.lowercase()}"),
+                                    ) {
+                                        Text("OPEN ${hint.destination.name}", color = MutedGold,
+                                            fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.width(5.dp))
+                                        Icon(Icons.Outlined.ArrowForward, null,
+                                            tint = MutedGold, modifier = Modifier.size(15.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(26.dp))
