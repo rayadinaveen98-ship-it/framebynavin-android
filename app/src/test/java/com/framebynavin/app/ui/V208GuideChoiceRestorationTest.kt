@@ -5,14 +5,9 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class V208GuideChoiceRestorationTest {
-    @Test fun allOriginalGuideChoicesAreSelectable() {
+    @Test fun onlySparkIsNewlySelectable() {
         assertEquals(
-            listOf(
-                V144GuideIdentity.FRAME,
-                V144GuideIdentity.NAVI,
-                V144GuideIdentity.FUNNY,
-                V144GuideIdentity.CUTE,
-            ),
+            listOf(V144GuideIdentity.FUNNY),
             V145SelectableGuides,
         )
     }
