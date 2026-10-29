@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V229.4 personal follow-up handoff repair; upgrade Build260.
-        versionCode = 261
-        versionName = "2.14.2-v2294-followup-handoff-preview"
+        // V229.5 evidence-based Content Workspace Publish guidance; upgrade Build261.
+        versionCode = 262
+        versionName = "2.14.3-v2295-workspace-publish-readiness-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
