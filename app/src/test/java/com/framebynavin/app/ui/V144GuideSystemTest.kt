@@ -10,9 +10,9 @@ import org.junit.Test
 class V144GuideSystemTest {
 
     @Test
-    fun `companion chooser includes restored original characters`() {
+    fun `new companion chooser shows only Spark`() {
         assertEquals(
-            listOf(V144GuideIdentity.FRAME, V144GuideIdentity.NAVI, V144GuideIdentity.FUNNY, V144GuideIdentity.CUTE),
+            listOf(V144GuideIdentity.FUNNY),
             V145SelectableGuides,
         )
         assertTrue(V145SelectableGuides.all { it.description.isNotBlank() })
