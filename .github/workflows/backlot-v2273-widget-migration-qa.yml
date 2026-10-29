@@ -393,6 +393,47 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V227IdeaFooterAdaptiveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-android15-footer.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-android15-footer.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' v227-android15-footer.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2273-Android15-Gestural-Results
+          path: |
+            v2271-personal-android15-evidence/
+            v2273-widget-migration-android15.log
+            v2272-personal-wave-android15.log
+            v2271-personal-normal-android15.log
+            v2271-personal-keyboard-android15.log
+            v227-android15-footer.log
+           if-no-files-found: warn
+
+  android15_ime:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2273-Device-QA-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 fresh-emulator strict real keyboard + Save Idea pixel gate
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural
+            adb shell settings put secure show_ime_with_hard_keyboard 1
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile gestural -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-android15-ime.log
             # Collect real Android UI pixels BEFORE evaluating the test result:
             # this preserves the failing state on OEM/IME regressions.
@@ -401,17 +442,13 @@ jobs:
             adb exec-out run-as com.framebynavin.app cat files/v2204-idea-evidence/v2204-gestural-keyboard-settled.png > v227-android15-evidence/keyboard-settled.png || true
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-android15-ime.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v227-android15-ime.log
+            adb logcat -d -t 1600 | grep -Ei 'ANR in|Quickstep.*not responding|Input dispatching timed out' > v227-quickstep-diagnostics.log || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Backlot-V2273-Android15-Gestural-Results
+          name: Backlot-V2273-Android15-Fresh-IME-Results
           path: |
             v227-android15-evidence/
-            v2271-personal-android15-evidence/
-            v2273-widget-migration-android15.log
-            v2272-personal-wave-android15.log
-            v2271-personal-normal-android15.log
-            v2271-personal-keyboard-android15.log
-            v227-android15-footer.log
             v227-android15-ime.log
+            v227-quickstep-diagnostics.log
           if-no-files-found: warn
