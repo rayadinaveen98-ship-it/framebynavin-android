@@ -71,6 +71,10 @@ internal fun V2292SparkConversationPanel(
     fun send(text: String) {
         val input = text.trim().take(V2292SparkConversationPolicy.INPUT_MAX)
         if (input.isEmpty()) return
+        // New prompts must silence the previous reply (even while TTS initializes)
+        // and stop an outstanding dictation session before updating chat turns.
+        voice.stopListening()
+        voice.stopPlayback()
         val reply = V2292SparkConversationPolicy.respond(input, tasks, ideas)
         turns.add(V2292ChatTurn(input, false))
         turns.add(V2292ChatTurn(reply.message, true, reply))
