@@ -411,18 +411,27 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         if (!receiptMatches() || !followUps.current().enabled) return false
         val shown = PersonalReminderNotifications.show(app,
             claimed.copy(followUpSentToken = token), followUp = true)
-        if (!receiptMatches()) {
-            // A Done/Dismiss/Snooze racing this handoff invalidated the lease.
-            // The existing action path has already canceled its notification;
-            // cancel this stale update only when no newer posted lease exists.
-            val current = store.load().firstOrNull { it.id == id }
-            if (current == null || current.presentedToken.isBlank()) {
-                PersonalReminderNotifications.cancel(app, id)
+        // The notification manager is outside the DataStore mutation lock.
+        // If Done/Snooze/Pause or an opt-out races notify(), the follow-up card
+        // can overwrite a newer reminder's actionable notification. Repair it
+        // from the latest committed lease, never from the captured old lease.
+        val stillValid = receiptMatches() &&
+            runCatching { followUps.current().enabled }.getOrDefault(false)
+        if (!stillValid) {
+            if (shown) {
+                val current = store.load().firstOrNull { it.id == id }
+                when (PersonalFollowUpHandoffPolicy.repair(current)) {
+                    PersonalFollowUpHandoffRepair.CANCEL_STALE_CARD ->
+                        PersonalReminderNotifications.cancel(app, id)
+                    PersonalFollowUpHandoffRepair.RESTORE_LATEST_POSTED_CARD ->
+                        // Silent standard card restores up-to-date action token.
+                        // It never replays the original voice/alarm.
+                        PersonalReminderNotifications.show(app, requireNotNull(current))
+                }
             }
             return false
         }
-        // Turning optional nudges OFF must NEVER cancel the original posted
-        // reminder, which still needs to be actionable for Done/Snooze.
+        // Turning optional nudges OFF must NEVER cancel a valid base reminder.
         return shown
     }
 

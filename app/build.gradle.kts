@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V229.3 explicit on-device Spark mic and local TTS; upgrade Build259.
-        versionCode = 260
-        versionName = "2.14.1-v2293-spark-voice-preview"
+        // V229.4 personal follow-up handoff repair; upgrade Build260.
+        versionCode = 261
+        versionName = "2.14.2-v2294-followup-handoff-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
