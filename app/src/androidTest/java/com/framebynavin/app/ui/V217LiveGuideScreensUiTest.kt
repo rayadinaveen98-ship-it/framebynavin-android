@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
@@ -103,7 +104,15 @@ class V217LiveGuideScreensUiTest {
             rule.waitForIdle()
             instrument.waitForIdleSync()
             SystemClock.sleep(500L + attempt * 250L)
-            val screenshot = requireNotNull(instrument.uiAutomation.takeScreenshot())
+            // The emulator's Quickstep/SystemUI ANR prompt may cover the
+            // Activity screen without any Backlot UI fault. For the standalone
+            // Settings Compose root, capture composited app pixels directly;
+            // onboarding remains a full-window capture.
+            val screenshot = if (name == "settings-spark") {
+                rule.onRoot().captureToImage().asAndroidBitmap()
+            } else {
+                requireNotNull(instrument.uiAutomation.takeScreenshot())
+            }
             realPixels = hasArtwork(screenshot, name)
             if (realPixels || attempt == 2) {
                 image = screenshot
