@@ -403,10 +403,18 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         if (!receiptMatches() || !followUps.current().enabled) return false
         val shown = PersonalReminderNotifications.show(app,
             claimed.copy(followUpSentToken = token), followUp = true)
-        if (!receiptMatches() || !followUps.current().enabled) {
-            PersonalReminderNotifications.cancel(app, id)
+        if (!receiptMatches()) {
+            // A Done/Dismiss/Snooze racing this handoff invalidated the lease.
+            // The existing action path has already canceled its notification;
+            // cancel this stale update only when no newer posted lease exists.
+            val current = store.load().firstOrNull { it.id == id }
+            if (current == null || current.presentedToken.isBlank()) {
+                PersonalReminderNotifications.cancel(app, id)
+            }
             return false
         }
+        // Turning optional nudges OFF must NEVER cancel the original posted
+        // reminder, which still needs to be actionable for Done/Snooze.
         return shown
     }
 
