@@ -212,7 +212,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 publicationRecoveryReady.await()
                 if (pendingWrites > 0 || writeError != null) return@collectLatest
                 val cleaned = saved.filterNot {
-                    it.id == "starter-frame-breakdown" ||
+                    V230LegacyStarterProjectPolicy.isUntouchedDemo(it) ||
                         // Legacy weekly template IDs may still belong to genuine creator projects.
                         // Keep those projects; only retire the old template definitions.
                         CreatorPostPublishEngine.isLegacyTask(it)
@@ -221,7 +221,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                     // Re-evaluate against current storage. A stale collector must not replace newer data.
                     store.mutate { current ->
                         current.filterNot {
-                            it.id == "starter-frame-breakdown" ||
+                            V230LegacyStarterProjectPolicy.isUntouchedDemo(it) ||
                                 // Legacy weekly template IDs may still belong to genuine creator projects.
                         // Keep those projects; only retire the old template definitions.
                                 CreatorPostPublishEngine.isLegacyTask(it)
