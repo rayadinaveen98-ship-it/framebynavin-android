@@ -90,6 +90,9 @@ jobs:
           assert 'createOnDeviceSpeechRecognizer' in voice
           assert 'isOnDeviceRecognitionAvailable' in voice
           assert 'isNetworkConnectionRequired' in voice
+          assert 'LocalLifecycleOwner.current.lifecycle' in voice
+          assert 'preparingPlayback' in voice and 'cancelPlayback' in voice
+          assert 'voice.stopPlayback()' in panel and 'voice.stopListening()' in panel
           assert 'onTranscript(text)' in voice
           assert 'ActivityResultContracts.RequestPermission' in panel
           assert 'v2293-spark-read-aloud' in panel
@@ -175,7 +178,7 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2292SparkConversationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-spark-android11.log
             grep -Fq "OK (3 tests)" v2293-spark-android11.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2293SparkVoiceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-voice-android11.log
-            grep -Fq "OK (2 tests)" v2293-voice-android11.log
+            grep -Fq "OK (3 tests)" v2293-voice-android11.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -229,7 +232,7 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2292SparkConversationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-spark-android15.log
             grep -Fq "OK (3 tests)" v2293-spark-android15.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2293SparkVoiceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-voice-android15.log
-            grep -Fq "OK (2 tests)" v2293-voice-android15.log
+            grep -Fq "OK (3 tests)" v2293-voice-android15.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
