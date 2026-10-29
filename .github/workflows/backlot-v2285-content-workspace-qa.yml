@@ -136,7 +136,7 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2284StageCelebrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-stage-android11.log
             grep -Fq "OK (2 tests)" v2285-stage-android11.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2285WorkspaceFocusUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-workspace-android11.log
-            grep -Fq "OK (2 tests)" v2285-workspace-android11.log
+            grep -Fq "OK (3 tests)" v2285-workspace-android11.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -181,7 +181,7 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2284StageCelebrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-stage-android15.log
             grep -Fq "OK (2 tests)" v2285-stage-android15.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2285WorkspaceFocusUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2285-workspace-android15.log
-            grep -Fq "OK (2 tests)" v2285-workspace-android15.log
+            grep -Fq "OK (3 tests)" v2285-workspace-android15.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
