@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V229.1 Creator nudge pause/resume controls; upgrade from Build257.
-        versionCode = 258
-        versionName = "2.13.9-v2291-nudge-controls-preview"
+        // V229.2 session-only Spark offline guide; upgrade from Build258.
+        versionCode = 259
+        versionName = "2.14.0-v2292-spark-offline-guide-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
