@@ -23,7 +23,7 @@ internal fun V2291NudgePauseControls(
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(
             if (paused) "Paused through ${v2291Time(pausedUntilMillis)}"
-            else "Quiet 9 PM–9 AM · 24h global cooldown",
+            else "Daytime only (9 AM–8 PM) · 24h cooldown",
             color = MutedText, fontSize = 10.sp,
             modifier = Modifier.weight(1f).padding(top = 11.dp),
         )
