@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -73,6 +75,8 @@ class V217LiveGuideScreensUiTest {
                 Column(
                     Modifier.fillMaxSize()
                         .background(Color(0xFF0F1219))
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp),
                 ) {
@@ -100,7 +104,7 @@ class V217LiveGuideScreensUiTest {
             instrument.waitForIdleSync()
             SystemClock.sleep(500L + attempt * 250L)
             val screenshot = requireNotNull(instrument.uiAutomation.takeScreenshot())
-            realPixels = hasArtwork(screenshot)
+            realPixels = hasArtwork(screenshot, name)
             if (realPixels || attempt == 2) {
                 image = screenshot
                 break
@@ -120,18 +124,34 @@ class V217LiveGuideScreensUiTest {
         assertTrue("Blank Android capture instead of real live UI: $output", realPixels)
     }
 
-    private fun hasArtwork(bitmap: Bitmap): Boolean {
+    /** A single Spark card has far fewer bright pixels than the old four-card
+     * chooser. Keep the old strict overview check for onboarding. For Settings
+     * require *chromatic artwork in the center*, not just colorful card borders.
+     * Thresholds were measured from real API35 screenshots (not mock images).
+     */
+    private fun hasArtwork(bitmap: Bitmap, scene: String): Boolean {
         val colors = HashSet<Int>()
         var bright = 0
+        var centerChromatic = 0
         val dx = maxOf(4, bitmap.width / 64)
         val dy = maxOf(4, bitmap.height / 64)
         for (y in bitmap.height / 12 until bitmap.height * 11 / 12 step dy) {
             for (x in bitmap.width / 12 until bitmap.width * 11 / 12 step dx) {
                 val rgb = bitmap.getPixel(x, y) and 0xFFFFFF
+                val r = (rgb shr 16) and 255
+                val g = (rgb shr 8) and 255
+                val b = rgb and 255
+                val high = maxOf(r, g, b)
+                val low = minOf(r, g, b)
                 colors.add(rgb)
-                if (maxOf((rgb shr 16) and 255, (rgb shr 8) and 255, rgb and 255) > 110) bright++
+                if (high > 110) bright++
+                if (x in bitmap.width / 4 until bitmap.width * 3 / 4 &&
+                    y < bitmap.height / 2 && high > 75 && high - low >= 20
+                ) centerChromatic++
             }
         }
-        return colors.size >= 32 && bright >= 28
+        return if (scene.startsWith("settings-")) {
+            colors.size >= 32 && bright >= 6 && centerChromatic >= 7
+        } else colors.size >= 32 && bright >= 28
     }
 }
