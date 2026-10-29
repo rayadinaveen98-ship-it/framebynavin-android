@@ -13,3 +13,10 @@
 - Full JVM/lint/build regression and Build 260 full owner APK with package and certificate upgrade test from verified Build 259.
 - Real-phone microphone permission, speech model availability, locale/Telugu, voice playback, keyboard collisions, app background, DND, accessibility, rotation and service failures must be tested before stable release.
 - PR draft, stable unchanged.
+
+## Build 260 stability hardening
+- Observe the Compose-provided LifecycleOwner, not a possibly wrapped Context cast to ComponentActivity. When its lifecycle stops, cancel dictation, pending playback initialization and active TTS; clean up on sheet disposal as well.
+- READ ALOUD changes to STOP AUDIO as soon as engine initialization starts so the user can cancel before speech begins.
+- Sending a new prompt stops any earlier playback and listening first; starting microphone input also stops old speech to prevent audio feedback.
+- Added an Android UI regression test that supplies a separate Compose lifecycle owner and verifies ON_STOP cleanup. The Android 11/15 workflow now expects three voice UI tests per emulator.
+- This is still a draft preview. Device-specific on-device recognition, Telugu language-pack behavior, microphone permission revocation and TTS cancellation must be physically tested before a stable release.
