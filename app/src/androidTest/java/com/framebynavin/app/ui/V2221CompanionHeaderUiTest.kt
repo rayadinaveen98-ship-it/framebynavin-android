@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
 import android.os.SystemClock
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -47,7 +48,16 @@ class V2221CompanionHeaderUiTest {
             rule.waitForIdle()
             instrument.waitForIdleSync()
             SystemClock.sleep(400L + attempt * 240L)
-            val screenshot = requireNotNull(instrument.uiAutomation.takeScreenshot())
+            // The standalone ComposeRule greeting has no foreground Activity
+            // window on every emulator image. Capture its actual composited
+            // root pixels instead of an unrelated blank Android launcher.
+            // The bottom-sheet case stays on the real OS window because
+            // ModalBottomSheet draws in a separate Compose root.
+            val screenshot = if (scene == "header-art-and-gallery") {
+                rule.onRoot().captureToImage().asAndroidBitmap()
+            } else {
+                requireNotNull(instrument.uiAutomation.takeScreenshot())
+            }
             val visible = hasVisibleRealPixels(screenshot)
             if (visible || attempt == 3) {
                 captured = screenshot
@@ -116,7 +126,7 @@ class V2221CompanionHeaderUiTest {
         val avatarBounds = avatar.getUnclippedBoundsInRoot()
         val galleryBounds = plus.getUnclippedBoundsInRoot()
         assertTrue("Spark must retain the enlarged 72dp touch surface: $avatarBounds",
-            avatarBounds.width >= 71.dp)
+            (avatarBounds.right - avatarBounds.left) >= 71.dp)
         assertTrue("Spark and Gallery + overlap: $avatarBounds vs $galleryBounds",
             avatarBounds.right <= galleryBounds.left)
         rule.onNodeWithContentDescription("Open Spark companion").assertExists()
