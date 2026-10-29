@@ -47,6 +47,10 @@ class V2271PersonalEditorDeviceUiTest {
      * obstructed footer still fails and saves an actual device screenshot.
      */
     private fun boundsSafe() {
+        // Snapshot the *real Android display* as well as Compose semantics.
+        // In particular, stale IME windows can survive between test methods
+        // on API 35 even after a Dialog composition is disposed.
+        captureSystemDisplay("before-footer-check")
         var failure: AssertionError? = null
         repeat(10) { step ->
             try {
@@ -79,6 +83,21 @@ class V2271PersonalEditorDeviceUiTest {
             android.util.Log.e("BacklotPersonalEditorQA", "Could not capture dialog pixels", it)
         }
         throw failure ?: AssertionError("Personal editor did not settle with visible Save and Cancel")
+    }
+
+    private fun captureSystemDisplay(name: String) {
+        runCatching {
+            val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            val bitmap = instrumentation.uiAutomation.takeScreenshot()
+            val dir = java.io.File(instrumentation.targetContext.filesDir, "v2271-personal-editor-evidence")
+            check(dir.isDirectory || dir.mkdirs())
+            java.io.File(dir, "$name.png").outputStream().use { stream ->
+                check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream))
+            }
+            android.util.Log.i("BacklotPersonalEditorQA", "Captured real OS screen for $name")
+        }.onFailure {
+            android.util.Log.e("BacklotPersonalEditorQA", "Real OS screen capture failed", it)
+        }
     }
 
     private fun boundsSafeOnce() {
