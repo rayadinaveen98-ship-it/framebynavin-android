@@ -49,6 +49,7 @@ class V2232PersonalReminderUiTest {
                     rule.onAllNodesWithTag("v2232-personal-editor").fetchSemanticsNodes().isEmpty()
             }
             rule.onAllNodesWithText("Pay electricity bill").assertCountEquals(1)
+            rule.onNodeWithTag("v2282-personal-delivery-health").assertExists()
             val personal = runBlocking { store.load() }
             assertEquals(1, personal.size)
             assertTrue(personal.single().pendingToken.isNotBlank())

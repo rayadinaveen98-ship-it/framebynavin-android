@@ -41,7 +41,8 @@ internal object PersonalDeliveryHealthPolicy {
             reminder.pendingOccurrenceMillis > 0L && reminder.pendingFireAtMillis > 0L
         if (hasLease &&
             reminder.snoozedUntilMillis == reminder.pendingFireAtMillis &&
-            reminder.lastResponse in setOf(PersonalResponse.SNOOZED, PersonalResponse.RESCHEDULED)
+            reminder.lastResponse in setOf(PersonalResponse.SNOOZED, PersonalResponse.RESCHEDULED) &&
+            reminder.pendingFireAtMillis > nowMillis
         ) return state(PersonalDeliveryHealthState.USER_DEFERRED,
             "Deferred by you · awaiting next alert")
 
@@ -58,7 +59,7 @@ internal object PersonalDeliveryHealthPolicy {
         }
 
         return if (PersonalAgendaPolicy.dueAtMillis(reminder, nowMillis) != null) {
-            state(PersonalDeliveryHealthState.UPCOMING, "Upcoming alert scheduled")
+            state(PersonalDeliveryHealthState.UPCOMING, "Next reminder planned")
         } else state(PersonalDeliveryHealthState.NO_UPCOMING, "No upcoming alert")
     }
 }

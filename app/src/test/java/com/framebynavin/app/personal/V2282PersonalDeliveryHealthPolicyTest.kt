@@ -56,6 +56,12 @@ class V2282PersonalDeliveryHealthPolicyTest {
         assertEquals(PersonalDeliveryHealthState.USER_DEFERRED,
             PersonalDeliveryHealthPolicy.status(snoozed, now).state)
         assertFalse(PersonalDeliveryHealthPolicy.status(snoozed, now).needsAttention)
+        val expiredSnooze = snoozed.copy(
+            pendingFireAtMillis = now - 8 * 60_000L,
+            snoozedUntilMillis = now - 8 * 60_000L,
+        )
+        assertEquals(PersonalDeliveryHealthState.LATE_UNCONFIRMED,
+            PersonalDeliveryHealthPolicy.status(expiredSnooze, now).state)
     }
 
     @Test fun pausedUpcomingAndNoFutureDoNotClaimDelivery() {
