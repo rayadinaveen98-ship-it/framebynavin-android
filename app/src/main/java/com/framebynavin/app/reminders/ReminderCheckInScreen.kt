@@ -3,6 +3,7 @@ package com.framebynavin.app.reminders
 import android.animation.ValueAnimator
 import android.os.PowerManager
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
@@ -140,15 +141,32 @@ internal fun ReminderCheckInScreen(
             .fillMaxSize()
             .background(BacklotBackground),
     ) {
-        // The ambient field persists even after controls are visible.
-        V195ReminderParticleScene(
-            kind = kind,
-            revealed = revealed,
-            lowPower = lowPower,
-            onReveal = { revealed = true },
-            modifier = Modifier.fillMaxSize(),
-            motionEnabled = motionEnabled,
-        )
+        // Intro is UNCHANGED: clock/mic silhouette still forms from real particles.
+        // After the user's tap, crossfade to diffuse moving color waves only;
+        // no particles remain behind action buttons.
+        Crossfade(
+            targetState = revealed,
+            animationSpec = tween(durationMillis = if (motionEnabled) 480 else 0),
+            label = "v231-reminder-backdrop-transition",
+        ) { showingActions ->
+            if (showingActions) {
+                V231CinematicWaveBackdrop(
+                    kind = kind,
+                    lowPower = lowPower,
+                    motionEnabled = motionEnabled,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                V195ReminderParticleScene(
+                    kind = kind,
+                    revealed = false,
+                    lowPower = lowPower,
+                    onReveal = { revealed = true },
+                    modifier = Modifier.fillMaxSize(),
+                    motionEnabled = motionEnabled,
+                )
+            }
+        }
         // Only render actionable controls after manual reveal; no ghost actions under the intro.
         if (revealed) Column(
             modifier = Modifier
