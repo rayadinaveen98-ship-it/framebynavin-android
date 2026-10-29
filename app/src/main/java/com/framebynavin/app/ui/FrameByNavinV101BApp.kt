@@ -424,6 +424,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 PTab.TODAY -> PTodayScreen(
                     creatorProfile = settings.creatorProfile,
                     tasks = vm.tasks,
+                    projectsLoaded = vm.tasksLoaded,
                     ideas = vm.ideas,
                     onAdd = { openComposer() },
                     onStart = vm::startTask,

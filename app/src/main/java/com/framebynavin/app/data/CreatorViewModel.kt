@@ -117,7 +117,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         reconcileSnapshot(latest.first)
     }
 
-    private var tasksLoaded = false
+    // Compose-observable: Home must never confuse pending DataStore recovery
+    // with an authoritative empty project list on cold startup.
+    var tasksLoaded by mutableStateOf(false)
+        private set
     private var weeklyLoaded = false
 
     init {
