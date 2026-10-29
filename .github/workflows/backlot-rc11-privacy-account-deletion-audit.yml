@@ -1,0 +1,116 @@
+name: Backlot RC11 Live-Account Deletion Readiness and Privacy Draft Audit
+
+on:
+  push:
+    branches: [feature/backlot-rc11-account-deletion-design]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc11-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-deletion-boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Freeze app and assert existing cloud deletion is NOT a full account delete
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import subprocess
+
+          frozen='42ea7905b482c975d950fc988c08587aacbf1814'
+          subprocess.run(['git','merge-base','--is-ancestor',frozen,'HEAD'],check=True)
+          changed=set(subprocess.check_output(['git','diff','--name-only',frozen,'HEAD'],text=True).splitlines())
+          expected={
+             'docs/release/RC11_LIVE_ACCOUNT_DELETION_BLUEPRINT.md',
+             'docs/release/RC11_PRIVACY_POLICY_OWNER_REVIEW_DRAFT.md',
+             '.github/workflows/backlot-rc11-privacy-account-deletion-audit.yml',
+          }
+          assert changed==expected,'RC11 changed an unexpected file: '+str(changed^expected)
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 267' in gradle
+          assert 'targetSdk = 36' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'dev-signing/framebynavin-public-debug.jks' in gradle
+          manifest=Path('app/src/main/AndroidManifest.xml').read_text()
+          assert 'android:allowBackup="false"' in manifest
+
+          base=Path('app/src/main/java/com/framebynavin/app')
+          api=(base/'cloud/CloudApiClient.kt').read_text()
+          assert 'deleteCreatorSyncData(session: CloudSession)' in api
+          assert 'delete_creator_sync_data' in api
+          assert 'signInWithGoogle' in api
+
+          cloud=(base/'cloud/CloudSyncActivity.kt').read_text()
+          assert 'Backup & Recovery' in cloud
+          assert 'completeGoogleSignIn' in cloud
+          voice=(base/'cloud/CreatorCloudVoiceMedia.kt').read_text()
+          assert 'creator-voice-ideas' in voice
+          assert 'validateObjectPath(session.userId, objectPath)' in voice
+          assert 'objectPath.startsWith("$userId/")' in voice
+          personal=(base/'ui/PersonalBackupActivity.kt').read_text()
+          assert 'not encrypted' in personal
+          assert 'Personal backup saved and verified' in personal
+          creator=(base/'ui/BackupActivity.kt').read_text()
+          assert 'manager.writeBackup(output)' in creator
+          assert 'openInputStream(uri)?.use(manager::validate)' in creator
+
+          design=Path('docs/release/RC11_LIVE_ACCOUNT_DELETION_BLUEPRINT.md').read_text()
+          privacy=Path('docs/release/RC11_PRIVACY_POLICY_OWNER_REVIEW_DRAFT.md').read_text()
+          assert 'No deletion was performed' in design
+          for term in ('creator_profiles','creator_sync_heads','creator_sync_snapshots',
+                       'ON DELETE RESTRICT','Storage API','auth.users',
+                       'creator-voice-ideas','v131-build-assets',
+                       'server-side','External web request'):
+              assert term.lower() in design.lower(), 'Missing deletion plan: '+term
+          assert 'not a complete app-account deletion' in design.lower()
+          assert 'NOT IMPLEMENTED' in design
+          assert 'DO NOT PUBLISH' in privacy
+          assert '[OWNER INPUT REQUIRED' in privacy
+          assert '[VERIFY]' in privacy
+          assert 'NOT YET IMPLEMENTED/VERIFIED' in privacy
+          assert 'This file must not be deployed directly' in privacy
+
+          report={
+            'candidate':'Backlot RC11 doc/QA only',
+            'android_build267_frozen':True,
+            'rc11_changed_paths':sorted(changed),
+            'supabase_project_name':'FrameByNavin Creator OS',
+            'live_schema_inspected_on':'2026-10-30',
+            'live_public_tables_observed':['creator_profiles','creator_sync_heads','creator_sync_snapshots'],
+            'private_voice_storage_bucket_observed':'creator-voice-ideas',
+            'public_build_assets_bucket_observed':'v131-build-assets',
+            'current_creator_sync_delete_is_full_account_delete':False,
+            'creator_cloud_and_personal_backup_are_distinct':True,
+            'privacy_policy_draft_completed_for_owner_review':True,
+            'privacy_policy_ready_to_publish':False,
+            'web_account_deletion_request_route_live':False,
+            'in_app_account_deletion_request_route_verified':False,
+            'backend_account_deletion_implemented':False,
+            'live_auth_user_deletion_performed':False,
+            'live_storage_object_deletion_performed':False,
+            'data_safety_form_submitted':False,
+            'play_approved':False,
+            'new_apk_created':False,
+            'stable_main_changed':False,
+          }
+          Path('rc11-deletion-readiness-audit.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC11-Deletion-Scope-And-Privacy-Readiness
+          path: rc11-deletion-readiness-audit.json
+          if-no-files-found: warn
+          retention-days: 30
