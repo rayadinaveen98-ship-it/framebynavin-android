@@ -54,7 +54,9 @@ internal class PersonalDeliveryCoordinator(context: Context) {
     private val followUps = PersonalFollowUpSettingsStore(app)
 
     suspend fun reconcile(nowMillis: Long = System.currentTimeMillis()) {
-        val followUpSettings = followUps.current()
+        // Optional follow-up preferences must NEVER break the core reminder scheduler.
+        val followUpSettings = runCatching { followUps.current() }
+            .getOrDefault(PersonalFollowUpSettings())
         store.load().forEach { original ->
             if (original.paused) {
                 cancelPending(original.id)
@@ -356,7 +358,9 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             val current = store.load().firstOrNull {
                 it.id == id && it.pendingToken == token && it.presentedToken == token
             }
-            if (current != null) armFollowUp(current, followUps.current(), System.currentTimeMillis())
+            if (current != null) armFollowUp(current,
+                runCatching { followUps.current() }.getOrDefault(PersonalFollowUpSettings()),
+                System.currentTimeMillis())
         }
         return claimed
     }
