@@ -52,8 +52,11 @@ internal object V2292SparkConversationPolicy {
                 V2292SparkDestination.REMINDERS, actionLabel = "OPEN REMINDERS",
             )
         }
-        if (words.any { it in setOf("next", "focus", "project", "projects", "step", "start", "continue", "work", "today", "priority") }) ||
-            q.contains("what should")
+        if (
+            words.any {
+                it in setOf("next", "focus", "project", "projects",
+                    "step", "start", "continue", "work", "today", "priority")
+            } || q.contains("what should")
         ) {
             // No archived, completed or skipped work. Due dates and priority
             // decide order only; they never certify actual delivery or work.
