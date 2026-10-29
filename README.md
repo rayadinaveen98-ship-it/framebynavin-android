@@ -2,7 +2,15 @@
 
 Backlot is an Android-first, offline-first creator workspace built with Kotlin and Jetpack Compose. Capture ideas, develop scripts/projects, manage production and reminders, record publication and review authorized channel results.
 
-## Current release gate — 23 October 2026
+## Current engineering gate — 29 October 2026
+
+**Frozen candidate:** **Backlot RC4 Build266** (`2.15.3-rc4-inplace-upgrade-data-preview`, application ID `com.framebynavin.app`) from exact source commit `7fdda27b22dfe7e971ce370ab366a33520ee691a`. [RC4 five-job GitHub QA](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/40889471748) passed JVM/lint/build, Android 11 + 15 regression, and real 265→266 `adb install -r` persistence on disposable emulators. **This is not Play Store release approval and has not been accepted on the owner's physical phone.**
+
+**Release consolidation, not a new app version:** RC5 freezes the Build266 app source and adds an Android 16 (API 36) emulator smoke matrix, an auditable Play-preflight gate and a physical-phone acceptance checklist. [RC5 release audit](docs/release/RC5_BUILD266_RELEASE_ACCEPTANCE.md) records the remaining blockers. Stable `main` is unchanged. The RC4 commit is **1,241 commits ahead of `main`** and includes a contiguous **30-draft-PR** stack (#148 through #178, not every PR number contiguous), not one small isolated PR.
+
+**Different release states:** historical V195.5 personal-sideload stable, historical creator-approved V208 phone preview, engineering QA-green Build266, and an eventual Play production-signed binary are **not interchangeable**. The Build266 `personalStable` APK uses a publicly checked-in prototype signer and **must not** be submitted to Play. Creator and Personal reminder backups are separate; external project attachment files are not packaged in Creator backups. Never uninstall Backlot to upgrade without protecting user data.
+
+## Historical release notes — 23 October 2026
 
 **V210 P4.6, Build 237 is CI-green but not stable.** [GitHub Actions run 39934884089](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/39934884089) passed the Android build and device-emulator suites, including the previously failing Best Frames checksum tests. The source is on [draft PR #100](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/100), not merged into `main` or any stable branch.
 

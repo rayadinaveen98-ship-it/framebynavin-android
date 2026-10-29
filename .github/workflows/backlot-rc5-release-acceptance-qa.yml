@@ -1,0 +1,271 @@
+name: Backlot RC5 Frozen Build266 Release Preflight and Android16 QA
+
+on:
+  push:
+    branches: [feature/backlot-rc5-release-acceptance-freeze]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-rc5-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require frozen RC4 application source and truthful release disclosures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+          import subprocess
+
+          frozen = '7fdda27b22dfe7e971ce370ab366a33520ee691a'
+          subprocess.run(['git', 'merge-base', '--is-ancestor', frozen, 'HEAD'], check=True)
+          changed = subprocess.check_output(['git', 'diff', '--name-only', frozen, 'HEAD'], text=True).splitlines()
+          allowed = {
+              'README.md',
+              'docs/release/RC5_BUILD266_RELEASE_ACCEPTANCE.md',
+              '.github/workflows/backlot-rc5-release-acceptance-qa.yml',
+          }
+          unexpected = [p for p in changed if p not in allowed]
+          assert not unexpected, f'Frozen Build266 source changed without new full-device QA: {unexpected}'
+          subprocess.run(['git', 'merge-base', '--is-ancestor', 'origin/main', 'HEAD'], check=True)
+          ahead = int(subprocess.check_output(['git', 'rev-list', '--count', 'origin/main..HEAD'], text=True))
+          assert ahead >= 1241, f'Missing accepted application history: {ahead}'
+          gradle = Path('app/build.gradle.kts').read_text()
+          manifest = Path('app/src/main/AndroidManifest.xml').read_text()
+          readme = Path('README.md').read_text()
+          policy = Path('docs/release/RC5_BUILD266_RELEASE_ACCEPTANCE.md').read_text()
+          assert re.search(r'applicationId\s*=\s*"com\.framebynavin\.app"', gradle)
+          assert re.search(r'versionCode\s*=\s*266\b', gradle)
+          assert re.search(r'targetSdk\s*=\s*36\b', gradle)
+          assert re.search(r'compileSdk\s*=\s*36\b', gradle)
+          assert 'personalStable' in gradle and 'prototypeStable' in gradle
+          assert 'productionSigningConfigured' in gradle and 'productionReleaseSigning?.let' in gradle
+          assert 'android:allowBackup="false"' in manifest
+          assert 'android:usesCleartextTraffic="false"' in manifest
+          perms = ('SCHEDULE_EXACT_ALARM', 'USE_FULL_SCREEN_INTENT', 'POST_NOTIFICATIONS',
+                   'RECORD_AUDIO', 'FOREGROUND_SERVICE_MEDIA_PLAYBACK')
+          assert all(f'android.permission.{p}' in manifest for p in perms)
+          assert 'not Play Store release approval' in readme
+          assert 'Creator and Personal reminder backups are separate' in readme
+          assert 'Production signing' in policy
+          assert 'owner-phone acceptance' in policy.lower()
+          assert Path('app/src/androidTest/java/com/framebynavin/app/data/V266InPlaceUpgradePersistenceTest.kt').is_file()
+          report = {
+              'frozen_app_source_sha': frozen,
+              'audit_branch_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'application_id': 'com.framebynavin.app',
+              'version_code': 266,
+              'target_sdk': 36,
+              'main_ahead_commits_at_ci': ahead,
+              'source_files_changed_since_frozen': unexpected,
+              'ci_frozen_source_guard': 'passed',
+              'play_ready': False,
+              'owner_physical_device_accepted': False,
+              'production_play_signer_verified': False,
+              'restricted_permission_eligibility_approved': False,
+          }
+          Path('rc5-release-preflight.json').write_text(json.dumps(report, indent=2) + '\n')
+          print(json.dumps(report, indent=2))
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC4-Owner-Full-App-APK
+          run-id: 40889471748
+          github-token: ${{ github.token }}
+          path: owner
+      - name: Verify exact frozen Build266 signed owner APK and checksums
+        run: |
+          set -euo pipefail
+          APK="$(find owner -type f -name 'Backlot-RC4-Build266-Full-App.apk' -print -quit)"
+          HASHES="$(find owner -type f -name 'SHA256SUMS.txt' -print -quit)"
+          test -s "$APK" && test -s "$HASHES"
+          (cd "$(dirname "$APK")" && sha256sum -c SHA256SUMS.txt)
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$SIGNER" && test -x "$AAPT"
+          "$SIGNER" verify --print-certs "$APK" > rc5-owner-preview-certificate.txt
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.framebynavin.app' versionCode='266'"
+          "$AAPT" dump badging "$APK" | grep -F "targetSdkVersion:'36'"
+          sha256sum "$APK" > rc5-owner-apk-sha256.txt
+          cat rc5-owner-apk-sha256.txt
+          printf '%s\n' 'Owner preview certificate is PROTOTYPE-only; no Play production signing approval.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC5-Release-Preflight-Evidence
+          path: |
+            rc5-release-preflight.json
+            rc5-owner-apk-sha256.txt
+            rc5-owner-preview-certificate.txt
+          if-no-files-found: warn
+          retention-days: 21
+
+  android16:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC4-Test-APKs
+          run-id: 40889471748
+          github-token: ${{ github.token }}
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 16 API36 existing QA-green app cold start, Personal, backup, Workspace, Spark
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            test -s "$(find apks -type f -name app-debug.apk -print -quit)" && test -s "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V230ColdStartLoadingUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-coldstart-api36.log
+            grep -Fq "OK (2 tests)" rc5-coldstart-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V170LocalBackupScreenUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-backup-api36.log
+            grep -Fq "OK (3 tests)" rc5-backup-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-personal-api36.log
+            grep -Fq "OK (2 tests)" rc5-personal-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2285WorkspaceFocusUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-workspace-api36.log
+            grep -Fq "OK (3 tests)" rc5-workspace-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2293SparkVoiceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-spark-api36.log
+            grep -Fq "OK (3 tests)" rc5-spark-api36.log
+            adb shell am start -n com.framebynavin.app/.MainActivity | tee rc5-launch-api36.log
+            grep -Fq 'Starting: Intent' rc5-launch-api36.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC5-Android16-Evidence
+          path: |
+            rc5-coldstart-api36.log
+            rc5-backup-api36.log
+            rc5-personal-api36.log
+            rc5-workspace-api36.log
+            rc5-spark-api36.log
+            rc5-launch-api36.log
+          if-no-files-found: warn
+          retention-days: 21
+
+  android16-reliability:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC4-Test-APKs
+          run-id: 40889471748
+          github-token: ${{ github.token }}
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 16 reminder alarms and actions, private backup, Save Idea, Home analytics
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            # Disposable CI emulator and the exact QA-green RC4 debug + test APKs.
+            test -s "$(find apks -type f -name app-debug.apk -print -quit)" && test -s "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V159ReminderScheduleAcceptanceTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-schedule-api36.log
+            grep -Fq "OK (5 tests)" rc5-schedule-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V159ReminderActionIsolationTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-action-api36.log
+            grep -Fq "OK (3 tests)" rc5-action-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V159NotificationChannelAcceptanceTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-notifications-api36.log
+            grep -Fq "OK (1 test)" rc5-notifications-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-private-backup-api36.log
+            grep -Fq "OK (2 tests)" rc5-private-backup-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V227IdeaFooterAdaptiveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-idea-footer-api36.log
+            grep -Fq "OK (3 tests)" rc5-idea-footer-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-personal-editor-api36.log
+            grep -Fq "OK (2 tests)" rc5-personal-editor-api36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2203TopPerformersOrderUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc5-top-performers-api36.log
+            grep -Fq "OK (1 test)" rc5-top-performers-api36.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC5-Android16-Reliability-Evidence
+          path: |
+            rc5-schedule-api36.log
+            rc5-action-api36.log
+            rc5-notifications-api36.log
+            rc5-private-backup-api36.log
+            rc5-idea-footer-api36.log
+            rc5-personal-editor-api36.log
+            rc5-top-performers-api36.log
+          if-no-files-found: warn
+          retention-days: 21
+
+  release-bundle-dry-run:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Prove Android App Bundle can be assembled without a production key
+        run: |
+          # This is a buildability check ONLY; no credentials, no upload, no Play signing.
+          gradle :app:bundleRelease --stacktrace
+      - name: Inspect unsigned release-bundle container and print safe metadata
+        run: |
+          set -euo pipefail
+          AAB="app/build/outputs/bundle/release/app-release.aab"
+          test -s "$AAB"
+          unzip -t "$AAB" | tail -1 | grep -F "No errors detected"
+          unzip -Z -1 "$AAB" | grep -Fqx "BundleConfig.pb"
+          unzip -Z -1 "$AAB" | grep -Fqx "base/manifest/AndroidManifest.xml"
+          unzip -Z -1 "$AAB" | grep -Fqx "base/dex/classes.dex"
+          # Never allow CI to advertise a signed Play upload bundle. A real
+          # release requires an independently provisioned private upload key.
+          if unzip -Z -1 "$AAB" | grep -Eq '^META-INF/[^/]+\.(RSA|DSA|EC)$'; then
+            echo 'Unexpected signed bundle; do not use for release' >&2
+            exit 1
+          fi
+          echo "Build266 frozen-source release bundle STRUCTURE passed; UNSIGNED and NOT Play-ready"
+          sha256sum "$AAB" > rc5-unsigned-bundle-sha256.txt
+          printf '%s\n' "RC5 source SHA 7fdda27b22dfe7e971ce370ab366a33520ee691a" > rc5-bundle-buildability.txt
+          printf '%s\n' "No private upload key supplied. No AAB is distributed by this QA job." >> rc5-bundle-buildability.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC5-Bundle-Structure-Evidence-Only
+          path: |
+            rc5-unsigned-bundle-sha256.txt
+            rc5-bundle-buildability.txt
+          if-no-files-found: warn
+          retention-days: 21
