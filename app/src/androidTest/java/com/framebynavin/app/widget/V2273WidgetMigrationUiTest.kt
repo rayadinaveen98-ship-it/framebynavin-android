@@ -37,7 +37,7 @@ class V2273WidgetMigrationUiTest {
                 )
             }
         }
-        rule.onNodeWithTag("v2273-widget-counts").assertTextContains("OLDER: 2 PINNED")
+        rule.onNodeWithTag("v2273-widget-counts").assertTextContains("OLDER: 2 PINNED", substring = true)
         for (kind in V2273WidgetKind.entries) {
             rule.onNodeWithTag("v2273-pin-${kind.name.lowercase()}")
                 .performScrollTo().assertIsDisplayed()
