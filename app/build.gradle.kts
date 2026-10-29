@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V229.2 session-only Spark offline guide; upgrade from Build258.
-        versionCode = 259
-        versionName = "2.14.0-v2292-spark-offline-guide-preview"
+        // V229.3 explicit on-device Spark mic and local TTS; upgrade Build259.
+        versionCode = 260
+        versionName = "2.14.1-v2293-spark-voice-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
