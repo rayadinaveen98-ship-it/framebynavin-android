@@ -115,19 +115,45 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
             adb install -r "$(find apks -name app-debug.apk -print -quit)"
             adb install -r "$(find apks -name app-debug-androidTest.apk -print -quit)"
-            for case in 'com.framebynavin.app.ui.V217LiveGuideScreensUiTest:2' 'com.framebynavin.app.ui.V2221CompanionHeaderUiTest:2' 'com.framebynavin.app.personal.V2272PersonalWaveUiTest:2' 'com.framebynavin.app.widget.V2273WidgetMigrationUiTest:2'; do
-              cls="${case%%:*}"; count="${case##*:}"
-              adb shell am instrument -w -r -e class "$cls" -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "android11-${cls##*.}.log"
-              grep -Fq "OK ($count tests)" "android11-${cls##*.}.log"
-            done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217LiveGuideScreensUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-guide-default.log
+            grep -Fq "OK (2 tests)" android11-guide-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-header-default.log
+            grep -Fq "OK (2 tests)" android11-header-default.log
+            mkdir -p android11-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-first-run-spark.png > android11-evidence/first-run-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-settings-spark.png > android11-evidence/settings-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-default-header-art-and-gallery.png > android11-evidence/header-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-default-real-suggestion-sheet.png > android11-evidence/suggestion-default.png
+            test -s android11-evidence/first-run-default.png
+            test -s android11-evidence/header-default.png
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2272PersonalWaveUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-personal-wave.log
+            grep -Fq "OK (2 tests)" android11-personal-wave.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.widget.V2273WidgetMigrationUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-widget-migration.log
+            grep -Fq "OK (2 tests)" android11-widget-migration.log
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 1.5
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217LiveGuideScreensUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-guide-compact.log
+            grep -Fq "OK (2 tests)" android11-guide-compact.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android11-header-compact.log
+            grep -Fq "OK (2 tests)" android11-header-compact.log
+            mkdir -p android11-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-compact-first-run-spark.png > android11-evidence/first-run-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-compact-settings-spark.png > android11-evidence/settings-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-compact-header-art-and-gallery.png > android11-evidence/header-compact.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-compact-real-suggestion-sheet.png > android11-evidence/suggestion-compact.png
+            test -s android11-evidence/first-run-compact.png
+            test -s android11-evidence/header-compact.png
+            adb shell wm size reset
+            adb shell settings put system font_scale 1.0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Backlot-V2281-Android11-Results
-          path: android11-*.log
+          path: |
+            android11-*.log
+            android11-evidence/*.png
           if-no-files-found: warn
 
   android15:
@@ -153,18 +179,27 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
             adb install -r "$(find apks -name app-debug.apk -print -quit)"
             adb install -r "$(find apks -name app-debug-androidTest.apk -print -quit)"
             adb shell cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural
-            for case in 'com.framebynavin.app.ui.V217LiveGuideScreensUiTest:2' 'com.framebynavin.app.ui.V2221CompanionHeaderUiTest:2' 'com.framebynavin.app.personal.V2272PersonalWaveUiTest:2'; do
-              cls="${case%%:*}"; count="${case##*:}"
-              adb shell am instrument -w -r -e class "$cls" -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "android15-${cls##*.}.log"
-              grep -Fq "OK ($count tests)" "android15-${cls##*.}.log"
-            done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217LiveGuideScreensUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android15-guide-default.log
+            grep -Fq "OK (2 tests)" android15-guide-default.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android15-header-default.log
+            grep -Fq "OK (2 tests)" android15-header-default.log
+            mkdir -p android15-evidence
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-first-run-spark.png > android15-evidence/first-run-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-settings-spark.png > android15-evidence/settings-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-default-header-art-and-gallery.png > android15-evidence/header-default.png
+            adb exec-out run-as com.framebynavin.app cat files/v2221-companion-header/v2221-default-real-suggestion-sheet.png > android15-evidence/suggestion-default.png
+            test -s android15-evidence/first-run-default.png
+            test -s android15-evidence/header-default.png
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2272PersonalWaveUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee android15-personal-wave.log
+            grep -Fq "OK (2 tests)" android15-personal-wave.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Backlot-V2281-Android15-Results
-          path: android15-*.log
+          path: |
+            android15-*.log
+            android15-evidence/*.png
           if-no-files-found: warn
