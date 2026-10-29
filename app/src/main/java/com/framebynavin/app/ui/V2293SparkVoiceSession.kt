@@ -13,12 +13,12 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import androidx.activity.ComponentActivity
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.util.Locale
 
 /** Android 12+ on-device recognizer only. Never invoke a cloud speech fallback. */
@@ -47,6 +47,10 @@ internal class V2293SparkVoiceSession(
         private set
     var speaking by mutableStateOf(false)
         private set
+    var preparingPlayback by mutableStateOf(false)
+        private set
+    val playbackActive: Boolean
+        get() = preparingPlayback || speaking
     private var recognizer: SpeechRecognizer? = null
     private var player: TextToSpeech? = null
     private var playerGeneration = 0
@@ -83,6 +87,8 @@ internal class V2293SparkVoiceSession(
             return
         }
         stopListening()
+        // Do not let an ongoing spoken reply feed into the microphone.
+        stopPlayback()
         try {
             // API >= 31 and on-device service availability checked above.
             val service = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
@@ -146,7 +152,10 @@ internal class V2293SparkVoiceSession(
     fun readAloud(reply: String) {
         val text = V2293SparkVoicePolicy.spokenReply(reply)
         if (closed || text.isBlank()) return
+        // Never record locally-played speech as the user's question.
+        stopListening()
         stopPlayback()
+        preparingPlayback = true
         val generation = ++playerGeneration
         status = "Checking for an installed offline voice…"
         var pendingEngine: TextToSpeech? = null
@@ -180,6 +189,7 @@ internal class V2293SparkVoiceSession(
                         override fun onStart(utteranceId: String?) {
                             main.post {
                                 if (!closed && generation == playerGeneration) {
+                                    preparingPlayback = false
                                     speaking = true
                                     status = "Reading aloud with an installed offline voice…"
                                 }
@@ -188,6 +198,7 @@ internal class V2293SparkVoiceSession(
                         override fun onDone(utteranceId: String?) {
                             main.post {
                                 if (!closed && generation == playerGeneration) {
+                                    preparingPlayback = false
                                     speaking = false
                                     status = "Read-aloud finished."
                                 }
@@ -197,6 +208,7 @@ internal class V2293SparkVoiceSession(
                         override fun onError(utteranceId: String?) {
                             main.post {
                                 if (!closed && generation == playerGeneration) {
+                                    preparingPlayback = false
                                     speaking = false
                                     status = "Couldn't read aloud. The text is still here."
                                 }
@@ -220,11 +232,17 @@ internal class V2293SparkVoiceSession(
 
     fun stopPlayback() {
         ++playerGeneration
+        preparingPlayback = false
         speaking = false
         val old = player
         player = null
         runCatching { old?.stop() }
         runCatching { old?.shutdown() }
+    }
+
+    fun cancelPlayback() {
+        stopPlayback()
+        if (!closed) status = "Read-aloud stopped."
     }
 
     fun stopOnBackground() {
@@ -248,16 +266,18 @@ internal fun rememberV2293SparkVoiceSession(
     val session = remember(context) {
         V2293SparkVoiceSession(context.applicationContext) { text -> latestOnTranscript(text) }
     }
-    val lifecycle = (context as? ComponentActivity)?.lifecycle
+    // The LocalContext may be a ContextThemeWrapper, not a ComponentActivity.
+    // Use Compose's actual lifecycle owner so ON_STOP always cancels speech.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(session, lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_DESTROY) {
                 session.stopOnBackground()
             }
         }
-        lifecycle?.addObserver(observer)
+        lifecycle.addObserver(observer)
         onDispose {
-            lifecycle?.removeObserver(observer)
+            lifecycle.removeObserver(observer)
             session.close()
         }
     }
