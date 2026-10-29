@@ -52,6 +52,8 @@ internal data class PersonalReminder(
     val pendingToken: String = "",
     /** Posted notification handoff token; prevents repeat delivery on reconciliation. */
     val presentedToken: String = "",
+    /** Durable one-shot receipt for the exact opt-in follow-up lease. */
+    val followUpSentToken: String = "",
     val lastResponse: PersonalResponse = PersonalResponse.NONE,
     val lastResponseAtMillis: Long = 0L,
     val createdAtMillis: Long = System.currentTimeMillis(),
@@ -75,6 +77,9 @@ internal data class PersonalReminder(
         }
         require(presentedToken.isEmpty() || presentedToken == pendingToken) {
             "Stale presented occurrence token"
+        }
+        require(followUpSentToken.isEmpty() || followUpSentToken.matches(Regex("[a-f0-9-]{36}"))) {
+            "Invalid personal follow-up token"
         }
         require(pendingToken.isEmpty() || pendingToken.matches(Regex("[a-f0-9-]{36}"))) {
             "Invalid personal occurrence token"

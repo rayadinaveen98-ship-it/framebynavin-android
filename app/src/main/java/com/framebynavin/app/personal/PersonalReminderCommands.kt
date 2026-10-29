@@ -75,6 +75,7 @@ internal class PersonalReminderCommands(context: Context) {
                 pendingFireAtMillis = 0L,
                 pendingToken = "",
                 presentedToken = "",
+                followUpSentToken = "",
                 snoozedUntilMillis = 0L,
                 lastAcknowledgedOccurrenceMillis = 0L,
                 lastMissedOccurrenceMillis = 0L,
@@ -99,6 +100,7 @@ internal class PersonalReminderCommands(context: Context) {
                 pendingFireAtMillis = 0L,
                 pendingToken = "",
                 presentedToken = "",
+                followUpSentToken = "",
                 snoozedUntilMillis = 0L,
                 updatedAtMillis = System.currentTimeMillis(),
             )
