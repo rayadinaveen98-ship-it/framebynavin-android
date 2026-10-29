@@ -36,7 +36,7 @@ jobs:
             adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
             adb shell cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural
             adb shell settings put secure show_ime_with_hard_keyboard 1
-            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile gestural com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee newidea-android15-isolated.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2204NewIdeaRootOverlayUiTest -e backlotVisualProfile gestural -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee newidea-android15-isolated.log
             mkdir -p evidence
             adb exec-out run-as com.framebynavin.app cat files/v2204-idea-evidence/v2204-gestural-keyboard-clear.png > evidence/keyboard-first.png || true
             adb exec-out run-as com.framebynavin.app cat files/v2204-idea-evidence/v2204-gestural-keyboard-settled.png > evidence/keyboard-settled.png || true
