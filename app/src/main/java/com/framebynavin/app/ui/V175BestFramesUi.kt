@@ -23,6 +23,8 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,6 +82,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -463,6 +467,10 @@ internal fun V18CinematicHomeHero(
     var editingPhotos by remember { mutableStateOf(false) }
     var userPaused by remember { mutableStateOf(V18HomeHeroStore.isPaused(context)) }
     var manageExpanded by rememberSaveable { mutableStateOf(false) }
+    // Hero images are unobstructed by default; tapping the image briefly reveals controls.
+    var mediaControlsVisible by rememberSaveable { mutableStateOf(false) }
+    var revealPulse by remember { mutableIntStateOf(0) }
+    val mediaInteractions = remember { MutableInteractionSource() }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
     var showPhotoEditor by rememberSaveable { mutableStateOf(false) }
     var pendingSingleRemove by rememberSaveable { mutableStateOf<String?>(null) }
@@ -563,6 +571,13 @@ internal fun V18CinematicHomeHero(
         }
     }
 
+    LaunchedEffect(mediaControlsVisible, revealPulse, manageExpanded) {
+        if (mediaControlsVisible && !manageExpanded) {
+            delay(4_000L)
+            mediaControlsVisible = false
+        }
+    }
+
     LaunchedEffect(framePaths, playbackEnabled) {
         if (framePaths.isEmpty()) index = 0
         else if (index !in framePaths.indices) index = 0
@@ -613,7 +628,16 @@ internal fun V18CinematicHomeHero(
                 border = BorderStroke(1.dp, BacklotMediaBorder),
                 shadowElevation = 10.dp,
             ) {
-                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp)).background(BacklotMediaCanvas)) {
+                Box(
+                    Modifier.fillMaxSize()
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(BacklotMediaCanvas)
+                        .semantics { contentDescription = "Show slideshow controls" }
+                        .clickable(interactionSource = mediaInteractions, indication = null) {
+                            mediaControlsVisible = true
+                            revealPulse++
+                        },
+                ) {
                     AnimatedContent(
                         targetState = framePaths.getOrNull(index).orEmpty(),
                         transitionSpec = {
@@ -628,8 +652,13 @@ internal fun V18CinematicHomeHero(
                         }
                     }
 
-                    if (frames.size > 1) {
-                        Box(Modifier.align(Alignment.TopStart).padding(12.dp)) {
+                    AnimatedVisibility(
+                        visible = mediaControlsVisible && frames.size > 1,
+                        modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+                        enter = fadeIn(tween(220)),
+                        exit = fadeOut(tween(220)),
+                    ) {
+                        Box {
                             V18HeroIconButton(
                                 icon = if (userPaused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause,
                                 contentDescription = if (userPaused) "Play slideshow" else "Pause slideshow",
@@ -657,14 +686,21 @@ internal fun V18CinematicHomeHero(
                             }
                         }
                     } else {
+                        AnimatedVisibility(
+                            visible = mediaControlsVisible || manageExpanded,
+                            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                            enter = fadeIn(tween(220)),
+                            exit = fadeOut(tween(220)),
+                        ) {
                         V18HeroManageActions(
                             expanded = manageExpanded,
                             onToggle = { manageExpanded = !manageExpanded },
                             onChange = { manageExpanded = false; chooseReplaceFrames() },
                             onRemove = { manageExpanded = false; confirmRemove = true },
                             onEdit = { manageExpanded = false; showPhotoEditor = true },
-                            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                            modifier = Modifier,
                         )
+                        }
                     }
                 }
             }
