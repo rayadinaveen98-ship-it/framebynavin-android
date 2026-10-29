@@ -28,10 +28,16 @@ class V231CinematicPostTouchUiTest {
                 )
             }
         }
-        // Unmodified particle clock/mic intro, NO cinematic action wave initially.
-        rule.onNodeWithTag("v1952-ambient-particles").assertExists()
-        rule.onNodeWithTag("v231-cinematic-wave-backdrop").assertDoesNotExist()
-        rule.onNodeWithContentDescription("Show reminder controls").performClick()
+        // Normal motion starts with the UNCHANGED particles, but the OS
+        // accessibility setting "remove animations" deliberately reveals
+        // actions immediately. Do not mistake that intended fallback for an
+        // intro regression on CI emulators, which disable all animations.
+        val reveal = rule.onAllNodesWithContentDescription("Show reminder controls")
+        if (reveal.fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithTag("v1952-ambient-particles").assertExists()
+            rule.onNodeWithTag("v231-cinematic-wave-backdrop").assertDoesNotExist()
+            reveal.onFirst().performClick()
+        }
         rule.waitForIdle()
         rule.onNodeWithTag("v200-reminder-controls").assertExists()
         rule.onNodeWithTag("v231-cinematic-wave-backdrop").assertExists()
