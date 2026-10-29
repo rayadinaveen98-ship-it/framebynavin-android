@@ -109,6 +109,15 @@ class CreatorContextNudgeWorker(
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
+        // A pause/opt-out can happen while the worker builds the message.
+        // Recheck the *current* preference before any optional notification.
+        if (!CreatorOsSettingsStore(applicationContext).snapshot().contextNudgesEnabled ||
+            V205NudgePausePolicy.isPaused(
+                System.currentTimeMillis(),
+                prefs.getLong(V205NudgePausePolicy.KEY_PAUSED_UNTIL, 0L),
+            ) || !notificationsAvailable(applicationContext)
+        ) return@readyTransaction Result.success()
+
         manager.notify(NOTIFICATION_ID, notification)
         // Preserve both the global cap and per-project-key cooldown durably.
         V203NudgeHistory.recordShown(prefs, nudge.key, now)
@@ -123,6 +132,20 @@ class CreatorContextNudgeWorker(
         private const val KEY_LAST_NUDGE = "last_key"
         private const val KEY_LAST_AT = "last_at"
         private const val NOTIFICATION_ID = 8401
+
+        /** Checks the actual optional nudge channel, not the Creator alarm channel. */
+        fun notificationsAvailable(context: Context): Boolean {
+            if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) return false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = context.getSystemService(NotificationManager::class.java)
+                    .getNotificationChannel(CHANNEL_ID)
+                if (channel?.importance == NotificationManager.IMPORTANCE_NONE) return false
+            }
+            return true
+        }
 
         fun ensurePeriodic(context: Context) {
             val request = PeriodicWorkRequestBuilder<CreatorContextNudgeWorker>(6, TimeUnit.HOURS).build()
