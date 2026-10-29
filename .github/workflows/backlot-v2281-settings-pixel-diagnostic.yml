@@ -1,0 +1,53 @@
+name: V2281 Spark Settings Real Pixel Diagnostic
+
+on:
+  push:
+    branches: [qa/backlot-v2281-settings-pixel-diagnostic]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  android15:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2281-Instrumentation-APKs
+          run-id: 40831651575
+          github-token: ${{ github.token }}
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Capture real Android 15 pixels even when assertion fails
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V217LiveGuideScreensUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2281-settings-pixels.log
+            mkdir -p diag
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-first-run-spark.png > diag/first-run-spark.png
+            adb exec-out run-as com.framebynavin.app cat files/v217-live-screens/v217-default-settings-spark.png > diag/settings-spark.png
+            adb shell screencap -p /sdcard/v2281-system-screen.png
+            adb pull /sdcard/v2281-system-screen.png diag/system-after-test.png
+            cp v2281-settings-pixels.log diag/
+            test -s diag/settings-spark.png
+            grep -Fq "OK (2 tests)" v2281-settings-pixels.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2281-Settings-Pixel-Evidence
+          path: diag/
+          if-no-files-found: warn
