@@ -1,6 +1,12 @@
 package com.framebynavin.app.ui
 
 import android.os.Build
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import org.junit.Assert.assertEquals
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -41,6 +47,28 @@ class V2293SparkVoiceUiTest {
         rule.onNodeWithTag("v2293-spark-privacy").assertExists()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             rule.onNodeWithTag("v2293-spark-microphone").assertIsNotEnabled()
+        }
+    }
+
+    @Test fun composeLifecycleStopClearsVoiceStatusEvenWithCustomOwner() {
+        // The lifecycle is deliberately NOT obtained by casting LocalContext to
+        // ComponentActivity. This test fails if the UI uses that old approach.
+        val owner = object : LifecycleOwner {
+            override val lifecycle = LifecycleRegistry(this)
+        }
+        lateinit var voice: V2293SparkVoiceSession
+        rule.setContent {
+            CompositionLocalProvider(LocalLifecycleOwner provides owner) {
+                voice = rememberV2293SparkVoiceSession { }
+            }
+        }
+        rule.runOnIdle {
+            owner.lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+            owner.lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_START)
+            voice.permissionDenied()
+            assertEquals("Microphone permission denied. Type your question instead.", voice.status)
+            owner.lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+            assertEquals("", voice.status)
         }
     }
 
