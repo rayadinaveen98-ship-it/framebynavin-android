@@ -122,6 +122,30 @@ class V2204NewIdeaRootOverlayUiTest {
      * This is NOT a semantic visibility shortcut: every successful attempt
      * still requires a real red Save band entirely above the real IME.
      */
+    /**
+     * On the API35 emulator the gesture launcher (Quickstep) can show an ANR
+     * overlay over *our* real app and IME. The screenshot remains a strict
+     * on-screen gate: detect and dismiss only the known emulator system ANR,
+     * refocus the actual text field, then REQUIRE real keyboard + Save pixels.
+     * Never skip screenshot checks or suppress genuine Backlot obstruction.
+     */
+    private fun recoverEmulatorQuickstepAnr(): Boolean {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val root = automation.rootInActiveWindow ?: return false
+        val quickstepAnr = root.findAccessibilityNodeInfosByText("Quickstep isn't responding")
+        if (quickstepAnr.isNullOrEmpty()) return false
+        val dismiss = root.findAccessibilityNodeInfosByText("Close app")
+            ?.firstOrNull() ?: return false
+        val dismissed = dismiss.performAction(
+            android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK,
+        )
+        if (!dismissed) return false
+        android.util.Log.w("BacklotAndroid15QA", "Dismissed known emulator Quickstep ANR; retest actual IME pixels")
+        SystemClock.sleep(350)
+        rule.onNodeWithTag("v2203-new-idea-title").performClick()
+        return true
+    }
+
     private fun verifyRealKeyboardAndRedSaveAreSeparate() {
         var lastFailure: AssertionError? = null
         repeat(8) { index ->
@@ -130,7 +154,11 @@ class V2204NewIdeaRootOverlayUiTest {
                 return
             } catch (error: AssertionError) {
                 lastFailure = error
+                // A Quickstep error dialog is an Android emulator system
+                // interruption, not a Backlot Save layout. Recovery is allowed
+                // only if the next screen still passes the same strict gate.
                 if (index < 7) {
+                    recoverEmulatorQuickstepAnr()
                     SystemClock.sleep(280)
                     rule.waitForIdle()
                 }
