@@ -14,6 +14,24 @@ import kotlinx.coroutines.launch
  */
 internal class PersonalReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == PersonalDeliveryContract.ACTION_FOLLOW_UP) {
+            val id = intent.getStringExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID).orEmpty()
+            val token = intent.getStringExtra(PersonalDeliveryContract.EXTRA_TOKEN).orEmpty()
+            val occurrence = intent.getLongExtra(PersonalDeliveryContract.EXTRA_OCCURRENCE, 0L)
+            if (id.isBlank() || token.isBlank() || occurrence <= 0L) return
+            val pending = goAsync()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    PersonalDeliveryCoordinator(context.applicationContext)
+                        .deliverFollowUp(id, occurrence, token)
+                } catch (failure: Exception) {
+                    android.util.Log.e("BacklotPersonal", "Optional personal follow-up failed", failure)
+                } finally {
+                    pending.finish()
+                }
+            }
+            return
+        }
         if (intent.action == PersonalDeliveryContract.ACTION_RECOVER) {
             val id = intent.getStringExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID).orEmpty()
             val token = intent.getStringExtra(PersonalDeliveryContract.EXTRA_TOKEN).orEmpty()

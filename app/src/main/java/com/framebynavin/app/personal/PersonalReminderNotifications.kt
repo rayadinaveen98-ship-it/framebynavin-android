@@ -38,7 +38,7 @@ internal object PersonalReminderNotifications {
             .getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
     }
 
-    fun show(context: Context, reminder: PersonalReminder): Boolean {
+    fun show(context: Context, reminder: PersonalReminder, followUp: Boolean = false): Boolean {
         if (!canPost(context) || reminder.pendingToken.isBlank()) return false
         val tag = PersonalDeliveryContract.notificationTag(reminder.id)
         val generic = NotificationCompat.Builder(context, CHANNEL)
@@ -62,7 +62,8 @@ internal object PersonalReminderNotifications {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val detail = when (reminder.alert) {
+        val detail = if (followUp) "Still needs your response · Done or Snooze"
+            else when (reminder.alert) {
             PersonalAlert.NOTIFICATION -> "Personal reminder"
             PersonalAlert.VOICE -> "Voice will speak if Android permits · notification remains actionable"
             PersonalAlert.ALARM -> "Alarm will ring if Android permits · notification remains actionable"
@@ -75,7 +76,8 @@ internal object PersonalReminderNotifications {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(generic)
-            .setOnlyAlertOnce(true)
+            // One extra audible nudge is allowed only after explicit opt-in.
+            .setOnlyAlertOnce(!followUp)
             .setContentIntent(opening)
             .setAutoCancel(false)
             .addAction(0, "DONE", action(context, reminder, PersonalDeliveryContract.ACTION_DONE, 11))

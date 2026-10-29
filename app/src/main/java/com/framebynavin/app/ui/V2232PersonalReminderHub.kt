@@ -59,6 +59,11 @@ internal fun V2232PersonalReminderHub(
     val store = remember(context) { PersonalReminderStore(context) }
     val commands = remember(context) { PersonalReminderCommands(context) }
     val coordinator = remember(context) { PersonalDeliveryCoordinator(context) }
+    val followUpStore = remember(context) { PersonalFollowUpSettingsStore(context) }
+    var followUpSettings by remember { mutableStateOf(PersonalFollowUpSettings()) }
+    LaunchedEffect(followUpStore) {
+        followUpStore.settings.collect { followUpSettings = it }
+    }
     val scope = rememberCoroutineScope()
     var reminders by remember { mutableStateOf(emptyList<PersonalReminder>()) }
     var loadError by remember { mutableStateOf<String?>(null) }
@@ -187,6 +192,54 @@ internal fun V2232PersonalReminderHub(
         ) {
             Text("Private reminders, separate from your creative projects.",
                 color = MutedText, fontSize = 12.sp)
+            Surface(
+                color = CinemaSurface,
+                shape = RoundedCornerShape(15.dp),
+                border = BorderStroke(1.dp, CinemaLine),
+                modifier = Modifier.fillMaxWidth().testTag("v2283-follow-up-settings"),
+            ) {
+                Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("A gentle follow-up", color = ProjectorIvory,
+                                fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text("Off by default · once per unanswered reminder · quiet 10 PM–8 AM",
+                                color = MutedText, fontSize = 10.sp)
+                        }
+                        Switch(
+                            checked = followUpSettings.enabled,
+                            enabled = !busy,
+                            onCheckedChange = { enabled ->
+                                perform {
+                                    followUpStore.setEnabled(enabled)
+                                    coordinator.reconcile()
+                                }
+                            },
+                            modifier = Modifier.testTag("v2283-follow-up-toggle"),
+                        )
+                    }
+                    if (followUpSettings.enabled) {
+                        Text("FOLLOW UP AFTER", color = MutedGold,
+                            fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        Row(Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf(30, 60, 120).forEach { minutes ->
+                                FilterChip(
+                                    selected = followUpSettings.delayMinutes == minutes,
+                                    enabled = !busy,
+                                    onClick = {
+                                        perform {
+                                            followUpStore.setDelay(minutes)
+                                            coordinator.reconcile()
+                                        }
+                                    },
+                                    label = { Text("${minutes} min", fontSize = 10.sp) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             if (!notificationsReady) {
                 Surface(

@@ -20,6 +20,7 @@ internal object PersonalDeliveryContract {
     const val ACTION_OPEN_PERSONAL = "com.framebynavin.app.personal.OPEN"
     const val ACTION_FIRE = "com.framebynavin.app.personal.FIRE"
     const val ACTION_RECOVER = "com.framebynavin.app.personal.RECOVER"
+    const val ACTION_FOLLOW_UP = "com.framebynavin.app.personal.FOLLOW_UP"
     const val ACTION_DONE = "com.framebynavin.app.personal.DONE"
     const val ACTION_SNOOZE = "com.framebynavin.app.personal.SNOOZE"
     const val ACTION_DISMISS = "com.framebynavin.app.personal.DISMISS"
@@ -50,8 +51,10 @@ internal class PersonalDeliveryCoordinator(context: Context) {
     private val app = context.applicationContext
     private val store = PersonalReminderStore(app)
     private val alarms = app.getSystemService(AlarmManager::class.java)
+    private val followUps = PersonalFollowUpSettingsStore(app)
 
     suspend fun reconcile(nowMillis: Long = System.currentTimeMillis()) {
+        val followUpSettings = followUps.current()
         store.load().forEach { original ->
             if (original.paused) {
                 cancelPending(original.id)
@@ -69,6 +72,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                         latest.pendingOccurrenceMillis != expired.pendingOccurrenceMillis ||
                         latest.presentedToken != expired.presentedToken) latest
                     else latest.copy(
+                        followUpSentToken = "",
                         lastMissedOccurrenceMillis = maxOf(
                             latest.lastMissedOccurrenceMillis, latest.pendingOccurrenceMillis,
                         ),
@@ -93,6 +97,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             if (record.pendingToken.isNotBlank() && record.presentedToken == record.pendingToken) {
                 cancelFire(record.id)
                 armRecovery(record)
+                armFollowUp(record, followUpSettings, nowMillis)
                 return@forEach
             }
             if (record.pendingToken.isBlank()) {
@@ -109,6 +114,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                         pendingFireAtMillis = next,
                         pendingToken = token,
                         presentedToken = "",
+                        followUpSentToken = "",
                         snoozedUntilMillis = 0L,
                     )
                 }.first { it.id == record.id }
@@ -132,6 +138,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
     }
 
     fun cancelPending(id: String) {
+        cancelFollowUp(id)
         cancelFire(id)
         recoveryIntent(id, flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
             ?.let { alarms.cancel(it) }
@@ -140,6 +147,51 @@ internal class PersonalDeliveryCoordinator(context: Context) {
     private fun cancelFire(id: String) {
         fireIntent(id, flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
             ?.let { alarms.cancel(it) }
+    }
+
+    private fun cancelFollowUp(id: String) {
+        followUpIntent(id, flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+            ?.let { alarms.cancel(it) }
+    }
+
+    private fun followUpIntent(
+        id: String,
+        token: String = "",
+        occurrence: Long = 0L,
+        flags: Int,
+    ): PendingIntent? {
+        val intent = Intent(app, PersonalReminderReceiver::class.java)
+            .setAction(PersonalDeliveryContract.ACTION_FOLLOW_UP)
+            // Stable Android identity per reminder, lease token lives in extras.
+            .setData(PersonalDeliveryContract.uri(id, "follow-up"))
+            .putExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID, id)
+            .putExtra(PersonalDeliveryContract.EXTRA_OCCURRENCE, occurrence)
+            .putExtra(PersonalDeliveryContract.EXTRA_TOKEN, token)
+        return PendingIntent.getBroadcast(app, id.hashCode() xor 0x251A, intent, flags)
+    }
+
+    private fun armFollowUp(
+        record: PersonalReminder,
+        settings: PersonalFollowUpSettings,
+        nowMillis: Long,
+    ) {
+        val at = PersonalFollowUpPolicy.dueAt(record, settings, nowMillis)
+        if (at == null) {
+            cancelFollowUp(record.id)
+            return
+        }
+        val intent = followUpIntent(
+            record.id, record.pendingToken, record.pendingOccurrenceMillis,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: return
+        runCatching {
+            // Never force a new exact-alarm permission to send an optional nudge.
+            alarms.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP, maxOf(at, nowMillis + 2_000L), intent,
+            )
+        }.onFailure {
+            android.util.Log.w("BacklotPersonal", "Could not schedule optional follow-up", it)
+        }
     }
 
     private fun arm(reminder: PersonalReminder) {
@@ -249,6 +301,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                             pendingFireAtMillis = 0L,
                             pendingToken = "",
                             presentedToken = "",
+                            followUpSentToken = "",
                             snoozedUntilMillis = 0L,
                             lastResponse = if (action == PersonalDeliveryContract.ACTION_DONE)
                                 PersonalResponse.DONE else PersonalResponse.DISMISSED,
@@ -262,6 +315,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                             snoozedUntilMillis = next,
                             pendingToken = UUID.randomUUID().toString(),
                             presentedToken = "",
+                            followUpSentToken = "",
                             lastResponse = if (action == PersonalDeliveryContract.ACTION_SNOOZE)
                                 PersonalResponse.SNOOZED else PersonalResponse.RESCHEDULED,
                         )
@@ -298,7 +352,54 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                 } else item
             }
         }
+        if (claimed) {
+            val current = store.load().firstOrNull {
+                it.id == id && it.pendingToken == token && it.presentedToken == token
+            }
+            if (current != null) armFollowUp(current, followUps.current(), System.currentTimeMillis())
+        }
         return claimed
+    }
+
+    /**
+     * Called only from the namespaced follow-up receiver. Atomically claim a
+     * single token under the original Personal DataStore mutation lock; then
+     * recheck the lease before/after notification handoff to avoid stale cards.
+     */
+    suspend fun deliverFollowUp(
+        id: String, occurrence: Long, token: String,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): Boolean {
+        if (id.isBlank() || token.isBlank() || occurrence <= 0L) return false
+        val settings = followUps.current()
+        var accepted: PersonalReminder? = null
+        store.mutate { list ->
+            list.map { item ->
+                if (item.id == id && item.pendingOccurrenceMillis == occurrence &&
+                    item.pendingToken == token &&
+                    PersonalFollowUpPolicy.mayDeliver(item, settings, nowMillis)
+                ) {
+                    accepted = item
+                    item.copy(followUpSentToken = token)
+                } else item
+            }
+        }
+        val claimed = accepted ?: return false
+        val receiptMatches: suspend () -> Boolean = {
+            store.load().any {
+                it.id == id && !it.paused && it.pendingToken == token &&
+                    it.presentedToken == token && it.followUpSentToken == token &&
+                    it.pendingOccurrenceMillis == occurrence
+            }
+        }
+        if (!receiptMatches() || !followUps.current().enabled) return false
+        val shown = PersonalReminderNotifications.show(app,
+            claimed.copy(followUpSentToken = token), followUp = true)
+        if (!receiptMatches() || !followUps.current().enabled) {
+            PersonalReminderNotifications.cancel(app, id)
+            return false
+        }
+        return shown
     }
 
     suspend fun currentLease(id: String, occurrence: Long, fireAt: Long, token: String): PersonalReminder? =
