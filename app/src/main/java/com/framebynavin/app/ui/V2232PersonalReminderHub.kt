@@ -42,6 +42,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 
@@ -67,6 +68,15 @@ internal fun V2232PersonalReminderHub(
     var editorOpen by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<PersonalReminder?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
+    // Recompute local calendar labels while this screen is visible; the next
+    // occurrence journal and Android alarms remain authoritative.
+    var agendaNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            agendaNowMillis = System.currentTimeMillis()
+        }
+    }
 
     LaunchedEffect(store) {
         try {
@@ -105,7 +115,10 @@ internal fun V2232PersonalReminderHub(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) permissionRevision++
+            if (event == Lifecycle.Event.ON_RESUME) {
+                permissionRevision++
+                agendaNowMillis = System.currentTimeMillis()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -237,25 +250,40 @@ internal fun V2232PersonalReminderHub(
                 Text("${reminders.count { !it.paused }} ACTIVE · ${reminders.count { it.paused }} PAUSED",
                     color = MutedGold, fontWeight = FontWeight.Bold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v2232-personal-count"))
-                reminders.forEach { item ->
-                    V2232PersonalItem(
-                        reminder = item,
-                        busy = busy,
-                        onEdit = { editing = item; editorOpen = true },
-                        onPause = { perform { commands.setPaused(item.id, !item.paused) } },
-                        onDelete = { deleteTarget = item },
-                        onRespond = { action ->
-                            perform {
-                                val result = coordinator.apply(
-                                    id = item.id, originalOccurrence = item.pendingOccurrenceMillis,
-                                    token = item.pendingToken, action = action,
-                                )
-                                check(result == PersonalApplyResult.ACCEPTED) {
-                                    "This notification is no longer active. Reopen the reminder."
+                val agendaGroups = remember(reminders, agendaNowMillis) {
+                    PersonalAgendaPolicy.groups(reminders, agendaNowMillis)
+                }
+                agendaGroups.forEach { group ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("v2282-personal-section-${group.section.name}"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(group.section.label, color = if (group.section == PersonalAgendaSection.NEEDS_ATTENTION)
+                            RecRed else MutedGold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("${group.items.size}", color = MutedText, fontSize = 11.sp)
+                    }
+                    group.items.forEach { item ->
+                        V2232PersonalItem(
+                            reminder = item,
+                            busy = busy,
+                            onEdit = { editing = item; editorOpen = true },
+                            onPause = { perform { commands.setPaused(item.id, !item.paused) } },
+                            onDelete = { deleteTarget = item },
+                            onRespond = { action ->
+                                perform {
+                                    val result = coordinator.apply(
+                                        id = item.id, originalOccurrence = item.pendingOccurrenceMillis,
+                                        token = item.pendingToken, action = action,
+                                    )
+                                    check(result == PersonalApplyResult.ACCEPTED) {
+                                        "This notification is no longer active. Reopen the reminder."
+                                    }
                                 }
-                            }
-                        },
-                    )
+                            },
+                        )
+                    }
                 }
             }
             if (infoMessage != null) {
