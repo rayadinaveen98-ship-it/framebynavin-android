@@ -1,0 +1,248 @@
+name: Backlot V229.3 Spark Voice QA
+
+on:
+  push:
+    branches: [feature/backlot-v2293-spark-push-to-talk]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v2293-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Protect on-device-only Spark voice, local guide and Personal reminders
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('app/src/main/java/com/framebynavin/app')
+          policy=(root/'personal/PersonalAgendaPolicy.kt').read_text()
+          ui=(root/'ui/V2232PersonalReminderHub.kt').read_text()
+          assert 'PersonalAgendaPolicy.groups(reminders, agendaNowMillis)' in ui
+          assert 'v2282-personal-section-' in ui
+          assert 'lastMissedOccurrenceMillis > reminder.lastAcknowledgedOccurrenceMillis' in policy
+          assert 'presentedToken == reminder.pendingToken' in policy
+          for forbidden in ('TaskStore(', 'CreatorTask(', 'PersonalReminderStore(', 'AlarmManager', 'setExact', 'apply(', 'save(', '.delete('):
+              assert forbidden not in policy, forbidden
+          reminders=(root/'personal/PersonalReminder.kt').read_text()
+          codec=(root/'personal/PersonalReminderCodec.kt').read_text()
+          delivery=(root/'personal/PersonalDeliveryCoordinator.kt').read_text()
+          follow=(root/'personal/PersonalFollowUpPolicy.kt').read_text()
+          settings=(root/'personal/PersonalFollowUpSettingsStore.kt').read_text()
+          ui=(root/'ui/V2232PersonalReminderHub.kt').read_text()
+          assert 'val enabled: Boolean = false' in settings
+          assert 'followUpSentToken' in reminders and 'optString("followUpSentToken", "")' in codec
+          assert 'PersonalFollowUpPolicy.mayDeliver' in delivery
+          assert 'v2283-follow-up-toggle' in ui
+          assert 'QUIET_START_HOUR = 22' in follow and 'QUIET_END_HOUR = 8' in follow
+          assert 'PersonalDeliveryContract.ACTION_FOLLOW_UP' in (root/'personal/PersonalReminderReceiver.kt').read_text()
+          celebration=(root/'ui/V2284StageCelebrationPolicy.kt').read_text()
+          motion=(root/'ui/V127MotionUi.kt').read_text()
+          app=(root/'ui/FrameByNavinV101BApp.kt').read_text()
+          assert 'PROJECT_STAGE_COMPLETED' in celebration
+          assert 'V2284StageCelebrationPolicy.confirmedStageKey(vm.rewardFeedback)' in app
+          assert 'stageCompletionEvent = System.nanoTime()' not in app
+          assert 'delay(1600L)' in motion and 'tween(400' in motion
+          focus=(root/'ui/V2285WorkspaceFocusPolicy.kt').read_text()
+          workspace=(root/'ui/V19ContentWorkspaceAlpha6Ui.kt').read_text()
+          assert 'NEXT USEFUL MOVES' in workspace
+          assert 'V2285WorkspaceFocusPolicy.hints(task)' in workspace
+          assert 'take(2)' in focus and 'distinctBy' in focus
+          for forbidden in ('TaskStore(', 'CreatorDataGate(', 'AlarmManager', 'PersonalReminderStore(', 'updateTask(', 'saveProject('):
+              assert forbidden not in focus, forbidden
+          nudge=(root/'reminders/V2291CreatorNudgeControls.kt').read_text()
+          automation=(root/'ui/V17AutomationCenter.kt').read_text()
+          worker=(root/'reminders/CreatorContextNudgeWorker.kt').read_text()
+          assert 'V205NudgePausePolicy.KEY_PAUSED_UNTIL' in nudge
+          assert 'pauseForWeek' in nudge and 'fun resume()' in nudge
+          assert 'V2291NudgeControlPolicy.status' in automation
+          assert 'V205NudgePausePolicy.isPaused' in worker
+          for forbidden in ('AlarmManager(', 'PersonalReminderStore(', 'TaskStore(', 'notify(', 'schedule(', 'setContextNudgesEnabled('):
+              assert forbidden not in nudge, forbidden
+          spark=(root/'ui/V2292SparkConversationPolicy.kt').read_text()
+          sheet=(root/'ui/V2214HomeCompanion.kt').read_text()
+          panel=(root/'ui/V2292SparkConversationPanel.kt').read_text()
+          assert 'V2292SparkConversationPanel(' in sheet
+          assert 'V2292SparkConversationPolicy.respond' in panel
+          assert 'not a full AI chat model' in spark
+          assert 'no active, unarchived project' in spark.lower()
+          for forbidden in ('TaskStore(', 'CreatorDataGate(', 'AlarmManager(', 'Retrofit', 'HttpClient', 'Firebase', 'updateTask(', 'launch(', 'delay('):
+              assert forbidden not in spark, forbidden
+          for forbidden in ('DataStore(', 'SharedPreferences', 'TaskStore(', 'Firebase', 'HttpClient', 'Log.'):
+              assert forbidden not in panel, forbidden
+          voice=(root/'ui/V2293SparkVoiceSession.kt').read_text()
+          panel=(root/'ui/V2292SparkConversationPanel.kt').read_text()
+          assert 'createOnDeviceSpeechRecognizer' in voice
+          assert 'isOnDeviceRecognitionAvailable' in voice
+          assert 'isNetworkConnectionRequired' in voice
+          assert 'LocalLifecycleOwner.current.lifecycle' in voice
+          assert 'preparingPlayback' in voice and 'cancelPlayback' in voice
+          assert 'voice.stopPlayback()' in panel and 'voice.stopListening()' in panel
+          assert 'onTranscript(text)' in voice
+          assert 'ActivityResultContracts.RequestPermission' in panel
+          assert 'v2293-spark-read-aloud' in panel
+          assert 'v2293-spark-microphone' in panel
+          assert 'SpeechRecognizer.createSpeechRecognizer(' not in voice
+          assert 'SpeechRecognizer.createSpeechRecognizer(' not in panel
+          for forbidden in ('TaskStore(', 'CreatorDataGate(', 'HttpClient', 'Retrofit', 'Firebase', 'SharedPreferences', 'DataStore(', 'AlarmManager('):
+              assert forbidden not in voice, forbidden
+          print('V229.3 strictly on-device speech and opt-in playback checks passed')
+          PY
+      - name: Full JVM test regression, lint, test APK and owner full APK
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2292-Owner-Full-App-APK
+          run-id: 40854384389
+          github-token: ${{ github.token }}
+          path: previous-full
+      - name: Validate Build 260 signer against validated Build259 and stage full app
+        run: |
+          set -euo pipefail
+          OLD="$(find previous-full -type f -name 'Backlot-V2292-Full-App-Spark-Offline-Guide.apk' -print -quit)"
+          NEW="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$OLD" && test -s "$NEW"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$SIGNER" verify --print-certs "$OLD" > old-cert.txt
+          "$SIGNER" verify --print-certs "$NEW" > new-cert.txt
+          test "$(grep -m1 'certificate SHA-256 digest' old-cert.txt)" = "$(grep -m1 'certificate SHA-256 digest' new-cert.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='259'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='260'"
+          mkdir -p owner-preview test-apks
+          cp "$NEW" owner-preview/Backlot-V2293-Full-App-Spark-Voice.apk
+          (cd owner-preview && sha256sum Backlot-V2293-Full-App-Spark-Voice.apk > SHA256SUMS.txt)
+          cp app/build/outputs/apk/debug/app-debug.apk test-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk test-apks/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2293-Owner-Full-App-APK
+          path: owner-preview/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2293-Test-APKs
+          path: test-apks/
+          retention-days: 7
+
+  android11:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2293-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 opt-in follow-ups, reminders and stale leases
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-personal-android11.log
+            grep -Fq "OK (2 tests)" v2293-personal-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2283FollowUpSafetyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-followups-android11.log
+            grep -Fq "OK (2 tests)" v2293-followups-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2284StageCelebrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-stage-android11.log
+            grep -Fq "OK (2 tests)" v2293-stage-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2285WorkspaceFocusUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-workspace-android11.log
+            grep -Fq "OK (3 tests)" v2293-workspace-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2291NudgePauseControlsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-nudge-android11.log
+            grep -Fq "OK (2 tests)" v2293-nudge-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2292SparkConversationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-spark-android11.log
+            grep -Fq "OK (3 tests)" v2293-spark-android11.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2293SparkVoiceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-voice-android11.log
+            grep -Fq "OK (3 tests)" v2293-voice-android11.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2293-Android11-Evidence
+          path: |
+            v2293-personal-android11.log
+            v2293-followups-android11.log
+            v2293-stage-android11.log
+            v2293-workspace-android11.log
+            v2293-nudge-android11.log
+            v2293-spark-android11.log
+            v2293-voice-android11.log
+          if-no-files-found: warn
+
+  android15:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2293-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 opt-in follow-ups, reminders and stale leases
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-personal-android15.log
+            grep -Fq "OK (2 tests)" v2293-personal-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2283FollowUpSafetyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-followups-android15.log
+            grep -Fq "OK (2 tests)" v2293-followups-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2284StageCelebrationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-stage-android15.log
+            grep -Fq "OK (2 tests)" v2293-stage-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2285WorkspaceFocusUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-workspace-android15.log
+            grep -Fq "OK (3 tests)" v2293-workspace-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2291NudgePauseControlsUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-nudge-android15.log
+            grep -Fq "OK (2 tests)" v2293-nudge-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2292SparkConversationUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-spark-android15.log
+            grep -Fq "OK (3 tests)" v2293-spark-android15.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2293SparkVoiceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2293-voice-android15.log
+            grep -Fq "OK (3 tests)" v2293-voice-android15.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2293-Android15-Evidence
+          path: |
+            v2293-personal-android15.log
+            v2293-followups-android15.log
+            v2293-stage-android15.log
+            v2293-workspace-android15.log
+            v2293-nudge-android15.log
+            v2293-spark-android15.log
+            v2293-voice-android15.log
+          if-no-files-found: warn

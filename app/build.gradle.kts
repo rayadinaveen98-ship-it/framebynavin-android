@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // V229.2 session-only Spark offline guide; upgrade from Build258.
-        versionCode = 259
-        versionName = "2.14.0-v2292-spark-offline-guide-preview"
+        // V229.3 explicit on-device Spark mic and local TTS; upgrade Build259.
+        versionCode = 260
+        versionName = "2.14.1-v2293-spark-voice-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -96,6 +96,8 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    // Explicit lifecycle owner for Spark voice cleanup with wrapped Compose contexts.
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))

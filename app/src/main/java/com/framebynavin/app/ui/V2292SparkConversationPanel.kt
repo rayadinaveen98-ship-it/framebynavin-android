@@ -1,5 +1,10 @@
 package com.framebynavin.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -11,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,10 +46,35 @@ internal fun V2292SparkConversationPanel(
     onOpenReminders: () -> Unit,
 ) {
     var draft by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val voice = rememberV2293SparkVoiceSession { captured ->
+        draft = V2293SparkVoicePolicy.transcript(captured)
+    }
+    val microphonePermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) voice.startListening() else voice.permissionDenied()
+    }
+    fun requestMic() {
+        if (!voice.canUseMic) return
+        if (voice.listening) {
+            voice.stopListening()
+        } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            voice.startListening()
+        } else {
+            microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
     val turns = remember { mutableStateListOf<V2292ChatTurn>() }
     fun send(text: String) {
         val input = text.trim().take(V2292SparkConversationPolicy.INPUT_MAX)
         if (input.isEmpty()) return
+        // New prompts must silence the previous reply (even while TTS initializes)
+        // and stop an outstanding dictation session before updating chat turns.
+        voice.stopListening()
+        voice.stopPlayback()
         val reply = V2292SparkConversationPolicy.respond(input, tasks, ideas)
         turns.add(V2292ChatTurn(input, false))
         turns.add(V2292ChatTurn(reply.message, true, reply))
@@ -111,6 +142,18 @@ internal fun V2292SparkConversationPanel(
                             it.destination != V2292SparkDestination.NONE &&
                                 it.actionLabel.isNotBlank()
                         }
+                        if (turn.isSpark && i == turns.lastIndex) {
+                            TextButton(
+                                onClick = {
+                                    if (voice.playbackActive) voice.cancelPlayback()
+                                    else voice.readAloud(turn.message)
+                                },
+                                modifier = Modifier.testTag("v2293-spark-read-aloud"),
+                            ) {
+                                Text(if (voice.playbackActive) "STOP AUDIO" else "READ ALOUD",
+                                    color = MutedGold, fontSize = 11.sp)
+                            }
+                        }
                         if (action != null) {
                             TextButton(
                                 onClick = {
@@ -146,11 +189,31 @@ internal fun V2292SparkConversationPanel(
                     onSend = { send(draft) }
                 ),
             )
-            Spacer(Modifier.width(7.dp))
+            Spacer(Modifier.width(6.dp))
+            OutlinedButton(
+                onClick = ::requestMic,
+                enabled = voice.canUseMic,
+                modifier = Modifier.testTag("v2293-spark-microphone"),
+                contentPadding = PaddingValues(horizontal = 9.dp),
+            ) {
+                Text(if (voice.listening) "STOP" else "MIC", fontSize = 11.sp)
+            }
+            Spacer(Modifier.width(6.dp))
             Button(onClick = { send(draft) }, enabled = draft.isNotBlank(),
                 modifier = Modifier.testTag("v2292-spark-send")) {
                 Text("SEND", fontSize = 11.sp)
             }
+        }
+        Text(
+            if (!voice.canUseMic)
+                "On-device dictation unavailable; typing works. Audio replies require a local installed voice."
+            else "MIC: on-device speech only · review before SEND · read-aloud is optional.",
+            color = MutedText, fontSize = 10.sp, lineHeight = 14.sp,
+            modifier = Modifier.testTag("v2293-spark-privacy"),
+        )
+        if (voice.status.isNotEmpty()) {
+            Text(voice.status, color = MutedGold, fontSize = 10.sp,
+                modifier = Modifier.testTag("v2293-spark-voice-status"))
         }
     }
 }
