@@ -224,11 +224,18 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.personal.V2272PersonalWaveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2272-personal-wave-android15.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2272-personal-wave-android15.log; then exit 1; fi
             grep -Fq 'OK (2 tests)' v2272-personal-wave-android15.log
-            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2271-personal-android15.log
+            # Run each real-Dialog case in an independent instrumentation process.
+            # API35 occasionally carries an IME from the keyboard test into the
+            # normal-font test when both share one process; neither strict
+            # assertIsDisplayed check is removed or weakened.
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest#normalPhoneEditorKeepsActionsWithinActualDialog' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2271-personal-normal-android15.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2271-personal-normal-android15.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v2271-personal-normal-android15.log
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest#largeFontScaleStacksAndKeepsKeyboardSafeSaveClickable' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2271-personal-keyboard-android15.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2271-personal-keyboard-android15.log; then exit 1; fi
+            grep -Fq 'OK (1 test)' v2271-personal-keyboard-android15.log
             mkdir -p v2271-personal-android15-evidence
             adb exec-out run-as com.framebynavin.app cat files/v2271-personal-editor-evidence/personal-editor-occlusion.png > v2271-personal-android15-evidence/personal-editor-occlusion.png || true
-            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2271-personal-android15.log; then exit 1; fi
-            grep -Fq 'OK (2 tests)' v2271-personal-android15.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V227IdeaFooterAdaptiveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v227-footer-default.log
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v227-footer-default.log; then exit 1; fi
             grep -Fq 'OK (3 tests)' v227-footer-default.log
@@ -370,7 +377,8 @@ jobs:
             v227-android15-evidence/
             v2271-personal-android15-evidence/
             v2272-personal-wave-android15.log
-            v2271-personal-android15.log
+            v2271-personal-normal-android15.log
+            v2271-personal-keyboard-android15.log
             v227-android15-footer.log
             v227-android15-ime.log
           if-no-files-found: warn
