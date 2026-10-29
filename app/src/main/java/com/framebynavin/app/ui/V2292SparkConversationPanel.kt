@@ -141,12 +141,12 @@ internal fun V2292SparkConversationPanel(
                         if (turn.isSpark && i == turns.lastIndex) {
                             TextButton(
                                 onClick = {
-                                    if (voice.speaking) voice.stopPlayback()
+                                    if (voice.playbackActive) voice.cancelPlayback()
                                     else voice.readAloud(turn.message)
                                 },
                                 modifier = Modifier.testTag("v2293-spark-read-aloud"),
                             ) {
-                                Text(if (voice.speaking) "STOP AUDIO" else "READ ALOUD",
+                                Text(if (voice.playbackActive) "STOP AUDIO" else "READ ALOUD",
                                     color = MutedGold, fontSize = 11.sp)
                             }
                         }
