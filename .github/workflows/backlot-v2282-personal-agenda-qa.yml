@@ -1,0 +1,148 @@
+name: Backlot V228.2 Personal Agenda QA
+
+on:
+  push:
+    branches: [feature/backlot-v2282-personal-agenda]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v2282-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Personal Agenda must stay read-only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('app/src/main/java/com/framebynavin/app')
+          policy=(root/'personal/PersonalAgendaPolicy.kt').read_text()
+          ui=(root/'ui/V2232PersonalReminderHub.kt').read_text()
+          assert 'PersonalAgendaPolicy.groups(reminders, agendaNowMillis)' in ui
+          assert 'v2282-personal-section-' in ui
+          assert 'lastMissedOccurrenceMillis > reminder.lastAcknowledgedOccurrenceMillis' in policy
+          assert 'presentedToken == reminder.pendingToken' in policy
+          for forbidden in ('TaskStore(', 'CreatorTask(', 'PersonalReminderStore(', 'AlarmManager', 'setExact', 'apply(', 'save(', '.delete('):
+              assert forbidden not in policy, forbidden
+          print('V228.2 read-only projection gate passed')
+          PY
+      - name: Full JVM test regression, lint, test APK and owner full APK
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2281-Owner-Full-App-APK
+          run-id: 40834405880
+          github-token: ${{ github.token }}
+          path: previous-full
+      - name: Validate Build 254 upgrade signer and stage full app
+        run: |
+          set -euo pipefail
+          OLD="$(find previous-full -type f -name 'Backlot-V2281-Full-App-Spark-Visual.apk' -print -quit)"
+          NEW="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$OLD" && test -s "$NEW"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$SIGNER" verify --print-certs "$OLD" > old-cert.txt
+          "$SIGNER" verify --print-certs "$NEW" > new-cert.txt
+          test "$(grep -m1 'certificate SHA-256 digest' old-cert.txt)" = "$(grep -m1 'certificate SHA-256 digest' new-cert.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='253'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='254'"
+          mkdir -p owner-preview test-apks
+          cp "$NEW" owner-preview/Backlot-V2282-Full-App-Personal-Agenda.apk
+          (cd owner-preview && sha256sum Backlot-V2282-Full-App-Personal-Agenda.apk > SHA256SUMS.txt)
+          cp app/build/outputs/apk/debug/app-debug.apk test-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk test-apks/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2282-Owner-Full-App-APK
+          path: owner-preview/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2282-Test-APKs
+          path: test-apks/
+          retention-days: 7
+
+  android11:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2282-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 real Personal editor and persistence smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2282-personal-android11.log
+            grep -Fq "OK (2 tests)" v2282-personal-android11.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2282-Android11-Evidence
+          path: v2282-personal-android11.log
+          if-no-files-found: warn
+
+  android15:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2282-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 Personal editor and recurrence smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2282-personal-android15.log
+            grep -Fq "OK (2 tests)" v2282-personal-android15.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V2282-Android15-Evidence
+          path: v2282-personal-android15.log
+          if-no-files-found: warn

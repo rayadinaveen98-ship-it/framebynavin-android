@@ -1,3 +1,7 @@
+import java.security.KeyStore
+import java.security.PrivateKey
+import java.security.interfaces.RSAPublicKey
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -53,10 +57,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // Backlot V183 stable personal-install release (V182 feature parity).
-        // Higher versionCode permits a data-preserving upgrade from the V182 preview.
-        versionCode = 183
-        versionName = "2.3.3-stable"
+        // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
+        versionCode = 270
+        versionName = "2.15.7-rc25-consolidated-owner-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -93,10 +96,82 @@ android {
     }
 }
 
+
+// RC16: a release AAB or APK must NEVER silently use the public preview signer.
+// This check does not affect debug or personalStable sideload APKs. A private
+// upload key must be provisioned out-of-repository by the release owner.
+val verifyPrivateReleaseSigning = tasks.register("verifyPrivateReleaseSigning") {
+    group = "verification"
+    description = "Reject missing, publicly shared, or invalid Backlot Play release signing keys"
+    doLast {
+        require(productionSigningConfigured) {
+            "Private Play upload signing is not configured. Refusing a release build."
+        }
+        val file = rootProject.file(requireNotNull(releaseStoreFilePath)).canonicalFile
+        val repositoryRoot = rootProject.projectDir.canonicalFile.toPath()
+        require(file.isFile && !file.toPath().startsWith(repositoryRoot)) {
+            "The private release keystore must exist outside the checked-out repository."
+        }
+
+        val releaseStore = try {
+            KeyStore.getInstance(
+                file, requireNotNull(releaseStorePassword).toCharArray()
+            )
+        } catch (_: Exception) {
+            error("Private release keystore could not be read. Check the release credentials.")
+        }
+        val alias = requireNotNull(releaseKeyAlias)
+        require(releaseStore.isKeyEntry(alias)) {
+            "Private release key alias is missing or does not contain a signing key."
+        }
+        val releaseCertificate = requireNotNull(releaseStore.getCertificate(alias)) {
+            "Private release signing certificate is unavailable."
+        }
+        val releasePublicKey = releaseCertificate.publicKey
+        require(releasePublicKey is RSAPublicKey &&
+            releasePublicKey.modulus.bitLength() >= 2048) {
+            "Play upload certificate must use RSA with at least 2048 bits."
+        }
+        // Load the known checked-in *public* development certificate, not a
+        // hard-coded fingerprint that could become stale if the fixture changes.
+        val previewKeystore = rootProject.file("dev-signing/framebynavin-public-debug.jks")
+        val previewStore = KeyStore.getInstance(
+            previewKeystore, "framebynavin-dev".toCharArray()
+        )
+        val previewCertificate = requireNotNull(
+            previewStore.getCertificate("framebynavin-dev")
+        ) { "The public prototype signing certificate cannot be inspected." }
+        require(!releaseCertificate.encoded.contentEquals(previewCertificate.encoded)) {
+            "Private Play upload certificate is identical to the PUBLIC prototype signer."
+        }
+
+        // Signing has not yet happened here; only confirm key use is possible,
+        // without printing passwords, filesystem secrets or private key data.
+        try {
+            val key = releaseStore.getKey(alias, requireNotNull(releaseKeyPassword).toCharArray())
+            require(key is PrivateKey) {
+                "Private release alias is not a signing private key."
+            }
+        } catch (_: Exception) {
+            error("Private release key could not be unlocked with the configured password.")
+        }
+        println("PASS: external private RSA upload signer differs from public Backlot preview signer.")
+    }
+}
+// Forbid producing either a release APK or an upload bundle without the gate.
+// No dependency on preview/personalStable variants: existing owner updates work.
+tasks.matching {
+    it.name in setOf("assembleRelease", "bundleRelease", "packageReleaseBundle", "signReleaseBundle")
+}.configureEach {
+    dependsOn(verifyPrivateReleaseSigning)
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    // Explicit lifecycle owner for Spark voice cleanup with wrapped Compose contexts.
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))

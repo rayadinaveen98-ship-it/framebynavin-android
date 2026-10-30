@@ -26,6 +26,7 @@ import com.framebynavin.app.reminders.ReminderHealthScheduler
 import com.framebynavin.app.reminders.ReminderNotifications
 import com.framebynavin.app.reminders.ReminderRecoveryEngine
 import com.framebynavin.app.ui.BacklotCharacterPrefs
+import com.framebynavin.app.ui.V144GuidePrefs
 import com.framebynavin.app.ui.V131LaunchGate
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
@@ -49,6 +50,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         VisualExperiencePrefs.initialize(applicationContext)
         BacklotCharacterPrefs.initialize(applicationContext)
+        // Load the historical companion selection before the first Compose frame.
+        // Returning creators skip the choice gate, so gate-only initialization
+        // would silently display the default guide despite their saved choice.
+        V144GuidePrefs.initialize(applicationContext)
         CreatorAppCheck.install(applicationContext)
         splash.setKeepOnScreenCondition { !startupReady && startupError == null }
         externalLaunch = widgetLaunch(intent)
@@ -92,6 +97,13 @@ class MainActivity : ComponentActivity() {
                 CreatorCloudSyncWorker.ensurePeriodic(applicationContext)
                 ReminderRecoveryEngine.reconcile(applicationContext)
                 IdeaReminderScheduler(applicationContext).reconcile()
+                // Personal recovery is independent and cannot prevent the
+                // creator workspace from opening if Personal data is damaged.
+                runCatching {
+                    com.framebynavin.app.personal.PersonalDeliveryCoordinator(applicationContext).reconcile()
+                }.onFailure {
+                    android.util.Log.e("BacklotPersonal", "Startup personal reconcile failed", it)
+                }
             }
             withContext(Dispatchers.Main) {
                 startupRunning = false
@@ -119,6 +131,11 @@ class MainActivity : ComponentActivity() {
         if (startupReady) lifecycleScope.launch(Dispatchers.IO) {
             ReminderRecoveryEngine.reconcile(applicationContext)
             IdeaReminderScheduler(applicationContext).reconcile()
+            runCatching {
+                com.framebynavin.app.personal.PersonalDeliveryCoordinator(applicationContext).reconcile()
+            }.onFailure {
+                android.util.Log.e("BacklotPersonal", "Resume personal reconcile failed", it)
+            }
             CreatorCloudSyncWorker.enqueueSoon(applicationContext)
         }
     }
@@ -147,6 +164,7 @@ class MainActivity : ComponentActivity() {
             CreatorWidgetContract.ACTION_OPEN_INSIGHTS,
             CreatorWidgetContract.ACTION_AUTOMATION_CENTER,
             CreatorWidgetContract.ACTION_OPEN_REMINDERS,
+            com.framebynavin.app.personal.PersonalDeliveryContract.ACTION_OPEN_PERSONAL,
         )
         if (action !in supported) return null
         return CreatorWidgetLaunch(

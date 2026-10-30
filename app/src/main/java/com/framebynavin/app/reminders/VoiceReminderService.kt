@@ -1,5 +1,7 @@
 package com.framebynavin.app.reminders
 
+import com.framebynavin.app.R
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -265,7 +267,8 @@ class VoiceReminderService : Service() {
                 V179ReminderFollowUps.armAfterUnanswered(applicationContext, task, token)
             }
         }
-        ReminderSurfaceRegistry.close(task.id, token)
+        // Completing speech is not user acknowledgement: preserve the
+        // already-visible scene and leave the same occurrence actionable.
         stopVoiceService(task.id, token)
     }
 
@@ -288,8 +291,8 @@ class VoiceReminderService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        return NotificationCompat.Builder(this, ReminderConstants.VOICE_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+        val builder = NotificationCompat.Builder(this, ReminderConstants.VOICE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle(task.title)
             .setContentText("Voice reminder · ${task.dueLabel}")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -298,9 +301,12 @@ class VoiceReminderService : Service() {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(fullScreen)
-            .setFullScreenIntent(fullScreen, true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+        return V268FullScreenReminderAccess.configure(
+            builder,
+            fullScreen,
+            V268FullScreenReminderAccess.allowed(this),
+        ).build()
     }
 
     private fun ensureChannel() {

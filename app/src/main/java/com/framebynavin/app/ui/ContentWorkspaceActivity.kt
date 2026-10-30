@@ -3,6 +3,7 @@ package com.framebynavin.app.ui
 import android.os.Bundle
 import android.graphics.drawable.ColorDrawable
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -22,6 +23,34 @@ import kotlinx.coroutines.withContext
 
 private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH }
 
+private data class V211HistoricalPlanFieldRequest(
+    val sourceId: String,
+    val label: String,
+    val text: String,
+    val projectId: String,
+    val workspaceRevision: Long,
+)
+
+
+private data class V211HistoricalScriptNotesRequest(
+    val sourceId: String,
+    val label: String,
+    val text: String,
+    val projectId: String,
+    val workspaceRevision: Long,
+    val studioRevision: Long,
+)
+
+private data class V211HistoricalPublishDescriptionRequest(
+    val sourceId: String,
+    val projectId: String,
+    val workspaceRevision: Long,
+    val deliverableId: String,
+    val platform: String,
+    val format: String,
+    val text: String,
+)
+
 class ContentWorkspaceActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROJECT_ID = "project_id"
@@ -32,18 +61,32 @@ class ContentWorkspaceActivity : ComponentActivity() {
     /** Alpha4/5 compatibility source only. Alpha6+ saves structured scripts inside the project workspace. */
     private val legacyScriptStore by lazy { ScriptStudioStore(applicationContext) }
     private val publicationRecovery by lazy { CreatorPublicationRecovery(applicationContext) }
-    private val editorDrafts by lazy { CreatorEditorDraftStore(applicationContext) }
+    private lateinit var editorDrafts: CreatorEditorDraftStore
+    private var loadedGeneration: Long = -1L
+    private val saveGate = CreatorWorkspaceSaveGate()
     private var task by mutableStateOf<CreatorTask?>(null)
     private var scriptStudio by mutableStateOf<CreatorScriptStudio?>(null)
     private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
+    private var heldDraftReviews by mutableStateOf<List<CreatorEditorDraftStore.HeldDraftPreview>?>(null)
+    private var pendingHeldField by mutableStateOf<V211HistoricalPlanFieldRequest?>(null)
+    private var planRecoveredField by mutableStateOf<V211PlanFieldRecovery?>(null)
+    private var planRecoveryNonce = 0L
+    private var pendingHistoricalScriptNotes by mutableStateOf<V211HistoricalScriptNotesRequest?>(null)
+    private var scriptRecoveredNotes by mutableStateOf<V211ScriptNotesRecovery?>(null)
+    private var scriptNotesRecoveryNonce = 0L
+    private var pendingHistoricalPublishDescription by
+        mutableStateOf<V211HistoricalPublishDescriptionRequest?>(null)
+    private var recoveredPublishDescription by mutableStateOf<V211PublishDescriptionRecovery?>(null)
+    private var publishDescriptionRecoveryNonce = 0L
     private var restoreModeAfterLoad: Alpha6WorkspaceMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         VisualExperiencePrefs.initialize(applicationContext)
+        editorDrafts = CreatorEditorDraftStore(applicationContext)
         window.setBackgroundDrawable(ColorDrawable(BacklotBackground.toArgb()))
         restoreModeAfterLoad = savedInstanceState?.getString(STATE_EDITOR_MODE)?.let { saved ->
             runCatching { Alpha6WorkspaceMode.valueOf(saved) }.getOrNull()
@@ -51,6 +94,12 @@ class ContentWorkspaceActivity : ComponentActivity() {
         val projectId = intent.getStringExtra(EXTRA_PROJECT_ID).orEmpty()
         setContent {
             FrameByNavinTheme {
+                // The editors are Activity-owned screens now. Keep the same unsaved-draft
+                // confirmation on system Back that the previous Dialog window provided.
+                BackHandler(enabled = !confirmEditorClose && error == null && mode != Alpha6WorkspaceMode.HUB) {
+                    if (mode == Alpha6WorkspaceMode.BLUEPRINT) mode = Alpha6WorkspaceMode.HUB
+                    else confirmEditorClose = true
+                }
                 Box(Modifier.fillMaxSize().background(BacklotBackground)) {
                     when {
                         error != null -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -92,7 +141,21 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         mode == Alpha6WorkspaceMode.PROJECT -> V19ContentWorkspaceAlpha3Dialog(
                             task = task!!,
                             onDismiss = { confirmEditorClose = true },
-                            onSave = { id, revision, workspace -> saveProject(id, revision, workspace, Alpha6WorkspaceMode.PROJECT) },
+                            onSave = { id, revision, workspace ->
+                                saveProject(id, revision, workspace, Alpha6WorkspaceMode.PROJECT)
+                            },
+                            hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "project"),
+                            onReviewHeld = { openHeldDraftReviews(task!!.id, "project") },
+                            pendingFieldRecovery = planRecoveredField,
+                            onFieldRecoveryHandled = { nonce ->
+                                if (planRecoveredField?.nonce == nonce) planRecoveredField = null
+                            },
+                            onSaveAndScript = { id, revision, workspace ->
+                                saveProject(
+                                    id, revision, workspace, Alpha6WorkspaceMode.PROJECT,
+                                    nextMode = Alpha6WorkspaceMode.SCRIPT,
+                                )
+                            },
                         )
                         mode == Alpha6WorkspaceMode.SCRIPT && scriptStudio != null -> V19ScriptStudioAlpha4Dialog(
                             task = task!!,
@@ -101,10 +164,29 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onSave = { studioRevision, workspaceRevision, draft ->
                                 saveScriptStudio(task!!.id, studioRevision, workspaceRevision, draft)
                             },
+                            hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "script"),
+                            onReviewHeld = { openHeldDraftReviews(task!!.id, "script") },
+                            pendingNotesRecovery = scriptRecoveredNotes,
+                            onNotesRecoveryHandled = { nonce ->
+                                if (scriptRecoveredNotes?.nonce == nonce) scriptRecoveredNotes = null
+                            },
+                            onSaveAndPublish = { studioRevision, workspaceRevision, draft ->
+                                saveScriptStudio(
+                                    task!!.id, studioRevision, workspaceRevision, draft,
+                                    nextMode = Alpha6WorkspaceMode.PUBLISH,
+                                )
+                            },
                         )
                         mode == Alpha6WorkspaceMode.PUBLISH -> V19PublishStudioAlpha5Dialog(
                             task = task!!,
                             onDismiss = { confirmEditorClose = true },
+                            hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "publish"),
+                            onReviewHeld = { openHeldDraftReviews(task!!.id, "publish") },
+                            pendingDescriptionRecovery = recoveredPublishDescription,
+                            onDescriptionRecoveryHandled = { nonce ->
+                                if (recoveredPublishDescription?.nonce == nonce)
+                                    recoveredPublishDescription = null
+                            },
                             onSave = { id, revision, workspace -> saveProject(id, revision, workspace, Alpha6WorkspaceMode.PUBLISH) },
                         )
                         else -> Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -112,6 +194,130 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                 CircularProgressIndicator()
                             }
                         }
+                    }
+
+                    heldDraftReviews?.let { previews ->
+                        V211HeldDraftReviewDialog(
+                            drafts = previews,
+                            onDismiss = { heldDraftReviews = null },
+                            projectId = task!!.id,
+                            onHistoricalDraftDiscarded = { heldDraftReviews = null },
+                            allowPlanFieldStaging = mode == Alpha6WorkspaceMode.PROJECT,
+                            allowScriptNotesStaging = mode == Alpha6WorkspaceMode.SCRIPT,
+                            eligiblePublishOutputIds =
+                                if (mode == Alpha6WorkspaceMode.PUBLISH)
+                                    task!!.workspace.deliverables
+                                        .filter { it.status == CreatorDeliverableStatus.PLANNED }
+                                        .map { it.id }.toSet()
+                                else emptySet(),
+                            onStagePublishDescription = { sourceId, outputId, platform, format, text ->
+                                val current = task
+                                if (mode == Alpha6WorkspaceMode.PUBLISH && current != null &&
+                                    V211CanStageHistoricalPublishDescription(
+                                        current.workspace.deliverables, outputId, platform, format,
+                                    )
+                                ) {
+                                    pendingHistoricalPublishDescription =
+                                        V211HistoricalPublishDescriptionRequest(
+                                            sourceId = sourceId, projectId = current.id,
+                                            workspaceRevision = current.workspace.revision,
+                                            deliverableId = outputId, platform = platform,
+                                            format = format, text = text,
+                                        )
+                                    heldDraftReviews = null
+                                }
+                            },
+                            onStageScriptNotes = { sourceId, label, text ->
+                                val current = task
+                                val studio = scriptStudio
+                                if (mode == Alpha6WorkspaceMode.SCRIPT && current != null &&
+                                    studio != null && label == "Creator notes") {
+                                    pendingHistoricalScriptNotes = V211HistoricalScriptNotesRequest(
+                                        sourceId, label, text, current.id,
+                                        current.workspace.revision, studio.revision,
+                                    )
+                                    heldDraftReviews = null
+                                }
+                            },
+                            onStagePlanField = { sourceId, label, text ->
+                                val current = task
+                                if (mode == Alpha6WorkspaceMode.PROJECT && current != null) {
+                                    pendingHeldField = V211HistoricalPlanFieldRequest(
+                                        sourceId, label, text, current.id, current.workspace.revision,
+                                    )
+                                    heldDraftReviews = null
+                                }
+                            },
+                        )
+                    }
+
+                    pendingHeldField?.let { request ->
+                        AlertDialog(
+                            onDismissRequest = { pendingHeldField = null },
+                            title = { Text("Use earlier Plan text?") },
+                            text = {
+                                Text("Replace only the unsaved ${request.label} field with earlier text? " +
+                                    "Your current project will not change until you review and choose Save.")
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    pendingHeldField = null
+                                    stageHistoricalPlanField(request)
+                                }) { Text("USE FIELD") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { pendingHeldField = null }) { Text("CANCEL") }
+                            },
+                        )
+                    }
+
+                    pendingHistoricalScriptNotes?.let { request ->
+                        AlertDialog(
+                            onDismissRequest = { pendingHistoricalScriptNotes = null },
+                            title = { Text("Use earlier Script notes?") },
+                            text = {
+                                Text("Replace only the unsaved Creator notes in Script Studio? " +
+                                    "The saved script, beats and publishing state will not change " +
+                                    "unless you review and choose Save.")
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    pendingHistoricalScriptNotes = null
+                                    stageHistoricalScriptNotes(request)
+                                }) { Text("USE NOTES") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { pendingHistoricalScriptNotes = null }) {
+                                    Text("CANCEL")
+                                }
+                            },
+                        )
+                    }
+
+                    pendingHistoricalPublishDescription?.let { request ->
+                        AlertDialog(
+                            onDismissRequest = { pendingHistoricalPublishDescription = null },
+                            title = { Text("Use earlier Publish description?") },
+                            text = {
+                                Text(
+                                    "Replace only the unsaved description for the existing " +
+                                        "${request.platform} · ${request.format} output? " +
+                                        "This does not publish, restore old status, or change history. " +
+                                        "You must review the text and choose Save."
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    pendingHistoricalPublishDescription = null
+                                    stageHistoricalPublishDescription(request)
+                                }) { Text("USE DESCRIPTION") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { pendingHistoricalPublishDescription = null }) {
+                                    Text("CANCEL")
+                                }
+                            },
+                        )
                     }
 
                     if (confirmEditorClose && mode != Alpha6WorkspaceMode.HUB) {
@@ -155,23 +361,41 @@ class ContentWorkspaceActivity : ComponentActivity() {
         scriptStudio = null
         mode = Alpha6WorkspaceMode.HUB
         confirmEditorClose = false
+        heldDraftReviews = null
+        pendingHeldField = null
+        planRecoveredField = null
+        pendingHistoricalScriptNotes = null
+        scriptRecoveredNotes = null
+        pendingHistoricalPublishDescription = null
+        recoveredPublishDescription = null
         if (projectId.isBlank()) {
             error = "Project id is missing."
             return
         }
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
-                val loaded = CreatorDataGate.readyTransaction(applicationContext) {
-                    store.load().firstOrNull { it.id == projectId }
+                val (loaded, openEpoch) = CreatorDataGate.readyTransaction(applicationContext) {
+                    val openedEpoch = CreatorDataGate.generation(applicationContext)
+                    val project = store.load().firstOrNull { it.id == projectId }
                         ?: error("This project no longer exists.")
+                    project to openedEpoch
                 }
                 val migrated = migrateLegacyScriptIfNeeded(loaded)
                 val stabilized = stabilizeLoadedProject(migrated)
                 publicationRecovery.recoverAll()
-                stabilized
+                // If a restore occurred during loading, don't open an editor
+                // with data from one epoch and writes authorized in another.
+                CreatorDataGate.checkGeneration(applicationContext, openEpoch)
+                stabilized to openEpoch
             }
             withContext(Dispatchers.Main) {
-                result.onSuccess { loaded ->
+                result.onSuccess { (loaded, openEpoch) ->
+                    if (CreatorDataGate.generation(applicationContext) != openEpoch) {
+                        error = "Your project was restored while loading. Reload the latest version."
+                        return@onSuccess
+                    }
+                    loadedGeneration = openEpoch
+                    editorDrafts = CreatorEditorDraftStore(applicationContext)
                     task = loaded
                     val restore = restoreModeAfterLoad
                     restoreModeAfterLoad = null
@@ -243,15 +467,211 @@ class ContentWorkspaceActivity : ComponentActivity() {
         }
     }
 
+    private fun openHeldDraftReviews(projectId: String, editor: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+                editorDrafts.heldDrafts(projectId, editor)
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess { heldDraftReviews = it }
+                    .onFailure {
+                        android.widget.Toast.makeText(
+                            applicationContext,
+                            "Project changed during recovery. Reopen the latest workspace.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+            }
+        }
+    }
+
+    private fun stageHistoricalPlanField(request: V211HistoricalPlanFieldRequest) {
+        val supported = setOf("Audience", "Viewer problem", "Promise", "Angle", "Learnings")
+        if (request.label !in supported || mode != Alpha6WorkspaceMode.PROJECT) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                CreatorDataGate.readyTransaction(applicationContext) {
+                    CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+                    val current = store.load().firstOrNull { it.id == request.projectId }
+                        ?: error("Project no longer exists")
+                    check(current.workspace.revision == request.workspaceRevision) {
+                        "This project changed since the earlier draft was opened"
+                    }
+                    val match = editorDrafts.verifiedHistoricalPlanText(
+                        request.projectId, request.sourceId, request.label, request.text,
+                    )
+                    check(match) { "Earlier draft is no longer available for safe recovery" }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess {
+                    val current = task
+                    val stillCurrent = current?.id == request.projectId &&
+                        current.workspace.revision == request.workspaceRevision &&
+                        mode == Alpha6WorkspaceMode.PROJECT &&
+                        CreatorDataGate.generation(applicationContext) == loadedGeneration
+                    if (stillCurrent) {
+                        planRecoveryNonce += 1L
+                        planRecoveredField = V211PlanFieldRecovery(
+                            nonce = planRecoveryNonce,
+                            projectId = request.projectId,
+                            workspaceRevision = request.workspaceRevision,
+                            label = request.label,
+                            text = request.text,
+                        )
+                    } else {
+                        android.widget.Toast.makeText(
+                            applicationContext, "Workspace changed. Reopen the latest project.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }.onFailure {
+                    android.widget.Toast.makeText(
+                        applicationContext,
+                        "Earlier text was not applied. Reopen the project or review the saved copy.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Read-only authorization: never applies old notes to canonical storage.
+     * The currently opened editor and saved revisions must match exactly.
+     */
+    private fun stageHistoricalScriptNotes(request: V211HistoricalScriptNotesRequest) {
+        if (request.label != "Creator notes" || mode != Alpha6WorkspaceMode.SCRIPT) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                CreatorDataGate.readyTransaction(applicationContext) {
+                    CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+                    val current = store.load().firstOrNull { it.id == request.projectId }
+                        ?: error("Project no longer exists")
+                    check(current.workspace.revision == request.workspaceRevision) {
+                        "Project changed since earlier notes were opened"
+                    }
+                    check((current.workspace.scriptStudio?.revision ?: 0L) == request.studioRevision) {
+                        "Script changed since earlier notes were opened"
+                    }
+                    check(editorDrafts.verifiedHistoricalScriptNotes(
+                        request.projectId, request.sourceId, request.label, request.text,
+                    )) { "Earlier Script notes are no longer available for safe recovery" }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess {
+                    val current = task
+                    val studio = scriptStudio
+                    val stillCurrent = current?.id == request.projectId &&
+                        current.workspace.revision == request.workspaceRevision &&
+                        studio?.revision == request.studioRevision &&
+                        mode == Alpha6WorkspaceMode.SCRIPT &&
+                        CreatorDataGate.generation(applicationContext) == loadedGeneration
+                    if (stillCurrent) {
+                        scriptNotesRecoveryNonce += 1L
+                        scriptRecoveredNotes = V211ScriptNotesRecovery(
+                            nonce = scriptNotesRecoveryNonce,
+                            projectId = request.projectId,
+                            workspaceRevision = request.workspaceRevision,
+                            studioRevision = request.studioRevision,
+                            text = request.text,
+                        )
+                    } else {
+                        android.widget.Toast.makeText(
+                            applicationContext, "Script changed. Reopen the latest version.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }.onFailure {
+                    android.widget.Toast.makeText(
+                        applicationContext,
+                        "Earlier notes were not applied. Reopen the script or copy the saved text.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * C3 P5 guards exact saved output identity + history source + restore epoch.
+     * Review-only stage: saved project changes exclusively through explicit Save.
+     */
+    private fun stageHistoricalPublishDescription(request: V211HistoricalPublishDescriptionRequest) {
+        if (mode != Alpha6WorkspaceMode.PUBLISH) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                CreatorDataGate.readyTransaction(applicationContext) {
+                    CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+                    val current = store.load().firstOrNull { it.id == request.projectId }
+                        ?: error("Project no longer exists")
+                    check(current.workspace.revision == request.workspaceRevision) {
+                        "Project changed since historical description was selected"
+                    }
+                    check(V211CanStageHistoricalPublishDescription(
+                        current.workspace.deliverables, request.deliverableId,
+                        request.platform, request.format,
+                    )) { "Output is missing, already ready, published, or changed identity" }
+                    check(editorDrafts.verifiedHistoricalPublishDescription(
+                        request.projectId, request.sourceId, request.deliverableId,
+                        request.platform, request.format, request.text,
+                    )) { "Earlier description is unavailable or its output identity is ambiguous" }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess {
+                    val current = task
+                    val stillCurrent = current?.id == request.projectId &&
+                        current.workspace.revision == request.workspaceRevision &&
+                        mode == Alpha6WorkspaceMode.PUBLISH &&
+                        CreatorDataGate.generation(applicationContext) == loadedGeneration &&
+                        V211CanStageHistoricalPublishDescription(
+                            current.workspace.deliverables, request.deliverableId,
+                            request.platform, request.format,
+                        )
+                    if (stillCurrent) {
+                        publishDescriptionRecoveryNonce += 1L
+                        recoveredPublishDescription = V211PublishDescriptionRecovery(
+                            nonce = publishDescriptionRecoveryNonce,
+                            projectId = request.projectId,
+                            workspaceRevision = request.workspaceRevision,
+                            deliverableId = request.deliverableId,
+                            platform = request.platform,
+                            format = request.format,
+                            text = request.text,
+                        )
+                    } else {
+                        android.widget.Toast.makeText(
+                            applicationContext, "Publish output changed. Reopen the latest project.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }.onFailure {
+                    android.widget.Toast.makeText(
+                        applicationContext,
+                        "Earlier description was not applied. Copy or export the original text.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
+
     private fun saveProject(
         projectId: String,
         expectedRevision: Long,
         draft: CreatorContentWorkspace,
         editorMode: Alpha6WorkspaceMode,
+        nextMode: Alpha6WorkspaceMode = Alpha6WorkspaceMode.HUB,
     ) {
-        val expectedGeneration = CreatorDataGate.generation(applicationContext)
+        if (!saveGate.tryBegin()) return
         lifecycleScope.launch(Dispatchers.IO) {
+            try {
             val result = runCatching {
+                val expectedGeneration = loadedGeneration
+                CreatorDataGate.checkGeneration(applicationContext, expectedGeneration)
                 val updated = store.updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
                     check(current.workspace.revision == expectedRevision) {
                         "This workspace changed while you were editing. Reopen it to keep the newest version."
@@ -276,22 +696,35 @@ class ContentWorkspaceActivity : ComponentActivity() {
 
                 // Parent publication is compatibility state for the existing reward/review engine.
                 // Reconciliation is idempotent and does not complete the project.
-                publicationRecovery.recoverAll()
-                when (editorMode) {
-                    Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
-                    Alpha6WorkspaceMode.PUBLISH -> editorDrafts.clearPublish(projectId)
-                    else -> Unit
+                // These are retryable post-commit side effects. Failure must not pretend the
+                // already-durable project transaction was rolled back.
+                runCatching { publicationRecovery.recoverAll() }.onFailure {
+                    android.util.Log.w("BacklotWorkspace", "Publication reconciliation deferred", it)
+                }
+                runCatching {
+                    when (editorMode) {
+                        Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
+                        Alpha6WorkspaceMode.PUBLISH -> editorDrafts.clearPublish(projectId)
+                        else -> Unit
+                    }
+                }.onFailure {
+                    android.util.Log.w("BacklotWorkspace", "Stale editor draft cleanup deferred", it)
                 }
                 updated
             }
             withContext(Dispatchers.Main) {
-                result.onSuccess {
-                    task = it
+                result.onSuccess { saved ->
+                    task = saved
                     confirmEditorClose = false
-                    mode = Alpha6WorkspaceMode.HUB
+                    // Navigation follows successful durable persistence, never a pending editor draft.
+                    if (nextMode == Alpha6WorkspaceMode.SCRIPT) openScriptStudio(saved)
+                    else mode = Alpha6WorkspaceMode.HUB
                 }.onFailure {
                     error = it.message ?: "Could not save the workspace. Your previous project data was retained."
                 }
+            }
+            } finally {
+                saveGate.end()
             }
         }
     }
@@ -301,10 +734,14 @@ class ContentWorkspaceActivity : ComponentActivity() {
         expectedStudioRevision: Long,
         expectedWorkspaceRevision: Long,
         draft: CreatorScriptStudio,
+        nextMode: Alpha6WorkspaceMode = Alpha6WorkspaceMode.HUB,
     ) {
-        val expectedGeneration = CreatorDataGate.generation(applicationContext)
+        if (!saveGate.tryBegin()) return
         lifecycleScope.launch(Dispatchers.IO) {
+            try {
             val result = runCatching {
+                val expectedGeneration = loadedGeneration
+                CreatorDataGate.checkGeneration(applicationContext, expectedGeneration)
                 val savedStudio = draft.normalized(
                     projectId = projectId,
                     revision = expectedStudioRevision + 1L,
@@ -326,7 +763,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         )
                     )
                 } ?: error("This project no longer exists.")
-                editorDrafts.clearScript(projectId)
+                // The script is already committed; draft cleanup failure is not a save failure.
+                runCatching { editorDrafts.clearScript(projectId) }.onFailure {
+                    android.util.Log.w("BacklotWorkspace", "Script draft cleanup deferred", it)
+                }
                 savedStudio to updatedProject
             }
             withContext(Dispatchers.Main) {
@@ -334,10 +774,15 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     scriptStudio = saved
                     task = updated
                     confirmEditorClose = false
-                    mode = Alpha6WorkspaceMode.HUB
+                    // Open Publish only after the canonical embedded script has saved successfully.
+                    mode = if (nextMode == Alpha6WorkspaceMode.PUBLISH) Alpha6WorkspaceMode.PUBLISH
+                        else Alpha6WorkspaceMode.HUB
                 }.onFailure {
                     error = it.message ?: "Could not save Script Studio. Existing project data was retained."
                 }
+            }
+            } finally {
+                saveGate.end()
             }
         }
     }

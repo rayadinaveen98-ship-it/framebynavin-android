@@ -43,23 +43,6 @@ private data class GuidedCoachCopy(
     val pose: FrameGuidePose = FrameGuidePose.POINT,
 )
 
-private data class SpotlightSpec(
-    val x: Float,
-    val y: Float,
-    val width: Float,
-    val height: Float,
-    val corner: Float = 34f,
-)
-
-private fun spotlightFor(step: CreatorGuidedTourStep): SpotlightSpec = when (step) {
-    CreatorGuidedTourStep.TODAY -> SpotlightSpec(.045f, .23f, .91f, .38f)
-    CreatorGuidedTourStep.IDEAS -> SpotlightSpec(.78f, .035f, .17f, .13f, 50f)
-    CreatorGuidedTourStep.PROJECT -> SpotlightSpec(.05f, .18f, .90f, .30f)
-    CreatorGuidedTourStep.WORKSPACE -> SpotlightSpec(.04f, .22f, .92f, .43f)
-    CreatorGuidedTourStep.INSIGHTS -> SpotlightSpec(.045f, .17f, .91f, .27f)
-    CreatorGuidedTourStep.CONTROL -> SpotlightSpec(.78f, .74f, .17f, .14f, 54f)
-}
-
 @Composable
 internal fun V20GuidedFirstRunCoach(
     step: CreatorGuidedTourStep,
@@ -68,56 +51,11 @@ internal fun V20GuidedFirstRunCoach(
     onSecondary: () -> Unit,
     onSkip: () -> Unit,
 ) {
-    val placeAtTop = step == CreatorGuidedTourStep.CONTROL
+    val placeAtTop = true // Navigation highlights sit below; never cover the actual target.
     val pointRight = step.ordinal % 2 == 0
-    val spot = spotlightFor(step)
-    val spotlightMotion = rememberInfiniteTransition(label = "spotlightBreath")
-    val spotlightBreath by spotlightMotion.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1050, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "spotlightBreathValue",
-    )
-    val spotX by animateFloatAsState(spot.x, tween(320, easing = FastOutSlowInEasing), label = "spotX")
-    val spotY by animateFloatAsState(spot.y, tween(320, easing = FastOutSlowInEasing), label = "spotY")
-    val spotW by animateFloatAsState(spot.width, tween(320, easing = FastOutSlowInEasing), label = "spotW")
-    val spotH by animateFloatAsState(spot.height, tween(320, easing = FastOutSlowInEasing), label = "spotH")
-
+    // Actual spotlight geometry is measured from laid-out navigation items by
+    // V137GuideSharpWindow. The coach must never draw a second guessed hole.
     Box(Modifier.fillMaxSize()) {
-        Canvas(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
-        ) {
-            drawRect(BacklotScrim.copy(alpha = if (VisualExperiencePrefs.isLight) .48f else .72f))
-            val breathing = 4f + spotlightBreath * 6f
-            val left = size.width * spotX - breathing
-            val top = size.height * spotY - breathing
-            val width = size.width * spotW + breathing * 2f
-            val height = size.height * spotH + breathing * 2f
-            drawRoundRect(
-                color = Color.Transparent,
-                topLeft = Offset(left, top),
-                size = Size(width, height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(spot.corner + breathing, spot.corner + breathing),
-                blendMode = BlendMode.Clear,
-            )
-            drawRoundRect(
-                color = RecRed.copy(alpha = .24f + spotlightBreath * .30f),
-                topLeft = Offset(left - 4f, top - 4f),
-                size = Size(width + 8f, height + 8f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(spot.corner + breathing + 4f, spot.corner + breathing + 4f),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 5.5f + spotlightBreath * 3.5f),
-            )
-            drawRoundRect(
-                color = RecRed.copy(alpha = .72f + spotlightBreath * .26f),
-                topLeft = Offset(left, top),
-                size = Size(width, height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(spot.corner + breathing, spot.corner + breathing),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.6f + spotlightBreath * 1.8f),
-            )
-        }
-
         AnimatedContent(
             targetState = step,
             transitionSpec = {
@@ -167,10 +105,10 @@ internal fun V20GuidedFirstRunCoach(
                 ) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            repeat(6) { index ->
+                            repeat(V207GuidedTourPolicy.lessons.size) { index ->
                                 Box(
-                                    Modifier.weight(1f).height(if (index == current.ordinal) 4.dp else 2.dp)
-                                        .background(if (index <= current.ordinal) RecRed else CinemaLine, RoundedCornerShape(100.dp))
+                                    Modifier.weight(1f).height(if (index == V207GuidedTourPolicy.indexOf(current)) 4.dp else 2.dp)
+                                        .background(if (index <= V207GuidedTourPolicy.indexOf(current)) RecRed else CinemaLine, RoundedCornerShape(100.dp))
                                 )
                             }
                         }
@@ -181,32 +119,32 @@ internal fun V20GuidedFirstRunCoach(
                             }
                             Spacer(Modifier.width(9.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("${copy.eyebrow} · ${current.ordinal + 1}/6", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                                Text(copy.title, color = ProjectorIvory, fontSize = 14.5.sp, fontWeight = FontWeight.Black)
+                                Text("${copy.eyebrow} · ${V207GuidedTourPolicy.indexOf(current) + 1}/${V207GuidedTourPolicy.lessons.size}", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                                Text(copy.title, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                             }
                             TextButton(onClick = onSkip, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 2.dp)) {
-                                Text("SKIP", color = MutedText, fontSize = 7.7.sp, fontWeight = FontWeight.Bold)
+                                Text("EXIT GUIDE", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                         Spacer(Modifier.height(6.dp))
-                        Text(copy.body, color = ProjectorIvory.copy(alpha = .76f), fontSize = 9.7.sp, lineHeight = 13.5.sp)
+                        Text(copy.body, color = ProjectorIvory.copy(alpha = .76f), fontSize = 13.sp, lineHeight = 18.sp)
                         Spacer(Modifier.height(9.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             copy.secondary?.let { label ->
                                 OutlinedButton(
                                     onClick = onSecondary,
-                                    modifier = Modifier.weight(.78f).height(41.dp),
+                                    modifier = Modifier.weight(.78f).heightIn(min = 48.dp),
                                     shape = RoundedCornerShape(13.dp),
                                     border = BorderStroke(1.dp, CinemaLine),
-                                ) { Text(label, fontSize = 8.sp, fontWeight = FontWeight.Black) }
+                                ) { Text(label, fontSize = 12.sp, fontWeight = FontWeight.Black) }
                             }
                             Button(
                                 onClick = onPrimary,
-                                modifier = Modifier.weight(1f).height(41.dp),
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                                 shape = RoundedCornerShape(13.dp),
                             ) {
-                                Text(copy.primary, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                                Text(copy.primary, fontSize = 12.sp, fontWeight = FontWeight.Black)
                                 Spacer(Modifier.width(5.dp))
                                 Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(14.dp))
                             }
@@ -231,8 +169,8 @@ private fun V145GuideSpeechBubble(text: String) {
             text = text,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             color = ProjectorIvory,
-            fontSize = 10.sp,
-            lineHeight = 13.5.sp,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
             fontWeight = FontWeight.SemiBold,
         )
     }
@@ -244,7 +182,7 @@ private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): Guide
         "Your command center",
         "Home shows the next thing worth your attention.",
         "See what's important today, all in one place.",
-        "SHOW IDEAS",
+        "NEXT",
         icon = Icons.Outlined.Home,
         pose = FrameGuidePose.PRESENT,
     )
@@ -253,8 +191,8 @@ private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): Guide
         "Capture before it disappears",
         "Use + for a quick thought. Organize it later.",
         "Save ideas now. Turn them into projects later.",
-        "CAPTURE IDEA",
         "NEXT",
+        "TRY CAPTURE",
         Icons.Outlined.Lightbulb,
         FrameGuidePose.POINT,
     )
@@ -264,8 +202,8 @@ private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): Guide
             projectCopy.title,
             projectCopy.body,
             projectCopy.speech,
+            "NEXT",
             if (hasProjects) "OPEN PROJECT" else "CREATE PROJECT",
-            if (hasProjects) null else "NOT NOW",
             Icons.Outlined.NotificationsActive,
             FrameGuidePose.WALK,
         )
@@ -281,10 +219,11 @@ private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): Guide
     )
     CreatorGuidedTourStep.INSIGHTS -> GuidedCoachCopy(
         "INSIGHTS",
-        "Your creator brain",
-        "Patterns and evidence help you decide what to improve next.",
+        "Understand your progress",
+        "Insights helps you learn. Quick Actions is always one tap away.",
         "Connect YouTube to see what's working.",
-        "SHOW CONTROL",
+        "FINISH TOUR",
+        "QUICK ACTIONS",
         icon = Icons.Outlined.Insights,
         pose = FrameGuidePose.THINK,
     )

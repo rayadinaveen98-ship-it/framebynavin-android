@@ -1,5 +1,7 @@
 package com.framebynavin.app.reminders
 
+import com.framebynavin.app.R
+
 import android.Manifest
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -188,7 +190,7 @@ object IdeaReminderNotifications {
 
         val body = "Still worth exploring? Open this idea or turn it into a project."
         val notification = NotificationCompat.Builder(context, ReminderConstants.CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_edit)
+            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle("💡 ${idea.title}")
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

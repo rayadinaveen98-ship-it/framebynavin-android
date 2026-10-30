@@ -22,6 +22,53 @@ class CreatorPublishWorkflowTest {
     }
 
     @Test
+    fun skippedRequiredGateNeverAllowsPublication() {
+        val base = CreatorPublishWorkflow.ensureGate(
+            CreatorDeliverable(platform = "YouTube", format = "Long video", title = "Video")
+        )
+        val wrong = base.copy(publishGate = base.publishGate.map { it.copy(status = CreatorPublishGateStatus.SKIPPED) })
+        val normalized = CreatorPublishWorkflow.ensureGate(wrong)
+        assertFalse(CreatorPublishWorkflow.isReadyToPublish(normalized))
+        assertTrue(CreatorPublishWorkflow.unresolvedRequired(normalized).isNotEmpty())
+        assertEquals(0, CreatorPublishWorkflow.resolvedGateCount(normalized))
+    }
+
+    @Test
+    fun rightsGateIsRestoredAndCannotBeMadeOptional() {
+        val base = CreatorDeliverable(
+            platform = "YouTube", format = "Short", title = "Clip",
+            publishGate = listOf(CreatorPublishGateItem(title = "Export reviewed", status = CreatorPublishGateStatus.DONE)),
+        )
+        val restored = CreatorPublishWorkflow.ensureGate(base)
+        assertTrue(restored.publishGate.any(CreatorPublishWorkflow::isProtectedCheck))
+        assertFalse(CreatorPublishWorkflow.isReadyToPublish(restored))
+        val tampered = restored.copy(publishGate = restored.publishGate.map { gate ->
+            if (CreatorPublishWorkflow.isProtectedCheck(gate)) gate.copy(
+                required = false, status = CreatorPublishGateStatus.SKIPPED, title = "Not applicable"
+            ) else gate
+        })
+        val fixed = CreatorPublishWorkflow.ensureGate(tampered)
+        val rights = fixed.publishGate.single(CreatorPublishWorkflow::isProtectedCheck)
+        assertTrue(rights.required)
+        assertEquals("Rights, music and source check", rights.title)
+        assertEquals(CreatorPublishGateStatus.TODO, rights.status)
+        assertFalse(CreatorPublishWorkflow.isReadyToPublish(fixed))
+    }
+
+    @Test
+    fun optionalSkippedCheckDoesNotBlockPublication() {
+        val base = CreatorPublishWorkflow.ensureGate(
+            CreatorDeliverable(platform = "Instagram", format = "Reel", title = "Reel")
+        )
+        val draft = base.copy(publishGate = base.publishGate.map { gate ->
+            if (CreatorPublishWorkflow.isProtectedCheck(gate)) gate.copy(status = CreatorPublishGateStatus.DONE)
+            else gate.copy(required = false, status = CreatorPublishGateStatus.SKIPPED)
+        })
+        assertTrue(CreatorPublishWorkflow.isReadyToPublish(draft))
+        assertEquals(draft.publishGate.size, CreatorPublishWorkflow.resolvedGateCount(draft))
+    }
+
+    @Test
     fun resolvedGatePublishesOnlyThatDeliverableAndCreatesSnapshot() {
         val deliverable = CreatorPublishWorkflow.ensureGate(
             CreatorDeliverable(

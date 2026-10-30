@@ -8,6 +8,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -29,70 +30,36 @@ internal fun V20CreativeIntelligenceCard(
 ) {
     val context = LocalContext.current.applicationContext
     val intelligence = remember(snapshot, tasks, links) {
-        val foundation = YouTubeInsightsFoundationStore(context).load(snapshot.windowDays, snapshot.channel.channelId)
+        val foundation = YouTubeInsightsFoundationStore(context)
+            .load(snapshot.windowDays, snapshot.channel.channelId)
         val retention = foundation?.retention.orEmpty().associateBy { it.videoId }
         val reach = YouTubeReachStore(context).summary(snapshot.startDate, snapshot.endDate)
             ?.videos.orEmpty().associateBy { it.videoId }
         val videos = (snapshot.recentVideos + snapshot.topVideos).distinctBy { it.videoId }
         val byTaskId = tasks.associateBy { it.id }
         val postmortems = videos.mapNotNull { video ->
-            val taskId = links[video.videoId] ?: return@mapNotNull null
-            val task = byTaskId[taskId] ?: return@mapNotNull null
-            CreatorVideoPostmortemEngine.build(
-                task = task,
-                video = video,
-                retention = retention[video.videoId],
-                reach = reach[video.videoId],
-            )
+            val task = byTaskId[links[video.videoId]] ?: return@mapNotNull null
+            CreatorVideoPostmortemEngine.build(task = task, video = video,
+                retention = retention[video.videoId], reach = reach[video.videoId])
         }
         CreatorCreativeIntelligenceEngine.snapshot(postmortems)
     }
-
-    Surface(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
-        RoundedCornerShape(20.dp),
-        MutedGold.copy(alpha = .05f),
-        border = BorderStroke(1.dp, MutedGold.copy(alpha = .28f)),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text("CREATIVE PATTERNS", color = MutedGold, fontSize = 8.2.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
-            Spacer(Modifier.height(4.dp))
-            Text("See what works in your videos", color = ProjectorIvory, fontSize = 13.5.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(3.dp))
-            Text("See more patterns", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(3.dp))
-            Text(
-                "${intelligence.connectedProjects} connected project${if (intelligence.connectedProjects == 1) "" else "s"} in this analytics window · patterns require repeated samples",
-                color = MutedText,
-                fontSize = 8.sp,
-                lineHeight = 11.sp,
-            )
-
-            Spacer(Modifier.height(11.dp))
-            if (intelligence.patterns.isEmpty()) {
-                Text(
-                    when {
-                        intelligence.connectedProjects < 2 -> "Link more published videos to see reliable patterns."
-                        else -> "More comparable videos are needed before drawing conclusions."
-                    },
-                    color = MutedText,
-                    fontSize = 8.7.sp,
-                    lineHeight = 12.sp,
-                )
-            } else {
-                intelligence.patterns.take(3).forEachIndexed { index, pattern ->
-                    if (index > 0) Spacer(Modifier.height(8.dp))
-                    CreativePatternCard(pattern)
-                }
+    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick),
+        RoundedCornerShape(16.dp), CinemaSurface,
+        border = BorderStroke(1.dp, CinemaLine)) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Creative Patterns", color = ProjectorIvory, fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("${intelligence.connectedProjects} linked", color = MutedText, fontSize = 11.sp)
             }
-
-            Spacer(Modifier.height(9.dp))
-            Text(
-                "These patterns compare title and hook structure, not thumbnail design.",
-                color = MutedText.copy(alpha = .75f),
-                fontSize = 7.3.sp,
-                lineHeight = 10.5.sp,
-            )
+            Spacer(Modifier.height(10.dp))
+            if (intelligence.patterns.isEmpty())
+                Text("Not enough data", color = MutedText, fontSize = 11.sp)
+            else intelligence.patterns.take(3).forEachIndexed { index, pattern ->
+                if (index > 0) Spacer(Modifier.height(8.dp))
+                CreativePatternCard(pattern)
+            }
         }
     }
 }
@@ -110,7 +77,7 @@ private fun CreativePatternCard(pattern: CreatorCreativePattern) {
             Text(
                 if (pattern.strength == CreatorCreativeEvidenceStrength.REPEATED) "REPEATED EVIDENCE" else "EARLY EVIDENCE",
                 color = accent,
-                fontSize = 6.7.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = .6.sp,
             )
@@ -118,22 +85,22 @@ private fun CreativePatternCard(pattern: CreatorCreativePattern) {
             Text(
                 "${pattern.leaderLabel} is leading ${outcomeLabel(pattern.outcome)}",
                 color = ProjectorIvory,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
             )
             Spacer(Modifier.height(3.dp))
             Text(
                 "${metricValue(pattern.outcome, pattern.leaderValue)} across ${pattern.leaderSamples} samples vs ${metricValue(pattern.outcome, pattern.comparisonValue)} for ${pattern.comparisonLabel} (${pattern.comparisonSamples}).",
                 color = MutedText,
-                fontSize = 8.1.sp,
-                lineHeight = 11.5.sp,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
             )
             if (pattern.relativeLiftPercent != 0) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     "Observed lift: ${if (pattern.relativeLiftPercent > 0) "+" else ""}${pattern.relativeLiftPercent}% · correlation, not proof of causation.",
                     color = accent,
-                    fontSize = 7.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }

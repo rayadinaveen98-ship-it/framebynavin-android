@@ -57,6 +57,8 @@ fun VoiceIdeaRecorderInput(
     recording: VoiceIdeaRecording?,
     onRecordingChanged: (VoiceIdeaRecording?) -> Unit,
     modifier: Modifier = Modifier,
+    onActiveChanged: (Boolean) -> Unit = {},
+    enabled: Boolean = true,
 ) {
     val context = LocalContext.current
     val recorder = remember { VoiceIdeaRecorder(context.applicationContext) }
@@ -66,6 +68,7 @@ fun VoiceIdeaRecorderInput(
 
     fun syncState() {
         recorderState = recorder.state
+        onActiveChanged(recorderState != VoiceIdeaRecorderState.IDLE)
         elapsedMillis = recorder.elapsedRecordingMillis()
     }
 
@@ -144,7 +147,7 @@ fun VoiceIdeaRecorderInput(
                         )
                         Spacer(Modifier.height(10.dp))
                         Button(
-                            onClick = ::requestOrStartRecording,
+                            enabled = enabled,                            onClick = ::requestOrStartRecording,
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                             shape = RoundedCornerShape(BacklotButtonRadius),
@@ -164,14 +167,14 @@ fun VoiceIdeaRecorderInput(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             OutlinedButton(
-                                onClick = ::requestOrStartRecording,
+                            enabled = enabled,                                onClick = ::requestOrStartRecording,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(BacklotButtonRadius),
                             ) {
                                 Text("RE-RECORD", fontSize = 9.sp, fontWeight = FontWeight.Bold)
                             }
                             OutlinedButton(
-                                onClick = ::deleteFinalizedRecording,
+                            enabled = enabled,                                onClick = ::deleteFinalizedRecording,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(BacklotButtonRadius),
                             ) {
@@ -196,7 +199,7 @@ fun VoiceIdeaRecorderInput(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         OutlinedButton(
-                            onClick = {
+                            enabled = enabled,                            onClick = {
                                 errorMessage = null
                                 val result = if (paused) recorder.resume() else recorder.pause()
                                 result.onSuccess { syncState() }
@@ -208,7 +211,7 @@ fun VoiceIdeaRecorderInput(
                             Text(if (paused) "RESUME" else "PAUSE", fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                         Button(
-                            onClick = {
+                            enabled = enabled,                            onClick = {
                                 errorMessage = null
                                 recorder.stop()
                                     .onSuccess { finalized ->
@@ -234,7 +237,7 @@ fun VoiceIdeaRecorderInput(
                     }
                     Spacer(Modifier.height(6.dp))
                     OutlinedButton(
-                        onClick = {
+                            enabled = enabled,                        onClick = {
                             recorder.cancel()
                             syncState()
                             errorMessage = null

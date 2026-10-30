@@ -1,0 +1,142 @@
+name: Backlot V221.5 Companion Accessibility and QA
+
+on:
+  push:
+    branches: [feature/backlot-v2215-companion-accessibility-qa]
+  pull_request:
+    branches: [feature/backlot-v2214-live-companion-home]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v2215-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify real Settings route and protected companion scope
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          ui=Path("app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt").read_text()
+          hub=Path("app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt").read_text()
+          home=Path("app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt").read_text()
+          bridge=Path("app/src/main/java/com/framebynavin/app/ui/V2214HomeCompanion.kt").read_text()
+          card=Path("app/src/main/java/com/framebynavin/app/ui/V221CompanionSuggestionCard.kt").read_text()
+          controls=Path("app/src/main/java/com/framebynavin/app/ui/V2215CompanionControls.kt").read_text()
+          assert "POverlay.SETTINGS -> V144SettingsHub(" in ui
+          assert "companionEnabled = companionEnabled" in ui
+          assert "onCompanionEnabledChange = { requested ->" in ui
+          assert "companionPrefStore.setEnabled(requested)" in ui
+          assert "V167SettingsSection.GUIDE -> V144SettingsPage" in hub
+          assert "V2215CompanionControls(" in hub
+          assert 'V144CategoryCard("Companion"' in hub
+          assert "v2215-companion-switch" in controls and "stateDescription" in controls
+          assert "enabled = enabled && store.enabled()" in bridge
+          assert "FlowRow(" in card and "heightIn(min = 48.dp)" in card
+          assert "Dismiss companion suggestion for now" in card
+          assert home.index("V148HomeTopPerformersSection") < home.index('v215-up-next-header') < home.index("V219ReminderHomeEntry") < home.index("companionContent()") < home.index("V18CreatorFocusCard")
+          assert "V2213PoseCatalog" not in bridge and "V2213PoseCatalog" not in hub
+          assert "v2214-companion-switch" not in ui
+          for src in (controls,bridge,card):
+              assert not any(x in src for x in ("ReminderScheduler(", "TaskStore(", "markResponded(", "markUnanswered(", "CloudSyncManager(", "saveIdea(")),src[:80]
+          for identity in ("frame", "navi", "cute"):
+              assert Path("app/src/main/res/drawable-nodpi/guide_v217_"+identity+"_concept.webp").is_file()
+          assert len(list(Path("app/src/main/res/drawable-nodpi").glob("guide_funny_*.webp"))) == 5
+          print("Live Settings route, immediate opt-out, touch targets and original art protected")
+          PY
+      - name: Full Backlot JVM regressions
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Build all three Android APK variants
+        run: gradle :app:assembleDebug :app:assemblePersonalStable :app:assembleDebugAndroidTest --stacktrace
+      - name: Check signed development builds and focused tests
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path("app/build/test-results/testDebugUnitTest").glob("TEST-*V2214HomeCompanionPolicyTest.xml"))
+          assert len(files)==1,files
+          root=ET.parse(files[0]).getroot()
+          assert int(root.attrib.get("tests","0"))==3 and int(root.attrib.get("failures","0"))==0
+          print("Inherited V221.4 routing policy tests passed")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2215-Development-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            app/build/test-results/testDebugUnitTest/TEST-*V2214HomeCompanionPolicyTest.xml
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V2215-Development-APKs
+          path: apks
+      - name: Enable hardware virtualization
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run real Settings and Home UI tests with normal and large type
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            mkdir -p v2215-evidence
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2215CompanionAccessibilityUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2215-default-a11y.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2215-default-a11y.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2215-default-a11y.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2214CompanionHomeUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2215-default-home.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2215-default-home.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2215-default-home.log
+            for scene in settings-on settings-off card-actions; do adb exec-out run-as com.framebynavin.app cat "files/v2215-a11y/v2215-default-$scene.png" > "v2215-evidence/v2215-default-$scene.png"; done
+            adb shell wm size 900x1600
+            adb shell settings put system font_scale 2.0
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2215CompanionAccessibilityUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2215-compact-a11y.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2215-compact-a11y.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2215-compact-a11y.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2214CompanionHomeUiTest -e backlotVisualProfile compact -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v2215-compact-home.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v2215-compact-home.log; then exit 1; fi
+            grep -Fq 'OK (3 tests)' v2215-compact-home.log
+            for scene in settings-on settings-off card-actions; do adb exec-out run-as com.framebynavin.app cat "files/v2215-a11y/v2215-compact-$scene.png" > "v2215-evidence/v2215-compact-$scene.png"; done
+            python3 -c 'from pathlib import Path; import struct; images=list(Path("v2215-evidence").glob("*.png")); assert len(images)==6,len(images); assert all(p.stat().st_size>20000 and p.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a") and struct.unpack(">I",p.read_bytes()[16:20])[0]==(900 if "compact" in p.name else 1080) for p in images); print("Six Android screenshots verified")'
+      - name: Export emulator screenshots and test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V2215-Android-Accessibility-Evidence
+          path: |
+            v2215-evidence/*.png
+            v2215-*.log
+          retention-days: 14
+          if-no-files-found: warn

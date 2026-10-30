@@ -52,8 +52,7 @@ class AlarmActivity : ComponentActivity() {
         val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
         lifecycleScope.launch {
-            delay(V178PlaybackLifecyclePolicy.alarmDurationMillis(task) +
-                V178PlaybackLifecyclePolicy.ACTIVITY_WATCHDOG_EXTRA_MILLIS)
+            delay(V196ReminderResponseWindow.alarmActivityWatchdogMillis(task))
             if (!isFinishing && !isDestroyed) {
                 AlarmRingingService.stop(applicationContext, taskId, occurrenceId)
                 if (!ReminderOccurrenceStore(applicationContext).matches(task, occurrenceId)) {

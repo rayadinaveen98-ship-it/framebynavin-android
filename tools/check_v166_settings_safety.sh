@@ -22,8 +22,11 @@ grep -Fq 'if (existingCalendar == calendarId) ManagedEvent.OWNED' "$CAL"
 grep -Fq 'Calendar permission is needed to sync.' "$CAL"
 grep -Fq 'snapshotFlow { vm.tasks.toList() }' "$ROOT"
 grep -Fq 'Backing up' "$BACKUP" || grep -Fq 'not encrypted' "$BACKUP"
-grep -Fq 'phone Calendar connection' "$SETTINGS"
-grep -Fq 'Theme, app icon, launch sound and Google Calendar connection' "$BACKUP"
+grep -Fq 'Calendar connection' "$SETTINGS"
+grep -Fq 'Project attachments keep their links only' "$SETTINGS"
+grep -Fq 'Calendar connection remain device-specific' "$BACKUP"
+grep -Fq 'Project attachment files are NOT bundled' "$BACKUP"
+grep -Fq 'Project attachments' "$BACKUP"
 test -f app/src/test/java/com/framebynavin/app/ui/CreatorCalendarSyncS1PolicyTest.kt
 test -f app/src/androidTest/java/com/framebynavin/app/ui/V166SettingsSafetyUiTest.kt
 echo 'S1 settings safety guards passed'

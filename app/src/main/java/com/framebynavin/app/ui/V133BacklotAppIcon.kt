@@ -46,10 +46,10 @@ internal enum class BacklotAppIcon(
     @DrawableRes val previewRes: Int,
     val aliasSuffix: String,
 ) {
-    CINEMATIC("Cinematic", "The signature illuminated Backlot gateway.", R.drawable.backlot_icon_cinematic, "BacklotCinematicAlias"),
-    MINIMAL("Minimal", "Reduced gold mark for a quieter home screen.", R.drawable.backlot_icon_minimal, "BacklotMinimalAlias"),
-    LIGHT("Light", "Ivory edition with the dark Backlot mark.", R.drawable.backlot_icon_light, "BacklotLightAlias"),
-    HORIZONTAL("Horizontal", "A compact wide-lockup inspired edition.", R.drawable.backlot_icon_horizontal, "BacklotHorizontalAlias"),
+    CINEMATIC("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotCinematicAlias"),
+    MINIMAL("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotMinimalAlias"),
+    LIGHT("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotLightAlias"),
+    HORIZONTAL("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotHorizontalAlias"),
     ;
 
     fun componentName(packageName: String): String = "$packageName.launcher.$aliasSuffix"
@@ -86,52 +86,34 @@ internal object BacklotAppIconManager {
     }
 }
 
+/**
+ * One canonical approved B mark. Existing icon aliases/prefs remain compatible
+ * with upgrades, but all alias drawables and previews now use the same new logo.
+ */
 @Composable
 internal fun V133AppIconPicker() {
-    val context = LocalContext.current
-    var selected by remember { mutableStateOf(BacklotAppIconManager.current(context)) }
-
     Column(Modifier.fillMaxWidth()) {
         Text("APP ICON", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
-        Spacer(Modifier.height(4.dp))
-        Text("Choose how Backlot appears on your home screen.", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text("Choose an icon for your home screen. The launcher may take a moment to update.", color = MutedText, fontSize = 11.sp)
-        Spacer(Modifier.height(10.dp))
-
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            BacklotAppIcon.entries.chunked(2).forEach { rowIcons ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    rowIcons.forEach { icon ->
-                        val active = icon == selected
-                        Surface(
-                            modifier = Modifier.weight(1f).clickable {
-                                runCatching { BacklotAppIconManager.set(context, icon) }
-                                    .onSuccess {
-                                        selected = icon
-                                        Toast.makeText(context, "Backlot icon: ${icon.displayName}", Toast.LENGTH_SHORT).show()
-                                    }
-                                    .onFailure {
-                                        Toast.makeText(context, "Could not change icon on this launcher.", Toast.LENGTH_SHORT).show()
-                                    }
-                            },
-                            shape = RoundedCornerShape(16.dp),
-                            color = CinemaSurface,
-                            border = BorderStroke(1.dp, if (active) MutedGold else CinemaLine),
-                        ) {
-                            Column(Modifier.padding(11.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(Modifier.size(54.dp).clip(RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
-                                    Image(painterResource(icon.previewRes), contentDescription = "${icon.displayName} Backlot icon", modifier = Modifier.size(54.dp))
-                                }
-                                Spacer(Modifier.height(7.dp))
-                                Text(icon.displayName, color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Text(icon.description, color = MutedText, fontSize = 10.5.sp, lineHeight = 14.sp, maxLines = 2)
-                            }
-                        }
-                    }
-                    if (rowIcons.size == 1) Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(8.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = CinemaSurface,
+            border = BorderStroke(1.dp, CinemaLine),
+        ) {
+            Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(R.drawable.backlot_v198_approved_icon),
+                    contentDescription = "Backlot app icon",
+                    modifier = Modifier.size(62.dp).clip(RoundedCornerShape(16.dp)),
+                )
+                Spacer(Modifier.size(13.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Backlot", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(3.dp))
+                    Text("Built for Creators", color = MutedText, fontSize = 11.sp)
                 }
             }
         }
     }
 }
-

@@ -43,7 +43,7 @@ internal fun V168CreatorProfileEditor(
     val error = CreatorProfileEditV168Policy.validate(draft)
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 18.dp)) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding().padding(horizontal = 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 5.dp)) {
                 IconButton(onClick = onCancel) {
                     Icon(Icons.Outlined.ArrowBack, contentDescription = "Back", tint = ProjectorIvory)
@@ -163,18 +163,13 @@ internal fun V168CreatorProfileEditor(
             if (error != null) Text(error, color = RecRed, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
             if (saveFailed) Text("Could not save creator details. Nothing was reset. Try again.",
                 color = RecRed, fontSize = 11.sp, modifier = Modifier.padding(8.dp))
-            Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f).height(49.dp),
-                    border = BorderStroke(1.dp, CinemaLine)) { Text("CANCEL", fontSize = 12.sp) }
-                Button(
-                    onClick = {
-                        saveFailed = !onSave(CreatorProfileEditV168Policy.apply(profile, draft))
-                    },
-                    enabled = error == null,
-                    modifier = Modifier.weight(1.4f).height(49.dp).testTag("v168-save-profile"),
-                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                ) { Text("SAVE CHANGES", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            }
+            V197ProfileEditorFooter(
+                enabled = error == null,
+                onCancel = onCancel,
+                onSave = {
+                    saveFailed = !onSave(CreatorProfileEditV168Policy.apply(profile, draft))
+                },
+            )
         }
     }
 }

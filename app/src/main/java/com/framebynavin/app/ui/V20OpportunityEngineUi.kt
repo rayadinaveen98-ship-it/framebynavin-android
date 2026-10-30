@@ -194,230 +194,69 @@ private fun V20OpportunitySurface(
     onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
     val primary = snapshot.now.firstOrNull() ?: snapshot.primary ?: return
-    var showDetails by remember(primary.id) { mutableStateOf(false) }
+    var expanded by remember(primary.id) { mutableStateOf(false) }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MutedGold.copy(alpha = .06f),
-        border = BorderStroke(1.dp, MutedGold.copy(alpha = .34f)),
-    ) {
-        Column(Modifier.padding(horizontal = 15.dp, vertical = 14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.size(34.dp).background(MutedGold.copy(alpha = .12f), RoundedCornerShape(11.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Outlined.AutoAwesome, null, tint = MutedGold, modifier = Modifier.size(17.dp))
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface,
+        border = BorderStroke(1.dp, CinemaLine)) {
+        Column(Modifier.padding(14.dp)) {
+            Text("Next Move", color = ProjectorIvory, fontSize = 15.sp,
+                fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text(primary.title, color = ProjectorIvory, fontSize = 13.sp,
+                fontWeight = FontWeight.Medium, maxLines = 2,
+                overflow = TextOverflow.Ellipsis)
+            if (onAction != null) {
+                Spacer(Modifier.height(10.dp))
+                Button(onClick = { onAction(primary) },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed)) {
+                    Text(actionLabelOverride ?: primary.actionLabel,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.width(9.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("NEXT MOVE", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
-                    Text(primary.kicker, color = MutedText, fontSize = 7.2.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(10.dp))
+            V190Disclosure("Ideas & patterns", expanded) { expanded = !expanded }
+            if (expanded) {
+                Spacer(Modifier.height(10.dp))
+                if (snapshot.now.size > 1)
+                    V20HorizonList("Now", snapshot.now.drop(1), RecRed, onAction)
+                if (snapshot.next.isNotEmpty())
+                    V20HorizonList("Next", snapshot.next, MutedGold, onAction)
+                if (snapshot.later.isNotEmpty())
+                    V20HorizonList("Later", snapshot.later, MutedText, onAction)
+                if (learningSummary.acted > 0) {
+                    Spacer(Modifier.height(9.dp))
+                    Text("${learningSummary.acted} tried · ${learningSummary.projectsCreated} projects · ${learningSummary.evaluated} reviewed",
+                        color = MutedText, fontSize = 11.sp)
                 }
-                Text(
-                    "${primary.confidence}% · FIT ${primary.scorecard.weightedScore}",
-                    color = if (primary.confidence >= 80) SuccessGreen else MutedGold,
-                    fontSize = 7.2.sp,
-                    fontWeight = FontWeight.Black,
-                )
-            }
-
-            Spacer(Modifier.height(9.dp))
-            Text(
-                primary.title,
-                color = ProjectorIvory,
-                fontSize = 14.5.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = if (showDetails) 4 else 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            if (!showDetails) {
-                Spacer(Modifier.height(7.dp))
-                Text(
-                    "Why this suggestion? ›",
-                    color = MutedGold,
-                    fontSize = 8.2.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { showDetails = true }.padding(vertical = 3.dp),
-                )
-            }
-
-            AnimatedVisibility(visible = showDetails) {
-                Column {
-                    Spacer(Modifier.height(7.dp))
-                    Text(primary.body, color = MutedText, fontSize = 9.2.sp, lineHeight = 14.sp)
-
+                if (playbook.patterns.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        primary.evidence.map { it.source }.distinct().forEach { source ->
-                            Surface(shape = RoundedCornerShape(100.dp), color = opportunitySourceColor(source).copy(alpha = .12f)) {
-                                Text(
-                                    opportunitySourceLabel(source),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    color = opportunitySourceColor(source),
-                                    fontSize = 6.9.sp,
-                                    fontWeight = FontWeight.Black,
-                                )
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(7.dp))
-                    primary.evidence.take(3).forEach { evidence ->
-                        Text("• ${evidence.label}", color = MutedText, fontSize = 7.8.sp, lineHeight = 11.sp)
-                    }
-
+                    Text("Patterns", color = ProjectorIvory, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold)
+                    playbook.patterns.take(3).forEach { V20PlaybookPatternRow(it) }
+                }
+                if (brainGuidance.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
-                    Text("WHY YOU'RE SEEING THIS", color = MutedText, fontSize = 6.8.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                    Spacer(Modifier.height(5.dp))
-                    V20DecisionScorecard(primary.scorecard)
-
-                    if (onAction != null) {
-                        Spacer(Modifier.height(14.dp))
-                        Button(
-                            onClick = { onAction(primary) },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                            shape = RoundedCornerShape(15.dp),
-                        ) {
-                            Text(actionLabelOverride ?: primary.actionLabel, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                            Spacer(Modifier.width(6.dp))
-                            Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(16.dp))
-                        }
+                    Text("Suggestions", color = ProjectorIvory, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold)
+                    brainGuidance.take(3).forEach {
+                        V20CreatorBrainRecommendationRow(it, onBrainProject)
                     }
-
-                    val additionalNow = snapshot.now.drop(1)
-                    if (additionalNow.isNotEmpty()) {
-                        Spacer(Modifier.height(15.dp))
-                        V20HorizonList("ALSO NOW", additionalNow, RecRed, onAction)
-                    }
-                    if (snapshot.next.isNotEmpty()) {
-                        Spacer(Modifier.height(15.dp))
-                        V20HorizonList("NEXT", snapshot.next, MutedGold, onAction)
-                    }
-                    if (snapshot.later.isNotEmpty()) {
-                        Spacer(Modifier.height(15.dp))
-                        V20HorizonList("LATER", snapshot.later, MutedText, onAction)
-                    }
-
-                    if (learningSummary.acted > 0) {
-                        Spacer(Modifier.height(14.dp))
-                        HorizontalDivider(color = MutedText.copy(alpha = .16f))
-                        Spacer(Modifier.height(10.dp))
-                        Text("LEARNING FROM RESULTS", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                        Spacer(Modifier.height(5.dp))
-                        Text(
-                            "${learningSummary.acted} acted · ${learningSummary.projectsCreated} projects · ${learningSummary.published} published · ${learningSummary.evaluated} evaluated",
-                            color = ProjectorIvory.copy(alpha = .84f),
-                            fontSize = 8.2.sp,
-                            lineHeight = 12.sp,
-                        )
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            if (learningSummary.evaluated > 0) {
-                                "${learningSummary.positiveRatePercent}% of evaluated recommendations are positive so far. Backlot keeps the evidence rather than assuming every recommendation worked."
-                            } else {
-                                "Backlot checks what happened after you try a suggestion."
-                            },
-                            color = MutedText,
-                            fontSize = 7.sp,
-                            lineHeight = 10.5.sp,
-                        )
-                    }
-
-                    if (playbook.patterns.isNotEmpty()) {
-                        Spacer(Modifier.height(12.dp))
-                        Text("WHAT WORKS FOR YOU", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                        Spacer(Modifier.height(5.dp))
-                        playbook.patterns.take(3).forEach { pattern ->
-                            V20PlaybookPatternRow(pattern)
-                        }
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            "Past results help refine suggestions. One video never sets a rule.",
-                            color = MutedText.copy(alpha = .78f),
-                            fontSize = 6.8.sp,
-                            lineHeight = 10.sp,
-                        )
-                    }
-
-                    if (brainGuidance.isNotEmpty()) {
-                        Spacer(Modifier.height(14.dp))
-                        HorizontalDivider(color = MutedGold.copy(alpha = .14f))
-                        Spacer(Modifier.height(10.dp))
-                        Text("SUGGESTED NEXT STEPS", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                        Spacer(Modifier.height(5.dp))
-                        brainGuidance.take(3).forEach { recommendation ->
-                            V20CreatorBrainRecommendationRow(recommendation, onBrainProject)
-                        }
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            "Suggestions use repeated results, not predictions or guarantees.",
-                            color = MutedText.copy(alpha = .78f),
-                            fontSize = 6.8.sp,
-                            lineHeight = 10.sp,
-                        )
-                    }
-
-                    if (brainExplainability.explanations.isNotEmpty()) {
-                        Spacer(Modifier.height(14.dp))
-                        HorizontalDivider(color = MutedGold.copy(alpha = .14f))
-                        Spacer(Modifier.height(10.dp))
-                        Text("WHY THIS SUGGESTION?", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "${brainExplainability.activeCount} active · ${brainExplainability.pausedCount} paused · ${brainExplainability.retiredCount} retired",
-                            color = ProjectorIvory.copy(alpha = .82f),
-                            fontSize = 7.2.sp,
-                        )
-                        Spacer(Modifier.height(5.dp))
-                        brainExplainability.explanations.take(4).forEach { explanation ->
-                            V20CreatorBrainExplanationRow(explanation, onBrainControl)
-                        }
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            "Pausing a pattern stops it affecting suggestions. Your history stays saved.",
-                            color = MutedText.copy(alpha = .78f),
-                            fontSize = 6.8.sp,
-                            lineHeight = 10.sp,
-                        )
-                    }
-
-                    if (brain.patterns.isNotEmpty()) {
-                        Spacer(Modifier.height(12.dp))
-                        Text("WHAT BACKLOT HAS LEARNED", color = MutedGold, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                        Spacer(Modifier.height(5.dp))
-                        brain.patterns.take(4).forEach { pattern ->
-                            V20CreatorBrainPatternRow(pattern)
-                        }
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            "Recent results matter more. Older patterns need new evidence.",
-                            color = MutedText.copy(alpha = .78f),
-                            fontSize = 6.8.sp,
-                            lineHeight = 10.sp,
-                        )
-                    }
-
+                }
+                if (brainExplainability.explanations.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
-                    Text(
-                        when {
-                            snapshot.creatorBrainEvidenceUsed -> "Your latest results matter most. Past patterns add context."
-                            snapshot.playbookEvidenceUsed && snapshot.aiEvidenceUsed -> "Ranking is led by current creator + YouTube evidence, then lightly informed by repeated outcome history and optional Gemini evidence."
-                            snapshot.playbookEvidenceUsed -> "Current results come first. Past patterns help a little."
-                            snapshot.aiEvidenceUsed -> "Suggestions use your projects and YouTube data. AI adds context when available."
-                            else -> "Ranking uses urgency, momentum, readiness, evidence strength and strategic value. Gemini remains optional."
-                        },
-                        color = MutedText.copy(alpha = .72f),
-                        fontSize = 6.9.sp,
-                        lineHeight = 10.sp,
-                    )
-
-                    TextButton(onClick = { showDetails = false }, modifier = Modifier.padding(top = 4.dp)) {
-                        Text("HIDE WHY", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("Pattern Controls", color = ProjectorIvory, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold)
+                    brainExplainability.explanations.take(4).forEach {
+                        V20CreatorBrainExplanationRow(it, onBrainControl)
                     }
+                }
+                if (brain.patterns.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("Learned Patterns", color = ProjectorIvory, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold)
+                    brain.patterns.take(3).forEach { V20CreatorBrainPatternRow(it) }
                 }
             }
         }
@@ -441,8 +280,8 @@ private fun V20DecisionScorecard(scorecard: CreatorOpportunityScorecard) {
                 color = CinemaSurfaceRaised,
             ) {
                 Column(Modifier.padding(horizontal = 5.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(value.toString(), color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                    Text(label, color = MutedText, fontSize = 5.5.sp, maxLines = 1)
+                    Text(value.toString(), color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text(label, color = MutedText, fontSize = 11.sp, maxLines = 1)
                 }
             }
         }
@@ -466,18 +305,18 @@ private fun V20PlaybookPatternRow(pattern: CreatorPlaybookPattern) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .12f)) {
-            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 5.8.sp, fontWeight = FontWeight.Black)
+            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.width(7.dp))
         Column(Modifier.weight(1f)) {
-            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
-            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 6.4.sp)
+            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 11.sp)
         }
         if (pattern.rankingDelta != 0) {
             Text(
                 if (pattern.rankingDelta > 0) "+${pattern.rankingDelta}" else pattern.rankingDelta.toString(),
                 color = accent,
-                fontSize = 7.2.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
             )
         }
@@ -512,14 +351,12 @@ private fun V20CreatorBrainRecommendationRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .12f)) {
-            Text(label, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp), color = accent, fontSize = 5.8.sp, fontWeight = FontWeight.Black)
+            Text(label, modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.width(7.dp))
         Column(Modifier.weight(1f)) {
-            Text(recommendation.title, color = ProjectorIvory.copy(alpha = .9f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text(recommendation.title, color = ProjectorIvory.copy(alpha = .9f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(2.dp))
-            Text(recommendation.body, color = MutedText, fontSize = 6.6.sp, lineHeight = 9.5.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-            Text("${recommendation.confidence}% evidence confidence · ${recommendation.patternIds.size} Brain pattern${if (recommendation.patternIds.size == 1) "" else "s"}", color = accent.copy(alpha = .86f), fontSize = 6.sp, fontWeight = FontWeight.Bold)
         }
         if (clickable) {
             Spacer(Modifier.width(6.dp))
@@ -561,44 +398,39 @@ private fun V20CreatorBrainExplanationRow(
                         if (explanation.control == CreatorBrainLearningControl.ACTIVE) explanation.state.name else explanation.control.name,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
                         color = accent,
-                        fontSize = 5.7.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
                     )
                 }
                 Spacer(Modifier.width(7.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(explanation.label, color = ProjectorIvory.copy(alpha = .9f), fontSize = 7.9.sp, fontWeight = FontWeight.Bold)
+                    Text(explanation.label, color = ProjectorIvory.copy(alpha = .9f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Text(
                         "${explanation.sampleSize} evaluated · ${explanation.positiveRatePercent}% positive · ${explanation.freshness.name.lowercase()} · ${explanation.trajectory.name.lowercase()}",
                         color = MutedText,
-                        fontSize = 6.3.sp,
+                        fontSize = 11.sp,
                     )
                 }
                 Text(
                     if (explanation.effectiveRankingDelta > 0) "+${explanation.effectiveRankingDelta}" else explanation.effectiveRankingDelta.toString(),
                     color = accent,
-                    fontSize = 7.1.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
                 )
             }
 
             if (expanded) {
                 Spacer(Modifier.height(7.dp))
-                Text(explanation.why, color = ProjectorIvory.copy(alpha = .82f), fontSize = 6.8.sp, lineHeight = 10.sp)
-                Spacer(Modifier.height(4.dp))
-                Text(explanation.freshnessReason, color = MutedText, fontSize = 6.4.sp, lineHeight = 9.5.sp)
-                Spacer(Modifier.height(3.dp))
-                Text(explanation.trajectoryReason, color = MutedText, fontSize = 6.4.sp, lineHeight = 9.5.sp)
                 if (explanation.evidence.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
-                    Text("WHAT TAUGHT THE BRAIN", color = MutedGold, fontSize = 5.8.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+                    Text("Evidence", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(3.dp))
                     explanation.evidence.take(3).forEach { evidence ->
                         Text(
                             "• ${evidence.title} · ${evidence.verdict.name.lowercase()} · ${String.format("%.2f", evidence.baselineMultiple)}× baseline${if (evidence.videoId.isBlank()) "" else " · ${evidence.videoId}"}",
                             color = MutedText,
-                            fontSize = 6.2.sp,
-                            lineHeight = 9.sp,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
                         )
                     }
                 }
@@ -609,16 +441,16 @@ private fun V20CreatorBrainExplanationRow(
                             OutlinedButton(
                                 onClick = { onControl(explanation.patternId, CreatorBrainLearningControl.PAUSED) },
                                 contentPadding = PaddingValues(horizontal = 9.dp, vertical = 2.dp),
-                            ) { Text("PAUSE", fontSize = 6.2.sp, fontWeight = FontWeight.Black) }
+                            ) { Text("PAUSE", fontSize = 11.sp, fontWeight = FontWeight.Black) }
                             OutlinedButton(
                                 onClick = { onControl(explanation.patternId, CreatorBrainLearningControl.RETIRED) },
                                 contentPadding = PaddingValues(horizontal = 9.dp, vertical = 2.dp),
-                            ) { Text("RETIRE", fontSize = 6.2.sp, fontWeight = FontWeight.Black) }
+                            ) { Text("RETIRE", fontSize = 11.sp, fontWeight = FontWeight.Black) }
                         } else {
                             OutlinedButton(
                                 onClick = { onControl(explanation.patternId, CreatorBrainLearningControl.ACTIVE) },
                                 contentPadding = PaddingValues(horizontal = 9.dp, vertical = 2.dp),
-                            ) { Text("RESTORE", fontSize = 6.2.sp, fontWeight = FontWeight.Black) }
+                            ) { Text("RESTORE", fontSize = 11.sp, fontWeight = FontWeight.Black) }
                         }
                     }
                 }
@@ -641,18 +473,18 @@ private fun V20CreatorBrainPatternRow(pattern: CreatorBrainPattern) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .12f)) {
-            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 5.7.sp, fontWeight = FontWeight.Black)
+            Text(stateLabel, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.width(7.dp))
         Column(Modifier.weight(1f)) {
-            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
-            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 6.4.sp)
+            Text(pattern.label, color = ProjectorIvory.copy(alpha = .86f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("${pattern.positiveCount}/${pattern.evaluatedCount} positive · avg ${String.format("%.2f", pattern.averageBaselineMultiple)}× baseline", color = MutedText, fontSize = 11.sp)
         }
         if (pattern.rankingDelta != 0) {
             Text(
                 if (pattern.rankingDelta > 0) "+${pattern.rankingDelta}" else pattern.rankingDelta.toString(),
                 color = accent,
-                fontSize = 7.2.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
             )
         }
@@ -666,7 +498,7 @@ private fun V20HorizonList(
     accent: Color,
     onAction: ((CreatorOpportunity) -> Unit)?,
 ) {
-    Text(label, color = accent, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+    Text(label, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
     Spacer(Modifier.height(5.dp))
     opportunities.take(2).forEach { opportunity ->
         Row(
@@ -682,7 +514,7 @@ private fun V20HorizonList(
                 Text(
                     opportunity.title,
                     color = ProjectorIvory.copy(alpha = .88f),
-                    fontSize = 8.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -690,7 +522,7 @@ private fun V20HorizonList(
                 Text(
                     "Decision ${opportunity.scorecard.weightedScore} · ${opportunity.evidence.size} evidence",
                     color = MutedText,
-                    fontSize = 6.7.sp,
+                    fontSize = 11.sp,
                 )
             }
             if (onAction != null) {

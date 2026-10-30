@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.data.CreatorProjectFactsV186Policy
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskStatus
@@ -247,7 +248,7 @@ private fun V133TodayFrame(
             }
         } else {
             val stage = CreatorWorkflowEngine.currentStage(task)
-            val progress = CreatorWorkflowEngine.progress(task)
+            val projectFacts = CreatorProjectFactsV186Policy.facts(task)
             val overdue = task.dueAtMillis in 1 until System.currentTimeMillis()
             Column(Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -286,16 +287,16 @@ private fun V133TodayFrame(
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.fillMaxWidth().height(5.dp).background(CinemaLine, RoundedCornerShape(10.dp))) {
                     Box(
-                        Modifier.fillMaxWidth((progress.coerceIn(0, 100) / 100f).coerceAtLeast(.03f))
+                        Modifier.fillMaxWidth(projectFacts.workflowFraction)
                             .height(5.dp)
                             .background(Brush.horizontalGradient(listOf(MutedGold, RecRed)), RoundedCornerShape(10.dp))
                     )
                 }
                 Spacer(Modifier.height(7.dp))
-                Row {
-                    Text("$progress%", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.width(5.dp))
-                    Text("complete", color = MutedText, fontSize = 8.5.sp)
+                Column {
+                    Text(projectFacts.workflowLabel, color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(3.dp))
+                    Text("${projectFacts.checklistLabel} · ${projectFacts.publicationLabel}", color = MutedText, fontSize = 9.5.sp, lineHeight = 13.sp)
                 }
 
                 Spacer(Modifier.height(16.dp))

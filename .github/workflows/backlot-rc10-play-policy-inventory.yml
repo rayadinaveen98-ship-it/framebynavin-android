@@ -1,0 +1,195 @@
+name: Backlot RC10 Build267 Play Policy and Data Flow Inventory
+
+on:
+  push:
+    branches: [feature/backlot-rc10-play-compliance-inventory]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc10-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manifest-data-flow-policy-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Frozen Build267 manifest/SDK/Play review inventory — not a Play approval
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import subprocess
+          import xml.etree.ElementTree as ET
+
+          FROZEN='91b650d7f1f56caa7c703416c01b8566d819b17a'
+          subprocess.run(['git','merge-base','--is-ancestor',FROZEN,'HEAD'],check=True)
+          changed=set(subprocess.check_output(['git','diff','--name-only',FROZEN,'HEAD'],text=True).splitlines())
+          expected={
+            'docs/release/RC10_PLAY_POLICY_AND_DATA_FLOW_REVIEW.md',
+            '.github/workflows/backlot-rc10-play-policy-inventory.yml',
+          }
+          assert changed==expected, f'Frozen Build267 source changed in RC10: {changed ^ expected}'
+          source=Path('app/build.gradle.kts').read_text()
+          assert 'applicationId = "com.framebynavin.app"' in source
+          assert 'versionCode = 267' in source
+          assert 'targetSdk = 36' in source
+          assert 'compileSdk = 36' in source
+          assert 'prototypeStable' in source and 'dev-signing/framebynavin-public-debug.jks' in source
+          assert 'productionReleaseSigning?.let' in source
+          doc=Path('docs/release/RC10_PLAY_POLICY_AND_DATA_FLOW_REVIEW.md').read_text()
+          assert 'play_policy_approved=false' in doc
+          assert 'No automatic Play submission' in doc
+
+          namespace='{http://schemas.android.com/apk/res/android}'
+          manifest=ET.parse('app/src/main/AndroidManifest.xml').getroot()
+          permissions=sorted(p.attrib[namespace+'name'].rsplit('.',1)[-1]
+                             for p in manifest.findall('uses-permission'))
+          expected_permissions={
+            'INTERNET','POST_NOTIFICATIONS','RECORD_AUDIO',
+            'READ_CALENDAR','WRITE_CALENDAR','SCHEDULE_EXACT_ALARM',
+            'RECEIVE_BOOT_COMPLETED','USE_FULL_SCREEN_INTENT',
+            'VIBRATE','WAKE_LOCK','FOREGROUND_SERVICE',
+            'FOREGROUND_SERVICE_MEDIA_PLAYBACK'
+          }
+          assert set(permissions)==expected_permissions, (
+            'Manifest permission set changed; review policy before updating this audit: '+repr(permissions)
+          )
+          assert 'USE_EXACT_ALARM' not in permissions, 'Unexpected auto-granted exact alarm permission'
+          app=manifest.find('application')
+          assert app is not None
+          assert app.attrib.get(namespace+'allowBackup')=='false'
+          assert app.attrib.get(namespace+'usesCleartextTraffic')=='false'
+          services=sorted(
+            s.attrib[namespace+'name']
+            for s in app.findall('service')
+            if s.attrib.get(namespace+'foregroundServiceType')=='mediaPlayback'
+          )
+          assert len(services)==3, f'Expected three media playback services, found {services}'
+          assert set(services)=={
+            '.reminders.AlarmRingingService',
+            '.reminders.VoiceReminderService',
+            '.personal.PersonalPlaybackService',
+          }
+
+          base=Path('app/src/main/java/com/framebynavin/app')
+          def code(path):
+            p=base/path
+            assert p.is_file(),f'Missing code evidence: {path}'
+            return p.read_text()
+          alarm=code(Path('reminders/AlarmRingingService.kt'))
+          voice=code(Path('reminders/VoiceReminderService.kt'))
+          personal=code(Path('personal/PersonalPlaybackService.kt'))
+          for name,src in [('Alarm',alarm),('Voice',voice)]:
+            assert '.setFullScreenIntent(' in src, f'{name} full-screen path changed'
+            assert 'startForeground(' in src, f'{name} FGS path changed'
+          assert 'startForeground(' in personal
+          calendar=code(Path('ui/V129GoogleCalendarSettings.kt'))
+          assert 'KEY_S1_CONSENT' in calendar and 'CalendarContract.Events' in calendar
+          assert 'Manifest.permission.READ_CALENDAR' in calendar
+          assert 'Manifest.permission.WRITE_CALENDAR' in calendar
+          spark=code(Path('ui/V2293SparkVoiceSession.kt'))
+          assert 'createOnDeviceSpeechRecognizer' in spark and 'RECORD_AUDIO' in spark
+          cloud=code(Path('cloud/CloudApiClient.kt'))
+          assert 'signInWithGoogle' in cloud and 'deleteCreatorSyncData' in cloud
+          assert 'CloudConfig.SUPABASE_URL' in cloud
+          sync=code(Path('cloud/CreatorCloudSyncManager.kt'))
+          assert 'syncAuthenticated' in sync
+          youtube=code(Path('youtube/YouTubeAuthorization.kt'))
+          assert 'youtube.readonly' in youtube and 'yt-analytics.readonly' in youtube
+          ai=code(Path('ai/CreatorGeminiVideoAutopsyProvider.kt'))
+          assert 'Firebase.ai(' in ai and 'generateContent(' in ai
+          personal_backup=code(Path('ui/PersonalBackupActivity.kt'))
+          assert 'not encrypted' in personal_backup
+          assert 'Personal backup saved and verified' in personal_backup
+          assert 'android.permission' in Path('app/src/main/AndroidManifest.xml').read_text()
+
+          tracked=subprocess.check_output(['git','ls-files','-z'],text=False).decode().split('\0')
+          tracked=[p for p in tracked if p]
+          app_build=[p for p in tracked if p.startswith('app/build/')]
+          assert len(app_build)>5000, 'Tracked build artifacts changed; re-review history and cleanup'
+          config_paths=[p for p in tracked if p in (
+            'dev-signing/framebynavin-public-debug.jks',
+            'app/google-services.json',
+          )]
+          assert len(config_paths)==2, 'Signing/client config paths changed; re-review release security'
+          policy_files=[p for p in tracked if not p.startswith('app/build/') and (
+            'privacy' in p.lower() or
+            'data_safety' in p.lower() or
+            'data-safety' in p.lower()
+          )]
+          # Audit docs themselves may mention policy; a filename alone isn't a working live URL.
+          report={
+            'build267_app_source_frozen':True,
+            'rc10_source_changes':sorted(changed),
+            'application_id':'com.framebynavin.app',
+            'version_code':267,
+            'target_api':36,
+            'manifest_permissions':permissions,
+            'media_playback_foreground_services':services,
+            'full_screen_creator_services_with_notification_use':[
+                'AlarmRingingService','VoiceReminderService'
+            ],
+            'exact_alarm_special_access_not_auto_approved':True,
+            'cloud_sync_supabase_source_present':True,
+            'youtube_oauth_scopes_present':True,
+            'calendar_provider_export_present':True,
+            'firebase_ai_external_analysis_present':True,
+            'spark_on_device_speech_source_present':True,
+            'separate_unencrypted_personal_backup_present':True,
+            'tracked_generated_app_build_file_count':len(app_build),
+            'tracked_prototype_signer_and_firebase_client_config_paths':config_paths,
+            'privacy_or_data_safety_named_repo_paths':policy_files[:50],
+            'privacy_named_path_list_truncated':len(policy_files)>50,
+            'play_policy_approved':False,
+            'production_signer_verified':False,
+            'main_merge_authorized':False,
+            'unresolved_full_screen_intent_eligibility':True,
+            'unresolved_fgs_media_playback_declaration':True,
+            'unresolved_exact_alarm_permission_denial_qa':True,
+          }
+          open_items={
+            'privacy_policy_public_url_verified':False,
+            'privacy_policy_link_inside_app_verified':False,
+            'data_safety_completed_in_play_console':False,
+            'all_sdk_data_collection_and_retention_reviewed':False,
+            'google_calendar_data_flow_disclosed':False,
+            'firebase_ai_consent_and_retention_reviewed':False,
+            'account_deletion_inside_app_verified':False,
+            'account_deletion_public_url_verified':False,
+            'creator_and_personal_restore_on_second_device_verified':False,
+            'preview_to_play_signer_strategy_approved':False,
+            'owner_physical_device_accepted':False,
+            'main_branch_protected_and_reviewed':False,
+            'play_internal_test_approved':False,
+          }
+          Path('rc10-play-manifest-policy-inventory.json').write_text(
+            json.dumps(report,indent=2)+'\n')
+          Path('rc10-data-flow-review-open.json').write_text(
+            json.dumps(open_items,indent=2)+'\n')
+          print(json.dumps({
+            'package':report['application_id'],
+            'target_api':report['target_api'],
+            'permissions':len(permissions),
+            'media_playback_fgs_services':len(services),
+            'tracked_app_build_artifacts':len(app_build),
+            'policy_approval':False,
+            'open_review_items':list(open_items),
+          },indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC10-Policy-And-Data-Flow-Audit-Evidence
+          path: |
+            rc10-play-manifest-policy-inventory.json
+            rc10-data-flow-review-open.json
+          if-no-files-found: warn
+          retention-days: 30

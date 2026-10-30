@@ -12,10 +12,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -32,11 +34,42 @@ import java.util.UUID
 
 private enum class Alpha5PublicationAction { PUBLISH, UPDATE, REOPEN }
 
+/**
+ * The first Publish recovery may target an existing PLANNED output only.
+ * Never resolve a destination by its on-screen index. Duplicate IDs, changed
+ * platform/format, READY and PUBLISHED outputs all fail closed.
+ */
+internal fun V211CanStageHistoricalPublishDescription(
+    outputs: List<CreatorDeliverable>,
+    deliverableId: String,
+    platform: String,
+    format: String,
+): Boolean {
+    if (deliverableId.isBlank() || platform.isBlank() || format.isBlank()) return false
+    val output = outputs.singleOrNull { it.id == deliverableId } ?: return false
+    return output.platform == platform && output.format == format &&
+        output.status == CreatorDeliverableStatus.PLANNED
+}
+
+internal data class V211PublishDescriptionRecovery(
+    val nonce: Long,
+    val projectId: String,
+    val workspaceRevision: Long,
+    val deliverableId: String,
+    val platform: String,
+    val format: String,
+    val text: String,
+)
+
 @Composable
 internal fun V19PublishStudioAlpha5Dialog(
     task: CreatorTask,
     onDismiss: () -> Unit,
     onSave: (String, Long, CreatorContentWorkspace) -> Unit,
+    hasHeldDraft: Boolean = false,
+    onReviewHeld: () -> Unit = {},
+    pendingDescriptionRecovery: V211PublishDescriptionRecovery? = null,
+    onDescriptionRecoveryHandled: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
@@ -53,15 +86,49 @@ internal fun V19PublishStudioAlpha5Dialog(
     var selectedId by remember(task.id, originalRevision) {
         mutableStateOf(deliverables.firstOrNull()?.id.orEmpty())
     }
+    // Owner-approved historical text changes the unsaved editor only.
+    // Do not invoke replace(): that method can recalculate publish readiness.
+    LaunchedEffect(pendingDescriptionRecovery?.nonce) {
+        val request = pendingDescriptionRecovery ?: return@LaunchedEffect
+        if (request.projectId == task.id &&
+            request.workspaceRevision == originalRevision &&
+            V211CanStageHistoricalPublishDescription(
+                task.workspace.deliverables, request.deliverableId, request.platform, request.format,
+            ) &&
+            V211CanStageHistoricalPublishDescription(
+                deliverables, request.deliverableId, request.platform, request.format,
+            )
+        ) {
+            deliverables = deliverables.map {
+                if (it.id == request.deliverableId) it.copy(description = request.text) else it
+            }
+            selectedId = request.deliverableId
+        }
+        onDescriptionRecoveryHandled(request.nonce)
+    }
     var action by remember { mutableStateOf<Alpha5PublicationAction?>(null) }
     var actionError by remember { mutableStateOf<String?>(null) }
+    // Explicitly selected title only. Never use a random/unselected draft title.
+    val scriptTitle = CreatorScriptPublishBridge.selectedTitle(task.workspace.scriptStudio)
+    var pendingScriptTitleForId by remember(task.id, originalRevision) { mutableStateOf<String?>(null) }
 
+    var draftWarningShown by remember(task.id, originalRevision) { mutableStateOf(false) }
     LaunchedEffect(deliverables) {
         delay(350)
         val snapshot = deliverables
-        withContext(Dispatchers.IO) {
+        val saveError = withContext(Dispatchers.IO) {
+            runCatching {
             if (snapshot == canonicalEditorState) draftStore.clearPublish(task.id)
             else draftStore.savePublish(task.id, originalRevision, snapshot)
+            }.exceptionOrNull()
+        }
+        if (saveError != null && !draftWarningShown) {
+            draftWarningShown = true
+            android.widget.Toast.makeText(
+                context,
+                "Could not save this draft. Reopen the project if a backup was restored.",
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
         }
     }
 
@@ -99,16 +166,18 @@ internal fun V19PublishStudioAlpha5Dialog(
     val selected = deliverables.firstOrNull { it.id == selectedId }
     val unrecordedPublishedEdits = deliverables.any(CreatorPublishWorkflow::hasUnrecordedPublishedChanges)
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    WorkspaceAdaptiveFrame {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("PREPARE TO PUBLISH", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
-                        Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text("PUBLISH", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(task.title, color = ProjectorIvory, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    Text("R$originalRevision", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    if (hasHeldDraft) {
+                        TextButton(onClick = onReviewHeld) {
+                            Text("EARLIER DRAFT", color = MutedGold, fontSize = 10.sp)
+                        }
+                    }
                 }
 
                 if (recovered != null) {
@@ -122,13 +191,14 @@ internal fun V19PublishStudioAlpha5Dialog(
                 ) {
                     Alpha5PublishSummary(deliverables)
                     Spacer(Modifier.height(16.dp))
-                    Alpha5Title("OUTPUTS", "Choose the post you're preparing.")
+                    Alpha5Title("OUTPUTS", "")
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         deliverables.forEach { item ->
                             FilterChip(
                                 selected = selectedId == item.id,
                                 onClick = { selectedId = item.id },
-                                label = { Text("${item.platform} · ${item.format}", fontSize = 8.sp) },
+                                label = { Text("${item.platform} · ${item.format}", fontSize = 12.sp) },
+                                modifier = Modifier.heightIn(min = 44.dp),
                             )
                         }
                     }
@@ -146,6 +216,8 @@ internal fun V19PublishStudioAlpha5Dialog(
                             deliverable = selected,
                             parentTitle = deliverables.firstOrNull { it.id == selected.parentDeliverableId }?.title,
                             onChange = { replace(it) },
+                            scriptTitle = scriptTitle,
+                            onUseScriptTitle = { pendingScriptTitleForId = selected.id },
                             onPublish = { action = Alpha5PublicationAction.PUBLISH; actionError = null },
                             onUpdate = { action = Alpha5PublicationAction.UPDATE; actionError = null },
                             onReopen = { action = Alpha5PublicationAction.REOPEN; actionError = null },
@@ -184,8 +256,47 @@ internal fun V19PublishStudioAlpha5Dialog(
                         ) { Text("SAVE PUBLISH DETAILS", fontWeight = FontWeight.Black) }
                     }
                 }
-            }
-        }
+    }
+
+    val titleTarget = deliverables.firstOrNull { it.id == pendingScriptTitleForId }
+    if (pendingScriptTitleForId != null) {
+        AlertDialog(
+            onDismissRequest = { pendingScriptTitleForId = null },
+            title = { Text("Use script title?") },
+            text = {
+                Column {
+                    Text(
+                        if (titleTarget != null) "For ${titleTarget.platform} · ${titleTarget.format}"
+                        else "This output is no longer available.",
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("SCRIPT TITLE", color = MutedGold, fontSize = 12.sp)
+                    Text(scriptTitle)
+                    if (titleTarget?.title?.isNotBlank() == true) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("CURRENT TITLE", color = MutedGold, fontSize = 12.sp)
+                        Text(titleTarget.title)
+                    }
+                }
+            },
+            confirmButton = {
+                if (titleTarget != null && CreatorScriptPublishBridge.canUseTitle(titleTarget, scriptTitle)) {
+                    TextButton(onClick = {
+                        // Re-validate at the actual click, even if the output changed meanwhile.
+                        val currentTarget = deliverables.firstOrNull { it.id == pendingScriptTitleForId }
+                        if (currentTarget != null && CreatorScriptPublishBridge.canUseTitle(currentTarget, scriptTitle)) {
+                            replace(CreatorScriptPublishBridge.useTitle(currentTarget, scriptTitle))
+                        }
+                        pendingScriptTitleForId = null
+                    }) { Text("USE TITLE") }
+                } else {
+                    TextButton(onClick = { pendingScriptTitleForId = null }) { Text("OK") }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingScriptTitleForId = null }) { Text("CANCEL") }
+            },
+        )
     }
 
     val actionDeliverable = deliverables.firstOrNull { it.id == selectedId }
@@ -240,8 +351,8 @@ private fun Alpha5PublishSummary(deliverables: List<CreatorDeliverable>) {
 @Composable
 private fun Alpha5Metric(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text(label, color = MutedText, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -250,6 +361,8 @@ private fun Alpha5DeliverableEditor(
     deliverable: CreatorDeliverable,
     parentTitle: String?,
     onChange: (CreatorDeliverable) -> Unit,
+    scriptTitle: String,
+    onUseScriptTitle: () -> Unit,
     onPublish: () -> Unit,
     onUpdate: () -> Unit,
     onReopen: () -> Unit,
@@ -260,12 +373,14 @@ private fun Alpha5DeliverableEditor(
     val gateTotal = CreatorPublishWorkflow.ensureGate(deliverable).publishGate.size
     val ready = CreatorPublishWorkflow.isReadyToPublish(deliverable)
     val unrecorded = CreatorPublishWorkflow.hasUnrecordedPublishedChanges(deliverable)
+    var showVariants by rememberSaveable(deliverable.id) { mutableStateOf(false) }
+    var showHistory by rememberSaveable(deliverable.id) { mutableStateOf(false) }
 
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
         Column(Modifier.padding(15.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("${deliverable.platform.uppercase()} · ${deliverable.format.uppercase()}", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("${deliverable.platform.uppercase()} · ${deliverable.format.uppercase()}", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Text(
                         deliverable.status.name.replace('_', ' '),
                         color = when (deliverable.status) {
@@ -277,14 +392,26 @@ private fun Alpha5DeliverableEditor(
                         fontWeight = FontWeight.Black,
                     )
                 }
-                Text("$gateResolved/$gateTotal checks", color = MutedText, fontSize = 8.sp)
+                Text("$gateResolved/$gateTotal checks", color = MutedText, fontSize = 12.sp)
             }
             parentTitle?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(5.dp)); Text("Derived from: $it", color = MutedText, fontSize = 8.sp)
+                Spacer(Modifier.height(5.dp)); Text("Derived from: $it", color = MutedText, fontSize = 12.sp)
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("FINAL METADATA", "These details are saved when you confirm publication.")
+            Alpha5Title("DETAILS", "")
+            if (CreatorScriptPublishBridge.canUseTitle(deliverable, scriptTitle)) {
+                OutlinedButton(
+                    onClick = onUseScriptTitle,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(13.dp),
+                ) {
+                    Icon(Icons.Outlined.Title, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("USE SCRIPT TITLE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(9.dp))
+            }
             Alpha5Field("FINAL TITLE", deliverable.title, { onChange(deliverable.copy(title = it)) }, "Final platform title")
             Alpha5Field("DESCRIPTION / CAPTION", deliverable.description, { onChange(deliverable.copy(description = it)) }, "Platform description or caption", 4)
             Alpha5Field("TAGS / HASHTAGS", deliverable.tags, { onChange(deliverable.copy(tags = it)) }, "Tags, keywords or hashtags", 2)
@@ -292,23 +419,35 @@ private fun Alpha5DeliverableEditor(
             Alpha5Field("LIVE URL", deliverable.publishedUrl, { onChange(deliverable.copy(publishedUrl = it)) }, "https://…")
 
             Spacer(Modifier.height(12.dp))
+            TextButton(
+                onClick = { showVariants = !showVariants },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            ) {
+                Text("TITLE & COVER OPTIONS", color = ProjectorIvory, fontSize = 13.sp)
+                Spacer(Modifier.weight(1f))
+                Text(if (showVariants) "HIDE" else "SHOW", color = MutedGold, fontSize = 12.sp)
+                Icon(if (showVariants) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = null, tint = MutedGold)
+            }
+            if (showVariants) {
             Alpha5VariantSection(
-                title = "TITLE VARIANTS",
+                title = "TITLE OPTIONS",
                 variants = deliverable.titleVariants,
                 onVariants = { onChange(deliverable.copy(titleVariants = it)) },
                 onUse = { onChange(deliverable.copy(title = it)) },
             )
             Spacer(Modifier.height(14.dp))
             Alpha5VariantSection(
-                title = "THUMBNAIL / COVER VARIANTS",
+                title = "COVER OPTIONS",
                 variants = deliverable.thumbnailVariants,
                 onVariants = { onChange(deliverable.copy(thumbnailVariants = it)) },
                 onUse = { onChange(deliverable.copy(thumbnailConcept = it)) },
             )
+            }
 
             Spacer(Modifier.height(18.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Alpha5Title("PRE-PUBLISH GATE", "Required TODO items block publication.", Modifier.weight(1f))
+                Alpha5Title("FINAL CHECKS", "", Modifier.weight(1f))
                 TextButton(onClick = {
                     onChange(deliverable.copy(
                         publishGate = deliverable.publishGate + CreatorPublishGateItem(
@@ -338,7 +477,7 @@ private fun Alpha5DeliverableEditor(
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("PUBLISH", "This records the post as published. Your project remains open.")
+            Alpha5Title("PUBLISH", "")
             when (deliverable.status) {
                 CreatorDeliverableStatus.PUBLISHED -> {
                     if (unrecorded) {
@@ -370,17 +509,25 @@ private fun Alpha5DeliverableEditor(
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("REPURPOSE", "Create linked outputs without duplicating the parent project.")
+            Alpha5Title("REPURPOSE", "")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onYouTubeShort, modifier = Modifier.weight(1f)) { Text("→ YT SHORT", fontSize = 8.sp) }
                 OutlinedButton(onClick = onInstagramReel, modifier = Modifier.weight(1f)) { Text("→ IG REEL", fontSize = 8.sp) }
             }
 
             Spacer(Modifier.height(18.dp))
-            Alpha5Title("PUBLICATION HISTORY", "Append-only snapshots of publish, correction and reopen actions.")
-            if (deliverable.publicationHistory.isEmpty()) {
-                Alpha5Empty("No publication events yet.")
-            } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Alpha5Title("HISTORY", "", Modifier.weight(1f))
+                TextButton(onClick = { showHistory = !showHistory },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    enabled = deliverable.publicationHistory.isNotEmpty()) {
+                    Text(if (showHistory) "HIDE" else "VIEW " + deliverable.publicationHistory.size,
+                        color = MutedGold, fontSize = 12.sp)
+                    Icon(if (showHistory) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                        contentDescription = null, tint = MutedGold)
+                }
+            }
+            if (showHistory) {
                 deliverable.publicationHistory.asReversed().forEach { event ->
                     Alpha5HistoryCard(event)
                     Spacer(Modifier.height(6.dp))
@@ -429,6 +576,7 @@ private fun Alpha5GateCard(
     onChange: (CreatorPublishGateItem) -> Unit,
     onRemove: () -> Unit,
 ) {
+    val protectedCheck = CreatorPublishWorkflow.isProtectedCheck(gate)
     val accent = when (gate.status) {
         CreatorPublishGateStatus.TODO -> MutedText
         CreatorPublishGateStatus.DONE -> SuccessGreen
@@ -441,16 +589,17 @@ private fun Alpha5GateCard(
                 onValueChange = { onChange(gate.copy(title = it)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                enabled = !protectedCheck,
                 label = { Text("Check") },
             )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = gate.required, onCheckedChange = { onChange(gate.copy(required = it)) })
+                Checkbox(checked = gate.required, onCheckedChange = { onChange(gate.copy(required = it)) }, enabled = !protectedCheck)
                 Text(if (gate.required) "Required" else "Optional", color = MutedText, fontSize = 8.sp)
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.DONE)) }) { Text("DONE", fontSize = 8.sp) }
-                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.SKIPPED)) }) { Text("SKIP", fontSize = 8.sp) }
+                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.SKIPPED)) }, enabled = !gate.required && !protectedCheck) { Text("SKIP", fontSize = 8.sp) }
                 TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.TODO)) }) { Text("RESET", fontSize = 8.sp) }
-                IconButton(onClick = onRemove) { Icon(Icons.Outlined.DeleteOutline, "Remove", tint = MutedText) }
+                IconButton(onClick = onRemove, enabled = !protectedCheck) { Icon(Icons.Outlined.DeleteOutline, "Remove", tint = MutedText) }
             }
         }
     }
@@ -541,11 +690,10 @@ private fun Alpha5PublicationActionDialog(
 }
 
 @Composable
-private fun Alpha5Title(title: String, subtitle: String, modifier: Modifier = Modifier) {
+private fun Alpha5Title(title: String, @Suppress("UNUSED_PARAMETER") subtitle: String, modifier: Modifier = Modifier) {
     Column(modifier) {
-        Text(title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text(subtitle, color = MutedText, fontSize = 8.5.sp)
-        Spacer(Modifier.height(8.dp))
+        Text(title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(11.dp))
     }
 }
 
@@ -557,7 +705,7 @@ private fun Alpha5Field(
     placeholder: String,
     minLines: Int = 1,
 ) {
-    Text(label, color = MutedGold, fontSize = 7.7.sp, fontWeight = FontWeight.Black)
+    Text(label, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     Spacer(Modifier.height(4.dp))
     OutlinedTextField(
         value = value,
@@ -573,6 +721,6 @@ private fun Alpha5Field(
 @Composable
 private fun Alpha5Empty(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = MutedText, fontSize = 8.5.sp, modifier = Modifier.padding(12.dp))
+        Text(text, color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
     }
 }

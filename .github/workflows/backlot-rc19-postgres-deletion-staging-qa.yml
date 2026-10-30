@@ -1,0 +1,119 @@
+name: Backlot RC19 Real PostgreSQL Deletion Queue Staging QA
+
+on:
+  push:
+    branches: [feature/backlot-rc19-postgres-deletion-queue-staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc19-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frozen-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ensure exact RC19-only source scope and frozen Build269
+        run: |
+          set -euo pipefail
+          BASE=d124b939c7072fcacb687cfae28e83017b4973b2
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > rc19-diff.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path("rc19-diff.txt").read_text().splitlines())
+          expected={
+            "supabase/account-deletion/rc19-staging/queue.sql",
+            "supabase/account-deletion/rc19-staging/test_queue.py",
+            "docs/release/RC19_POSTGRES_DELETION_QUEUE_STAGING.md",
+            ".github/workflows/backlot-rc19-postgres-deletion-staging-qa.yml",
+          }
+          assert changed==expected, f"Non-RC19 production change: {sorted(changed ^ expected)}"
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          sql=Path("supabase/account-deletion/rc19-staging/queue.sql").read_text()
+          assert "current_database() <> 'backlot_rc19_ephemeral'" in sql
+          assert 'SECURITY INVOKER' in sql
+          assert 'FORCE ROW LEVEL SECURITY' in sql
+          assert 'REVOKE ALL ON ALL FUNCTIONS' in sql
+          assert not any(s.startswith('supabase/migrations/') or
+                         s.startswith('supabase/functions/') for s in changed)
+          print("PASS RC19 is a non-deployable staging-only PostgreSQL test")
+          PY
+
+  real-postgres-queue:
+    needs: frozen-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: rc19-ephemeral-ci-only
+          POSTGRES_DB: backlot_rc19_ephemeral
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backlot_rc19_ephemeral"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: rc19-ephemeral-ci-only
+      PGDATABASE: backlot_rc19_ephemeral
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check isolated Postgres client and expected database
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          test "$(psql -X -t -A -c 'select current_database()')" = backlot_rc19_ephemeral
+          echo "PASS disposable local database only"
+      - name: Create ephemeral mock API roles
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -c "CREATE ROLE rc19_worker NOLOGIN; CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN;"
+      - name: Install strictly guarded queue in ephemeral database
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc19-staging/queue.sql
+      - name: Test real Postgres RLS, concurrent CAS, recovery, retry and account isolation
+        run: python3 supabase/account-deletion/rc19-staging/test_queue.py
+      - name: No Supabase keys or production database URLs were used
+        run: |
+          if printenv SUPABASE_SERVICE_ROLE_KEY >/dev/null; then exit 1; fi
+          if printenv SUPABASE_SECRET_KEYS >/dev/null; then exit 1; fi
+          echo "PASS local Docker PostgreSQL only; no real Supabase project modified"
+
+  prior-offline-regression:
+    needs: frozen-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - name: Type check pure deletion core and queue tests
+        run: deno check supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+      - name: Lint deletion core plus staging Python syntax
+        run: |
+          deno lint supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+          python3 -m py_compile supabase/account-deletion/rc19-staging/test_queue.py
+      - name: Keep RC17 + RC18 offline tests green
+        run: deno test --no-config --no-check supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue_test.ts

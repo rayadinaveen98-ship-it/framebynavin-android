@@ -8,6 +8,8 @@ import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
+import java.time.ZoneId
+import com.framebynavin.app.data.CreatorDataGate
 import java.util.Currency
 import java.util.Locale
 
@@ -16,6 +18,20 @@ enum class YouTubeRevenuePeriod(val label: String) {
     TWENTY_EIGHT_DAYS("28D"),
     NINETY_DAYS("90D"),
     THIS_MONTH("This Month"),
+}
+
+/** An absent metric is not a reported numeric zero. Legacy snapshots are unverified. */
+data class YouTubeRevenueEvidence(
+    val summaryPresent: Boolean,
+    val summaryKeys: Set<String>,
+    val adKeys: Set<String>,
+    val trendState: YouTubeDatasetState,
+    val contentState: YouTubeDatasetState,
+    val returnedDailyDates: List<String>,
+) {
+    fun hasSummary(key: String): Boolean = summaryPresent && key in summaryKeys
+    fun hasAd(key: String): Boolean = key in adKeys
+    val observedDays: Int get() = returnedDailyDates.distinct().size
 }
 
 data class YouTubeRevenuePoint(
@@ -50,7 +66,17 @@ data class YouTubeRevenueSnapshot(
     val trend: List<YouTubeRevenuePoint>,
     val content: List<YouTubeRevenueContentRow> = emptyList(),
     val fetchedAtMillis: Long,
+    val channelId: String = "",
+    val creatorGeneration: Long = -1L,
+    val evidence: YouTubeRevenueEvidence? = null,
 ) {
+    /** A custom total-revenue / public-view ratio, not YouTube Studio's format-aware RPM. */
+    val revenuePerThousandViews: Double?
+        get() = if (evidence?.hasSummary("views") == true &&
+            evidence.hasSummary("estimatedRevenue") && views > 0L)
+            estimatedRevenue * 1000.0 / views.toDouble() else null
+
+    // Compatibility for old unit tests and callers. Do not label this Studio RPM.
     val calculatedRpm: Double
         get() = if (views > 0L) estimatedRevenue * 1000.0 / views.toDouble() else 0.0
 }
@@ -59,12 +85,16 @@ class YouTubeRevenueClient {
     fun sync(
         accessToken: String,
         period: YouTubeRevenuePeriod,
-        today: LocalDate = LocalDate.now(),
+        expectedChannelId: String,
+        today: LocalDate = LocalDate.now(ZoneId.of("America/Los_Angeles")),
         currencyCode: String = deviceCurrencyCode(),
     ): YouTubeRevenueSnapshot {
+        require(expectedChannelId.isNotBlank()) { "Expected YouTube channel ID is required." }
+        // The Analytics API verifies that this token is authorized for this channel.
+        // channel==MINE would silently accept a different signed-in account.
         val range = rangeFor(period, today)
         val common = mapOf(
-            "ids" to "channel==MINE",
+            "ids" to "channel==$expectedChannelId",
             "startDate" to range.first.toString(),
             "endDate" to range.second.toString(),
             "currency" to currencyCode,
@@ -77,14 +107,15 @@ class YouTubeRevenueClient {
             common + ("metrics" to "views,estimatedRevenue,estimatedAdRevenue,monetizedPlaybacks"),
         ).firstOrNull().orEmpty()
 
-        val adSummary: Map<String, Any?> = runCatching {
+        val adReport = runCatching {
             queryReport(
                 accessToken,
                 common + ("metrics" to "playbackBasedCpm,cpm,adImpressions"),
             ).firstOrNull().orEmpty()
-        }.getOrDefault(emptyMap())
+        }
+        val adSummary: Map<String, Any?> = adReport.getOrNull() ?: emptyMap()
 
-        val trend: List<YouTubeRevenuePoint> = runCatching {
+        val trendReport = runCatching {
             queryReport(
                 accessToken,
                 common + mapOf(
@@ -96,9 +127,10 @@ class YouTubeRevenueClient {
                 val day = row["day"]?.toString()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
                 YouTubeRevenuePoint(day, row.double("estimatedRevenue"))
             }
-        }.getOrDefault(emptyList())
+        }
+        val trend: List<YouTubeRevenuePoint> = trendReport.getOrDefault(emptyList())
 
-        val content: List<YouTubeRevenueContentRow> = runCatching {
+        val contentReport = runCatching {
             queryReport(
                 accessToken,
                 common + mapOf(
@@ -118,7 +150,21 @@ class YouTubeRevenueClient {
                     monetizedPlaybacks = row.long("monetizedPlaybacks"),
                 )
             }
-        }.getOrDefault(emptyList())
+        }
+        val content: List<YouTubeRevenueContentRow> = contentReport.getOrDefault(emptyList())
+        val evidence = YouTubeRevenueEvidence(
+            summaryPresent = summary.isNotEmpty(),
+            summaryKeys = summary.filter { (_, v) -> (v as? Number)?.toDouble() != null ||
+                v?.toString()?.toDoubleOrNull() != null }.keys,
+            adKeys = if (adReport.isSuccess) adSummary.filter { (_, v) ->
+                (v as? Number)?.toDouble() != null || v?.toString()?.toDoubleOrNull() != null
+            }.keys else emptySet(),
+            trendState = if (trendReport.isFailure) YouTubeDatasetState.UNAVAILABLE
+                else if (trend.isEmpty()) YouTubeDatasetState.EMPTY else YouTubeDatasetState.READY,
+            contentState = if (contentReport.isFailure) YouTubeDatasetState.UNAVAILABLE
+                else if (content.isEmpty()) YouTubeDatasetState.EMPTY else YouTubeDatasetState.READY,
+            returnedDailyDates = trend.map { it.date }.distinct().sorted(),
+        )
 
         return YouTubeRevenueSnapshot(
             period = period,
@@ -135,10 +181,15 @@ class YouTubeRevenueClient {
             trend = trend,
             content = content,
             fetchedAtMillis = System.currentTimeMillis(),
+            channelId = expectedChannelId,
+            evidence = evidence,
         )
     }
 
     internal fun rangeFor(period: YouTubeRevenuePeriod, today: LocalDate): Pair<LocalDate, LocalDate> {
+        require(period != YouTubeRevenuePeriod.THIS_MONTH || today.dayOfMonth > 1) {
+            "This month's revenue is not available on the first day."
+        }
         val end = today.minusDays(1)
         val start = when (period) {
             YouTubeRevenuePeriod.SEVEN_DAYS -> end.minusDays(6)
@@ -146,7 +197,7 @@ class YouTubeRevenueClient {
             YouTubeRevenuePeriod.NINETY_DAYS -> end.minusDays(89)
             YouTubeRevenuePeriod.THIS_MONTH -> today.withDayOfMonth(1)
         }
-        return if (start.isAfter(end)) start to start else start to end
+        return start to end
     }
 
     private fun queryReport(token: String, params: Map<String, String>): List<Map<String, Any?>> {
@@ -214,16 +265,40 @@ class YouTubeRevenueClient {
 }
 
 class YouTubeRevenueStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun load(period: YouTubeRevenuePeriod): YouTubeRevenueSnapshot? {
+    /** Old unowned revenue caches must be fetched again, never reassigned on upgrade. */
+    fun load(period: YouTubeRevenuePeriod, expectedChannelId: String): YouTubeRevenueSnapshot? {
+        if (expectedChannelId.isBlank()) return null
         val raw = prefs.getString(key(period), null) ?: return null
         return runCatching { decode(JSONObject(raw)) }.getOrNull()
+            ?.takeIf { it.channelId == expectedChannelId &&
+                it.creatorGeneration == CreatorDataGate.generation(appContext) &&
+                YouTubeAnalyticsStore(appContext).loadAny()?.channel?.channelId == expectedChannelId }
     }
 
-    fun save(snapshot: YouTubeRevenueSnapshot) {
-        prefs.edit().putString(key(snapshot.period), encode(snapshot).toString()).apply()
-    }
+    /**
+     * Restore serialization + channel verification happen at the final write,
+     * not merely at UI authorization time. A late monetary token cannot
+     * resurrect data after disconnect or switch accounts.
+     */
+    suspend fun saveIfOwner(snapshot: YouTubeRevenueSnapshot, expectedGeneration: Long): Boolean =
+        CreatorDataGate.readyTransaction(appContext) {
+            if (snapshot.channelId.isBlank() ||
+                CreatorDataGate.generation(appContext) != expectedGeneration ||
+                YouTubeAnalyticsStore(appContext).loadAny()?.channel?.channelId != snapshot.channelId
+            ) return@readyTransaction false
+            val previous = prefs.getString(key(snapshot.period), null)
+                ?.let { runCatching { decode(JSONObject(it)) }.getOrNull() }
+            if (previous?.channelId == snapshot.channelId &&
+                previous.fetchedAtMillis > snapshot.fetchedAtMillis) return@readyTransaction false
+            val owned = snapshot.copy(creatorGeneration = expectedGeneration)
+            check(prefs.edit().putString(key(snapshot.period), encode(owned).toString()).commit()) {
+                "Could not save owned YouTube revenue."
+            }
+            true
+        }
 
     fun clear() {
         prefs.edit().clear().apply()
@@ -231,6 +306,8 @@ class YouTubeRevenueStore(context: Context) {
 
     private fun encode(snapshot: YouTubeRevenueSnapshot): JSONObject = JSONObject()
         .put("period", snapshot.period.name)
+        .put("channelId", snapshot.channelId)
+        .put("creatorGeneration", snapshot.creatorGeneration)
         .put("startDate", snapshot.startDate)
         .put("endDate", snapshot.endDate)
         .put("currencyCode", snapshot.currencyCode)
@@ -242,6 +319,13 @@ class YouTubeRevenueStore(context: Context) {
         .put("monetizedPlaybacks", snapshot.monetizedPlaybacks)
         .put("adImpressions", snapshot.adImpressions)
         .put("fetchedAtMillis", snapshot.fetchedAtMillis)
+        .apply { snapshot.evidence?.let { put("evidence", JSONObject()
+            .put("summaryPresent", it.summaryPresent)
+            .put("summaryKeys", JSONArray(it.summaryKeys.toList()))
+            .put("adKeys", JSONArray(it.adKeys.toList()))
+            .put("trendState", it.trendState.name)
+            .put("contentState", it.contentState.name)
+            .put("returnedDailyDates", JSONArray(it.returnedDailyDates))) } }
         .put("trend", JSONArray().apply {
             snapshot.trend.forEach { point ->
                 put(JSONObject().put("date", point.date).put("estimatedRevenue", point.estimatedRevenue))
@@ -302,7 +386,27 @@ class YouTubeRevenueStore(context: Context) {
             trend = trend,
             content = content,
             fetchedAtMillis = root.optLong("fetchedAtMillis"),
+            channelId = root.optString("channelId"),
+            creatorGeneration = root.optLong("creatorGeneration", -1L),
+            evidence = root.optJSONObject("evidence")?.let { evidence ->
+                YouTubeRevenueEvidence(
+                    summaryPresent = evidence.optBoolean("summaryPresent"),
+                    summaryKeys = strings(evidence.optJSONArray("summaryKeys")).toSet(),
+                    adKeys = strings(evidence.optJSONArray("adKeys")).toSet(),
+                    trendState = runCatching { YouTubeDatasetState.valueOf(evidence.optString("trendState")) }
+                        .getOrDefault(YouTubeDatasetState.UNAVAILABLE),
+                    contentState = runCatching { YouTubeDatasetState.valueOf(evidence.optString("contentState")) }
+                        .getOrDefault(YouTubeDatasetState.UNAVAILABLE),
+                    returnedDailyDates = strings(evidence.optJSONArray("returnedDailyDates")),
+                )
+            },
         )
+    }
+
+    private fun strings(array: JSONArray?): List<String> = buildList {
+        if (array != null) for (index in 0 until array.length()) {
+            array.optString(index).takeIf(String::isNotBlank)?.let(::add)
+        }
     }
 
     private fun key(period: YouTubeRevenuePeriod): String = "revenue_${period.name}"

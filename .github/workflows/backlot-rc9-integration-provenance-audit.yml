@@ -1,0 +1,248 @@
+name: Backlot RC9 Complete PR Integration Provenance Audit
+
+on:
+  push:
+    branches: [feature/backlot-rc9-integration-provenance-audit]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: backlot-rc9-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frozen-source-file-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify frozen Build267 source and generate complete main-to-RC9 file inventory
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import collections
+          import json
+          import subprocess
+
+          FROZEN='66db640c6fcc3fee6dbfe0690d1e01750b85cf7e'
+          subprocess.run(['git','merge-base','--is-ancestor',FROZEN,'HEAD'],check=True)
+          changed=subprocess.check_output(['git','diff','--name-only',FROZEN,'HEAD'],text=True).splitlines()
+          expected={
+            'docs/release/RC9_STACK_INTEGRATION_AUDIT.md',
+            '.github/workflows/backlot-rc9-integration-provenance-audit.yml',
+          }
+          assert set(changed)==expected, f'Frozen application changed outside RC9 docs/CI: {changed}'
+          src=Path('app/build.gradle.kts').read_text()
+          manifest=Path('app/src/main/AndroidManifest.xml').read_text()
+          assert 'versionCode = 267' in src and 'applicationId = "com.framebynavin.app"' in src
+          assert 'targetSdk = 36' in src and 'prototypeStable' in src
+          assert 'android:allowBackup="false"' in manifest
+
+          subprocess.run(['git','fetch','origin','main:refs/remotes/origin/main'],check=True)
+          main_sha=subprocess.check_output(['git','rev-parse','origin/main'],text=True).strip()
+          assert main_sha=='aa9e1aab939b7b075b50f9d5a952c6fb86b901eb', f'main advanced: refresh integration audit: {main_sha}'
+          merge_base=subprocess.check_output(['git','merge-base','origin/main','HEAD'],text=True).strip()
+          assert merge_base==main_sha, 'Current RC9 does not descend from frozen main'
+          difference=subprocess.check_output(['git','diff','--name-status','origin/main...HEAD'],text=True)
+          records=[]
+          for row in difference.splitlines():
+            parts=row.split('\t')
+            records.append({'status':parts[0],'path':parts[-1]})
+          path_counts=collections.Counter((r['path'].split('/')[0] for r in records))
+          high_risk=[r['path'] for r in records if (
+            r['path']=='app/build.gradle.kts' or
+            r['path']=='app/src/main/AndroidManifest.xml' or
+            r['path'].startswith('dev-signing/') or
+            'google-services' in r['path'].lower() or
+            r['path'].endswith('.jks') or
+            r['path'].endswith('.keystore') or
+            'firebase' in r['path'].lower() or
+            'oauth' in r['path'].lower() or
+            'backup' in r['path'].lower() or
+            'privacy' in r['path'].lower())
+          ]
+          report={
+            'frozen_rc8_sha':FROZEN,
+            'release_candidate_sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+            'main_sha':main_sha,
+            'tracked_changed_paths_total':len(records),
+            'paths_by_top_level_directory':dict(sorted(path_counts.items())),
+            'application_source_modified_by_rc9':False,
+            'gradle_or_manifest_source_modified_by_rc9':False,
+            'security_backup_and_signer_review_paths':high_risk[:180],
+            'security_review_paths_truncated':len(high_risk)>180,
+            'app_source_version':267,
+            'merge_ready':False,
+            'reason':'main unprotected; stacked PR review, owner device and Play signing pending',
+          }
+          Path('rc9-repository-file-inventory.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps({k:v for k,v in report.items() if k!='security_backup_and_signer_review_paths'},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC9-Complete-Source-Inventory
+          path: rc9-repository-file-inventory.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  live-pr-stack-audit:
+    needs: frozen-source-file-inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_READ_ONLY_TOKEN: ${{ github.token }}
+    steps:
+      - name: Audit every current draft PR edge and reconcile late parent fixes
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import quote
+          from urllib.request import Request, urlopen
+
+          repo=os.environ['GITHUB_REPOSITORY']
+          token=os.environ['GH_READ_ONLY_TOKEN']
+          def api(path):
+              req=Request('https://api.github.com'+path,headers={
+                'Authorization':'Bearer '+token,
+                'Accept':'application/vnd.github+json',
+                'X-GitHub-Api-Version':'2022-11-28',
+                'User-Agent':'backlot-release-provenance-audit',
+              })
+              with urlopen(req,timeout=30) as response:
+                  return json.load(response)
+
+          prs=[]
+          page=1
+          while True:
+              batch=api('/repos/'+repo+'/pulls?state=open&per_page=100&page='+str(page))
+              prs.extend(batch)
+              if len(batch)<100:break
+              page+=1
+              assert page<=10,'Too many PR pages; do not silently truncate'
+          heads={p['head']['ref']:p for p in prs}
+          cursor=heads.get('feature/backlot-rc8-signing-migration-safety')
+          assert cursor is not None,'RC8 release branch PR is not open'
+          chain=[]; seen=set(); mismatches=[]
+          while cursor is not None:
+              pr=cursor['number']
+              assert pr not in seen,'Cycle found in stacked PR links'
+              seen.add(pr)
+              base_ref=cursor['base']['ref']
+              chain.append({
+                'pr':pr,
+                'head_ref':cursor['head']['ref'],
+                'head_sha':cursor['head']['sha'],
+                'base_ref':base_ref,
+                'base_sha':cursor['base']['sha'],
+                'draft':cursor['draft'],
+              })
+              if base_ref=='main':break
+              parent=heads.get(base_ref)
+              assert parent is not None, 'PR #'+str(pr)+' points to a missing parent branch '+base_ref
+              if parent['head']['sha']!=cursor['base']['sha']:
+                  mismatches.append({
+                      'parent_pr':parent['number'],
+                      'child_pr':pr,
+                      'child_fork_base_sha':cursor['base']['sha'],
+                      'parent_current_head_sha':parent['head']['sha'],
+                  })
+              cursor=parent
+          assert len(chain)==34, 'Release chain changed length: '+str(len(chain))
+          assert chain[0]['pr']==183 and chain[-1]['pr']==148 and chain[-1]['base_ref']=='main'
+          assert all(p['draft'] for p in chain),'Release chain contains a PR marked ready/merged without audit'
+          assert set(v['parent_pr'] for v in mismatches)=={162,164,167}, 'Unexpected late-fix parent branches: '+repr(mismatches)
+
+          def file_bytes(path,ref):
+              uri='/repos/'+repo+'/contents/'+quote(path,safe='/')+'?ref='+quote(ref,safe='')
+              item=api(uri)
+              return base64.b64decode(item['content'])
+
+          tip='66db640c6fcc3fee6dbfe0690d1e01750b85cf7e'
+          old_refs={
+            167:('ce0951eac5bed65e7d92f395443b30bfcdec996c','app/src/androidTest/java/com/framebynavin/app/ui/V2284StageCelebrationUiTest.kt'),
+            164:('85889045006b5a6eaa32aee20f9daeb263ff2c38','app/src/androidTest/java/com/framebynavin/app/ui/V217LiveGuideScreensUiTest.kt'),
+          }
+          confirmed=[]
+          for parent,(sha,path) in old_refs.items():
+              assert file_bytes(path,sha)==file_bytes(path,tip), 'Late-fix PR #'+str(parent)+' differs from RC8 source'
+              confirmed.append({'parent_pr':parent,'file':path,'status':'byte_identical_to_current'})
+          current=file_bytes('app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt',tip).decode()
+          overlay=file_bytes('app/src/main/java/com/framebynavin/app/ui/CreatorAdaptiveFullScreen.kt',tip).decode()
+          test=file_bytes('app/src/androidTest/java/com/framebynavin/app/ui/V2271PersonalEditorDeviceUiTest.kt',tip).decode()
+          historical=file_bytes('.github/workflows/backlot-v2272-personal-wave-qa.yml','ae6d1ac72095ea8f63215d354304ac4aef6d349c')
+          present=file_bytes('.github/workflows/backlot-v2272-personal-wave-qa.yml',tip)
+          assert 'CreatorAdaptiveFullScreen(onDismissRequest = onDismiss)' in current
+          assert 'Dialog(onDismissRequest = onDismiss' not in current
+          assert 'windowInsetsPadding(WindowInsets.safeDrawing)' in overlay
+          assert 'imePadding()' in overlay
+          assert 'captureToImage().asAndroidBitmap()' in test
+          assert historical!=present,'Historical CI divergence unexpectedly disappeared; refresh documented audit'
+          confirmed.append({
+            'parent_pr':162,
+            'status':'current_app_contains_late_safe_ime_overlay_and_compose_pixel_check',
+            'historical_workflow_identical':False,
+            'historical_workflow_requires_individual_review_before_merge':True,
+          })
+
+          branch=api('/repos/'+repo+'/branches/main')
+          main_sha=branch['commit']['sha']
+          assert main_sha=='aa9e1aab939b7b075b50f9d5a952c6fb86b901eb','main advanced; refresh audit'
+          success_runs={
+            40922583197:'5b0682140ae19ec698c0c84aa2be8a9939844500',
+            40926157504:'7fa3f63af18d705a9a6d2201c2060dcbe82195ad',
+            40927510200:'66db640c6fcc3fee6dbfe0690d1e01750b85cf7e',
+          }
+          for run_id,sha in success_runs.items():
+              run=api('/repos/'+repo+'/actions/runs/'+str(run_id))
+              assert run['status']=='completed' and run['conclusion']=='success' and run['head_sha']==sha, 'Prior QA evidence changed: '+str(run_id)
+
+          report={
+            'repository':repo,
+            'open_pr_count':len(prs),
+            'release_chain_length':len(chain),
+            'release_chain_newest_to_oldest':chain,
+            'historical_parent_post_fork_discrepancies':mismatches,
+            'late_fix_reconciliation':confirmed,
+            'frozen_build267_qa_successful_runs':list(success_runs),
+            'main_sha':main_sha,
+            'main_protected':branch.get('protected',False),
+            'all_relevant_integration_prs_draft':True,
+            'full_integration_source_merge_ready':False,
+            'do_not_merge_or_publish':True,
+            'required_next_actions':[
+              'protect main with a repository ruleset',
+              'review full 34-PR chain and all historical divergence before any merges',
+              'owner phone acceptance and Creator/Personal separate backup+restore',
+              'signer migration decision and private Play key',
+              'Play Console policies and staged distribution approval'
+            ],
+          }
+          Path('rc9-pr-chain-audit.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps({
+            'open_pr_count':len(prs),
+            'stacked_draft_pr_count':len(chain),
+            'discrepant_parent_prs':[v['parent_pr'] for v in mismatches],
+            'late_fixes_reconciled':confirmed,
+            'main_protected':branch.get('protected',False),
+            'merge_ready':False,
+          },indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC9-Live-PR-Provenance
+          path: rc9-pr-chain-audit.json
+          if-no-files-found: warn
+          retention-days: 30

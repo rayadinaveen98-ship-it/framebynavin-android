@@ -54,6 +54,7 @@ internal fun V11InsightsScreen(
     tasks: List<CreatorTask>,
     ideas: List<CreatorIdea>,
     onAdd: () -> Unit,
+    bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
 ) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
@@ -80,6 +81,80 @@ internal fun V11InsightsScreen(
     var autoRefreshKey by rememberSaveable { mutableStateOf("") }
     var foundationRevision by remember { mutableIntStateOf(0) }
     var deepInsightsRefreshing by remember { mutableStateOf(false) }
+    var videoCatalog by remember { mutableStateOf(V189CatalogUiState()) }
+    var catalogSession by remember { mutableLongStateOf(0L) }
+
+    // A channel, date window, or source-report change invalidates every pending page.
+    LaunchedEffect(snapshot?.channel?.channelId, snapshot?.startDate,
+        snapshot?.endDate, snapshot?.fetchedAtMillis) {
+        catalogSession += 1L
+        videoCatalog = V189CatalogUiState()
+    }
+
+    fun loadVideoCatalog() {
+        val data = snapshot ?: return
+        if (videoCatalog.loading ||
+            (videoCatalog.loaded && videoCatalog.pageToken == null)) return
+        val nonce = catalogSession
+        val creatorGeneration = CreatorDataGate.generation(context.applicationContext)
+        val requestedPage = videoCatalog.pageToken.takeIf { videoCatalog.loaded }
+        videoCatalog = videoCatalog.copy(loading = true, error = null)
+        val client = authClient
+        if (client == null) {
+            videoCatalog = videoCatalog.copy(loading = false, error = "YouTube unavailable")
+            return
+        }
+        fun isStillValid(): Boolean =
+            nonce == catalogSession &&
+                CreatorDataGate.generation(context.applicationContext) == creatorGeneration &&
+                snapshot?.channel?.channelId == data.channel.channelId &&
+                snapshot?.startDate == data.startDate &&
+                snapshot?.endDate == data.endDate &&
+                snapshot?.fetchedAtMillis == data.fetchedAtMillis &&
+                store.loadAny()?.channel?.channelId == data.channel.channelId
+
+        client.authorize(YouTubeAuthorization.request())
+            .addOnSuccessListener { result ->
+                if (!isStillValid()) return@addOnSuccessListener
+                if (result.hasResolution() || result.accessToken.isNullOrBlank()) {
+                    videoCatalog = videoCatalog.copy(loading = false, error = "Reconnect YouTube")
+                    return@addOnSuccessListener
+                }
+                val token = result.accessToken ?: return@addOnSuccessListener
+                scope.launch {
+                    val page = try {
+                        withContext(Dispatchers.IO) {
+                            api.catalogPage(
+                                accessToken = token,
+                                expectedChannelId = data.channel.channelId,
+                                uploadsPlaylistId = data.channel.uploadsPlaylistId,
+                                startDate = data.startDate,
+                                endDate = data.endDate,
+                                pageToken = requestedPage,
+                            )
+                        }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        if (isStillValid()) videoCatalog = videoCatalog.copy(
+                            loading = false, error = "Couldn't load videos")
+                        return@launch
+                    }
+                    if (isStillValid()) {
+                        videoCatalog = videoCatalog.copy(
+                            videos = (videoCatalog.videos + page.videos)
+                                .distinctBy { it.videoId },
+                            pageToken = page.nextPageToken,
+                            loaded = true, loading = false, error = null,
+                        )
+                    }
+                }
+            }
+            .addOnFailureListener {
+                if (isStillValid()) videoCatalog = videoCatalog.copy(
+                    loading = false, error = "Couldn't load videos")
+            }
+    }
     val personalization by remember(creatorProfile) {
         derivedStateOf { CreatorPersonalizationEngine.snapshot(creatorProfile, tasks) }
     }
@@ -162,7 +237,7 @@ internal fun V11InsightsScreen(
                     // independent and should not make cached/core Insights feel blocked.
                     val (foundationResult, reachResult) = withContext(Dispatchers.IO) {
                         val foundationDeferred = async { runCatching { foundationApi.sync(token, fresh) } }
-                        val reachDeferred = async { runCatching { reachApi.sync(token, fresh.channel.channelId) } }
+                        val reachDeferred = async { runCatching { reachApi.sync(token, fresh.channel.channelId, request, store) } }
                         foundationDeferred.await() to reachDeferred.await()
                     }
                     val foundation = foundationResult.getOrNull()
@@ -181,8 +256,10 @@ internal fun V11InsightsScreen(
                             health = foundation.health
                                 .filterNot { it.dataset == YouTubeFoundationDataset.REACH } + reachHealth,
                         )
-                        withContext(Dispatchers.IO) { foundationStore.save(withReach) }
-                        if (isActive(request)) foundationRevision += 1
+                        val accepted = withContext(Dispatchers.IO) {
+                            store.saveFoundationIfCurrent(withReach, request)
+                        }
+                        if (accepted && isActive(request)) foundationRevision += 1
                     }
                 }
             } catch (cancelled: CancellationException) {
@@ -322,7 +399,7 @@ internal fun V11InsightsScreen(
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 124.dp),
+                .padding(bottom = bottomNavigationClearance),
         ) {
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -334,12 +411,7 @@ internal fun V11InsightsScreen(
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
-            Text(personalization.insightTitle, color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, fontWeight = FontWeight.Black)
-            Text(personalization.insightBody, color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(14.dp))
-            YTProfileFocusCard(creatorProfile, personalization)
-            Spacer(Modifier.height(18.dp))
 
             if (snapshot == null) {
                 YTConnectCard(
@@ -356,7 +428,7 @@ internal fun V11InsightsScreen(
                 YTChannelHeader(
                     data = data,
                     syncing = syncing || revoking,
-                    windowDays = data.windowDays,
+                    windowDays = windowDays,
                     onWindow = { days ->
                         if (days != windowDays) {
                             windowDays = days
@@ -375,7 +447,30 @@ internal fun V11InsightsScreen(
                 }
 
                 Spacer(Modifier.height(14.dp))
-                V172InsightsBody(
+                if (!V191InsightsPeriodPolicy.isSelectedRangeReady(windowDays, data)) {
+                    // The previously loaded channel may belong to another date range.
+                    // Keep its account controls visible, never display its numbers as
+                    // though they belong to the newly requested reporting period.
+                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                        color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(if (syncing) "Updating ${windowDays}D" else "No ${windowDays}D data",
+                                color = ProjectorIvory, fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold)
+                            if (syncing) {
+                                Spacer(Modifier.height(12.dp))
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = MutedGold, strokeWidth = 2.dp)
+                            } else {
+                                Spacer(Modifier.height(10.dp))
+                                TextButton(onClick = { authorize(false, windowDays) }) {
+                                    Text("Retry", color = ProjectorIvory, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                } else V172InsightsBody(
                     snapshot = data,
                     tasks = tasks,
                     ideas = ideas,
@@ -384,6 +479,8 @@ internal fun V11InsightsScreen(
                     foundationLoading = deepInsightsRefreshing,
                     onCreateProject = onAdd,
                     onLinkVideo = { selectedVideo = it },
+                    catalogState = videoCatalog,
+                    onCatalogLoad = ::loadVideoCatalog,
                 )
             }
         }
@@ -475,8 +572,7 @@ private fun YTConnectCard(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Connect YouTube", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                    Text("See how your channel is doing", color = MutedText, fontSize = 9.2.sp)
-                }
+                        }
             }
             Spacer(Modifier.height(14.dp))
             Text("See views, watch time and subscribers. Backlot cannot post or delete videos.", color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
@@ -501,7 +597,6 @@ private fun YTErrorCard(message: String, packageName: String, sha1: String) {
             Spacer(Modifier.height(4.dp))
             Text(message, color = ProjectorIvory, fontSize = 9.5.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(8.dp))
-            Text("Try connecting again. If it still fails, check Settings.", color = MutedText, fontSize = 8.2.sp)
         }
     }
 }
@@ -525,7 +620,7 @@ private fun YTChannelHeader(
                 Spacer(Modifier.width(11.dp))
                 Column(Modifier.weight(1f)) {
                     Text(data.channel.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${ytCompact(data.channel.subscribers)} subscribers · ${data.channel.videoCount} videos", color = MutedText, fontSize = 8.8.sp)
+                    Text("${ytCompact(data.channel.subscribers)} subscribers", color = MutedText, fontSize = 11.sp)
                     if (syncing) Text("Updating…", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = onSync, enabled = !syncing) {
@@ -548,23 +643,6 @@ private fun YTChannelHeader(
                     }
                 }
             }
-            Spacer(Modifier.height(7.dp))
-            Text(
-                "${YouTubeAnalyticsQueryPolicy.finalizedWindowLabel(data.windowDays)} · ${data.startDate} → ${data.endDate}",
-                color = MutedText,
-                fontSize = 10.sp,
-            )
-            Text(
-                "Channel totals checked ${ytSyncTime(data.fetchedAtMillis)} · ${ytCompact(data.channel.lifetimeViews)} lifetime views",
-                color = MutedText,
-                fontSize = 10.sp,
-            )
-            Text(
-                "Analytics through ${data.endDate} (Pacific). ${YouTubeAnalyticsQueryPolicy.freshnessNote()}",
-                color = MutedText.copy(alpha = .88f),
-                fontSize = 10.sp,
-                lineHeight = 14.sp,
-            )
         }
     }
 }

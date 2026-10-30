@@ -154,4 +154,51 @@ class YouTubeCacheLifecycleV183Test {
             assertFalse(prefs.contains("snapshot_28"))
         }
     }
+    @Test fun delayedFoundationCannotWriteAfterAccountSwitchOrDisconnect(): Unit = runBlocking {
+        fixture { context, _, store ->
+            fun foundation(channel: String) = YouTubeInsightsFoundationSnapshot(
+                channelId = channel, windowDays = 28,
+                startDate = "2026-01-01", endDate = "2026-01-28",
+                fetchedAtMillis = store.load(28)?.fetchedAtMillis ?: 0L,
+                periodViews = 0L, periodEngagedViews = 0L, periodWatchMinutes = 0L,
+                metricContract = YouTubeMetricContract.forWindow("2026-01-01", "2026-01-28"),
+                trafficSources = emptyList(), subscribedStatus = emptyList(),
+                deviceTypes = emptyList(), operatingSystems = emptyList(),
+                countries = emptyList(), retention = emptyList(), health = emptyList(),
+            )
+            val first = store.beginRequest()
+            assertTrue(store.save(snapshot("channel-A"), first))
+            assertTrue(store.saveFoundationIfCurrent(foundation("channel-A"), first))
+            assertNotNull(YouTubeInsightsFoundationStore(context).load(28, "channel-A"))
+            val newer = store.beginRequest(allowChannelChange = true)
+            assertTrue(store.save(snapshot("channel-B"), newer))
+            assertFalse(store.saveFoundationIfCurrent(foundation("channel-A"), first))
+            assertNull(YouTubeInsightsFoundationStore(context).load(28, "channel-A"))
+            store.disconnect()
+            assertFalse(store.saveFoundationIfCurrent(foundation("channel-B"), newer))
+            assertNull(YouTubeInsightsFoundationStore(context).load(28, "channel-B"))
+        }
+    }
+
+    @Test fun restoredCreatorDataRejectsOldAudienceCommit(): Unit = runBlocking {
+        fixture { context, manager, store ->
+            val request = store.beginRequest()
+            assertTrue(store.save(snapshot("channel-A"), request))
+            val foundation = YouTubeInsightsFoundationSnapshot(
+                channelId = "channel-A", windowDays = 28,
+                startDate = "2026-01-01", endDate = "2026-01-28",
+                fetchedAtMillis = store.load(28)!!.fetchedAtMillis,
+                periodViews = 0L, periodEngagedViews = 0L, periodWatchMinutes = 0L,
+                metricContract = YouTubeMetricContract.forWindow("2026-01-01", "2026-01-28"),
+                trafficSources = emptyList(), subscribedStatus = emptyList(),
+                deviceTypes = emptyList(), operatingSystems = emptyList(),
+                countries = emptyList(), retention = emptyList(), health = emptyList(),
+            )
+            val checkpoint = manager.createBackup()
+            manager.restore(checkpoint)
+            assertFalse(store.saveFoundationIfCurrent(foundation, request))
+            assertNull(YouTubeInsightsFoundationStore(context).load(28, "channel-A"))
+        }
+    }
+
 }

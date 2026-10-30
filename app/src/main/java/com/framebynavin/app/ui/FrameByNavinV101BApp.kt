@@ -46,13 +46,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +84,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -100,15 +108,23 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val activity = context as? ComponentActivity
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
+    // The Activity owns the preference so the REAL Settings screen can silence
+    // a still-composed Home card in the very same frame after a successful save.
+    val companionPrefStore = remember(context) { V221CompanionDismissalStore(context.applicationContext) }
+    var companionEnabled by remember(companionPrefStore) { mutableStateOf(companionPrefStore.enabled()) }
     var driveRecoveryRevision by rememberSaveable { mutableIntStateOf(0) }
     var settings by remember { mutableStateOf(settingsStore.snapshot()) }
     var permissions by remember { mutableStateOf(pPermissions(context)) }
     var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
+    var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
+    // V223.2 remembers the chosen Reminders space; never translates Personal into CreatorTask.
+    var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
+    var showNewIdeaEditor by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
     var quickCreateRequested by rememberSaveable { mutableStateOf(false) }
@@ -122,7 +138,36 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
     var guidedTourStepName by rememberSaveable { mutableStateOf<String?>(null) }
-    var stageCompletionEvent by rememberSaveable { mutableLongStateOf(0L) }
+    val guideTargets = remember { mutableStateMapOf<CreatorGuidedTourStep, Rect>() }
+    var pendingReminderConfirmation by remember { mutableStateOf<V203PendingReminderConfirmation?>(null) }
+    var savedReminderConfirmation by remember { mutableStateOf<String?>(null) }
+
+    // Return a success notification only after the optimistic task was saved durably.
+    LaunchedEffect(pendingReminderConfirmation) {
+        val pending = pendingReminderConfirmation ?: return@LaunchedEffect
+        val result = snapshotFlow {
+            vm.durableProjectSave(pending.taskId) to vm.writeError
+        }.first { (receipt, error) ->
+            error != null || (receipt != null && receipt.revision > pending.baselineRevision)
+        }
+        if (result.second == null) {
+            result.first?.task?.let { committed ->
+                savedReminderConfirmation = V203ReminderSetFeedback.message(
+                    active = committed.reminderEnabled,
+                    nextAtMillis = committed.reminderAtMillis,
+                    nowMillis = System.currentTimeMillis(),
+                    editedExisting = pending.editedExisting,
+                )
+            }
+        }
+        pendingReminderConfirmation = null
+    }
+    LaunchedEffect(savedReminderConfirmation) {
+        if (savedReminderConfirmation != null) {
+            delay(3_000L)
+            savedReminderConfirmation = null
+        }
+    }
 
     fun finishComposerSession() {
         composerCleanupKey = "project-composer-$composerSession"
@@ -167,9 +212,20 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             showControl -> { showControl = false; controlExpanded = false }
             overlay != POverlay.NONE -> leaveOverlay()
             guidedTourStepName != null -> {
-                settingsStore.markGuidedTourComplete()
-                settings = settingsStore.snapshot()
-                guidedTourStepName = null
+                // Back navigates the guide rather than silently permanently
+                // completing it. From lesson one, close for this session.
+                val current = CreatorGuidedTourStep.entries.firstOrNull { it.name == guidedTourStepName }
+                val previous = current?.let(V207GuidedTourPolicy::previous)
+                if (previous == null) guidedTourStepName = null
+                else {
+                    tab = when (previous) {
+                        CreatorGuidedTourStep.TODAY -> PTab.TODAY
+                        CreatorGuidedTourStep.IDEAS -> PTab.IDEAS
+                        CreatorGuidedTourStep.PROJECT -> PTab.CREATE
+                        else -> PTab.INSIGHTS
+                    }
+                    guidedTourStepName = previous.name
+                }
             }
             else -> {
                 externalStudioId = null
@@ -265,7 +321,6 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         val taskBeforeAdvance = vm.tasks.firstOrNull { it.id == id }
         val destination = taskBeforeAdvance?.let(V18CreatorJourney::afterWorkflowAdvance)
         vm.advanceWorkflow(id)
-        stageCompletionEvent = System.nanoTime()
         routeJourney(destination)
     }
 
@@ -311,6 +366,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             CreatorWidgetContract.ACTION_OPEN_INSIGHTS -> { overlay = POverlay.NONE; tab = PTab.INSIGHTS }
             CreatorWidgetContract.ACTION_AUTOMATION_CENTER -> overlay = POverlay.AUTOMATION
             CreatorWidgetContract.ACTION_OPEN_REMINDERS -> { overlay = POverlay.NONE; showReminders = true }
+            com.framebynavin.app.personal.PersonalDeliveryContract.ACTION_OPEN_PERSONAL -> {
+                overlay = POverlay.NONE
+                personalReminderSpace = true
+                showReminders = true
+            }
         }
     }
 
@@ -346,6 +406,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val v137GuideLayer = rememberV137GuideLayer()
     val focusTaskState = remember { derivedStateOf { vm.tasks.firstOrNull { it.id == focusTaskId } } }
     val focusTask = focusTaskState.value
+    val bottomNavDensity = androidx.compose.ui.platform.LocalDensity.current.density
+    var bottomNavClearanceDp by remember { mutableFloatStateOf(V197BottomNavigationClearance.MINIMUM_DP) }
     Box(Modifier.fillMaxSize().background(CinemaBlack).v137GuideCaptureAndBlur(v137GuideLayer, guidedTourStep != null)) {
         V129ThemeBackdrop(Modifier.matchParentSize())
         if (focusTask != null) {
@@ -362,6 +424,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 PTab.TODAY -> PTodayScreen(
                     creatorProfile = settings.creatorProfile,
                     tasks = vm.tasks,
+                    projectsLoaded = vm.tasksLoaded,
                     ideas = vm.ideas,
                     onAdd = { openComposer() },
                     onStart = vm::startTask,
@@ -371,17 +434,34 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onOpenIdeaVault = { tab = PTab.IDEAS },
                     onOpenInsights = { tab = PTab.INSIGHTS },
                     onOpenProject = ::openProject,
+                    bottomNavigationClearance = bottomNavClearanceDp.dp,
+                    homeSlideshowRequestNonce = homeSlideshowRequestNonce,
+                    onHomeSlideshowRequestHandled = { homeSlideshowRequestNonce = 0L },
+                    companionAvatar = {
+                        V2214HomeCompanion(
+                            tasks = vm.tasks,
+                            ideas = vm.ideas,
+                            onOpenReminders = { showReminders = true },
+                            onOpenProject = ::openProject,
+                            onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
+                            enabled = companionEnabled,
+                        )
+                    },
                 )
                 PTab.IDEAS -> V09IdeaVaultScreen(
                     ideas = vm.ideas,
                     deletedIdeas = vm.deletedIdeas,
                     onClose = null,
                     onSave = vm::saveIdea,
+                    // Draw New Idea in the app root AFTER floating bottom nav,
+                    // rather than within the Ideas tab below the navigation.
+                    onCreateIdeaRequested = { showNewIdeaEditor = true },
                     onDelete = vm::deleteIdea,
                     onRestore = vm::restoreIdea,
                     onArchive = vm::archiveIdea,
-                    onConvert = { ideaId, platform, format, dueAtMillis ->
-                        val projectId = vm.convertIdeaToProject(ideaId, platform, format, dueAtMillis)
+                    onConvert = { _, _, _, _ -> null },
+                    onConvertDurably = { request ->
+                        val projectId = vm.convertIdeaToProject(request)
                         if (V18CreatorJourney.afterProjectCreated(projectId) == V18JourneyDestination.CREATE) {
                             externalStudioId = projectId
                             externalStudioNonce += 1L
@@ -392,6 +472,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     externalIdeaId = externalLaunch?.ideaId.orEmpty(),
                     externalIdeaMode = externalLaunch?.ideaMode.orEmpty(),
                     externalLaunchNonce = externalLaunch?.nonce ?: 0L,
+                    bottomNavigationClearance = bottomNavClearanceDp.dp,
                 )
                 PTab.CREATE -> V131StudioScreen(
                     onQuickCreate = { openComposer(quick = true) },
@@ -419,12 +500,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onClose = null,
                     onOpenProject = ::openProject,
                     onOpenWeeklyPlan = { overlay = POverlay.WEEK },
+                    bottomNavigationClearance = bottomNavClearanceDp.dp,
                 )
                 PTab.INSIGHTS -> V11InsightsScreen(
                     creatorProfile = settings.creatorProfile,
                     tasks = vm.tasks,
                     ideas = vm.ideas,
                     onAdd = { openComposer() },
+                    bottomNavigationClearance = bottomNavClearanceDp.dp,
                 )
             }
 
@@ -435,7 +518,27 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     tab = destination
                 },
                 onCapture = { openComposer() },
-                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                onGuideTarget = { destination, bounds ->
+                    val key = when (destination) {
+                        PTab.TODAY -> CreatorGuidedTourStep.TODAY
+                        PTab.IDEAS -> CreatorGuidedTourStep.IDEAS
+                        PTab.CREATE -> CreatorGuidedTourStep.PROJECT
+                        PTab.INSIGHTS -> CreatorGuidedTourStep.INSIGHTS
+                        PTab.CALENDAR -> null
+                    }
+                    if (key != null && guideTargets[key] != bounds) guideTargets[key] = bounds
+                },
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .onGloballyPositioned { coordinates ->
+                        val neededDp = V197BottomNavigationClearance.calculate(
+                            rootHeightPx = coordinates.findRootCoordinates().size.height,
+                            navigationTopPx = coordinates.positionInRoot().y,
+                            density = bottomNavDensity,
+                        )
+                        if (bottomNavClearanceDp != neededDp) bottomNavClearanceDp = neededDp
+                    },
             )
 
             if (overlay == POverlay.NONE && settings.onboardingComplete && !showControl) {
@@ -491,6 +594,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onClose = { overlay = POverlay.NONE },
                 onOpenProject = ::openProject,
                 onOpenWeeklyPlan = { overlay = POverlay.WEEK },
+                bottomNavigationClearance = 36.dp,
             )
             POverlay.AUTOMATION -> V17AutomationCenterScreen(
                 tasks = vm.tasks,
@@ -571,10 +675,33 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
                 onOpenWeeklyPlan = { overlay = POverlay.WEEK },
                 onOpenAutomation = { overlay = POverlay.AUTOMATION },
+                companionEnabled = companionEnabled,
+                onCompanionEnabledChange = { requested ->
+                    if (companionPrefStore.setEnabled(requested)) companionEnabled = requested
+                },
+                onOpenHomeSlideshow = {
+                    // Reuse the existing editor so Settings and Home share
+                    // one persisted photo collection and source of truth.
+                    overlay = POverlay.NONE
+                    tab = PTab.TODAY
+                    homeSlideshowRequestNonce += 1L
+                },
             )
         }
 
-        V127StageCompletionPulse(stageCompletionEvent, modifier = Modifier.align(Alignment.Center))
+        savedReminderConfirmation?.let { message ->
+            V203ReminderSavedChip(
+                message = message,
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 28.dp, start = 18.dp, end = 18.dp),
+            )
+        }
+        // Celebrate a confirmed, durable stage reward, never an optimistic tap.
+        V127StageCompletionPulse(
+            eventKey = V2284StageCelebrationPolicy.confirmedStageKey(vm.rewardFeedback),
+            modifier = Modifier.align(Alignment.Center),
+        )
 
         vm.rewardFeedback?.let { reward ->
             LaunchedEffect(reward.eventKey) {
@@ -596,8 +723,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     if (showControl) {
+        // Open Quick Actions fully on compact phones; a half-height sheet hides
+        // the primary Quick Capture control below the initially visible fold.
+        val quickActionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showControl = false },
+            sheetState = quickActionsSheetState,
             containerColor = CinemaSurfaceRaised,
             dragHandle = { BottomSheetDefaults.DragHandle(color = MutedText) },
         ) {
@@ -625,6 +756,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     if (showReminders) {
+        if (personalReminderSpace) {
+            V2232PersonalReminderHub(
+                onClose = { showReminders = false },
+                onCreator = { personalReminderSpace = false },
+            )
+        } else {
         V131ReminderCenter(
             tasks = vm.tasks,
             onDismiss = { showReminders = false },
@@ -666,14 +803,32 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         .putExtra(com.framebynavin.app.reminders.ReminderConstants.EXTRA_OCCURRENCE_ID, token)
                 )
             },
+            onPersonal = { personalReminderSpace = true },
+        )
+        }
+    }
+
+    // V220.4 owner RCA: this Activity-owned overlay is composed AFTER the
+    // app shell, its floating nav and all in-shell panels. It never creates a
+    // separate Android Dialog window, and it retains the existing save path.
+    if (showNewIdeaEditor) {
+        V09NewIdeaCleanEditor(
+            onDismiss = { showNewIdeaEditor = false },
+            onSave = { draft ->
+                val accepted = vm.saveIdea(draft) != null
+                if (accepted) showNewIdeaEditor = false
+                accepted
+            },
+            existingIdeas = vm.ideas,
         )
     }
 
     if (showQuickCapture) {
         V14QuickCaptureDialog(
             onDismiss = { showQuickCapture = false },
-            onSave = { idea ->
-                val savedId = vm.saveIdea(idea)
+            onSave = { false },
+            onSaveDurably = { idea, generation ->
+                val savedId = vm.captureQuickIdea(idea, generation)
                 if (savedId == null) {
                     false // Quick Capture retains all text and any original audio.
                 } else {
@@ -718,6 +873,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 overlay = POverlay.SETTINGS
             },
             onSave = { draft ->
+                val previousRevision = task?.id?.let { vm.durableProjectSave(it)?.revision } ?: 0L
                 val savedTaskId = vm.saveTaskConfiguration(
                     id = task?.id,
                     title = draft.title,
@@ -741,11 +897,18 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 if (savedTaskId == null) {
                     Toast.makeText(context, "Could not save the project. Your form is still open.", Toast.LENGTH_LONG).show()
                 } else {
-                // saveTaskConfiguration queues a disk write; do not claim completion here.
+                // Saving queues a disk write; the countdown only appears after that write.
+                // Managed LIGHT/GUIDED/URGENT plans compute their reminder AFTER
+                // saving, even though their draft mode is NONE. Track every
+                // successful project write, then inspect the actual committed
+                // reminder and silently skip if alerts are disabled.
+                pendingReminderConfirmation = V203PendingReminderConfirmation(
+                    taskId = savedTaskId, editedExisting = task != null,
+                    baselineRevision = previousRevision,
+                )
                 finishComposerSession()
-                Toast.makeText(context, "Saving project…", Toast.LENGTH_SHORT).show()
                 if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
-                    guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
+                    guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
                 }
                 if (task == null && V18CreatorJourney.afterProjectCreated(savedTaskId) == V18JourneyDestination.CREATE) {
                     externalStudioId = savedTaskId
@@ -799,6 +962,13 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     } else if (V151SetupPolicy.needsCreatorSetup(
         onboardingComplete = settings.onboardingComplete,
         profileComplete = settings.creatorProfile.isComplete,
+    ) && !V144GuidePrefs.hasSelection) {
+        // New creators choose the companion before the restored five-page setup.
+        // Do NOT show this gate to existing users whose setup is complete.
+        V144GuideChoiceGate()
+    } else if (V151SetupPolicy.needsCreatorSetup(
+        onboardingComplete = settings.onboardingComplete,
+        profileComplete = settings.creatorProfile.isComplete,
     )) {
         V18CreatorOnboarding(
             profile = settings.creatorProfile,
@@ -833,61 +1003,46 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             layer = v137GuideLayer,
             step = guidedTourStep,
             modifier = Modifier.fillMaxSize(),
+            targetBounds = guideTargets[guidedTourStep] ?: when (guidedTourStep) {
+                CreatorGuidedTourStep.WORKSPACE -> guideTargets[CreatorGuidedTourStep.PROJECT]
+                CreatorGuidedTourStep.CONTROL -> guideTargets[CreatorGuidedTourStep.INSIGHTS]
+                else -> null
+            },
         )
         V20GuidedFirstRunCoach(
             step = guidedTourStep,
             hasProjects = vm.tasks.any { it.archivedAtMillis == 0L },
             onPrimary = {
-                when (guidedTourStep) {
-                    CreatorGuidedTourStep.TODAY -> {
-                        externalStudioId = null
+                // Next is always non-destructive. Capture and project creation
+                // are optional secondary demonstrations, never completion gates.
+                when (V207GuidedTourPolicy.next(guidedTourStep)) {
+                    CreatorGuidedTourStep.IDEAS -> {
                         tab = PTab.IDEAS
                         guidedTourStepName = CreatorGuidedTourStep.IDEAS.name
                     }
-                    CreatorGuidedTourStep.IDEAS -> {
-                        showQuickCapture = true
-                    }
                     CreatorGuidedTourStep.PROJECT -> {
-                        val project = vm.tasks.firstOrNull { it.archivedAtMillis == 0L && it.status != TaskStatus.SKIPPED }
-                            ?: vm.tasks.firstOrNull { it.archivedAtMillis == 0L }
-                            ?: vm.tasks.firstOrNull()
-                        if (project == null) {
-                            openComposer()
-                        } else {
-                            openProject(project.id)
-                            guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
-                        }
+                        tab = PTab.CREATE
+                        guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
                     }
-                    CreatorGuidedTourStep.WORKSPACE -> {
-                        externalStudioId = null
+                    CreatorGuidedTourStep.INSIGHTS -> {
                         tab = PTab.INSIGHTS
                         guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
                     }
-                    CreatorGuidedTourStep.INSIGHTS -> {
-                        guidedTourStepName = CreatorGuidedTourStep.CONTROL.name
-                    }
-                    CreatorGuidedTourStep.CONTROL -> {
+                    else -> {
                         settingsStore.markGuidedTourComplete()
                         settings = settingsStore.snapshot()
                         guidedTourStepName = null
-                        showControl = true
                     }
                 }
             },
             onSecondary = {
                 when (guidedTourStep) {
-                    CreatorGuidedTourStep.IDEAS -> {
-                        externalStudioId = null
-                        tab = PTab.CREATE
-                        guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
-                    }
+                    CreatorGuidedTourStep.IDEAS -> showQuickCapture = true
                     CreatorGuidedTourStep.PROJECT -> {
-                        // A tour must never force the creator to create real data. If they do not
-                        // want a project yet, skip the Workspace-only lesson and continue to Insights.
-                        externalStudioId = null
-                        tab = PTab.INSIGHTS
-                        guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
+                        val project = vm.tasks.firstOrNull { it.archivedAtMillis == 0L }
+                        if (project != null) openProject(project.id) else openComposer()
                     }
+                    CreatorGuidedTourStep.INSIGHTS -> showControl = true
                     else -> Unit
                 }
             },
@@ -966,7 +1121,8 @@ private fun PWeekScreen(
     val next = remember(slots.toList()) { WeeklyScheduleEngine.nextOccurrence(slots) }
     val enabledSlots = slots.filter { it.enabled }
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = 42.dp)) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
+            .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
             PBackHeader("WEEKLY PLAN", "Your recurring rhythm", onClose)
             Spacer(Modifier.height(18.dp))
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), if (autoPlanEnabled) BacklotSurfaceSelected else CinemaSurface, border = BorderStroke(1.dp, if (autoPlanEnabled) MutedGold.copy(alpha = .45f) else CinemaLine)) {
@@ -1297,7 +1453,8 @@ private fun PSettingsScreen(
             Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                 Column(Modifier.padding(13.dp)) {
                     Row { Text("Version", color = MutedText, fontSize = 9.5.sp); Spacer(Modifier.weight(1f)); Text(BuildConfig.VERSION_NAME, color = ProjectorIvory, fontSize = 9.5.sp) }
-
+                    Spacer(Modifier.height(9.dp))
+                    Text("Backlot · Built for Creators", color = Color(0xFFB596F8), fontSize = 10.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -1345,11 +1502,14 @@ internal fun PBottomNav(
     onSelect: (PTab) -> Unit,
     onCapture: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onGuideTarget: (PTab, Rect) -> Unit = { _, _ -> },
 ) {
     Surface(
         modifier,
         RoundedCornerShape(24.dp),
-        BacklotNavigationSurface.copy(alpha = .96f),
+        // Fully opaque: full-screen Home cards must never ghost through the
+        // floating navigation background, especially on compact devices.
+        BacklotNavigationSurface,
         border = BorderStroke(1.dp, CinemaLine),
         shadowElevation = 12.dp,
     ) {
@@ -1358,8 +1518,8 @@ internal fun PBottomNav(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PBottomNavItem(PTab.TODAY, Icons.Outlined.Home, "Home", selected == PTab.TODAY, onSelect, Modifier.weight(1f))
-            PBottomNavItem(PTab.IDEAS, Icons.Outlined.Lightbulb, "Ideas", selected == PTab.IDEAS, onSelect, Modifier.weight(1f))
+            PBottomNavItem(PTab.TODAY, Icons.Outlined.Home, "Home", selected == PTab.TODAY, onSelect, Modifier.weight(1f), onPositioned = { onGuideTarget(PTab.TODAY, it) })
+            PBottomNavItem(PTab.IDEAS, Icons.Outlined.Lightbulb, "Ideas", selected == PTab.IDEAS, onSelect, Modifier.weight(1f), onPositioned = { onGuideTarget(PTab.IDEAS, it) })
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Surface(
                     onClick = onCapture,
@@ -1378,8 +1538,8 @@ internal fun PBottomNav(
                     }
                 }
             }
-            PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Projects", selected == PTab.CREATE, onSelect, Modifier.weight(1f))
-            PBottomNavItem(PTab.INSIGHTS, Icons.Outlined.Insights, "Insights", selected == PTab.INSIGHTS, onSelect, Modifier.weight(1f))
+            PBottomNavItem(PTab.CREATE, Icons.Outlined.MovieEdit, "Projects", selected == PTab.CREATE, onSelect, Modifier.weight(1f), onPositioned = { onGuideTarget(PTab.CREATE, it) })
+            PBottomNavItem(PTab.INSIGHTS, Icons.Outlined.Insights, "Insights", selected == PTab.INSIGHTS, onSelect, Modifier.weight(1f), onPositioned = { onGuideTarget(PTab.INSIGHTS, it) })
         }
     }
 }
@@ -1392,32 +1552,48 @@ private fun PBottomNavItem(
     active: Boolean,
     onSelect: (PTab) -> Unit,
     modifier: Modifier = Modifier,
+    onPositioned: (Rect) -> Unit = {},
 ) {
     Surface(
         onClick = { onSelect(tab) },
         shape = RoundedCornerShape(16.dp),
         color = if (active) { if (VisualExperiencePrefs.isLumen) FrameTertiary.copy(alpha=.16f) else CinemaSurfaceRaised } else Color.Transparent,
-        modifier = modifier.heightIn(min = 52.dp),
+        modifier = modifier.heightIn(min = 52.dp).onGloballyPositioned { onPositioned(it.boundsInRoot()) },
     ) {
-        Column(
-            Modifier.padding(vertical = 7.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(
-                icon,
-                label,
-                tint = if (active) RecRed else MutedText,
-                modifier = Modifier.size(21.dp),
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                label,
-                color = if (active) ProjectorIvory else MutedText,
-                fontSize = 11.sp,
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            // At 900px / 1.5x system font with 1.8x accessibility Compose
+            // text, Projects and Insights can otherwise touch even when the
+            // Text layout reports one line. Scale to each weighted tab width.
+            // Spoken icon labels remain complete at all sizes.
+            val navLabelSize = when {
+                LocalDensity.current.fontScale >= 1.4f && maxWidth < 60.dp -> 6.5.sp
+                LocalDensity.current.fontScale >= 1.4f -> 8.sp
+                maxWidth < 60.dp -> 9.sp
+                else -> 11.sp
+            }
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 7.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    icon,
+                    label,
+                    tint = if (active) RecRed else MutedText,
+                    modifier = Modifier.size(21.dp),
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    label,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp),
+                    color = if (active) ProjectorIvory else MutedText,
+                    fontSize = navLabelSize,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1,
+                    softWrap = false,
+                    textAlign = TextAlign.Center,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

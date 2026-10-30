@@ -1,0 +1,213 @@
+name: Backlot RC25 Build270 Full Owner Candidate
+
+on:
+  push:
+    branches: [release/backlot-rc25-build270-consolidated-preview]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-rc25-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify original RC24 source, full main history, no feature changes
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=2f158f887f985580b0c6dd6873b69889892e8a77
+          MAIN=aa9e1aab939b7b075b50f9d5a952c6fb86b901eb
+          git merge-base --is-ancestor "$MAIN" HEAD
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/rc25-changed.txt
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+          expected={
+            'app/build.gradle.kts',
+            'app/src/androidTest/java/com/framebynavin/app/data/RC25InPlaceUpgrade269To270Test.kt',
+            '.github/scripts/backlot-rc25-android11.sh',
+            '.github/scripts/backlot-rc25-android16.sh',
+            '.github/workflows/backlot-rc25-build270-integration-candidate.yml',
+            'docs/release/RC25_BUILD270_ONE_RELEASE_CANDIDATE.md',
+          }
+          actual=set(Path('/tmp/rc25-changed.txt').read_text().splitlines())
+          assert actual==expected, f'Unexpected production changes: {sorted(actual ^ expected)}'
+          old=subprocess.check_output(['git','show','2f158f887f985580b0c6dd6873b69889892e8a77:app/build.gradle.kts'],text=True)
+          curr=Path('app/build.gradle.kts').read_text()
+          reconstructed=curr.replace('versionCode = 270','versionCode = 269').replace(
+              'versionName = "2.15.7-rc25-consolidated-owner-preview"',
+              'versionName = "2.15.6-rc13-data-privacy-preview"')
+          assert reconstructed==old, 'Unexpected Gradle/source changes beyond Build270 metadata'
+          assert 'applicationId = "com.framebynavin.app"' in curr
+          assert 'targetSdk = 36' in curr
+          assert 'create("personalStable")' in curr
+          assert 'dependsOn(verifyPrivateReleaseSigning)' in curr
+          t=Path('app/src/androidTest/java/com/framebynavin/app/data/RC25InPlaceUpgrade269To270Test.kt').read_text()
+          assert '269L, versionCode()' in t and t.count('270L, versionCode()')==2
+          assert 'requireCiEmulator()' in t
+          policy=Path('app/src/main/java/com/framebynavin/app/ui/V269DataPrivacyActivity.kt').read_text()
+          assert 'Full Backlot account deletion is not available' in policy
+          assert 'android:allowBackup="false"' in Path('app/src/main/AndroidManifest.xml').read_text()
+          print('PASS frozen complete release source; Build270 version-only change; no account deletion claim')
+          PY
+
+  build:
+    needs: integration-freeze
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # Original Build270 Gradle JVM/lint/debug/test/personalStable checks passed
+      # on run 41050788970. All subsequent changes are docs and CI scripts;
+      # integration-freeze proves the production source is byte-identical.
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC25-Build270-Full-App-Owner-Preview
+          run-id: 41050788970
+          github-token: ${{ github.token }}
+          path: prior-owner
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC25-Debug-And-Test-APKs
+          run-id: 41050788970
+          github-token: ${{ github.token }}
+          path: tests
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Owner-Full-App-APK
+          run-id: 41031529526
+          github-token: ${{ github.token }}
+          path: build269
+      - name: Revalidate artifact checksum, package, version and unchanged preview signer
+        run: |
+          set -euo pipefail
+          OLD="$(find build269 -type f -name 'Backlot-RC13-Build269-Full-App.apk' -print -quit)"
+          NEW="$(find prior-owner -type f -name 'Backlot-RC25-Build270-Full-App.apk' -print -quit)"
+          test -s "$OLD" && test -s "$NEW"
+          (cd "$(dirname "$NEW")" && sha256sum -c SHA256SUMS.txt)
+          test "$(sha256sum "$NEW" | cut -d' ' -f1)" = '74ec1aa31fd9cf9083103423bc6040e2451db1fb454419823150f5cd1b568780'
+          test "$(stat -c%s "$NEW")" -gt 10000000
+          test -s tests/app-debug.apk && test -s tests/app-debug-androidTest.apk
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$SIGNER" verify --print-certs "$OLD" > /tmp/old-cert.txt
+          "$SIGNER" verify --print-certs "$NEW" > /tmp/new-cert.txt
+          test "$(grep -m1 'certificate SHA-256 digest' /tmp/old-cert.txt)" = "$(grep -m1 'certificate SHA-256 digest' /tmp/new-cert.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='269'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='270'"
+          mkdir -p preview
+          cp "$NEW" preview/Backlot-RC25-Build270-Full-App.apk
+          cp "$(dirname "$NEW")/SHA256SUMS.txt" preview/
+          echo 'PASS previously compiled full APK, exact checksum and signer match; source still frozen'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-RC25-Build270-Full-App-Owner-Preview
+          path: preview/
+          retention-days: 21
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-RC25-Debug-And-Test-APKs
+          path: tests/
+          retention-days: 14
+
+  android11:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC25-Debug-And-Test-APKs
+          path: tests
+      - name: Grant emulator KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 privacy, slideshow, reminders, backup smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-rc25-android11.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC25-Android11-Logs
+          path: rc25-*.log
+          if-no-files-found: warn
+
+  android16-upgrade:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Test-APKs
+          run-id: 41031529526
+          github-token: ${{ github.token }}
+          path: old
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC25-Debug-And-Test-APKs
+          path: new
+      - name: Grant emulator KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 16 in-place upgrade, no uninstall or app-data wipe
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-rc25-android16.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC25-Android16-Upgrade-Logs
+          path: rc25-*.log
+          if-no-files-found: warn
+
+  keep-private-play-signing-gate:
+    needs: integration-freeze
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Ensure real Play release cannot use public preview signing key
+        run: |
+          set -euo pipefail
+          if gradle :app:verifyPrivateReleaseSigning --stacktrace >/tmp/signing.log 2>&1; then
+            echo 'FAIL: missing private Play signing key was accepted'
+            exit 1
+          fi
+          grep -F 'Private Play upload signing is not configured' /tmp/signing.log
+          echo 'PASS: absent private Play key keeps release AAB blocked'

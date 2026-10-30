@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.data.CreatorProjectFactsV186Policy
 import com.framebynavin.app.data.CreatorProfile
 import com.framebynavin.app.data.CreatorRecommendation
 import com.framebynavin.app.data.CreatorTask
@@ -216,7 +217,7 @@ private fun V20ContinueCard(
 ) {
     val task = item.task
     val recommendation = item.recommendation
-    val progress = CreatorWorkflowEngine.progress(task).coerceIn(0, 100)
+    val projectFacts = CreatorProjectFactsV186Policy.facts(task)
     val stage = CreatorWorkflowEngine.currentStage(task)
 
     Surface(
@@ -252,11 +253,12 @@ private fun V20ContinueCard(
             PStageRail(task)
             Spacer(Modifier.height(7.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("$progress% workflow", color = MutedText, fontSize = 8.5.sp)
+                Text(projectFacts.workflowLabel, color = MutedText, fontSize = 9.5.sp)
                 Spacer(Modifier.weight(1f))
                 Text("${task.platform} · ${task.contentType}", color = MutedText, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
 
+            Text("${projectFacts.checklistLabel} · ${projectFacts.publicationLabel}", color = MutedText, fontSize = 9.5.sp, lineHeight = 13.sp)
             Spacer(Modifier.height(15.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (task.status == TaskStatus.PLANNED) {

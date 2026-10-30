@@ -13,8 +13,10 @@ import org.json.JSONObject
  * without weakening CreatorDataGate's stale-write protection.
  */
 class CreatorEditorDraftStore(context: Context) {
-    private val prefs = context.applicationContext
-        .getSharedPreferences("creator_editor_drafts_v19", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("creator_editor_drafts_v19", Context.MODE_PRIVATE)
+    /** Bound to the editor instance, not recomputed after a backup restore. */
+    val openedGeneration: Long = CreatorDataGate.generation(appContext)
 
     fun saveProject(projectId: String, baseWorkspaceRevision: Long, draft: CreatorContentWorkspace) {
         put(
@@ -84,26 +86,355 @@ class CreatorEditorDraftStore(context: Context) {
     fun clearScript(projectId: String) = remove(scriptKey(projectId))
 
     fun clearAllForProject(projectId: String) {
-        val ok = prefs.edit()
-            .remove(projectKey(projectId))
-            .remove(scriptKey(projectId))
-            .remove(publishKey(projectId))
-            .commit()
-        check(ok) { "Could not clear editor drafts" }
+        // Never erase a draft written by a newer editor after restore.
+        listOf(projectKey(projectId), scriptKey(projectId), publishKey(projectId)).forEach(::remove)
     }
+
+    /** True when a pre-restore or legacy draft is preserved but not auto-applied. */
+    fun hasHeldDraft(projectId: String): Boolean =
+        listOf(projectKey(projectId), scriptKey(projectId), publishKey(projectId)).any { key ->
+            val record = prefs.getString(key, null)?.let { runCatching { JSONObject(it) }.getOrNull() }
+            (record != null && !matchesGeneration(record)) ||
+                prefs.all.keys.any { it.startsWith("held:$key:") }
+        }
+
+    /**
+     * C3 P6: a lossless *user-owned* copy of one earlier draft. The JSON is
+     * intentionally raw: text-only export cannot preserve old publication
+     * metadata, output relationships, statuses or other structured fields.
+     * Never display this JSON or use it to overwrite current saved data.
+     */
+    data class HeldRawSnapshot(
+        val sourceId: String,
+        val editor: String,
+        val rawJson: String,
+        val sha256: String,
+    )
+
+    private fun historicalRawLocked(
+        projectId: String,
+        editor: String,
+        sourceId: String,
+    ): String? {
+        val primary = when (editor) {
+            "project" -> projectKey(projectId)
+            "script" -> scriptKey(projectId)
+            "publish" -> publishKey(projectId)
+            else -> return null
+        }
+        if (projectId.isBlank() || (sourceId != primary && !sourceId.startsWith("held:$primary:"))) {
+            return null
+        }
+        val raw = prefs.getString(sourceId, null) ?: return null
+        val root = runCatching { JSONObject(raw) }.getOrNull() ?: return null
+        if (root.optInt("version", -1) != VERSION || root.optString("projectId") != projectId) {
+            return null
+        }
+        // Primary current-generation editor content is never eligible.
+        if (sourceId == primary && matchesGeneration(root)) return null
+        return raw
+    }
+
+    private fun sha256(raw: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(raw.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xFF) }
+
+    fun heldRawSnapshotForExport(
+        projectId: String,
+        editor: String,
+        sourceId: String,
+    ): HeldRawSnapshot? = CreatorDataGate.withGeneration(appContext, openedGeneration) {
+        val raw = historicalRawLocked(projectId, editor, sourceId) ?: return@withGeneration null
+        HeldRawSnapshot(sourceId, editor, raw, sha256(raw))
+    }
+
+    /**
+     * Destructive and **never** called on text-export completion.
+     * The caller needs an explicit second confirmation plus the SHA-256 of a
+     * successfully written original JSON copy obtained during this session.
+     * Validate & remove atomically within the restore-generation lock.
+     * No current editor draft, alternate project or rewritten source can pass.
+     */
+    fun discardHeldAfterOriginalExport(
+        projectId: String,
+        editor: String,
+        sourceId: String,
+        exportedSha256: String,
+    ): Boolean = CreatorDataGate.withGeneration(appContext, openedGeneration) {
+        if (!Regex("[0-9a-f]{64}").matches(exportedSha256)) return@withGeneration false
+        val raw = historicalRawLocked(projectId, editor, sourceId) ?: return@withGeneration false
+        if (sha256(raw) != exportedSha256) return@withGeneration false
+        check(prefs.edit().remove(sourceId).commit()) {
+            "Could not remove selected earlier draft"
+        }
+        true
+    }
+
+    /** Copy-only presentation of a held journal. Never contains an apply action. */
+    data class HeldDraftField(
+        val label: String,
+        val value: String,
+        // Identity metadata is never rendered or exported. It only constrains
+        // targeted Publish recovery; output list index is never a destination.
+        val deliverableId: String? = null,
+        val deliverablePlatform: String? = null,
+        val deliverableFormat: String? = null,
+    )
+    data class HeldDraftPreview(
+        val sourceId: String,
+        val editor: String,
+        val savedAtMillis: Long,
+        val restoreGeneration: Long?,
+        val baseWorkspaceRevision: Long,
+        val fields: List<HeldDraftField>,
+    )
+
+    /**
+     * List ONLY pre-restore/legacy copies belonging to this project and editor.
+     * A current-generation draft is not a historical recovery item.
+     * Read under the restore-epoch lock: an old editor cannot review data
+     * against an epoch which has since been invalidated.
+     */
+    fun heldDrafts(projectId: String, editor: String): List<HeldDraftPreview> {
+        require(editor == "project" || editor == "script" || editor == "publish")
+        val key = when (editor) {
+            "project" -> projectKey(projectId)
+            "script" -> scriptKey(projectId)
+            else -> publishKey(projectId)
+        }
+        return CreatorDataGate.withGeneration(appContext, openedGeneration) {
+            prefs.all.entries.asSequence()
+                .filter { (name, _) -> name == key || name.startsWith("held:$key:") }
+                .mapNotNull { (name, raw) ->
+                    val root = (raw as? String)?.let { runCatching { JSONObject(it) }.getOrNull() }
+                        ?: return@mapNotNull null
+                    // Reject malformed or unrelated copied journals. Never expose
+                    // one project's notes inside a different project.
+                    if (root.optInt("version", -1) != VERSION ||
+                        root.optString("projectId") != projectId) return@mapNotNull null
+                    if (name == key && matchesGeneration(root)) return@mapNotNull null
+                    val fields = when (editor) {
+                        "project" -> previewProjectFields(root.optJSONObject("payload"))
+                        "script" -> previewScriptFields(root.optJSONObject("studio"))
+                        else -> previewPublishFields(root.optJSONArray("deliverables"))
+                    }
+                    HeldDraftPreview(
+                        sourceId = name,
+                        editor = editor,
+                        savedAtMillis = root.optLong("updatedAtMillis", 0L),
+                        restoreGeneration = if (root.has("restoreGeneration"))
+                            root.optLong("restoreGeneration", -1L) else null,
+                        baseWorkspaceRevision = root.optLong("baseWorkspaceRevision", -1L),
+                        fields = fields,
+                    )
+                }
+                .sortedWith(compareByDescending<HeldDraftPreview> { it.savedAtMillis }.thenBy { it.sourceId })
+                .toList()
+        }
+    }
+
+    /**
+     * Confirm this exact earlier record still supplies the selected Plan text.
+     * Source, project, label, value and restore epoch must all match.
+     */
+    fun verifiedHistoricalPlanText(
+        projectId: String,
+        sourceId: String,
+        label: String,
+        expectedText: String,
+    ): Boolean {
+        if (label !in setOf("Audience", "Viewer problem", "Promise", "Angle", "Learnings")) {
+            return false
+        }
+        return heldDrafts(projectId, "project")
+            .firstOrNull { it.sourceId == sourceId }
+            ?.fields?.any { it.label == label && it.value == expectedText } == true
+    }
+
+    /**
+     * C3 P4: a selected earlier Script Studio note must still belong to this
+     * project and exact held source at the current restore generation.
+     * Structured beats, status, publishing and selected titles are excluded.
+     */
+    fun verifiedHistoricalScriptNotes(
+        projectId: String,
+        sourceId: String,
+        label: String,
+        expectedText: String,
+    ): Boolean {
+        if (label != "Creator notes") return false
+        return heldDrafts(projectId, "script")
+            .firstOrNull { it.sourceId == sourceId }
+            ?.fields?.any { it.label == label && it.value == expectedText } == true
+    }
+
+    /**
+     * Verify the unique historical output, including its original platform,
+     * format and full Description text. Reordered output labels have NO role
+     * in this authorization. Duplicate IDs in an older journal fail closed.
+     */
+    fun verifiedHistoricalPublishDescription(
+        projectId: String,
+        sourceId: String,
+        deliverableId: String,
+        platform: String,
+        format: String,
+        expectedText: String,
+    ): Boolean {
+        if (deliverableId.isBlank() || platform.isBlank() || format.isBlank() || expectedText.isBlank()) {
+            return false
+        }
+        val descriptions = heldDrafts(projectId, "publish")
+            .firstOrNull { it.sourceId == sourceId }?.fields
+            ?.filter { it.deliverableId == deliverableId && it.label.endsWith(" · Description") }
+            ?: return false
+        return descriptions.size == 1 &&
+            descriptions.single().deliverablePlatform == platform &&
+            descriptions.single().deliverableFormat == format &&
+            descriptions.single().value == expectedText
+    }
+
+    fun hasHeldDraftForEditor(projectId: String, editor: String): Boolean {
+        require(editor == "project" || editor == "script" || editor == "publish")
+        val key = "$editor:$projectId"
+        return prefs.all.any { (name, raw) ->
+            if (name != key && !name.startsWith("held:$key:")) return@any false
+            val root = (raw as? String)?.let { runCatching { JSONObject(it) }.getOrNull() }
+            // A malformed record also deserves a recovery warning; its raw
+            // payload stays untouched, but is never exposed in the UI.
+            root == null || name != key || !matchesGeneration(root)
+        }
+    }
+
+    private fun previewProjectFields(root: JSONObject?): List<HeldDraftField> {
+        if (root == null) return emptyList()
+        val result = mutableListOf<HeldDraftField>()
+        fun field(label: String, value: String) {
+            if (value.isNotBlank()) result += HeldDraftField(label, value)
+        }
+        listOf(
+            "Audience" to "audience", "Viewer problem" to "viewerProblem",
+            "Promise" to "promise", "Angle" to "angle", "Hook" to "hook",
+            "Script" to "script", "Learnings" to "learnings",
+        ).forEach { (title, key) -> field(title, root.optString(key)) }
+        root.optJSONArray("references").objects().forEachIndexed { index, record ->
+            field("Source ${index + 1} label", record.optString("label"))
+            field("Source ${index + 1} URL", record.optString("url"))
+        }
+        root.optJSONArray("checklist").objects().forEachIndexed { index, record ->
+            field("Task ${index + 1}", record.optString("title"))
+        }
+        root.optJSONArray("assets").objects().forEachIndexed { index, record ->
+            field("Asset ${index + 1} label", record.optString("label"))
+            field("Asset ${index + 1} notes", record.optString("notes"))
+        }
+        result += previewPublishFields(root.optJSONArray("deliverables"))
+        return result
+    }
+
+    private fun previewScriptFields(root: JSONObject?): List<HeldDraftField> {
+        if (root == null) return emptyList()
+        val result = mutableListOf<HeldDraftField>()
+        fun field(label: String, value: String) {
+            if (value.isNotBlank()) result += HeldDraftField(label, value)
+        }
+        field("Creator notes", root.optString("creatorNotes"))
+        root.optJSONArray("hooks").objects().forEachIndexed { i, obj ->
+            field("Hook idea ${i + 1}", obj.optString("text"))
+        }
+        root.optJSONArray("titles").objects().forEachIndexed { i, obj ->
+            field("Title idea ${i + 1}", obj.optString("text"))
+        }
+        root.optJSONArray("beats").objects().forEachIndexed { i, beat ->
+            listOf(
+                "label" to "Label", "purpose" to "Purpose",
+                "narration" to "Narration", "visualNotes" to "Visual notes",
+                "bRollNotes" to "B-roll", "onScreenText" to "On-screen text",
+            ).forEach { (key, label) ->
+                field("Beat ${i + 1} · $label", beat.optString(key))
+            }
+        }
+        return result
+    }
+
+    private fun previewPublishFields(array: JSONArray?): List<HeldDraftField> {
+        val result = mutableListOf<HeldDraftField>()
+        array.objects().forEachIndexed { i, item ->
+            val prefix = "Output ${i + 1}"
+            val outputId = item.optString("id").takeIf { it.isNotBlank() }
+            val platform = item.optString("platform").takeIf { it.isNotBlank() }
+            val format = item.optString("format").takeIf { it.isNotBlank() }
+            fun historicalField(label: String, value: String): HeldDraftField = HeldDraftField(
+                label = label, value = value, deliverableId = outputId,
+                deliverablePlatform = platform, deliverableFormat = format,
+            )
+            listOf(
+                "title" to "Title", "description" to "Description",
+                "tags" to "Tags", "thumbnailConcept" to "Cover idea",
+            ).forEach { (key, label) ->
+                val value = item.optString(key)
+                if (value.isNotBlank()) result += historicalField("$prefix · $label", value)
+            }
+            item.optJSONArray("titleVariants").objects().forEachIndexed { j, variant ->
+                val value = variant.optString("text")
+                if (value.isNotBlank()) result += historicalField("$prefix · Title option ${j + 1}", value)
+            }
+            item.optJSONArray("thumbnailVariants").objects().forEachIndexed { j, variant ->
+                val value = variant.optString("text")
+                if (value.isNotBlank()) result += historicalField("$prefix · Cover option ${j + 1}", value)
+            }
+        }
+        return result
+    }
+
+    private fun matchesGeneration(record: JSONObject): Boolean =
+        if (record.has("restoreGeneration")) {
+            record.optLong("restoreGeneration", -1L) == openedGeneration
+        } else {
+            // An untagged draft could precede ANY previous restore. Only
+            // auto-recover on untouched epoch zero; retain others for review.
+            openedGeneration == 0L
+        }
 
     private fun put(key: String, root: JSONObject) {
         root.put("updatedAtMillis", System.currentTimeMillis())
-        check(prefs.edit().putString(key, root.toString()).commit()) { "Could not preserve editor draft" }
+            .put("restoreGeneration", openedGeneration)
+        CreatorDataGate.withGeneration(appContext, openedGeneration) {
+            val existing = prefs.getString(key, null)
+            val previous = existing?.let { runCatching { JSONObject(it) }.getOrNull() }
+            val editor = prefs.edit()
+            if (existing != null && (previous == null || !matchesGeneration(previous))) {
+                // Keep the original content for explicit recovery. Never silently
+                // overwrite a legacy/older-generation journal with a new draft.
+                editor.putString("held:$key:${System.nanoTime()}", existing)
+            }
+            check(editor.putString(key, root.toString()).commit()) {
+                "Could not preserve editor draft"
+            }
+        }
     }
 
-    private fun read(key: String): JSONObject? {
-        val raw = prefs.getString(key, null) ?: return null
-        return runCatching { JSONObject(raw) }.getOrNull()?.takeIf { it.optInt("version", -1) == VERSION }
-    }
+    private fun read(key: String): JSONObject? = runCatching {
+        CreatorDataGate.withGeneration(appContext, openedGeneration) {
+            val raw = prefs.getString(key, null) ?: return@withGeneration null
+            val root = runCatching { JSONObject(raw) }.getOrNull() ?: return@withGeneration null
+            root.takeIf { it.optInt("version", -1) == VERSION && matchesGeneration(it) }
+        }
+    }.getOrNull()
 
     private fun remove(key: String) {
-        check(prefs.edit().remove(key).commit()) { "Could not clear editor draft" }
+        try {
+            CreatorDataGate.withGeneration(appContext, openedGeneration) {
+                val raw = prefs.getString(key, null) ?: return@withGeneration
+                val record = runCatching { JSONObject(raw) }.getOrNull()
+                // Preserve incompatible or undecodable journal payloads.
+                if (record == null || !matchesGeneration(record)) return@withGeneration
+                check(prefs.edit().remove(key).commit()) { "Could not clear editor draft" }
+            }
+        } catch (_: CreatorWriteConflict) {
+            // A stale editor must never delete a post-restore replacement.
+        }
     }
 
     private fun projectKey(projectId: String) = "project:$projectId"

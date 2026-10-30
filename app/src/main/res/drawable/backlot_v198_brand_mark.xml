@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Exact approved visual direction: dark navy B spine behind three stacked rounded creator panels. -->
+    <path
+        android:fillColor="#181939"
+        android:pathData="M30,20 H62 C79,20 86,29 86,39 C86,46 82,51 77,54 C85,58 90,66 90,75 C90,89 80,91 62,91 H30 Z"/>
+    <path
+        android:pathData="M30,21 L66,21 C77,21 82,26 82,38 C82,43 80,47 76,50 L30,50 Z"
+        android:fillColor="#25204C"
+        android:fillAlpha="0.7"/>
+    <!-- Rounded electric-blue to violet top panel. -->
+    <path android:pathData="M27,21 C27,16 31,15 37,15 H70 C77,15 81,19 81,25 V40 C81,44 78,47 74,47 H37 C31,47 27,44 27,39 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="27" android:startY="16"
+                android:endX="83" android:endY="46">
+                <item android:offset="0.0" android:color="#26ACFF"/>
+                <item android:offset="0.52" android:color="#527DFF"/>
+                <item android:offset="1.0" android:color="#9266FF"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Lavender middle card, intentionally shorter than the upper and lower cards. -->
+    <path android:pathData="M27,49 C27,45 30,43 34,43 H55 C60,43 63,46 63,51 V61 C63,65 60,67 56,67 H34 C30,67 27,65 27,61 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="26" android:startY="45"
+                android:endX="63" android:endY="65">
+                <item android:offset="0.0" android:color="#DDC7FF"/>
+                <item android:offset="0.52" android:color="#BD91FF"/>
+                <item android:offset="1.0" android:color="#9475FF"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Coral/peach creator panel; subtle tapered upper edge matches the selected reference. -->
+    <path android:pathData="M27,74 C27,70 30,68 35,67 L75,62 C81,61 84,65 84,69 V80 C84,85 81,88 75,88 H35 C30,88 27,85 27,81 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="27" android:startY="85"
+                android:endX="84" android:endY="65">
+                <item android:offset="0.0" android:color="#FF688F"/>
+                <item android:offset="0.46" android:color="#FF9682"/>
+                <item android:offset="1.0" android:color="#FFD18A"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

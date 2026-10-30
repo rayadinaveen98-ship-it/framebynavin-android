@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import android.content.Context
+import android.animation.ValueAnimator
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -22,6 +23,8 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,19 +34,28 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -66,12 +78,19 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorHeroArchive
+import com.framebynavin.app.data.PortableBestFrame
+import com.framebynavin.app.data.PortableBestFrameMedia
 import com.framebynavin.app.ui.theme.BacklotMediaBorder
 import com.framebynavin.app.ui.theme.BacklotMediaCanvas
 import com.framebynavin.app.ui.theme.BacklotOnMedia
@@ -86,6 +105,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.Locale
 
 private const val V18_HERO_FRAME_MS = 5_200L
@@ -114,12 +134,21 @@ internal object V18CinematicHeroMotion {
     fun planFor(index: Int): V18HeroMotionPlan = plans[Math.floorMod(index, plans.size)]
 }
 
-private object V18HomeHeroStore {
+internal object V18HomeHeroStore {
     const val MAX_FRAMES = 10
     private const val DIRECTORY = "best_frames_original"
     private const val PREFS = "best_frames_original_prefs"
     private const val KEY_ORDER = "frame_order"
     private const val KEY_ALPHA17_RESET = "alpha17_empty_hero_reset_done"
+    private const val KEY_PAUSED = "home_slideshow_paused"
+
+    fun isPaused(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_PAUSED, false)
+
+    fun savePaused(context: Context, paused: Boolean) {
+        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_PAUSED, paused).commit()) { "Could not save slideshow pause setting" }
+    }
 
     fun current(context: Context): List<File> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -136,47 +165,122 @@ private object V18HomeHeroStore {
         return names.map { File(directory, it) }.filter { it.isFile }
     }
 
-    suspend fun replace(context: Context, uris: List<Uri>): List<File> = CreatorDataGate.transaction { withContext(Dispatchers.IO) {
-        val selected = uris.take(MAX_FRAMES)
-        if (selected.isEmpty()) return@withContext current(context)
+    /** Existing images retain their original names when adding new photos. */
+    suspend fun replace(context: Context, uris: List<Uri>): List<File> =
+        importPhotos(context, uris, append = false)
 
-        val staging = File(context.cacheDir, "home_hero_stage_${System.nanoTime()}").apply { mkdirs() }
-        val staged = mutableListOf<File>()
-        try {
-            selected.forEachIndexed { index, uri ->
-                val out = File(staging, "frame_${index + 1}.${extensionFor(context, uri)}")
-                runCatching {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(out).use { output -> input.copyTo(output, 256 * 1024) }
-                    } ?: error("No readable stream")
-                }.onSuccess {
-                    if (out.length() > 0L) staged += out else out.delete()
-                }.onFailure { out.delete() }
+    suspend fun append(context: Context, uris: List<Uri>): List<File> =
+        importPhotos(context, uris, append = true)
+
+    /**
+     * Stage the entire picker selection and update the visible photo order
+     * exactly once. Provider or checksum failures do not alter old images.
+     */
+    private suspend fun importPhotos(context: Context, uris: List<Uri>, append: Boolean): List<File> =
+        CreatorDataGate.transaction { withContext(Dispatchers.IO) {
+            if (uris.isEmpty()) return@withContext current(context)
+            val existing = checkedCurrent(context)
+            require(uris.size + (if (append) existing.size else 0) <= MAX_FRAMES) {
+                "Slideshow holds up to ten photos; select fewer"
             }
 
-            if (staged.isEmpty()) return@withContext current(context)
-
-            val directory = File(context.filesDir, DIRECTORY).apply { mkdirs() }
-            val previous = current(context)
-            val stamp = System.currentTimeMillis()
-            val finalFiles = staged.mapIndexed { index, source ->
-                val ext = source.extension.ifBlank { "img" }
-                File(directory, "frame_${stamp}_${index + 1}.$ext").also { target ->
-                    source.copyTo(target, overwrite = true)
+            val staging = File(context.cacheDir, "home_hero_stage_${System.nanoTime()}")
+            check(staging.mkdirs() || staging.isDirectory) { "Could not prepare photo import" }
+            val prepared = mutableListOf<PortableBestFrame>()
+            var totalBytes = 0L
+            try {
+                uris.forEachIndexed { index, uri ->
+                    val target = File(staging, "frame_${index + 1}.${extensionFor(context, uri)}")
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    var written = 0L
+                    val stream = context.contentResolver.openInputStream(uri)
+                        ?: error("The selected photo could not be opened")
+                    stream.use { input ->
+                        FileOutputStream(target).use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                if (count == 0) continue
+                                require(written <= PortableBestFrameMedia.MAX_FILE_BYTES - count) {
+                                    "A selected photo exceeds the 20 MB backup limit"
+                                }
+                                require(totalBytes <= PortableBestFrameMedia.MAX_TOTAL_BYTES - written - count) {
+                                    "Selected photos exceed the 100 MB backup limit"
+                                }
+                                output.write(buffer, 0, count)
+                                digest.update(buffer, 0, count)
+                                written += count
+                            }
+                        }
+                    }
+                    require(written > 0L) { "A selected photo was empty" }
+                    totalBytes += written
+                    prepared += PortableBestFrame(
+                        name = target.name,
+                        sha256 = digest.digest().joinToString("") { "%02x".format(it) },
+                        file = target,
+                    )
                 }
+                // Existing hardened backup restore importer verifies dimensions,
+                // writes new originals, rolls back partial copies on error, then
+                // switches the visible SharedPreferences order exactly once.
+                if (append) CreatorHeroArchive.appendVerifiedFiles(context, prepared)
+                else CreatorHeroArchive.importVerifiedFiles(context, prepared)
+                current(context)
+            } finally {
+                staging.deleteRecursively()
             }
-            persist(context, finalFiles)
-            // Retain old originals for recovery. The active order is the only visible selection.
-            finalFiles
-        } finally {
-            staging.deleteRecursively()
-        }
-    } }
+        } }
 
     suspend fun clear(context: Context) = CreatorDataGate.transaction { withContext(Dispatchers.IO) {
         // Clearing the selection must not destroy the original files retained for recovery.
         check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_ORDER).commit()) { "Could not clear personal frame selection" }
     } }
+
+    /**
+     * Never accidentally drop a saved reference when one source file is missing.
+     * Let the owner use backup/recovery tools instead of rewriting broken order.
+     */
+    private fun checkedCurrent(context: Context): List<File> {
+        val savedNames = CreatorHeroArchive.orderedSourceNames(context)
+        val visible = current(context)
+        check(visible.map { it.name } == savedNames) {
+            "A saved Best Frame is missing; preserve original selection for recovery"
+        }
+        return visible
+    }
+
+    /**
+     * Reorder only the active saved selection; never rename, rewrite or delete
+     * image bytes. Portable backup observes this same persisted filename order.
+     */
+    suspend fun move(context: Context, fileName: String, offset: Int): List<File> =
+        CreatorDataGate.transaction { withContext(Dispatchers.IO) {
+            require(offset == -1 || offset == 1) { "Invalid photo move" }
+            val items = checkedCurrent(context).toMutableList()
+            val from = items.indexOfFirst { it.name == fileName }
+            if (from < 0) return@withContext items
+            val to = (from + offset).coerceIn(0, items.lastIndex)
+            if (to != from) {
+                val entry = items.removeAt(from)
+                items.add(to, entry)
+                persist(context, items)
+            }
+            items
+        } }
+
+    /**
+     * Remove one item from the visible slideshow without destroying the
+     * original file. This allows recovery/rollback and preserves other frames.
+     */
+    suspend fun removeOne(context: Context, fileName: String): List<File> =
+        CreatorDataGate.transaction { withContext(Dispatchers.IO) {
+            val before = checkedCurrent(context)
+            val after = before.filterNot { it.name == fileName }
+            if (after.size != before.size) persist(context, after)
+            after
+        } }
 
     private fun persist(context: Context, files: List<File>) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -253,41 +357,231 @@ private fun v18Greeting(name: String): String {
 
 private fun v18Lerp(start: Float, end: Float, progress: Float): Float = start + (end - start) * progress
 
+/** One source of truth for autoplay, image drift and animation accessibility. */
+internal object V18HeroPlaybackPolicy {
+    fun shouldAnimate(
+        autoPlay: Boolean,
+        userPaused: Boolean,
+        animationsEnabled: Boolean,
+        isEditing: Boolean,
+        photoCount: Int,
+    ): Boolean = autoPlay && !userPaused && animationsEnabled && !isEditing && photoCount > 1
+}
+
+
+/**
+ * The greeting is an independent, stable Home header; slideshow frames must
+ * never make it disappear or place it over an image. Photo actions stay beside
+ * the greeting for zero and multiple image states.
+ */
 @Composable
-internal fun V18CinematicHomeHero(creatorName: String) {
+private fun V18GreetingText(greeting: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+        Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun V18HeroPhotoButton(
+    hasFrames: Boolean,
+    importing: Boolean,
+    onPhotoClick: () -> Unit,
+) {
+    Surface(
+        onClick = { if (!importing) onPhotoClick() },
+        modifier = Modifier.size(48.dp).testTag("v2221-home-gallery"),
+        shape = CircleShape,
+        color = CinemaSurfaceRaised,
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (importing) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
+            } else {
+                Icon(
+                    if (hasFrames) Icons.Outlined.Collections else Icons.Outlined.Add,
+                    contentDescription = if (hasFrames) "Manage slideshow images" else "Add slideshow images",
+                    tint = ProjectorIvory,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * V222.1 selected guide sits beside the existing Gallery +, never over media,
+ * Top 3 or project actions. At narrow widths / large accessibility text both
+ * actions wrap to their own line rather than compressing greeting or touch areas.
+ */
+@Composable
+internal fun V18HeroGreetingBar(
+    greeting: String,
+    hasFrames: Boolean,
+    importing: Boolean,
+    onPhotoClick: () -> Unit,
+    companionAvatar: @Composable () -> Unit = {},
+) {
+    val wrapActions = LocalConfiguration.current.screenWidthDp < 360 ||
+        LocalDensity.current.fontScale >= 1.55f
+    if (wrapActions) {
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            V18GreetingText(greeting)
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.align(Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                companionAvatar()
+                V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
+            }
+        }
+    } else {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            V18GreetingText(greeting, Modifier.weight(1f))
+            companionAvatar()
+            V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
+        }
+    }
+}
+
+@Composable
+internal fun V18CinematicHomeHero(
+    creatorName: String,
+    autoPlay: Boolean = true,
+    openEditorNonce: Long = 0L,
+    onEditorRequestHandled: () -> Unit = {},
+    companionAvatar: @Composable () -> Unit = {},
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var frames by remember { mutableStateOf(V18HomeHeroStore.current(context)) }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var importing by remember { mutableStateOf(false) }
+    var editingPhotos by remember { mutableStateOf(false) }
+    var userPaused by remember { mutableStateOf(V18HomeHeroStore.isPaused(context)) }
     var manageExpanded by rememberSaveable { mutableStateOf(false) }
+    // Hero images are unobstructed by default; tapping the image briefly reveals controls.
+    var mediaControlsVisible by rememberSaveable { mutableStateOf(false) }
+    var revealPulse by remember { mutableIntStateOf(0) }
+    val mediaInteractions = remember { MutableInteractionSource() }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    var showPhotoEditor by rememberSaveable { mutableStateOf(false) }
+    var pendingSingleRemove by rememberSaveable { mutableStateOf<String?>(null) }
+    var photoEditError by remember { mutableStateOf<String?>(null) }
     val decoded = remember { mutableStateMapOf<String, ImageBitmap>() }
     val framePaths = remember(frames) { frames.map { it.absolutePath } }
     val greeting = v18Greeting(creatorName)
+    // V215: a 252dp photo banner consumes most of a 900x1600 first viewport
+    // at 1.5x font. Retain the cinematic banner on normal screens but allow
+    // the next actionable project to enter the first viewport on compact ones.
+    val compactHero = LocalConfiguration.current.screenHeightDp < 700 ||
+        LocalDensity.current.fontScale >= 1.35f
+    val bannerHeight = if (compactHero) 168.dp else 252.dp
+    // Android Accessibility's "remove animations" setting takes precedence
+    // over a user's saved Play preference without overwriting that choice.
+    val animationsEnabled = remember(context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ValueAnimator.areAnimatorsEnabled() else true
+    }
+    val playbackEnabled = V18HeroPlaybackPolicy.shouldAnimate(
+        autoPlay = autoPlay,
+        userPaused = userPaused,
+        animationsEnabled = animationsEnabled,
+        isEditing = showPhotoEditor,
+        photoCount = frames.size,
+    )
+    val previewFrames = remember { mutableStateMapOf<String, ImageBitmap>() }
+    LaunchedEffect(showPhotoEditor, framePaths) {
+        if (!showPhotoEditor) return@LaunchedEffect
+        framePaths.forEach { path ->
+            if (previewFrames[path] == null) {
+                val bitmap = withContext(Dispatchers.IO) { v18DecodeHeroFrame(File(path), maxDimension = 256) }
+                if (bitmap != null) previewFrames[path] = bitmap
+            }
+        }
+        previewFrames.keys.toList().filterNot { it in framePaths }.forEach { previewFrames.remove(it) }
+    }
 
-    val picker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(V18HomeHeroStore.MAX_FRAMES),
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            scope.launch {
-                importing = true
-                manageExpanded = false
-                frames = V18HomeHeroStore.replace(context, uris)
+    fun commitPhotoChange(operation: suspend () -> List<File>) {
+        // Prevent duplicate rapid moves/removes while the transactional
+        // preference write is still completing on the IO dispatcher.
+        if (editingPhotos) return
+        editingPhotos = true
+        scope.launch {
+            try {
+                val selectedName = frames.getOrNull(index)?.name
+                val updated = operation()
+                frames = updated
                 decoded.clear()
-                index = 0
+                index = selectedName?.let { name -> updated.indexOfFirst { it.name == name } }
+                    ?.takeIf { it >= 0 } ?: 0
+            } catch (e: Exception) {
+                android.util.Log.w("BacklotHome", "Could not commit single-photo edit", e)
+                photoEditError = "Unable to save slideshow changes. Your current photos were retained."
+            } finally {
+                editingPhotos = false
+            }
+        }
+    }
+
+    fun importSelectedPhotos(uris: List<Uri>, append: Boolean) {
+        if (uris.isEmpty()) return
+        scope.launch {
+            importing = true
+            manageExpanded = false
+            try {
+                frames = if (append) V18HomeHeroStore.append(context, uris)
+                         else V18HomeHeroStore.replace(context, uris)
+                decoded.clear()
+                if (!append) index = 0
+            } catch (_: Exception) {
+                photoEditError = "Photos not changed. Choose valid images within 10 photos, 20 MB each and 100 MB total."
+            } finally {
                 importing = false
             }
         }
     }
-    val chooseFrames = {
-        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+
+    val replacePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(V18HomeHeroStore.MAX_FRAMES),
+    ) { uris -> importSelectedPhotos(uris, append = false) }
+    val appendPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(V18HomeHeroStore.MAX_FRAMES),
+    ) { uris -> importSelectedPhotos(uris, append = true) }
+    val chooseReplaceFrames = {
+        replacePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+    val chooseAppendFrames = {
+        appendPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
-    LaunchedEffect(framePaths) {
+    // Settings opens this same editor once. Consume the request before the
+    // next Home mount, otherwise tab navigation would reopen it repeatedly.
+    LaunchedEffect(openEditorNonce) {
+        if (openEditorNonce != 0L) {
+            onEditorRequestHandled()
+            if (frames.isEmpty()) chooseReplaceFrames()
+            else showPhotoEditor = true
+        }
+    }
+
+    LaunchedEffect(mediaControlsVisible, revealPulse, manageExpanded) {
+        if (mediaControlsVisible && !manageExpanded) {
+            delay(4_000L)
+            mediaControlsVisible = false
+        }
+    }
+
+    LaunchedEffect(framePaths, playbackEnabled) {
         if (framePaths.isEmpty()) index = 0
         else if (index !in framePaths.indices) index = 0
-        while (framePaths.size > 1) {
+        while (playbackEnabled && framePaths.size > 1) {
             delay(V18_HERO_FRAME_MS)
             index = (index + 1) % framePaths.size
         }
@@ -311,91 +605,212 @@ internal fun V18CinematicHomeHero(creatorName: String) {
         decoded.keys.toList().filterNot { it in wanted }.forEach { decoded.remove(it) }
     }
 
-    if (frames.isEmpty()) {
-        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-            Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(11.dp))
+    Column(Modifier.fillMaxWidth()) {
+        V18HeroGreetingBar(
+            greeting = greeting,
+            hasFrames = frames.isNotEmpty(),
+            importing = importing,
+            onPhotoClick = {
+                if (frames.isEmpty()) chooseReplaceFrames()
+                else manageExpanded = !manageExpanded
+            },
+            companionAvatar = companionAvatar,
+        )
+
+        // Never reserve banner space on an empty collection; the greeting
+        // and photo control remain in the same position with or without media.
+        if (frames.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
             Surface(
-                onClick = { if (!importing) chooseFrames() },
-                modifier = Modifier.size(40.dp),
-                shape = CircleShape,
-                color = CinemaSurfaceRaised,
-                border = BorderStroke(1.dp, CinemaLine),
+                modifier = Modifier.fillMaxWidth().height(bannerHeight).testTag("v215-home-media"),
+                shape = RoundedCornerShape(26.dp),
+                color = BacklotMediaCanvas,
+                border = BorderStroke(1.dp, BacklotMediaBorder),
+                shadowElevation = 10.dp,
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (importing) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ProjectorIvory)
-                    } else {
-                        Icon(Icons.Outlined.Add, contentDescription = "Add slideshow images", tint = ProjectorIvory, modifier = Modifier.size(20.dp))
-                    }
-                }
-            }
-        }
-    } else {
-        Surface(
-            modifier = Modifier.fillMaxWidth().height(252.dp),
-            shape = RoundedCornerShape(26.dp),
-            color = BacklotMediaCanvas,
-            border = BorderStroke(1.dp, BacklotMediaBorder),
-            shadowElevation = 10.dp,
-        ) {
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp)).background(BacklotMediaCanvas)) {
-                AnimatedContent(
-                    targetState = framePaths.getOrNull(index).orEmpty(),
-                    transitionSpec = {
-                        fadeIn(tween(V18_HERO_DISSOLVE_MS)) togetherWith fadeOut(tween(V18_HERO_DISSOLVE_MS))
-                    },
-                    label = "cinematicHomeHeroFrame",
-                ) { path ->
-                    val frameIndex = framePaths.indexOf(path).coerceAtLeast(0)
-                    decoded[path]?.let { bitmap ->
-                        V18LivingHeroFrame(bitmap = bitmap, path = path, frameIndex = frameIndex)
-                    }
-                }
-
                 Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.Black.copy(alpha = .18f),
-                                Color.Transparent,
-                                Color.Black.copy(alpha = .18f),
-                                Color.Black.copy(alpha = .76f),
-                            )
-                        )
-                    )
-                )
-
-                Column(
-                    Modifier.align(Alignment.BottomStart).padding(start = 18.dp, end = 66.dp, bottom = 18.dp)
+                    Modifier.fillMaxSize()
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(BacklotMediaCanvas)
+                        .semantics { contentDescription = "Show slideshow controls" }
+                        .clickable(interactionSource = mediaInteractions, indication = null) {
+                            mediaControlsVisible = true
+                            revealPulse++
+                        },
                 ) {
-                    Text("BACKLOT", color = RecRed, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.25.sp)
-                    Spacer(Modifier.height(2.dp))
-                    Text(greeting, color = BacklotOnMedia, fontSize = 21.sp, fontWeight = FontWeight.Black)
-                }
-
-                if (importing) {
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(38.dp),
-                        shape = CircleShape,
-                        color = Color.Black.copy(alpha = .55f),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = BacklotOnMedia)
+                    AnimatedContent(
+                        targetState = framePaths.getOrNull(index).orEmpty(),
+                        transitionSpec = {
+                            fadeIn(tween(if (playbackEnabled) V18_HERO_DISSOLVE_MS else 0)) togetherWith
+                                fadeOut(tween(if (playbackEnabled) V18_HERO_DISSOLVE_MS else 0))
+                        },
+                        label = "cinematicHomeHeroFrame",
+                    ) { path ->
+                        val frameIndex = framePaths.indexOf(path).coerceAtLeast(0)
+                        decoded[path]?.let { bitmap ->
+                            V18LivingHeroFrame(bitmap = bitmap, path = path, frameIndex = frameIndex, animateMotion = playbackEnabled)
                         }
                     }
-                } else {
-                    V18HeroManageActions(
-                        expanded = manageExpanded,
-                        onToggle = { manageExpanded = !manageExpanded },
-                        onChange = { manageExpanded = false; chooseFrames() },
-                        onRemove = { manageExpanded = false; confirmRemove = true },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-                    )
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = mediaControlsVisible && frames.size > 1,
+                        modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+                        enter = fadeIn(tween(220)),
+                        exit = fadeOut(tween(220)),
+                    ) {
+                        Box {
+                            V18HeroIconButton(
+                                icon = if (userPaused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause,
+                                contentDescription = if (userPaused) "Play slideshow" else "Pause slideshow",
+                                onClick = {
+                                    try {
+                                        val next = !userPaused
+                                        V18HomeHeroStore.savePaused(context, next)
+                                        userPaused = next
+                                    } catch (_: Exception) {
+                                        photoEditError = "Could not save slideshow playback preference."
+                                    }
+                                },
+                            )
+                        }
+                    }
+
+                    if (importing) {
+                        Surface(
+                            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(38.dp),
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = .55f),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = BacklotOnMedia)
+                            }
+                        }
+                    } else {
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = mediaControlsVisible || manageExpanded,
+                            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                            enter = fadeIn(tween(220)),
+                            exit = fadeOut(tween(220)),
+                        ) {
+                        V18HeroManageActions(
+                            expanded = manageExpanded,
+                            onToggle = { manageExpanded = !manageExpanded },
+                            onChange = { manageExpanded = false; chooseReplaceFrames() },
+                            onRemove = { manageExpanded = false; confirmRemove = true },
+                            onEdit = { manageExpanded = false; showPhotoEditor = true },
+                            modifier = Modifier,
+                        )
+                        }
+                    }
                 }
             }
         }
+    }
+
+    if (showPhotoEditor) {
+        AlertDialog(
+            onDismissRequest = { showPhotoEditor = false },
+            title = { Text("Slideshow photos", color = ProjectorIvory) },
+            text = {
+                Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
+                    frames.forEachIndexed { itemIndex, photo ->
+                        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                val preview = previewFrames[photo.absolutePath]
+                                if (preview != null) {
+                                    Image(
+                                        bitmap = preview,
+                                        contentDescription = "Photo ${itemIndex + 1} preview",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(9.dp)),
+                                    )
+                                } else {
+                                    Box(
+                                        Modifier.size(48.dp).background(CinemaSurfaceRaised, RoundedCornerShape(9.dp)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text("${itemIndex + 1}", color = ProjectorIvory)
+                                    }
+                                }
+                                Text("Photo ${itemIndex + 1}", color = ProjectorIvory, fontSize = 13.sp)
+                            }
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                IconButton(
+                                    onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, -1) } },
+                                    enabled = itemIndex > 0 && !editingPhotos,
+                                ) { Icon(Icons.Outlined.ArrowUpward, "Move photo ${itemIndex + 1} up", tint = ProjectorIvory) }
+                                IconButton(
+                                    onClick = { commitPhotoChange { V18HomeHeroStore.move(context, photo.name, 1) } },
+                                    enabled = itemIndex < frames.lastIndex && !editingPhotos,
+                                ) { Icon(Icons.Outlined.ArrowDownward, "Move photo ${itemIndex + 1} down", tint = ProjectorIvory) }
+                                IconButton(
+                                    onClick = { pendingSingleRemove = photo.name },
+                                    enabled = !editingPhotos,
+                                ) { Icon(Icons.Outlined.DeleteOutline, "Remove photo ${itemIndex + 1}", tint = RecRed) }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPhotoEditor = false }) {
+                    Text("DONE", color = ProjectorIvory)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showPhotoEditor = false; chooseAppendFrames() },
+                    enabled = frames.size < V18HomeHeroStore.MAX_FRAMES && !importing && !editingPhotos,
+                ) {
+                    Text("ADD PHOTOS", color = ProjectorIvory)
+                }
+            },
+            containerColor = CinemaSurfaceRaised,
+            titleContentColor = ProjectorIvory,
+            textContentColor = MutedText,
+        )
+    }
+
+    pendingSingleRemove?.let { fileName ->
+        AlertDialog(
+            onDismissRequest = { pendingSingleRemove = null },
+            title = { Text("Remove this photo?", color = ProjectorIvory) },
+            text = { Text("The original file will be retained for recovery.", color = MutedText) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingSingleRemove = null
+                    commitPhotoChange { V18HomeHeroStore.removeOne(context, fileName) }
+                }) {
+                    Text("REMOVE PHOTO", color = RecRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingSingleRemove = null }) { Text("CANCEL", color = ProjectorIvory) }
+            },
+            containerColor = CinemaSurfaceRaised,
+        )
+    }
+
+    photoEditError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { photoEditError = null },
+            title = { Text("Slideshow unchanged", color = ProjectorIvory) },
+            text = { Text(message, color = MutedText) },
+            confirmButton = {
+                TextButton(onClick = { photoEditError = null }) {
+                    Text("OK", color = ProjectorIvory)
+                }
+            },
+            containerColor = CinemaSurfaceRaised,
+        )
     }
 
     if (confirmRemove) {
@@ -427,7 +842,7 @@ internal fun V18CinematicHomeHero(creatorName: String) {
 }
 
 @Composable
-private fun V18LivingHeroFrame(bitmap: ImageBitmap, path: String, frameIndex: Int) {
+private fun V18LivingHeroFrame(bitmap: ImageBitmap, path: String, frameIndex: Int, animateMotion: Boolean) {
     val motion = remember(frameIndex) { V18CinematicHeroMotion.planFor(frameIndex) }
     val progress = remember(path) { Animatable(0f) }
     val density = LocalDensity.current
@@ -436,21 +851,30 @@ private fun V18LivingHeroFrame(bitmap: ImageBitmap, path: String, frameIndex: In
     val startYPx = with(density) { motion.startY.dp.toPx() }
     val endYPx = with(density) { motion.endY.dp.toPx() }
 
-    LaunchedEffect(path) {
+    LaunchedEffect(path, animateMotion) {
         progress.snapTo(0f)
-        progress.animateTo(1f, tween(V18_HERO_MOTION_MS, easing = LinearEasing))
+        if (animateMotion) {
+            progress.animateTo(1f, tween(V18_HERO_MOTION_MS, easing = LinearEasing))
+        }
     }
 
     Image(
         bitmap = bitmap,
         contentDescription = null,
         modifier = Modifier.fillMaxSize().graphicsLayer {
-            val p = progress.value
-            val scale = v18Lerp(motion.startScale, motion.endScale, p)
-            scaleX = scale
-            scaleY = scale
-            translationX = v18Lerp(startXPx, endXPx, p)
-            translationY = v18Lerp(startYPx, endYPx, p)
+            if (animateMotion) {
+                val p = progress.value
+                val scale = v18Lerp(motion.startScale, motion.endScale, p)
+                scaleX = scale
+                scaleY = scale
+                translationX = v18Lerp(startXPx, endXPx, p)
+                translationY = v18Lerp(startYPx, endYPx, p)
+            } else {
+                scaleX = 1f
+                scaleY = 1f
+                translationX = 0f
+                translationY = 0f
+            }
         },
         contentScale = ContentScale.Crop,
     )
@@ -462,6 +886,7 @@ internal fun V18HeroManageActions(
     onToggle: () -> Unit,
     onChange: () -> Unit,
     onRemove: () -> Unit,
+    onEdit: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
@@ -472,6 +897,7 @@ internal fun V18HeroManageActions(
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 V18HeroIconButton(Icons.Outlined.Collections, "Change slideshow images", onChange)
+                V18HeroIconButton(Icons.Outlined.Edit, "Edit slideshow order", onEdit)
                 V18HeroIconButton(Icons.Outlined.DeleteOutline, "Remove slideshow images", onRemove, danger = true)
                 Spacer(Modifier.width(1.dp))
             }

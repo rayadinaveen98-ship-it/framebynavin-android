@@ -1,0 +1,155 @@
+name: Backlot RC8 Build267 Signing Migration Safety
+
+on:
+  push:
+    branches: [feature/backlot-rc8-signing-migration-safety]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-rc8-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backup-and-source-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Freeze Build267, audit backup contracts, protect owner data
+        run: |
+          python3 - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          frozen = '7fa3f63af18d705a9a6d2201c2060dcbe82195ad'
+          subprocess.run(['git','merge-base','--is-ancestor',frozen,'HEAD'],check=True)
+          changed = subprocess.check_output(['git','diff','--name-only',frozen,'HEAD'],text=True).splitlines()
+          allowed = {
+              'docs/release/RC8_SIGNING_AND_MIGRATION_SAFETY.md',
+              '.github/workflows/backlot-rc8-signing-migration-safety.yml',
+              'README.md',
+          }
+          unexpected = [p for p in changed if p not in allowed]
+          assert not unexpected, f'Build267 app code changed: {unexpected}'
+          gradle = Path('app/build.gradle.kts').read_text()
+          manifest = Path('app/src/main/AndroidManifest.xml').read_text()
+          personal = Path('app/src/main/java/com/framebynavin/app/ui/PersonalBackupActivity.kt').read_text()
+          personalTransfer = Path('app/src/main/java/com/framebynavin/app/personal/PersonalBackupTransfer.kt').read_text()
+          creator = Path('app/src/main/java/com/framebynavin/app/ui/BackupActivity.kt').read_text()
+          portable = Path('app/src/main/java/com/framebynavin/app/data/PortableCreatorBackupManager.kt').read_text()
+          doc = Path('docs/release/RC8_SIGNING_AND_MIGRATION_SAFETY.md').read_text()
+          assert 'versionCode = 267' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'targetSdk = 36' in gradle
+          assert 'prototypeStable' in gradle and 'dev-signing/framebynavin-public-debug.jks' in gradle
+          assert 'getByName("debug")' in gradle and 'signingConfig = signingConfigs.getByName("prototypeStable")' in gradle
+          assert 'productionReleaseSigning?.let' in gradle
+          assert 'android:allowBackup="false"' in manifest
+          assert 'Personal backup saved and verified' in personal
+          assert 'not encrypted' in personal
+          assert 'PersonalBackupIo.readUtf8' in personal
+          assert 'PersonalPreRestoreRecovery' in personalTransfer
+          assert 'suspend fun restoreApproved(raw: String)' in personalTransfer
+          assert 'manager.writeBackup(output)' in creator
+          assert 'openInputStream(uri)?.use(manager::validate)' in creator
+          assert 'verifyArchiveVoiceReferences(staged)' in portable
+          assert 'app-owned Voice Idea recordings' in portable
+          assert 'No strategy is selected in RC8' in doc
+          report = {
+            'rc7_frozen_source_sha': frozen,
+            'build267_application_source_unchanged': not unexpected,
+            'version_code': 267,
+            'test_package': 'com.framebynavin.app',
+            'target_sdk': 36,
+            'prototype_signer_public': True,
+            'separate_personal_backup': True,
+            'personal_backup_encrypted': False,
+            'android_system_backup_enabled': False,
+            'play_signing_approved': False,
+            'owner_device_accepted': False,
+            'release_eligible': False,
+          }
+          Path('rc8-source-and-backup-audit.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC8-Source-And-Backup-Audit
+          path: rc8-source-and-backup-audit.json
+          if-no-files-found: warn
+          retention-days: 21
+
+  different-certificate-upgrade-rejection:
+    needs: backup-and-source-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC6-Test-APKs
+          run-id: 40922583197
+          github-token: ${{ github.token }}
+          path: frozen
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Generate an ephemeral DIFFERENT test signer and re-sign an existing debug APK
+        run: |
+          set -euo pipefail
+          SOURCE="$(find frozen -type f -name 'app-debug.apk' -print -quit)"
+          test -s "$SOURCE"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$SIGNER"
+          "$SIGNER" verify --print-certs "$SOURCE" > rc8-original-signer.txt
+          keytool -genkeypair -noprompt -keystore "$PWD/rc8-throwaway.jks" -storepass temporary-test-only -keypass temporary-test-only -alias throwaway -keyalg RSA -keysize 2048 -validity 1 -dname "CN=Disposable CI Only, OU=Testing, O=Backlot" >/dev/null 2>&1
+          "$SIGNER" sign --ks "$PWD/rc8-throwaway.jks" --ks-key-alias throwaway --ks-pass pass:temporary-test-only --key-pass pass:temporary-test-only --out "$PWD/rc8-different-signer.apk" "$SOURCE"
+          "$SIGNER" verify --print-certs rc8-different-signer.apk > rc8-temporary-signer.txt
+          OLD="$(grep -m1 'certificate SHA-256 digest' rc8-original-signer.txt)"
+          NEW="$(grep -m1 'certificate SHA-256 digest' rc8-temporary-signer.txt)"
+          test -n "$OLD" && test -n "$NEW" && test "$OLD" != "$NEW"
+          sha256sum "$SOURCE" > rc8-original-test-apk-sha256.txt
+          echo "Different valid signer confirmed. Ephemeral keystore and APK are NEVER uploaded."
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API36 prove different-signer update rejection and synthetic data survival
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            test -s "$(find frozen -type f -name app-debug.apk -print -quit)" && test -s rc8-different-signer.apk
+            adb install -r "$(find frozen -type f -name app-debug.apk -print -quit)"
+            adb shell "run-as com.framebynavin.app sh -c 'mkdir -p files; printf rc8-data-survives > files/rc8-synthetic-sentinel.txt'"
+            adb shell run-as com.framebynavin.app cat files/rc8-synthetic-sentinel.txt | grep -Fq 'rc8-data-survives'
+            bash -c 'adb install -r rc8-different-signer.apk > rc8-different-cert-rejection.log 2>&1; status=$?; cat rc8-different-cert-rejection.log; if [ "$status" -eq 0 ]; then echo "DANGEROUS: different certificate update was accepted" >&2; exit 1; fi; grep -Eiq "INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match|signatures are incompatible|Package signatures do not match" rc8-different-cert-rejection.log'
+            adb shell run-as com.framebynavin.app cat files/rc8-synthetic-sentinel.txt | grep -Fq 'rc8-data-survives'
+            adb install -r "$(find frozen -type f -name app-debug.apk -print -quit)"
+            adb shell run-as com.framebynavin.app cat files/rc8-synthetic-sentinel.txt | grep -Fq 'rc8-data-survives'
+            adb shell pm path com.framebynavin.app | grep -Fq 'package:'
+            echo 'PASS: different signer rejected safely; prior app and synthetic local data survived; original signer can update in place.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC8-Signing-Transition-Negative-Test
+          path: |
+            rc8-original-signer.txt
+            rc8-temporary-signer.txt
+            rc8-original-test-apk-sha256.txt
+            rc8-different-cert-rejection.log
+          if-no-files-found: warn
+          retention-days: 21

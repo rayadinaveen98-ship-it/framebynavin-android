@@ -1,0 +1,29 @@
+name: Backlot V209 P1 — Trust & repository hygiene
+on:
+  push:
+    branches:
+      - feature/backlot-v209-trust-release-hygiene-p1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v209-p1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate inherited identity and repository ignore rules
+        run: python3 tools/check_v209_trust_hygiene.py --base origin/feature/backlot-v208-restore-setup-backup-validation
+      - name: Confirm application remains the verified V208 binary version
+        run: |
+          grep -Fq 'versionCode = 232' app/build.gradle.kts
+          grep -Fq 'versionName = "2.8.2-v208-setup-backup-preview"' app/build.gradle.kts
+          echo "V209 P1 is non-functional and does not produce or publish an APK."

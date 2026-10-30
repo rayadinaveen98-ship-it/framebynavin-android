@@ -1,5 +1,7 @@
 package com.framebynavin.app.ui
 
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -13,12 +15,30 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.compose.ui.semantics.SemanticsProperties
 import org.junit.Rule
 import org.junit.Test
 
 /** Phase 2: every legacy destination remains clickable, capture is text-first and safe. */
 class V161QuickActionsUiTest {
     @get:Rule val rule = createComposeRule()
+
+    @Before fun resetCaptureDraft() {
+        InstrumentationRegistry.getInstrumentation().targetContext
+            .getSharedPreferences("quick_capture_draft_v184", 0).edit().clear().commit()
+    }
+
+    private fun waitForCaptureReady() {
+        try {
+            rule.waitUntil(10_000) {
+                !rule.onNodeWithTag("quick-capture-title").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+            }
+        } catch (failure: Throwable) {
+            throw AssertionError("Fresh capture stayed disabled:\n" + rule.onAllNodes(isRoot(), useUnmergedTree = true).printToString(), failure)
+        }
+    }
 
     @Test fun quickActionsHubPreservesAllDestinationsAndPrioritizesCapture() {
         val clicks = mutableListOf<String>()
@@ -71,12 +91,19 @@ class V161QuickActionsUiTest {
         rule.setContent {
             V14QuickCaptureDialog(onDismiss = {}, onSave = { saved = it; true })
         }
+        waitForCaptureReady()
         rule.onNodeWithTag("quick-capture-title").assertIsDisplayed()
         rule.onNodeWithTag("quick-capture-notes").assertDoesNotExist()
         rule.onNodeWithTag("quick-capture-notes-toggle").performClick()
         rule.onNodeWithTag("quick-capture-notes").performTextInput("Look at the lighting and symmetry")
+        waitForCaptureReady()
         rule.onNodeWithTag("quick-capture-title").performTextInput("Break down this scene")
+        rule.waitUntil(10_000) {
+            !rule.onNodeWithTag("quick-capture-save").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+        }
         rule.onNodeWithTag("quick-capture-save").performClick()
+        rule.waitForIdle()
+        rule.waitUntil(10_000) { saved != null }
         rule.runOnIdle {
             assertNotNull(saved)
             assertEquals("Break down this scene", saved?.title)
@@ -97,14 +124,23 @@ class V161QuickActionsUiTest {
                 },
             )
         }
+        waitForCaptureReady()
         rule.onNodeWithTag("quick-capture-title").performTextInput("Idea worth keeping")
+        rule.waitUntil(10_000) {
+            !rule.onNodeWithTag("quick-capture-save").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+        }
         rule.onNodeWithTag("quick-capture-save").performClick()
+        rule.waitForIdle()
         rule.onNodeWithTag("quick-capture-save-error").assertIsDisplayed()
         rule.runOnIdle {
             assertEquals(1, attempts)
             assertNull(accepted)
         }
+        rule.waitUntil(10_000) {
+            !rule.onNodeWithTag("quick-capture-save").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled)
+        }
         rule.onNodeWithTag("quick-capture-save").performClick()
+        rule.waitForIdle()
         rule.runOnIdle {
             assertEquals(2, attempts)
             assertEquals("Idea worth keeping", accepted?.title)
@@ -113,6 +149,7 @@ class V161QuickActionsUiTest {
 
     @Test fun voiceAndOrganizationStayOptIn() {
         rule.setContent { V14QuickCaptureDialog(onDismiss = {}, onSave = { true }) }
+        waitForCaptureReady()
         rule.onNodeWithText("How will this be organized?").assertIsDisplayed()
         rule.onNodeWithTag("quick-capture-suggestion-toggle").performClick()
         rule.onNodeWithText("You can change these later in Idea Vault.").assertIsDisplayed()

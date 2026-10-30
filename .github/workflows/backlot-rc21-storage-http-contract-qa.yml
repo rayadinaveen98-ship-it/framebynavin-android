@@ -1,0 +1,83 @@
+name: Backlot RC21 Local Auth Storage HTTP Contract
+
+on:
+  push:
+    branches: [feature/backlot-rc21-storage-http-contract-safety]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc21-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  immutable-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify RC21 is local-only and app remains frozen at Build269
+        run: |
+          set -euo pipefail
+          BASE=ac123cc6750eafe22343d7817bae541b59463809
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > rc21-changed.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path("rc21-changed.txt").read_text().splitlines())
+          expected={
+            "supabase/account-deletion/rc21-staging/storage_http_contract.py",
+            "supabase/account-deletion/rc21-staging/test_storage_http_contract.py",
+            "docs/release/RC21_STORAGE_HTTP_CONTRACT_AND_LIVE_POLICY_AUDIT.md",
+            ".github/workflows/backlot-rc21-storage-http-contract-qa.yml",
+          }
+          assert actual==expected, f"Unexpected production/deployable changes: {sorted(actual ^ expected)}"
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          client=Path("supabase/account-deletion/rc21-staging/storage_http_contract.py").read_text()
+          assert 'local-only' in client
+          assert '"127.0.0.1", "localhost"' in client
+          assert 'RejectRedirect' in client
+          assert not any(s.startswith("supabase/functions/") or
+                         s.startswith("supabase/migrations/") for s in actual)
+          print("PASS Build269 and Supabase deployment unchanged; local HTTP contract only")
+          PY
+
+  local-auth-storage-contract:
+    needs: immutable-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile HTTP contract client and test harness with Python
+        run: |
+          python3 -m py_compile supabase/account-deletion/rc21-staging/storage_http_contract.py
+          python3 -m py_compile supabase/account-deletion/rc21-staging/test_storage_http_contract.py
+      - name: Execute 22 synthetic Auth and Storage HTTP contract tests on localhost
+        run: python3 -m unittest discover -s supabase/account-deletion/rc21-staging -p 'test_storage_http_contract.py' -v
+      - name: Assert live Supabase credentials absent
+        run: |
+          if printenv SUPABASE_SERVICE_ROLE_KEY >/dev/null; then exit 1; fi
+          if printenv SUPABASE_SECRET_KEYS >/dev/null; then exit 1; fi
+          echo "PASS local loopback HTTP simulation only; no hosted Supabase calls"
+
+  prior-offline-regression:
+    needs: immutable-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - name: Verify RC17+18 types, lint, and 31 security regression tests
+        run: |
+          deno check supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+          deno lint supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+          deno test --no-config --no-check supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue_test.ts

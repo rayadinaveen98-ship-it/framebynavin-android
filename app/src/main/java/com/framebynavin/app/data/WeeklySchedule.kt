@@ -221,7 +221,16 @@ object WeeklyScheduleEngine {
     /** Source compatibility for older callers; IDs remain intentionally stable. */
     fun frameByNavinV4Slots(): List<WeeklyScheduleSlot> = frameByNavinV5Slots()
 
-    fun defaultSlots(): List<WeeklyScheduleSlot> = frameByNavinV5Slots()
+    // First installs should start with no FrameByNavin sample content.
+    fun defaultSlots(): List<WeeklyScheduleSlot> = emptyList()
+
+    /** Never delete a partially edited/customized schedule based only on old IDs. */
+    fun isUntouchedFrameByNavinStarterSchedule(slots: List<WeeklyScheduleSlot>): Boolean {
+        val original = frameByNavinV5Slots()
+        return slots.size == original.size &&
+            slots.map { it.id }.toSet().size == slots.size &&
+            slots.associateBy { it.id } == original.associateBy { it.id }
+    }
 
     fun isFrameByNavinV5Preset(slots: List<WeeklyScheduleSlot>): Boolean {
         val expectedIds = frameByNavinV5Slots().mapTo(linkedSetOf()) { it.id }

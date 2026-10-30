@@ -2,6 +2,8 @@ package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.framebynavin.app.data.CreatorTask
@@ -59,7 +61,8 @@ class V163BriefCalendarUiTest {
         }
         rule.onNodeWithText("Shoot a scene").assertExists().performClick()
         rule.runOnIdle { assertEquals("project-to-open", openedProject) }
-        rule.onNodeWithText("Next weekly planning session").assertExists().performClick()
+        // A weekly slot appears twice within the 14-day preview. Either row opens Weekly Plan.
+        rule.onAllNodesWithText("Next weekly planning session").onFirst().performClick()
         rule.runOnIdle { assertEquals(true, weeklyOpened) }
     }
 }

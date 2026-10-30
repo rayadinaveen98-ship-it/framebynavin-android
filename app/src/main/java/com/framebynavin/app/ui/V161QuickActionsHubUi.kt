@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -56,6 +59,8 @@ internal fun V161QuickActionsHub(
             it.dueAtMillis in 1 until System.currentTimeMillis()
     }.sortedBy { it.dueAtMillis }
     val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
+    val compactActions = LocalConfiguration.current.screenWidthDp < 350 ||
+        LocalDensity.current.fontScale >= 1.35f
 
     Column(
         Modifier.fillMaxWidth()
@@ -69,17 +74,21 @@ internal fun V161QuickActionsHub(
         Text("Capture an idea or continue your work.", color = MutedText, fontSize = 13.sp)
         Spacer(Modifier.height(17.dp))
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            V161MainAction(
-                "New Project", "Start creating",
-                Icons.Outlined.Add, "quick-action-new-project",
-                onNewProject, Modifier.weight(1f),
-            )
-            V161MainAction(
-                "Quick Capture", "Save an idea",
-                Icons.Outlined.Mic, "quick-action-quick-capture",
-                onQuickCapture, Modifier.weight(1f),
-            )
+        // On narrow phones or high font scale, keep both primary actions full-width.
+        if (compactActions) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                V161MainAction("New Project", "Start creating", Icons.Outlined.Add,
+                    "quick-action-new-project", onNewProject, Modifier.fillMaxWidth())
+                V161MainAction("Quick Capture", "Save an idea", Icons.Outlined.Mic,
+                    "quick-action-quick-capture", onQuickCapture, Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                V161MainAction("New Project", "Start creating", Icons.Outlined.Add,
+                    "quick-action-new-project", onNewProject, Modifier.weight(1f))
+                V161MainAction("Quick Capture", "Save an idea", Icons.Outlined.Mic,
+                    "quick-action-quick-capture", onQuickCapture, Modifier.weight(1f))
+            }
         }
 
         if (overdue.isNotEmpty()) {
@@ -97,7 +106,8 @@ internal fun V161QuickActionsHub(
                             fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(task.dueLabel, color = RecRed, fontSize = 12.sp)
                         Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             AssistChip(onClick = { onPublishLate(task.id) }, label = { Text("+30 min", fontSize = 11.sp) })
                             AssistChip(onClick = { onReschedule(task.id) }, label = { Text("New time", fontSize = 11.sp) })
                             AssistChip(onClick = { onSkip(task.id) }, label = { Text("Skip", fontSize = 11.sp) })

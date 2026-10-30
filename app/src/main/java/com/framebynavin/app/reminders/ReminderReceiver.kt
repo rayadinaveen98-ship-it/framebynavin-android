@@ -45,8 +45,19 @@ class ReminderReceiver : BroadcastReceiver() {
         ledger: AlarmLedger,
     ) {
         val firedAt = System.currentTimeMillis()
+        if (!V225CreatorLateAudioPolicy.shouldDeliverAtAll(
+                scheduledAt, task.dueAtMillis, firedAt,
+            )) {
+            // An old OS broadcast is not a new user response. The ledger was
+            // consumed under CreatorDataGate already; never issue a fresh
+            // action token or interrupt the user with an irrelevant alarm.
+            return
+        }
         val exactDelivery = intent.getBooleanExtra(ReminderConstants.EXTRA_EXACT_DELIVERY, false)
         val delayMillis = (firedAt - scheduledAt).coerceAtLeast(0L)
+        val allowAudible = V225CreatorLateAudioPolicy.allowAudible(
+            scheduledAt, firedAt, exactDelivery,
+        )
         val mode = task.reminderMode
         val token = ReminderOccurrenceStore(appContext).issue(task)
         val acknowledgements = ReminderAcknowledgementStore(appContext)
@@ -64,16 +75,22 @@ class ReminderReceiver : BroadcastReceiver() {
 
         val delivered = when (mode) {
             ReminderMode.VOICE -> {
-                if (!exactDelivery) {
-                    notificationFallback("Voice reminder · precise timing unavailable")
+                if (!allowAudible) {
+                    notificationFallback(
+                        if (exactDelivery) "Voice reminder · delivered late"
+                        else "Voice reminder · precise timing unavailable",
+                    )
                 } else {
                     runCatching { VoiceReminderService.start(appContext, task, token) }.isSuccess ||
                         notificationFallback("Voice reminder fallback")
                 }
             }
             ReminderMode.ALARM -> {
-                if (!exactDelivery) {
-                    notificationFallback("Alarm reminder · precise timing unavailable")
+                if (!allowAudible) {
+                    notificationFallback(
+                        if (exactDelivery) "Alarm reminder · delivered late"
+                        else "Alarm reminder · precise timing unavailable",
+                    )
                 } else {
                     runCatching { AlarmRingingService.start(appContext, task, occurrenceId = token) }.isSuccess ||
                         notificationFallback("Alarm reminder fallback")
