@@ -47,7 +47,7 @@ run_class() {
     -e class "$class" -e hardeningTestEnvironment ci-emulator \
     -e backlotVisualProfile "$vprofile" \
     com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner > "$file" 2>&1
-  if ! grep -Eq 'OK \([1-9][0-9]* tests\)' "$file"; then
+  if ! grep -Eq 'OK \([1-9][0-9]* tests?\)' "$file"; then
     tail -90 "$file"
     echo "PHASE1 FAIL: $short"
     return 1
