@@ -1,0 +1,72 @@
+name: Backlot RC18 Offline Deletion Queue and Crash Recovery QA
+
+on:
+  push:
+    branches: [feature/backlot-rc18-durable-deletion-queue-contract]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc18-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  immutable-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove RC18 did not change Build269 or deployable Supabase configuration
+        run: |
+          set -euo pipefail
+          BASE=e84cd3e22770b3791456de1e98adeae2dff47806
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > rc18-changed.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          allowed={
+            "supabase/account-deletion/deletion_queue.ts",
+            "supabase/account-deletion/deletion_queue_test.ts",
+            "docs/release/RC18_ACCOUNT_DELETION_QUEUE_AND_RECOVERY.md",
+            ".github/workflows/backlot-rc18-deletion-queue-qa.yml",
+          }
+          actual=set(Path("rc18-changed.txt").read_text().splitlines())
+          assert actual==allowed, f"Unexpected source or deployable change: {sorted(actual ^ allowed)}"
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          core=Path("supabase/account-deletion/deletion_queue.ts").read_text()
+          assert 'establishDurableWriteFence' in core
+          assert 'deleteAuthIfExists' in core
+          assert 'await actions.authExists' in core
+          assert 'await store.complete' in core
+          assert not any(x.startswith("supabase/migrations/") for x in actual)
+          assert not any(x.startswith("supabase/functions/") for x in actual)
+          print("PASS no production Android, live database, migration or Edge Function changes")
+          PY
+
+  offline-security-tests:
+    needs: immutable-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - name: Type check RC17 and RC18 security modules and tests
+        run: deno check supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+      - name: Lint offline-only account deletion code
+        run: deno lint supabase/account-deletion
+      - name: Test owner isolation, leases, crash recovery and retry limits
+        run: deno test --no-config --no-check supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue_test.ts
+      - name: Assert no private Supabase keys available to CI
+        run: |
+          if printenv SUPABASE_SERVICE_ROLE_KEY >/dev/null; then exit 1; fi
+          if printenv SUPABASE_SECRET_KEYS >/dev/null; then exit 1; fi
+          echo "PASS offline-only synthetic security verification"
