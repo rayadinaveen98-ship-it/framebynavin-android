@@ -87,7 +87,7 @@ def main():
            receipt_state(reqid)==(a,"fenced","pending"))
     verify("no private data in response and cache disabled",
            a not in json.dumps(data) and b not in json.dumps(data) and
-           "no-store" in hdr.get("Cache-Control",""))
+           any(k.lower()=="cache-control" and "no-store" in v.lower() for k,v in hdr.items()))
     status,again,_=edge("POST",ta,{"confirmation":CONFIRM})
     verify("repeated request idempotent",status==202 and again["request_id"]==reqid)
     status,status_a,_=edge("GET",ta)
