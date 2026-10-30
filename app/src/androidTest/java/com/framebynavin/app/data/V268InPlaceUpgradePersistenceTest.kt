@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 /**
  * CI-only, three PHASE in-place Android APK upgrade test.
  *
- * Prepare is executed against the INSTALLED signed-debug Build268 using the
+ * Prepare is executed against the INSTALLED signed-debug Build267 using the
  * Build268 test APK; Gradle keeps the app package and test interfaces stable.
  * CI force-stops the old installation and adb installs Build268 with -r,
  * NEVER -d and NEVER uninstall/pm clear. Subsequent instrumentation processes
