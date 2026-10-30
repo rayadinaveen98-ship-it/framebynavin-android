@@ -1,3 +1,7 @@
+import java.security.KeyStore
+import java.security.PrivateKey
+import java.security.interfaces.RSAPublicKey
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -110,7 +114,7 @@ val verifyPrivateReleaseSigning = tasks.register("verifyPrivateReleaseSigning") 
         }
 
         val releaseStore = try {
-            java.security.KeyStore.getInstance(
+            KeyStore.getInstance(
                 file, requireNotNull(releaseStorePassword).toCharArray()
             )
         } catch (_: Exception) {
@@ -124,14 +128,14 @@ val verifyPrivateReleaseSigning = tasks.register("verifyPrivateReleaseSigning") 
             "Private release signing certificate is unavailable."
         }
         val releasePublicKey = releaseCertificate.publicKey
-        require(releasePublicKey is java.security.interfaces.RSAPublicKey &&
+        require(releasePublicKey is RSAPublicKey &&
             releasePublicKey.modulus.bitLength() >= 2048) {
             "Play upload certificate must use RSA with at least 2048 bits."
         }
         // Load the known checked-in *public* development certificate, not a
         // hard-coded fingerprint that could become stale if the fixture changes.
         val previewKeystore = rootProject.file("dev-signing/framebynavin-public-debug.jks")
-        val previewStore = java.security.KeyStore.getInstance(
+        val previewStore = KeyStore.getInstance(
             previewKeystore, "framebynavin-dev".toCharArray()
         )
         val previewCertificate = requireNotNull(
@@ -145,7 +149,7 @@ val verifyPrivateReleaseSigning = tasks.register("verifyPrivateReleaseSigning") 
         // without printing passwords, filesystem secrets or private key data.
         try {
             val key = releaseStore.getKey(alias, requireNotNull(releaseKeyPassword).toCharArray())
-            require(key is java.security.PrivateKey) {
+            require(key is PrivateKey) {
                 "Private release alias is not a signing private key."
             }
         } catch (_: Exception) {
