@@ -1,7 +1,5 @@
 package com.framebynavin.app.ui
 
-import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.lifecycle.Lifecycle
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.cloud.CloudLocalStore
@@ -10,7 +8,6 @@ import com.framebynavin.app.data.HardeningTestEnvironment
 import org.junit.Assert.assertNull
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
