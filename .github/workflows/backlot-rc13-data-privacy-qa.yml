@@ -80,7 +80,7 @@ jobs:
           NEW="app/build/outputs/apk/personalStable/app-personalStable.apk"
           test -s "$OLD" && test -s "$NEW"
           (cd "$(dirname "$OLD")" && sha256sum -c SHA256SUMS.txt)
-          test "$(sha256sum "$OLD" | cut -d' ' -f1)" = '02827066650f7f725ef712c7a2119f20746fec5198fd1b7cfdc0be709e8d0d7d'
+          test "$(sha256sum "$OLD" | cut -d' ' -f1)" = 'd17a03f6eb8f29e9dc9b7df96194d256cf1943eaf0eb8221b183ee65448d221b'
           SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           "$SIGNER" verify --print-certs "$OLD" > rc13-old-signer.txt
