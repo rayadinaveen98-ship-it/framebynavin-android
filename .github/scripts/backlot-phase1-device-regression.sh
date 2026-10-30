@@ -37,14 +37,20 @@ else
   adb install -r tests/app-debug-androidTest.apk
 fi
 run_class() {
-  local class="$1" short
+  local class="$1" short selector
   short="${class##*.}"
+  selector="$class"
+  # A 360dp viewport is not a 380dp 'wide phone'. Test its narrow and
+  # large-font contracts here; the wide-row contract runs on tablet.
+  if test "$profile" = compact && test "$short" = V227IdeaFooterAdaptiveUiTest; then
+    selector="$class#narrowPhoneStacksPrimaryAboveCancelAndPreservesClick,$class#highFontScaleKeepsVoiceSaveLabelAccessibleAndUnclipped"
+  fi
   local file="phase1-evidence/$profile/$short.txt"
   echo "PHASE1 START $profile : $short"
   local vprofile=default
   if test "$profile" = compact; then vprofile=compact; fi
   adb shell am instrument -w -r \
-    -e class "$class" -e hardeningTestEnvironment ci-emulator \
+    -e class "$selector" -e hardeningTestEnvironment ci-emulator \
     -e backlotVisualProfile "$vprofile" \
     com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner > "$file" 2>&1
   if ! grep -Eq 'OK \([1-9][0-9]* tests?\)' "$file"; then
