@@ -42,7 +42,8 @@ def must_reject(action):
 def main():
     s,d=api("POST","/storage/v1/bucket",ADMIN,
              {"id":BUCKET,"name":BUCKET,"public":False,"file_size_limit":1048576})
-    if s==409:
+    if s==409 or (isinstance(d,dict) and d.get("code")=="BucketAlreadyExists"
+                  and str(d.get("statusCode"))=="409"):
         # RC30 may run another isolated two-user regression against the same
         # disposable local bucket. It must already be PRIVATE and scoped.
         lookup,bucket=api("GET",f"/storage/v1/bucket/{BUCKET}",ADMIN)
