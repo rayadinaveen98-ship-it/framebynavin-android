@@ -1,0 +1,144 @@
+name: Backlot RC29 Live Shape + Restrictive Voice Storage QA (FREE)
+
+on:
+  push:
+    branches: [release/backlot-rc29-live-schema-storage-write-fence-qa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc29-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  safety-scope-and-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify free public runner, frozen app and no production migration
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=a5a2fb3db3e7319bd616944aff78a0838b5f46fb
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/rc29.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path('/tmp/rc29.txt').read_text().splitlines())
+          allow={
+            'supabase/account-deletion/rc29-local/live_shape_and_storage_fence.sql',
+            'supabase/account-deletion/rc29-local/test_live_shape_storage_fence.py',
+            'docs/release/RC29_LIVE_SCHEMA_STORAGE_RESTRICTIVE_POLICY.md',
+            '.github/workflows/backlot-rc29-live-schema-storage-fence.yml',
+          }
+          assert actual==allow, f'RC29 scope changed unexpectedly: {actual ^ allow}'
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          sql=Path('supabase/account-deletion/rc29-local/live_shape_and_storage_fence.sql').read_text()
+          assert "current_setting('backlot.rc22.ephemeral_only'" in sql
+          assert sql.count('AS RESTRICTIVE FOR')==2
+          assert 'FOR SHARE' in sql
+          assert 'service_role' in sql
+          assert not any(p.startswith(('app/src/','release-site/','supabase/migrations/','supabase/functions/')) for p in actual)
+          print('PASS real account deletion still off; only local fixture and tests; Build270 frozen')
+          PY
+      - name: Python syntax and prior Edge Function TypeScript check
+        run: python3 -m py_compile supabase/account-deletion/rc29-local/test_live_shape_storage_fence.py
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - run: deno check supabase/functions/backlot-account-deletion/index.ts
+
+  actual-local-storage-and-creator:
+    needs: safety-scope-and-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      BACKLOT_RC22_LOCAL_ONLY: 'true'
+      BACKLOT_RC28_LOOPBACK_ONLY: 'true'
+      BACKLOT_DELETION_API_ENABLED: 'true'
+      BACKLOT_DELETION_SCHEMA_REVIEWED: 'true'
+      BACKLOT_DELETION_STORAGE_FENCE_REVIEWED: 'true'
+      BACKLOT_DELETION_OWNER_APPROVED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Boot free real LOCAL Supabase Auth, Storage, PostgREST, PostgreSQL
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          mkdir -p "$RUNNER_TEMP/backlot-rc29-local"
+          cd "$RUNNER_TEMP/backlot-rc29-local"
+          supabase init --yes
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/rc29-env"
+          chmod 600 "$RUNNER_TEMP/rc29-env"
+      - name: Guard BOTH loopback URLs then apply disposable full-shape and restrictive policies
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/rc29-env"; set +a
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+          for key,port in (('API_URL',54321),('DB_URL',54322)):
+            v=urlsplit(os.environ.get(key,''))
+            assert v.hostname in ('localhost','127.0.0.1') and v.port==port, \
+              'REFUSING hosted database: '+key
+          print('PASS only local Supabase with synthetic users')
+          PY
+          for fixture in \
+            supabase/account-deletion/rc22-local/fixture.sql \
+            supabase/account-deletion/rc24-local/creator_write_guard.sql \
+            supabase/account-deletion/rc26-local/receipt.sql \
+            supabase/account-deletion/rc29-local/live_shape_and_storage_fence.sql \
+            supabase/account-deletion/rc28-local/edge_request_rpc_contract.sql; do
+            PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+              psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$fixture"
+          done
+          sleep 3
+      - name: Actual Edge/Auth + full Creator schema and bucket write-fence regression
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/rc29-env"; set +a
+          export SUPABASE_URL="$API_URL"
+          export SUPABASE_ANON_KEY="$ANON_KEY"
+          deno run --allow-env --allow-net=127.0.0.1:54321,127.0.0.1:8000 \
+            supabase/functions/backlot-account-deletion/index.ts \
+            > "$RUNNER_TEMP/rc29-edge.log" 2>&1 &
+          EDGE_PID=$!
+          trap 'kill "$EDGE_PID" 2>/dev/null || true' EXIT
+          ready=false
+          for i in $(seq 1 30); do
+            status="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/ || true)"
+            if test "$status" = "401"; then ready=true; break; fi
+            sleep 1
+          done
+          if test "$ready" != "true"; then
+            echo "Edge listener failed verified-auth readiness"
+            cat "$RUNNER_TEMP/rc29-edge.log"
+            exit 1
+          fi
+          python3 supabase/account-deletion/rc29-local/test_live_shape_storage_fence.py
+      - name: Destroy disposable stack, no backups
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/backlot-rc29-local" 2>/dev/null && supabase stop --no-backup || true
+      - name: No paid infrastructure, no real accounts, no production migration
+        if: always()
+        run: echo 'Only synthetic local Supabase identities were used'
