@@ -107,4 +107,4 @@ jobs:
           cd "$RUNNER_TEMP/backlot-rc26-local" 2>/dev/null && supabase stop --no-backup || true
       - name: No production access or stored user tokens
         if: always()
-        run: echo 'Local, disposable, ₹0; no hosted deployment or real user's account touched'
+        run: echo "Local, disposable, zero-cost; no hosted deployment or real account touched"
