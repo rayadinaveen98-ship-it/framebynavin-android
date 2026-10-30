@@ -29,10 +29,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.*
+import com.framebynavin.app.ui.V269DataPrivacyActivity
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
@@ -393,6 +395,17 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                         }
                     }
                 }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            CloudCard {
+                Text("DATA & PRIVACY", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text("Review what is saved, exported or connected.", color = MutedText, fontSize = 12.sp)
+                Spacer(Modifier.height(7.dp))
+                OutlinedButton(
+                    onClick = { context.startActivity(android.content.Intent(context, V269DataPrivacyActivity::class.java)) },
+                    modifier = Modifier.fillMaxWidth().testTag("v269-privacy-entry"),
+                ) { Text("DATA & PRIVACY") }
             }
 
             message?.let {

@@ -167,6 +167,13 @@ internal fun V23ProfileAccountScreen(
                 onClick = onOpenYouTube,
             )
 
+            V23ActionRow(
+                title = "Data & Privacy",
+                subtitle = "Separate backups, cloud account and account deletion status",
+                icon = Icons.Outlined.Shield,
+                onClick = { context.startActivity(Intent(context, V269DataPrivacyActivity::class.java)) },
+            )
+
             Spacer(Modifier.height(15.dp))
             Text(
                 "For backup, recovery and saved Google Drive copies, open Settings → Backup & Data.",
