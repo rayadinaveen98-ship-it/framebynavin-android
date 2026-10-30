@@ -139,10 +139,13 @@ def resume_internal(receipt_id: str, *, fail_after_fence: bool=False) -> str:
     owner,stage,status=receipt_state(rid)
     if status=="complete":return "complete"
     if stage not in STAGES:raise DeletionError("Unknown durable job stage")
-    attempts=sql(f"UPDATE backlot_rc26_ci.requests "
-                 f"SET attempts=attempts+1,status='pending' WHERE id='{rid}' "
-                 "AND attempts<5 RETURNING attempts")
-    if not attempts.isdigit():raise DeletionError("Manual review required after retries")
+    # psql's SQL-command tag can follow RETURNING output; query the numeric
+    # counter separately rather than trusting the final printed line.
+    previous=sql(f"SELECT attempts FROM backlot_rc26_ci.requests WHERE id='{rid}'")
+    if not previous.isdigit() or int(previous)>=5:
+        raise DeletionError("Manual review required after retries")
+    sql(f"UPDATE backlot_rc26_ci.requests SET attempts=attempts+1,"
+        f"status='pending' WHERE id='{rid}' AND attempts<5")
     if sql(f"SELECT blocked::text FROM backlot_rc22_ci.deletion_fences "
            f"WHERE user_id='{owner}'")!="true":
         raise DeletionError("Deletion owner fence missing; fail closed")
