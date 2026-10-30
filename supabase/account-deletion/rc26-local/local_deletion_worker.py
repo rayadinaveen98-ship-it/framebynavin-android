@@ -14,6 +14,8 @@ from urllib.parse import quote
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"rc22-local"))
 from test_real_auth_storage import api,sql,ADMIN,ANON,BUCKET  # type: ignore[import-not-found]
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"rc30-local"))
+from privileged_storage_delete_only import DeleteOnlyStorageWorker, DeleteOnlyDenied  # type: ignore[import-not-found]
 
 CONFIRM="DELETE MY BACKLOT ACCOUNT"
 STAGES=("fenced","storage_deleted","data_deleted","auth_deleted","complete")
@@ -95,14 +97,34 @@ def owned_storage_names(user_id: str) -> list[str]:
             raise DeletionError("Unsafe Storage object path")
     return names
 
-def purge_storage(owner: str) -> None:
-    for batch in range(40): # bounded: 4,000 test files maximum, fail closed
+def purge_storage(receipt_id: str) -> None:
+    """Privileged Voice cleanup is scoped by a private receipt, not caller ID.
+
+    No generic administrator Storage write method is used or exposed.
+    """
+    rid=valid_id(receipt_id)
+    owner,_,_=receipt_state(rid)
+
+    def is_fenced(user_id: str) -> bool:
+        return sql("SELECT blocked::text FROM backlot_rc22_ci.deletion_fences "
+                   f"WHERE user_id='{user_id}'")=="true"
+
+    def send_delete(bucket: str, paths: list[str]):
+        if bucket!=BUCKET:
+            raise DeletionError("Unexpected privileged Storage bucket")
+        return api("DELETE",f"/storage/v1/object/{bucket}",ADMIN,{"prefixes":paths})
+
+    gate=DeleteOnlyStorageWorker(
+        receipt_state,is_fenced,send_delete,
+        bucket=BUCKET,allow_local_alias=True,
+    )
+    for batch in range(40): # bounded: 4,000 CI-only files, fail closed
         paths=owned_storage_names(owner)
         if not paths:return
-        status,body=api("DELETE",f"/storage/v1/object/{BUCKET}",ADMIN,
-                        {"prefixes":paths})
-        if status not in (200,204):
-            raise DeletionError("Storage API rejected object deletion: "+str(status))
+        try:
+            gate.remove_objects_for_receipt(rid,paths)
+        except DeleteOnlyDenied as exc:
+            raise DeletionError("Storage deletion boundary rejected batch") from exc
     raise DeletionError("Storage deletion did not converge")
 
 def wipe_creator(owner: str) -> None:
@@ -153,7 +175,7 @@ def resume_internal(receipt_id: str, *, fail_after_fence: bool=False) -> str:
         if fail_after_fence and stage=="fenced":
             raise DeletionError("Injected recoverable failure after fence")
         if stage=="fenced":
-            purge_storage(owner)
+            purge_storage(rid)
             transition(rid,"storage_deleted")
             stage="storage_deleted"
         if stage=="storage_deleted":
