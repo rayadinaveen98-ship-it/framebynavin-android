@@ -1,0 +1,123 @@
+name: Backlot RC24 Local Creator DB Writer Fence and Source Audit
+
+on:
+  push:
+    branches: [feature/backlot-rc24-real-cloud-writer-fence-audit]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc24-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frozen-production-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fail closed for paid/private runner or production changes
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=d8072edbfc8e707fff423e06bfa2b5ae672054ac
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > /tmp/rc24-changed.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path("/tmp/rc24-changed.txt").read_text().splitlines())
+          expected={
+            "supabase/account-deletion/rc24-local/creator_write_guard.sql",
+            "supabase/account-deletion/rc24-local/test_creator_guard.py",
+            "supabase/account-deletion/rc24-local/audit_cloud_write_paths.py",
+            "docs/release/RC24_REAL_CLOUD_WRITER_FENCE_AUDIT.md",
+            ".github/workflows/backlot-rc24-cloud-writers-local-qa.yml",
+          }
+          assert actual==expected, f"RC24 forbids release/backend changes: {sorted(actual ^ expected)}"
+          app=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in app
+          assert 'applicationId = "com.framebynavin.app"' in app
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in app
+          assert not any(f.startswith(("supabase/migrations/","supabase/functions/")) for f in actual)
+          print("PASS zero-cost standard public runner, no production Supabase or APK changes")
+          PY
+      - name: Inspect all compiled Android client writers, reject privileged keys
+        run: python3 supabase/account-deletion/rc24-local/audit_cloud_write_paths.py
+
+  actual-local-supabase-db-fence:
+    needs: frozen-production-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      BACKLOT_RC22_LOCAL_ONLY: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Launch genuine local Supabase with no remote project
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          mkdir -p "$RUNNER_TEMP/backlot-rc24-free"
+          cd "$RUNNER_TEMP/backlot-rc24-free"
+          supabase init --yes
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/rc24-env"
+          chmod 600 "$RUNNER_TEMP/rc24-env"
+      - name: Verify loopback ports and install RC22 plus RC24 private fixtures
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/rc24-env"; set +a
+          python3 - <<'PY'
+          from urllib.parse import urlsplit
+          import os
+          for key,port in (("API_URL",54321),("DB_URL",54322)):
+              url=urlsplit(os.environ.get(key,""))
+              assert url.hostname in ("localhost","127.0.0.1") and url.port==port, \
+                  "REFUSE hosted Supabase for "+key
+          print("PASS Auth/PostgREST and DB targets are exclusively local")
+          PY
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc22-local/fixture.sql
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc24-local/creator_write_guard.sql
+      - name: Test actual local JWTs, Creator profiles/snapshots/heads, privileged DB attempts
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/rc24-env"; set +a
+          python3 supabase/account-deletion/rc24-local/test_creator_guard.py
+      - name: Remove ephemeral Supabase without backup
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/backlot-rc24-free" 2>/dev/null && supabase stop --no-backup || true
+      - name: No live Supabase access or CI artifacts
+        if: always()
+        run: echo "₹0 local-only test; no hosted account or secret uploaded"
+
+  prior-account-deletion-regression:
+    needs: frozen-production-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - name: Verify 31 existing RC17/18 security tests
+        run: |
+          deno check supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+          deno lint supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+          deno test --no-config --no-check supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue_test.ts
+      - name: Python compilation
+        run: |
+          python3 -m py_compile supabase/account-deletion/rc24-local/test_creator_guard.py
+          python3 -m py_compile supabase/account-deletion/rc24-local/audit_cloud_write_paths.py
