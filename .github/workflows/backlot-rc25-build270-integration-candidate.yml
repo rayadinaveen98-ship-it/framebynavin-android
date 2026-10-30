@@ -36,6 +36,8 @@ jobs:
           expected={
             'app/build.gradle.kts',
             'app/src/androidTest/java/com/framebynavin/app/data/RC25InPlaceUpgrade269To270Test.kt',
+            '.github/scripts/backlot-rc25-android11.sh',
+            '.github/scripts/backlot-rc25-android16.sh',
             '.github/workflows/backlot-rc25-build270-integration-candidate.yml',
             'docs/release/RC25_BUILD270_ONE_RELEASE_CANDIDATE.md',
           }
@@ -63,62 +65,68 @@ jobs:
   build:
     needs: integration-freeze
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
+      # Original Build270 Gradle JVM/lint/debug/test/personalStable checks passed
+      # on run 41050788970. All subsequent changes are docs and CI scripts;
+      # integration-freeze proves the production source is byte-identical.
+      - uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
+          name: Backlot-RC25-Build270-Full-App-Owner-Preview
+          run-id: 41050788970
+          github-token: ${{ github.token }}
+          path: prior-owner
+      - uses: actions/download-artifact@v4
         with:
-          gradle-version: '8.11.1'
-      - name: Full JVM, lint, debug test APK, non-debuggable same-signer owner APK
-        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+          name: Backlot-RC25-Debug-And-Test-APKs
+          run-id: 41050788970
+          github-token: ${{ github.token }}
+          path: tests
       - uses: actions/download-artifact@v4
         with:
           name: Backlot-RC13-Owner-Full-App-APK
           run-id: 41031529526
           github-token: ${{ github.token }}
           path: build269
-      - name: Verify complete >10MB APK, package, 269-to-270 version and matching preview cert
+      - name: Revalidate artifact checksum, package, version and unchanged preview signer
         run: |
           set -euo pipefail
-          OLD="$(find build269 -type f -name Backlot-RC13-Build269-Full-App.apk -print -quit)"
-          NEW=app/build/outputs/apk/personalStable/app-personalStable.apk
+          OLD="$(find build269 -type f -name 'Backlot-RC13-Build269-Full-App.apk' -print -quit)"
+          NEW="$(find prior-owner -type f -name 'Backlot-RC25-Build270-Full-App.apk' -print -quit)"
           test -s "$OLD" && test -s "$NEW"
+          (cd "$(dirname "$NEW")" && sha256sum -c SHA256SUMS.txt)
+          test "$(sha256sum "$NEW" | cut -d' ' -f1)" = '74ec1aa31fd9cf9083103423bc6040e2451db1fb454419823150f5cd1b568780'
           test "$(stat -c%s "$NEW")" -gt 10000000
+          test -s tests/app-debug.apk && test -s tests/app-debug-androidTest.apk
           SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
-          "$SIGNER" verify --print-certs "$OLD" > /tmp/cert-old.txt
-          "$SIGNER" verify --print-certs "$NEW" > /tmp/cert-new.txt
-          test "$(grep -m1 'certificate SHA-256 digest' /tmp/cert-old.txt)" = "$(grep -m1 'certificate SHA-256 digest' /tmp/cert-new.txt)"
+          "$SIGNER" verify --print-certs "$OLD" > /tmp/old-cert.txt
+          "$SIGNER" verify --print-certs "$NEW" > /tmp/new-cert.txt
+          test "$(grep -m1 'certificate SHA-256 digest' /tmp/old-cert.txt)" = "$(grep -m1 'certificate SHA-256 digest' /tmp/new-cert.txt)"
           "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='269'"
           "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='270'"
-          mkdir -p preview tests
+          mkdir -p preview
           cp "$NEW" preview/Backlot-RC25-Build270-Full-App.apk
-          (cd preview && sha256sum Backlot-RC25-Build270-Full-App.apk > SHA256SUMS.txt)
-          cp app/build/outputs/apk/debug/app-debug.apk tests/
-          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk tests/
-          echo 'PASS full non-debuggable owner-preview APK; same public prototype signer; NOT Play release'
+          cp "$(dirname "$NEW")/SHA256SUMS.txt" preview/
+          echo 'PASS previously compiled full APK, exact checksum and signer match; source still frozen'
       - uses: actions/upload-artifact@v4
         with:
           name: Backlot-RC25-Build270-Full-App-Owner-Preview
           path: preview/
           retention-days: 21
-          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: Backlot-RC25-Debug-And-Test-APKs
           path: tests/
           retention-days: 14
-          if-no-files-found: error
 
   android11:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: Backlot-RC25-Debug-And-Test-APKs
@@ -128,7 +136,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Android 11 privacy, slideshow, personal reminders and backup acceptance
+      - name: Android 11 privacy, slideshow, reminders, backup smoke
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -136,16 +144,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -euo pipefail
-            adb install -r tests/app-debug.apk
-            adb install -r tests/app-debug-androidTest.apk
-            for CLASS in com.framebynavin.app.ui.V269DataPrivacyUiTest com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest com.framebynavin.app.ui.V2232PersonalReminderUiTest com.framebynavin.app.personal.V226PersonalBackupTransferTest; do
-              SHORT="$(basename "$CLASS")"
-              adb shell am instrument -w -r -e class "$CLASS" -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "rc25-$SHORT.log"
-              grep -Eq 'OK \([1-9][0-9]* tests\)' "rc25-$SHORT.log"
-            done
-            adb shell am start -n com.framebynavin.app/.MainActivity
+          script: bash .github/scripts/backlot-rc25-android11.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -158,6 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 65
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: Backlot-RC13-Test-APKs
@@ -173,7 +173,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Android 16 in-place 269→270 Creator and Personal persistence, no uninstall
+      - name: Android 16 in-place upgrade, no uninstall or app-data wipe
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -181,28 +181,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -euo pipefail
-            OLD="$(find old -type f -name app-debug.apk -print -quit)"
-            NEW="$(find new -type f -name app-debug.apk -print -quit)"
-            TEST="$(find new -type f -name app-debug-androidTest.apk -print -quit)"
-            test -s "$OLD" && test -s "$NEW" && test -s "$TEST"
-            adb install -r "$OLD"
-            adb install -r "$TEST"
-            CLASS=com.framebynavin.app.data.RC25InPlaceUpgrade269To270Test
-            adb shell am instrument -w -r -e class "$CLASS#phase1SeedOlderAppAndCaptureVerifiedBackup" -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc25-upgrade-seed.log
-            grep -F 'OK (1 test)' rc25-upgrade-seed.log
-            adb shell am force-stop com.framebynavin.app
-            adb install -r "$NEW"
-            adb shell am instrument -w -r -e class "$CLASS#phase2VerifyUpgradeWithoutUninstall" -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc25-upgrade-new.log
-            grep -F 'OK (1 test)' rc25-upgrade-new.log
-            adb shell am start -n com.framebynavin.app/.MainActivity
-            sleep 5
-            adb shell am force-stop com.framebynavin.app
-            adb shell am instrument -w -r -e class "$CLASS#phase3VerifyAfterNewAppLaunchAndCleanUp" -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc25-upgrade-relaunch.log
-            grep -F 'OK (1 test)' rc25-upgrade-relaunch.log
-            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V269DataPrivacyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc25-privacy.log
-            grep -F 'OK (3 tests)' rc25-privacy.log
+          script: bash .github/scripts/backlot-rc25-android16.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
