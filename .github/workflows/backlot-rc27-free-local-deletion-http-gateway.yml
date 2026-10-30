@@ -1,0 +1,110 @@
+name: Backlot RC27 Local Authenticated Deletion HTTP Gateway QA
+
+on:
+  push:
+    branches: [release/backlot-rc27-local-deletion-http-gateway]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc27-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refuse paid runner, app changes, public deployment or live backend modification
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=0beae7666d5b3189778823c82f1fa0f4ec7d530d
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/rc27-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path("/tmp/rc27-files.txt").read_text().splitlines())
+          expected={
+            "supabase/account-deletion/rc27-local/http_request_gateway.py",
+            "supabase/account-deletion/rc27-local/test_gateway_e2e.py",
+            "docs/release/RC27_LOCAL_DELETION_HTTP_GATEWAY.md",
+            ".github/workflows/backlot-rc27-free-local-deletion-http-gateway.yml",
+          }
+          assert actual==expected, f"RC27 forbids any app/site/hosted backend changes: {actual ^ expected}"
+          build=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 270' in build
+          assert 'applicationId = "com.framebynavin.app"' in build
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in build
+          assert not any(s.startswith(("supabase/migrations/","supabase/functions/","app/src/","release-site/")) for s in actual)
+          gateway=Path("supabase/account-deletion/rc27-local/http_request_gateway.py").read_text()
+          assert 'ThreadingHTTPServer(("127.0.0.1",0),gateway())' in gateway
+          assert 'resume_internal' not in gateway
+          assert 'Access-Control-Allow-Origin' not in gateway
+          print("PASS RC27 is ONLY local request gateway; Build270 & published resources untouched")
+          PY
+      - name: Compile Python HTTP gateway and two-account tests
+        run: |
+          python3 -m py_compile supabase/account-deletion/rc27-local/http_request_gateway.py
+          python3 -m py_compile supabase/account-deletion/rc27-local/test_gateway_e2e.py
+
+  real-local-http-requests:
+    needs: source-freeze
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      BACKLOT_RC22_LOCAL_ONLY: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Run disposable real Supabase Auth Storage PostgREST in local Docker
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          mkdir -p "$RUNNER_TEMP/backlot-rc27-free"
+          cd "$RUNNER_TEMP/backlot-rc27-free"
+          supabase init --yes
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/backlot-rc27-local-env"
+          chmod 600 "$RUNNER_TEMP/backlot-rc27-local-env"
+      - name: Verify loopback API and DB and initialize local-only fixtures
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/backlot-rc27-local-env"; set +a
+          python3 - <<'PY'
+          from urllib.parse import urlsplit
+          import os
+          for key,port in (("API_URL",54321),("DB_URL",54322)):
+            p=urlsplit(os.environ.get(key,""))
+            assert p.hostname in ("127.0.0.1","localhost") and p.port==port, "Refusing hosted Supabase "+key
+          print("PASS only disposable local Auth/Database/Storage URLs")
+          PY
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc22-local/fixture.sql
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc24-local/creator_write_guard.sql
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc26-local/receipt.sql
+      - name: Test real HTTP API with two local Auth users + complete Storage/Creator/Auth deletion
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/backlot-rc27-local-env"; set +a
+          python3 -m unittest discover -s supabase/account-deletion/rc27-local -p 'test_gateway_e2e.py' -v
+      - name: Stop temporary local Supabase without backups
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/backlot-rc27-free" 2>/dev/null && supabase stop --no-backup || true
+      - name: Do not export local tokens or test objects
+        if: always()
+        run: echo "Local-only synthetic account deletion checks; no hosted user data accessed"
