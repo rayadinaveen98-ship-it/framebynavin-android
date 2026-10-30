@@ -1,0 +1,409 @@
+name: Backlot RC13 Build269 Data and Privacy Backup QA
+
+on:
+  push:
+    branches: [feature/backlot-rc13-data-privacy-controls]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-rc13-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Check exact Build269 scope, reminder fallback and unchanged UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          app=Path('app/src/main/java/com/framebynavin/app')
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 269' in gradle
+          assert '2.15.6-rc13-data-privacy-preview' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'targetSdk = 36' in gradle
+          manifest=Path('app/src/main/AndroidManifest.xml').read_text()
+          assert 'android:allowBackup="false"' in manifest
+          helper=(app/'reminders/V268FullScreenReminderAccess.kt').read_text()
+          assert 'canUseFullScreenIntent()' in helper
+          assert 'UPSIDE_DOWN_CAKE' in helper
+          assert 'if (fullScreenAllowed)' in helper
+          for name in ['AlarmRingingService.kt','VoiceReminderService.kt']:
+              src=(app/'reminders'/name).read_text()
+              assert 'V268FullScreenReminderAccess.configure(' in src
+              assert 'V268FullScreenReminderAccess.allowed(this)' in src
+              assert '.setContentIntent(fullScreen)' in src
+              assert '.setFullScreenIntent(fullScreen, true)' not in src
+          assert 'mediaControlsVisible' in (app/'ui/V175BestFramesUi.kt').read_text()
+          assert 'V195ReminderParticleScene(' in (app/'reminders/ReminderCheckInScreen.kt').read_text()
+          assert 'V231CinematicWaveBackdrop(' in (app/'reminders/ReminderCheckInScreen.kt').read_text()
+          fixture=Path('app/src/androidTest/java/com/framebynavin/app/data/V269InPlaceUpgradePersistenceTest.kt').read_text()
+          assert '268L, versionCode()' in fixture
+          assert '269L, versionCode()' in fixture
+          assert Path('app/src/androidTest/java/com/framebynavin/app/reminders/V268FullScreenPermissionFallbackTest.kt').is_file()
+          policy=(app/'ui/V269DataPrivacyActivity.kt').read_text()
+          assert 'V269DataPrivacyScreen' in policy
+          assert 'V269DataPrivacyPolicy.PERSONAL_SCOPE' in policy
+          assert 'Full Backlot account deletion is not available' in policy
+          assert 'V269DataPrivacyActivity' in Path('app/src/main/AndroidManifest.xml').read_text()
+          assert 'v269-privacy-entry' in (app/'cloud/CloudSyncActivity.kt').read_text()
+          assert 'Data & Privacy' in (app/'ui/V23ProfileAccountUi.kt').read_text()
+          assert Path('app/src/androidTest/java/com/framebynavin/app/ui/V269DataPrivacyUiTest.kt').is_file()
+          print('Frozen visual design + explicit FSI permission gate and upgrade fixtures verified')
+          PY
+      - name: Full JVM, lint, build debug/test and full owner preview APK
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC12-Owner-Full-App-APK
+          run-id: 41000312700
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Verify owner preview signer continuity, app version and SHA manifest
+        run: |
+          set -euo pipefail
+          OLD="$(find baseline -type f -name 'Backlot-RC12-Build268-Full-App.apk' -print -quit)"
+          NEW="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$OLD" && test -s "$NEW"
+          (cd "$(dirname "$OLD")" && sha256sum -c SHA256SUMS.txt)
+          test "$(sha256sum "$OLD" | cut -d' ' -f1)" = '02827066650f7f725ef712c7a2119f20746fec5198fd1b7cfdc0be709e8d0d7d'
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$SIGNER" verify --print-certs "$OLD" > rc13-old-signer.txt
+          "$SIGNER" verify --print-certs "$NEW" > rc13-new-signer.txt
+          test "$(grep -m1 'certificate SHA-256 digest' rc13-old-signer.txt)" = "$(grep -m1 'certificate SHA-256 digest' rc13-new-signer.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='268'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='269'"
+          mkdir -p owner-preview test-apks
+          cp "$NEW" owner-preview/Backlot-RC13-Build269-Full-App.apk
+          (cd owner-preview && sha256sum Backlot-RC13-Build269-Full-App.apk > SHA256SUMS.txt)
+          cp app/build/outputs/apk/debug/app-debug.apk test-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk test-apks/
+          echo 'Owner preview ONLY; public prototype signer is not an approved Play release signer.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-RC13-Owner-Full-App-APK
+          path: owner-preview/
+          retention-days: 21
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-RC13-Test-APKs
+          path: test-apks/
+          retention-days: 14
+
+
+  android11:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API30 actual notification fallback, visual UI, private backup and reminders
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V268FullScreenPermissionFallbackTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-fsi-30.log
+            grep -Fq "OK (4 tests)" rc13-fsi-30.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V269DataPrivacyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-privacy-30.log
+            grep -Fq "OK (2 tests)" rc13-privacy-30.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-slideshow-30.log
+            grep -Fq "OK (4 tests)" rc13-slideshow-30.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V231CinematicPostTouchUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-cinematic-30.log
+            grep -Fq "OK (2 tests)" rc13-cinematic-30.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-companion-30.log
+            grep -Fq "OK (2 tests)" rc13-companion-30.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-personal-30.log
+            grep -Fq "OK (2 tests)" rc13-personal-30.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-private-backup-30.log
+            grep -Fq "OK (2 tests)" rc13-private-backup-30.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC13-android11-QA-Evidence
+          path: rc13-*-30.log
+          if-no-files-found: warn
+          retention-days: 21
+
+
+  upgrade30:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC12-Test-APKs
+          run-id: 41000312700
+          github-token: ${{ github.token }}
+          path: baseline
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Test-APKs
+          path: current
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API30 actual Build268 to Build269 non-destructive Creator/Personal upgrade
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            test -s "$(find baseline -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
+            adb install -r "$(find baseline -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V269InPlaceUpgradePersistenceTest#phase1SeedOlderAppAndCaptureVerifiedBackup' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-upgrade-seed-30.log
+            grep -Fq "OK (1 test)" rc13-upgrade-seed-30.log
+            adb shell am force-stop com.framebynavin.app
+            # Never uninstall and never clear app data; prove SAME debug signing certificate.
+            adb install -r "$(find current -type f -name app-debug.apk -print -quit)"
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V269InPlaceUpgradePersistenceTest#phase2VerifyUpgradeWithoutUninstall' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-upgrade-new-30.log
+            grep -Fq "OK (1 test)" rc13-upgrade-new-30.log
+            adb shell am start -n com.framebynavin.app/.MainActivity
+            sleep 8
+            adb shell am force-stop com.framebynavin.app
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V269InPlaceUpgradePersistenceTest#phase3VerifyAfterNewAppLaunchAndCleanUp' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-upgrade-relaunch-30.log
+            grep -Fq "OK (1 test)" rc13-upgrade-relaunch-30.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC13-Upgrade30-Data-Preservation
+          path: rc13-upgrade-*-30.log
+          if-no-files-found: warn
+          retention-days: 21
+
+
+  android15:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API35 actual notification fallback, visual UI, private backup and reminders
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V268FullScreenPermissionFallbackTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-fsi-35.log
+            grep -Fq "OK (4 tests)" rc13-fsi-35.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V269DataPrivacyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-privacy-35.log
+            grep -Fq "OK (2 tests)" rc13-privacy-35.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-slideshow-35.log
+            grep -Fq "OK (4 tests)" rc13-slideshow-35.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V231CinematicPostTouchUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-cinematic-35.log
+            grep -Fq "OK (2 tests)" rc13-cinematic-35.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-companion-35.log
+            grep -Fq "OK (2 tests)" rc13-companion-35.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-personal-35.log
+            grep -Fq "OK (2 tests)" rc13-personal-35.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-private-backup-35.log
+            grep -Fq "OK (2 tests)" rc13-private-backup-35.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC13-android15-QA-Evidence
+          path: rc13-*-35.log
+          if-no-files-found: warn
+          retention-days: 21
+
+
+  upgrade35:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC12-Test-APKs
+          run-id: 41000312700
+          github-token: ${{ github.token }}
+          path: baseline
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Test-APKs
+          path: current
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API35 actual Build268 to Build269 non-destructive Creator/Personal upgrade
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            test -s "$(find baseline -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
+            adb install -r "$(find baseline -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V269InPlaceUpgradePersistenceTest#phase1SeedOlderAppAndCaptureVerifiedBackup' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-upgrade-seed-35.log
+            grep -Fq "OK (1 test)" rc13-upgrade-seed-35.log
+            adb shell am force-stop com.framebynavin.app
+            # Never uninstall and never clear app data; prove SAME debug signing certificate.
+            adb install -r "$(find current -type f -name app-debug.apk -print -quit)"
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V269InPlaceUpgradePersistenceTest#phase2VerifyUpgradeWithoutUninstall' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-upgrade-new-35.log
+            grep -Fq "OK (1 test)" rc13-upgrade-new-35.log
+            adb shell am start -n com.framebynavin.app/.MainActivity
+            sleep 8
+            adb shell am force-stop com.framebynavin.app
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V269InPlaceUpgradePersistenceTest#phase3VerifyAfterNewAppLaunchAndCleanUp' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-upgrade-relaunch-35.log
+            grep -Fq "OK (1 test)" rc13-upgrade-relaunch-35.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC13-Upgrade35-Data-Preservation
+          path: rc13-upgrade-*-35.log
+          if-no-files-found: warn
+          retention-days: 21
+
+
+  android16:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Test-APKs
+          path: apks
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API36 actual notification fallback, visual UI, private backup and reminders
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V268FullScreenPermissionFallbackTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-fsi-36.log
+            grep -Fq "OK (4 tests)" rc13-fsi-36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V269DataPrivacyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-privacy-36.log
+            grep -Fq "OK (2 tests)" rc13-privacy-36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-slideshow-36.log
+            grep -Fq "OK (4 tests)" rc13-slideshow-36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V231CinematicPostTouchUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-cinematic-36.log
+            grep -Fq "OK (2 tests)" rc13-cinematic-36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2221CompanionHeaderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-companion-36.log
+            grep -Fq "OK (2 tests)" rc13-companion-36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V2232PersonalReminderUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-personal-36.log
+            grep -Fq "OK (2 tests)" rc13-personal-36.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-private-backup-36.log
+            grep -Fq "OK (2 tests)" rc13-private-backup-36.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC13-android16-QA-Evidence
+          path: rc13-*-36.log
+          if-no-files-found: warn
+          retention-days: 21
+
+
+  upgrade36:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC12-Test-APKs
+          run-id: 41000312700
+          github-token: ${{ github.token }}
+          path: baseline
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Test-APKs
+          path: current
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API36 actual Build268 to Build269 non-destructive Creator/Personal upgrade
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            test -s "$(find baseline -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug.apk -print -quit)" && test -s "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
+            adb install -r "$(find baseline -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find current -type f -name app-debug-androidTest.apk -print -quit)"
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V269InPlaceUpgradePersistenceTest#phase1SeedOlderAppAndCaptureVerifiedBackup' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-upgrade-seed-36.log
+            grep -Fq "OK (1 test)" rc13-upgrade-seed-36.log
+            adb shell am force-stop com.framebynavin.app
+            # Never uninstall and never clear app data; prove SAME debug signing certificate.
+            adb install -r "$(find current -type f -name app-debug.apk -print -quit)"
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V269InPlaceUpgradePersistenceTest#phase2VerifyUpgradeWithoutUninstall' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-upgrade-new-36.log
+            grep -Fq "OK (1 test)" rc13-upgrade-new-36.log
+            adb shell am start -n com.framebynavin.app/.MainActivity
+            sleep 8
+            adb shell am force-stop com.framebynavin.app
+            adb shell am instrument -w -r -e class 'com.framebynavin.app.data.V269InPlaceUpgradePersistenceTest#phase3VerifyAfterNewAppLaunchAndCleanUp' -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-upgrade-relaunch-36.log
+            grep -Fq "OK (1 test)" rc13-upgrade-relaunch-36.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC13-Upgrade36-Data-Preservation
+          path: rc13-upgrade-*-36.log
+          if-no-files-found: warn
+          retention-days: 21
