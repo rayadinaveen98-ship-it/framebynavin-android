@@ -1,0 +1,132 @@
+name: Backlot RC23 Privileged Storage Write Boundary Free Local QA
+
+on:
+  push:
+    branches: [feature/backlot-rc23-privileged-write-boundary-local-qa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc23-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  strict-scope-and-zero-cost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce public free runner and no production/back-end source changes
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=f1ae91ccadee59a9183d1cc5859a996b0f97d34c
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > /tmp/rc23-changed.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path("/tmp/rc23-changed.txt").read_text().splitlines())
+          expected={
+            "supabase/account-deletion/rc23-local/storage_write_boundary.py",
+            "supabase/account-deletion/rc23-local/test_privileged_write_boundary.py",
+            "docs/release/RC23_PRIVILEGED_WRITE_BOUNDARY.md",
+            ".github/workflows/backlot-rc23-privileged-write-boundary-qa.yml",
+          }
+          assert actual==expected, f"Unexpected deployable or app changes: {actual ^ expected}"
+          app=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in app
+          assert 'applicationId = "com.framebynavin.app"' in app
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in app
+          assert not any(s.startswith(("supabase/migrations/","supabase/functions/")) for s in actual)
+          src=Path("supabase/account-deletion/rc23-local/storage_write_boundary.py").read_text()
+          assert "token==self.forbidden_privileged_token" in src
+          assert 'send_as_user' in src
+          assert "admin_upload" not in src
+          assert "service_role_upload" not in src
+          print("PASS public repository, no paid runner, no deployable changes")
+          PY
+
+  local-real-auth-storage:
+    needs: strict-scope-and-zero-cost
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      BACKLOT_RC22_LOCAL_ONLY: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Prepare disposable free local stack
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          supabase --version
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          mkdir -p "$RUNNER_TEMP/backlot-rc23-ephemeral"
+      - name: Launch real local Supabase Auth Database PostgREST and Storage
+        working-directory: ${{ runner.temp }}/backlot-rc23-ephemeral
+        run: |
+          set -euo pipefail
+          supabase init --yes
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/backlot-rc23-local-env"
+          chmod 600 "$RUNNER_TEMP/backlot-rc23-local-env"
+          echo "PASS local Auth/PostgREST/Storage is running"
+      - name: Install RC22 database RLS fixture only after loopback guard
+        run: |
+          set -euo pipefail
+          set -a
+          source "$RUNNER_TEMP/backlot-rc23-local-env"
+          set +a
+          python3 - <<'PY'
+          from urllib.parse import urlsplit
+          import os
+          for key,port in [("API_URL",54321),("DB_URL",54322)]:
+              u=urlsplit(os.environ.get(key,""))
+              assert u.hostname in ("localhost","127.0.0.1") and u.port==port, \
+                  f"REFUSING hosted project {key}"
+          print("PASS loopback-only API and PostgreSQL")
+          PY
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc22-local/fixture.sql
+      - name: Verify 36 RC22 genuine integration checks plus RC23 privileged boundary
+        run: |
+          set -euo pipefail
+          set -a
+          source "$RUNNER_TEMP/backlot-rc23-local-env"
+          set +a
+          python3 supabase/account-deletion/rc23-local/test_privileged_write_boundary.py
+      - name: Stop temporary local Supabase without backup
+        if: always()
+        working-directory: ${{ runner.temp }}/backlot-rc23-ephemeral
+        run: supabase stop --no-backup || true
+      - name: No real credentials, hosted URLs or test data uploaded
+        if: always()
+        run: echo "No artifacts. All test users and voice files were synthetic."
+
+  prior-safety-regression:
+    needs: strict-scope-and-zero-cost
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - name: Recheck RC17/RC18 31 offline security tests
+        run: |
+          deno check supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+          deno lint supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+          deno test --no-config --no-check supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue_test.ts
+      - name: Compile RC23 Python security contract
+        run: |
+          python3 -m py_compile supabase/account-deletion/rc23-local/storage_write_boundary.py
+          python3 -m py_compile supabase/account-deletion/rc23-local/test_privileged_write_boundary.py
