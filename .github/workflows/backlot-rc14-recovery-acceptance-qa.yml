@@ -1,0 +1,115 @@
+name: Backlot RC14 Build269 Frozen Recovery Acceptance
+
+on:
+  push:
+    branches: [feature/backlot-rc14-recovery-acceptance-qa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-rc14-frozen-269
+  cancel-in-progress: true
+
+jobs:
+  immutable-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove production app and signed APK source were not modified
+        run: |
+          set -euo pipefail
+          BASE=7351e4583d08bfa5352c09322a357124fcc801ff
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > rc14-changed.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path("rc14-changed.txt").read_text().splitlines())
+          expected={
+            ".github/workflows/backlot-rc14-recovery-acceptance-qa.yml",
+            "docs/release/RC14_BUILD269_RECOVERY_ACCEPTANCE.md",
+          }
+          assert changed == expected, f"RC14 must remain QA/docs-only: {changed ^ expected}"
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in gradle
+          assert '2.15.6-rc13-data-privacy-preview' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'targetSdk = 36' in gradle
+          for name in [
+            "data/V208PortableBackupIntegrityTest.kt",
+            "data/V209BackupCoverageTest.kt",
+            "data/V210BackupIoFailureTest.kt",
+            "personal/V226PersonalBackupTransferTest.kt",
+          ]:
+            assert Path("app/src/androidTest/java/com/framebynavin/app",name).is_file()
+          print("PASS frozen RC13 production binary, exact RC14 QA-only scope")
+          PY
+
+  recovery-android:
+    needs: immutable-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35, 36]
+    steps:
+      - name: Download immutable Build269 debug and AndroidTest APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Test-APKs
+          run-id: 41031529526
+          github-token: ${{ github.token }}
+          path: apks
+      - name: Check imported app/test artifacts exist
+        run: |
+          set -euo pipefail
+          test "$(find apks -type f -name app-debug.apk | wc -l)" = 1
+          test "$(find apks -type f -name app-debug-androidTest.apk | wc -l)" = 1
+          test -s "$(find apks -type f -name app-debug.apk -print -quit)"
+          test -s "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+          echo "Pinned RC13 run 41031529526: two nonempty APKs available."
+      - name: Enable KVM on runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Disposable Android emulator backup corruption, recovery and privacy separation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            APP="$(find apks -type f -name app-debug.apk -print -quit)"
+            TEST="$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
+            adb install -r "$APP"
+            adb install -r "$TEST"
+
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V208PortableBackupIntegrityTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc14-archive.log
+            grep -Fq "OK (3 tests)" rc14-archive.log
+
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V209BackupCoverageTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc14-coverage.log
+            grep -Fq "OK (2 tests)" rc14-coverage.log
+
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.V210BackupIoFailureTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc14-failure.log
+            grep -Fq "OK (2 tests)" rc14-failure.log
+
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc14-personal.log
+            grep -Fq "OK (2 tests)" rc14-personal.log
+            echo "PASS nine frozen Build269 Android recovery tests"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-RC14-API${{ matrix.api }}-Recovery-Evidence
+          path: rc14-*.log
+          if-no-files-found: warn
+          retention-days: 21
