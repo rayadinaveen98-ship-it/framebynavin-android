@@ -327,10 +327,7 @@ Deno.test("a forged claim with cross-account identity is rejected before any del
     job: { ...(q.get() as Job), userId: SIBLING, status: "processing", attempts: 1 },
     token: "lease-token-forged",
   });
-  // The processing routine validates syntactic UUID; only a trusted queue can
-  // prove the immutable verified binding. This test therefore asserts at the
-  // API boundary, not a fake worker identity check.
-  await rejected(() => submitDeletionRequest(
-    { ...IN, accountId: SIBLING },
-    { id: SIBLING, reauthenticatedAtMs: NOW }, NOW, q));
+  const actions = new FakeActions();
+  await rejected(() => processDeletionOnce(RID, NOW, q, actions));
+  ok(actions.calls.length === 0, "forged worker claim reached deletion adapter");
 });
