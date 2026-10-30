@@ -74,4 +74,9 @@ const backend: DeletionBackend = {
     return result as Receipt | null;
   },
 };
-Deno.serve((req: Request) => handleRequest(req, backend));
+const requestHandler = (req: Request) => handleRequest(req, backend);
+if (Deno.env.get("BACKLOT_RC28_LOOPBACK_ONLY") === "true") {
+  Deno.serve({ hostname: "127.0.0.1", port: 8000 }, requestHandler);
+} else {
+  Deno.serve(requestHandler);
+}
