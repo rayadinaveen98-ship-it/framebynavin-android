@@ -12,11 +12,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.CloudOutlined
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.LockOutline
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Logout
-import androidx.compose.material.icons.outlined.ShieldOutlined
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -82,7 +82,7 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
                     Text("YOUR DATA", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Text("Data & Privacy", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 }
-                Icon(Icons.Outlined.ShieldOutlined, null, tint = MutedGold)
+                Icon(Icons.Outlined.Shield, null, tint = MutedGold)
             }
 
             V269PrivacyCard("Your data stays yours") {
@@ -110,7 +110,7 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
                     onClick = { context.startActivity(Intent(context, PersonalBackupActivity::class.java)) },
                     modifier = Modifier.fillMaxWidth().testTag("v269-personal-backup"),
                 ) {
-                    Icon(Icons.Outlined.LockOutline, null)
+                    Icon(Icons.Outlined.Lock, null)
                     Spacer(Modifier.width(8.dp))
                     Text("PERSONAL BACKUP")
                 }
@@ -127,7 +127,7 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
                     onClick = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
                     modifier = Modifier.fillMaxWidth().testTag("v269-cloud-account"),
                 ) {
-                    Icon(Icons.Outlined.CloudOutlined, null)
+                    Icon(Icons.Outlined.Cloud, null)
                     Spacer(Modifier.width(8.dp))
                     Text("MANAGE CREATOR CLOUD")
                 }
