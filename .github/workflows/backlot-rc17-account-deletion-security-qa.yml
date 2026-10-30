@@ -1,0 +1,68 @@
+name: Backlot RC17 Offline Account Deletion Security QA
+
+on:
+  push:
+    branches: [feature/backlot-rc17-account-deletion-security-core]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc17-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  immutable-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce offline test-only source scope
+        run: |
+          set -euo pipefail
+          BASE=e1ed1d2d29dae5e34cda2e108c2f47bc1a9d2eb1
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > rc17-changed.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          expected={
+            "supabase/account-deletion/deletion_core.ts",
+            "supabase/account-deletion/deletion_core_test.ts",
+            "docs/release/RC17_ACCOUNT_DELETION_ENGINEERING_GATE.md",
+            ".github/workflows/backlot-rc17-account-deletion-security-qa.yml",
+          }
+          actual=set(Path("rc17-changed.txt").read_text().splitlines())
+          assert actual==expected, f"Forbidden release or live-backend change: {sorted(actual ^ expected)}"
+          script=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in script
+          assert 'applicationId = "com.framebynavin.app"' in script
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in script
+          assert Path("supabase/account-deletion/deletion_core.ts").is_file()
+          assert not Path("supabase/functions/backlot-account-deletion/index.ts").exists(), "No deployable deletion endpoint allowed in RC17"
+          assert not Path("supabase/migrations").exists(), "No database migrations allowed in RC17"
+          print("PASS no Android production source changes, Supabase deployment or migration")
+          PY
+
+  deletion-security-tests:
+    needs: immutable-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - name: Type-check pure security core and tests
+        run: deno check supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts
+      - name: Lint offline security contract
+        run: deno lint supabase/account-deletion
+      - name: Run adversarial account deletion tests (no network or file permissions)
+        run: deno test --no-config --no-check supabase/account-deletion/deletion_core_test.ts
+      - name: Assert no production Supabase credentials were supplied
+        run: |
+          if printenv SUPABASE_SERVICE_ROLE_KEY >/dev/null; then exit 1; fi
+          if printenv SUPABASE_SECRET_KEYS >/dev/null; then exit 1; fi
+          echo "PASS synthetic tests only; no live account operations or key access"
