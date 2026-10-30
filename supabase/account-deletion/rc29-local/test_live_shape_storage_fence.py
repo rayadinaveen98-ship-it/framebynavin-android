@@ -136,11 +136,15 @@ def main():
         s,d=put_rest(table,ta,payload)
         check("fenced A cannot insert to real-shaped "+table,denied(s),d)
         s,d=put_rest(table,ADMIN,payload)
-        check("even privileged database INSERT denied "+table,denied(s),d)
+        check("even privileged DB INSERT stopped by deletion trigger "+table,
+              denied(s) and isinstance(d,dict) and d.get("code")=="42501"
+              and "locked for deletion" in str(d.get("message","")).lower(),d)
     s,d=api("PATCH","/rest/v1/creator_profiles?user_id=eq."+a,ADMIN,
             {"display_name":"Forbidden privileged update"},
             extra={"Prefer":"return=representation"})
-    check("privileged database UPDATE denied after fence",denied(s),d)
+    check("privileged database UPDATE stopped by deletion trigger",
+          denied(s) and isinstance(d,dict) and d.get("code")=="42501"
+          and "locked for deletion" in str(d.get("message","")).lower(),d)
     s,d=api("PATCH","/rest/v1/creator_profiles?user_id=eq."+b,tb,
             {"display_name":"B still active"},
             extra={"Prefer":"return=representation"})
