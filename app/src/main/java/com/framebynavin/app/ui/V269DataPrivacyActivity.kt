@@ -18,6 +18,9 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -64,6 +67,25 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
     var signingOut by remember { mutableStateOf(false) }
     var showSignOutConfirmation by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+
+    // Re-read the encrypted local session when returning from the account manager.
+    // remember { ... } alone would leave this screen showing the previous account.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, manager) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val refreshed = manager.localState().session
+                if (refreshed?.userId != session?.userId) {
+                    // Never keep a confirmation or success message for a different account.
+                    showSignOutConfirmation = false
+                    message = null
+                }
+                session = refreshed
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Surface(Modifier.fillMaxSize().testTag("v269-privacy-root"), color = CinemaBlack) {
         Column(
