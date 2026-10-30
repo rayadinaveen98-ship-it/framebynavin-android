@@ -1,3 +1,5 @@
+// deno-lint-ignore-file require-await
+// In-memory adapter intentionally returns synchronously in async methods to match the production interface.
 import {
   assertOwnedVoicePath,
   deleteAccountInOrder,
