@@ -1,0 +1,143 @@
+name: Backlot RC16 Fail Closed Private Play Upload Signing
+
+on:
+  push:
+    branches: [feature/backlot-rc16-private-release-signing-gate]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-rc16-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact signing-only changes and unchanged application
+        run: |
+          set -euo pipefail
+          BASE=8f8697233049d9bb784f489b8570f281e07cca5b
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > rc16-changes.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path("rc16-changes.txt").read_text().splitlines())
+          expected={
+            "app/build.gradle.kts",
+            ".github/workflows/backlot-rc16-private-release-signing-qa.yml",
+            "docs/release/RC16_PRIVATE_PLAY_UPLOAD_SIGNING.md",
+          }
+          assert actual==expected, f"Production app source changed: {actual ^ expected}"
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in gradle
+          assert '2.15.6-rc13-data-privacy-preview' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'targetSdk = 36' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          assert 'releaseCertificate.encoded.contentEquals(previewCertificate.encoded)' in gradle
+          assert 'it.name in setOf("assembleRelease", "bundleRelease", "packageReleaseBundle", "signReleaseBundle")' in gradle
+          assert 'create("personalStable")' in gradle
+          print("PASS: signing safeguards only; all production app source remains Build269")
+          PY
+
+  signer-proof:
+    needs: scope-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Missing credentials MUST reject release tasks
+        run: |
+          set -euo pipefail
+          if env -u FRAMEBYNAVIN_RELEASE_STORE_FILE -u FRAMEBYNAVIN_RELEASE_STORE_PASSWORD -u FRAMEBYNAVIN_RELEASE_KEY_ALIAS -u FRAMEBYNAVIN_RELEASE_KEY_PASSWORD gradle --no-daemon :app:verifyPrivateReleaseSigning > rc16-missing.log 2>&1; then
+            echo "SECURITY FAIL: private signing was accepted without credentials"; exit 1
+          fi
+          grep -Fq "Private Play upload signing is not configured" rc16-missing.log
+          echo "PASS: unconfigured signing rejects release"
+      - name: Public prototype signing certificate MUST be rejected even when copied outside repo
+        run: |
+          set -euo pipefail
+          cp dev-signing/framebynavin-public-debug.jks "$RUNNER_TEMP/rc16-public-clone.jks"
+          export FRAMEBYNAVIN_RELEASE_STORE_FILE="$RUNNER_TEMP/rc16-public-clone.jks"
+          export FRAMEBYNAVIN_RELEASE_STORE_PASSWORD=framebynavin-dev
+          export FRAMEBYNAVIN_RELEASE_KEY_ALIAS=framebynavin-dev
+          export FRAMEBYNAVIN_RELEASE_KEY_PASSWORD=framebynavin-dev
+          if gradle --no-daemon :app:verifyPrivateReleaseSigning > rc16-public.log 2>&1; then
+            echo "SECURITY FAIL: public signer accepted as release identity"; exit 1
+          fi
+          grep -Fq "identical to the PUBLIC prototype signer" rc16-public.log
+          echo "PASS: checked-in public certificate cannot be used as Play upload signer"
+      - name: Create temporary non-production RSA 3072-bit key outside repo
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -noprompt -storetype PKCS12 -keystore "$RUNNER_TEMP/rc16-ci-only.p12" -storepass ci-rc16-throwaway-2026 -keypass ci-rc16-throwaway-2026 -alias backlot-ci-only -keyalg RSA -keysize 3072 -validity 15 -dname "CN=RC16 disposable CI, O=Backlot, C=IN"
+          test -s "$RUNNER_TEMP/rc16-ci-only.p12"
+          echo "PASS: generated external throwaway key; NOT a Play release key"
+      - name: Private test key passes gate and signs test-only upload AAB
+        run: |
+          set -euo pipefail
+          export FRAMEBYNAVIN_RELEASE_STORE_FILE="$RUNNER_TEMP/rc16-ci-only.p12"
+          export FRAMEBYNAVIN_RELEASE_STORE_PASSWORD=ci-rc16-throwaway-2026
+          export FRAMEBYNAVIN_RELEASE_KEY_ALIAS=backlot-ci-only
+          export FRAMEBYNAVIN_RELEASE_KEY_PASSWORD=ci-rc16-throwaway-2026
+          gradle --no-daemon :app:verifyPrivateReleaseSigning :app:bundleRelease :app:assemblePersonalStable
+          BUNDLE=app/build/outputs/bundle/release/app-release.aab
+          SIDELoad=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$BUNDLE"
+          test -s "$SIDELoad"
+          jarsigner -verify "$BUNDLE" > rc16-bundle-signed.log
+          grep -Fq "jar verified" rc16-bundle-signed.log
+          keytool -printcert -jarfile "$BUNDLE" > rc16-bundle-cert.txt
+          keytool -list -v -keystore "$RUNNER_TEMP/rc16-ci-only.p12" -storepass ci-rc16-throwaway-2026 -alias backlot-ci-only > rc16-test-cert.txt
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          a=Path("rc16-bundle-cert.txt").read_text()
+          b=Path("rc16-test-cert.txt").read_text()
+          pattern=r"SHA256:\s*([0-9A-F:]{80,})"
+          bundle=re.search(pattern,a)
+          temp=re.search(pattern,b)
+          assert bundle and temp, "Could not read signed AAB and throwaway certificate fingerprints"
+          assert bundle.group(1)==temp.group(1), "Release AAB signed by an unexpected certificate"
+          print("PASS release AAB is signed by independent, ephemeral RSA key (not for publishing)")
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC13-Owner-Full-App-APK
+          run-id: 41031529526
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Ensure owner preview signing continuity is unchanged
+        run: |
+          set -euo pipefail
+          OLD="$(find baseline -type f -name 'Backlot-RC13-Build269-Full-App.apk' -print -quit)"
+          NEW=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$OLD" && test -s "$NEW"
+          (cd "$(dirname "$OLD")" && sha256sum -c SHA256SUMS.txt)
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$SIGNER" verify --print-certs "$OLD" > rc16-owner-signer-old.txt
+          "$SIGNER" verify --print-certs "$NEW" > rc16-owner-signer-new.txt
+          test "$(grep -m1 'certificate SHA-256 digest' rc16-owner-signer-old.txt)" = "$(grep -m1 'certificate SHA-256 digest' rc16-owner-signer-new.txt)"
+          "$AAPT" dump badging "$OLD" | grep -F "package: name='com.framebynavin.app' versionCode='269'"
+          "$AAPT" dump badging "$NEW" | grep -F "package: name='com.framebynavin.app' versionCode='269'"
+          echo "PASS sideload preview signer unchanged; private release key separate"
+      - name: Final security proof (no AAB or signing keystore uploaded)
+        run: |
+          echo "PASS private signing preflight: no credentials rejected, copied public signer rejected, test upload signer accepted"
+          echo "PASS throwaway signed AAB integrity and owner APK signing continuity"
