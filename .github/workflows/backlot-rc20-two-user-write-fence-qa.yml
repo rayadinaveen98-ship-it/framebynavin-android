@@ -1,0 +1,113 @@
+name: Backlot RC20 Two User Postgres Write Fence QA
+
+on:
+  push:
+    branches: [feature/backlot-rc20-two-user-write-fence-staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc20-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frozen-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove isolated SQL test only; Build269 and live Supabase untouched
+        run: |
+          set -euo pipefail
+          BASE=5929faf5c5237d36eebcb895cc60ab5c298bbca0
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > rc20-changed.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path("rc20-changed.txt").read_text().splitlines())
+          allowed={
+            "supabase/account-deletion/rc20-staging/write_fence.sql",
+            "supabase/account-deletion/rc20-staging/test_write_fence.py",
+            "docs/release/RC20_TWO_USER_WRITE_FENCE_STAGING.md",
+            ".github/workflows/backlot-rc20-two-user-write-fence-qa.yml",
+          }
+          assert changed==allowed, f"Unexpected live or Android source changes: {sorted(changed ^ allowed)}"
+          g=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in g
+          assert 'applicationId = "com.framebynavin.app"' in g
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in g
+          source=Path("supabase/account-deletion/rc20-staging/write_fence.sql").read_text()
+          assert "current_database() <> 'backlot_rc20_ephemeral'" in source
+          assert 'voice_object_metadata_mock' in source
+          assert 'pg_advisory_xact_lock_shared' in source
+          assert 'pg_advisory_xact_lock(' in source
+          assert not any(s.startswith("supabase/migrations/") or
+                         s.startswith("supabase/functions/") for s in changed)
+          print("PASS no real Supabase project, app or migration changed")
+          PY
+
+  postgres-write-fence:
+    needs: frozen-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: rc20-ephemeral-only
+          POSTGRES_DB: backlot_rc20_ephemeral
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backlot_rc20_ephemeral"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: rc20-ephemeral-only
+      PGDATABASE: backlot_rc20_ephemeral
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare disposable PostgreSQL-only environment
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          test "$(psql -X -A -t -c 'select current_database()')" = backlot_rc20_ephemeral
+          psql -X -v ON_ERROR_STOP=1 -c "CREATE ROLE rc20_user_a NOLOGIN; CREATE ROLE rc20_user_b NOLOGIN;"
+          echo "PASS two disposable synthetic identities; no Supabase credentials"
+      - name: Create private RLS write-fence test schema
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc20-staging/write_fence.sql
+      - name: Test two accounts, protected Creator and Voice mock writes, in-flight lock race
+        run: python3 supabase/account-deletion/rc20-staging/test_write_fence.py
+      - name: Prevent Supabase credential use in CI
+        run: |
+          if printenv SUPABASE_SERVICE_ROLE_KEY >/dev/null; then exit 1; fi
+          if printenv SUPABASE_SECRET_KEYS >/dev/null; then exit 1; fi
+          echo "PASS no live project integration, migration, or service key"
+
+  prior-deletion-regression:
+    needs: frozen-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - name: Compile and lint offline security tests
+        run: |
+          deno check supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+          deno lint supabase/account-deletion/deletion_core.ts supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue.ts supabase/account-deletion/deletion_queue_test.ts
+          python3 -m py_compile supabase/account-deletion/rc20-staging/test_write_fence.py
+      - name: Run RC17 RC18 31 security tests
+        run: deno test --no-config --no-check supabase/account-deletion/deletion_core_test.ts supabase/account-deletion/deletion_queue_test.ts
