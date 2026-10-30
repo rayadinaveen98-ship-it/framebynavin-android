@@ -67,7 +67,11 @@ jobs:
           if env -u FRAMEBYNAVIN_RELEASE_STORE_FILE -u FRAMEBYNAVIN_RELEASE_STORE_PASSWORD -u FRAMEBYNAVIN_RELEASE_KEY_ALIAS -u FRAMEBYNAVIN_RELEASE_KEY_PASSWORD gradle --no-daemon :app:verifyPrivateReleaseSigning > rc16-missing.log 2>&1; then
             echo "SECURITY FAIL: private signing was accepted without credentials"; exit 1
           fi
-          grep -Fq "Private Play upload signing is not configured" rc16-missing.log
+          if ! grep -Fq "Private Play upload signing is not configured" rc16-missing.log; then
+            echo "Unexpected signing preflight outcome; Gradle diagnostic (no signing credentials set):"
+            tail -55 rc16-missing.log
+            exit 1
+          fi
           echo "PASS: unconfigured signing rejects release"
       - name: Public prototype signing certificate MUST be rejected even when copied outside repo
         run: |
