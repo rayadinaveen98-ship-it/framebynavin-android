@@ -1,0 +1,110 @@
+name: Backlot RC26 REAL Local Full Account Deletion Free QA
+
+on:
+  push:
+    branches: [release/backlot-rc26-local-full-deletion-e2e]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc26-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-freeze-no-billing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refuse hosted deployment, paid runner or changes to Build270
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=357b3560d6ae2d997e9b6ba725f6ecacbf6b6ffc
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/rc26.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path('/tmp/rc26.txt').read_text().splitlines())
+          allowed={
+            'supabase/account-deletion/rc26-local/receipt.sql',
+            'supabase/account-deletion/rc26-local/local_deletion_worker.py',
+            'supabase/account-deletion/rc26-local/test_full_local_delete.py',
+            'docs/release/RC26_LOCAL_REAL_ACCOUNT_DELETION_E2E.md',
+            '.github/workflows/backlot-rc26-free-local-deletion-e2e.yml',
+          }
+          assert changed==allowed, f'Unexpected production/API changes: {changed ^ allowed}'
+          android=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in android
+          assert 'applicationId = "com.framebynavin.app"' in android
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in android
+          assert not any(x.startswith(('app/src/','supabase/migrations/','supabase/functions/','release-site/')) for x in changed)
+          code=Path('supabase/account-deletion/rc26-local/receipt.sql').read_text()
+          assert "current_setting('backlot.rc22.ephemeral_only'" in code
+          print('PASS complete Build270 unchanged, external website nonoperational, no hosted services, free runner only')
+          PY
+      - name: Syntax check local worker and test
+        run: |
+          python3 -m py_compile supabase/account-deletion/rc26-local/local_deletion_worker.py
+          python3 -m py_compile supabase/account-deletion/rc26-local/test_full_local_delete.py
+
+  real-local-account-deletion:
+    needs: source-freeze-no-billing
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      BACKLOT_RC22_LOCAL_ONLY: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Start disposable real local Supabase for ₹0
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          mkdir -p "$RUNNER_TEMP/backlot-rc26-local"
+          cd "$RUNNER_TEMP/backlot-rc26-local"
+          supabase init --yes
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/backlot-rc26-local-env"
+          chmod 600 "$RUNNER_TEMP/backlot-rc26-local-env"
+      - name: Verify strict loopback only; install CI-only Creator and receipt schemas
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/backlot-rc26-local-env"; set +a
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+          for key,port in [('API_URL',54321),('DB_URL',54322)]:
+            u=urlsplit(os.environ.get(key,''))
+            assert u.hostname in ('127.0.0.1','localhost') and u.port==port, \
+              'REFUSING non-local Supabase URL '+key
+          print('PASS local API & DB only, never hosted Supabase')
+          PY
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc22-local/fixture.sql
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc24-local/creator_write_guard.sql
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc26-local/receipt.sql
+      - name: Test REAL Auth user deletion, Storage API physical removal, Creator records and retry
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/backlot-rc26-local-env"; set +a
+          python3 supabase/account-deletion/rc26-local/test_full_local_delete.py
+      - name: Discard synthetic accounts and local data without backups
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/backlot-rc26-local" 2>/dev/null && supabase stop --no-backup || true
+      - name: No production access or stored user tokens
+        if: always()
+        run: echo 'Local, disposable, ₹0; no hosted deployment or real user's account touched'
