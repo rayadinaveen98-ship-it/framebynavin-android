@@ -53,6 +53,13 @@ jobs:
           python3 -m unittest discover -s release-site/tests -p 'test_*.py' -v
           python3 -m py_compile release-site/tests/test_site.py
           echo 'PASS draft disclaimers + known data categories + all local links'
+      - name: Package preview pages for private owner review, not deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Play-Privacy-Draft-Site
+          path: release-site/
+          retention-days: 14
+          if-no-files-found: error
       - name: State still blocked from Play deployment
         run: |
           grep -Fiq 'NO HOSTED DEPLOYMENT' docs/release/PLAY_PRIVACY_SITE_REVIEW_NOT_LIVE.md
