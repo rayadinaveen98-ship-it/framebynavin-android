@@ -1,0 +1,157 @@
+name: Backlot RC28 Deployable Edge Request + Real Local Auth Contract QA
+
+on:
+  push:
+    branches: [release/backlot-rc28-deployable-deletion-edge-contract]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc28-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  edge-security-and-release-freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refuse private/paid runner, unauthorized app/migration/site change
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=d549b0053d95accb57e54d495b7f8ec6b5cdc007
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/rc28-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path("/tmp/rc28-files.txt").read_text().splitlines())
+          expected={
+            "supabase/functions/backlot-account-deletion/index.ts",
+            "supabase/functions/backlot-account-deletion/handler.ts",
+            "supabase/functions/backlot-account-deletion/handler_test.ts",
+            "supabase/account-deletion/rc28-local/edge_request_rpc_contract.sql",
+            "supabase/account-deletion/rc28-local/test_edge_function_e2e.py",
+            "docs/release/RC28_DEPLOYABLE_DELETION_EDGE_REQUEST_CONTRACT.md",
+            ".github/workflows/backlot-rc28-deployable-edge-auth-contract-qa.yml",
+          }
+          assert actual==expected, f"RC28 source boundary violated: {sorted(actual ^ expected)}"
+          build=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 270' in build
+          assert 'applicationId = "com.framebynavin.app"' in build
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in build
+          assert not any(p.startswith(("app/src/","supabase/migrations/","release-site/")) for p in actual)
+          handler=Path("supabase/functions/backlot-account-deletion/index.ts").read_text()
+          assert all(x in handler for x in (
+            'BACKLOT_DELETION_API_ENABLED',
+            'BACKLOT_DELETION_SCHEMA_REVIEWED',
+            'BACKLOT_DELETION_STORAGE_FENCE_REVIEWED',
+            'BACKLOT_DELETION_OWNER_APPROVED',
+          ))
+          assert 'SERVICE_ROLE' not in handler
+          assert 'supabaseAdmin' not in handler
+          sql=Path("supabase/account-deletion/rc28-local/edge_request_rpc_contract.sql").read_text()
+          assert "current_setting('backlot.rc22.ephemeral_only'" in sql
+          assert "clock_timestamp()-interval '5 minutes'" in sql
+          assert "GRANT EXECUTE ON FUNCTION public.backlot_request_deletion(text) TO authenticated" in sql
+          print("PASS Build270/main/site unchanged; no deployment, no billing, four default-off activation locks")
+          PY
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - name: Type-check real deployable Edge Function and run HTTP security unit tests
+        run: |
+          deno check supabase/functions/backlot-account-deletion/index.ts
+          deno test --no-config --no-check supabase/functions/backlot-account-deletion/handler_test.ts
+          python3 -m py_compile supabase/account-deletion/rc28-local/test_edge_function_e2e.py
+
+  real-edge-auth-supabase:
+    needs: edge-security-and-release-freeze
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BACKLOT_RC22_LOCAL_ONLY: "true"
+      BACKLOT_RC28_LOOPBACK_ONLY: "true"
+      BACKLOT_DELETION_API_ENABLED: "true"
+      BACKLOT_DELETION_SCHEMA_REVIEWED: "true"
+      BACKLOT_DELETION_STORAGE_FENCE_REVIEWED: "true"
+      BACKLOT_DELETION_OWNER_APPROVED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Start disposable real local Supabase for free
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          mkdir -p "$RUNNER_TEMP/backlot-rc28-free"
+          cd "$RUNNER_TEMP/backlot-rc28-free"
+          supabase init --yes
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/rc28-env"
+          chmod 600 "$RUNNER_TEMP/rc28-env"
+      - name: Guard loopback URLs and install only disposable SQL fixtures
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/rc28-env"; set +a
+          python3 - <<'PY'
+          from urllib.parse import urlsplit
+          import os
+          for key,port in (("API_URL",54321),("DB_URL",54322)):
+            p=urlsplit(os.environ.get(key,""))
+            assert p.hostname in ("localhost","127.0.0.1") and p.port==port, \
+              "Refusing hosted Supabase URL "+key
+          print("PASS no hosted Supabase accounts or cloud project access")
+          PY
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc22-local/fixture.sql
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc24-local/creator_write_guard.sql
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc26-local/receipt.sql
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/account-deletion/rc28-local/edge_request_rpc_contract.sql
+          sleep 3
+      - name: Launch real Deno Edge Function and test Auth→RPC→worker→Storage/Auth
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/rc28-env"; set +a
+          export SUPABASE_URL="$API_URL"
+          export SUPABASE_ANON_KEY="$ANON_KEY"
+          deno run --allow-env --allow-net=127.0.0.1:54321,127.0.0.1:8000 \
+            supabase/functions/backlot-account-deletion/index.ts \
+            > "$RUNNER_TEMP/rc28-edge.log" 2>&1 &
+          EDGE_PID=$!
+          trap 'kill "$EDGE_PID" 2>/dev/null || true' EXIT
+          ready=false
+          for i in $(seq 1 30); do
+            status="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/ || true)"
+            if test "$status" = "401"; then ready=true; break; fi
+            sleep 1
+          done
+          if test "$ready" != "true"; then
+            echo "Edge Function did not pass auth-required readiness test"
+            cat "$RUNNER_TEMP/rc28-edge.log"
+            exit 1
+          fi
+          python3 supabase/account-deletion/rc28-local/test_edge_function_e2e.py
+          echo "PASS actual Deno Edge → local Auth + PostgREST RPC + deletion worker"
+      - name: Shut down free disposable Supabase stack
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/backlot-rc28-free" 2>/dev/null && supabase stop --no-backup || true
+      - name: Never upload session JWTs, secrets, test voice objects or logs
+        if: always()
+        run: echo "Real local E2E only; nothing deployed, billed, merged or published"
