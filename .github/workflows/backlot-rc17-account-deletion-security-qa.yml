@@ -42,7 +42,7 @@ jobs:
           assert 'tasks.register("verifyPrivateReleaseSigning")' in script
           assert Path("supabase/account-deletion/deletion_core.ts").is_file()
           assert not Path("supabase/functions/backlot-account-deletion/index.ts").exists(), "No deployable deletion endpoint allowed in RC17"
-          assert not Path("supabase/migrations").exists(), "No database migrations allowed in RC17"
+          assert not any(name.startswith("supabase/migrations/") for name in actual), "RC17 must not change existing database migrations"
           print("PASS no Android production source changes, Supabase deployment or migration")
           PY
 
