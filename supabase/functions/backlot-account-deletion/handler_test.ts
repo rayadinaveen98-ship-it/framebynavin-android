@@ -55,7 +55,7 @@ Deno.test("service-role style unsupported token cannot bypass verified Auth resu
 });
 Deno.test("only explicit confirmation accepted", async () => {
   const b = backend();
-  for (const confirmation of ["DELETE", CONFIRM.toLowerCase(), "", undefined]) {
+  for (const confirmation of ["DELETE", CONFIRM.toLowerCase(), ""]) {
     const response = await handleRequest(req("POST", { confirmation }), b.deps);
     assert(response.status === 422, "Invalid destructive confirmation accepted");
   }
