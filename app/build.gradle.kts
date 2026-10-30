@@ -53,9 +53,9 @@ android {
         applicationId = "com.framebynavin.app"
         minSdk = 26
         targetSdk = 36
-        // RC6: focused companion button, clean slideshow controls, and post-touch cinematic waves.
-        versionCode = 267
-        versionName = "2.15.4-rc6-focused-ui-preview"
+        // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
+        versionCode = 268
+        versionName = "2.15.5-rc12-permission-fallback-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
