@@ -134,7 +134,7 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V268FullScreenPermissionFallbackTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-fsi-30.log
             grep -Fq "OK (4 tests)" rc13-fsi-30.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V269DataPrivacyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-privacy-30.log
-            grep -Fq "OK (2 tests)" rc13-privacy-30.log
+            grep -Fq "OK (3 tests)" rc13-privacy-30.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-slideshow-30.log
             grep -Fq "OK (4 tests)" rc13-slideshow-30.log
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V231CinematicPostTouchUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-cinematic-30.log
@@ -235,7 +235,7 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V268FullScreenPermissionFallbackTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-fsi-35.log
             grep -Fq "OK (4 tests)" rc13-fsi-35.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V269DataPrivacyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-privacy-35.log
-            grep -Fq "OK (2 tests)" rc13-privacy-35.log
+            grep -Fq "OK (3 tests)" rc13-privacy-35.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-slideshow-35.log
             grep -Fq "OK (4 tests)" rc13-slideshow-35.log
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V231CinematicPostTouchUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-cinematic-35.log
@@ -336,7 +336,7 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V268FullScreenPermissionFallbackTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-fsi-36.log
             grep -Fq "OK (4 tests)" rc13-fsi-36.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V269DataPrivacyUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-privacy-36.log
-            grep -Fq "OK (2 tests)" rc13-privacy-36.log
+            grep -Fq "OK (3 tests)" rc13-privacy-36.log
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeSlideshowVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-slideshow-36.log
             grep -Fq "OK (4 tests)" rc13-slideshow-36.log
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V231CinematicPostTouchUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc13-cinematic-36.log
