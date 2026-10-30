@@ -100,13 +100,13 @@ GRANT EXECUTE ON FUNCTION backlot_rc29_ci.may_write_voice() TO authenticated;
 -- trusted cleanup process can remove files; privileged service_role still
 -- bypasses all Storage RLS and must remain on the production STOP checklist.
 CREATE POLICY "rc29 voice insert requires active account"
-  AS RESTRICTIVE ON storage.objects FOR INSERT TO authenticated
+  ON storage.objects AS RESTRICTIVE FOR INSERT TO authenticated
   WITH CHECK(bucket_id <> 'creator-voice-ideas'
     OR (backlot_rc29_ci.may_write_voice()
         AND (storage.foldername(name))[1]=(SELECT auth.uid())::text));
 
 CREATE POLICY "rc29 voice update requires active account"
-  AS RESTRICTIVE ON storage.objects FOR UPDATE TO authenticated
+  ON storage.objects AS RESTRICTIVE FOR UPDATE TO authenticated
   USING(bucket_id <> 'creator-voice-ideas'
     OR (backlot_rc29_ci.may_write_voice()
         AND (storage.foldername(name))[1]=(SELECT auth.uid())::text))
@@ -119,12 +119,13 @@ CREATE POLICY "rc29 voice update requires active account"
 DO $audit$
 DECLARE actual text;
 BEGIN
- SELECT string_agg(column_name||':'||data_type||':'||is_nullable,',' ORDER BY ordinal_position)
+ SELECT string_agg(column_name||':'||data_type||':'||is_nullable,',' ORDER BY column_name)
  INTO actual FROM information_schema.columns
  WHERE table_schema='public' AND table_name='creator_sync_snapshots';
  IF actual IS DISTINCT FROM
- 'user_id:uuid:NO,revision:bigint:NO,content_sha256:text:NO,payload:text:NO,created_at:timestamp with time zone:NO,'||
- 'base_content_sha256:text:YES,payload_sha256:text:NO,schema_version:integer:NO,captured_at:timestamp with time zone:NO,'||
- 'app_version:text:NO,project_count:integer:NO,idea_count:integer:NO,device_id:text:NO'
+ 'app_version:text:NO,base_content_sha256:text:YES,captured_at:timestamp with time zone:NO,'||
+ 'content_sha256:text:NO,created_at:timestamp with time zone:NO,device_id:text:NO,'||
+ 'idea_count:integer:NO,payload:text:NO,payload_sha256:text:NO,project_count:integer:NO,'||
+ 'revision:bigint:NO,schema_version:integer:NO,user_id:uuid:NO'
  THEN RAISE EXCEPTION 'RC29 snapshot column shape mismatch: %',actual; END IF;
 END $audit$;
