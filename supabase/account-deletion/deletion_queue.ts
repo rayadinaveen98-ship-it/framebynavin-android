@@ -121,6 +121,14 @@ export async function processDeletionOnce(
       !STAGES.includes(job.stage)) {
     throw new DeletionBlocked("Invalid or unauthorized deletion lease");
   }
+  // Defend against a corrupted/forged claim: the durable record must still
+  // belong to the same independently verified account. This must be backed
+  // by an atomic database identity constraint in the real adapter.
+  const bound = await store.readOwned(requestId, job.userId);
+  if (!bound || bound.id !== requestId || bound.userId !== job.userId ||
+      bound.stage !== job.stage || bound.status !== "processing") {
+    throw new DeletionBlocked("Worker lease has no valid persisted owner binding");
+  }
   let stage: DeletionStage = job.stage;
   try {
     for (;;) {
