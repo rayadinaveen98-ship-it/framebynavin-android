@@ -1,0 +1,130 @@
+name: Backlot RC30 Privileged Storage DELETE-only Local QA — Free
+
+on:
+  push:
+    branches: [release/backlot-rc30-privileged-storage-delete-only-boundary]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc30-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frozen-app-and-delete-only-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Only approved local worker and test files may change
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=b3155816f18cb872dab196a497658424f5212a16
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/rc30-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path('/tmp/rc30-files.txt').read_text().splitlines())
+          approved={
+            'supabase/account-deletion/rc26-local/local_deletion_worker.py',
+            'supabase/account-deletion/rc30-local/privileged_storage_delete_only.py',
+            'supabase/account-deletion/rc30-local/test_delete_only_boundary.py',
+            'supabase/account-deletion/rc30-local/test_real_delete_only_worker.py',
+            'docs/release/RC30_PRIVILEGED_STORAGE_DELETE_ONLY_WORKER.md',
+            '.github/workflows/backlot-rc30-privileged-storage-delete-only-local.yml',
+          }
+          assert actual==approved, f'Unexpected app, production schema or CI change: {sorted(actual ^ approved)}'
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          assert not any(x.startswith(('app/src/','supabase/migrations/','supabase/functions/','release-site/')) for x in actual)
+          worker=Path('supabase/account-deletion/rc26-local/local_deletion_worker.py').read_text()
+          assert 'gate.remove_objects_for_receipt(rid,paths)' in worker
+          assert 'purge_storage(rid)' in worker
+          assert 'purge_storage(owner)' not in worker
+          assert 'api("DELETE",f"/storage/v1/object/' in worker
+          gate=Path('supabase/account-deletion/rc30-local/privileged_storage_delete_only.py').read_text()
+          assert 'VOICE_BUCKET = "creator-voice-ideas"' in gate
+          assert 'MAX_DELETE_BATCH = 100' in gate
+          assert 'def remove_objects_for_receipt(' in gate
+          assert not any('def '+name+'(' in gate for name in
+             ('upload','upsert','copy','move','replace','send','request'))
+          print('PASS unchanged Build270, no deployed code, no service-role Storage write exposed by worker')
+          PY
+      - name: 14 fail-closed offline tests and syntax
+        run: |
+          python3 -m py_compile supabase/account-deletion/rc26-local/local_deletion_worker.py \
+            supabase/account-deletion/rc30-local/privileged_storage_delete_only.py \
+            supabase/account-deletion/rc30-local/test_delete_only_boundary.py \
+            supabase/account-deletion/rc30-local/test_real_delete_only_worker.py
+          python3 -m unittest discover -s supabase/account-deletion/rc30-local \
+            -p 'test_delete_only_boundary.py' -v
+
+  real-local-storage-and-auth:
+    needs: frozen-app-and-delete-only-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      BACKLOT_RC22_LOCAL_ONLY: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Start real disposable Supabase Auth PostgREST and Storage API
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          mkdir -p "$RUNNER_TEMP/backlot-rc30-local"
+          cd "$RUNNER_TEMP/backlot-rc30-local"
+          supabase init --yes
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/rc30-env"
+          chmod 600 "$RUNNER_TEMP/rc30-env"
+      - name: Hard-fail on any remote DB/API host, apply disposable fixtures
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/rc30-env"; set +a
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+          for name,port in (('API_URL',54321),('DB_URL',54322)):
+            u=urlsplit(os.environ.get(name,''))
+            assert u.hostname in ('localhost','127.0.0.1') and u.port==port, \
+              'REFUSING hosted Supabase: '+name
+          print('PASS local-only endpoints: NO connected production Supabase calls')
+          PY
+          for fixture in \
+            supabase/account-deletion/rc22-local/fixture.sql \
+            supabase/account-deletion/rc24-local/creator_write_guard.sql \
+            supabase/account-deletion/rc26-local/receipt.sql; do
+            PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+              psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$fixture"
+          done
+      - name: Real two-account delete-only Storage API regression
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/rc30-env"; set +a
+          python3 supabase/account-deletion/rc30-local/test_real_delete_only_worker.py
+      - name: Run prior RC26 genuine local complete account-deletion regression
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/rc30-env"; set +a
+          python3 supabase/account-deletion/rc26-local/test_full_local_delete.py
+      - name: Destroy disposable local Supabase without backups
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/backlot-rc30-local" 2>/dev/null && supabase stop --no-backup || true
+      - name: Explicit unresolved direct privileged Storage bypass
+        if: always()
+        run: echo 'Local tests only. Direct raw admin Storage writes remain a production blocker.'
