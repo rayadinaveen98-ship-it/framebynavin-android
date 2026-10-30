@@ -291,7 +291,7 @@ class VoiceReminderService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        return NotificationCompat.Builder(this, ReminderConstants.VOICE_CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, ReminderConstants.VOICE_CHANNEL_ID)
             .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle(task.title)
             .setContentText("Voice reminder · ${task.dueLabel}")
@@ -301,9 +301,12 @@ class VoiceReminderService : Service() {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(fullScreen)
-            .setFullScreenIntent(fullScreen, true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+        return V268FullScreenReminderAccess.configure(
+            builder,
+            fullScreen,
+            V268FullScreenReminderAccess.allowed(this),
+        ).build()
     }
 
     private fun ensureChannel() {
