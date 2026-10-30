@@ -32,6 +32,7 @@ jobs:
           actual=set(Path('/tmp/rc30-files.txt').read_text().splitlines())
           approved={
             'supabase/account-deletion/rc26-local/local_deletion_worker.py',
+            'supabase/account-deletion/rc26-local/test_full_local_delete.py',
             'supabase/account-deletion/rc30-local/privileged_storage_delete_only.py',
             'supabase/account-deletion/rc30-local/test_delete_only_boundary.py',
             'supabase/account-deletion/rc30-local/test_real_delete_only_worker.py',
