@@ -1,0 +1,69 @@
+name: Backlot Play Privacy and Deletion Draft — Free Review QA
+
+on:
+  push:
+    branches: [release/backlot-play-privacy-deletion-site-draft]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-privacy-draft-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  no-premature-launch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Strict draft-only file inventory and frozen Build270 source
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=9b21e9631c2a19a44c4bb98787387ee10e428b7e
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD >/tmp/privacy-diff.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path('/tmp/privacy-diff.txt').read_text().splitlines())
+          approved={
+            'release-site/index.html',
+            'release-site/privacy/index.html',
+            'release-site/delete-account/index.html',
+            'release-site/assets/backlot.css',
+            'release-site/tests/test_site.py',
+            'docs/release/PLAY_PRIVACY_SITE_REVIEW_NOT_LIVE.md',
+            '.github/workflows/backlot-play-privacy-deletion-site-review.yml',
+          }
+          assert actual==approved, f'Unexpected app or hosted deployment source: {sorted(actual^approved)}'
+          build=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in build
+          assert 'applicationId = "com.framebynavin.app"' in build
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in build
+          assert not any(x.startswith(('app/src/','supabase/migrations/','supabase/functions/')) for x in actual)
+          assert not any(x.startswith('.github/workflows/pages') for x in actual)
+          print('PASS: Build270/app/deletion backend unchanged; NO GitHub Pages deploy workflow or paid service')
+          PY
+      - name: Check the draft site cannot accidentally pass for working deletion
+        run: |
+          python3 -m unittest discover -s release-site/tests -p 'test_*.py' -v
+          python3 -m py_compile release-site/tests/test_site.py
+          echo 'PASS draft disclaimers + known data categories + all local links'
+      - name: Package preview pages for private owner review, not deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Play-Privacy-Draft-Site
+          path: release-site/
+          retention-days: 14
+          if-no-files-found: error
+      - name: State still blocked from Play deployment
+        run: |
+          grep -Fiq 'NO HOSTED DEPLOYMENT' docs/release/PLAY_PRIVACY_SITE_REVIEW_NOT_LIVE.md
+          grep -Fiq 'NOT PLAY-READY' docs/release/PLAY_PRIVACY_SITE_REVIEW_NOT_LIVE.md
+          grep -Fiq 'not being accepted through this preview page' release-site/delete-account/index.html
+          grep -Fiq 'pending owner confirmation' release-site/privacy/index.html
+          echo 'NOT A PLAY COMPLIANCE CERTIFICATION: production account deletion, published policy, verified support contact all pending'
