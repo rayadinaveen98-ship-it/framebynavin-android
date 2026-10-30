@@ -1,0 +1,117 @@
+name: Backlot RC22 Free Local Supabase Auth and Storage API
+
+on:
+  push:
+    branches: [feature/backlot-rc22-free-local-supabase-auth-storage]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-rc22-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  no-billing-no-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject private repository, cloud config, and non-test source changes
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=d451edc90962b5c10da2e13d39814671587d2e6f
+          git cat-file -e "$BASE^{commit}"
+          git diff --name-only "$BASE" HEAD > /tmp/rc22-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path("/tmp/rc22-files.txt").read_text().splitlines())
+          expected={
+            "supabase/account-deletion/rc22-local/fixture.sql",
+            "supabase/account-deletion/rc22-local/test_real_auth_storage.py",
+            "docs/release/RC22_FREE_LOCAL_SUPABASE_INTEGRATION.md",
+            ".github/workflows/backlot-rc22-free-local-supabase-auth-storage.yml",
+          }
+          assert changed==expected, f"Unexpected deployment or application source changes: {changed ^ expected}"
+          build=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 269' in build
+          assert 'applicationId = "com.framebynavin.app"' in build
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in build
+          assert all(not s.startswith(("supabase/migrations/","supabase/functions/")) for s in changed)
+          sql=Path("supabase/account-deletion/rc22-local/fixture.sql").read_text()
+          assert "current_setting('backlot.rc22.ephemeral_only'" in sql
+          code=Path("supabase/account-deletion/rc22-local/test_real_auth_storage.py").read_text()
+          assert 'local_url(os.environ.get("API_URL"' in code
+          assert 'local_url(os.environ.get("DB_URL"' in code
+          print("PASS public repo standard runner, no remote Supabase project or app changes")
+          PY
+
+  free-real-local-integration:
+    needs: no-billing-no-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      BACKLOT_RC22_LOCAL_ONLY: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Validate CLI and free Docker environment
+        run: |
+          set -euo pipefail
+          supabase --version
+          supabase start --help | grep -q 'exclude'
+          docker info >/dev/null
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          # Completely isolated project directory. No link to remote.
+          mkdir -p "$RUNNER_TEMP/backlot-rc22-ephemeral"
+      - name: Start actual Supabase Auth/PostgREST/Storage locally for free
+        working-directory: ${{ runner.temp }}/backlot-rc22-ephemeral
+        run: |
+          set -euo pipefail
+          supabase init --yes
+          # Only local Docker containers. Keep Auth, Postgres, PostgREST,
+          # API gateway, and real Storage API.
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/backlot-rc22-local-env"
+          chmod 600 "$RUNNER_TEMP/backlot-rc22-local-env"
+          echo "PASS local Supabase started; keys kept ephemeral and private"
+      - name: Apply CI-only RLS fixture to verified loopback database
+        run: |
+          set -euo pipefail
+          set -a
+          source "$RUNNER_TEMP/backlot-rc22-local-env"
+          set +a
+          python3 - <<'PY'
+          import os,urllib.parse
+          for name,port in [("API_URL",54321),("DB_URL",54322)]:
+              url=urllib.parse.urlsplit(os.environ.get(name,""))
+              assert url.hostname in ("127.0.0.1","localhost") and url.port==port, \
+                  f"REFUSING nonlocal {name}"
+          print("PASS verified both API and DB are loopback before SQL")
+          PY
+          PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
+              -f supabase/account-deletion/rc22-local/fixture.sql
+      - name: Run real local Auth JWT, PostgREST and Storage HTTP tests
+        run: |
+          set -euo pipefail
+          set -a
+          source "$RUNNER_TEMP/backlot-rc22-local-env"
+          set +a
+          python3 supabase/account-deletion/rc22-local/test_real_auth_storage.py
+      - name: Stop disposable local Supabase and discard data
+        if: always()
+        working-directory: ${{ runner.temp }}/backlot-rc22-ephemeral
+        run: supabase stop --no-backup || true
+      - name: No credentials, objects or database files uploaded
+        if: always()
+        run: echo "No artifacts; production Supabase never contacted"
