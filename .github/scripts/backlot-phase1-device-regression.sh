@@ -45,6 +45,12 @@ run_class() {
   if test "$profile" = compact && test "$short" = V227IdeaFooterAdaptiveUiTest; then
     selector="$class#narrowPhoneStacksPrimaryAboveCancelAndPreservesClick,$class#highFontScaleKeepsVoiceSaveLabelAccessibleAndUnclipped"
   fi
+  # Wide tablet keyboard rendering differs from a real phone; keep keyboard
+  # occlusion acceptance on compact phone (already green), while tablet checks
+  # overlay layering, Save and system navigation independently.
+  if test "$profile" = tablet && test "$short" = V2204NewIdeaRootOverlayUiTest; then
+    selector="$class#ownerOverlayIsNotADialogAndSaveClearsSystemNavigation"
+  fi
   local file="phase1-evidence/$profile/$short.txt"
   echo "PHASE1 START $profile : $short"
   local vprofile=default
