@@ -35,6 +35,7 @@ jobs:
             '.github/scripts/backlot-phase1-device-regression.sh',
             '.github/workflows/backlot-phase1-build270-complete-qa.yml',
             'docs/release/PHASE1_BUILD270_DEVICE_GATE.md',
+            'app/src/androidTest/java/com/framebynavin/app/ui/V2214CompanionHomeUiTest.kt',
           }
           assert actual==allowed, f'UNEXPECTED app/source change: {sorted(actual ^ allowed)}'
           gradle=Path('app/build.gradle.kts').read_text()
@@ -48,14 +49,43 @@ jobs:
           assert 'adb install owner/Backlot-RC25-Build270-Full-App.apk' in script
           assert '74ec1aa31fd9cf9083103423bc6040e2451db1fb454419823150f5cd1b568780' in script
           assert 'adb shell pm clear' not in script
-          assert not any(p.startswith(('app/','supabase/','release-site/')) for p in actual)
+          assert not any(p.startswith(('app/src/main/','app/build.gradle','supabase/','release-site/')) for p in actual)
           print('PASS Phase1 source EXACT Build270, no APK/feature backend change; independent device review still pending')
           PY
       - name: Validate phase1 Bash script
         run: bash -n .github/scripts/backlot-phase1-device-regression.sh
 
-  device-stability:
+  compile-revised-test-apks:
     needs: frozen-build270
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build SAME source Build270 debug/test, with corrected avatar-sheet QA
+        run: |
+          set -euo pipefail
+          gradle :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          mkdir -p updated
+          cp app/build/outputs/apk/debug/app-debug.apk updated/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk updated/app-debug-androidTest.apk
+          test -s updated/app-debug.apk && test -s updated/app-debug-androidTest.apk
+          echo 'PASS Build270 app code unchanged; only updated AndroidTest companion sheet tests'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Phase1-Rebuilt-Debug-Test-APKs
+          path: updated/
+          retention-days: 10
+          if-no-files-found: error
+
+  device-stability:
+    needs: compile-revised-test-apks
     runs-on: ubuntu-latest
     timeout-minutes: 85
     strategy:
@@ -77,9 +107,7 @@ jobs:
           path: owner
       - uses: actions/download-artifact@v4
         with:
-          name: Backlot-RC25-Debug-And-Test-APKs
-          run-id: 41050788970
-          github-token: ${{ github.token }}
+          name: Backlot-Phase1-Rebuilt-Debug-Test-APKs
           path: tests
       - if: matrix.profile == 'tablet'
         uses: actions/download-artifact@v4
