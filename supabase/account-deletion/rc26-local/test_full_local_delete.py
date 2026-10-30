@@ -42,7 +42,15 @@ def must_reject(action):
 def main():
     s,d=api("POST","/storage/v1/bucket",ADMIN,
              {"id":BUCKET,"name":BUCKET,"public":False,"file_size_limit":1048576})
-    check("created a private bucket through real Storage API",s in (200,201),d)
+    if s==409:
+        # RC30 may run another isolated two-user regression against the same
+        # disposable local bucket. It must already be PRIVATE and scoped.
+        lookup,bucket=api("GET",f"/storage/v1/bucket/{BUCKET}",ADMIN)
+        check("reused existing PRIVATE local test bucket only",
+              lookup==200 and bucket.get("id")==BUCKET and
+              bucket.get("public") is False,d)
+    else:
+        check("created a private bucket through real Storage API",s in (200,201),d)
     a,ta=user("rc26-delete-me@example.invalid")
     b,tb=user("rc26-keep-me@example.invalid")
     check("real Auth created different users",a!=b and ta!=tb)
