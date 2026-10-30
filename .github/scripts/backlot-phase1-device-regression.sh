@@ -80,11 +80,17 @@ classes=(
   com.framebynavin.app.widget.V2273WidgetMigrationUiTest
 )
 count=0
+failed=()
 for class in "${classes[@]}"; do
-  run_class "$class"
+  if ! run_class "$class"; then
+    failed+=("$class")
+  fi
   count=$((count+1))
 done
-echo "PASS $profile $count instrumented classes" | tee "phase1-evidence/$profile/summary.txt"
+echo "Ran $profile $count instrumented classes; failed classes: ${#failed[@]}" | tee "phase1-evidence/$profile/summary.txt"
+if test "${#failed[@]}" -gt 0; then
+  printf 'FAILED: %s\n' "${failed[@]}" | tee -a "phase1-evidence/$profile/summary.txt"
+fi
 # ONLY on disposable CI emulator: remove throwaway debug-install state and test
 # the ACTUAL immutable signed Build270 preview owner artifact cold-booting.
 adb uninstall com.framebynavin.app
@@ -100,4 +106,9 @@ sleep 8
 adb shell pidof com.framebynavin.app | tee "phase1-evidence/$profile/owner-relaunch-pid.txt"
 adb exec-out screencap -p > "phase1-evidence/$profile/signed-Build270-relaunch.png"
 test -s "phase1-evidence/$profile/signed-Build270-relaunch.png"
+echo "Verified signed owner APK installed and relaunched on $profile" | tee -a "phase1-evidence/$profile/summary.txt"
+if test "${#failed[@]}" -gt 0; then
+  echo "PHASE1 $profile regression failed: review evidence logs" >&2
+  exit 1
+fi
 echo "PASS $profile: 17 UI/integrity classes + exact owner APK cold/relaunch" | tee -a "phase1-evidence/$profile/summary.txt"
