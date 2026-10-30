@@ -3,7 +3,7 @@
  *
  * This source is intentionally NOT deployed and DISABLED BY DEFAULT. The
  * related SQL contract is reviewed in isolation, not a production migration.
- * No secrets in app or website; this module never uses SERVICE_ROLE.
+ * No secrets in app or website; this module only uses a public API key.
  */
 import { handleRequest, type DeletionBackend, type Receipt, type User } from "./handler.ts";
 
