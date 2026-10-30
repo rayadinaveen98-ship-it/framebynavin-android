@@ -88,11 +88,10 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
-            APP="$(find apks -type f -name app-debug.apk -print -quit)"
-            TEST="$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
-            adb install -r "$APP"
-            adb install -r "$TEST"
+            # Emulator runner executes each script line as a separate sh -c call.
+            # Do not rely on variables or shell options from earlier lines.
+            adb install -r "$(find apks -type f -name app-debug.apk -print -quit)"
+            adb install -r "$(find apks -type f -name app-debug-androidTest.apk -print -quit)"
 
             adb shell am instrument -w -r -e class com.framebynavin.app.data.V208PortableBackupIntegrityTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee rc14-archive.log
             grep -Fq "OK (3 tests)" rc14-archive.log
