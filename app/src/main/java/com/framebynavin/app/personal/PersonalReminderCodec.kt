@@ -42,6 +42,7 @@ internal object PersonalReminderCodec {
                 .put("everyNDays", it.everyNDays)
                 .put("everyNHours", it.everyNHours)
                 .put("hourlyUntil", it.hourlyUntil.toString())
+                .put("purpose", it.purpose.name)
                 .put("alert", it.alert.name)
                 .put("paused", it.paused)
                 .put("lastAcknowledgedOccurrenceMillis", it.lastAcknowledgedOccurrenceMillis)
@@ -102,6 +103,7 @@ internal object PersonalReminderCodec {
                     everyNDays = item.getInt("everyNDays"),
                     everyNHours = item.optInt("everyNHours", 3),
                     hourlyUntil = LocalTime.parse(item.optString("hourlyUntil", "23:59")),
+                    purpose = PersonalPurpose.valueOf(item.optString("purpose", "CUSTOM")),
                     alert = PersonalAlert.valueOf(item.getString("alert")),
                     paused = item.getBoolean("paused"),
                     lastAcknowledgedOccurrenceMillis = item.getLong("lastAcknowledgedOccurrenceMillis"),
