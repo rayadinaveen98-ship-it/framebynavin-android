@@ -1,0 +1,73 @@
+name: Backlot Play External Account Deletion — Disabled Web PKCE Preview QA
+
+on:
+  push:
+    branches: [release/backlot-play-web-pkce-owner-preview]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-play-web-pkce-owner-preview
+  cancel-in-progress: true
+
+jobs:
+  disabled-site-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Freeze Android, remote backend, Play settings and live privacy draft
+        run: |
+          set -euo pipefail
+          BASE=18783edba70260c9d375b4c5a3e2f05214e92ae5
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/web-pkce-files
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path('/tmp/web-pkce-files').read_text().splitlines())
+          approved={
+            '.github/workflows/backlot-play-web-pkce-preview-qa.yml',
+            'release-site/assets/backlot-deletion-config.mjs',
+            'release-site/assets/backlot-deletion-core.mjs',
+            'release-site/assets/backlot-deletion-web.mjs',
+            'release-site/assets/backlot-deletion.css',
+            'release-site/deletion-request/index.html',
+            'release-site/tests/test_deletion_web.mjs',
+            'release-site/tests/test_site.py',
+            'docs/release/BACKLOT_PLAY_WEB_PKCE_DISABLED_PREVIEW.md',
+          }
+          assert actual.issubset(approved), 'Unexpected live source modifications: '+str(sorted(actual-approved))
+          assert len(actual) >= 6, 'Web preview incomplete'
+          assert not any(x.startswith(('app/','supabase/','release-site/privacy/','release-site/delete-account/')) for x in actual)
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          cfg=Path('release-site/assets/backlot-deletion-config.mjs').read_text()
+          assert 'enabled: false' in cfg
+          assert 'approvedOrigin: ""' in cfg
+          assert 'publishableKey: ""' in cfg
+          html=Path('release-site/deletion-request/index.html').read_text()
+          assert 'data-deletion-request="disabled-preview"' in html
+          assert 'noindex,nofollow' in html
+          assert 'Content-Security-Policy' in html
+          assert 'id="request-signin" disabled' in html
+          print('PASS: original Play draft, Android Build270 and hosted project untouched; web login is OFF')
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run no-dependency web PKCE and deletion safety tests
+        run: |
+          node --check release-site/assets/backlot-deletion-core.mjs
+          node --check release-site/assets/backlot-deletion-config.mjs
+          node --check release-site/assets/backlot-deletion-web.mjs
+          node --test release-site/tests/test_deletion_web.mjs
+      - name: Verify existing public privacy/deletion preview remains honest
+        run: |
+          python3 -m unittest discover -s release-site/tests -p 'test_site.py' -v
+      - name: No external backend requests or billing
+        run: echo "NO deploy, Supabase calls, website activation, Play upload or paid infrastructure"
