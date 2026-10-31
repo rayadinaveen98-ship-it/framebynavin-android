@@ -15,7 +15,13 @@ class V271PianoRuntimeTest {
     @Test fun originalPianoTrackInitializesDucksAndReleases() {
         val piano = ReminderPianoLoop(androidx.test.core.app.ApplicationProvider.getApplicationContext())
         try {
-            assertTrue("Offline Android audio track must initialize", piano.start())
+            assertTrue("Offline piano MediaPlayer must initialize", piano.start())
+            val deadline = android.os.SystemClock.elapsedRealtime() + 6_000L
+            while (!piano.isPlayingForQa() &&
+                android.os.SystemClock.elapsedRealtime() < deadline) {
+                Thread.sleep(100)
+            }
+            assertTrue("Offline WAV must actually begin audible playback", piano.isPlayingForQa())
             piano.setSpeaking(true)
             piano.setSpeaking(false)
         } finally {
