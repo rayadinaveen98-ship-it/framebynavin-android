@@ -25,7 +25,7 @@ import java.util.Locale
 
 class VoiceReminderService : Service() {
     private var tts: TextToSpeech? = null
-    private val piano = ReminderPianoLoop()
+    private val piano = ReminderPianoLoop(this)
     private var wakeLock: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
     private var currentTask: CreatorTask? = null
