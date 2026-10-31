@@ -32,6 +32,9 @@ jobs:
           actual=set(Path('/tmp/v280-changed').read_text().splitlines())
           allowed={
             'app/build.gradle.kts',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalAlertPresentationPolicy.kt',
+            'app/src/test/java/com/framebynavin/app/personal/V279PersonalPresentationReceiptTest.kt',
             '.github/workflows/backlot-v280-build273-personal-fsi-owner-qa.yml',
             'docs/release/BACKLOT_V280_BUILD273_PERSONAL_FULLSCREEN_OWNER_TEST.md',
           }
@@ -50,6 +53,9 @@ jobs:
           ui=Path('app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt').read_text()
           assert 'if (locked)' in ui and 'if (saving || keyguardShowing) return' in ui
           assert 'Spoken three times' in ui
+          assert 'PersonalAlertPresentationPolicy.state' in ui
+          receipt=Path('app/src/main/java/com/framebynavin/app/personal/PersonalAlertPresentationPolicy.kt').read_text()
+          assert 'item.pendingToken != token' in receipt and 'item.presentedToken == token' in receipt
           assert '.put("voiceMusicUri"' not in Path('app/src/main/java/com/framebynavin/app/data/TaskStore.kt').read_text()
           print('PASS only version/doc/CI, no user backup, Creator, Supabase, Play or manifest changes')
           PY
@@ -72,7 +78,12 @@ jobs:
           root=ET.parse(results[0]).getroot()
           assert int(root.attrib.get('tests',0))==3
           assert int(root.attrib.get('failures',0))==0 and int(root.attrib.get('errors',0))==0
-          print('PASS all 3 Personal alarm policy tests')
+          receipt=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V279PersonalPresentationReceiptTest.xml'))
+          assert len(receipt)==1
+          r=ET.parse(receipt[0]).getroot()
+          assert int(r.attrib.get('tests',0))==3
+          assert int(r.attrib.get('failures',0))==0 and int(r.attrib.get('errors',0))==0
+          print('PASS all 6 Personal full-screen and receipt-race policy unit tests')
           PY
           mkdir -p owner-apks
           cp app/build/outputs/apk/personalStable/app-personalStable.apk owner-apks/Backlot-Build273-Full-Owner-Test.apk
