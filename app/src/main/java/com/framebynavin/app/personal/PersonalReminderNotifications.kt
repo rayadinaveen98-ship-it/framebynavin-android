@@ -1,6 +1,7 @@
 package com.framebynavin.app.personal
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -13,6 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.R
+import com.framebynavin.app.reminders.V268FullScreenReminderAccess
 
 /** Private-by-default notifications: personal title hidden on lock screen. */
 internal object PersonalReminderNotifications {
@@ -41,6 +43,24 @@ internal object PersonalReminderNotifications {
     fun show(context: Context, reminder: PersonalReminder, followUp: Boolean = false): Boolean {
         if (!canPost(context) || reminder.pendingToken.isBlank()) return false
         val tag = PersonalDeliveryContract.notificationTag(reminder.id)
+        val notification = buildForOccurrence(
+            context, reminder, followUp,
+            V268FullScreenReminderAccess.allowed(context),
+        )
+        return runCatching {
+            context.getSystemService(NotificationManager::class.java)
+                .notify(tag, NOTIFICATION_ID, notification)
+            true
+        }.getOrDefault(false)
+    }
+
+    /** Builds an alarm notification without posting; tested with synthetic records. */
+    internal fun buildForOccurrence(
+        context: Context,
+        reminder: PersonalReminder,
+        followUp: Boolean,
+        fullScreenPermissionAllowed: Boolean,
+    ): Notification {
         val generic = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle("Personal reminder")
@@ -58,6 +78,8 @@ internal object PersonalReminderNotifications {
                 data = PersonalDeliveryContract.actionUri(reminder.id, "open", reminder.pendingToken)
                 putExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID, reminder.id)
                 putExtra(PersonalDeliveryContract.EXTRA_TOKEN, reminder.pendingToken)
+                putExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL,
+                    reminder.alert == PersonalAlert.ALARM)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -68,11 +90,12 @@ internal object PersonalReminderNotifications {
             PersonalAlert.VOICE -> "Voice will speak if Android permits · notification remains actionable"
             PersonalAlert.ALARM -> "Alarm will ring if Android permits · notification remains actionable"
         }
-        val notification = NotificationCompat.Builder(context, CHANNEL)
+        val builder = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle(reminder.title)
             .setContentText(detail)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setCategory(if (reminder.alert == PersonalAlert.ALARM)
+                NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(generic)
@@ -83,12 +106,11 @@ internal object PersonalReminderNotifications {
             .addAction(0, "DONE", action(context, reminder, PersonalDeliveryContract.ACTION_DONE, 11))
             .addAction(0, "SNOOZE 10m", action(context, reminder, PersonalDeliveryContract.ACTION_SNOOZE, 12))
             .addAction(0, "DISMISS", action(context, reminder, PersonalDeliveryContract.ACTION_DISMISS, 13))
-            .build()
-        return runCatching {
-            context.getSystemService(NotificationManager::class.java)
-                .notify(tag, NOTIFICATION_ID, notification)
-            true
-        }.getOrDefault(false)
+        return V268FullScreenReminderAccess.configure(
+            builder,
+            opening,
+            PersonalFullScreenPolicy.eligible(reminder.alert, followUp, fullScreenPermissionAllowed),
+        ).build()
     }
 
     fun cancel(context: Context, id: String) {
