@@ -74,14 +74,18 @@ jobs:
             assert int(root.attrib.get("tests",0))>=2
             print("PASS",cls,root.attrib.get("tests"),"unit checks")
           PY
+      - name: Stage exact disposable emulator inputs
+        run: |
+          set -euo pipefail
+          mkdir -p candidate
+          cp app/build/outputs/apk/debug/app-debug.apk candidate/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk candidate/app-debug-androidTest.apk
+          cp app/build/test-results/testDebugUnitTest/TEST-*V271*.xml candidate/
       - name: Upload disposable debug-only candidate and unit evidence
         uses: actions/upload-artifact@v4
         with:
           name: Backlot-V271-Phase1A-Debug-Candidate
-          path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            app/build/test-results/testDebugUnitTest/TEST-*V271*.xml
+          path: candidate/
           retention-days: 7
           if-no-files-found: error
 
@@ -98,8 +102,8 @@ jobs:
       - name: Verify complete debug/test APKs for synthetic emulator only
         run: |
           set -euo pipefail
-          test -s candidate/app/build/outputs/apk/debug/app-debug.apk
-          test -s candidate/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -s candidate/app-debug.apk
+          test -s candidate/app-debug-androidTest.apk
       - name: Allow KVM on free GitHub Actions runner
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -115,8 +119,8 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set -euo pipefail
-            adb install -r candidate/app/build/outputs/apk/debug/app-debug.apk
-            adb install -r candidate/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb install -r candidate/app-debug.apk
+            adb install -r candidate/app-debug-androidTest.apk
             adb shell am instrument -w -r \
               -e class com.framebynavin.app.reminders.V271PianoRuntimeTest \
               com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
