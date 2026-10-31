@@ -1,0 +1,160 @@
+name: Backlot Build273 - Complete Personal Alarm FSI Owner APK and Android QA
+
+on:
+  push:
+    branches: [release/backlot-v280-build273-personal-fsi-owner-test]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v280-build273-owner-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Protect Build272 source, Owner records and Play signer
+        run: |
+          set -euo pipefail
+          BASE=4ca2f695e99de23a6470523054eb42ec045d6378
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD >/tmp/v280-changed
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path('/tmp/v280-changed').read_text().splitlines())
+          allowed={
+            'app/build.gradle.kts',
+            '.github/workflows/backlot-v280-build273-personal-fsi-owner-qa.yml',
+            'docs/release/BACKLOT_V280_BUILD273_PERSONAL_FULLSCREEN_OWNER_TEST.md',
+          }
+          assert actual==allowed, f'Unexpected application code or secret mutation: {sorted(actual ^ allowed)}'
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 273' in gradle
+          assert 'versionName = "2.16.2-rc28-personal-alarm-fullscreen-owner-test"' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'targetSdk = 36' in gradle and 'create("personalStable")' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          policy=Path('app/src/main/java/com/framebynavin/app/personal/PersonalFullScreenPolicy.kt').read_text()
+          assert 'alert == PersonalAlert.ALARM' in policy and '!followUp' in policy
+          notifs=Path('app/src/main/java/com/framebynavin/app/personal/PersonalReminderNotifications.kt').read_text()
+          assert 'V268FullScreenReminderAccess.allowed(context)' in notifs
+          assert 'V268FullScreenReminderAccess.configure(' in notifs
+          ui=Path('app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt').read_text()
+          assert 'if (locked)' in ui and 'if (saving || keyguardShowing) return' in ui
+          assert 'Spoken three times' in ui
+          assert '.put("voiceMusicUri"' not in Path('app/src/main/java/com/framebynavin/app/data/TaskStore.kt').read_text()
+          print('PASS only version/doc/CI, no user backup, Creator, Supabase, Play or manifest changes')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile complete app, unit/instrumented tests and lint, assemble owner-signed APK
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --no-daemon --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          results=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V279PersonalFullScreenPolicyTest.xml'))
+          assert len(results)==1
+          root=ET.parse(results[0]).getroot()
+          assert int(root.attrib.get('tests',0))==3
+          assert int(root.attrib.get('failures',0))==0 and int(root.attrib.get('errors',0))==0
+          print('PASS all 3 Personal alarm policy tests')
+          PY
+          mkdir -p owner-apks
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk owner-apks/Backlot-Build273-Full-Owner-Test.apk
+          cp app/build/outputs/apk/debug/app-debug.apk owner-apks/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk owner-apks/app-debug-androidTest.apk
+          (cd owner-apks && sha256sum *.apk > SHA256SUMS.txt)
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging owner-apks/Backlot-Build273-Full-Owner-Test.apk | grep -F "package: name='com.framebynavin.app' versionCode='273'"
+      - name: Obtain immutable Build272 owner preview for signature comparison
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Build272-Full-Owner-Test-APKs
+          run-id: 41198817937
+          github-token: ${{ github.token }}
+          path: previous
+      - name: Verify previous release exact checksum and identical signed upgrade certificate
+        run: |
+          set -euo pipefail
+          OLD=previous/Backlot-Build272-Full-Owner-Test.apk
+          NEW=owner-apks/Backlot-Build273-Full-Owner-Test.apk
+          test -s "$OLD" && test -s "$NEW"
+          test "$(stat -c%s "$OLD")" = 18004558
+          test "$(sha256sum "$OLD" | cut -d' ' -f1)" = e4f0dc03730986490ac03b0d4a7daa77a4a8ecd03076ddabdcfdc439b413cdc2
+          (cd previous && sha256sum -c SHA256SUMS.txt)
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          OLD_CERT="$("$SIGNER" verify --print-certs "$OLD" | awk '/certificate SHA-256 digest:/{print $NF}' | sort -u)"
+          NEW_CERT="$("$SIGNER" verify --print-certs "$NEW" | awk '/certificate SHA-256 digest:/{print $NF}' | sort -u)"
+          test -n "$OLD_CERT" && test -n "$NEW_CERT"
+          test "$(printf '%s\n' "$OLD_CERT" | wc -l)" -eq 1
+          test "$(printf '%s\n' "$NEW_CERT" | wc -l)" -eq 1
+          test "$OLD_CERT" = "$NEW_CERT"
+          test "$NEW_CERT" = f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0
+          echo "PASS Build272 → Build273 matching certificate; no uninstall for same signer"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Build273-Full-Owner-Test-APKs
+          path: owner-apks/
+          retention-days: 14
+          if-no-files-found: error
+
+  integrated-emulator:
+    needs: full-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 30
+            display: phone
+          - api: 36
+            display: tablet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Build273-Full-Owner-Test-APKs
+          path: owner-apks
+      - name: Verify exact signed APK and compiled instrumentation bytes
+        run: |
+          set -euo pipefail
+          (cd owner-apks && sha256sum -c SHA256SUMS.txt)
+          test -s owner-apks/Backlot-Build273-Full-Owner-Test.apk
+      - name: Enable free Android emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run 24 real Android synthetic reminder, privacy and FSI cases
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            if [ "${{ matrix.display }}" = "tablet" ]; then adb shell wm size 1280x800; adb shell wm density 240; fi
+            adb install -r owner-apks/app-debug.apk
+            adb install -r owner-apks/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.V271PianoRuntimeTest,com.framebynavin.app.reminders.V273CreatorMusicLocalTest,com.framebynavin.app.personal.V273PersonalMusicCodecTest,com.framebynavin.app.personal.V272HourlyPersonalCodecTest,com.framebynavin.app.personal.V274SelfCareBackupTest,com.framebynavin.app.ui.V274SelfCareEditorUiTest,com.framebynavin.app.ui.V275WidgetPreviewTest,com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest,com.framebynavin.app.personal.V2231PersonalDeliveryTest,com.framebynavin.app.reminders.V277VoiceMusicPreviewDeviceTest,com.framebynavin.app.ui.V277VoiceMusicPreviewUiTest,com.framebynavin.app.personal.V279PersonalFullScreenNotificationTest,com.framebynavin.app.personal.V279LockedPersonalAlertUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-build273-integrated.log
+            grep -F 'OK (24 tests)' /tmp/backlot-build273-integrated.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-build273-integrated.log; then exit 1; fi
+      - run: echo "No Play submission or data mutation; real owner lockscreen and Android14+ special access still require manual acceptance"
