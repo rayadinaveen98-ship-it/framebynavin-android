@@ -61,6 +61,8 @@ internal data class PProjectDraft(
     val priority: TaskPriority,
     val notes: String,
     val alarmSoundUri: String,
+    val voiceMusicMode: com.framebynavin.app.reminders.ReminderMusicMode,
+    val voiceMusicUri: String,
     val voicePersona: VoicePersona,
     val voiceRepeatCount: Int,
     val voiceRepeatIntervalSeconds: Int,
@@ -248,6 +250,12 @@ internal fun PProjectComposer(
     var soundUri by rememberSaveable(task?.id) {
         mutableStateOf(task?.alarmSoundUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString())
     }
+    val existingMusic = remember(task?.id) {
+        task?.let { com.framebynavin.app.reminders.CreatorMusicLocalStore(context).get(it.id) }
+            ?: com.framebynavin.app.reminders.ReminderMusicChoice()
+    }
+    var voiceMusicMode by rememberSaveable(task?.id) { mutableStateOf(existingMusic.mode) }
+    var voiceMusicUri by rememberSaveable(task?.id) { mutableStateOf(existingMusic.uri) }
     var voice by rememberSaveable(task?.id) { mutableStateOf(task?.voicePersona ?: defaults.defaultVoicePersona) }
     var repeatCount by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatCount ?: 3) }
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 10) }
@@ -423,6 +431,8 @@ internal fun PProjectComposer(
                         priority = priority,
                         notes = notes.trim(),
                         alarmSoundUri = soundUri,
+                        voiceMusicMode = voiceMusicMode,
+                        voiceMusicUri = voiceMusicUri,
                         voicePersona = voice,
                         voiceRepeatCount = repeatCount,
                         voiceRepeatIntervalSeconds = repeatGap,
@@ -611,6 +621,16 @@ internal fun PProjectComposer(
                                 onSelected = { voice = it },
                                 onPreview = { pComposerPreviewVoice(context, it) },
                             )
+                            Spacer(Modifier.height(11.dp))
+                            V273ReminderMusicPicker(
+                                mode = voiceMusicMode,
+                                uri = voiceMusicUri,
+                                onChanged = { mode, picked ->
+                                    voiceMusicMode = mode
+                                    voiceMusicUri = picked
+                                },
+                                modifier = Modifier.fillMaxWidth().testTag("v273-project-music"),
+                            )
                             Spacer(Modifier.height(14.dp))
                             V180ReminderTimingControls(
                                 repeatCount = repeatCount,
@@ -683,6 +703,8 @@ internal fun PProjectComposer(
                                     priority = priority,
                                     notes = notes.trim(),
                                     alarmSoundUri = soundUri,
+                                    voiceMusicMode = voiceMusicMode,
+                                    voiceMusicUri = voiceMusicUri,
                                     voicePersona = voice,
                                     voiceRepeatCount = repeatCount,
                                     voiceRepeatIntervalSeconds = repeatGap,

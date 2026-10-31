@@ -25,7 +25,7 @@ import java.util.Locale
 
 class VoiceReminderService : Service() {
     private var tts: TextToSpeech? = null
-    private val piano = ReminderPianoLoop()
+    private val music = ReminderBackingMusic(this)
     private var wakeLock: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
     private var currentTask: CreatorTask? = null
@@ -101,7 +101,7 @@ class VoiceReminderService : Service() {
             { finishUnansweredVoice(task, token, "voice_watchdog_timeout") },
             V178PlaybackLifecyclePolicy.voiceWatchdogMillis(task),
         )
-        piano.start() // Quiet original backing track; failed audio never blocks TTS.
+        music.start(CreatorMusicLocalStore(applicationContext).get(task.id))
         beginSpeechCycle(task)
         return START_NOT_STICKY
     }
@@ -152,7 +152,7 @@ class VoiceReminderService : Service() {
                         if (!isCurrent(task.id, token) || generation != speechGeneration) return@post
                         if (utteranceId.isNullOrBlank() || currentUtteranceId != utteranceId) return@post
                         currentUtteranceId = null
-                        piano.setSpeaking(false)
+                        music.setSpeaking(false)
                         val completedIndex = utteranceIndex(utteranceId)
                         val nextIndex = completedIndex + 1
                         if (nextIndex >= repeatCount) {
@@ -217,7 +217,7 @@ class VoiceReminderService : Service() {
         val engine = tts ?: return
         val utteranceId = "backlot-voice-${task.id}-${token.hashCode()}-$generation-$index"
         currentUtteranceId = utteranceId
-        piano.setSpeaking(true)
+        music.setSpeaking(true)
         val queueMode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
         val result = engine.speak(frozenSpeechText, queueMode, null, utteranceId)
         if (result == TextToSpeech.ERROR) {
@@ -352,7 +352,7 @@ class VoiceReminderService : Service() {
         frozenSpeechText = ""
         currentUtteranceId = null
         speechGeneration++
-        piano.stop()
+        music.stop()
         runCatching { tts?.stop() }
         tts?.shutdown()
         tts = null
@@ -371,7 +371,7 @@ class VoiceReminderService : Service() {
         currentUtteranceId = null
         speechGeneration++
         handler.removeCallbacksAndMessages(null)
-        piano.stop()
+        music.stop()
         runCatching { tts?.stop() }
         tts?.shutdown()
         tts = null

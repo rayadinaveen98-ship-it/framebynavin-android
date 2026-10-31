@@ -894,6 +894,18 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     attentionPlan = draft.attentionPlan,
                     deliveryPreference = draft.deliveryPreference,
                 )
+                if (savedTaskId != null) {
+                    runCatching {
+                        com.framebynavin.app.reminders.CreatorMusicLocalStore(context).put(
+                            savedTaskId,
+                            com.framebynavin.app.reminders.ReminderMusicChoice(
+                                draft.voiceMusicMode, draft.voiceMusicUri),
+                        )
+                    }.onFailure {
+                        android.util.Log.w("BacklotMusic", "Creator music selection not saved", it)
+                        Toast.makeText(context, "Project saved, but music selection could not be saved.", Toast.LENGTH_LONG).show()
+                    }
+                }
                 if (savedTaskId == null) {
                     Toast.makeText(context, "Could not save the project. Your form is still open.", Toast.LENGTH_LONG).show()
                 } else {

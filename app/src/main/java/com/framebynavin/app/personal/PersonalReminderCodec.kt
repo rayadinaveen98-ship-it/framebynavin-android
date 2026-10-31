@@ -7,6 +7,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import org.json.JSONArray
 import org.json.JSONObject
+import com.framebynavin.app.reminders.ReminderMusicMode
 
 /**
  * Independently exportable personal backup envelope. CreatorBackupManager and
@@ -41,6 +42,8 @@ internal object PersonalReminderCodec {
                 })
                 .put("everyNDays", it.everyNDays)
                 .put("alert", it.alert.name)
+                .put("voiceMusicMode", it.voiceMusicMode.name)
+                .put("voiceMusicUri", it.voiceMusicUri)
                 .put("paused", it.paused)
                 .put("lastAcknowledgedOccurrenceMillis", it.lastAcknowledgedOccurrenceMillis)
                 .put("lastMissedOccurrenceMillis", it.lastMissedOccurrenceMillis)
@@ -99,6 +102,8 @@ internal object PersonalReminderCodec {
                     weeklyDays = weeklyDays,
                     everyNDays = item.getInt("everyNDays"),
                     alert = PersonalAlert.valueOf(item.getString("alert")),
+                    voiceMusicMode = ReminderMusicMode.valueOf(item.optString("voiceMusicMode", "PIANO")),
+                    voiceMusicUri = item.optString("voiceMusicUri", ""),
                     paused = item.getBoolean("paused"),
                     lastAcknowledgedOccurrenceMillis = item.getLong("lastAcknowledgedOccurrenceMillis"),
                     lastMissedOccurrenceMillis = item.optLong("lastMissedOccurrenceMillis", 0L),

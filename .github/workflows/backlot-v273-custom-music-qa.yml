@@ -1,0 +1,128 @@
+name: Backlot V273 Personal and Creator Music Files Picker — Preview QA
+
+on:
+  push:
+    branches: [feature/backlot-reminder-audio-phase1b-custom-songs]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v273-custom-music-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-test-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 48
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restrict all changes to local audio and reminder editor, no cloud or signer
+        run: |
+          set -euo pipefail
+          BASE=f98a24b58de9429f8efd2225dfdb6e1179fffda4
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/v273-files
+          python3 - <<'PY'
+          from pathlib import Path
+          paths=set(Path('/tmp/v273-files').read_text().splitlines())
+          allowed={
+            '.github/workflows/backlot-v273-custom-music-qa.yml',
+            'docs/release/BACKLOT_V273_CUSTOM_AUDIO_PREVIEW.md',
+            'app/src/main/java/com/framebynavin/app/reminders/ReminderMusicChoice.kt',
+            'app/src/main/java/com/framebynavin/app/reminders/ReminderBackingMusic.kt',
+            'app/src/main/java/com/framebynavin/app/reminders/CreatorMusicLocalStore.kt',
+            'app/src/main/java/com/framebynavin/app/reminders/VoiceReminderService.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminder.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminderCommands.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminderCodec.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalPlaybackService.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V273ReminderMusicPicker.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V101BReminderUi.kt',
+            'app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt',
+            'app/src/main/java/com/framebynavin/app/data/CreatorTask.kt',
+            'app/src/main/java/com/framebynavin/app/data/TaskStore.kt',
+            'app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt',
+            'app/src/test/java/com/framebynavin/app/reminders/V273MusicChoiceTest.kt',
+            'app/src/androidTest/java/com/framebynavin/app/reminders/V273CreatorMusicLocalTest.kt',
+            'app/src/androidTest/java/com/framebynavin/app/personal/V273PersonalMusicCodecTest.kt',
+          }
+          assert paths.issubset(allowed), f'Unexpected modified source: {sorted(paths-allowed)}'
+          assert len(paths)>=12
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          assert not any(p.startswith(('supabase/','release-site/','app/src/main/res/')) for p in paths)
+          creator=Path('app/src/main/java/com/framebynavin/app/data/TaskStore.kt').read_text()
+          assert '.put("voiceMusicUri"' not in creator, 'Creator audio URIs must never cloud-sync'
+          assert 'backlot_creator_music_device_only_v1' in Path('app/src/main/java/com/framebynavin/app/reminders/CreatorMusicLocalStore.kt').read_text()
+          print('PASS local private SAF music only, no cloud/deletion/Play/old backup replacement')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile entire Android app, JUnit tests, Android tests and lint
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          results=Path('app/build/test-results/testDebugUnitTest')
+          for name in ['V271PersonalVoiceRepeatTest','V271PianoWaveformTest','V273MusicChoiceTest']:
+            files=list(results.glob('TEST-*'+name+'.xml'))
+            assert len(files)==1, f'Missing {name}'
+            root=ET.parse(files[0]).getroot()
+            assert int(root.attrib.get('failures',0))==0 and int(root.attrib.get('errors',0))==0
+            assert int(root.attrib.get('tests',0))>=2
+            print('PASS '+name)
+          PY
+          mkdir -p artifact
+          cp app/build/outputs/apk/debug/app-debug.apk artifact/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk artifact/app-debug-androidTest.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V273-Disposable-Custom-Music-Debug-APKs
+          path: artifact/
+          retention-days: 7
+          if-no-files-found: error
+
+  android11-local-music-compat:
+    needs: code-test-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V273-Disposable-Custom-Music-Debug-APKs
+          path: artifact
+      - name: Enable free KVM emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 Personal JSON codec and local-only Creator music tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r artifact/app-debug.apk
+            adb install -r artifact/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V273CreatorMusicLocalTest,com.framebynavin.app.personal.V273PersonalMusicCodecTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v273-music-local.log
+            grep -F 'OK (4 tests)' /tmp/backlot-v273-music-local.log
+      - run: echo "No real user songs, remote Supabase data, Play signing or production accounts touched"

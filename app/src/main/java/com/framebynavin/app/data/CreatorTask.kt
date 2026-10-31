@@ -1,5 +1,6 @@
 package com.framebynavin.app.data
 
+
 enum class TaskStatus { PLANNED, WORKING, DONE, SKIPPED }
 enum class TaskPriority { NORMAL, IMPORTANT, CRITICAL }
 enum class ReminderAlertType { NOTIFICATION, ALARM }

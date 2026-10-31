@@ -5,6 +5,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.util.UUID
+import com.framebynavin.app.reminders.ReminderMusicChoice
+import com.framebynavin.app.reminders.ReminderMusicMode
 
 /**
  * Personal data is NOT a CreatorTask and must never be inserted into task flows,
@@ -62,6 +64,8 @@ internal data class PersonalReminder(
     val lastResponseAtMillis: Long = 0L,
     val createdAtMillis: Long = System.currentTimeMillis(),
     val updatedAtMillis: Long = createdAtMillis,
+    val voiceMusicMode: ReminderMusicMode = ReminderMusicMode.PIANO,
+    val voiceMusicUri: String = "",
 ) {
     fun checked(): PersonalReminder {
         require(id.matches(Regex("[a-zA-Z0-9_:.-]{1,128}"))) { "Invalid personal reminder id" }
@@ -69,6 +73,7 @@ internal data class PersonalReminder(
             "Personal reminder title must contain 1–180 characters"
         }
         require(notes.length <= 2_000) { "Personal reminder notes are too long" }
+        ReminderMusicChoice(voiceMusicMode, voiceMusicUri).checked()
         require(everyNDays in 1..365) { "Custom repeat interval must be 1–365 days" }
         require(weeklyDays.size <= 7) { "Invalid weekly recurrence days" }
         require(repeat != PersonalRepeat.WEEKLY || weeklyDays.isNotEmpty()) {
