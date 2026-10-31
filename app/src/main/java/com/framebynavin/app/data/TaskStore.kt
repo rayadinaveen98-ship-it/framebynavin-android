@@ -157,6 +157,8 @@ class TaskStore(private val context: Context) {
                     .put("notes", task.notes)
                     .put("alertType", task.alertType.name)
                     .put("alarmSoundUri", task.alarmSoundUri)
+                    .put("voiceMusicMode", task.voiceMusicMode.name)
+                    .put("voiceMusicUri", task.voiceMusicUri)
                     .put("voiceEnabled", task.voiceEnabled)
                     .put("smartEscalationEnabled", task.smartEscalationEnabled)
                     .put("snoozeCount", task.snoozeCount)
@@ -276,6 +278,10 @@ class TaskStore(private val context: Context) {
                         notes = item.optString("notes", ""),
                         alertType = legacyAlertType,
                         alarmSoundUri = item.optString("alarmSoundUri", ""),
+                        voiceMusicMode = runCatching {
+                            com.framebynavin.app.reminders.ReminderMusicMode.valueOf(item.optString("voiceMusicMode", "PIANO"))
+                        }.getOrDefault(com.framebynavin.app.reminders.ReminderMusicMode.PIANO),
+                        voiceMusicUri = item.optString("voiceMusicUri", ""),
                         voiceEnabled = legacyVoice,
                         smartEscalationEnabled = legacySmart,
                         snoozeCount = item.optInt("snoozeCount", 0).coerceAtLeast(0),
