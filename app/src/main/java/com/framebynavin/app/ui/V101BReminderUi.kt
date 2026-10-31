@@ -250,10 +250,12 @@ internal fun PProjectComposer(
     var soundUri by rememberSaveable(task?.id) {
         mutableStateOf(task?.alarmSoundUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString())
     }
-    var voiceMusicMode by rememberSaveable(task?.id) {
-        mutableStateOf(task?.voiceMusicMode ?: com.framebynavin.app.reminders.ReminderMusicMode.PIANO)
+    val existingMusic = remember(task?.id) {
+        task?.let { com.framebynavin.app.reminders.CreatorMusicLocalStore(context).get(it.id) }
+            ?: com.framebynavin.app.reminders.ReminderMusicChoice()
     }
-    var voiceMusicUri by rememberSaveable(task?.id) { mutableStateOf(task?.voiceMusicUri.orEmpty()) }
+    var voiceMusicMode by rememberSaveable(task?.id) { mutableStateOf(existingMusic.mode) }
+    var voiceMusicUri by rememberSaveable(task?.id) { mutableStateOf(existingMusic.uri) }
     var voice by rememberSaveable(task?.id) { mutableStateOf(task?.voicePersona ?: defaults.defaultVoicePersona) }
     var repeatCount by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatCount ?: 3) }
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 10) }
