@@ -1,0 +1,115 @@
+name: Backlot Play in-app deletion default-OFF integration QA
+
+on:
+  push:
+    branches: [release/backlot-play-inapp-deletion-gated]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-deletion-ux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-and-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify Build270 remains unchanged and deletion is not activated
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=825768b9cc4c02dc9e541cdb0f139b7ecc82a0ad
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD >/tmp/deletion-ux-changes
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path('/tmp/deletion-ux-changes').read_text().splitlines())
+          allowed={
+            'app/src/main/java/com/framebynavin/app/cloud/BacklotAccountDeletionApi.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V270AccountDeletionContent.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V269DataPrivacyActivity.kt',
+            'app/src/androidTest/java/com/framebynavin/app/cloud/V270AccountDeletionSafetyTest.kt',
+            '.github/workflows/backlot-play-inapp-deletion-gated-qa.yml',
+            'docs/release/BACKLOT_PLAY_INAPP_DELETION_UX_DRAFT.md',
+          }
+          assert actual.issubset(allowed), sorted(actual-allowed)
+          assert actual.issuperset({
+            'app/src/main/java/com/framebynavin/app/cloud/BacklotAccountDeletionApi.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V269DataPrivacyActivity.kt',
+          })
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in gradle
+          assert 'targetSdk = 36' in gradle
+          api=Path('app/src/main/java/com/framebynavin/app/cloud/BacklotAccountDeletionApi.kt').read_text()
+          assert 'const val LIVE_REQUESTS_ENABLED = false' in api
+          assert 'Bearer ${session.accessToken}' in api
+          assert 'setFixedLengthStreamingMode(bytes.size)' in api
+          assert 'request(manager: CloudSyncManager, confirmation: String)' in api
+          assert 'service_role' not in api.lower()
+          assert not any(p.startswith(('supabase/','release-site/','app/src/main/AndroidManifest.xml')) for p in actual)
+          print('PASS: preview Build270 unchanged, deletion disabled, no hosted writes')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile full Android app and instrumented deletion/privacy tests
+        run: |
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-InApp-Deletion-Disabled-Debug-Test-APKs
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/androidTest/debug/*.apk
+          retention-days: 7
+          if-no-files-found: error
+
+  emulator-safety:
+    needs: compile-and-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-InApp-Deletion-Disabled-Debug-Test-APKs
+          path: artifacts
+      - name: Prepare separate app and test APKs
+        run: |
+          set -euo pipefail
+          find artifacts -type f -name '*.apk'
+          test -s artifacts/debug/app-debug.apk
+          test -s artifacts/debug/app-debug-androidTest.apk || test -s artifacts/androidTest/debug/app-debug-androidTest.apk
+      - name: Android 11 privacy UI and deletion parser gate
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -e
+            adb install -r artifacts/debug/app-debug.apk
+            APK=$(find artifacts -name '*androidTest.apk' -print -quit)
+            test -n "$APK"
+            adb install -r "$APK"
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.cloud.V270AccountDeletionSafetyTest,com.framebynavin.app.ui.V269DataPrivacyUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee deletion-ui-tests.log
+            grep -Eq 'OK \([1-9][0-9]* tests?\)' deletion-ui-tests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-Deletion-Privacy-UI-Test-Evidence
+          path: deletion-ui-tests.log
+          retention-days: 10
+          if-no-files-found: warn
