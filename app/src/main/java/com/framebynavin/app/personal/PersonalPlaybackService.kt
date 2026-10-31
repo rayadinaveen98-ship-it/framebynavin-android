@@ -23,7 +23,8 @@ import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.R
-import com.framebynavin.app.reminders.ReminderPianoLoop
+import com.framebynavin.app.reminders.ReminderBackingMusic
+import com.framebynavin.app.reminders.ReminderMusicChoice
 import java.lang.ref.WeakReference
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -45,7 +46,7 @@ internal class PersonalPlaybackService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private var player: MediaPlayer? = null
-    private val piano = ReminderPianoLoop()
+    private val music = ReminderBackingMusic(this)
     private var tts: TextToSpeech? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -119,7 +120,8 @@ internal class PersonalPlaybackService : Service() {
             }, maxDuration)
             when (verified.alert) {
                 PersonalAlert.ALARM -> playAlarm(admittedGeneration)
-                PersonalAlert.VOICE -> speakReminder(verified.title, admittedGeneration)
+                PersonalAlert.VOICE -> speakReminder(verified.title, admittedGeneration,
+                    ReminderMusicChoice(verified.voiceMusicMode, verified.voiceMusicUri))
                 PersonalAlert.NOTIFICATION -> endPlayback()
             }
         }
@@ -192,12 +194,13 @@ internal class PersonalPlaybackService : Service() {
         }
     }
 
-    private fun speakReminder(title: String, expectedGeneration: Int) {
+    private fun speakReminder(title: String, expectedGeneration: Int,
+                              choice: ReminderMusicChoice) {
         // Spoken personal notes are deliberately excluded; the title is frozen
         // for all three repeats. User Done/Snooze or another occurrence ends
         // this generation and silences both TTS and piano immediately.
         val message = "Personal reminder. $title"
-        piano.start() // Best-effort original offline music; speech always remains primary.
+        music.start(choice) // Best-effort local backing; TTS always remains primary.
         try {
             tts = TextToSpeech(this) { status ->
                 if (expectedGeneration != generation) return@TextToSpeech
@@ -219,7 +222,7 @@ internal class PersonalPlaybackService : Service() {
                     if (expectedGeneration != generation) return
                     val utteranceId = "$expectedBase:$index"
                     activeId = utteranceId
-                    piano.setSpeaking(true)
+                    music.setSpeaking(true)
                     val result = engine.speak(
                         message,
                         if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
@@ -235,7 +238,7 @@ internal class PersonalPlaybackService : Service() {
                         handler.post {
                             if (expectedGeneration != generation || activeId != utteranceId) return@post
                             activeId = null
-                            piano.setSpeaking(false)
+                            music.setSpeaking(false)
                             val completed = utteranceId?.substringAfterLast(':')?.toIntOrNull()
                                 ?: run { endPlayback(); return@post }
                             val next = PersonalPlaybackPolicy.nextVoiceIndex(completed)
@@ -276,7 +279,7 @@ internal class PersonalPlaybackService : Service() {
 
     private fun stopHardware() {
         handler.removeCallbacksAndMessages(null)
-        piano.stop()
+        music.stop()
         runCatching { player?.stop() }
         runCatching { player?.release() }
         player = null
