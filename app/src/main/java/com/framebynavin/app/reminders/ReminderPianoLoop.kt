@@ -121,6 +121,11 @@ internal class ReminderPianoLoop(private val context: Context) {
         stop()
     }
 
+    /** Synthetic emulator QA only: distinguish prepared/playing from accepted setup. */
+    internal fun isPlayingForQa(): Boolean = runCatching {
+        player?.isPlaying ?: false
+    }.getOrDefault(false)
+
     fun setSpeaking(speaking: Boolean) {
         requestedVolume = if (speaking) .035f else .14f
         runCatching { player?.setVolume(requestedVolume, requestedVolume) }
