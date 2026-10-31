@@ -32,6 +32,8 @@ jobs:
           allowed={
             '.github/workflows/backlot-v273-custom-music-qa.yml',
             'docs/release/BACKLOT_V273_CUSTOM_AUDIO_PREVIEW.md',
+            'app/src/main/java/com/framebynavin/app/reminders/ReminderPianoLoop.kt',
+            'app/src/androidTest/java/com/framebynavin/app/reminders/V271PianoRuntimeTest.kt',
             'app/src/main/java/com/framebynavin/app/reminders/ReminderMusicChoice.kt',
             'app/src/main/java/com/framebynavin/app/reminders/ReminderBackingMusic.kt',
             'app/src/main/java/com/framebynavin/app/reminders/CreatorMusicLocalStore.kt',
@@ -123,6 +125,6 @@ jobs:
             set -euo pipefail
             adb install -r artifact/app-debug.apk
             adb install -r artifact/app-debug-androidTest.apk
-            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V273CreatorMusicLocalTest,com.framebynavin.app.personal.V273PersonalMusicCodecTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v273-music-local.log
-            grep -F 'OK (4 tests)' /tmp/backlot-v273-music-local.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V271PianoRuntimeTest,com.framebynavin.app.reminders.V273CreatorMusicLocalTest,com.framebynavin.app.personal.V273PersonalMusicCodecTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v273-music-local.log
+            grep -F 'OK (5 tests)' /tmp/backlot-v273-music-local.log
       - run: echo "No real user songs, remote Supabase data, Play signing or production accounts touched"
