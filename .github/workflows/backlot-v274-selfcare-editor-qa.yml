@@ -1,0 +1,112 @@
+name: Backlot V274 Personal Self-Care Editor and Backup QA
+on:
+  push:
+    branches: [feature/backlot-v274-personal-selfcare-editor]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v274-selfcare-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-android-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Protect Creator, reminder delivery, stable signing and hosted services
+        run: |
+          set -euo pipefail
+          BASE=57e2c8b4f38f4e7f145d133b771b280f31b9b291
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/v274-files
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path('/tmp/v274-files').read_text().splitlines())
+          allowed={
+            '.github/workflows/backlot-v274-selfcare-editor-qa.yml',
+            'docs/release/BACKLOT_V274_SELFCARE_EDITOR.md',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalSelfCarePresets.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminder.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminderCommands.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminderCodec.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V274PersonalPurposeUi.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt',
+            'app/src/test/java/com/framebynavin/app/personal/V274SelfCarePresetsTest.kt',
+            'app/src/androidTest/java/com/framebynavin/app/personal/V274SelfCareBackupTest.kt',
+            'app/src/androidTest/java/com/framebynavin/app/ui/V274SelfCareEditorUiTest.kt',
+          }
+          assert changed.issubset(allowed) and len(changed)>=9, str(sorted(changed-allowed))
+          build=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in build and 'applicationId = "com.framebynavin.app"' in build
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in build
+          assert not any(s.startswith(('supabase/','release-site/','app/src/main/res/','app/src/main/java/com/framebynavin/app/data/','app/src/main/java/com/framebynavin/app/widget/')) for s in changed)
+          print('PASS: self-care purpose entirely Personal; no Creator/cloud/signing/widget changes')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile Android app, JUnit recurrence and purpose tests, lint, Android test APK
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V274SelfCarePresetsTest.xml'))
+          assert len(files)==1
+          result=ET.parse(files[0]).getroot()
+          assert int(result.attrib.get('failures',0))==0
+          assert int(result.attrib.get('errors',0))==0
+          assert int(result.attrib.get('tests',0))>=3
+          print('PASS personal self-care preset JUnit tests:', result.attrib.get('tests'))
+          PY
+          mkdir -p preview
+          cp app/build/outputs/apk/debug/app-debug.apk preview/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk preview/app-debug-androidTest.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V274-Disposable-SelfCare-QA-APKs
+          path: preview/
+          retention-days: 7
+          if-no-files-found: error
+
+  android11-selfcare:
+    needs: full-android-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V274-Disposable-SelfCare-QA-APKs
+          path: preview
+      - name: Enable free emulator KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android11 legacy Personal codec and guided editor UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r preview/app-debug.apk
+            adb install -r preview/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V274SelfCareBackupTest,com.framebynavin.app.ui.V274SelfCareEditorUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v274-selfcare.log
+            grep -F 'OK (3 tests)' /tmp/backlot-v274-selfcare.log
+      - run: echo "Synthetic data only; no Owner data imported, no Creator or Personal records deleted"
