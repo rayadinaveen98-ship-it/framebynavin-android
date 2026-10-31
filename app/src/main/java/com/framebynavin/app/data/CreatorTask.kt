@@ -1,5 +1,7 @@
 package com.framebynavin.app.data
 
+import com.framebynavin.app.reminders.ReminderMusicMode
+
 enum class TaskStatus { PLANNED, WORKING, DONE, SKIPPED }
 enum class TaskPriority { NORMAL, IMPORTANT, CRITICAL }
 enum class ReminderAlertType { NOTIFICATION, ALARM }
@@ -105,5 +107,8 @@ data class CreatorTask(
     val acknowledgedCheckpointDueAtMillis: Long = 0L,
     val contentDna: CreatorContentDna = CreatorContentDna(),
     val workspace: CreatorContentWorkspace = CreatorContentWorkspace(),
+    /** Voice background only; distinct from alarmSoundUri. */
+    val voiceMusicMode: ReminderMusicMode = ReminderMusicMode.PIANO,
+    val voiceMusicUri: String = "",
 
 )
