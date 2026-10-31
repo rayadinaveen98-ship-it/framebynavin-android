@@ -502,6 +502,20 @@ internal fun V2232PersonalEditor(
         mutableStateOf((existing?.hourlyUntil ?: LocalTime.of(23, 59)).toString())
     }
     var error by remember { mutableStateOf<String?>(null) }
+    var fullScreenAllowed by remember { mutableStateOf(
+        com.framebynavin.app.reminders.V268FullScreenReminderAccess.allowed(context)
+    ) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                fullScreenAllowed =
+                    com.framebynavin.app.reminders.V268FullScreenReminderAccess.allowed(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val repeatOptions = PersonalRepeat.entries
     val alertOptions = PersonalAlert.entries
     val date = Instant.ofEpochMilli(selectedTime).atZone(zone)
@@ -704,6 +718,32 @@ internal fun V2232PersonalEditor(
                     if (alert != PersonalAlert.NOTIFICATION.name) {
                         Text("Voice and Alarm play short audio when Android allows; the notification remains your fallback.",
                             color = MutedGold, fontSize = 11.sp)
+                    }
+                    if (alert == PersonalAlert.ALARM.name) {
+                        Text(
+                            if (fullScreenAllowed)
+                                "When your screen is locked, Personal Alarm can open full screen. " +
+                                    "While unlocked, Android usually shows a heads-up notification."
+                            else "Full-screen alerts are not permitted. " +
+                                    "Your alarm notification and Done/Snooze actions still work.",
+                            color = MutedGold, fontSize = 11.sp,
+                            modifier = Modifier.testTag("v279-personal-fullscreen-explanation"),
+                        )
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+                            !fullScreenAllowed) {
+                            TextButton(
+                                onClick = {
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                                data = android.net.Uri.parse("package:${context.packageName}")
+                                            }
+                                        )
+                                    }.onFailure { error = "Open Android settings and enable Full-screen alerts for Backlot." }
+                                },
+                                modifier = Modifier.testTag("v279-personal-fsi-settings"),
+                            ) { Text("Full-screen alert settings") }
+                        }
                     }
                     if (alert == PersonalAlert.VOICE.name) {
                         V273ReminderMusicPicker(
