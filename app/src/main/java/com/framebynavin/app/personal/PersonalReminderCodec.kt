@@ -1,5 +1,6 @@
 package com.framebynavin.app.personal
 
+import com.framebynavin.app.reminders.ReminderMusicMode
 import java.security.MessageDigest
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -7,7 +8,6 @@ import java.time.LocalTime
 import java.time.ZoneId
 import org.json.JSONArray
 import org.json.JSONObject
-import com.framebynavin.app.reminders.ReminderMusicMode
 
 /**
  * Independently exportable personal backup envelope. CreatorBackupManager and
@@ -41,6 +41,9 @@ internal object PersonalReminderCodec {
                     it.weeklyDays.sortedBy(DayOfWeek::getValue).forEach { d -> days.put(d.value) }
                 })
                 .put("everyNDays", it.everyNDays)
+                .put("everyNHours", it.everyNHours)
+                .put("hourlyUntil", it.hourlyUntil.toString())
+                .put("purpose", it.purpose.name)
                 .put("alert", it.alert.name)
                 .put("voiceMusicMode", it.voiceMusicMode.name)
                 .put("voiceMusicUri", it.voiceMusicUri)
@@ -101,6 +104,9 @@ internal object PersonalReminderCodec {
                     repeat = PersonalRepeat.valueOf(item.getString("repeat")),
                     weeklyDays = weeklyDays,
                     everyNDays = item.getInt("everyNDays"),
+                    everyNHours = item.optInt("everyNHours", 3),
+                    hourlyUntil = LocalTime.parse(item.optString("hourlyUntil", "23:59")),
+                    purpose = PersonalPurpose.valueOf(item.optString("purpose", "CUSTOM")),
                     alert = PersonalAlert.valueOf(item.getString("alert")),
                     voiceMusicMode = ReminderMusicMode.valueOf(item.optString("voiceMusicMode", "PIANO")),
                     voiceMusicUri = item.optString("voiceMusicUri", ""),

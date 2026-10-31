@@ -1,12 +1,12 @@
 package com.framebynavin.app.personal
 
+import com.framebynavin.app.reminders.ReminderMusicChoice
+import com.framebynavin.app.reminders.ReminderMusicMode
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.util.UUID
-import com.framebynavin.app.reminders.ReminderMusicChoice
-import com.framebynavin.app.reminders.ReminderMusicMode
 
 /**
  * Personal data is NOT a CreatorTask and must never be inserted into task flows,
@@ -17,7 +17,7 @@ import com.framebynavin.app.reminders.ReminderMusicMode
  * reminders survive DST/time-zone transitions without drifting in elapsed time.
  */
 internal enum class PersonalRepeat {
-    ONCE, DAILY, WEEKDAYS, WEEKLY, MONTHLY, EVERY_N_DAYS,
+    ONCE, DAILY, WEEKDAYS, WEEKLY, MONTHLY, EVERY_N_DAYS, WEEKENDS, EVERY_N_HOURS,
 }
 
 internal enum class PersonalAlert {
@@ -64,17 +64,27 @@ internal data class PersonalReminder(
     val lastResponseAtMillis: Long = 0L,
     val createdAtMillis: Long = System.currentTimeMillis(),
     val updatedAtMillis: Long = createdAtMillis,
+    /** Hourly schedule cadence; ignored for existing non-hourly reminder types. */
+    val everyNHours: Int = 3,
+    /** Last daily eligible wall-clock time, inclusive; start is reminder.time. */
+    val hourlyUntil: LocalTime = LocalTime.of(23, 59),
+    /** Optional personal-only category; it never leaves the Personal backup. */
+    val purpose: PersonalPurpose = PersonalPurpose.CUSTOM,
     val voiceMusicMode: ReminderMusicMode = ReminderMusicMode.PIANO,
     val voiceMusicUri: String = "",
 ) {
     fun checked(): PersonalReminder {
+        ReminderMusicChoice(voiceMusicMode, voiceMusicUri).checked()
         require(id.matches(Regex("[a-zA-Z0-9_:.-]{1,128}"))) { "Invalid personal reminder id" }
         require(title.isNotBlank() && title.trim() == title && title.length <= 180) {
             "Personal reminder title must contain 1–180 characters"
         }
         require(notes.length <= 2_000) { "Personal reminder notes are too long" }
-        ReminderMusicChoice(voiceMusicMode, voiceMusicUri).checked()
         require(everyNDays in 1..365) { "Custom repeat interval must be 1–365 days" }
+        require(everyNHours in 1..24) { "Hourly interval must be 1–24 hours" }
+        require(repeat != PersonalRepeat.EVERY_N_HOURS || !hourlyUntil.isBefore(time)) {
+            "Hourly window must end at or after its starting time"
+        }
         require(weeklyDays.size <= 7) { "Invalid weekly recurrence days" }
         require(repeat != PersonalRepeat.WEEKLY || weeklyDays.isNotEmpty()) {
             "Weekly recurrence must select at least one day"
