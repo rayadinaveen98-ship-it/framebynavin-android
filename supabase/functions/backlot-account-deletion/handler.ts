@@ -6,7 +6,7 @@
  * bearer verified by Supabase Auth and owner-scoped SQL.
  */
 export const CONFIRM = "DELETE MY BACKLOT ACCOUNT";
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BODY = 256;
 const STATES = new Set(["pending", "retryable", "complete"]);
 const STAGES = new Set(["fenced", "storage_deleted", "data_deleted", "auth_deleted", "complete"]);
