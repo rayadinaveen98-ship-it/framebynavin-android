@@ -1,0 +1,64 @@
+name: Backlot Play - Cloudflare Free Static Preview Fail-Closed QA
+on:
+  push:
+    branches: [feature/backlot-play-free-pages-static-preview-build272]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backlot-pages-static-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  safe-static-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ensure this change cannot mutate installed app or production services
+        run: |
+          set -euo pipefail
+          BASE=8ec691c2cc9a5ac9eec915d3fa5e8a532825474e
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/cloudflare-files
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path("/tmp/cloudflare-files").read_text().splitlines())
+          allowed={
+            "release-site/index.html",
+            "release-site/privacy/index.html",
+            "release-site/delete-account/index.html",
+            "release-site/deletion-request/index.html",
+            "release-site/assets/backlot-deletion-config.mjs",
+            "release-site/assets/backlot-deletion-core.mjs",
+            "release-site/assets/backlot-deletion-web.mjs",
+            "release-site/assets/backlot-deletion.css",
+            "release-site/assets/backlot.css",
+            "release-site/tests/test_deletion_web.mjs",
+            "release-site/tests/test_site.py",
+            "docs/release/PLAY_PRIVACY_SITE_REVIEW_NOT_LIVE.md",
+            "docs/play/FREE_CLOUDFLARE_PAGES_DEPLOY.md",
+            ".github/workflows/backlot-play-cloudflare-static-preview-gate.yml",
+          }
+          assert changed==allowed, f"Unexpected source modifications: {sorted(changed^allowed)}"
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert "versionCode = 272" in gradle and 'applicationId = "com.framebynavin.app"' in gradle
+          config=Path("release-site/assets/backlot-deletion-config.mjs").read_text()
+          assert "enabled: false" in config and 'approvedOrigin: ""' in config and 'publishableKey: ""' in config
+          assert "service_role" not in config
+          for path in ["index.html","privacy/index.html","delete-account/index.html","deletion-request/index.html"]:
+            html=Path("release-site",path).read_text()
+            assert 'noindex,nofollow' in html
+            assert 'draft' in html.lower() or 'preview' in html.lower()
+          print("PASS default-disabled free static preview only, no hosted deployment or live deletion")
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify website HTML and zero-network disabled PKCE runtime
+        run: |
+          python3 release-site/tests/test_site.py
+          node --test release-site/tests/test_deletion_web.mjs
+      - name: Validate no change to real app or production data
+        run: echo "No Android APK built, cloud database changed, public site deployed or Play Console submitted"
