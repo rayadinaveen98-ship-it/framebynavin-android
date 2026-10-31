@@ -35,6 +35,7 @@ jobs:
             "app/src/main/java/com/framebynavin/app/personal/PersonalFullScreenPolicy.kt",
             "app/src/main/java/com/framebynavin/app/personal/PersonalReminderNotifications.kt",
             "app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt",
+            "app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt",
             "app/src/test/java/com/framebynavin/app/personal/V279PersonalFullScreenPolicyTest.kt",
             "app/src/androidTest/java/com/framebynavin/app/personal/V279PersonalFullScreenNotificationTest.kt",
             "app/src/androidTest/java/com/framebynavin/app/personal/V279LockedPersonalAlertUiTest.kt",
@@ -52,6 +53,9 @@ jobs:
           ui = Path("app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt").read_text()
           assert 'if (locked)' in ui and 'if (saving || keyguardShowing) return' in ui
           assert 'Spoken three times' in ui
+          editor = Path("app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt").read_text()
+          assert 'ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT' in editor
+          assert 'v279-personal-fsi-settings' in editor
           notify = Path("app/src/main/java/com/framebynavin/app/personal/PersonalReminderNotifications.kt").read_text()
           assert 'V268FullScreenReminderAccess.configure(' in notify
           assert 'V268FullScreenReminderAccess.allowed(context)' in notify
