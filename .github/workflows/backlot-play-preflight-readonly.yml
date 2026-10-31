@@ -1,0 +1,88 @@
+name: Backlot Play preflight — source audit and production signer gate
+
+on:
+  push:
+    branches: [release/backlot-play-submission-prep-20261031]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-play-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy-and-signing-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove Play preparation changes do not mutate the approved Build272
+        run: |
+          set -euo pipefail
+          BASE=e6ec896447f3852dba7c52435e711e1ca23d4ee2
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD >/tmp/play-preflight-paths
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import xml.etree.ElementTree as ET
+          paths=set(Path("/tmp/play-preflight-paths").read_text().splitlines())
+          allowed={
+            "docs/play/STORE_LISTING_DRAFT.md",
+            "docs/play/DATA_SAFETY_EVIDENCE.md",
+            "docs/play/RELEASE_OWNER_DECISIONS.md",
+            "docs/play/FGS_FSI_REVIEW_SCRIPT.md",
+            ".github/workflows/backlot-play-preflight-readonly.yml",
+          }
+          assert paths==allowed, f"Release prep must only change docs/one audit workflow: {sorted(paths ^ allowed)}"
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'targetSdk = 36' in gradle and 'minSdk = 26' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle and 'versionCode = 272' in gradle
+          assert 'create("personalStable")' in gradle and 'verifyPrivateReleaseSigning' in gradle
+          assert 'dev-signing/framebynavin-public-debug.jks' in gradle
+          assert 'productionReleaseSigning?.let { signingConfig = it }' in gradle
+          manifest=ET.parse("app/src/main/AndroidManifest.xml").getroot()
+          android="{http://schemas.android.com/apk/res/android}"
+          perms={x.attrib[android+"name"] for x in manifest.findall("uses-permission")}
+          assert "android.permission.USE_FULL_SCREEN_INTENT" in perms
+          assert "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" in perms
+          services={x.attrib.get(android+"name"):x.attrib.get(android+"foregroundServiceType") for x in manifest.findall("./application/service")}
+          for service in (".reminders.AlarmRingingService",".reminders.VoiceReminderService",".personal.PersonalPlaybackService"):
+              assert services.get(service)=="mediaPlayback", f"Missing current declaration: {service}"
+          privacy=Path("app/src/main/java/com/framebynavin/app/ui/V269DataPrivacyActivity.kt").read_text()
+          assert "Full Backlot account deletion is not available" in privacy
+          for name in sorted(allowed-set([".github/workflows/backlot-play-preflight-readonly.yml"])):
+              doc=Path(name).read_text()
+              assert len(doc)>700
+              assert "NOT submitted" in doc or "NOT A PLAY CONSOLE" in doc or "blocked" in doc.lower() or "DRAFT" in doc
+          print("PASS Build272 unchanged, target API36, no fake deletion readiness, policy risks explicitly recorded")
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify production release gate REFUSES publicly signed Play bundle
+        run: |
+          set -euo pipefail
+          # No production signing credentials are provided to this preflight.
+          # The Gradle task must fail closed before any release artifact is built.
+          if gradle :app:verifyPrivateReleaseSigning --no-daemon > /tmp/backlot-signing-gate.log 2>&1; then
+            echo "FAIL: Play release signer gate accepted absent credentials"
+            exit 1
+          fi
+          grep -q 'Private Play upload signing is not configured' /tmp/backlot-signing-gate.log || {
+            echo "FAIL: signing gate failed for unrelated reason"
+            tail -n 15 /tmp/backlot-signing-gate.log
+            exit 1
+          }
+          test ! -f app/build/outputs/bundle/release/app-release.aab
+          echo 'PASS release signing gate safely blocked unsigned/prototype production bundle'
+      - name: Final result
+        run: echo "Source prep only; no production AAB, no Play Console upload, no database changes, no live account deletion."
