@@ -66,6 +66,8 @@ internal data class PersonalReminder(
     val everyNHours: Int = 3,
     /** Last daily eligible wall-clock time, inclusive; start is reminder.time. */
     val hourlyUntil: LocalTime = LocalTime.of(23, 59),
+    /** Optional personal-only category; it never leaves the Personal backup. */
+    val purpose: PersonalPurpose = PersonalPurpose.CUSTOM,
 ) {
     fun checked(): PersonalReminder {
         require(id.matches(Regex("[a-zA-Z0-9_:.-]{1,128}"))) { "Invalid personal reminder id" }
