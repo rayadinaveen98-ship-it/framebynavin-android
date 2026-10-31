@@ -12,7 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.framebynavin.app.reminders.ReminderBackingMusic
+import com.framebynavin.app.reminders.ReminderVoiceMusicPreview
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.framebynavin.app.reminders.ReminderMusicChoice
 import com.framebynavin.app.reminders.ReminderMusicMode
 
@@ -30,8 +33,26 @@ internal fun V273ReminderMusicPicker(
 ) {
     val context = LocalContext.current
     var error by remember { mutableStateOf<String?>(null) }
-    val preview = remember(context) { ReminderBackingMusic(context.applicationContext) }
-    DisposableEffect(preview) { onDispose { preview.stop() } }
+    var previewStatus by remember { mutableStateOf<String?>(null) }
+    val preview = remember(context) { ReminderVoiceMusicPreview(context.applicationContext) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(preview, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP || event == Lifecycle.Event.ON_DESTROY) {
+                preview.stop()
+                previewStatus = null
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            preview.stop()
+        }
+    }
+    LaunchedEffect(mode, uri) {
+        preview.stop()
+        previewStatus = null
+    }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { chosen ->
         if (chosen == null) return@rememberLauncherForActivityResult
         if (chosen.scheme != "content" || chosen.toString().length > 2048) {
@@ -82,18 +103,38 @@ internal fun V273ReminderMusicPicker(
                 Text("Change audio file")
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedButton(
                 onClick = {
                     error = null
-                    preview.start(ReminderMusicChoice(mode, uri))
+                    preview.playMusic(ReminderMusicChoice(mode, uri))
+                    previewStatus = "Background preview plays for at most 30 seconds."
                 },
+                enabled = mode != ReminderMusicMode.OFF,
                 modifier = Modifier.testTag("v273-music-preview"),
-            ) { Text("Play music preview") }
-            TextButton(onClick = { preview.stop() }) { Text("Stop preview") }
+            ) { Text("Play background music") }
+            OutlinedButton(
+                onClick = {
+                    error = null
+                    previewStatus = "Playing one sample announcement with your selected music."
+                    preview.playVoiceAndMusic(ReminderMusicChoice(mode, uri)) {
+                        previewStatus = it
+                    }
+                },
+                modifier = Modifier.testTag("v277-voice-music-test"),
+            ) { Text("Test voice + music") }
+            TextButton(
+                onClick = {
+                    preview.stop()
+                    previewStatus = "Preview stopped."
+                },
+                modifier = Modifier.testTag("v277-preview-stop"),
+            ) { Text("Stop preview") }
         }
-        Text("Voice becomes louder than the background when the reminder speaks.",
+        Text("Test uses a sample voice line, not your private reminder text. " +
+            "Playback stops automatically or when you leave this screen.",
             style = MaterialTheme.typography.bodySmall)
+        previewStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }
