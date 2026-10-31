@@ -1,26 +1,25 @@
 package com.framebynavin.app.reminders
 
+import android.content.Context
 import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioTrack
+import android.media.MediaPlayer
 import android.util.Log
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * Local original piano-like soundtrack for Backlot voice reminders.
- *
- * No third-party recording, network, media URI or special storage permission.
- * A bounded PCM loop is generated on demand and released when speech finishes
- * or the reminder is Done/Snoozed/stopped. Native platform AudioTrack controls
- * playback; this is not a separate foreground/background service.
+ * Original fully synthesized piano-like melody: no third-party recording,
+ * download, storage permission, or streaming. Never shares source files.
  */
 internal object ReminderPianoWaveform {
     const val SAMPLE_RATE = 16_000
     private const val STEP_SECONDS = 0.68
-    // A gentle, original eight-note arpeggio; nothing copyrighted is sampled.
     private val notes = doubleArrayOf(261.63, 329.63, 392.00, 329.63,
         220.00, 261.63, 329.63, 293.66)
 
@@ -30,7 +29,6 @@ internal object ReminderPianoWaveform {
         return ShortArray(count) { index ->
             val step = index / stepSamples
             val inNote = (index % stepSamples).toDouble() / SAMPLE_RATE
-            // Fast attack, exponentially decaying harmonics plus mellow release.
             val attack = (inNote / 0.018).coerceIn(0.0, 1.0)
             val envelope = attack * exp(-3.9 * inNote)
             val wave = (
@@ -42,69 +40,105 @@ internal object ReminderPianoWaveform {
                 Short.MAX_VALUE.toInt()).toShort()
         }
     }
+
+    fun waveHeader(dataBytes: Int): ByteArray {
+        require(dataBytes in 2..1_000_000 && dataBytes % 2 == 0)
+        return ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+            .put("RIFF".toByteArray(Charsets.US_ASCII))
+            .putInt(dataBytes + 36)
+            .put("WAVE".toByteArray(Charsets.US_ASCII))
+            .put("fmt ".toByteArray(Charsets.US_ASCII))
+            .putInt(16)
+            .putShort(1.toShort())
+            .putShort(1.toShort())
+            .putInt(SAMPLE_RATE)
+            .putInt(SAMPLE_RATE * 2)
+            .putShort(2.toShort())
+            .putShort(16.toShort())
+            .put("data".toByteArray(Charsets.US_ASCII))
+            .putInt(dataBytes).array()
+    }
 }
 
-/** AudioTrack is created only after the existing current-occurrence admission check. */
-internal class ReminderPianoLoop {
-    private var track: AudioTrack? = null
+/**
+ * Android11 emulator and some vendor audio backends reject MODE_STATIC loop
+ * points for generated PCM. Use the platform decoder on a tiny temporary WAV
+ * instead. Each active service owns its own cache file; never overwrites
+ * another reminder and always deletes temporary audio on stop.
+ */
+internal class ReminderPianoLoop(private val context: Context) {
+    private var player: MediaPlayer? = null
+    private var backingFile: File? = null
+    private var generation = 0
+    private var requestedVolume = .14f
 
     fun start(): Boolean {
         stop()
+        val currentGeneration = ++generation
         return runCatching {
             val samples = ReminderPianoWaveform.render()
-            val bytes = ByteArray(samples.size * 2)
-            for (i in samples.indices) {
-                val sample = samples[i].toInt()
-                bytes[2 * i] = (sample and 0xff).toByte()
-                bytes[2 * i + 1] = (sample shr 8).toByte()
-            }
-            val audio = AudioTrack.Builder()
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build(),
-                )
-                .setAudioFormat(
-                    AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(ReminderPianoWaveform.SAMPLE_RATE)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build(),
-                )
-                .setTransferMode(AudioTrack.MODE_STATIC)
-                .setBufferSizeInBytes(bytes.size)
-                .build()
-            try {
-                check(audio.state == AudioTrack.STATE_INITIALIZED) { "Piano track unavailable" }
-                check(audio.write(bytes, 0, bytes.size, AudioTrack.WRITE_BLOCKING) == bytes.size) {
-                    "Piano loop write incomplete"
+            val file = File.createTempFile(
+                "backlot-piano-", ".wav", context.applicationContext.cacheDir,
+            )
+            backingFile = file
+            FileOutputStream(file).use { out ->
+                out.write(ReminderPianoWaveform.waveHeader(samples.size * 2))
+                val data = ByteArray(samples.size * 2)
+                for (i in samples.indices) {
+                    val sample = samples[i].toInt()
+                    data[2 * i] = (sample and 0xff).toByte()
+                    data[2 * i + 1] = (sample ushr 8).toByte()
                 }
-                check(audio.setLoopPoints(0, samples.size, -1) == AudioTrack.SUCCESS) {
-                    "Piano loop points unavailable"
-                }
-                audio.setVolume(0.14f)
-                audio.play()
-                track = audio
-            } finally {
-                if (track !== audio) audio.release()
+                out.write(data)
             }
+            val media = MediaPlayer()
+            player = media
+            media.setAudioAttributes(AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build())
+            media.setDataSource(file.absolutePath)
+            media.isLooping = true
+            media.setVolume(requestedVolume, requestedVolume)
+            media.setOnPreparedListener { prepared ->
+                if (generation == currentGeneration && player === prepared) {
+                    runCatching { prepared.start() }
+                        .onFailure { failure -> fail(currentGeneration, failure) }
+                }
+            }
+            media.setOnErrorListener { _, what, extra ->
+                fail(currentGeneration, IllegalStateException("Music decode error $what/$extra"))
+                true
+            }
+            media.prepareAsync()
             true
-        }.onFailure {
-            Log.w("BacklotPiano", "Built-in piano unavailable; speech will continue", it)
-        }.getOrDefault(false)
+        }.onFailure { fail(currentGeneration, it) }.getOrDefault(false)
     }
 
-    /** Spoken words stay intelligible while the background piano continues. */
+    private fun fail(expected: Int, error: Throwable) {
+        if (expected != generation) return
+        Log.w("BacklotPiano", "Offline piano playback unavailable; speech continues", error)
+        stop()
+    }
+
     fun setSpeaking(speaking: Boolean) {
-        runCatching { track?.setVolume(if (speaking) 0.035f else 0.14f) }
+        requestedVolume = if (speaking) .035f else .14f
+        runCatching { player?.setVolume(requestedVolume, requestedVolume) }
     }
 
     fun stop() {
-        val old = track
-        track = null
+        ++generation
+        val old = player
+        player = null
         if (old != null) {
-            runCatching { old.pause() }
-            runCatching { old.flush() }
+            runCatching { old.setOnPreparedListener(null) }
+            runCatching { old.setOnErrorListener(null) }
+            runCatching { old.reset() }
             runCatching { old.release() }
         }
+        val file = backingFile
+        backingFile = null
+        if (file != null) runCatching { file.delete() }
+        requestedVolume = .14f
     }
 }
