@@ -12,7 +12,7 @@ import android.util.Log
  * authorized SAF content URI. No network/remote URLs or raw filesystem paths.
  */
 internal class ReminderBackingMusic(private val context: Context) {
-    private val piano = ReminderPianoLoop()
+    private val piano = ReminderPianoLoop(context)
     private var custom: MediaPlayer? = null
     private var speaking = false
     private var serial = 0
