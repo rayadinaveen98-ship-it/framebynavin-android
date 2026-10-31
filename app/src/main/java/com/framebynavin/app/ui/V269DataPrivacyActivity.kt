@@ -168,15 +168,19 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
             }
 
             V269PrivacyCard("Delete Backlot account") {
-                Text(
-                    V269DataPrivacyPolicy.DELETION_STATUS,
-                    color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
-                    modifier = Modifier.testTag("v269-deletion-unavailable"),
-                )
-                Text(
-                    "Your Google account is separate. Personal Reminders and separately exported files are not deleted by a Creator cloud operation.",
-                    color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
-                )
+                if (com.framebynavin.app.cloud.BacklotDeletionReleaseGate.LIVE_REQUESTS_ENABLED) {
+                    V270AccountDeletionContent(manager, session)
+                } else {
+                    Text(
+                        V269DataPrivacyPolicy.DELETION_STATUS,
+                        color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                        modifier = Modifier.testTag("v269-deletion-unavailable"),
+                    )
+                    Text(
+                        "Your Google account is separate. Personal Reminders and separately exported files are not deleted by a Creator cloud operation.",
+                        color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
+                    )
+                }
             }
 
             if (message != null) {
