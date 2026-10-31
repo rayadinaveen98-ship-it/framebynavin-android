@@ -1,0 +1,154 @@
+name: Backlot Build272 — Complete Owner Preview and Upgrade-Safe QA
+
+on:
+  push:
+    branches: [release/backlot-v278-build272-voice-preview-owner-test]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v278-build272-owner-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Freeze personal and creator data, stable Build271, Cloud and Play
+        run: |
+          set -euo pipefail
+          BASE=b3e70f52f0355346b11593dc1b02987f3ea7c134
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD >/tmp/v278-files
+          python3 - <<'PY'
+          from pathlib import Path
+          changes=set(Path("/tmp/v278-files").read_text().splitlines())
+          expected={
+            "app/build.gradle.kts",
+            ".github/workflows/backlot-v278-build272-owner-qa.yml",
+            "docs/release/BACKLOT_V278_BUILD272_OWNER_TEST.md",
+          }
+          assert changes.issubset(expected), f"Unapproved source changes: {sorted(changes-expected)}"
+          assert {"app/build.gradle.kts", ".github/workflows/backlot-v278-build272-owner-qa.yml"}.issubset(changes)
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 272' in gradle
+          assert 'versionName = "2.16.1-rc27-reminder-voice-preview-owner-test"' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'create("personalStable")' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          picker=Path("app/src/main/java/com/framebynavin/app/ui/V273ReminderMusicPicker.kt").read_text()
+          preview=Path("app/src/main/java/com/framebynavin/app/reminders/ReminderVoiceMusicPreview.kt").read_text()
+          assert 'v277-voice-music-test' in picker and 'v277-preview-stop' in picker
+          assert 'Lifecycle.Event.ON_STOP' in picker and 'onDispose' in picker
+          assert 'MAX_PREVIEW_MILLIS = 30_000L' in preview
+          assert "PersonalReminderStore" not in preview and "TaskStore" not in preview
+          assert '.put("voiceMusicUri"' not in Path("app/src/main/java/com/framebynavin/app/data/TaskStore.kt").read_text()
+          assert not any(name.startswith(("supabase/","release-site/","app/src/main/java/com/framebynavin/app/personal/","app/src/main/java/com/framebynavin/app/data/")) for name in changes)
+          print("PASS only preview version metadata, no data migration, cloud or private Play release")
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Full app build, unit tests, lint, instrumentation APK and prototype-signed owner APK
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --no-daemon --stacktrace
+          test -s app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          mkdir -p owner-apks
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk owner-apks/Backlot-Build272-Full-Owner-Test.apk
+          cp app/build/outputs/apk/debug/app-debug.apk owner-apks/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk owner-apks/app-debug-androidTest.apk
+          (cd owner-apks && sha256sum *.apk >SHA256SUMS.txt)
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging owner-apks/Backlot-Build272-Full-Owner-Test.apk | grep -F "package: name='com.framebynavin.app' versionCode='272'"
+      - name: Download immutable signed Build271 for strict upgrade compatibility
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V276-Build271-Full-OWNER-TEST-APKs
+          run-id: 41195618647
+          github-token: ${{ github.token }}
+          path: previous
+      - name: Verify exact Build271 reference and identical signer for Build272
+        run: |
+          set -euo pipefail
+          OLD=previous/Backlot-V276-Build271-Full-App-OWNER-TEST.apk
+          NEW=owner-apks/Backlot-Build272-Full-Owner-Test.apk
+          test -s "$OLD"
+          test "$(stat -c%s "$OLD")" = 18004562
+          test "$(sha256sum "$OLD" | cut -d' ' -f1)" = b93684e1dbebdd99b4047e0c9f8ff6181d9fb73e22e94c89ae73d7d5082370ae
+          (cd previous && sha256sum -c SHA256SUMS.txt)
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          OLD_CERT="$("$SIGNER" verify --print-certs "$OLD" | awk '/certificate SHA-256 digest:/{print $NF}' | sort -u)"
+          NEW_CERT="$("$SIGNER" verify --print-certs "$NEW" | awk '/certificate SHA-256 digest:/{print $NF}' | sort -u)"
+          test -n "$OLD_CERT" && test -n "$NEW_CERT"
+          test "$(printf '%s\n' "$OLD_CERT" | wc -l)" -eq 1
+          test "$(printf '%s\n' "$NEW_CERT" | wc -l)" -eq 1
+          test "$OLD_CERT" = "$NEW_CERT"
+          test "$NEW_CERT" = f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0
+          echo "PASS Build271 → Build272 certificate matches: $NEW_CERT; no uninstall required for matching preview signer"
+      - name: Upload complete signed owner test candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Build272-Full-Owner-Test-APKs
+          path: owner-apks/
+          retention-days: 14
+          if-no-files-found: error
+
+  integrated-emulator:
+    needs: full-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 30
+            device: phone
+          - api: 36
+            device: tablet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Build272-Full-Owner-Test-APKs
+          path: owner-apks
+      - name: Verify exactly the signed and tested APK candidate
+        run: |
+          set -euo pipefail
+          (cd owner-apks && sha256sum -c SHA256SUMS.txt)
+          test -s owner-apks/Backlot-Build272-Full-Owner-Test.apk
+      - name: Enable free emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run previous 17 cases and 3 new preview tests with enforced CI-emulator safety marker
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            if [ "${{ matrix.device }}" = "tablet" ]; then adb shell wm size 1280x800; adb shell wm density 240; fi
+            adb install -r owner-apks/app-debug.apk
+            adb install -r owner-apks/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.V271PianoRuntimeTest,com.framebynavin.app.reminders.V273CreatorMusicLocalTest,com.framebynavin.app.personal.V273PersonalMusicCodecTest,com.framebynavin.app.personal.V272HourlyPersonalCodecTest,com.framebynavin.app.personal.V274SelfCareBackupTest,com.framebynavin.app.ui.V274SelfCareEditorUiTest,com.framebynavin.app.ui.V275WidgetPreviewTest,com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest,com.framebynavin.app.personal.V2231PersonalDeliveryTest,com.framebynavin.app.reminders.V277VoiceMusicPreviewDeviceTest,com.framebynavin.app.ui.V277VoiceMusicPreviewUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-build272-integration.log
+            grep -F 'OK (20 tests)' /tmp/backlot-build272-integration.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-build272-integration.log; then exit 1; fi
+      - run: echo "PASS synthetic preview tests only; owner physical-phone audio focus, Doze and widget launcher still need manual validation"
