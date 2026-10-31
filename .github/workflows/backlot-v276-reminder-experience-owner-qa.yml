@@ -1,0 +1,157 @@
+name: Backlot V276 Build271 Full Reminder Experience — Owner Test APK QA
+
+on:
+  push:
+    branches: [release/backlot-v276-reminder-experience-integration-preview]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v276-owner-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Freeze main, cloud, privacy, user-data boundaries and private Play signer
+        run: |
+          set -euo pipefail
+          BASE=a515e4702c36ad072269ec09bb9c358a6fd20468
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/v276-paths
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path('/tmp/v276-paths').read_text().splitlines())
+          approved={
+            '.github/workflows/backlot-v276-reminder-experience-owner-qa.yml',
+            'docs/release/BACKLOT_V276_COMBINED_OWNER_PREVIEW.md',
+            'app/build.gradle.kts',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminder.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminderCommands.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminderCodec.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalRecurrence.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalRecoveryPolicy.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalSelfCarePresets.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V274PersonalPurposeUi.kt',
+            'app/src/main/java/com/framebynavin/app/ui/WidgetMigrationActivity.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V275WidgetPreview.kt',
+            'app/src/test/java/com/framebynavin/app/personal/V272HourlyRecurrenceTest.kt',
+            'app/src/test/java/com/framebynavin/app/personal/V274SelfCarePresetsTest.kt',
+            'app/src/androidTest/java/com/framebynavin/app/personal/V272HourlyPersonalCodecTest.kt',
+            'app/src/androidTest/java/com/framebynavin/app/personal/V274SelfCareBackupTest.kt',
+            'app/src/androidTest/java/com/framebynavin/app/ui/V274SelfCareEditorUiTest.kt',
+            'app/src/androidTest/java/com/framebynavin/app/ui/V275WidgetPreviewTest.kt',
+          }
+          assert changed.issubset(approved), f'Unauthorized integration source mutation: {sorted(changed-approved)}'
+          assert len(changed)>=17
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 271' in gradle
+          assert 'versionName = "2.16.0-rc26-reminder-experience-owner-preview"' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          assert 'create("personalStable")' in gradle
+          assert not any(p.startswith(('supabase/','release-site/','app/src/main/res/','app/src/main/java/com/framebynavin/app/data/','app/src/main/java/com/framebynavin/app/widget/')) for p in changed)
+          personal=Path('app/src/main/java/com/framebynavin/app/personal/PersonalReminderCodec.kt').read_text()
+          for field in ('"everyNHours"','"hourlyUntil"','"purpose"','"voiceMusicMode"','"voiceMusicUri"'):
+            assert field in personal, f'Personal backup migration missing {field}'
+          creator=Path('app/src/main/java/com/framebynavin/app/data/TaskStore.kt').read_text()
+          assert '.put("voiceMusicUri"' not in creator, 'Do not sync local Creator music URI'
+          print('PASS independent owner preview, Personal+Creator isolated, full Build271 app, no live cloud/Play write')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile all app targets, unit tests, lint, Full personalStable APK and Android tests
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable --no-daemon --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          results=Path('app/build/test-results/testDebugUnitTest')
+          for name in ('V271PersonalVoiceRepeatTest','V271PianoWaveformTest','V272HourlyRecurrenceTest','V273MusicChoiceTest','V274SelfCarePresetsTest'):
+            reports=list(results.glob('TEST-*'+name+'.xml'))
+            assert len(reports)==1, 'Missing integrated JUnit report '+name
+            suite=ET.parse(reports[0]).getroot()
+            assert int(suite.attrib.get('errors',0))==0
+            assert int(suite.attrib.get('failures',0))==0
+            assert int(suite.attrib.get('tests',0))>=2
+            print('PASS integrated',name,suite.attrib['tests'],'tests')
+          PY
+          appfile=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$appfile"
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          mkdir -p full-preview
+          cp "$appfile" full-preview/Backlot-V276-Build271-Full-App-OWNER-TEST.apk
+          cp app/build/outputs/apk/debug/app-debug.apk full-preview/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk full-preview/app-debug-androidTest.apk
+          (cd full-preview && sha256sum *apk > SHA256SUMS.txt)
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$AAPT" dump badging full-preview/Backlot-V276-Build271-Full-App-OWNER-TEST.apk | grep -F "package: name='com.framebynavin.app' versionCode='271'"
+          "$SIGNER" verify --print-certs full-preview/Backlot-V276-Build271-Full-App-OWNER-TEST.apk | sed -n '1,5p'
+          echo 'PASS full owner-sideload APK built with public prototype key, NOT Play release'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V276-Build271-Full-OWNER-TEST-APKs
+          path: full-preview/
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator-safety:
+    needs: full-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 30
+            profile: phone
+          - api: 36
+            profile: tablet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V276-Build271-Full-OWNER-TEST-APKs
+          path: full-preview
+      - name: Verify exact checked-in full app bytes before test
+        run: |
+          set -euo pipefail
+          (cd full-preview && sha256sum -c SHA256SUMS.txt)
+          test -s full-preview/Backlot-V276-Build271-Full-App-OWNER-TEST.apk
+      - name: Enable KVM on free Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Full integrated Personal, Creator, audio, widget and backups synthetic Android QA
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r full-preview/app-debug.apk
+            adb install -r full-preview/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V271PianoRuntimeTest,com.framebynavin.app.reminders.V273CreatorMusicLocalTest,com.framebynavin.app.personal.V273PersonalMusicCodecTest,com.framebynavin.app.personal.V272HourlyPersonalCodecTest,com.framebynavin.app.personal.V274SelfCareBackupTest,com.framebynavin.app.ui.V274SelfCareEditorUiTest,com.framebynavin.app.ui.V275WidgetPreviewTest,com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest,com.framebynavin.app.personal.V2231PersonalDeliveryTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v276-integrated.log
+            grep -E 'OK \([0-9]+ tests?\)' /tmp/backlot-v276-integrated.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v276-integrated.log; then exit 1; fi
+      - run: echo "Emulator-only safety checks, no owner records or live backend touched"
