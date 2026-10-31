@@ -37,6 +37,7 @@ jobs:
             "app/src/main/java/com/framebynavin/app/personal/PersonalPlaybackPolicy.kt",
             "app/src/test/java/com/framebynavin/app/personal/V271PersonalVoiceRepeatTest.kt",
             "app/src/test/java/com/framebynavin/app/reminders/V271PianoWaveformTest.kt",
+            "app/src/androidTest/java/com/framebynavin/app/reminders/V271PianoRuntimeTest.kt",
             "docs/release/BACKLOT_V271_AUDIO_PHASE1A_PREVIEW.md",
           }
           assert changed.issubset(allowed), "Unsafe source change "+str(changed-allowed)
@@ -58,8 +59,9 @@ jobs:
       - name: Compile full Backlot, test recurrence/audio policy, run lint
         run: |
           set -euo pipefail
-          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
           test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
@@ -78,6 +80,47 @@ jobs:
           name: Backlot-V271-Phase1A-Debug-Candidate
           path: |
             app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             app/build/test-results/testDebugUnitTest/TEST-*V271*.xml
           retention-days: 7
           if-no-files-found: error
+
+  synthetic-android11-audio:
+    needs: compile-unit-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V271-Phase1A-Debug-Candidate
+          path: candidate
+      - name: Verify complete debug/test APKs for synthetic emulator only
+        run: |
+          set -euo pipefail
+          test -s candidate/app/build/outputs/apk/debug/app-debug.apk
+          test -s candidate/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+      - name: Allow KVM on free GitHub Actions runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 original piano runtime init/duck/release
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r candidate/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r candidate/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r \
+              -e class com.framebynavin.app.reminders.V271PianoRuntimeTest \
+              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
+              | tee /tmp/backlot-v271-piano-emulator.log
+            grep -F 'OK (1 test)' /tmp/backlot-v271-piano-emulator.log
+      - name: Explain remaining owner acceptance boundary
+        run: echo "PASS synthetic AudioTrack setup only; physical device music, Google Play and user data unaffected"
