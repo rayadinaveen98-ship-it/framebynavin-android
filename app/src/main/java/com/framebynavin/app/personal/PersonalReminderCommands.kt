@@ -1,12 +1,12 @@
 package com.framebynavin.app.personal
 
 import android.content.Context
+import com.framebynavin.app.reminders.ReminderMusicMode
 import com.framebynavin.app.widget.V224WidgetUpdater
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
-import com.framebynavin.app.reminders.ReminderMusicMode
 
 /**
  * One reliable write boundary for new Personal UI. This deliberately never
@@ -22,6 +22,9 @@ internal data class PersonalReminderDraft(
     val weeklyDays: Set<DayOfWeek> = emptySet(),
     val everyNDays: Int = 1,
     val alert: PersonalAlert = PersonalAlert.NOTIFICATION,
+    val everyNHours: Int = 3,
+    val hourlyUntil: LocalTime = LocalTime.of(23, 59),
+    val purpose: PersonalPurpose = PersonalPurpose.CUSTOM,
     val voiceMusicMode: ReminderMusicMode = ReminderMusicMode.PIANO,
     val voiceMusicUri: String = "",
 ) {
@@ -43,6 +46,9 @@ internal data class PersonalReminderDraft(
         weeklyDays = weeklyDays,
         everyNDays = everyNDays,
         alert = alert,
+        everyNHours = everyNHours,
+        hourlyUntil = hourlyUntil,
+        purpose = purpose,
         voiceMusicMode = voiceMusicMode,
         voiceMusicUri = voiceMusicUri,
     )
@@ -75,6 +81,9 @@ internal class PersonalReminderCommands(context: Context) {
                 repeat = checked.repeat,
                 weeklyDays = checked.weeklyDays,
                 everyNDays = checked.everyNDays,
+                everyNHours = checked.everyNHours,
+                hourlyUntil = checked.hourlyUntil,
+                purpose = checked.purpose,
                 alert = checked.alert,
                 voiceMusicMode = checked.voiceMusicMode,
                 voiceMusicUri = checked.voiceMusicUri,

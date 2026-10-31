@@ -475,6 +475,9 @@ internal fun V2232PersonalEditor(
     var selectedTime by rememberSaveable(existing?.id) { mutableLongStateOf(selectedStart) }
     var title by rememberSaveable(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }
     var notes by rememberSaveable(existing?.id) { mutableStateOf(existing?.notes.orEmpty()) }
+    var purpose by rememberSaveable(existing?.id) {
+        mutableStateOf(existing?.purpose ?: PersonalPurpose.CUSTOM)
+    }
     var repeat by rememberSaveable(existing?.id) {
         mutableStateOf(existing?.repeat?.name ?: PersonalRepeat.ONCE.name)
     }
@@ -492,6 +495,12 @@ internal fun V2232PersonalEditor(
             ?: Instant.ofEpochMilli(selectedStart).atZone(zone).dayOfWeek.name)
     }
     var everyNDays by rememberSaveable(existing?.id) { mutableStateOf((existing?.everyNDays ?: 3).toString()) }
+    var everyNHours by rememberSaveable(existing?.id) {
+        mutableStateOf((existing?.everyNHours ?: 3).toString())
+    }
+    var hourlyUntil by rememberSaveable(existing?.id) {
+        mutableStateOf((existing?.hourlyUntil ?: LocalTime.of(23, 59)).toString())
+    }
     var error by remember { mutableStateOf<String?>(null) }
     val repeatOptions = PersonalRepeat.entries
     val alertOptions = PersonalAlert.entries
@@ -516,7 +525,7 @@ internal fun V2232PersonalEditor(
                     Column(Modifier.weight(1f)) {
                         Text(if (existing == null) "NEW PERSONAL REMINDER" else "EDIT PERSONAL REMINDER",
                             color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Text("What, when and how", color = ProjectorIvory,
+                        Text("Your personal rhythm", color = ProjectorIvory,
                             fontSize = 19.sp, fontWeight = FontWeight.Bold)
                     }
                     IconButton(onClick = onDismiss) {
@@ -525,6 +534,16 @@ internal fun V2232PersonalEditor(
                 }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    V274PersonalPurposePicker(
+                        selected = purpose,
+                        onSelected = { selected ->
+                            title = PersonalSelfCarePresets.chooseTitle(title, purpose, selected)
+                            purpose = selected
+                            error = null
+                        },
+                    )
+                    Text("02  YOUR REMINDER", color = MutedGold,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(
                         value = title, onValueChange = { title = it.take(180); error = null },
                         label = { Text("What to remember?") }, singleLine = true,
@@ -535,6 +554,8 @@ internal fun V2232PersonalEditor(
                         label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    Text("03  WHEN SHOULD IT HAPPEN?", color = MutedGold,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedButton(onClick = {
                         v2232PickDateTime(context, selectedTime) { selectedTime = it; error = null }
                     }, modifier = Modifier.fillMaxWidth().testTag("v2232-personal-date")) {
@@ -547,11 +568,19 @@ internal fun V2232PersonalEditor(
                         horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         repeatOptions.forEach { choice ->
                             FilterChip(selected = repeat == choice.name,
-                                onClick = { repeat = choice.name },
+                                onClick = {
+                                    if (repeat != choice.name && choice == PersonalRepeat.EVERY_N_HOURS) {
+                                        daySelection = "" // Empty means all seven days, not today only.
+                                        everyNDays = "1"
+                                    }
+                                    if (repeat != choice.name && choice == PersonalRepeat.WEEKLY &&
+                                        daySelection.isEmpty()) daySelection = date.dayOfWeek.name
+                                    repeat = choice.name
+                                },
                                 label = { Text(choice.name.replace('_', ' '), fontSize = 10.sp) })
                         }
                     }
-                    if (repeat == PersonalRepeat.WEEKLY.name) {
+                    if (repeat == PersonalRepeat.WEEKLY.name || repeat == PersonalRepeat.EVERY_N_HOURS.name) {
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                             DayOfWeek.values().forEach { day ->
@@ -564,16 +593,106 @@ internal fun V2232PersonalEditor(
                             }
                         }
                     }
-                    if (repeat == PersonalRepeat.EVERY_N_DAYS.name) {
+                    if (repeat == PersonalRepeat.EVERY_N_HOURS.name) {
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(
+                                selected = weekDays.isEmpty(),
+                                onClick = { daySelection = "" },
+                                label = { Text("Every day", fontSize = 11.sp) },
+                            )
+                            FilterChip(
+                                selected = weekDays == setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+                                onClick = { daySelection = "SATURDAY,SUNDAY" },
+                                label = { Text("Weekends", fontSize = 11.sp) },
+                            )
+                            FilterChip(
+                                selected = weekDays == setOf(
+                                    DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+                                    DayOfWeek.THURSDAY, DayOfWeek.FRIDAY,
+                                ),
+                                onClick = { daySelection = "MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY" },
+                                label = { Text("Weekdays", fontSize = 11.sp) },
+                            )
+                        }
+                        OutlinedTextField(
+                            value = everyNHours,
+                            onValueChange = { everyNHours = it.filter(Char::isDigit).take(2) },
+                            label = { Text("Repeat every N hours (1–24)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        val until = runCatching { LocalTime.parse(hourlyUntil) }
+                            .getOrDefault(LocalTime.of(23, 59))
+                        OutlinedButton(
+                            onClick = {
+                                TimePickerDialog(context, { _, hour, minute ->
+                                    hourlyUntil = LocalTime.of(hour, minute).toString()
+                                }, until.hour, until.minute, false).show()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Outlined.AccessTime, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Daily active window ends at " +
+                                until.format(DateTimeFormatter.ofPattern("h:mm a")))
+                        }
+                    }
+                    if (repeat == PersonalRepeat.EVERY_N_DAYS.name ||
+                        repeat == PersonalRepeat.EVERY_N_HOURS.name) {
                         OutlinedTextField(
                             value = everyNDays,
                             onValueChange = { everyNDays = it.filter(Char::isDigit).take(3) },
-                            label = { Text("Every how many days? (1–365)") },
+                            label = {
+                                Text(if (repeat == PersonalRepeat.EVERY_N_HOURS.name)
+                                    "Repeat these days every N days (1–365)"
+                                else "Every how many days? (1–365)")
+                            },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
-                    Text("REMIND ME WITH", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    if (repeat == PersonalRepeat.EVERY_N_HOURS.name) {
+                        val previews = remember(selectedTime, daySelection, everyNHours,
+                            everyNDays, hourlyUntil) {
+                            runCatching {
+                                val chosen = Instant.ofEpochMilli(selectedTime).atZone(zone)
+                                val example = PersonalReminder(
+                                    title = title.trim().ifBlank { "Personal reminder" },
+                                    startDate = chosen.toLocalDate(),
+                                    time = chosen.toLocalTime().withSecond(0).withNano(0),
+                                    zoneId = zone,
+                                    repeat = PersonalRepeat.EVERY_N_HOURS,
+                                    weeklyDays = weekDays,
+                                    everyNDays = everyNDays.toInt(),
+                                    everyNHours = everyNHours.toInt(),
+                                    hourlyUntil = LocalTime.parse(hourlyUntil),
+                                ).checked()
+                                buildList {
+                                    var after = System.currentTimeMillis()
+                                    repeat(5) {
+                                        val next = PersonalRecurrence.nextAfter(example, after)
+                                            ?: return@repeat
+                                        add(next)
+                                        after = next
+                                    }
+                                }
+                            }.getOrDefault(emptyList<Long>())
+                        }
+                        Text("NEXT FIVE REMINDERS", color = MutedGold,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        if (previews.isEmpty()) Text(
+                            "Check hourly interval, days and active window.",
+                            color = MutedText, fontSize = 11.sp)
+                        else previews.forEach { next ->
+                            Text(
+                                Instant.ofEpochMilli(next).atZone(zone).format(
+                                    DateTimeFormatter.ofPattern("EEE, d MMM · h:mm a")),
+                                color = ProjectorIvory, fontSize = 12.sp)
+                        }
+                    }
+                    Text("04  HOW SHOULD BACKLOT REACH YOU?", color = MutedGold,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         alertOptions.forEach { choice ->
@@ -590,12 +709,44 @@ internal fun V2232PersonalEditor(
                         V273ReminderMusicPicker(
                             mode = voiceMusicMode,
                             uri = voiceMusicUri,
-                            onChanged = { mode, uri ->
+                            onChanged = { mode, picked ->
                                 voiceMusicMode = mode
-                                voiceMusicUri = uri
+                                voiceMusicUri = picked
                             },
                             modifier = Modifier.fillMaxWidth().testTag("v273-personal-music"),
                         )
+                    }
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().testTag("v274-personal-review"),
+                        color = CinemaSurface,
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Column(Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text("YOUR PLAN", color = MutedGold, fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold)
+                            Text(
+                                PersonalSelfCarePresets.scheduleLabel(
+                                    PersonalRepeat.valueOf(repeat),
+                                    everyNHours.toIntOrNull() ?: 3,
+                                    everyNDays.toIntOrNull() ?: 1,
+                                    weekDays,
+                                ),
+                                color = ProjectorIvory, fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                            )
+                            Text(
+                                date.format(DateTimeFormatter.ofPattern("EEE, d MMM · h:mm a")) +
+                                    " · " + PersonalAlert.valueOf(alert).name.lowercase()
+                                        .replaceFirstChar { it.uppercase() },
+                                color = MutedText, fontSize = 12.sp,
+                            )
+                            Text(
+                                "Preview only. Android battery and notification settings may delay alerts.",
+                                color = MutedText, fontSize = 11.sp,
+                            )
+                        }
                     }
                     error?.let {
                         Text(it, color = RecRed, modifier = Modifier.testTag("v2232-editor-error"))
@@ -615,9 +766,13 @@ internal fun V2232PersonalEditor(
                                     time = chosen.toLocalTime().withSecond(0).withNano(0),
                                     zoneId = zone,
                                     repeat = PersonalRepeat.valueOf(repeat),
-                                    weeklyDays = if (repeat == PersonalRepeat.WEEKLY.name)
+                                    weeklyDays = if (repeat == PersonalRepeat.WEEKLY.name ||
+                                        repeat == PersonalRepeat.EVERY_N_HOURS.name)
                                         weekDays else emptySet(),
                                     everyNDays = everyNDays.toIntOrNull() ?: 0,
+                                    everyNHours = everyNHours.toIntOrNull() ?: 0,
+                                    hourlyUntil = LocalTime.parse(hourlyUntil),
+                                    purpose = purpose,
                                     alert = PersonalAlert.valueOf(alert),
                                     voiceMusicMode = voiceMusicMode,
                                     voiceMusicUri = voiceMusicUri,
