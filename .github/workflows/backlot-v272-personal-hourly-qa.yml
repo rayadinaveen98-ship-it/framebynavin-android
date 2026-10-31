@@ -110,9 +110,6 @@ jobs:
             set -euo pipefail
             adb install -r hourly-tests/app-debug.apk
             adb install -r hourly-tests/app-debug-androidTest.apk
-            adb shell am instrument -w -r \
-              -e class com.framebynavin.app.personal.V272HourlyPersonalCodecTest \
-              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
-              | tee /tmp/backlot-v272-hourly-codec.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.personal.V272HourlyPersonalCodecTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v272-hourly-codec.log
             grep -F 'OK (2 tests)' /tmp/backlot-v272-hourly-codec.log
       - run: echo "PASS synthetic codec compatibility; actual owner install/notifications still require physical-device review"
