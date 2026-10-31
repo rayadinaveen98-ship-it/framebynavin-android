@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Backlot account-deletion login preview. Not active and not accepting live deletion requests.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://kukkqgpzxnfanynbddiw.supabase.co; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <title>Secure deletion request — Backlot (Disabled Preview)</title>
+  <link rel="stylesheet" href="../assets/backlot.css">
+  <link rel="stylesheet" href="../assets/backlot-deletion.css">
+  <script type="module" src="../assets/backlot-deletion-web.mjs"></script>
+</head>
+<body data-deletion-request="disabled-preview">
+  <a class="skip" href="#content">Skip to content</a>
+  <header><div class="wrap top">
+    <a class="brand" href="../"><span aria-hidden="true" class="brandmark">B</span>Backlot</a>
+    <nav aria-label="Site navigation"><a href="../privacy/">Privacy</a><a href="../delete-account/">Deletion status</a></nav>
+  </div></header>
+  <main id="content" class="wrap">
+    <p class="eyebrow">Built for creators · secure flow preview</p>
+    <h1>Delete your Backlot cloud account</h1>
+    <p class="lead">This secure request page is under development. It cannot submit account-deletion requests while the production service is unavailable.</p>
+    <div class="status" role="status" id="request-status" aria-live="polite">
+      Account deletion requests are not available in this preview. No request was submitted.
+    </div>
+    <section aria-labelledby="scope">
+      <h2 id="scope">What cloud account deletion means</h2>
+      <p>When operational, a verified request will cover your Backlot cloud authentication account, Creator profile, stored Creator snapshots and app-owned Voice Idea recordings. A request receipt does not mean deletion is immediately complete.</p>
+      <p><strong>This does not delete</strong> your Google account, YouTube channel, local Personal Reminders, separately exported backups or media stored outside Backlot. Export Creator and Personal backups separately before continuing.</p>
+    </section>
+    <section aria-labelledby="identity">
+      <h2 id="identity">1. Verify your account</h2>
+      <p>Sign in with the same Google account connected to Backlot. Signing in alone does not delete anything.</p>
+      <button class="backlot-action" type="button" id="request-signin" disabled>Continue with Google</button>
+      <div id="request-account" hidden>
+        <p class="request-identity" id="request-account-email"></p>
+        <button class="backlot-secondary" type="button" id="request-refresh" disabled>Check request status</button>
+        <button class="backlot-secondary" type="button" id="request-signout" disabled>Sign out</button>
+        <p id="request-cloud-status" class="request-identity" aria-live="polite"></p>
+      </div>
+    </section>
+    <section aria-labelledby="confirm">
+      <h2 id="confirm">2. Confirm permanent deletion</h2>
+      <div id="request-options" hidden>
+        <label for="request-phrase">Type the phrase <strong>DELETE MY BACKLOT ACCOUNT</strong></label>
+        <input id="request-phrase" name="confirmation" type="text" autocomplete="off" spellcheck="false" maxlength="64">
+        <button class="backlot-action backlot-danger" type="button" id="request-review" disabled>Review deletion request</button>
+        <p class="note">This irreversible operation requires a second confirmation. Your Google account is not deleted.</p>
+      </div>
+      <p class="note">The confirmation controls become available only after verified sign-in and a live deletion-service status check.</p>
+    </section>
+    <section aria-labelledby="more">
+      <h2 id="more">3. Privacy and support</h2>
+      <p>Read the <a href="../privacy/">draft privacy disclosure</a> and the <a href="../delete-account/">account-deletion status page</a>. An approved developer contact and a public request service are required before launch.</p>
+    </section>
+  </main>
+  <dialog id="request-confirm-dialog" aria-labelledby="dialog-heading" aria-describedby="dialog-explain">
+    <h2 id="dialog-heading">Request permanent cloud-account deletion?</h2>
+    <p id="dialog-explain">Backlot will request deletion of the currently verified account and associated Creator cloud data. Local Personal Reminders and separately exported files are not erased. This cannot be undone after processing.</p>
+    <div class="request-dialog-actions">
+      <button class="backlot-secondary" id="request-cancel" type="button">Cancel</button>
+      <button class="backlot-action backlot-danger" id="request-submit" type="button" disabled>Request deletion</button>
+    </div>
+  </dialog>
+  <footer><div class="wrap">
+    <p>Backlot · Built for creators · Inactive preview, not a published deletion service</p>
+    <p>No requests are collected by this page in the disabled preview.</p>
+  </div></footer>
+</body>
+</html>
