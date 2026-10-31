@@ -1,0 +1,127 @@
+name: Backlot V271 Reminder Audio Phase1A - Personal 3x and Original Piano QA
+
+on:
+  push:
+    branches: [feature/backlot-reminder-audio-phase1a-repeats-piano]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v271-reminder-audio-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-unit-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Guard changes away from real user backups, schedule, widgets, Cloud or Play signer
+        run: |
+          set -euo pipefail
+          BASE=1810aae9c4a7cd2762388306b63ee19793c66c18
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD >/tmp/audio-phase1a-files
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path("/tmp/audio-phase1a-files").read_text().splitlines())
+          allowed={
+            ".github/workflows/backlot-v271-audio-phase1a-qa.yml",
+            "app/src/main/java/com/framebynavin/app/reminders/ReminderPianoLoop.kt",
+            "app/src/main/java/com/framebynavin/app/reminders/VoiceReminderService.kt",
+            "app/src/main/java/com/framebynavin/app/personal/PersonalPlaybackService.kt",
+            "app/src/main/java/com/framebynavin/app/personal/PersonalPlaybackPolicy.kt",
+            "app/src/test/java/com/framebynavin/app/personal/V271PersonalVoiceRepeatTest.kt",
+            "app/src/test/java/com/framebynavin/app/reminders/V271PianoWaveformTest.kt",
+            "app/src/androidTest/java/com/framebynavin/app/reminders/V271PianoRuntimeTest.kt",
+            "docs/release/BACKLOT_V271_AUDIO_PHASE1A_PREVIEW.md",
+          }
+          assert changed.issubset(allowed), "Unsafe source change "+str(changed-allowed)
+          assert len(changed)>=7
+          build=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 270' in build and 'applicationId = "com.framebynavin.app"' in build
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in build
+          assert not any(x.startswith(("app/src/main/res/","supabase/","release-site/","app/src/main/java/com/framebynavin/app/widget/")) for x in changed)
+          assert not any("Backup" in x or "Codec" in x or "Store" in x for x in changed)
+          print("PASS source stays isolated: no user data, cloud, widgets, backup, signing or schedule mutation")
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile full Backlot, test recurrence/audio policy, run lint
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          for cls in ("V271PersonalVoiceRepeatTest","V271PianoWaveformTest"):
+            reports=list(Path("app/build/test-results/testDebugUnitTest").glob("TEST-*"+cls+".xml"))
+            assert len(reports)==1, f"Missing {cls} result"
+            root=ET.parse(reports[0]).getroot()
+            assert int(root.attrib.get("failures",0))==0
+            assert int(root.attrib.get("errors",0))==0
+            assert int(root.attrib.get("tests",0))>=2
+            print("PASS",cls,root.attrib.get("tests"),"unit checks")
+          PY
+      - name: Stage exact disposable emulator inputs
+        run: |
+          set -euo pipefail
+          mkdir -p candidate
+          cp app/build/outputs/apk/debug/app-debug.apk candidate/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk candidate/app-debug-androidTest.apk
+          cp app/build/test-results/testDebugUnitTest/TEST-*V271*.xml candidate/
+      - name: Upload disposable debug-only candidate and unit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V271-Phase1A-Debug-Candidate
+          path: candidate/
+          retention-days: 7
+          if-no-files-found: error
+
+  synthetic-android11-audio:
+    needs: compile-unit-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V271-Phase1A-Debug-Candidate
+          path: candidate
+      - name: Verify complete debug/test APKs for synthetic emulator only
+        run: |
+          set -euo pipefail
+          test -s candidate/app-debug.apk
+          test -s candidate/app-debug-androidTest.apk
+      - name: Allow KVM on free GitHub Actions runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 11 original piano runtime init/duck/release
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r candidate/app-debug.apk
+            adb install -r candidate/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V271PianoRuntimeTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v271-piano-emulator.log
+            grep -F 'OK (1 test)' /tmp/backlot-v271-piano-emulator.log
+      - name: Explain remaining owner acceptance boundary
+        run: echo "PASS synthetic AudioTrack setup only; physical device music, Google Play and user data unaffected"

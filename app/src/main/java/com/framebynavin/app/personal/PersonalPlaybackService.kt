@@ -23,6 +23,7 @@ import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.R
+import com.framebynavin.app.reminders.ReminderPianoLoop
 import java.lang.ref.WeakReference
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +45,7 @@ internal class PersonalPlaybackService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private var player: MediaPlayer? = null
+    private val piano = ReminderPianoLoop(this)
     private var tts: TextToSpeech? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -191,8 +193,11 @@ internal class PersonalPlaybackService : Service() {
     }
 
     private fun speakReminder(title: String, expectedGeneration: Int) {
-        // Speech is always bounded and local (the installed Android TTS engine).
-        // Do not read optional personal notes aloud.
+        // Spoken personal notes are deliberately excluded; the title is frozen
+        // for all three repeats. User Done/Snooze or another occurrence ends
+        // this generation and silences both TTS and piano immediately.
+        val message = "Personal reminder. $title"
+        piano.start() // Best-effort original offline music; speech always remains primary.
         try {
             tts = TextToSpeech(this) { status ->
                 if (expectedGeneration != generation) return@TextToSpeech
@@ -207,26 +212,50 @@ internal class PersonalPlaybackService : Service() {
                 engine.setAudioAttributes(AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-                val utteranceId = "personal:${currentToken}"
+                val expectedBase = "personal:${currentToken}:$expectedGeneration"
+                var activeId: String? = null
+
+                fun play(index: Int) {
+                    if (expectedGeneration != generation) return
+                    val utteranceId = "$expectedBase:$index"
+                    activeId = utteranceId
+                    piano.setSpeaking(true)
+                    val result = engine.speak(
+                        message,
+                        if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
+                        null,
+                        utteranceId,
+                    )
+                    if (result != TextToSpeech.SUCCESS) endPlayback()
+                }
+
                 engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) = Unit
                     override fun onDone(utteranceId: String?) {
                         handler.post {
-                            if (expectedGeneration == generation) endPlayback()
+                            if (expectedGeneration != generation || activeId != utteranceId) return@post
+                            activeId = null
+                            piano.setSpeaking(false)
+                            val completed = utteranceId?.substringAfterLast(':')?.toIntOrNull()
+                                ?: run { endPlayback(); return@post }
+                            val next = PersonalPlaybackPolicy.nextVoiceIndex(completed)
+                            if (next == null) endPlayback()
+                            else handler.postDelayed({
+                                if (expectedGeneration == generation && activeId == null) play(next)
+                            }, PersonalPlaybackPolicy.VOICE_REPEAT_GAP_MILLIS)
                         }
                     }
                     @Deprecated("Required by Android TextToSpeech callback")
                     override fun onError(utteranceId: String?) {
                         handler.post {
-                            if (expectedGeneration == generation) endPlayback()
+                            if (expectedGeneration == generation && activeId == utteranceId) endPlayback()
                         }
                     }
                 })
-                val result = engine.speak("Personal reminder. $title", TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-                if (result != TextToSpeech.SUCCESS) endPlayback()
+                play(0)
             }
         } catch (failure: Exception) {
-            android.util.Log.w("BacklotPersonal", "TTS unavailable; notification retained", failure)
+            android.util.Log.w("BacklotPersonal", "Personal voice unavailable; notification retained", failure)
             endPlayback()
         }
     }
@@ -247,6 +276,7 @@ internal class PersonalPlaybackService : Service() {
 
     private fun stopHardware() {
         handler.removeCallbacksAndMessages(null)
+        piano.stop()
         runCatching { player?.stop() }
         runCatching { player?.release() }
         player = null
