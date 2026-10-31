@@ -101,7 +101,7 @@ internal class BacklotAccountDeletionApi {
                 val code = connection.responseCode
                 if (code == 503 || code == 404) throw BacklotDeletionUnavailable()
                 if (code == 401 || code == 403 || code == 422) throw BacklotDeletionReauthentication()
-                if (code != if (method == "POST") 202 else 200) throw BacklotDeletionUnavailable()
+                if (code != (if (method == "POST") 202 else 200)) throw BacklotDeletionUnavailable()
                 val input = connection.inputStream ?: throw BacklotDeletionUnavailable()
                 val data = input.use { stream ->
                     // Do not parse unbounded or potentially sensitive remote error bodies.
