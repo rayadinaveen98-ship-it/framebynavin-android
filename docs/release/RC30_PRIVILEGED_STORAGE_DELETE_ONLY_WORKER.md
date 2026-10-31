@@ -14,6 +14,10 @@ RC29 verified user-JWT Storage writes are denied after account fencing using RES
 4. New `rc30-local/test_real_delete_only_worker.py` tests the adapter through real local Supabase Auth + Storage API with two synthetic users. After A is fenced, direct raw service-key upload to A is deliberately performed and observed, followed by real DELETE-only removal of exactly A's objects; B's files and Auth survive. Completing the already-fenced receipt invokes the refactored RC26 worker, verifying the full cleanup still reaches actual Auth deletion.
 5. CI runs as public repository standard GitHub Actions on a disposable local Supabase CLI stack, with strict loopback target checks and exact changed-file allowlist, no secrets or billable hosted resources.
 
+## Android Voice Idea storage-path compatibility
+
+On October 31, a source audit found Android `CreatorCloudVoiceMedia.safeSegment` permits periods in idea IDs (`[A-Za-z0-9._-]`), but the original backend delete-only validator rejected valid names such as `shot.v2`. This could strand a user's Voice Idea recording during deletion. The validator now matches the 160-character Android segment alphabet and still rejects `..` traversal, unsafe characters, wrong owner and mixed-account paths. The offline unit suite covers valid dotted IDs and malicious variants; a disposable local Supabase API test uploads and deletes an actual dotted-path file. No hosted Supabase data, production migrations or app binary changed.
+
 ## Explicit remaining launch blockers — DO NOT OVERCLAIM
 
 - This code runs in the *local test worker* and deliberately does NOT prevent direct privileged Storage writes by other tools, keys, dashboard integrations, S3 access keys or unconnected services. A bad actor holding a raw admin key remains capable of bypassing all RLS. Admin credential distribution and external privileged writer inventory must be resolved; do not put the service key in any client.
