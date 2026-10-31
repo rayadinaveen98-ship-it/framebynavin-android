@@ -33,10 +33,12 @@ jobs:
             ".github/workflows/backlot-v279-personal-alarm-fsi-qa.yml",
             "docs/release/BACKLOT_V279_PERSONAL_ALARM_FULLSCREEN_RCA_FIX.md",
             "app/src/main/java/com/framebynavin/app/personal/PersonalFullScreenPolicy.kt",
+            "app/src/main/java/com/framebynavin/app/personal/PersonalAlertPresentationPolicy.kt",
             "app/src/main/java/com/framebynavin/app/personal/PersonalReminderNotifications.kt",
             "app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt",
             "app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt",
             "app/src/test/java/com/framebynavin/app/personal/V279PersonalFullScreenPolicyTest.kt",
+            "app/src/test/java/com/framebynavin/app/personal/V279PersonalPresentationReceiptTest.kt",
             "app/src/androidTest/java/com/framebynavin/app/personal/V279PersonalFullScreenNotificationTest.kt",
             "app/src/androidTest/java/com/framebynavin/app/personal/V279LockedPersonalAlertUiTest.kt",
           }
@@ -53,6 +55,9 @@ jobs:
           ui = Path("app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt").read_text()
           assert 'if (locked)' in ui and 'if (saving || keyguardShowing) return' in ui
           assert 'Spoken three times' in ui
+          assert 'PersonalAlertPresentationPolicy.state' in ui
+          receipt=Path("app/src/main/java/com/framebynavin/app/personal/PersonalAlertPresentationPolicy.kt").read_text()
+          assert 'item.presentedToken == token' in receipt and 'item.pendingToken != token' in receipt
           editor = Path("app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt").read_text()
           assert 'ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT' in editor
           assert 'v279-personal-fsi-settings' in editor
@@ -79,7 +84,12 @@ jobs:
           assert len(reports)==1, f"Policy unit tests missing: {reports}"
           root=ET.parse(reports[0]).getroot()
           assert int(root.attrib.get('tests',0))==3 and int(root.attrib.get('failures',0))==0 and int(root.attrib.get('errors',0))==0
-          print('PASS 3 Personal full-screen policy tests')
+          receipt=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V279PersonalPresentationReceiptTest.xml'))
+          assert len(receipt)==1
+          receipt_suite=ET.parse(receipt[0]).getroot()
+          assert int(receipt_suite.attrib.get('tests',0))==3
+          assert int(receipt_suite.attrib.get('failures',0))==0 and int(receipt_suite.attrib.get('errors',0))==0
+          print('PASS 3 full-screen policy and 3 pre-ack receipt tests')
           PY
           mkdir -p qa
           cp app/build/outputs/apk/debug/app-debug.apk qa/app-debug.apk
