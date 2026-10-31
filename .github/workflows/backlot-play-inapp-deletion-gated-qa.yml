@@ -37,6 +37,7 @@ jobs:
             'app/src/androidTest/java/com/framebynavin/app/cloud/V270AccountDeletionSafetyTest.kt',
             '.github/workflows/backlot-play-inapp-deletion-gated-qa.yml',
             'docs/release/BACKLOT_PLAY_INAPP_DELETION_UX_DRAFT.md',
+            '.github/scripts/backlot-inapp-deletion-android11.sh',
           }
           assert actual.issubset(allowed), sorted(actual-allowed)
           assert actual.issuperset({
@@ -98,14 +99,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -e
-            adb install -r artifacts/debug/app-debug.apk
-            APK=$(find artifacts -name '*androidTest.apk' -print -quit)
-            test -n "$APK"
-            adb install -r "$APK"
-            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.cloud.V270AccountDeletionSafetyTest,com.framebynavin.app.ui.V269DataPrivacyUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee deletion-ui-tests.log
-            grep -Eq 'OK \([1-9][0-9]* tests?\)' deletion-ui-tests.log
+          script: bash .github/scripts/backlot-inapp-deletion-android11.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
