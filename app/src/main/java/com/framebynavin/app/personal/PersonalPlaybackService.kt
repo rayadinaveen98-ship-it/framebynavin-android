@@ -45,7 +45,7 @@ internal class PersonalPlaybackService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private var player: MediaPlayer? = null
-    private val piano = ReminderPianoLoop()
+    private val piano = ReminderPianoLoop(this)
     private var tts: TextToSpeech? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
