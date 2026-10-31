@@ -121,10 +121,17 @@ jobs:
           test "$(stat -c%s "$OLD")" = 17971790
           test "$(sha256sum "$OLD" | cut -d' ' -f1)" = 74ec1aa31fd9cf9083103423bc6040e2451db1fb454419823150f5cd1b568780
           SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          OLD_SIGNER="$("$SIGNER" verify --print-certs "$OLD" | grep 'Signer #1 certificate SHA-256 digest:')"
-          NEW_SIGNER="$("$SIGNER" verify --print-certs "$NEW" | grep 'Signer #1 certificate SHA-256 digest:')"
+          # Modern Android apksigner outputs "V2 Signer: certificate SHA-256 digest",
+          # whereas older build-tools say "Signer #1 certificate SHA-256 digest".
+          # Compare the certificate digest, not the version-specific label.
+          OLD_SIGNER="$("$SIGNER" verify --print-certs "$OLD" | awk '/certificate SHA-256 digest:/{print $NF}' | sort -u)"
+          NEW_SIGNER="$("$SIGNER" verify --print-certs "$NEW" | awk '/certificate SHA-256 digest:/{print $NF}' | sort -u)"
           test -n "$OLD_SIGNER"
+          test -n "$NEW_SIGNER"
+          test "$(printf '%s\n' "$OLD_SIGNER" | wc -l)" -eq 1
+          test "$(printf '%s\n' "$NEW_SIGNER" | wc -l)" -eq 1
           test "$OLD_SIGNER" = "$NEW_SIGNER"
+          echo "PASS matching APK signing certificate SHA-256: $OLD_SIGNER"
           echo 'PASS immutable Build270 and Build271 owner APK share an identical signer; higher versionCode supports update'
       - uses: actions/upload-artifact@v4
         with:
