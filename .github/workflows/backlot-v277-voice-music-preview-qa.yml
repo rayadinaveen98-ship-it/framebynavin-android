@@ -1,0 +1,106 @@
+name: Backlot V277 — Safe Voice + Music Preview, No Reminder Mutation
+
+on:
+  push:
+    branches: [feature/backlot-v277-safe-voice-music-preview]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v277-voice-music-preview
+  cancel-in-progress: true
+
+jobs:
+  full-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Guard user data, Backlot Build271 signer and hosted services
+        run: |
+          set -euo pipefail
+          BASE=40134107ffc882f28d46d4674bb1763a82a22a1b
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/v277-files
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path("/tmp/v277-files").read_text().splitlines())
+          allowed={
+            ".github/workflows/backlot-v277-voice-music-preview-qa.yml",
+            "app/src/main/java/com/framebynavin/app/reminders/ReminderVoiceMusicPreview.kt",
+            "app/src/main/java/com/framebynavin/app/ui/V273ReminderMusicPicker.kt",
+            "app/src/androidTest/java/com/framebynavin/app/reminders/V277VoiceMusicPreviewDeviceTest.kt",
+            "app/src/androidTest/java/com/framebynavin/app/ui/V277VoiceMusicPreviewUiTest.kt",
+            "docs/release/BACKLOT_V277_SAFE_VOICE_PREVIEW.md",
+          }
+          assert actual.issubset(allowed), f"Unexpected source mutation: {actual-allowed}"
+          assert len(actual)>=5
+          build=Path("app/build.gradle.kts").read_text()
+          assert "versionCode = 271" in build
+          assert 'applicationId = "com.framebynavin.app"' in build
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in build
+          assert not any(p.startswith(("supabase/","release-site/","app/src/main/res/","app/src/main/java/com/framebynavin/app/personal/","app/src/main/java/com/framebynavin/app/data/")) for p in actual)
+          ui=Path("app/src/main/java/com/framebynavin/app/ui/V273ReminderMusicPicker.kt").read_text()
+          assert "Lifecycle.Event.ON_STOP" in ui and "onDispose" in ui
+          assert "v277-voice-music-test" in ui and "v277-preview-stop" in ui
+          preview=Path("app/src/main/java/com/framebynavin/app/reminders/ReminderVoiceMusicPreview.kt").read_text()
+          assert "handler.postDelayed" in preview and "MAX_PREVIEW_MILLIS = 30_000L" in preview
+          assert "PersonalReminderStore" not in preview and "TaskStore" not in preview
+          print("PASS bounded preview, no owner data or reminder changes, original Build271 untouched")
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Full Android build, JUnit and lint, instrumentation APK
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          mkdir -p preview
+          cp app/build/outputs/apk/debug/app-debug.apk preview/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk preview/app-debug-androidTest.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V277-Voice-Music-Preview-Debug-APKs
+          path: preview/
+          retention-days: 7
+          if-no-files-found: error
+
+  android11-preview:
+    needs: full-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V277-Voice-Music-Preview-Debug-APKs
+          path: preview
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Confirm sample audio, preview stop and UI controls on Android11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r preview/app-debug.apk
+            adb install -r preview/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V277VoiceMusicPreviewDeviceTest,com.framebynavin.app.ui.V277VoiceMusicPreviewUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v277-voice-preview.log
+            grep -F 'OK (3 tests)' /tmp/backlot-v277-voice-preview.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v277-voice-preview.log; then exit 1; fi
+      - run: echo "PASS preview tests on synthetic Android11; real owner audio listening remains required"
