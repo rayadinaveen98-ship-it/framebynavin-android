@@ -121,10 +121,7 @@ jobs:
             set -euo pipefail
             adb install -r candidate/app-debug.apk
             adb install -r candidate/app-debug-androidTest.apk
-            adb shell am instrument -w -r \
-              -e class com.framebynavin.app.reminders.V271PianoRuntimeTest \
-              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
-              | tee /tmp/backlot-v271-piano-emulator.log
+            adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V271PianoRuntimeTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v271-piano-emulator.log
             grep -F 'OK (1 test)' /tmp/backlot-v271-piano-emulator.log
       - name: Explain remaining owner acceptance boundary
         run: echo "PASS synthetic AudioTrack setup only; physical device music, Google Play and user data unaffected"
