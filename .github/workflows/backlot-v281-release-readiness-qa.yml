@@ -1,0 +1,153 @@
+name: Backlot V281 - Build273 Play readiness preflight (fail closed)
+
+on:
+  push:
+    branches: [release/backlot-v281-play-ready-candidate-build273]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v281-play-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy-site-signing-and-android-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify frozen Build273 source and default-OFF production features
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=4ac24a7c0f38b6d433af5bf5e7e541eff6f7bd7a
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/play-changed
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path('/tmp/play-changed').read_text().splitlines())
+          approved_code={
+              'app/src/main/java/com/framebynavin/app/cloud/BacklotAccountDeletionApi.kt',
+              'app/src/main/java/com/framebynavin/app/ui/V270AccountDeletionContent.kt',
+              'app/src/main/java/com/framebynavin/app/ui/V269DataPrivacyActivity.kt',
+              'app/src/androidTest/java/com/framebynavin/app/cloud/V270AccountDeletionSafetyTest.kt',
+          }
+          assert all(p in approved_code or p.startswith(('docs/play/','release-site/')) or p in {
+              'docs/release/PLAY_PRIVACY_SITE_REVIEW_NOT_LIVE.md',
+              '.github/workflows/backlot-v281-release-readiness-qa.yml',
+          } for p in changed), f'Unexpected production mutation: {sorted(changed)}'
+          assert approved_code.issubset(changed)
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'versionCode = 273' in gradle and 'targetSdk = 36' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          assert 'dev-signing/framebynavin-public-debug.jks' in gradle
+          api=Path('app/src/main/java/com/framebynavin/app/cloud/BacklotAccountDeletionApi.kt').read_text()
+          assert 'const val LIVE_REQUESTS_ENABLED = false' in api
+          assert 'if (!BacklotDeletionReleaseGate.LIVE_REQUESTS_ENABLED)' in api
+          assert 'service_role' not in api and 'SUPABASE_SECRET' not in api
+          ui=Path('app/src/main/java/com/framebynavin/app/ui/V269DataPrivacyActivity.kt').read_text()
+          assert 'if (com.framebynavin.app.cloud.BacklotDeletionReleaseGate.LIVE_REQUESTS_ENABLED)' in ui
+          assert 'No deletion request can be submitted here.' in ui
+          site=Path('release-site/assets/backlot-deletion-config.mjs').read_text()
+          assert 'enabled: false' in site and 'approvedOrigin: ""' in site and 'publishableKey: ""' in site
+          for f in ('index.html','privacy/index.html','delete-account/index.html','deletion-request/index.html'):
+              html=Path('release-site',f).read_text()
+              assert 'noindex,nofollow' in html
+              assert 'preview' in html.lower() or 'draft' in html.lower()
+          assert 'Spoken three times' in Path('app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt').read_text()
+          print('PASS Build273 unchanged, source-only disabled deletion preview; NOT Play submission')
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove static site is internally consistent and makes zero disabled deletion requests
+        run: |
+          set -euo pipefail
+          python3 release-site/tests/test_site.py
+          node --test release-site/tests/test_deletion_web.mjs
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Prove absent private signer strictly blocks Play AAB creation
+        run: |
+          set -euo pipefail
+          if gradle :app:verifyPrivateReleaseSigning --no-daemon >/tmp/play-signer-gate.log 2>&1; then
+            echo 'FAIL: production release accepted missing private Play key'
+            exit 1
+          fi
+          grep -Fq 'Private Play upload signing is not configured' /tmp/play-signer-gate.log || {
+            echo 'FAIL: signing gate failed for unexpected reason'
+            tail -n 25 /tmp/play-signer-gate.log
+            exit 1
+          }
+          echo 'PASS private signer fail-closed; no public key used in Play AAB'
+      - name: Recompile complete Build273 and integrated disabled deletion, run unit tests and lint
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          mkdir -p qa
+          cp app/build/outputs/apk/debug/app-debug.apk qa/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk qa/app-debug-androidTest.apk
+          (cd qa && sha256sum *.apk >SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V281-Integration-Disposable-Debug-Tests
+          path: qa/
+          if-no-files-found: error
+          retention-days: 7
+
+  emulator:
+    needs: policy-site-signing-and-android-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 30
+            device: phone
+          - api: 36
+            device: tablet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V281-Integration-Disposable-Debug-Tests
+          path: qa
+      - name: Verify tested APKs unchanged
+        run: |
+          set -euo pipefail
+          (cd qa && sha256sum -c SHA256SUMS.txt)
+      - name: Enable Android emulator KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run Personal Alarm + Privacy and default-off deletion integration
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            if [ "${{ matrix.device }}" = "tablet" ]; then adb shell wm size 1280x800; adb shell wm density 240; fi
+            adb install -r qa/app-debug.apk
+            adb install -r qa/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.V271PianoRuntimeTest,com.framebynavin.app.reminders.V273CreatorMusicLocalTest,com.framebynavin.app.personal.V273PersonalMusicCodecTest,com.framebynavin.app.personal.V272HourlyPersonalCodecTest,com.framebynavin.app.personal.V274SelfCareBackupTest,com.framebynavin.app.ui.V274SelfCareEditorUiTest,com.framebynavin.app.ui.V275WidgetPreviewTest,com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest,com.framebynavin.app.personal.V2231PersonalDeliveryTest,com.framebynavin.app.reminders.V277VoiceMusicPreviewDeviceTest,com.framebynavin.app.ui.V277VoiceMusicPreviewUiTest,com.framebynavin.app.personal.V279PersonalFullScreenNotificationTest,com.framebynavin.app.personal.V279LockedPersonalAlertUiTest,com.framebynavin.app.cloud.V270AccountDeletionSafetyTest,com.framebynavin.app.ui.V269DataPrivacyUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v281-play-readiness.log
+            grep -Eq 'OK \([0-9]+ tests?\)' /tmp/backlot-v281-play-readiness.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v281-play-readiness.log; then exit 1; fi
+      - run: echo 'PASS synthetic device QA; no Play app upload, privacy publication, production account deletion or data mutation'
