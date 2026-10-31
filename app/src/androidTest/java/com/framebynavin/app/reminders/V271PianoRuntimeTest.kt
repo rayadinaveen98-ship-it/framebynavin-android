@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class V271PianoRuntimeTest {
     @Test fun originalPianoTrackInitializesDucksAndReleases() {
-        val piano = ReminderPianoLoop()
+        val piano = ReminderPianoLoop(androidx.test.core.app.ApplicationProvider.getApplicationContext())
         try {
             assertTrue("Offline Android audio track must initialize", piano.start())
             piano.setSpeaking(true)
