@@ -40,6 +40,8 @@ internal object PersonalReminderCodec {
                     it.weeklyDays.sortedBy(DayOfWeek::getValue).forEach { d -> days.put(d.value) }
                 })
                 .put("everyNDays", it.everyNDays)
+                .put("everyNHours", it.everyNHours)
+                .put("hourlyUntil", it.hourlyUntil.toString())
                 .put("alert", it.alert.name)
                 .put("paused", it.paused)
                 .put("lastAcknowledgedOccurrenceMillis", it.lastAcknowledgedOccurrenceMillis)
@@ -98,6 +100,8 @@ internal object PersonalReminderCodec {
                     repeat = PersonalRepeat.valueOf(item.getString("repeat")),
                     weeklyDays = weeklyDays,
                     everyNDays = item.getInt("everyNDays"),
+                    everyNHours = item.optInt("everyNHours", 3),
+                    hourlyUntil = LocalTime.parse(item.optString("hourlyUntil", "23:59")),
                     alert = PersonalAlert.valueOf(item.getString("alert")),
                     paused = item.getBoolean("paused"),
                     lastAcknowledgedOccurrenceMillis = item.getLong("lastAcknowledgedOccurrenceMillis"),

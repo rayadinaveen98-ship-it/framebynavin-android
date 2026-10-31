@@ -15,7 +15,7 @@ import java.util.UUID
  * reminders survive DST/time-zone transitions without drifting in elapsed time.
  */
 internal enum class PersonalRepeat {
-    ONCE, DAILY, WEEKDAYS, WEEKLY, MONTHLY, EVERY_N_DAYS,
+    ONCE, DAILY, WEEKDAYS, WEEKLY, MONTHLY, EVERY_N_DAYS, WEEKENDS, EVERY_N_HOURS,
 }
 
 internal enum class PersonalAlert {
@@ -62,6 +62,10 @@ internal data class PersonalReminder(
     val lastResponseAtMillis: Long = 0L,
     val createdAtMillis: Long = System.currentTimeMillis(),
     val updatedAtMillis: Long = createdAtMillis,
+    /** Hourly schedule cadence; ignored for existing non-hourly reminder types. */
+    val everyNHours: Int = 3,
+    /** Last daily eligible wall-clock time, inclusive; start is reminder.time. */
+    val hourlyUntil: LocalTime = LocalTime.of(23, 59),
 ) {
     fun checked(): PersonalReminder {
         require(id.matches(Regex("[a-zA-Z0-9_:.-]{1,128}"))) { "Invalid personal reminder id" }
@@ -70,6 +74,10 @@ internal data class PersonalReminder(
         }
         require(notes.length <= 2_000) { "Personal reminder notes are too long" }
         require(everyNDays in 1..365) { "Custom repeat interval must be 1–365 days" }
+        require(everyNHours in 1..24) { "Hourly interval must be 1–24 hours" }
+        require(repeat != PersonalRepeat.EVERY_N_HOURS || !hourlyUntil.isBefore(time)) {
+            "Hourly window must end at or after its starting time"
+        }
         require(weeklyDays.size <= 7) { "Invalid weekly recurrence days" }
         require(repeat != PersonalRepeat.WEEKLY || weeklyDays.isNotEmpty()) {
             "Weekly recurrence must select at least one day"
