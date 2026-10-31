@@ -130,3 +130,40 @@ test("site uses only first-party resources and never claims deletion is live", (
   assert.ok(source.includes('phrase.value === CONFIRM'));
   assert.ok(source.includes("window.history.replaceState"));
 });
+
+test("actual disabled browser page clears callback and cannot call network", async () => {
+  const old={window:globalThis.window,document:globalThis.document,
+    sessionStorage:globalThis.sessionStorage,fetch:globalThis.fetch};
+  const elements=new Map();
+  let networkCalls=0;
+  let removed=0;
+  let stripped=0;
+  try {
+    const url=site+REQUEST_PATH+"?code=forged12345";
+    globalThis.window={
+      location:{href:url,pathname:REQUEST_PATH,search:"?code=forged12345"},
+      history:{replaceState:()=>{stripped++;}},
+    };
+    globalThis.document={getElementById(id){
+      if(!elements.has(id)) elements.set(id,{textContent:"",value:"",hidden:false,
+        disabled:false,addEventListener(){},close(){},showModal(){}});
+      return elements.get(id);
+    }};
+    globalThis.sessionStorage={removeItem(name){assert.equal(name,STORAGE_KEY);removed++;},
+      getItem(){throw Error("Disabled preview must never fetch OAuth challenge");}};
+    globalThis.fetch=()=>{networkCalls++;throw Error("Disabled preview must never reach network");};
+    await import("../assets/backlot-deletion-web.mjs?disabled-runtime-smoke=1");
+    assert.equal(networkCalls,0);
+    assert.equal(removed,1);
+    assert.equal(stripped,1);
+    assert.equal(elements.get("request-signin").disabled,true);
+    assert.equal(elements.get("request-account").hidden,true);
+    assert.equal(elements.get("request-options").hidden,true);
+    assert.match(elements.get("request-status").textContent,/not available/);
+  } finally {
+    for(const key of Object.keys(old)) {
+      if(old[key]===undefined) delete globalThis[key];
+      else globalThis[key]=old[key];
+    }
+  }
+});
