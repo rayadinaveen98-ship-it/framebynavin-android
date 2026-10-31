@@ -481,6 +481,12 @@ internal fun V2232PersonalEditor(
     var alert by rememberSaveable(existing?.id) {
         mutableStateOf(existing?.alert?.name ?: PersonalAlert.NOTIFICATION.name)
     }
+    var voiceMusicMode by rememberSaveable(existing?.id) {
+        mutableStateOf(existing?.voiceMusicMode ?: com.framebynavin.app.reminders.ReminderMusicMode.PIANO)
+    }
+    var voiceMusicUri by rememberSaveable(existing?.id) {
+        mutableStateOf(existing?.voiceMusicUri.orEmpty())
+    }
     var daySelection by rememberSaveable(existing?.id) {
         mutableStateOf(existing?.weeklyDays?.joinToString(",") { it.name }
             ?: Instant.ofEpochMilli(selectedStart).atZone(zone).dayOfWeek.name)
@@ -580,6 +586,17 @@ internal fun V2232PersonalEditor(
                         Text("Voice and Alarm play short audio when Android allows; the notification remains your fallback.",
                             color = MutedGold, fontSize = 11.sp)
                     }
+                    if (alert == PersonalAlert.VOICE.name) {
+                        V273ReminderMusicPicker(
+                            mode = voiceMusicMode,
+                            uri = voiceMusicUri,
+                            onChanged = { mode, uri ->
+                                voiceMusicMode = mode
+                                voiceMusicUri = uri
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("v273-personal-music"),
+                        )
+                    }
                     error?.let {
                         Text(it, color = RecRed, modifier = Modifier.testTag("v2232-editor-error"))
                     }
@@ -602,6 +619,8 @@ internal fun V2232PersonalEditor(
                                         weekDays else emptySet(),
                                     everyNDays = everyNDays.toIntOrNull() ?: 0,
                                     alert = PersonalAlert.valueOf(alert),
+                                    voiceMusicMode = voiceMusicMode,
+                                    voiceMusicUri = voiceMusicUri,
                                 ).checked()
                                 onSave(draft)
                             } catch (invalid: Exception) {
