@@ -32,3 +32,6 @@ Play Store caveat: Backlot is a creator productivity app, not necessarily a qual
 
 Official Android guide: https://source.android.com/docs/core/permissions/fsi-limits
 Google Play FSI policy: https://support.google.com/googleplay/android-developer/answer/13392821
+
+## Automatic-launch receipt race safeguard
+The receiver posts the Personal notification **before** committing `presentedToken`. An immediate system-launched FSI can open before that write completes. Build272's tap-only screen previously rejected such a record as stale. The new `PersonalAlertPresentationPolicy` explicitly waits up to 10 short checks (150ms apart) for the **same pending occurrence token** to become presented; any rotated, deleted or paused record is rejected immediately. This never acknowledges a reminder automatically, changes user response, or bypasses the original posted-token requirement. Three pure JVM tests cover waiting, successful receipt, stale tokens and timeout bounds.
