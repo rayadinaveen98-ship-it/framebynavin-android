@@ -1,0 +1,104 @@
+name: Backlot Play - Build272 In-App Deletion Fail-Closed Integration QA
+
+on:
+  push:
+    branches: [feature/backlot-play-inapp-deletion-build272-integration]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-play-deletion-build272-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-compile-and-privacy-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Freeze Build272, local user data and production backends
+        run: |
+          set -euo pipefail
+          BASE=e0a2c5ee57d0beb67374e3a77bce18a0eac0b241
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/backlot-play-inapp-paths
+          python3 - <<'PY'
+          from pathlib import Path
+          changed = set(Path("/tmp/backlot-play-inapp-paths").read_text().splitlines())
+          allowed = {
+              "app/src/main/java/com/framebynavin/app/cloud/BacklotAccountDeletionApi.kt",
+              "app/src/main/java/com/framebynavin/app/ui/V270AccountDeletionContent.kt",
+              "app/src/main/java/com/framebynavin/app/ui/V269DataPrivacyActivity.kt",
+              "app/src/androidTest/java/com/framebynavin/app/cloud/V270AccountDeletionSafetyTest.kt",
+              "docs/play/INAPP_DELETION_BUILD272_BRIDGE.md",
+              ".github/workflows/backlot-play-inapp-deletion-build272-integration-qa.yml",
+          }
+          assert changed == allowed, f"Unexpected altered file: {sorted(changed ^ allowed)}"
+          gradle = Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 272' in gradle and 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'targetSdk = 36' in gradle and 'verifyPrivateReleaseSigning' in gradle
+          api = Path("app/src/main/java/com/framebynavin/app/cloud/BacklotAccountDeletionApi.kt").read_text()
+          ui = Path("app/src/main/java/com/framebynavin/app/ui/V269DataPrivacyActivity.kt").read_text()
+          assert "const val LIVE_REQUESTS_ENABLED = false" in api
+          assert "if (!BacklotDeletionReleaseGate.LIVE_REQUESTS_ENABLED)" in api
+          assert "if (com.framebynavin.app.cloud.BacklotDeletionReleaseGate.LIVE_REQUESTS_ENABLED)" in ui
+          assert 'No deletion request can be submitted here.' in ui
+          assert not any(p.startswith(("supabase/","release-site/","app/src/main/res/","app/src/main/java/com/framebynavin/app/personal/","app/src/main/java/com/framebynavin/app/data/")) for p in changed)
+          assert "service_role" not in api and "SUPABASE_SECRET" not in api
+          print("PASS: Build272 unchanged; no live deletion, data wipe, Play signer or remote request.")
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile full app, Java/Kotlin JUnit, lint, Android instrumentation APK
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          mkdir -p qa
+          cp app/build/outputs/apk/debug/app-debug.apk qa/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk qa/app-debug-androidTest.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Play-Deletion-Safe-UI-Disposable-Debug-Tests
+          path: qa/
+          retention-days: 7
+          if-no-files-found: error
+  android11-no-deletion:
+    needs: android-compile-and-privacy-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Play-Deletion-Safe-UI-Disposable-Debug-Tests
+          path: qa
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Validate fail-closed deletion response and existing Privacy screen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r qa/app-debug.apk
+            adb install -r qa/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.cloud.V270AccountDeletionSafetyTest,com.framebynavin.app.ui.V269DataPrivacyUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-play-inapp-deletion.log
+            grep -E 'OK \([0-9]+ tests?\)' /tmp/backlot-play-inapp-deletion.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-play-inapp-deletion.log; then exit 1; fi
+      - run: echo "No production deletion, Supabase writes, website enablement, Play submission or local owner-data changes"
