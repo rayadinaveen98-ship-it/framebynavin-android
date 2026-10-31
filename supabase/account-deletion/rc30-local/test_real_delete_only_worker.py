@@ -40,6 +40,9 @@ def main():
     for owner,token,label in ((a,ta,"a"),(b,tb,"b")):
         s,d=uploaded(token,path(owner,"old"),b"voice from "+label.encode())
         check(label+" original object uploaded with user JWT",s in (200,201),d)
+    dotted=path(a,"shot.v2")
+    upload_status,upload_result=uploaded(ta,dotted,b"synthetic dotted Voice Idea")
+    check("real Storage accepts dotted Android Voice Idea path",upload_status in (200,201),upload_result)
     rid=request_deletion(ta,CONFIRM)
     check("owner A signed-in request recorded and fenced",
           receipt_state(rid)==(a,"fenced","pending"))
@@ -69,9 +72,9 @@ def main():
           no_delete(lambda:gate.remove_objects_for_receipt(rid,[path(b,"old")])))
     check("no exposed privileged upload/copy/upsert",
           not any(hasattr(gate,m) for m in ("upload","upsert","replace","copy","move","request")))
-    names=[path(a,"old"),path(a,"privileged")]
-    check("only A's two own paths can be removed through trusted transport",
-          gate.remove_objects_for_receipt(rid,names)==2)
+    names=[path(a,"old"),path(a,"privileged"),dotted]
+    check("all three A paths including dotted idea can be removed",
+          gate.remove_objects_for_receipt(rid,names)==3)
     check("exactly one privileged DELETE request to expected bucket",
           len(calls)==1 and calls[0]==(BUCKET,names))
     check("A Storage metadata gone after real Storage API delete",
