@@ -44,9 +44,9 @@ internal class ReminderBackingMusic(private val context: Context) {
             media.isLooping = true
             media.setVolume(if (speaking) .035f else .14f,
                 if (speaking) .035f else .14f)
-            media.setOnPreparedListener {
-                if (serial == generation && custom === it) {
-                    runCatching { it.start() }.onFailure { unavailable(generation, it) }
+            media.setOnPreparedListener { prepared ->
+                if (serial == generation && custom === prepared) {
+                    runCatching { prepared.start() }.onFailure { unavailable(generation, prepared) }
                 }
             }
             media.setOnErrorListener { instance, _, _ ->
