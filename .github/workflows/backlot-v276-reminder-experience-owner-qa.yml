@@ -171,6 +171,7 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set -euo pipefail
+            if [ "${{ matrix.profile }}" = "tablet" ]; then adb shell wm size 1280x800; adb shell wm density 240; fi
             adb install -r full-preview/app-debug.apk
             adb install -r full-preview/app-debug-androidTest.apk
             adb shell am instrument -w -r -e class com.framebynavin.app.reminders.V271PianoRuntimeTest,com.framebynavin.app.reminders.V273CreatorMusicLocalTest,com.framebynavin.app.personal.V273PersonalMusicCodecTest,com.framebynavin.app.personal.V272HourlyPersonalCodecTest,com.framebynavin.app.personal.V274SelfCareBackupTest,com.framebynavin.app.ui.V274SelfCareEditorUiTest,com.framebynavin.app.ui.V275WidgetPreviewTest,com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest,com.framebynavin.app.personal.V2231PersonalDeliveryTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v276-integrated.log
