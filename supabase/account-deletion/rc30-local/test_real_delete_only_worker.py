@@ -40,7 +40,8 @@ def main():
     for owner,token,label in ((a,ta,"a"),(b,tb,"b")):
         s,d=uploaded(token,path(owner,"old"),b"voice from "+label.encode())
         check(label+" original object uploaded with user JWT",s in (200,201),d)
-    dotted=path(a,"shot.v2")
+    # Android encodes idea ID in the folder; the filename is SHA-256 hex.
+    dotted=f"{a}/idea-shot.v2/media/{'a'*64}.m4a"
     upload_status,upload_result=uploaded(ta,dotted,b"synthetic dotted Voice Idea")
     check("real Storage accepts dotted Android Voice Idea path",upload_status in (200,201),upload_result)
     rid=request_deletion(ta,CONFIRM)
