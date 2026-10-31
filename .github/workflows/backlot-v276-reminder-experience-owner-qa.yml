@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: backlot-v276-owner-qa-${{ github.ref }}
@@ -104,6 +105,27 @@ jobs:
           "$AAPT" dump badging full-preview/Backlot-V276-Build271-Full-App-OWNER-TEST.apk | grep -F "package: name='com.framebynavin.app' versionCode='271'"
           "$SIGNER" verify --print-certs full-preview/Backlot-V276-Build271-Full-App-OWNER-TEST.apk | sed -n '1,5p'
           echo 'PASS full owner-sideload APK built with public prototype key, NOT Play release'
+      - name: Retrieve immutable Build270 signer for upgrade compatibility
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC25-Build270-Full-App-Owner-Preview
+          run-id: 41050788970
+          github-token: ${{ github.token }}
+          path: old-owner
+      - name: Reject an update that cannot install over the signed Build270 preview
+        run: |
+          set -euo pipefail
+          OLD=old-owner/Backlot-RC25-Build270-Full-App.apk
+          NEW=full-preview/Backlot-V276-Build271-Full-App-OWNER-TEST.apk
+          test -s "$OLD"
+          test "$(stat -c%s "$OLD")" = 17971790
+          test "$(sha256sum "$OLD" | cut -d' ' -f1)" = 74ec1aa31fd9cf9083103423bc6040e2451db1fb454419823150f5cd1b568780
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          OLD_SIGNER="$("$SIGNER" verify --print-certs "$OLD" | grep 'Signer #1 certificate SHA-256 digest:')"
+          NEW_SIGNER="$("$SIGNER" verify --print-certs "$NEW" | grep 'Signer #1 certificate SHA-256 digest:')"
+          test -n "$OLD_SIGNER"
+          test "$OLD_SIGNER" = "$NEW_SIGNER"
+          echo 'PASS immutable Build270 and Build271 owner APK share an identical signer; higher versionCode supports update'
       - uses: actions/upload-artifact@v4
         with:
           name: Backlot-V276-Build271-Full-OWNER-TEST-APKs
