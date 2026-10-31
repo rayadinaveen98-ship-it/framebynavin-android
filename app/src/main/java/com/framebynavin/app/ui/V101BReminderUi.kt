@@ -621,6 +621,16 @@ internal fun PProjectComposer(
                                 onSelected = { voice = it },
                                 onPreview = { pComposerPreviewVoice(context, it) },
                             )
+                            Spacer(Modifier.height(11.dp))
+                            V273ReminderMusicPicker(
+                                mode = voiceMusicMode,
+                                uri = voiceMusicUri,
+                                onChanged = { mode, picked ->
+                                    voiceMusicMode = mode
+                                    voiceMusicUri = picked
+                                },
+                                modifier = Modifier.fillMaxWidth().testTag("v273-project-music"),
+                            )
                             Spacer(Modifier.height(14.dp))
                             V180ReminderTimingControls(
                                 repeatCount = repeatCount,
