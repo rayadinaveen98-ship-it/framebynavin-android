@@ -23,6 +23,7 @@ internal data class PersonalReminderDraft(
     val alert: PersonalAlert = PersonalAlert.NOTIFICATION,
     val everyNHours: Int = 3,
     val hourlyUntil: LocalTime = LocalTime.of(23, 59),
+    val purpose: PersonalPurpose = PersonalPurpose.CUSTOM,
 ) {
     fun checked(): PersonalReminderDraft {
         val candidate = toRecord().checked()
@@ -44,6 +45,7 @@ internal data class PersonalReminderDraft(
         alert = alert,
         everyNHours = everyNHours,
         hourlyUntil = hourlyUntil,
+        purpose = purpose,
     )
 }
 
@@ -76,6 +78,7 @@ internal class PersonalReminderCommands(context: Context) {
                 everyNDays = checked.everyNDays,
                 everyNHours = checked.everyNHours,
                 hourlyUntil = checked.hourlyUntil,
+                purpose = checked.purpose,
                 alert = checked.alert,
                 pendingOccurrenceMillis = 0L,
                 pendingFireAtMillis = 0L,
