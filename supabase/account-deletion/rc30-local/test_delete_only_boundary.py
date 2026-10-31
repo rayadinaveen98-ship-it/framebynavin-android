@@ -36,6 +36,17 @@ class BoundaryTests(unittest.TestCase):
         self.assertEqual(self.worker.remove_objects_for_receipt(self.rid,[self.name]),1)
         self.assertEqual(self.calls,[(VOICE_BUCKET,[self.name])])
 
+    def test_valid_android_voice_idea_with_dot_in_id_is_deletable(self):
+        # Android safeSegment permits "."; rejecting it breaks deletion of valid voice media.
+        name=f"{self.a}/shot.v2/media/{'a'*64}.m4a"
+        check_voice_path(self.a,name)
+        self.assertEqual(self.worker.remove_objects_for_receipt(self.rid,[name]),1)
+        self.assertEqual(self.calls,[(VOICE_BUCKET,[name])])
+
+    def test_invalid_dot_traversal_still_denied(self):
+        self.denied([f"{self.a}/idea..v2/media/deadbeef.m4a"])
+        self.denied([f"{self.a}/.{'x'*161}/media/deadbeef.m4a"])
+
     def test_cross_account_denied_before_transport(self):
         self.denied([self.name,f"{self.b}/idea-abc/media/x.m4a"])
 
