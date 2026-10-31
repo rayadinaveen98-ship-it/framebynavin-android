@@ -1,6 +1,10 @@
 package com.framebynavin.app.personal
 
+import android.app.KeyguardManager
+import android.content.Context
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.LinearEasing
@@ -42,11 +46,28 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Only opened after a user taps their Personal reminder notification.
- * No full-screen intent and no showWhenLocked; Android lock screen remains
- * private, compliant with restricted full-screen alarm entitlement.
+ * Can appear via a permission-checked Personal ALARM full-screen intent while
+ * locked; VOICE and NOTIFICATION never request automatic full-screen access.
+ * Hide titles and disable all response actions while the keyguard is showing.
  */
 internal class PersonalAlertActivity : ComponentActivity() {
+    private var keyguardShowing by mutableStateOf(false)
+
+    private fun refreshLockState() {
+        keyguardShowing = getSystemService(Context.KEYGUARD_SERVICE)
+            .let { it as? KeyguardManager }?.isKeyguardLocked == true
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshLockState()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        refreshLockState()
+    }
+
     private val personalId get() = intent.getStringExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID).orEmpty()
     private val personalToken get() = intent.getStringExtra(PersonalDeliveryContract.EXTRA_TOKEN).orEmpty()
 
@@ -55,6 +76,20 @@ internal class PersonalAlertActivity : ComponentActivity() {
         val id = personalId
         val token = personalToken
         if (id.isBlank() || token.isBlank()) { finish(); return }
+        if (intent.getBooleanExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, false)) {
+            // Do not set these for VOICE or ordinary Personal notifications.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            } else {
+                @Suppress("DEPRECATION")
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+                )
+            }
+        }
+        refreshLockState()
         setContent {
             FrameByNavinTheme {
                 var reminder by remember { mutableStateOf<PersonalReminder?>(null) }
@@ -73,7 +108,7 @@ internal class PersonalAlertActivity : ComponentActivity() {
                 }
                 fun respond(action: String) {
                     val current = reminder ?: return
-                    if (saving) return
+                    if (saving || keyguardShowing) return
                     saving = true
                     lifecycleScope.launch {
                         val result = runCatching {
@@ -98,6 +133,7 @@ internal class PersonalAlertActivity : ComponentActivity() {
                     invalid = invalid,
                     busy = saving,
                     error = error,
+                    locked = keyguardShowing,
                     onDone = { respond(PersonalDeliveryContract.ACTION_DONE) },
                     onSnooze = { respond(PersonalDeliveryContract.ACTION_SNOOZE) },
                     onDismiss = { respond(PersonalDeliveryContract.ACTION_DISMISS) },
@@ -121,6 +157,7 @@ internal fun V2233PersonalAlertScreen(
     invalid: Boolean,
     busy: Boolean,
     error: String?,
+    locked: Boolean = false,
     onDone: () -> Unit,
     onSnooze: () -> Unit,
     onDismiss: () -> Unit,
@@ -142,6 +179,20 @@ internal fun V2233PersonalAlertScreen(
                 fontSize = 11.sp, fontWeight = FontWeight.Black,
                 modifier = Modifier.align(Alignment.Start))
             Spacer(Modifier.height(4.dp))
+            if (locked) {
+                // Android's public notification version already redacts titles.
+                // Preserve the same privacy in the actual over-keyguard activity.
+                V2233PersonalParticleWave(PersonalAlert.ALARM)
+                Text("PERSONAL ALARM", color = blue,
+                    fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Unlock your phone to view and respond to this reminder.",
+                    color = Color.White, fontSize = 19.sp, lineHeight = 26.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("v279-locked-generic-alarm"))
+                Spacer(Modifier.height(12.dp))
+                return@Column
+            }
+
             if (reminder == null) {
                 Spacer(Modifier.height(55.dp))
                 if (invalid) {
@@ -167,7 +218,7 @@ internal fun V2233PersonalAlertScreen(
             Text(
                 when (reminder.alert) {
                     PersonalAlert.ALARM -> "Ringing is limited to one minute. Your response remains available afterward."
-                    PersonalAlert.VOICE -> "Spoken once when on-device speech is available. Notification remains as backup."
+                    PersonalAlert.VOICE -> "Spoken three times when on-device speech is available. Notification remains as backup."
                     PersonalAlert.NOTIFICATION -> "Your personal reminder is ready."
                 },
                 color = Color(0xFFB6C3DB), fontSize = 12.sp, textAlign = TextAlign.Center,
