@@ -42,6 +42,7 @@ import java.lang.Math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -97,14 +98,33 @@ internal class PersonalAlertActivity : ComponentActivity() {
                 var saving by remember { mutableStateOf(false) }
                 var error by remember { mutableStateOf<String?>(null) }
                 LaunchedEffect(id, token) {
-                    val item = runCatching {
-                        withContext(Dispatchers.IO) {
-                            PersonalReminderStore(applicationContext).load()
-                                .firstOrNull { it.id == id && !it.paused &&
-                                    it.pendingToken == token && it.presentedToken == token }
+                    // Full-screen PendingIntent can launch before the receiver
+                    // finishes acknowledgePosted(). Wait for that exact token,
+                    // but NEVER accept another/stale/paused occurrence.
+                    repeat(PersonalAlertPresentationPolicy.MAX_READ_ATTEMPTS) { attempt ->
+                        val item = runCatching {
+                            withContext(Dispatchers.IO) {
+                                PersonalReminderStore(applicationContext).load()
+                                    .firstOrNull { it.id == id }
+                            }
+                        }.getOrNull()
+                        when (PersonalAlertPresentationPolicy.state(item, id, token)) {
+                            PersonalAlertPresentationState.READY -> {
+                                reminder = item
+                                return@LaunchedEffect
+                            }
+                            PersonalAlertPresentationState.INVALID -> {
+                                invalid = true
+                                return@LaunchedEffect
+                            }
+                            PersonalAlertPresentationState.WAITING -> {
+                                if (attempt + 1 < PersonalAlertPresentationPolicy.MAX_READ_ATTEMPTS) {
+                                    delay(PersonalAlertPresentationPolicy.RETRY_DELAY_MILLIS)
+                                }
+                            }
                         }
-                    }.getOrNull()
-                    if (item == null) invalid = true else reminder = item
+                    }
+                    invalid = true
                 }
                 fun respond(action: String) {
                     val current = reminder ?: return
