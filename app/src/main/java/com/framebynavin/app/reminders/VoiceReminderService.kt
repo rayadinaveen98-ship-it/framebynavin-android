@@ -107,7 +107,7 @@ class VoiceReminderService : Service() {
     }
 
     private fun beginSpeechCycle(task: CreatorTask) {
-        piano.stop()
+        // A new utterance cycle must not stop the music started for this occurrence.
         runCatching { tts?.stop() }
         tts?.shutdown()
         tts = null
