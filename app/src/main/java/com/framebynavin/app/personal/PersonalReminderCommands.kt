@@ -6,6 +6,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import com.framebynavin.app.reminders.ReminderMusicMode
 
 /**
  * One reliable write boundary for new Personal UI. This deliberately never
@@ -21,6 +22,8 @@ internal data class PersonalReminderDraft(
     val weeklyDays: Set<DayOfWeek> = emptySet(),
     val everyNDays: Int = 1,
     val alert: PersonalAlert = PersonalAlert.NOTIFICATION,
+    val voiceMusicMode: ReminderMusicMode = ReminderMusicMode.PIANO,
+    val voiceMusicUri: String = "",
 ) {
     fun checked(): PersonalReminderDraft {
         val candidate = toRecord().checked()
@@ -40,6 +43,8 @@ internal data class PersonalReminderDraft(
         weeklyDays = weeklyDays,
         everyNDays = everyNDays,
         alert = alert,
+        voiceMusicMode = voiceMusicMode,
+        voiceMusicUri = voiceMusicUri,
     )
 }
 
@@ -71,6 +76,8 @@ internal class PersonalReminderCommands(context: Context) {
                 weeklyDays = checked.weeklyDays,
                 everyNDays = checked.everyNDays,
                 alert = checked.alert,
+                voiceMusicMode = checked.voiceMusicMode,
+                voiceMusicUri = checked.voiceMusicUri,
                 pendingOccurrenceMillis = 0L,
                 pendingFireAtMillis = 0L,
                 pendingToken = "",
