@@ -475,6 +475,9 @@ internal fun V2232PersonalEditor(
     var selectedTime by rememberSaveable(existing?.id) { mutableLongStateOf(selectedStart) }
     var title by rememberSaveable(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }
     var notes by rememberSaveable(existing?.id) { mutableStateOf(existing?.notes.orEmpty()) }
+    var purpose by rememberSaveable(existing?.id) {
+        mutableStateOf(existing?.purpose ?: PersonalPurpose.CUSTOM)
+    }
     var repeat by rememberSaveable(existing?.id) {
         mutableStateOf(existing?.repeat?.name ?: PersonalRepeat.ONCE.name)
     }
@@ -516,7 +519,7 @@ internal fun V2232PersonalEditor(
                     Column(Modifier.weight(1f)) {
                         Text(if (existing == null) "NEW PERSONAL REMINDER" else "EDIT PERSONAL REMINDER",
                             color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Text("What, when and how", color = ProjectorIvory,
+                        Text("Your personal rhythm", color = ProjectorIvory,
                             fontSize = 19.sp, fontWeight = FontWeight.Bold)
                     }
                     IconButton(onClick = onDismiss) {
@@ -525,6 +528,16 @@ internal fun V2232PersonalEditor(
                 }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    V274PersonalPurposePicker(
+                        selected = purpose,
+                        onSelected = { selected ->
+                            title = PersonalSelfCarePresets.chooseTitle(title, purpose, selected)
+                            purpose = selected
+                            error = null
+                        },
+                    )
+                    Text("02  YOUR REMINDER", color = MutedGold,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(
                         value = title, onValueChange = { title = it.take(180); error = null },
                         label = { Text("What to remember?") }, singleLine = true,
@@ -535,6 +548,8 @@ internal fun V2232PersonalEditor(
                         label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    Text("03  WHEN SHOULD IT HAPPEN?", color = MutedGold,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedButton(onClick = {
                         v2232PickDateTime(context, selectedTime) { selectedTime = it; error = null }
                     }, modifier = Modifier.fillMaxWidth().testTag("v2232-personal-date")) {
@@ -670,7 +685,8 @@ internal fun V2232PersonalEditor(
                                 color = ProjectorIvory, fontSize = 12.sp)
                         }
                     }
-                    Text("REMIND ME WITH", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("04  HOW SHOULD BACKLOT REACH YOU?", color = MutedGold,
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         alertOptions.forEach { choice ->
@@ -682,6 +698,38 @@ internal fun V2232PersonalEditor(
                     if (alert != PersonalAlert.NOTIFICATION.name) {
                         Text("Voice and Alarm play short audio when Android allows; the notification remains your fallback.",
                             color = MutedGold, fontSize = 11.sp)
+                    }
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().testTag("v274-personal-review"),
+                        color = CinemaSurface,
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, CinemaLine),
+                    ) {
+                        Column(Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text("YOUR PLAN", color = MutedGold, fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold)
+                            Text(
+                                PersonalSelfCarePresets.scheduleLabel(
+                                    PersonalRepeat.valueOf(repeat),
+                                    everyNHours.toIntOrNull() ?: 3,
+                                    everyNDays.toIntOrNull() ?: 1,
+                                    weekDays,
+                                ),
+                                color = ProjectorIvory, fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                            )
+                            Text(
+                                date.format(DateTimeFormatter.ofPattern("EEE, d MMM · h:mm a")) +
+                                    " · " + PersonalAlert.valueOf(alert).name.lowercase()
+                                        .replaceFirstChar { it.uppercase() },
+                                color = MutedText, fontSize = 12.sp,
+                            )
+                            Text(
+                                "Preview only. Android battery and notification settings may delay alerts.",
+                                color = MutedText, fontSize = 11.sp,
+                            )
+                        }
                     }
                     error?.let {
                         Text(it, color = RecRed, modifier = Modifier.testTag("v2232-editor-error"))
@@ -707,6 +755,7 @@ internal fun V2232PersonalEditor(
                                     everyNDays = everyNDays.toIntOrNull() ?: 0,
                                     everyNHours = everyNHours.toIntOrNull() ?: 0,
                                     hourlyUntil = LocalTime.parse(hourlyUntil),
+                                    purpose = purpose,
                                     alert = PersonalAlert.valueOf(alert),
                                 ).checked()
                                 onSave(draft)
