@@ -30,3 +30,6 @@ Google Play permits automatic FSI grant only for qualifying core alarm or callin
 4. Screen unlocked should show a heads-up alert; do not promise automatic fullscreen when unlocked. Test Personal VOICE/Notification do NOT automatically take over screen, but clicking notification opens screen.
 5. Verify old/stale token cannot control new event; test snooze, follow-up, reboots, Samsung battery restrictions, FSI and exact-alarm special access, DND.
 6. Check Play Console restricted permissions before approving production. No release/merge until successful owner acceptance.
+
+## Automatic-launch receipt race safeguard
+The receiver posts the Personal notification **before** committing `presentedToken`. An immediate system-launched FSI can open before that write completes. Build272's tap-only screen previously rejected such a record as stale. The new `PersonalAlertPresentationPolicy` explicitly waits up to 10 short checks (150ms apart) for the **same pending occurrence token** to become presented; any rotated, deleted or paused record is rejected immediately. This never acknowledges a reminder automatically, changes user response, or bypasses the original posted-token requirement. Three pure JVM tests cover waiting, successful receipt, stale tokens and timeout bounds.
