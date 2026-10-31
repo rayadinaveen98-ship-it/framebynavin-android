@@ -1,0 +1,129 @@
+name: Backlot V279 - Personal Alarm Full Screen Safely Gated (Preview QA)
+
+on:
+  push:
+    branches: [fix/backlot-v279-personal-alarm-fullscreen-rc]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v279-personal-fsi-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Protect existing signed app, permission inventory and all stored data
+        run: |
+          set -euo pipefail
+          BASE=e6ec896447f3852dba7c52435e711e1ca23d4ee2
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/v279-files
+          python3 - <<'PY'
+          from pathlib import Path
+          changed = set(Path("/tmp/v279-files").read_text().splitlines())
+          allowed = {
+            ".github/workflows/backlot-v279-personal-alarm-fsi-qa.yml",
+            "docs/release/BACKLOT_V279_PERSONAL_ALARM_FULLSCREEN_RCA_FIX.md",
+            "app/src/main/java/com/framebynavin/app/personal/PersonalFullScreenPolicy.kt",
+            "app/src/main/java/com/framebynavin/app/personal/PersonalReminderNotifications.kt",
+            "app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt",
+            "app/src/test/java/com/framebynavin/app/personal/V279PersonalFullScreenPolicyTest.kt",
+            "app/src/androidTest/java/com/framebynavin/app/personal/V279PersonalFullScreenNotificationTest.kt",
+            "app/src/androidTest/java/com/framebynavin/app/personal/V279LockedPersonalAlertUiTest.kt",
+          }
+          assert changed.issubset(allowed) and len(changed)>=6, sorted(changed ^ allowed)
+          gradle = Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 272' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'targetSdk = 36' in gradle
+          manifest = Path("app/src/main/AndroidManifest.xml").read_text()
+          assert 'android.permission.USE_FULL_SCREEN_INTENT' in manifest
+          assert not any(x.startswith(("supabase/", "release-site/", "app/src/main/res/", "app/src/main/java/com/framebynavin/app/data/", "app/src/main/java/com/framebynavin/app/cloud/")) for x in changed)
+          policy = Path("app/src/main/java/com/framebynavin/app/personal/PersonalFullScreenPolicy.kt").read_text()
+          assert "alert == PersonalAlert.ALARM" in policy and "!followUp" in policy and "fullScreenPermissionAllowed" in policy
+          ui = Path("app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt").read_text()
+          assert 'if (locked)' in ui and 'if (saving || keyguardShowing) return' in ui
+          assert 'Spoken three times' in ui
+          notify = Path("app/src/main/java/com/framebynavin/app/personal/PersonalReminderNotifications.kt").read_text()
+          assert 'V268FullScreenReminderAccess.configure(' in notify
+          assert 'V268FullScreenReminderAccess.allowed(context)' in notify
+          print('PASS only synthetic UI/alarm changes, no user data, signing, Play or production backend')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile entire app, run JUnit, lint and instrumented-test build
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          reports=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V279PersonalFullScreenPolicyTest.xml'))
+          assert len(reports)==1, f"Policy unit tests missing: {reports}"
+          root=ET.parse(reports[0]).getroot()
+          assert int(root.attrib.get('tests',0))==3 and int(root.attrib.get('failures',0))==0 and int(root.attrib.get('errors',0))==0
+          print('PASS 3 Personal full-screen policy tests')
+          PY
+          mkdir -p qa
+          cp app/build/outputs/apk/debug/app-debug.apk qa/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk qa/app-debug-androidTest.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V279-Disposable-Personal-FSI-Debug-APKs
+          path: qa/
+          retention-days: 7
+          if-no-files-found: error
+
+  synthetic-android:
+    needs: full-android
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 30
+            display: phone
+          - api: 36
+            display: tablet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V279-Disposable-Personal-FSI-Debug-APKs
+          path: qa
+      - name: Enable Android emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test gated alarm FSI, notification fallback, keyguard redaction and current delivery
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            if [ "${{ matrix.display }}" = "tablet" ]; then adb shell wm size 1280x800; adb shell wm density 240; fi
+            adb install -r qa/app-debug.apk
+            adb install -r qa/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V279PersonalFullScreenNotificationTest,com.framebynavin.app.personal.V279LockedPersonalAlertUiTest,com.framebynavin.app.personal.V2231PersonalDeliveryTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v279-personal-fsi.log
+            grep -E 'OK \([0-9]+ tests?\)' /tmp/backlot-v279-personal-fsi.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v279-personal-fsi.log; then exit 1; fi
+      - run: echo "No live FSI permission mutated; no real lock-screen claim without owner physical acceptance"
