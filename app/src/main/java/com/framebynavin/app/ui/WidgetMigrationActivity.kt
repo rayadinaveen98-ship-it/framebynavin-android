@@ -93,7 +93,7 @@ internal fun V2273WidgetMigrationScreen(
             Text("HOME SCREEN", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Text("Your Backlot widgets", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Bold)
             Text(
-                "Move to the three new widgets without losing already pinned ones. You are always in control of removing old widgets.",
+                "Preview each Backlot widget before adding it. Existing pinned widgets and private data stay unchanged.",
                 color = MutedText, fontSize = 13.sp,
             )
             val newCount = inventory?.newTotal
@@ -121,6 +121,9 @@ internal fun V2273WidgetMigrationScreen(
                         Text(kind.label, color = ProjectorIvory,
                             fontWeight = FontWeight.Bold, fontSize = 17.sp)
                         Text(kind.summary, color = MutedText, fontSize = 12.sp)
+                        Spacer(Modifier.height(8.dp))
+                        V275WidgetPreview(kind)
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             "${inventory?.newPinned?.get(kind) ?: "—"} currently pinned",
                             color = MutedGold, fontSize = 12.sp,

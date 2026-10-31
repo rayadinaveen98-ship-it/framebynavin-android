@@ -1,0 +1,100 @@
+name: Backlot V275 Real Widget Layout Preview QA
+
+on:
+  push:
+    branches: [feature/backlot-v275-real-widget-layout-previews]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v275-real-widget-previews-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-and-safe-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Freeze original widget provider and user state
+        run: |
+          set -euo pipefail
+          BASE=1810aae9c4a7cd2762388306b63ee19793c66c18
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/v275-files
+          python3 - <<'PY'
+          from pathlib import Path
+          files=set(Path('/tmp/v275-files').read_text().splitlines())
+          allowed={
+            '.github/workflows/backlot-v275-real-widget-preview-qa.yml',
+            'docs/release/BACKLOT_V275_WIDGET_LAYOUT_PREVIEW.md',
+            'app/src/main/java/com/framebynavin/app/ui/V275WidgetPreview.kt',
+            'app/src/main/java/com/framebynavin/app/ui/WidgetMigrationActivity.kt',
+            'app/src/androidTest/java/com/framebynavin/app/ui/V275WidgetPreviewTest.kt',
+          }
+          assert files.issubset(allowed) and len(files)>=4, f'Unexpected widget or user-data mutation: {files-allowed}'
+          assert not any(p.startswith(('supabase/','release-site/','app/src/main/res/','app/src/main/java/com/framebynavin/app/personal/','app/src/main/java/com/framebynavin/app/widget/')) for p in files)
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in gradle and 'applicationId = "com.framebynavin.app"' in gradle
+          source=Path('app/src/main/java/com/framebynavin/app/ui/V275WidgetPreview.kt').read_text()
+          for layout in ('widget_v224_capture','widget_v224_today','widget_v224_myday'):
+            assert layout in source
+          assert 'PersonalReminderStore' not in source and 'TaskStore' not in source
+          for xml in ('widget_v224_capture_info.xml','widget_v224_today_info.xml','widget_v224_myday_info.xml'):
+            assert 'android:previewLayout' in Path('app/src/main/res/xml',xml).read_text()
+          print('PASS: actual widget resources, no private data, no provider/permission/signer mutation')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile full Android app, lint and Android test APK
+        run: |
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          mkdir -p tests
+          cp app/build/outputs/apk/debug/app-debug.apk tests/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk tests/app-debug-androidTest.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V275-Widget-Preview-Debug-QA-APKs
+          path: tests/
+          retention-days: 7
+          if-no-files-found: error
+
+  android11-preview:
+    needs: compile-and-safe-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V275-Widget-Preview-Debug-QA-APKs
+          path: tests
+      - name: Enable hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android11 inflate actual RemoteViews preview layouts
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r tests/app-debug.apk
+            adb install -r tests/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V275WidgetPreviewTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v275-preview.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v275-preview.log
+      - run: echo "No device widgets pinned or replaced, no Creator/Personal data read"
