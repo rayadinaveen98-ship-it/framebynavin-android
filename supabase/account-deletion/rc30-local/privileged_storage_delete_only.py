@@ -13,7 +13,9 @@ from typing import Callable
 
 VOICE_BUCKET = "creator-voice-ideas"
 UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
-SEGMENT = re.compile(r"^[A-Za-z0-9_-]{1,180}$")
+# Match Android CreatorCloudVoiceMedia.safeSegment: dots are valid in an idea id.
+# Parent traversal remains rejected below (including ".." anywhere in a path).
+SEGMENT = re.compile(r"^[A-Za-z0-9._-]{1,160}$")
 VOICE_FILE = re.compile(r"^[a-zA-Z0-9_-]{1,180}\.m4a$")
 LOCAL_BUCKET_ALIAS = "backlot-rc22-ci"
 MAX_DELETE_BATCH = 100
