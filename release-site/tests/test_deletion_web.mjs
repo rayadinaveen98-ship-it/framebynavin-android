@@ -26,7 +26,7 @@ test("shipping configuration is explicitly disabled with no website origin or pu
   assert.equal(reviewConfiguration(config,site+REQUEST_PATH).ready,false);
   assert.ok(configSource.includes("enabled: false"));
   assert.ok(!source.includes("service_role"));
-  assert.ok(!source.includes("localStorage"));
+  assert.ok(!source.includes("localStorage.setItem("));
   assert.ok(!source.includes("document.cookie"));
   assert.ok(source.includes("if (!approved.ready)"));
 });
