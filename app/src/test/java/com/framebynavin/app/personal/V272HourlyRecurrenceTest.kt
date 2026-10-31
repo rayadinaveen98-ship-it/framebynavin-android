@@ -74,6 +74,18 @@ class V272HourlyRecurrenceTest {
             PersonalRecurrence.nextAfter(originalDaily,at("2026-11-02","08:01")))
     }
 
+    @Test fun unansweredHourlySlotRemainsActionableBeforeNextReminder() {
+        val anchor = at("2026-11-02", "08:00")
+        val record = schedule(hours = 1).copy(
+            pendingOccurrenceMillis = anchor,
+            pendingFireAtMillis = anchor,
+            pendingToken = "4561e3bc-64c4-4aa1-a552-4f652552f0bc",
+            presentedToken = "4561e3bc-64c4-4aa1-a552-4f652552f0bc",
+        )
+        val expires = PersonalRecoveryPolicy.expiresAtMillis(record)
+        assertEquals(anchor + 30 * 60_000L, expires)
+    }
+
     @Test fun invalidWindowAndPausedReminderDoNotGenerateEvents() {
         assertThrows(IllegalArgumentException::class.java) {
             schedule(end="07:00").checked()
