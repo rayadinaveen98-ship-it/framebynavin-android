@@ -101,7 +101,7 @@ class VoiceReminderService : Service() {
             { finishUnansweredVoice(task, token, "voice_watchdog_timeout") },
             V178PlaybackLifecyclePolicy.voiceWatchdogMillis(task),
         )
-        music.start(ReminderMusicChoice(task.voiceMusicMode, task.voiceMusicUri))
+        music.start(CreatorMusicLocalStore(applicationContext).get(task.id))
         beginSpeechCycle(task)
         return START_NOT_STICKY
     }
