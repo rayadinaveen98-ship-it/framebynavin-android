@@ -61,6 +61,8 @@ internal data class PProjectDraft(
     val priority: TaskPriority,
     val notes: String,
     val alarmSoundUri: String,
+    val voiceMusicMode: com.framebynavin.app.reminders.ReminderMusicMode,
+    val voiceMusicUri: String,
     val voicePersona: VoicePersona,
     val voiceRepeatCount: Int,
     val voiceRepeatIntervalSeconds: Int,
@@ -248,6 +250,10 @@ internal fun PProjectComposer(
     var soundUri by rememberSaveable(task?.id) {
         mutableStateOf(task?.alarmSoundUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString())
     }
+    var voiceMusicMode by rememberSaveable(task?.id) {
+        mutableStateOf(task?.voiceMusicMode ?: com.framebynavin.app.reminders.ReminderMusicMode.PIANO)
+    }
+    var voiceMusicUri by rememberSaveable(task?.id) { mutableStateOf(task?.voiceMusicUri.orEmpty()) }
     var voice by rememberSaveable(task?.id) { mutableStateOf(task?.voicePersona ?: defaults.defaultVoicePersona) }
     var repeatCount by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatCount ?: 3) }
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 10) }
@@ -423,6 +429,8 @@ internal fun PProjectComposer(
                         priority = priority,
                         notes = notes.trim(),
                         alarmSoundUri = soundUri,
+                        voiceMusicMode = voiceMusicMode,
+                        voiceMusicUri = voiceMusicUri,
                         voicePersona = voice,
                         voiceRepeatCount = repeatCount,
                         voiceRepeatIntervalSeconds = repeatGap,
@@ -683,6 +691,8 @@ internal fun PProjectComposer(
                                     priority = priority,
                                     notes = notes.trim(),
                                     alarmSoundUri = soundUri,
+                                    voiceMusicMode = voiceMusicMode,
+                                    voiceMusicUri = voiceMusicUri,
                                     voicePersona = voice,
                                     voiceRepeatCount = repeatCount,
                                     voiceRepeatIntervalSeconds = repeatGap,
