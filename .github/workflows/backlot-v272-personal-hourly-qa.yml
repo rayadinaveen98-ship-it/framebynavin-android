@@ -1,0 +1,118 @@
+name: Backlot V272 Personal Every-N-Hours / Weekend Scheduling QA
+
+on:
+  push:
+    branches: [feature/backlot-personal-hourly-phase2-schedule]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v272-hourly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  complete-android-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Guard Build270 signer, Creator data and hosted services
+        run: |
+          set -euo pipefail
+          BASE=1810aae9c4a7cd2762388306b63ee19793c66c18
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD >/tmp/v272-files
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path('/tmp/v272-files').read_text().splitlines())
+          allowed={
+            '.github/workflows/backlot-v272-personal-hourly-qa.yml',
+            'docs/release/BACKLOT_V272_HOURLY_PREVIEW.md',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminder.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminderCodec.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalReminderCommands.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalRecurrence.kt',
+            'app/src/main/java/com/framebynavin/app/personal/PersonalRecoveryPolicy.kt',
+            'app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt',
+            'app/src/test/java/com/framebynavin/app/personal/V272HourlyRecurrenceTest.kt',
+            'app/src/androidTest/java/com/framebynavin/app/personal/V272HourlyPersonalCodecTest.kt',
+          }
+          assert actual.issubset(allowed), f'Unexpected mutation: {actual-allowed}'
+          assert len(actual)>=9
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          assert 'tasks.register("verifyPrivateReleaseSigning")' in gradle
+          assert not any(p.startswith(('supabase/','release-site/','app/src/main/java/com/framebynavin/app/data/','app/src/main/java/com/framebynavin/app/widget/')) for p in actual)
+          print('PASS: no hosted Supabase, CreatorTask, widget, Play signer, audio or user-data wipe touched')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Full app build, hourly recurrence unit tests, lint, instrumentation APK
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          reports=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V272HourlyRecurrenceTest.xml'))
+          assert len(reports)==1, 'Hourly recurrence suite missing'
+          r=ET.parse(reports[0]).getroot()
+          assert int(r.attrib.get('failures',0))==0 and int(r.attrib.get('errors',0))==0
+          assert int(r.attrib.get('tests',0))>=7
+          print('PASS real Java/Kotlin UTC hourly and recovery tests',r.attrib['tests'])
+          PY
+          mkdir -p hourly-tests
+          cp app/build/outputs/apk/debug/app-debug.apk hourly-tests/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk hourly-tests/app-debug-androidTest.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V272-Disposable-Hourly-Debug-APKs
+          path: hourly-tests/
+          retention-days: 7
+          if-no-files-found: error
+
+  local-android11-codec-compatibility:
+    needs: complete-android-compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V272-Disposable-Hourly-Debug-APKs
+          path: hourly-tests
+      - name: Enable free synthetic Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android11 hourly v1 backup/restore migration checks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r hourly-tests/app-debug.apk
+            adb install -r hourly-tests/app-debug-androidTest.apk
+            adb shell am instrument -w -r \
+              -e class com.framebynavin.app.personal.V272HourlyPersonalCodecTest \
+              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
+              | tee /tmp/backlot-v272-hourly-codec.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v272-hourly-codec.log
+      - run: echo "PASS synthetic codec compatibility; actual owner install/notifications still require physical-device review"
