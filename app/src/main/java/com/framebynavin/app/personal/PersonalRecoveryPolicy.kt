@@ -28,7 +28,13 @@ internal object PersonalRecoveryPolicy {
         // because yesterday's posted notification is still awaiting a response.
         // Leave 2h for an inexact watchdog to run before the next due time.
         val next = PersonalRecurrence.nextAfter(reminder, anchor) ?: return maximum
-        return minOf(maximum, maxOf(anchor, next - NEXT_OCCURRENCE_LEAD_MILLIS))
+        // Hourly reminders must not archive the actionable current notification
+        // immediately just because the next slot is sooner than the old 2h
+        // lead. Leave roughly half the interval to respond before recycling.
+        val nextGap = (next - anchor).coerceAtLeast(1L)
+        val lead = minOf(NEXT_OCCURRENCE_LEAD_MILLIS, nextGap / 2L)
+        val minimumVisible = minOf(5L * 60_000L, nextGap / 2L)
+        return minOf(maximum, maxOf(anchor + minimumVisible, next - lead))
     }
 
     fun recoveryAlarmAtMillis(reminder: PersonalReminder): Long =
