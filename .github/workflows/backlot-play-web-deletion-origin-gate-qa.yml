@@ -1,0 +1,152 @@
+name: Backlot Play External Deletion Origin Gate — Default-OFF QA
+
+on:
+  push:
+    branches: [release/backlot-play-web-deletion-origin-gate]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-play-web-origin-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Freeze Android Build270, website, hosted data and default-off Edge security
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = false
+          BASE=84b99abbf0f3e32215111d084bd34928fa645ce4
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD > /tmp/web-origin-files
+          python3 - <<'PY'
+          from pathlib import Path
+          files=set(Path('/tmp/web-origin-files').read_text().splitlines())
+          allow={
+            'supabase/functions/backlot-account-deletion/handler.ts',
+            'supabase/functions/backlot-account-deletion/index.ts',
+            'supabase/functions/backlot-account-deletion/handler_test.ts',
+            '.github/workflows/backlot-play-web-deletion-origin-gate-qa.yml',
+            'docs/release/BACKLOT_WEB_DELETION_ORIGIN_GATE_NOT_LIVE.md',
+          }
+          assert files.issubset(allow), f'Unexpected production modifications: {sorted(files-allow)}'
+          assert files.issuperset({
+            'supabase/functions/backlot-account-deletion/handler.ts',
+            'supabase/functions/backlot-account-deletion/index.ts',
+            'supabase/functions/backlot-account-deletion/handler_test.ts',
+          })
+          android=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 270' in android and 'targetSdk = 36' in android
+          handler=Path('supabase/functions/backlot-account-deletion/index.ts').read_text()
+          assert 'BACKLOT_DELETION_API_ENABLED' in handler
+          assert 'BACKLOT_DELETION_WEB_OAUTH_REVIEWED' in handler
+          assert 'BACKLOT_DELETION_WEB_ORIGIN_APPROVED' in handler
+          assert 'BACKLOT_DELETION_WEB_ORIGIN' in handler
+          assert 'BACKLOT_DELETION_OWNER_APPROVED' in handler
+          assert 'SERVICE_ROLE' not in handler
+          assert not any(f.startswith(('app/src/','release-site/','supabase/migrations/')) for f in files)
+          print('PASS: no hosted writes, original Build270 unchanged, web origin requires review')
+          PY
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - name: Typecheck Edge + original and adversarial browser tests
+        run: |
+          deno check supabase/functions/backlot-account-deletion/index.ts
+          deno test --no-config --no-check supabase/functions/backlot-account-deletion/handler_test.ts
+
+  real-local-edge-compatibility:
+    needs: typecheck-and-security
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BACKLOT_RC22_LOCAL_ONLY: "true"
+      BACKLOT_RC28_LOOPBACK_ONLY: "true"
+      BACKLOT_DELETION_API_ENABLED: "true"
+      BACKLOT_DELETION_SCHEMA_REVIEWED: "true"
+      BACKLOT_DELETION_STORAGE_FENCE_REVIEWED: "true"
+      BACKLOT_DELETION_OWNER_APPROVED: "true"
+      # Intentionally NO web origin / web OAuth approval variables.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+      - name: Start disposable local Supabase Auth/PostgREST/Storage
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          mkdir -p "$RUNNER_TEMP/backlot-origin-local"
+          cd "$RUNNER_TEMP/backlot-origin-local"
+          supabase init --yes
+          supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status -o env > "$RUNNER_TEMP/origin-env"
+          chmod 600 "$RUNNER_TEMP/origin-env"
+      - name: Require loopback-only before fixture or HTTP tests
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/origin-env"; set +a
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+          for key,port in (('API_URL',54321),('DB_URL',54322)):
+            u=urlsplit(os.environ.get(key,''))
+            assert u.hostname in ('localhost','127.0.0.1') and u.port==port, 'Refusing hosted Supabase'
+          print('PASS: synthetic local-only database')
+          PY
+          for fixture in \
+            supabase/account-deletion/rc22-local/fixture.sql \
+            supabase/account-deletion/rc24-local/creator_write_guard.sql \
+            supabase/account-deletion/rc26-local/receipt.sql \
+            supabase/account-deletion/rc28-local/edge_request_rpc_contract.sql; do
+            PGOPTIONS='-c backlot.rc22.ephemeral_only=true' \
+              psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$fixture"
+          done
+      - name: Test genuine native Edge to local Auth/SQL/worker while browser stays OFF
+        run: |
+          set -euo pipefail
+          set -a; source "$RUNNER_TEMP/origin-env"; set +a
+          export SUPABASE_URL="$API_URL"
+          export SUPABASE_ANON_KEY="$ANON_KEY"
+          deno run --allow-env --allow-net=127.0.0.1:54321,127.0.0.1:8000 \
+            supabase/functions/backlot-account-deletion/index.ts \
+            > "$RUNNER_TEMP/web-origin-edge.log" 2>&1 &
+          EDGE_PID=$!
+          trap 'kill "$EDGE_PID" 2>/dev/null || true' EXIT
+          ready=false
+          for i in $(seq 1 30); do
+            status="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/ || true)"
+            if test "$status" = "401"; then ready=true; break; fi
+            sleep 1
+          done
+          test "$ready" = true || { cat "$RUNNER_TEMP/web-origin-edge.log"; exit 1; }
+          browser_status="$(curl -s -o /dev/null -w '%{http_code}' \
+            -H 'Origin: https://privacy.backlot.example' \
+            -H 'Access-Control-Request-Method: POST' \
+            -H 'Access-Control-Request-Headers: authorization,apikey,content-type' \
+            -X OPTIONS http://127.0.0.1:8000/)"
+          test "$browser_status" = 403
+          python3 supabase/account-deletion/rc28-local/test_edge_function_e2e.py
+          echo 'PASS native Auth/SQL/Storage flow preserved, unapproved browser blocked'
+      - name: Destroy disposable local service without backups
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/backlot-origin-local" 2>/dev/null && supabase stop --no-backup || true
+      - name: Leave live Supabase, main and Play Store unchanged
+        if: always()
+        run: echo 'No hosted project, billing, production deletion or website modified'
