@@ -7,7 +7,21 @@
  */
 import { handleRequest, type DeletionBackend, type Receipt, type User } from "./handler.ts";
 
-function config(): { url: string; anon: string; enabled: boolean } {
+function approvedWebOrigin(): string | undefined {
+  // External website is NOT connected until owner reviews the HTTPS domain,
+  // browser OAuth redirect allowlist and the production account-deletion backend.
+  if (Deno.env.get("BACKLOT_DELETION_WEB_OAUTH_REVIEWED") !== "true" ||
+      Deno.env.get("BACKLOT_DELETION_WEB_ORIGIN_APPROVED") !== "true") return undefined;
+  const raw = Deno.env.get("BACKLOT_DELETION_WEB_ORIGIN") ?? "";
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || url.username || url.password ||
+        url.pathname !== "/" || url.search || url.hash ||
+        url.origin !== raw || !url.hostname.includes(".")) return undefined;
+    return raw;
+  } catch { return undefined; }
+}
+function config(): { url: string; anon: string; enabled: boolean; webOrigin?: string } {
   const enabled = Deno.env.get("BACKLOT_DELETION_API_ENABLED") === "true" &&
     Deno.env.get("BACKLOT_DELETION_SCHEMA_REVIEWED") === "true" &&
     Deno.env.get("BACKLOT_DELETION_STORAGE_FENCE_REVIEWED") === "true" &&
@@ -29,7 +43,7 @@ function config(): { url: string; anon: string; enabled: boolean } {
   } catch {
     return { url: "", anon: "", enabled: false };
   }
-  return { url: url.replace(/\/$/, ""), anon, enabled };
+  return { url: url.replace(/\/$/, ""), anon, enabled, webOrigin: approvedWebOrigin() };
 }
 const settings = config();
 async function call(token: string, url: string, method: string, body?: unknown): Promise<unknown> {
@@ -74,7 +88,7 @@ const backend: DeletionBackend = {
     return result as Receipt | null;
   },
 };
-const requestHandler = (req: Request) => handleRequest(req, backend);
+const requestHandler = (req: Request) => handleRequest(req, backend, settings.webOrigin);
 if (Deno.env.get("BACKLOT_RC28_LOOPBACK_ONLY") === "true") {
   Deno.serve({ hostname: "127.0.0.1", port: 8000 }, requestHandler);
 } else {
