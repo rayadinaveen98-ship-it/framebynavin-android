@@ -1,0 +1,43 @@
+name: Backlot 272 - Download Only Verified Full APK
+
+on:
+  push:
+    branches: [distribution/backlot-build272-apk-download-only]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verified-apk-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download immutable Build272 QA artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 41198817937
+          github-token: ${{ github.token }}
+          name: Backlot-Build272-Full-Owner-Test-APKs
+          path: original
+      - name: Verify identical signed APK previously accepted by Android CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && sha256sum -c SHA256SUMS.txt)
+          ORIGINAL=original/Backlot-Build272-Full-Owner-Test.apk
+          test -s "$ORIGINAL"
+          test "$(stat -c%s "$ORIGINAL")" = 18004558
+          test "$(sha256sum "$ORIGINAL" | awk '{print $1}')" = e4f0dc03730986490ac03b0d4a7daa77a4a8ecd03076ddabdcfdc439b413cdc2
+          mkdir -p download
+          cp "$ORIGINAL" download/Backlot-v2.16.1-Build272-FULL-Install.apk
+          echo "Verified 18 MB full installation APK identical to tested Build272."
+      - name: Upload only the owner installation APK (no debug or test APKs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-272-ONLY-INSTALL-APK
+          path: download/Backlot-v2.16.1-Build272-FULL-Install.apk
+          retention-days: 30
+          if-no-files-found: error
