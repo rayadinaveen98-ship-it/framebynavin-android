@@ -1,0 +1,79 @@
+name: Backlot V276 Build271 — Recheck Exact Signed APK On Android11 and Android16
+
+on:
+  push:
+    branches: [release/backlot-v276-exact-artifact-emulator-acceptance]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v276-exact-artifact-emulator-acceptance
+  cancel-in-progress: true
+
+jobs:
+  exact-artifact-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 30
+            device: phone
+          - api: 36
+            device: tablet
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Freeze app source and signing at the exact Build271 package
+        run: |
+          set -euo pipefail
+          BASE=40134107ffc882f28d46d4674bb1763a82a22a1b
+          git merge-base --is-ancestor "$BASE" HEAD
+          test "$(git diff --name-only "$BASE" HEAD)" = '.github/workflows/backlot-v276-exact-artifact-emulator-acceptance.yml'
+          grep -F 'versionCode = 271' app/build.gradle.kts
+          grep -F 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -F 'args.getString("hardeningTestEnvironment") == "ci-emulator"' app/src/androidTest/java/com/framebynavin/app/data/HardeningTestEnvironment.kt
+          echo 'PASS exact app and emulator hardening guard unchanged'
+      - name: Download identical Build271 package and compiled synthetic tests
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V276-Build271-Full-OWNER-TEST-APKs
+          run-id: 41195618647
+          github-token: ${{ github.token }}
+          path: full-preview
+      - name: Verify complete signed owner APK and both test APKs
+        run: |
+          set -euo pipefail
+          (cd full-preview && sha256sum -c SHA256SUMS.txt)
+          test "$(sha256sum full-preview/Backlot-V276-Build271-Full-App-OWNER-TEST.apk | cut -d' ' -f1)" = b93684e1dbebdd99b4047e0c9f8ff6181d9fb73e22e94c89ae73d7d5082370ae
+          test -s full-preview/app-debug.apk
+          test -s full-preview/app-debug-androidTest.apk
+          echo 'PASS exact Build271 app bytes and test APKs unchanged'
+      - name: Enable free Android emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test 17 combined real Android cases, explicit safe CI-emulator marker
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            if [ "${{ matrix.device }}" = "tablet" ]; then adb shell wm size 1280x800; adb shell wm density 240; fi
+            adb install -r full-preview/app-debug.apk
+            adb install -r full-preview/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.V271PianoRuntimeTest,com.framebynavin.app.reminders.V273CreatorMusicLocalTest,com.framebynavin.app.personal.V273PersonalMusicCodecTest,com.framebynavin.app.personal.V272HourlyPersonalCodecTest,com.framebynavin.app.personal.V274SelfCareBackupTest,com.framebynavin.app.ui.V274SelfCareEditorUiTest,com.framebynavin.app.ui.V275WidgetPreviewTest,com.framebynavin.app.ui.V2271PersonalEditorDeviceUiTest,com.framebynavin.app.personal.V2231PersonalDeliveryTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v276-exact-artifact-acceptance.log
+            grep -F 'OK (17 tests)' /tmp/backlot-v276-exact-artifact-acceptance.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v276-exact-artifact-acceptance.log; then exit 1; fi
+      - name: Record result scope
+        run: echo "PASS exact Build271 APK, no production data or paid service; physical phone audio and launcher's widget review remain owner acceptance"
