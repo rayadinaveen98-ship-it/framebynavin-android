@@ -59,10 +59,12 @@ function showReceipt(receipt) {
       " (stage: " + receipt.stage + "). Your account has NOT been confirmed deleted.";
   }
 }
+// OAuth Auth user payloads may exceed 4 KiB; cap all server JSON at 32 KiB.
+const MAX_JSON_BYTES = 32768;
 async function readJsonBounded(response) {
   if (!response.body) throw Error("Empty server response");
   const declared = response.headers.get("content-length");
-  if (declared && Number(declared) > 4096) throw Error("Response exceeded limit");
+  if (declared && Number(declared) > MAX_JSON_BYTES) throw Error("Response exceeded limit");
   const reader = response.body.getReader();
   const chunks = [];
   let size = 0;
@@ -71,7 +73,7 @@ async function readJsonBounded(response) {
       const part = await reader.read();
       if (part.done) break;
       size += part.value.byteLength;
-      if (size > 4096) {
+      if (size > MAX_JSON_BYTES) {
         await reader.cancel();
         throw Error("Response exceeded limit");
       }
