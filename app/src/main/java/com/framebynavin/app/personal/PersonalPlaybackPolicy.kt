@@ -3,7 +3,15 @@ package com.framebynavin.app.personal
 /** Pure admission policy shared by foreground playback, alert screen and tests. */
 internal object PersonalPlaybackPolicy {
     const val MAX_AUDIO_AGE_MILLIS = 10L * 60_000L
-    const val VOICE_MAX_MILLIS = 35_000L
+    // Three complete TTS utterances + inter-speech gaps, including a TTS stall
+    // watchdog. The speech engine can be slower on a cold start or tablet.
+    const val VOICE_REPEAT_COUNT = 3
+    const val VOICE_REPEAT_GAP_MILLIS = 2_500L
+    const val VOICE_MAX_MILLIS = 90_000L
+
+    /** Never mark speech Done; this only advances the audible repeat cycle. */
+    fun nextVoiceIndex(completedIndex: Int): Int? =
+        (completedIndex + 1).takeIf { it < VOICE_REPEAT_COUNT }
     const val ALARM_MAX_MILLIS = 60_000L
 
     fun isEligible(reminder: PersonalReminder?, id: String, originalMillis: Long,
