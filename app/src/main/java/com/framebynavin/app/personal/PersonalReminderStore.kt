@@ -26,6 +26,8 @@ internal class PersonalReminderStore(context: Context) {
     private val data = app.personalReminderDataStore
     private val mainKey = stringPreferencesKey("personal_records_v1")
     private val lastGoodKey = stringPreferencesKey("personal_records_last_good_v1")
+    private val completionKey = stringPreferencesKey("personal_done_history_v1")
+    private val completionLastGoodKey = stringPreferencesKey("personal_done_history_last_good_v1")
 
     val remindersFlow: Flow<List<PersonalReminder>> = data.data.map { prefs ->
         when (val raw = prefs[mainKey]) {
@@ -40,6 +42,13 @@ internal class PersonalReminderStore(context: Context) {
     }
 
     suspend fun load(): List<PersonalReminder> = remindersFlow.first()
+
+    /** Local-only, private, read-only completion history. Fail closed if damaged. */
+    val completionHistoryFlow: Flow<List<PersonalCompletionEvent>> = data.data.map { prefs ->
+        prefs[completionKey]?.let(PersonalCompletionJournal::decode) ?: emptyList()
+    }
+
+    suspend fun loadCompletionHistory(): List<PersonalCompletionEvent> = completionHistoryFlow.first()
 
     suspend fun create(reminder: PersonalReminder): List<PersonalReminder> =
         mutate { current ->
@@ -60,7 +69,10 @@ internal class PersonalReminderStore(context: Context) {
     suspend fun delete(id: String): List<PersonalReminder> =
         mutate { current -> current.filterNot { it.id == id } }
 
-    suspend fun mutate(change: (List<PersonalReminder>) -> List<PersonalReminder>): List<PersonalReminder> =
+    suspend fun mutate(
+        onDoneAccepted: ((List<PersonalReminder>, List<PersonalReminder>) -> PersonalCompletionEvent?)? = null,
+        change: (List<PersonalReminder>) -> List<PersonalReminder>,
+    ): List<PersonalReminder> =
         personalReminderMutationMutex.withLock {
             var committed = emptyList<PersonalReminder>()
             data.edit { prefs ->
@@ -76,10 +88,24 @@ internal class PersonalReminderStore(context: Context) {
                 }
                 val updated = change(previous)
                 if (updated != previous) {
+                    // Validate and prepare the optional DONE receipt before committing anything.
+                    // Both the reminder acknowledgement and history are written atomically.
+                    val doneReceipt = onDoneAccepted?.invoke(previous, updated)
+                    val oldHistoryRaw = prefs[completionKey]
+                    val nextHistory = doneReceipt?.let { receipt ->
+                        PersonalCompletionJournal.append(
+                            oldHistoryRaw?.let(PersonalCompletionJournal::decode) ?: emptyList(), receipt,
+                        )
+                    }
                     val encoded = PersonalReminderCodec.encode(updated)
+                    val nextHistoryRaw = nextHistory?.let(PersonalCompletionJournal::encode)
                     if (currentRaw != null) prefs[lastGoodKey] = currentRaw
                     else prefs[lastGoodKey] = PersonalReminderCodec.encode(emptyList())
                     prefs[mainKey] = encoded
+                    if (nextHistoryRaw != null && nextHistoryRaw != oldHistoryRaw) {
+                        if (oldHistoryRaw != null) prefs[completionLastGoodKey] = oldHistoryRaw
+                        prefs[completionKey] = nextHistoryRaw
+                    }
                 }
                 committed = updated
             }
