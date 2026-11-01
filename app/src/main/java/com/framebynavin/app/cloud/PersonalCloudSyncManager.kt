@@ -72,6 +72,12 @@ internal class PersonalCloudSyncManager(context: Context) {
         account.withFreshSession { session ->
             val local = prepareLocal()
             val remote = api.fetchPersonalSyncHead(session)
+            if (remote != null) {
+                check(sha256(remote.payload) == remote.payloadSha256) {
+                    "Personal cloud checksum mismatch; nothing was overwritten"
+                }
+                transfer.preview(remote.payload) // verify inner reminders/history checksum too
+            }
             // An existing Personal workspace must never silently upload to a
             // different Google identity after sign-out/account switch.
             val owner = cursor.ownerUserId()
