@@ -252,8 +252,8 @@ internal fun PProjectComposer(
         mutableStateOf(task?.alarmSoundUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString())
     }
     val existingMusic = remember(task?.id) {
-        task?.let { com.framebynavin.app.reminders.CreatorMusicLocalStore(context).get(it.id) }
-            ?: com.framebynavin.app.reminders.ReminderMusicChoice()
+        val localMusic = com.framebynavin.app.reminders.CreatorMusicLocalStore(context)
+        task?.let { localMusic.get(it.id) } ?: localMusic.defaultChoice()
     }
     var voiceMusicMode by rememberSaveable(task?.id) { mutableStateOf(existingMusic.mode) }
     var voiceMusicUri by rememberSaveable(task?.id) { mutableStateOf(existingMusic.uri) }
@@ -631,6 +631,7 @@ internal fun PProjectComposer(
                                     voiceMusicUri = picked
                                 },
                                 modifier = Modifier.fillMaxWidth().testTag("v273-project-music"),
+                                allowSetCreatorDefault = true,
                             )
                             Spacer(Modifier.height(14.dp))
                             V180ReminderTimingControls(

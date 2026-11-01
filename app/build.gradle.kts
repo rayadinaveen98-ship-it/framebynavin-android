@@ -58,8 +58,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
-        versionCode = 275
-        versionName = "2.17.1-rc2-fresh-start-owner-test"
+        versionCode = 276
+        versionName = "2.17.2-rc3-music-mix-owner-test"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

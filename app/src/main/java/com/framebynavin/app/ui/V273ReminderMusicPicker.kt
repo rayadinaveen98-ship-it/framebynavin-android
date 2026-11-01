@@ -16,6 +16,7 @@ import com.framebynavin.app.reminders.ReminderVoiceMusicPreview
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.framebynavin.app.reminders.CreatorMusicLocalStore
 import com.framebynavin.app.reminders.ReminderMusicChoice
 import com.framebynavin.app.reminders.ReminderMusicMode
 
@@ -30,9 +31,12 @@ internal fun V273ReminderMusicPicker(
     uri: String,
     onChanged: (ReminderMusicMode, String) -> Unit,
     modifier: Modifier = Modifier,
+    allowSetCreatorDefault: Boolean = false,
 ) {
     val context = LocalContext.current
     var error by remember { mutableStateOf<String?>(null) }
+    var confirmAll by remember { mutableStateOf(false) }
+    var globalStatus by remember { mutableStateOf<String?>(null) }
     var previewStatus by remember { mutableStateOf<String?>(null) }
     val preview = remember(context) { ReminderVoiceMusicPreview(context.applicationContext) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -96,6 +100,17 @@ internal fun V273ReminderMusicPicker(
                 modifier = Modifier.testTag("v273-music-off"),
             )
         }
+        if (allowSetCreatorDefault) {
+            TextButton(
+                modifier = Modifier.testTag("v276-use-music-all-projects"),
+                onClick = { confirmAll = true; globalStatus = null },
+            ) { Text("Use this music for all Creator projects") }
+            Text(
+                "Replaces every Creator project's music selection. Personal reminders stay unchanged.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            globalStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        }
         if (mode == ReminderMusicMode.CUSTOM) {
             Text("Selected audio file · Saved on this device. Moving or deleting the file may break playback.",
                 style = MaterialTheme.typography.bodySmall)
@@ -136,5 +151,30 @@ internal fun V273ReminderMusicPicker(
             style = MaterialTheme.typography.bodySmall)
         previewStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+    if (confirmAll) {
+        AlertDialog(
+            onDismissRequest = { confirmAll = false },
+            title = { Text("Use for every Creator project?") },
+            text = { Text(
+                "This changes the default soundtrack for all current and future Creator projects, " +
+                    "replacing earlier per-project music choices. This device only. Personal reminders and other project data are unchanged."
+            ) },
+            confirmButton = {
+                TextButton(
+                    modifier = Modifier.testTag("v276-confirm-all-creator-music"),
+                    onClick = {
+                        val selected = ReminderMusicChoice(mode, uri)
+                        runCatching { CreatorMusicLocalStore(context).setDefaultForAll(selected) }
+                            .onSuccess { globalStatus = "Default music applied to all Creator projects." }
+                            .onFailure { error = "Could not save music. Choose a valid local file and try again." }
+                        confirmAll = false
+                    },
+                ) { Text("APPLY TO ALL") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmAll = false }) { Text("CANCEL") }
+            },
+        )
     }
 }

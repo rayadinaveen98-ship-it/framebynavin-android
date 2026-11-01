@@ -149,11 +149,25 @@ internal fun V144SettingsHub(
                 V144SettingsNote("Choose the companion you want to see in Backlot. Suggestions never create, complete or reschedule reminders or projects. Turning them off does not change your guide.")
             }
 
-            V167SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice for new projects", ::navigateBack) {
+            V167SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice and background music", ::navigateBack) {
+                val musicStore = remember(context) {
+                    com.framebynavin.app.reminders.CreatorMusicLocalStore(context)
+                }
+                val savedMusic = remember(musicStore) { musicStore.defaultChoice() }
+                var defaultMusicMode by remember { mutableStateOf(savedMusic.mode) }
+                var defaultMusicUri by remember { mutableStateOf(savedMusic.uri) }
                 V140VoiceStudioPicker(
                     selected = settings.defaultVoicePersona,
                     onSelected = onVoice,
                     onPreview = { v144PreviewVoice(context, it) },
+                )
+                Spacer(Modifier.height(16.dp))
+                V273ReminderMusicPicker(
+                    mode = defaultMusicMode,
+                    uri = defaultMusicUri,
+                    onChanged = { mode, uri -> defaultMusicMode = mode; defaultMusicUri = uri },
+                    modifier = Modifier.fillMaxWidth().testTag("v276-global-music-settings"),
+                    allowSetCreatorDefault = true,
                 )
                 Spacer(Modifier.height(8.dp))
                 V144SettingsNote(
