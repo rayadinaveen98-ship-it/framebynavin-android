@@ -90,6 +90,7 @@ internal fun PTodayScreen(
     onOpenIdeaVault: () -> Unit = {},
     onOpenInsights: () -> Unit = {},
     onOpenProject: (String) -> Unit = {},
+    onOpenProgressJourney: () -> Unit = {},
     bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
     homeSlideshowRequestNonce: Long = 0L,
     onHomeSlideshowRequestHandled: () -> Unit = {},
@@ -247,6 +248,10 @@ internal fun PTodayScreen(
             // One tap opens the existing V157 Center with unchanged safe actions.
             Spacer(Modifier.height(12.dp))
             V219ReminderHomeEntry(tasks = tasks, onOpenHub = onViewAllReminders)
+
+            // Creator-only, unobtrusive progress strip after the actionable Up Next and Reminders.
+            Spacer(Modifier.height(10.dp))
+            V282ProgressHomeStrip(tasks = visibleTasks, ideas = ideas.toList(), onOpen = onOpenProgressJourney)
 
             // V222.1: companion is now in the Home greeting header.
             // No duplicate suggestion card or reserved vertical space here.
