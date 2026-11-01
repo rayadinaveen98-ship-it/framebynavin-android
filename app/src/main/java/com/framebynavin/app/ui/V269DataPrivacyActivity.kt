@@ -53,7 +53,7 @@ class V269DataPrivacyActivity : ComponentActivity() {
 internal object V269DataPrivacyPolicy {
     const val CREATOR_SCOPE = "Creator exports cover supported projects and app-owned recordings. Keep original project files and external media separately."
     const val PERSONAL_SCOPE = "Personal Reminders use a separate backup. The exported JSON contains reminder names and notes and is not encrypted."
-    const val CLOUD_SCOPE = "Signed-in Creator cloud sync saves Creator records and supported Voice Idea recordings. New snapshots exclude original Best Frame photos; export a separate local Creator backup for those. Signing out does not erase stored copies or phone data."
+    const val CLOUD_SCOPE = "Unified Cloud Sync saves Creator records and Personal Reminders (including completion history) in separate account-private records. Device-only alarm tokens, original Best Frames, and custom music files do not sync. Android permissions must be granted per phone. Signing out does not erase cloud or phone data."
     const val DELETION_STATUS = "Full Backlot account deletion is not available in this preview. No deletion request can be submitted here. Signing out or deleting a Creator backup is not the same as deleting an account."
     const val NO_DELETION_SENT = "No account deletion request was sent."
 }
