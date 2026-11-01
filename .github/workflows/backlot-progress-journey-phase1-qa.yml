@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: backlot-progress-journey-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   progress-journey:
     runs-on: ubuntu-latest
@@ -47,7 +51,12 @@ jobs:
           assert int(root.attrib.get('tests',0)) >= 4
           assert int(root.attrib.get('errors',0)) == 0
           assert int(root.attrib.get('failures',0)) == 0
-          print('PASS Progress Journey project/idea history tests')
+          personal=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalCompletionJournalTest.xml'))
+          assert len(personal)==1, 'PersonalCompletionJournalTest not executed'
+          p=ET.parse(personal[0]).getroot()
+          assert int(p.attrib.get('tests',0)) >= 3
+          assert int(p.attrib.get('errors',0)) == 0 and int(p.attrib.get('failures',0)) == 0
+          print('PASS creator progress and private Personal DONE receipt tests')
           PY
       - name: Verify sideload build identity and archive for feature testing
         run: |
