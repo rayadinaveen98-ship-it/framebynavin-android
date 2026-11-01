@@ -17,8 +17,12 @@ internal class PersonalPreRestoreRecovery(context: Context) {
         context.applicationContext.filesDir, "personal_backup_recovery_v226",
     )
 
-    fun retain(records: List<PersonalReminder>): File {
-        val raw = PersonalReminderCodec.encode(records)
+    fun retain(records: List<PersonalReminder>): File =
+        retainRaw(PersonalReminderCodec.encode(records))
+
+    /** Both reminder state and private DONE history go into the same verified undo file. */
+    fun retainRaw(raw: String): File {
+        PersonalCompletionBackupCodec.decode(raw)
         require(root.isDirectory || root.mkdirs()) {
             "Could not prepare Personal recovery directory; nothing was restored"
         }
@@ -45,7 +49,7 @@ internal class PersonalPreRestoreRecovery(context: Context) {
             val raw = runCatching {
                 AtomicFile(file).openRead().use(PersonalBackupIo::readUtf8)
             }.getOrNull() ?: continue
-            if (runCatching { PersonalReminderCodec.decode(raw) }.isSuccess) return raw
+            if (runCatching { PersonalCompletionBackupCodec.decode(raw) }.isSuccess) return raw
         }
         return null
     }

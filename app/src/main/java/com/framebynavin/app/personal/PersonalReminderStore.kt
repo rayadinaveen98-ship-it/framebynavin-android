@@ -71,6 +71,8 @@ internal class PersonalReminderStore(context: Context) {
 
     suspend fun mutate(
         onDoneAccepted: ((List<PersonalReminder>, List<PersonalReminder>) -> PersonalCompletionEvent?)? = null,
+        replacementHistory: List<PersonalCompletionEvent>? = null,
+        beforeReplace: ((List<PersonalReminder>, List<PersonalCompletionEvent>) -> Unit)? = null,
         change: (List<PersonalReminder>) -> List<PersonalReminder>,
     ): List<PersonalReminder> =
         personalReminderMutationMutex.withLock {
@@ -87,23 +89,34 @@ internal class PersonalReminderStore(context: Context) {
                     else -> readChecked(currentRaw)
                 }
                 val updated = change(previous)
-                if (updated != previous) {
-                    // Validate and prepare the optional DONE receipt before committing anything.
-                    // Both the reminder acknowledgement and history are written atomically.
-                    val doneReceipt = onDoneAccepted?.invoke(previous, updated)
-                    val oldHistoryRaw = prefs[completionKey]
-                    val nextHistory = doneReceipt?.let { receipt ->
-                        PersonalCompletionJournal.append(
-                            oldHistoryRaw?.let(PersonalCompletionJournal::decode) ?: emptyList(), receipt,
-                        )
-                    }
+                val previousHistoryRaw = prefs[completionKey]
+                // Fail closed on damaged Personal history; never silently overwrite it.
+                val previousHistory = previousHistoryRaw?.let(PersonalCompletionJournal::decode) ?: emptyList()
+                val doneReceipt = if (updated != previous) onDoneAccepted?.invoke(previous, updated) else null
+                val existingIds = updated.mapTo(HashSet()) { it.id }
+                val nextHistory = when {
+                    replacementHistory != null -> replacementHistory
+                    doneReceipt != null -> PersonalCompletionJournal.append(previousHistory, doneReceipt)
+                    else -> previousHistory.filter { it.reminderId in existingIds }
+                }
+                // Check orphan references and format before recording or replacing.
+                val nextHistoryRaw = PersonalCompletionJournal.encode(nextHistory)
+                require(nextHistory.all { it.reminderId in existingIds }) {
+                    "Completion history must reference retained Personal reminders"
+                }
+                val remindersChanged = updated != previous
+                val historyChanged = nextHistory != previousHistory
+                if (remindersChanged || historyChanged) {
                     val encoded = PersonalReminderCodec.encode(updated)
-                    val nextHistoryRaw = nextHistory?.let(PersonalCompletionJournal::encode)
-                    if (currentRaw != null) prefs[lastGoodKey] = currentRaw
-                    else prefs[lastGoodKey] = PersonalReminderCodec.encode(emptyList())
-                    prefs[mainKey] = encoded
-                    if (nextHistoryRaw != null && nextHistoryRaw != oldHistoryRaw) {
-                        if (oldHistoryRaw != null) prefs[completionLastGoodKey] = oldHistoryRaw
+                    // Independent recovery copy must be durable BEFORE the atomic replacement.
+                    beforeReplace?.invoke(previous, previousHistory)
+                    if (remindersChanged) {
+                        if (currentRaw != null) prefs[lastGoodKey] = currentRaw
+                        else prefs[lastGoodKey] = PersonalReminderCodec.encode(emptyList())
+                        prefs[mainKey] = encoded
+                    }
+                    if (historyChanged) {
+                        if (previousHistoryRaw != null) prefs[completionLastGoodKey] = previousHistoryRaw
                         prefs[completionKey] = nextHistoryRaw
                     }
                 }
@@ -113,15 +126,19 @@ internal class PersonalReminderStore(context: Context) {
         }
 
     suspend fun exportPersonalJson(): String = personalReminderMutationMutex.withLock {
-        PersonalReminderCodec.encode(load())
+        val prefs = data.data.first()
+        val records = prefs[mainKey]?.let(::readChecked) ?: emptyList()
+        val history = prefs[completionKey]?.let(PersonalCompletionJournal::decode) ?: emptyList()
+        PersonalCompletionBackupCodec.encode(records, history)
     }
 
     /** Caller must show a preview and obtain explicit consent before replacement. */
-    fun validateImport(raw: String): List<PersonalReminder> = PersonalReminderCodec.decode(raw)
+    fun validateImport(raw: String): List<PersonalReminder> =
+        PersonalCompletionBackupCodec.decode(raw).reminders
 
     suspend fun replaceFromApprovedImport(raw: String): List<PersonalReminder> {
-        val replacement = PersonalReminderCodec.decode(raw)
-        return mutate { replacement }
+        val replacement = PersonalCompletionBackupCodec.decode(raw)
+        return mutate(replacementHistory = replacement.completions) { replacement.reminders }
     }
 
     /** Read-only recovery data, never auto-overwrite a damaged primary. */

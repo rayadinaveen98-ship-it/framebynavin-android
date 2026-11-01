@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 internal data class PersonalBackupPreview(
     val reminderCount: Int,
     val activeCount: Int,
+    val completionCount: Int = 0,
 )
 
 internal data class PersonalBackupRestoreReceipt(
@@ -32,8 +33,12 @@ internal class PersonalBackupTransfer(context: Context) {
     suspend fun export(): String = store.exportPersonalJson()
 
     fun preview(raw: String): PersonalBackupPreview {
-        val imported = PersonalReminderCodec.decode(raw)
-        return PersonalBackupPreview(imported.size, imported.count { !it.paused })
+        val snapshot = PersonalCompletionBackupCodec.decode(raw)
+        return PersonalBackupPreview(
+            snapshot.reminders.size,
+            snapshot.reminders.count { !it.paused },
+            snapshot.completions.size,
+        )
     }
 
     fun previousRecoveryPreview(): PersonalBackupPreview? =
@@ -47,15 +52,17 @@ internal class PersonalBackupTransfer(context: Context) {
     }
 
     suspend fun restoreApproved(raw: String): PersonalBackupRestoreReceipt {
-        val imported = PersonalReminderCodec.decode(raw)
-        val clean = PersonalBackupPolicy.resetDeviceLeases(imported)
+        val snapshot = PersonalCompletionBackupCodec.decode(raw)
+        val clean = PersonalBackupPolicy.resetDeviceLeases(snapshot.reminders)
         var previous = emptyList<PersonalReminder>()
-        // Capture the actual previous revision inside the same serialized
-        // DataStore mutation. A racing edit cannot escape the recovery copy.
-        store.mutate { existing ->
-            // Persist a verified, independent undo image BEFORE changing the
-            // atomic DataStore primary. Failure aborts the entire replacement.
-            retained.retain(existing)
+        // Retain both journals under the same serialized Personal DataStore lock.
+        // Failure to persist the independent recovery copy aborts the replacement.
+        store.mutate(
+            replacementHistory = snapshot.completions,
+            beforeReplace = { existing, existingHistory ->
+                retained.retainRaw(PersonalCompletionBackupCodec.encode(existing, existingHistory))
+            },
+        ) { existing ->
             previous = existing
             clean
         }

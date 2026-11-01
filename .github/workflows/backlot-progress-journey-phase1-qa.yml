@@ -56,7 +56,12 @@ jobs:
           p=ET.parse(personal[0]).getroot()
           assert int(p.attrib.get('tests',0)) >= 3
           assert int(p.attrib.get('errors',0)) == 0 and int(p.attrib.get('failures',0)) == 0
-          print('PASS creator progress and private Personal DONE receipt tests')
+          backup=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalCompletionBackupCodecTest.xml'))
+          assert len(backup)==1, 'PersonalCompletionBackupCodecTest not executed'
+          b=ET.parse(backup[0]).getroot()
+          assert int(b.attrib.get('tests',0)) >= 4
+          assert int(b.attrib.get('errors',0)) == 0 and int(b.attrib.get('failures',0)) == 0
+          print('PASS creator progress, Personal DONE receipts, and backup v1/v2 integrity tests')
           PY
       - name: Verify sideload build identity and archive for feature testing
         run: |
