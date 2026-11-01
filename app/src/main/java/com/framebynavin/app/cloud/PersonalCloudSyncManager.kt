@@ -49,9 +49,13 @@ internal class PersonalCloudCursor(context: Context) {
         return "synced_hash_$userId"
     }
     fun lastHash(userId: String): String? = prefs.getString(key(userId), null)
+    fun ownerUserId(): String? = prefs.getString("personal_workspace_owner", null)
     fun record(userId: String, hash: String) {
         require(hash.matches(Regex("[a-f0-9]{64}"))) { "Invalid sync hash" }
-        check(prefs.edit().putString(key(userId), hash).commit()) {
+        check(prefs.edit()
+            .putString(key(userId), hash)
+            .putString("personal_workspace_owner", userId)
+            .commit()) {
             "Could not record confirmed Personal cloud synchronization"
         }
     }
@@ -68,6 +72,19 @@ internal class PersonalCloudSyncManager(context: Context) {
         account.withFreshSession { session ->
             val local = prepareLocal()
             val remote = api.fetchPersonalSyncHead(session)
+            // An existing Personal workspace must never silently upload to a
+            // different Google identity after sign-out/account switch.
+            val owner = cursor.ownerUserId()
+            if (owner != null && owner != session.userId &&
+                (local.count > 0 || local.completions > 0)) {
+                val cloudCount = remote?.let {
+                    check(sha256(it.payload) == it.payloadSha256) { "Personal cloud integrity failure" }
+                    transfer.preview(it.payload).reminderCount
+                } ?: 0
+                return@withFreshSession PersonalCloudResult.Conflict(
+                    local.count, cloudCount, remote?.revision ?: 0L,
+                )
+            }
             val last = cursor.lastHash(session.userId)
             when (PersonalCloudReconciliation.decide(
                 localHash = local.hash, remoteHash = remote?.payloadSha256,
