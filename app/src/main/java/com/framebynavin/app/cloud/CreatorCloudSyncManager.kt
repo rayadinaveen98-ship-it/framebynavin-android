@@ -18,6 +18,9 @@ sealed interface CreatorCloudSyncResult {
         val cloudIdeaCount: Int,
         val cloudRevision: Long,
     ) : CreatorCloudSyncResult
+    data class PersonalConflict(
+        val localCount: Int, val cloudCount: Int, val cloudRevision: Long,
+    ) : CreatorCloudSyncResult
     data class Skipped(val message: String) : CreatorCloudSyncResult
     data class Failure(val message: String, val retryable: Boolean) : CreatorCloudSyncResult
 }
@@ -54,6 +57,7 @@ class CreatorCloudSyncManager(context: Context) {
     private val backup = CreatorBackupManager(app)
     private val state = CreatorCloudSyncStateStore(app)
     private val voiceMedia = CreatorCloudVoiceMediaManager(app)
+    private val personal = PersonalCloudSyncManager(app)
 
     fun status(): CreatorCloudSyncStatus {
         val session = account.localState().session
@@ -73,7 +77,7 @@ class CreatorCloudSyncManager(context: Context) {
         val expectedUserId = account.localState().session?.userId
             ?: return CreatorCloudSyncResult.Skipped("Sign in with Google to enable automatic creator backup.")
         return try {
-            account.withFreshSession { session -> syncAuthenticated(session) }
+            withPersonal(account.withFreshSession { session -> syncAuthenticated(session) })
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
             failure(e, expectedUserId)
@@ -88,7 +92,7 @@ class CreatorCloudSyncManager(context: Context) {
                 val prepared = prepare(session)
                 val cloud = api.fetchCreatorSyncHead(session)
                 pushPrepared(session, prepared, cloud?.contentSha256, bindWorkspace = true)
-            }
+            }.let { withPersonal(it) }
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
             failure(e, expectedUserId)
@@ -103,12 +107,45 @@ class CreatorCloudSyncManager(context: Context) {
                 val cloud = api.fetchCreatorSyncHead(session)
                     ?: return@withFreshSession CreatorCloudSyncResult.Skipped("No creator backup exists in this account yet.")
                 restoreSnapshot(session, cloud)
-            }
+            }.let { withPersonal(it) }
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
             failure(e, expectedUserId)
         }
     }
+
+    /** Resolve only a Personal conflict; never overwrite Creator work as a side effect. */
+    suspend fun resolvePersonalConflict(useCloud: Boolean): CreatorCloudSyncResult =
+        withPersonalResult(if (useCloud) personal.useCloudCopy() else personal.keepThisPhone(),
+            "Creator work was not changed.")
+
+    private suspend fun withPersonal(creator: CreatorCloudSyncResult): CreatorCloudSyncResult {
+        if (creator is CreatorCloudSyncResult.Conflict ||
+            creator is CreatorCloudSyncResult.Failure ||
+            creator is CreatorCloudSyncResult.Skipped ||
+            creator is CreatorCloudSyncResult.PersonalConflict) return creator
+        val note = when (creator) {
+            is CreatorCloudSyncResult.Synced -> creator.message
+            is CreatorCloudSyncResult.Restored ->
+                "Creator restored: ${creator.projectCount} projects and ${creator.ideaCount} ideas."
+            else -> "Creator sync completed."
+        }
+        return withPersonalResult(personal.syncNow(), note)
+    }
+
+    private fun withPersonalResult(personalResult: PersonalCloudResult, prefix: String): CreatorCloudSyncResult =
+        when (personalResult) {
+            is PersonalCloudResult.Synced -> CreatorCloudSyncResult.Synced(
+                status().revision, "$prefix ${personalResult.message}")
+            is PersonalCloudResult.Restored -> CreatorCloudSyncResult.Synced(
+                status().revision,
+                "$prefix ${personalResult.count} Personal Reminders restored." +
+                    if (personalResult.needsAttention) " Check alarm permissions and next alert." else "")
+            is PersonalCloudResult.Conflict -> CreatorCloudSyncResult.PersonalConflict(
+                personalResult.localCount, personalResult.cloudCount, personalResult.revision)
+            is PersonalCloudResult.Failure -> CreatorCloudSyncResult.Failure(
+                "$prefix ${personalResult.message}", personalResult.retryable)
+        }
 
     private suspend fun syncAuthenticated(session: CloudSession): CreatorCloudSyncResult {
         val prepared = prepare(session)
