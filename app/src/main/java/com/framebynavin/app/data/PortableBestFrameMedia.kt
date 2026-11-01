@@ -119,61 +119,8 @@ internal object PortableBestFrameMedia {
         update("[")
         frames.forEachIndexed { index, frame ->
             if (index > 0) update(",")
-            // Let JSONObject itself serialize the *same field order and
-            // escaping* as CreatorHeroArchive.export(), but with empty data.
-            // Only the data bytes are then substituted via streaming Base64.
-            val emptyRecord = JSONObject()
-                .put("name", frame.name)
-                .put("sha256", frame.sha256)
-                .put("data", "")
-                .toString()
-            require(emptyRecord.length >= 2 &&
-                emptyRecord[emptyRecord.length - 2] == '"' && emptyRecord.last() == '}') {
-                "Unrecognized Best Frames JSON serialization"
-            }
-            update(emptyRecord.dropLast(2))
-            // Android's JSONStringer escapes solidus characters as an escaped '/' in
-            // quoted strings. Hashing raw Base64 '/' instead of the serialized
-            // that escaped '/' was incompatible with CreatorHeroArchive.export(). Probe
-            // the active JSONObject serializer so both paths match on-device.
-            val escapeSolidus = JSONObject().put("data", "/").toString().contains("\\/")
-            // Preserve Base64 padding by encoding 3-byte-aligned chunks. Only
-            // the final chunk may contain padding, exactly as in legacy export.
-            val chunk = ByteArray(8190)
-            frame.file.inputStream().buffered().use { input ->
-                var remaining = frame.file.length()
-                while (remaining > 0L) {
-                    val size = minOf(remaining, chunk.size.toLong()).toInt()
-                    var filled = 0
-                    while (filled < size) {
-                        val count = input.read(chunk, filled, size - filled)
-                        require(count > 0) { "Best Frame truncated during export" }
-                        filled += count
-                    }
-                    val encoded = Base64.encode(chunk, 0, size, Base64.NO_WRAP)
-                    if (escapeSolidus) {
-                        var start = 0
-                        for (i in encoded.indices) {
-                            if (encoded[i] == '/'.code.toByte()) {
-                                digest.update(encoded, start, i - start)
-                                digest.update('\\'.code.toByte())
-                                start = i
-                            }
-                        }
-                        digest.update(encoded, start, encoded.size - start)
-                    } else {
-                        digest.update(encoded)
-                    }
-                    remaining -= size
-                }
-                require(input.read() == -1) {
-                    "Best Frame changed size while exporting"
-                }
-            }
-            update(emptyRecord.takeLast(2))
-            require(sha256(frame.file) == frame.sha256) {
-                "Original Best Frame changed while exporting"
-            }
+            // Share the canonical JSON/Base64 digest with preview verification.
+            digestCanonicalFrameRecord(digest, frame)
         }
         update("]")
         val originalHash = digest.digest().joinToString("") { "%02x".format(it) }
@@ -183,6 +130,61 @@ internal object PortableBestFrameMedia {
             .put("count", frames.size)
             .put("originalSha256", originalHash)
         return PreparedPortableFrames(marker.toString(), frames)
+    }
+
+    /**
+     * Hash a frame's canonical JSON record with constant-memory Base64 encoding.
+     * This is used by both export preparation and ZIP preview verification.
+     * In particular, verification must NEVER load a 20 MiB original frame
+     * into a byte array and allocate an additional Base64 JSON string.
+     */
+    private fun digestCanonicalFrameRecord(digest: MessageDigest, frame: PortableBestFrame) {
+        val emptyRecord = JSONObject()
+            .put("name", frame.name)
+            .put("sha256", frame.sha256)
+            .put("data", "")
+            .toString()
+        require(emptyRecord.length >= 2 &&
+            emptyRecord[emptyRecord.length - 2] == '"' && emptyRecord.last() == '}') {
+            "Unrecognized Best Frames JSON serialization"
+        }
+        fun update(text: String) = digest.update(text.toByteArray(Charsets.UTF_8))
+        update(emptyRecord.dropLast(2))
+        // Match the live Android JSONObject serializer including escaped solidus.
+        val escapeSolidus = JSONObject().put("data", "/").toString().contains("\\/")
+        val chunk = ByteArray(8190) // divisible by 3: preserve legacy Base64 padding
+        frame.file.inputStream().buffered().use { input ->
+            var remaining = frame.file.length()
+            while (remaining > 0L) {
+                val size = minOf(remaining, chunk.size.toLong()).toInt()
+                var filled = 0
+                while (filled < size) {
+                    val count = input.read(chunk, filled, size - filled)
+                    require(count > 0) { "Best Frame truncated during verification" }
+                    filled += count
+                }
+                val encoded = Base64.encode(chunk, 0, size, Base64.NO_WRAP)
+                if (escapeSolidus) {
+                    var start = 0
+                    for (i in encoded.indices) {
+                        if (encoded[i] == '/'.code.toByte()) {
+                            digest.update(encoded, start, i - start)
+                            digest.update('\\'.code.toByte())
+                            start = i
+                        }
+                    }
+                    digest.update(encoded, start, encoded.size - start)
+                } else {
+                    digest.update(encoded)
+                }
+                remaining -= size
+            }
+            require(input.read() == -1) { "Best Frame changed size during verification" }
+        }
+        update(emptyRecord.takeLast(2))
+        require(sha256(frame.file) == frame.sha256) {
+            "Original Best Frame changed during backup verification"
+        }
     }
 
     /**
@@ -242,31 +244,14 @@ internal object PortableBestFrameMedia {
                 "Original Best Frame is not a valid image"
             }
             if (index > 0) digest.update(",".toByteArray(Charsets.UTF_8))
-            // Build one bounded (max 20 MiB) image record at a time instead of
-            // collecting every Base64 value in a single JSONArray/JSONObject.
-            val base64 = android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.NO_WRAP)
-            val item = JSONObject()
-                .put("name", frame.name)
-                .put("sha256", frame.sha256)
-                .put("data", base64)
-                .toString()
-            digestUpdateChunked(digest, item)
+            // Constant-memory digest: no file.readBytes() or giant JSON text.
+            // Reuses the export serializer to maintain exact legacy SHA-256.
+            digestCanonicalFrameRecord(digest, frame)
         }
         digest.update("]".toByteArray(Charsets.UTF_8))
         val computed = digest.digest().joinToString("") { "%02x".format(it) }
         require(computed == originalHash) { "Best Frames image order or content integrity check failed" }
         return stagedFrames.size
-    }
-
-    private fun digestUpdateChunked(digest: MessageDigest, raw: String) {
-        var start = 0
-        while (start < raw.length) {
-            var end = minOf(start + 4096, raw.length)
-            if (end < raw.length && Character.isHighSurrogate(raw[end - 1]) &&
-                Character.isLowSurrogate(raw[end])) end--
-            digest.update(raw.substring(start, end).toByteArray(Charsets.UTF_8))
-            start = end
-        }
     }
 
     /** Fail closed if frames are missing, renamed, reordered or altered. */
