@@ -135,7 +135,7 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
             Text("Protect your reminders", color = ProjectorIvory, fontSize = 24.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Personal Reminders use their own private backup file. They are not part of Creator, YouTube or Drive vault backups.",
+                "This is an independent emergency Personal backup file. Unified Cloud Sync now also saves Personal Reminders securely under your signed-in account. Manual Google Drive and Creator ZIP exports remain separate.",
                 color = MutedText, fontSize = 13.sp, lineHeight = 20.sp,
             )
             Spacer(Modifier.height(22.dp))
