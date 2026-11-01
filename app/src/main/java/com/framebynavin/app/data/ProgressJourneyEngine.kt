@@ -20,6 +20,7 @@ enum class ProgressJourneyKind {
     PROJECT_COMPLETED,
     PROJECT_PUBLISHED,
     IDEA_CAPTURED,
+    PERSONAL_COMPLETED,
 }
 
 data class ProgressJourneyEvent(
