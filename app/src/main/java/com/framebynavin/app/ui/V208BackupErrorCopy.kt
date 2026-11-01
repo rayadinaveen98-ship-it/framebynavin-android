@@ -9,6 +9,11 @@ internal object V208BackupErrorCopy {
     private fun reason(error: Throwable?): String {
         val msg = error?.message.orEmpty()
         return when {
+            error is OutOfMemoryError ||
+                msg.contains("Failed to allocate", ignoreCase = true) ||
+                msg.contains("byte allocation", ignoreCase = true) ||
+                msg.contains("out of memory", ignoreCase = true) ->
+                "The phone ran out of memory while preparing or checking the backup. Existing data was not deleted. Close other apps and try a local Files/Downloads destination; avoid clearing Backlot data."
             msg.contains("Could not verify the exported backup file", ignoreCase = true) ||
                 msg.contains("Could not reopen", ignoreCase = true) ||
                 msg.contains("Could not open the selected file", ignoreCase = true) ->
