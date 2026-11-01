@@ -88,6 +88,23 @@ class CreatorBackupManager(private val context: Context) {
     }
 
     /**
+     * Current-schema Supabase snapshot excluding original Best Frame media.
+     * This keeps automatic cloud sync bounded regardless of photo sizes while
+     * preserving all Creator records and the existing schema/checksum rules.
+     *
+     * Original images are NOT copied to Supabase. A clearly labeled portable
+     * Creator ZIP export is required for full original-photo backup.
+     */
+    suspend fun createCloudBackup(): String = CreatorDataGate.transaction {
+        recoverPendingRestoreUnlocked()
+        IdeaProjectConversion(appContext).recoverPendingUnlocked()
+        encode(
+            snapshot(includeHero = false).copy(heroJson = CLOUD_FRAMES_OMITTED),
+            System.currentTimeMillis(),
+        )
+    }
+
+    /**
      * Portable ZIP export must never build a giant canonical root JSON only
      * to parse it again. Build the compact envelope from the same locked
      * creator-data snapshot, preserving schema and integrity semantics.
@@ -147,6 +164,10 @@ class CreatorBackupManager(private val context: Context) {
 
     fun validate(raw: String): BackupPreview = validateSnapshot(raw, null)
 
+    /** Accept the exact cloud-only omitted-media marker; portable backups do not. */
+    fun validateCloud(raw: String): BackupPreview =
+        validateSnapshot(raw, null, allowCloudFrameOmission = true)
+
     /**
      * Recalculate a cloud-sanitized copy using the SAME current-schema
      * fingerprint as export/restore. This prevents a second checksum field
@@ -176,7 +197,11 @@ class CreatorBackupManager(private val context: Context) {
         return validateSnapshot(raw, verifiedFrameCount)
     }
 
-    private fun validateSnapshot(raw: String, verifiedFrameCount: Int?): BackupPreview {
+    private fun validateSnapshot(
+        raw: String,
+        verifiedFrameCount: Int?,
+        allowCloudFrameOmission: Boolean = false,
+    ): BackupPreview {
         val root = JSONObject(raw)
         require(root.optString("format") == FORMAT) { "This is not a Backlot backup." }
         val schema = root.optInt("schemaVersion", -1)
@@ -196,7 +221,12 @@ class CreatorBackupManager(private val context: Context) {
             require(fingerprintSha256(root, schema) == root.getString("payloadSha256")) { "Backup integrity check failed" }
         }
         val personalFramesRaw = optionalSection(root, "personalFrames")
-        val personalFrameCount = verifiedFrameCount ?: (personalFramesRaw?.let(CreatorHeroArchive::validate) ?: 0)
+        val cloudMediaOmitted = personalFramesRaw == CLOUD_FRAMES_OMITTED
+        require(!cloudMediaOmitted || (allowCloudFrameOmission && schema == SCHEMA_VERSION)) {
+            "Original Best Frames were omitted from this cloud-only snapshot"
+        }
+        val personalFrameCount = if (cloudMediaOmitted) 0 else
+            verifiedFrameCount ?: (personalFramesRaw?.let(CreatorHeroArchive::validate) ?: 0)
         if (verifiedFrameCount != null) require(personalFramesRaw != null) {
             "Missing portable Best Frames section"
         }
@@ -264,7 +294,7 @@ class CreatorBackupManager(private val context: Context) {
             activeReminderCount = activeReminders,
             settingsIncluded = true,
             personalFrameCount = personalFrameCount,
-            personalFramesIncluded = personalFramesRaw != null,
+            personalFramesIncluded = personalFramesRaw != null && !cloudMediaOmitted,
             externalProjectAssetCount = externalProjectAssets,
         )
     }
@@ -300,6 +330,58 @@ class CreatorBackupManager(private val context: Context) {
                 }
             }
             throw error
+        }
+    }
+
+    /**
+     * Cloud-only snapshots exclude original Best Frame files. Preserve the
+     * local original-frame order and create a durable pre-restore journal,
+     * without serializing the originals to huge Base64 strings.
+     *
+     * Older cloud snapshots retaining images keep their historical restore
+     * route unchanged. The marker is accepted only by validateCloud().
+     */
+    suspend fun restoreCloud(raw: String): BackupPreview {
+        val omitted = runCatching {
+            JSONObject(raw).optString("personalFrames") == CLOUD_FRAMES_OMITTED
+        }.getOrDefault(false)
+        if (!omitted) return restore(raw)
+        return CreatorDataGate.transaction {
+            val preview = validateCloud(raw)
+            recoverPendingRestoreUnlocked()
+            IdeaProjectConversion(appContext).recoverPendingUnlocked()
+            val oldFrames = CreatorHeroArchive.captureOriginalOrder(appContext)
+            val before = encode(snapshot(includeHero = false), System.currentTimeMillis())
+            val recovery = retainRecovery(before)
+            val marker = JSONObject()
+                .put("file", recovery.name)
+                .put("sha256", sha256(before))
+                .put("originalFrames", oldFrames)
+                .put("originalFramesSha256", sha256(oldFrames))
+            atomicWrite(pendingFile(), marker.toString())
+            CreatorDataGate.invalidate(appContext)
+            try {
+                stopAndCancel(taskStore.load())
+                smartSessions.clearAll()
+                importSnapshot(decodeSnapshot(raw).copy(heroJson = null))
+                scheduleFuture(taskStore.load())
+                clearPending()
+                preview
+            } catch (error: Throwable) {
+                CreatorDataGate.nonCancellable {
+                    try {
+                        stopAndCancel(taskStore.load())
+                        smartSessions.clearAll()
+                        importSnapshot(decodeSnapshot(before).copy(heroJson = null))
+                        CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)
+                        scheduleFuture(taskStore.load())
+                        clearPending()
+                    } catch (rollbackError: Throwable) {
+                        error.addSuppressed(rollbackError)
+                    }
+                }
+                throw error
+            }
         }
     }
 
@@ -678,6 +760,8 @@ class CreatorBackupManager(private val context: Context) {
     companion object {
         const val FORMAT = "FrameByNavinBackup"
         const val SCHEMA_VERSION = 9
+        private const val CLOUD_FRAMES_OMITTED =
+            """{"format":"BacklotCloudOriginalFramesOmitted","version":1}"""
         private val INCLUDED_SECTIONS_V5 = listOf(
             "tasks", "ideas", "weeklySchedule", "settings", "smartEscalationConfig",
             "postPublish", "rewards", "personalFrames", "youtubeProjectLinks", "youtubeMilestones",
