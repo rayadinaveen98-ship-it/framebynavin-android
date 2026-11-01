@@ -433,6 +433,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onFocus = { focusTaskId = it },
                     onOpenIdeaVault = { tab = PTab.IDEAS },
                     onOpenInsights = { tab = PTab.INSIGHTS },
+                    onOpenProgressJourney = { overlay = POverlay.PROGRESS_JOURNEY },
                     onOpenProject = ::openProject,
                     bottomNavigationClearance = bottomNavClearanceDp.dp,
                     homeSlideshowRequestNonce = homeSlideshowRequestNonce,
