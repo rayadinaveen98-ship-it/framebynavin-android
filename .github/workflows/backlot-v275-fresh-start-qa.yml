@@ -1,4 +1,4 @@
-name: Backlot Build276 - Local Fresh Start QA
+name: Backlot Build276 - Voice and Music Mix QA
 on:
   push:
     branches: [feature/backlot-v276-music-mix-global-default]
@@ -36,7 +36,7 @@ jobs:
           assert 'Personal Reminders' in engine
           assert 'CreatorWorkflowTimelineSource.OBSERVED_CURRENT' not in engine.split('fun build(')[1]
           assert 'PROJECT_FINISHED' in engine and 'IDEA_CAPTURED' in engine
-          fresh=Path('app/src/main/java/com/framebynavin/app/ui/MusicMixActivity.kt').read_text()
+          fresh=Path('app/src/main/java/com/framebynavin/app/ui/FreshStartActivity.kt').read_text()
           assert 'clearApplicationUserData()' in fresh
           assert 'lossAcknowledged' in fresh and 'cloudAcknowledged' in fresh
           assert 'onClick = { armed = true }' in fresh
@@ -66,8 +66,8 @@ jobs:
           b=ET.parse(backup[0]).getroot()
           assert int(b.attrib.get('tests',0)) >= 4
           assert int(b.attrib.get('errors',0)) == 0 and int(b.attrib.get('failures',0)) == 0
-          fresh=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*MusicMixPolicyTest.xml'))
-          assert len(fresh)==1, 'MusicMixPolicyTest not executed'
+          fresh=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*FreshStartPolicyTest.xml'))
+          assert len(fresh)==1, 'FreshStartPolicyTest not executed'
           f=ET.parse(fresh[0]).getroot()
           assert int(f.attrib.get('tests',0)) >= 2
           assert int(f.attrib.get('errors',0)) == 0 and int(f.attrib.get('failures',0)) == 0
