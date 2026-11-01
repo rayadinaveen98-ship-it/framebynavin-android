@@ -119,6 +119,14 @@ jobs:
             set -euo pipefail
             adb install -r output/app-debug.apk
             adb install -r output/app-debug-androidTest.apk
-            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V282PersonalProgressRestoreTest,com.framebynavin.app.personal.V226PersonalBackupTransferTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v282-personal-history.log
-            grep -F 'OK (4 tests)' /tmp/backlot-v282-personal-history.log
+            # Both classes create independent pre-restore snapshots; they must not
+            # read each other's recovery copies. Wipe ONLY the disposable CI
+            # emulator's target package between test classes, never a user phone.
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V282PersonalProgressRestoreTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v282-personal-history.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v282-personal-history.log
             if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v282-personal-history.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v226-personal-backup.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v226-personal-backup.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v226-personal-backup.log; then exit 1; fi
