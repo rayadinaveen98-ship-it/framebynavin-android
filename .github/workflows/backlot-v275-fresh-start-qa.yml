@@ -46,7 +46,7 @@ jobs:
       - name: Compile, run project and idea history tests, lint and assemble owner preview
         run: |
           set -euo pipefail
-          gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' --stacktrace
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
