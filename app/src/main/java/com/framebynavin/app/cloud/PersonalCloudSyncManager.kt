@@ -46,7 +46,7 @@ internal class PersonalCloudCursor(context: Context) {
     )
     private fun key(userId: String): String {
         require(userId.matches(Regex("[a-fA-F0-9-]{36}"))) { "Invalid Personal account" }
-        return "synced_hash_\$userId"
+        return "synced_hash_$userId"
     }
     fun lastHash(userId: String): String? = prefs.getString(key(userId), null)
     fun record(userId: String, hash: String) {
