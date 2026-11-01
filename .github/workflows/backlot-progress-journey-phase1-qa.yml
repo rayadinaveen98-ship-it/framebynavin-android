@@ -26,7 +26,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           gradle=Path('app/build.gradle.kts').read_text()
-          assert 'versionCode = 273' in gradle
+          assert 'versionCode = 274' in gradle
           assert 'applicationId = "com.framebynavin.app"' in gradle
           engine=Path('app/src/main/java/com/framebynavin/app/data/ProgressJourneyEngine.kt').read_text()
           assert 'Personal Reminders' in engine
@@ -55,7 +55,7 @@ jobs:
           APK=app/build/outputs/apk/personalStable/app-personalStable.apk
           test -s "$APK"
           mkdir -p output
-          cp "$APK" output/Backlot-ProgressJourney-Phase1-Owner-Test.apk
+          cp "$APK" output/Backlot-ProgressJourney-Build274-Owner-Test.apk
           (cd output && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
