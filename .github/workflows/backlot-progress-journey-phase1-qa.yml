@@ -41,7 +41,7 @@ jobs:
       - name: Compile, run project and idea history tests, lint and assemble owner preview
         run: |
           set -euo pipefail
-          gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable --no-daemon --stacktrace
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
@@ -70,6 +70,8 @@ jobs:
           test -s "$APK"
           mkdir -p output
           cp "$APK" output/Backlot-ProgressJourney-Build274-Owner-Test.apk
+          cp app/build/outputs/apk/debug/app-debug.apk output/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/app-debug-androidTest.apk
           (cd output && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
@@ -77,3 +79,36 @@ jobs:
           path: output/
           retention-days: 14
           if-no-files-found: error
+
+  android-personal-history:
+    needs: progress-journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-ProgressJourney-Phase1-Owner-Test
+          path: output
+      - name: Verify artifact checksums
+        run: (cd output && sha256sum -c SHA256SUMS.txt)
+      - name: Enable Android Emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test Personal history data-store, backup, restore and recovery on Android 11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r output/app-debug.apk
+            adb install -r output/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V282PersonalProgressRestoreTest,com.framebynavin.app.personal.V226PersonalBackupTransferTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v282-personal-history.log
+            grep -F 'OK (4 tests)' /tmp/backlot-v282-personal-history.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v282-personal-history.log; then exit 1; fi

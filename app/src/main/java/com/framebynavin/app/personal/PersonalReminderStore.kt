@@ -127,7 +127,15 @@ internal class PersonalReminderStore(context: Context) {
 
     suspend fun exportPersonalJson(): String = personalReminderMutationMutex.withLock {
         val prefs = data.data.first()
-        val records = prefs[mainKey]?.let(::readChecked) ?: emptyList()
+        val records = when (val raw = prefs[mainKey]) {
+            null -> {
+                check(prefs[lastGoodKey] == null) {
+                    "Personal primary missing; refuse to export an incomplete backup"
+                }
+                emptyList()
+            }
+            else -> readChecked(raw)
+        }
         val history = prefs[completionKey]?.let(PersonalCompletionJournal::decode) ?: emptyList()
         PersonalCompletionBackupCodec.encode(records, history)
     }

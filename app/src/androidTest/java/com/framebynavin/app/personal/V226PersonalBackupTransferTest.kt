@@ -66,7 +66,7 @@ class V226PersonalBackupTransferTest {
             // so only the dedicated pre-restore copy is a durable undo point.
             val recoveryRaw = PersonalPreRestoreRecovery(app).latestVerified()
             assertTrue(recoveryRaw != null)
-            assertEquals(listOf(previouslyActive), PersonalReminderCodec.decode(requireNotNull(recoveryRaw)))
+            assertEquals(listOf(previouslyActive), PersonalCompletionBackupCodec.decode(requireNotNull(recoveryRaw)).reminders)
             assertEquals(1, transfer.previousRecoveryPreview()?.reminderCount)
             val undone = transfer.restorePreviousApproved()
             assertEquals(1, undone.importedCount)
