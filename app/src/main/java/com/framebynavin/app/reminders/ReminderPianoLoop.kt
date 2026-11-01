@@ -36,7 +36,7 @@ internal object ReminderPianoWaveform {
                 sin(4.0 * PI * notes[step] * inNote) * 0.23 +
                 sin(6.0 * PI * notes[step] * inNote) * 0.09
             ) * envelope
-            (wave * 13_000.0).roundToInt().coerceIn(Short.MIN_VALUE.toInt(),
+            (wave * 23_000.0).roundToInt().coerceIn(Short.MIN_VALUE.toInt(),
                 Short.MAX_VALUE.toInt()).toShort()
         }
     }
@@ -70,7 +70,7 @@ internal class ReminderPianoLoop(private val context: Context) {
     private var player: MediaPlayer? = null
     private var backingFile: File? = null
     private var generation = 0
-    private var requestedVolume = .14f
+    private var requestedVolume = ReminderMusicMixPolicy.BEFORE_VOICE
 
     fun start(): Boolean {
         stop()
@@ -126,9 +126,14 @@ internal class ReminderPianoLoop(private val context: Context) {
         player?.isPlaying ?: false
     }.getOrDefault(false)
 
-    fun setSpeaking(speaking: Boolean) {
-        requestedVolume = if (speaking) .035f else .14f
+    fun setGain(gain: Float) {
+        requestedVolume = gain.coerceIn(0f, 1f)
         runCatching { player?.setVolume(requestedVolume, requestedVolume) }
+    }
+
+    /** Kept for existing callers/tests; live mixing is shared in ReminderBackingMusic. */
+    fun setSpeaking(speaking: Boolean) {
+        setGain(ReminderMusicMixPolicy.level(speaking, hasSpoken = !speaking))
     }
 
     fun stop() {
@@ -144,6 +149,6 @@ internal class ReminderPianoLoop(private val context: Context) {
         val file = backingFile
         backingFile = null
         if (file != null) runCatching { file.delete() }
-        requestedVolume = .14f
+        requestedVolume = ReminderMusicMixPolicy.BEFORE_VOICE
     }
 }

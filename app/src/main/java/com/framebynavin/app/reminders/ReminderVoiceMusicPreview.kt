@@ -44,8 +44,7 @@ internal class ReminderVoiceMusicPreview(context: Context) {
     /** A single short test utterance; actual reminder repeats are unchanged. */
     fun playVoiceAndMusic(choice: ReminderMusicChoice, onStatus: (String) -> Unit) {
         val ticket = begin(choice)
-        // Ensure background stays quieter than speech from the start of TTS setup.
-        music.setSpeaking(true)
+        // Let the opening music be heard while the TTS engine initializes.
         runCatching {
             engine = TextToSpeech(app) { status ->
                 handler.post {
@@ -77,8 +76,14 @@ internal class ReminderVoiceMusicPreview(context: Context) {
                         override fun onDone(utteranceId: String?) {
                             handler.post {
                                 if (generation == ticket && utteranceId == utterance) {
-                                    stop()
-                                    onStatus("Voice and music preview complete.")
+                                    music.setSpeaking(false)
+                                    onStatus("Voice finished. Listen as the music rises.")
+                                    handler.postDelayed({
+                                        if (generation == ticket) {
+                                            stop()
+                                            onStatus("Voice and music preview complete.")
+                                        }
+                                    }, ReminderMusicMixPolicy.RETURN_TAIL_MILLIS)
                                 }
                             }
                         }
@@ -92,6 +97,7 @@ internal class ReminderVoiceMusicPreview(context: Context) {
                             }
                         }
                     })
+                    music.setSpeaking(true)
                     val played = runCatching {
                         tts.speak(SAMPLE_SPEECH, TextToSpeech.QUEUE_FLUSH, null, utterance)
                     }.getOrDefault(TextToSpeech.ERROR)

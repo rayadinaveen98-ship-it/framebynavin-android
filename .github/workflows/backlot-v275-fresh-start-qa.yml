@@ -1,14 +1,14 @@
-name: Backlot Build275 - Local Fresh Start QA
+name: Backlot Build276 - Voice and Music Mix QA
 on:
   push:
-    branches: [feature/backlot-v275-fresh-start-owner]
+    branches: [feature/backlot-v276-music-mix-global-default]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: backlot-fresh-start-${{ github.ref }}
+  group: backlot-music-mix-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           gradle=Path('app/build.gradle.kts').read_text()
-          assert 'versionCode = 275' in gradle
+          assert 'versionCode = 276' in gradle
           assert 'applicationId = "com.framebynavin.app"' in gradle
           engine=Path('app/src/main/java/com/framebynavin/app/data/ProgressJourneyEngine.kt').read_text()
           assert 'Personal Reminders' in engine
@@ -46,7 +46,7 @@ jobs:
       - name: Compile, run project and idea history tests, lint and assemble owner preview
         run: |
           set -euo pipefail
-          gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' --stacktrace
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
@@ -71,7 +71,12 @@ jobs:
           f=ET.parse(fresh[0]).getroot()
           assert int(f.attrib.get('tests',0)) >= 2
           assert int(f.attrib.get('errors',0)) == 0 and int(f.attrib.get('failures',0)) == 0
-          print('PASS progress, Personal history, and explicit local data-reset safety tests')
+          mix=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V276ReminderMusicMixPolicyTest.xml'))
+          assert len(mix)==1, 'V276ReminderMusicMixPolicyTest not executed'
+          m=ET.parse(mix[0]).getroot()
+          assert int(m.attrib.get('tests',0)) >= 2
+          assert int(m.attrib.get('errors',0)) == 0 and int(m.attrib.get('failures',0)) == 0
+          print('PASS progress, Personal history, fresh-start, and improved music mix tests')
           PY
       - name: Verify sideload build identity and archive for feature testing
         run: |
@@ -79,13 +84,13 @@ jobs:
           APK=app/build/outputs/apk/personalStable/app-personalStable.apk
           test -s "$APK"
           mkdir -p output
-          cp "$APK" output/Backlot-Build275-FreshStart-Owner-Test.apk
+          cp "$APK" output/Backlot-Build276-MusicMix-Owner-Test.apk
           cp app/build/outputs/apk/debug/app-debug.apk output/app-debug.apk
           cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/app-debug-androidTest.apk
           (cd output && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: Backlot-Build275-FreshStart-Owner-Test
+          name: Backlot-Build276-MusicMix-Owner-Test
           path: output/
           retention-days: 14
           if-no-files-found: error
@@ -98,7 +103,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: Backlot-Build275-FreshStart-Owner-Test
+          name: Backlot-Build276-MusicMix-Owner-Test
           path: output
       - name: Verify artifact checksums
         run: (cd output && sha256sum -c SHA256SUMS.txt)
@@ -130,3 +135,7 @@ jobs:
             adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v226-personal-backup.log
             grep -F 'OK (2 tests)' /tmp/backlot-v226-personal-backup.log
             if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v226-personal-backup.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.V276CreatorDefaultMusicDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v276-global-music.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v276-global-music.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v276-global-music.log; then exit 1; fi

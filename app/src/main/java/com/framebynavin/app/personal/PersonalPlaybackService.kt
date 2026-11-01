@@ -242,8 +242,12 @@ internal class PersonalPlaybackService : Service() {
                             val completed = utteranceId?.substringAfterLast(':')?.toIntOrNull()
                                 ?: run { endPlayback(); return@post }
                             val next = PersonalPlaybackPolicy.nextVoiceIndex(completed)
-                            if (next == null) endPlayback()
-                            else handler.postDelayed({
+                            if (next == null) {
+                                // Let the stronger post-voice music be heard briefly.
+                                handler.postDelayed({
+                                    if (expectedGeneration == generation && activeId == null) endPlayback()
+                                }, com.framebynavin.app.reminders.ReminderMusicMixPolicy.RETURN_TAIL_MILLIS)
+                            } else handler.postDelayed({
                                 if (expectedGeneration == generation && activeId == null) play(next)
                             }, PersonalPlaybackPolicy.VOICE_REPEAT_GAP_MILLIS)
                         }
