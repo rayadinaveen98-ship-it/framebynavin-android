@@ -48,7 +48,9 @@ internal fun V161QuickActionsHub(
     onReminders: () -> Unit,
     onAutomation: () -> Unit,
     onCreatorProgress: () -> Unit,
-    onProgressJourney: () -> Unit,
+    // Preserve existing Quick Actions caller/API compatibility for older UI tests.
+    // The main app passes a real navigation callback explicitly.
+    onProgressJourney: () -> Unit = {},
     onSettings: () -> Unit,
     onPublishLate: (String) -> Unit,
     onReschedule: (String) -> Unit,
