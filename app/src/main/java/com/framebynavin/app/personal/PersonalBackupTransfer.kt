@@ -32,6 +32,16 @@ internal class PersonalBackupTransfer(context: Context) {
 
     suspend fun export(): String = store.exportPersonalJson()
 
+    /** Portable Personal cloud data never contains device-specific alarm leases or music URIs. */
+    suspend fun exportForCloud(): String {
+        val clean = PersonalBackupPolicy.resetDeviceLeases(store.load()).map { r ->
+            if (r.voiceMusicMode == com.framebynavin.app.reminders.ReminderMusicMode.CUSTOM)
+                r.copy(voiceMusicMode = com.framebynavin.app.reminders.ReminderMusicMode.PIANO, voiceMusicUri = "")
+            else r.copy(voiceMusicUri = "")
+        }
+        return PersonalCompletionBackupCodec.encode(clean, store.loadCompletionHistory())
+    }
+
     fun preview(raw: String): PersonalBackupPreview {
         val snapshot = PersonalCompletionBackupCodec.decode(raw)
         return PersonalBackupPreview(
