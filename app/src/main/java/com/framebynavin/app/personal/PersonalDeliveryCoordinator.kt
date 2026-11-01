@@ -281,7 +281,13 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         if (action == PersonalDeliveryContract.ACTION_RESCHEDULE &&
             rescheduleAtMillis <= nowMillis) return PersonalApplyResult.INVALID_TIME
         var result = PersonalApplyResult.NOT_FOUND
-        store.mutate { current ->
+        store.mutate(onDoneAccepted = { before, after ->
+            PersonalCompletionJournal.acceptedDone(
+                before.firstOrNull { it.id == id },
+                after.firstOrNull { it.id == id },
+                action, result, originalOccurrence, token,
+            )
+        }) { current ->
             current.map { item ->
                 if (item.id != id) return@map item
                 result = when {

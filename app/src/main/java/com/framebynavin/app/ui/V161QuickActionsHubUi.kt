@@ -48,6 +48,9 @@ internal fun V161QuickActionsHub(
     onReminders: () -> Unit,
     onAutomation: () -> Unit,
     onCreatorProgress: () -> Unit,
+    // Preserve existing Quick Actions caller/API compatibility for older UI tests.
+    // The main app passes a real navigation callback explicitly.
+    onProgressJourney: () -> Unit = {},
     onSettings: () -> Unit,
     onPublishLate: (String) -> Unit,
     onReschedule: (String) -> Unit,
@@ -141,6 +144,8 @@ internal fun V161QuickActionsHub(
             Icons.Outlined.Alarm, "quick-action-reminders", onReminders)
 
         V161SectionHeading("YOUR GROWTH", "A record of your creative work.")
+        V161ActionRow("Progress Journey", "See what you accomplished each day",
+            Icons.Outlined.CalendarMonth, "quick-action-progress-journey", onProgressJourney)
         V161ActionRow("Creator Progress",
             "Level ${creatorProgress.level} · ${creatorProgress.totalXp} XP earned",
             Icons.Outlined.EmojiEvents, "quick-action-creator-progress", onCreatorProgress)

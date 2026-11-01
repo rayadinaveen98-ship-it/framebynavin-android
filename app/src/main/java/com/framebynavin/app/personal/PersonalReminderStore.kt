@@ -26,6 +26,8 @@ internal class PersonalReminderStore(context: Context) {
     private val data = app.personalReminderDataStore
     private val mainKey = stringPreferencesKey("personal_records_v1")
     private val lastGoodKey = stringPreferencesKey("personal_records_last_good_v1")
+    private val completionKey = stringPreferencesKey("personal_done_history_v1")
+    private val completionLastGoodKey = stringPreferencesKey("personal_done_history_last_good_v1")
 
     val remindersFlow: Flow<List<PersonalReminder>> = data.data.map { prefs ->
         when (val raw = prefs[mainKey]) {
@@ -40,6 +42,13 @@ internal class PersonalReminderStore(context: Context) {
     }
 
     suspend fun load(): List<PersonalReminder> = remindersFlow.first()
+
+    /** Local-only, private, read-only completion history. Fail closed if damaged. */
+    val completionHistoryFlow: Flow<List<PersonalCompletionEvent>> = data.data.map { prefs ->
+        prefs[completionKey]?.let(PersonalCompletionJournal::decode) ?: emptyList()
+    }
+
+    suspend fun loadCompletionHistory(): List<PersonalCompletionEvent> = completionHistoryFlow.first()
 
     suspend fun create(reminder: PersonalReminder): List<PersonalReminder> =
         mutate { current ->
@@ -60,7 +69,12 @@ internal class PersonalReminderStore(context: Context) {
     suspend fun delete(id: String): List<PersonalReminder> =
         mutate { current -> current.filterNot { it.id == id } }
 
-    suspend fun mutate(change: (List<PersonalReminder>) -> List<PersonalReminder>): List<PersonalReminder> =
+    suspend fun mutate(
+        onDoneAccepted: ((List<PersonalReminder>, List<PersonalReminder>) -> PersonalCompletionEvent?)? = null,
+        replacementHistory: List<PersonalCompletionEvent>? = null,
+        beforeReplace: ((List<PersonalReminder>, List<PersonalCompletionEvent>) -> Unit)? = null,
+        change: (List<PersonalReminder>) -> List<PersonalReminder>,
+    ): List<PersonalReminder> =
         personalReminderMutationMutex.withLock {
             var committed = emptyList<PersonalReminder>()
             data.edit { prefs ->
@@ -75,11 +89,36 @@ internal class PersonalReminderStore(context: Context) {
                     else -> readChecked(currentRaw)
                 }
                 val updated = change(previous)
-                if (updated != previous) {
+                val previousHistoryRaw = prefs[completionKey]
+                // Fail closed on damaged Personal history; never silently overwrite it.
+                val previousHistory = previousHistoryRaw?.let(PersonalCompletionJournal::decode) ?: emptyList()
+                val doneReceipt = if (updated != previous) onDoneAccepted?.invoke(previous, updated) else null
+                val existingIds = updated.mapTo(HashSet()) { it.id }
+                val nextHistory = when {
+                    replacementHistory != null -> replacementHistory
+                    doneReceipt != null -> PersonalCompletionJournal.append(previousHistory, doneReceipt)
+                    else -> previousHistory.filter { it.reminderId in existingIds }
+                }
+                // Check orphan references and format before recording or replacing.
+                val nextHistoryRaw = PersonalCompletionJournal.encode(nextHistory)
+                require(nextHistory.all { it.reminderId in existingIds }) {
+                    "Completion history must reference retained Personal reminders"
+                }
+                val remindersChanged = updated != previous
+                val historyChanged = nextHistory != previousHistory
+                if (remindersChanged || historyChanged) {
                     val encoded = PersonalReminderCodec.encode(updated)
-                    if (currentRaw != null) prefs[lastGoodKey] = currentRaw
-                    else prefs[lastGoodKey] = PersonalReminderCodec.encode(emptyList())
-                    prefs[mainKey] = encoded
+                    // Independent recovery copy must be durable BEFORE the atomic replacement.
+                    beforeReplace?.invoke(previous, previousHistory)
+                    if (remindersChanged) {
+                        if (currentRaw != null) prefs[lastGoodKey] = currentRaw
+                        else prefs[lastGoodKey] = PersonalReminderCodec.encode(emptyList())
+                        prefs[mainKey] = encoded
+                    }
+                    if (historyChanged) {
+                        if (previousHistoryRaw != null) prefs[completionLastGoodKey] = previousHistoryRaw
+                        prefs[completionKey] = nextHistoryRaw
+                    }
                 }
                 committed = updated
             }
@@ -87,15 +126,27 @@ internal class PersonalReminderStore(context: Context) {
         }
 
     suspend fun exportPersonalJson(): String = personalReminderMutationMutex.withLock {
-        PersonalReminderCodec.encode(load())
+        val prefs = data.data.first()
+        val records = when (val raw = prefs[mainKey]) {
+            null -> {
+                check(prefs[lastGoodKey] == null) {
+                    "Personal primary missing; refuse to export an incomplete backup"
+                }
+                emptyList()
+            }
+            else -> readChecked(raw)
+        }
+        val history = prefs[completionKey]?.let(PersonalCompletionJournal::decode) ?: emptyList()
+        PersonalCompletionBackupCodec.encode(records, history)
     }
 
     /** Caller must show a preview and obtain explicit consent before replacement. */
-    fun validateImport(raw: String): List<PersonalReminder> = PersonalReminderCodec.decode(raw)
+    fun validateImport(raw: String): List<PersonalReminder> =
+        PersonalCompletionBackupCodec.decode(raw).reminders
 
     suspend fun replaceFromApprovedImport(raw: String): List<PersonalReminder> {
-        val replacement = PersonalReminderCodec.decode(raw)
-        return mutate { replacement }
+        val replacement = PersonalCompletionBackupCodec.decode(raw)
+        return mutate(replacementHistory = replacement.completions) { replacement.reminders }
     }
 
     /** Read-only recovery data, never auto-overwrite a damaged primary. */

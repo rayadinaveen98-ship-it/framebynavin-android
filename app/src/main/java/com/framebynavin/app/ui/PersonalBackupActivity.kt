@@ -220,11 +220,11 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
             title = { Text(if (restorePrevious) "Recover older Personal data?" else "Replace Personal Reminders?", color = ProjectorIvory, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Verified backup: ${checked.reminderCount} reminders, ${checked.activeCount} active.",
+                    Text("Verified backup: ${checked.reminderCount} reminders, ${checked.activeCount} active, ${checked.completionCount} completed actions.",
                         color = ProjectorIvory, fontSize = 14.sp)
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "All existing Personal Reminders on this phone will be replaced. An independent pre-restore recovery copy is retained locally. Imported alarm tokens are reset and future reminders are rescheduled. Creator projects and ideas stay untouched.",
+                        "Existing Personal Reminders AND completion history will be replaced. Older backup files contain no completed-action history. A private pre-restore recovery copy is retained. Alarm tokens reset; Creator projects and ideas stay untouched.",
                         color = MutedText, fontSize = 12.sp,
                     )
                     if (checked.reminderCount == 0) {
