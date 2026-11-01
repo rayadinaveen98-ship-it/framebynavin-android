@@ -409,6 +409,14 @@ internal fun V144SettingsHub(
                     accent = MutedGold,
                     onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
                 )
+                Spacer(Modifier.height(14.dp))
+                V144ActionCard(
+                    title = "Start fresh on this phone",
+                    subtitle = "Erase local app data after two confirmations. Cloud data is NOT deleted.",
+                    icon = Icons.Outlined.DeleteForever,
+                    accent = RecRed,
+                    onClick = { context.startActivity(Intent(context, FreshStartActivity::class.java)) },
+                )
                 Spacer(Modifier.height(12.dp))
                 V144SettingsNote(
                     "A portable backup includes projects, ideas, supported Voice Idea recordings, original Best Frames, reminders and planning. " +

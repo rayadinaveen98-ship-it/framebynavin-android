@@ -1,0 +1,132 @@
+name: Backlot Build275 - Local Fresh Start QA
+on:
+  push:
+    branches: [feature/backlot-v275-fresh-start-owner]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-fresh-start-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  progress-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Guard existing stable release and privacy boundaries
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 275' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          engine=Path('app/src/main/java/com/framebynavin/app/data/ProgressJourneyEngine.kt').read_text()
+          assert 'Personal Reminders' in engine
+          assert 'CreatorWorkflowTimelineSource.OBSERVED_CURRENT' not in engine.split('fun build(')[1]
+          assert 'PROJECT_FINISHED' in engine and 'IDEA_CAPTURED' in engine
+          fresh=Path('app/src/main/java/com/framebynavin/app/ui/FreshStartActivity.kt').read_text()
+          assert 'clearApplicationUserData()' in fresh
+          assert 'lossAcknowledged' in fresh and 'cloudAcknowledged' in fresh
+          assert 'onClick = { armed = true }' in fresh
+          assert 'clearApplicationUserData()' not in Path('app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt').read_text()
+          print('PASS: stable version unchanged; no fabricated observed-current creation; creator-only projection')
+          PY
+      - name: Compile, run project and idea history tests, lint and assemble owner preview
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*ProgressJourneyEngineTest.xml'))
+          assert len(files)==1, 'ProgressJourneyEngineTest not executed'
+          root=ET.parse(files[0]).getroot()
+          assert int(root.attrib.get('tests',0)) >= 4
+          assert int(root.attrib.get('errors',0)) == 0
+          assert int(root.attrib.get('failures',0)) == 0
+          personal=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalCompletionJournalTest.xml'))
+          assert len(personal)==1, 'PersonalCompletionJournalTest not executed'
+          p=ET.parse(personal[0]).getroot()
+          assert int(p.attrib.get('tests',0)) >= 3
+          assert int(p.attrib.get('errors',0)) == 0 and int(p.attrib.get('failures',0)) == 0
+          backup=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalCompletionBackupCodecTest.xml'))
+          assert len(backup)==1, 'PersonalCompletionBackupCodecTest not executed'
+          b=ET.parse(backup[0]).getroot()
+          assert int(b.attrib.get('tests',0)) >= 4
+          assert int(b.attrib.get('errors',0)) == 0 and int(b.attrib.get('failures',0)) == 0
+          fresh=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*FreshStartPolicyTest.xml'))
+          assert len(fresh)==1, 'FreshStartPolicyTest not executed'
+          f=ET.parse(fresh[0]).getroot()
+          assert int(f.attrib.get('tests',0)) >= 2
+          assert int(f.attrib.get('errors',0)) == 0 and int(f.attrib.get('failures',0)) == 0
+          print('PASS progress, Personal history, and explicit local data-reset safety tests')
+          PY
+      - name: Verify sideload build identity and archive for feature testing
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$APK"
+          mkdir -p output
+          cp "$APK" output/Backlot-Build275-FreshStart-Owner-Test.apk
+          cp app/build/outputs/apk/debug/app-debug.apk output/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/app-debug-androidTest.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Build275-FreshStart-Owner-Test
+          path: output/
+          retention-days: 14
+          if-no-files-found: error
+
+  android-personal-history:
+    needs: progress-journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Build275-FreshStart-Owner-Test
+          path: output
+      - name: Verify artifact checksums
+        run: (cd output && sha256sum -c SHA256SUMS.txt)
+      - name: Enable Android Emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test Personal history data-store, backup, restore and recovery on Android 11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r output/app-debug.apk
+            adb install -r output/app-debug-androidTest.apk
+            # Both classes create independent pre-restore snapshots; they must not
+            # read each other's recovery copies. Wipe ONLY the disposable CI
+            # emulator's target package between test classes, never a user phone.
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V282PersonalProgressRestoreTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v282-personal-history.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v282-personal-history.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v282-personal-history.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v226-personal-backup.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v226-personal-backup.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v226-personal-backup.log; then exit 1; fi
