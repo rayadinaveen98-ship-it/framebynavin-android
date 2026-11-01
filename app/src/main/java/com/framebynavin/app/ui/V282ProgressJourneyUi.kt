@@ -21,6 +21,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.*
+import com.framebynavin.app.personal.PersonalCompletionEvent
+import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.ui.theme.*
 import java.time.LocalDate
 import java.time.YearMonth
@@ -29,6 +31,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * Progress is what actually happened. Content Calendar remains a separate
@@ -44,6 +47,16 @@ internal fun V282ProgressJourneyScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val store = remember(context) { CreatorWorkflowTimelineStore(context.applicationContext) }
+    val personalStore = remember(context) { PersonalReminderStore(context.applicationContext) }
+    var includePersonal by rememberSaveable { mutableStateOf(false) }
+    var personalHistory by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
+    LaunchedEffect(includePersonal) {
+        if (!includePersonal) {
+            personalHistory = emptyList()
+        } else {
+            personalStore.completionHistoryFlow.collectLatest { personalHistory = it }
+        }
+    }
     var timeline by remember { mutableStateOf(emptyList<CreatorWorkflowTimelineEvent>()) }
     var reading by remember { mutableStateOf(true) }
     LaunchedEffect(tasks, ideas) {
@@ -53,8 +66,20 @@ internal fun V282ProgressJourneyScreen(
     }
     val now = System.currentTimeMillis()
     val zone = remember { ZoneId.systemDefault() }
-    val events = remember(tasks, ideas, timeline) {
-        ProgressJourneyEngine.build(tasks, ideas, timeline, now)
+    val events = remember(tasks, ideas, timeline, includePersonal, personalHistory) {
+        val creator = ProgressJourneyEngine.build(tasks, ideas, timeline, now)
+        if (!includePersonal) creator else {
+            (creator + personalHistory.filter { it.doneAtMillis in 1..now }.map { receipt ->
+                ProgressJourneyEvent(
+                    key = "personal-done:${receipt.stableKey}",
+                    kind = ProgressJourneyKind.PERSONAL_COMPLETED,
+                    title = "Personal reminder completed",
+                    description = "Private · Done",
+                    atMillis = receipt.doneAtMillis,
+                    sourceId = receipt.reminderId,
+                )
+            }).sortedByDescending { it.atMillis }
+        }
     }
     val today = remember { LocalDate.now(zone) }
     var selectedDateText by rememberSaveable { mutableStateOf(today.toString()) }
@@ -89,7 +114,18 @@ internal fun V282ProgressJourneyScreen(
             }
             Spacer(Modifier.height(8.dp))
             Text("The work you've actually done, day by day.", color = MutedText, fontSize = 12.sp)
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Include personal completions", color = ProjectorIvory, fontSize = 12.sp)
+                    Text("Private · Off by default · No titles shown", color = MutedText, fontSize = 10.sp)
+                }
+                Switch(
+                    checked = includePersonal,
+                    onCheckedChange = { includePersonal = it },
+                )
+            }
+            Spacer(Modifier.height(15.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                 listOf("WEEK" to "Compact", "MONTH" to "Month", "JOURNEY" to "Journey").forEach { (key, label) ->
@@ -187,7 +223,7 @@ internal fun V282ProgressJourneyScreen(
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Text("Creator history only. Personal Reminders stay private and are not counted until their completed-action history is available.",
+            Text("Personal completions are local and hidden by default. This preview does not yet include history in Personal backup exports.",
                 color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
         }
     }
@@ -249,9 +285,11 @@ private fun V282ActivityRow(
         ProgressJourneyKind.STAGE_MOVED -> Icons.Outlined.SwapHoriz
         ProgressJourneyKind.PROJECT_COMPLETED -> Icons.Outlined.CheckCircle
         ProgressJourneyKind.PROJECT_PUBLISHED -> Icons.Outlined.Movie
+        ProgressJourneyKind.PERSONAL_COMPLETED -> Icons.Outlined.FavoriteBorder
     }
+    val personal = event.kind == ProgressJourneyKind.PERSONAL_COMPLETED
     Surface(
-        onClick = { if (idea) onOpenIdeas() else onOpenProject(event.sourceId) },
+        onClick = { if (idea) onOpenIdeas() else if (!personal) onOpenProject(event.sourceId) },
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         shape = RoundedCornerShape(15.dp),
         color = CinemaSurface,
@@ -265,7 +303,7 @@ private fun V282ActivityRow(
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(event.description, color = MutedText, fontSize = 11.sp)
             }
-            Icon(Icons.Outlined.ChevronRight, "Open source", tint = MutedText, modifier = Modifier.size(18.dp))
+            if (!personal) Icon(Icons.Outlined.ChevronRight, "Open source", tint = MutedText, modifier = Modifier.size(18.dp))
         }
     }
 }
