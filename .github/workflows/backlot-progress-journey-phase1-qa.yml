@@ -1,0 +1,65 @@
+name: Backlot Progress Journey - Phase 1 Android QA
+on:
+  push:
+    branches: [feature/backlot-progress-journey-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  progress-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Guard existing stable release and privacy boundaries
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 273' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          engine=Path('app/src/main/java/com/framebynavin/app/data/ProgressJourneyEngine.kt').read_text()
+          assert 'Personal Reminders' in engine
+          assert 'CreatorWorkflowTimelineSource.OBSERVED_CURRENT' not in engine.split('fun build(')[1]
+          assert 'PROJECT_FINISHED' in engine and 'IDEA_CAPTURED' in engine
+          print('PASS: stable version unchanged; no fabricated observed-current creation; creator-only projection')
+          PY
+      - name: Compile, run project and idea history tests, lint and assemble owner preview
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable --no-daemon --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*ProgressJourneyEngineTest.xml'))
+          assert len(files)==1, 'ProgressJourneyEngineTest not executed'
+          root=ET.parse(files[0]).getroot()
+          assert int(root.attrib.get('tests',0)) >= 4
+          assert int(root.attrib.get('errors',0)) == 0
+          assert int(root.attrib.get('failures',0)) == 0
+          print('PASS Progress Journey project/idea history tests')
+          PY
+      - name: Verify sideload build identity and archive for feature testing
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$APK"
+          mkdir -p output
+          cp "$APK" output/Backlot-ProgressJourney-Phase1-Owner-Test.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-ProgressJourney-Phase1-Owner-Test
+          path: output/
+          retention-days: 14
+          if-no-files-found: error
