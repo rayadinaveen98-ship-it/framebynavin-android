@@ -38,7 +38,7 @@ jobs:
           assert 'PROJECT_FINISHED' in engine and 'IDEA_CAPTURED' in engine
           fresh=Path('app/src/main/java/com/framebynavin/app/ui/FreshStartActivity.kt').read_text()
           assert 'clearApplicationUserData()' in fresh
-          assert 'savedBackup' in fresh and 'cloudAcknowledged' in fresh
+          assert 'lossAcknowledged' in fresh and 'cloudAcknowledged' in fresh
           assert 'onClick = { armed = true }' in fresh
           assert 'clearApplicationUserData()' not in Path('app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt').read_text()
           print('PASS: stable version unchanged; no fabricated observed-current creation; creator-only projection')
