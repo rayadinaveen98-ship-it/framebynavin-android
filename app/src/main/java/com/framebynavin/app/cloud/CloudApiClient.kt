@@ -115,7 +115,7 @@ class CloudApiClient {
     }
 
     /** Private RLS Personal snapshots. No unauthenticated reads and no blind overwrites. */
-    suspend fun fetchPersonalSyncHead(session: CloudSession): PersonalCloudHead? {
+    internal suspend fun fetchPersonalSyncHead(session: CloudSession): PersonalCloudHead? {
         val raw = request(
             "GET",
             "/rest/v1/personal_sync_heads?select=revision,payload,payload_sha256&user_id=eq.${session.userId}&limit=1",
