@@ -5,6 +5,8 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
 import android.util.Log
+import android.os.Handler
+import android.os.Looper
 
 /**
  * One backing-music layer for Personal and Creator voice reminders.
@@ -15,7 +17,11 @@ internal class ReminderBackingMusic(private val context: Context) {
     private val piano = ReminderPianoLoop(context)
     private var custom: MediaPlayer? = null
     private var speaking = false
+    private var hasSpoken = false
     private var serial = 0
+    private val volumeHandler = Handler(Looper.getMainLooper())
+    private var fadeGeneration = 0
+    private var currentGain = ReminderMusicMixPolicy.BEFORE_VOICE
 
     fun start(choice: ReminderMusicChoice) {
         stop()
@@ -42,8 +48,7 @@ internal class ReminderBackingMusic(private val context: Context) {
                 .build())
             media.setDataSource(context, Uri.parse(source))
             media.isLooping = true
-            media.setVolume(if (speaking) .035f else .14f,
-                if (speaking) .035f else .14f)
+            media.setVolume(currentGain, currentGain)
             media.setOnPreparedListener { prepared ->
                 if (serial == generation && custom === prepared) {
                     runCatching { prepared.start() }.onFailure { unavailable(generation, prepared) }
@@ -67,20 +72,36 @@ internal class ReminderBackingMusic(private val context: Context) {
         runCatching { failed.release() }
         // Revoked/moved SAF documents must not silence the reminder or crash it.
         piano.start()
-        piano.setSpeaking(speaking)
+        piano.setGain(currentGain)
     }
 
     fun setSpeaking(active: Boolean) {
         speaking = active
-        piano.setSpeaking(active)
-        runCatching {
-            val v = if (active) .035f else .14f
-            custom?.setVolume(v, v)
+        if (active) hasSpoken = true
+        val to = ReminderMusicMixPolicy.level(active, hasSpoken)
+        val from = currentGain
+        val generation = ++fadeGeneration
+        volumeHandler.removeCallbacksAndMessages(null)
+        val steps = 7
+        for (step in 1..steps) {
+            volumeHandler.postDelayed({
+                if (generation == fadeGeneration) {
+                    applyGain(from + (to - from) * (step.toFloat() / steps))
+                }
+            }, ReminderMusicMixPolicy.FADE_MILLIS * step / steps)
         }
+    }
+
+    private fun applyGain(level: Float) {
+        currentGain = level.coerceIn(0f, 1f)
+        piano.setGain(currentGain)
+        runCatching { custom?.setVolume(currentGain, currentGain) }
     }
 
     fun stop() {
         ++serial
+        ++fadeGeneration
+        volumeHandler.removeCallbacksAndMessages(null)
         val old = custom
         custom = null
         if (old != null) {
@@ -91,5 +112,7 @@ internal class ReminderBackingMusic(private val context: Context) {
         }
         piano.stop()
         speaking = false
+        hasSpoken = false
+        currentGain = ReminderMusicMixPolicy.BEFORE_VOICE
     }
 }
