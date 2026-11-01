@@ -271,7 +271,7 @@ internal object CreatorCloudPayloadSanitizer {
      * here; schema additions cannot invalidate every cloud upload again.
      */
     fun sanitize(raw: String, backup: CreatorBackupManager): String {
-        backup.validate(raw)
+        backup.validateCloud(raw)
         val root = JSONObject(raw)
         val ideas = JSONArray(root.getString("ideas"))
         for (index in 0 until ideas.length()) {
@@ -282,7 +282,7 @@ internal object CreatorCloudPayloadSanitizer {
         }
         root.put("ideas", ideas.toString())
         val sanitized = backup.resealCloudSanitizedPayload(root.toString())
-        backup.validate(sanitized)
+        backup.validateCloud(sanitized)
         return sanitized
     }
 }

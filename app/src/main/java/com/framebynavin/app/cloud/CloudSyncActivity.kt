@@ -267,7 +267,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                 Text("Automatic creator backup", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    "Your work stays on this phone. Sign in to back up supported data privately. Restoring another copy needs your approval.",
+                    "Creator projects, ideas, schedules and supported Voice Idea recordings sync privately. Original Best Frame photos and Personal Reminders are NOT included. Export a separate Creator backup for the photos. Restoring another copy needs your approval.",
                     color = MutedText,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,

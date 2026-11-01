@@ -172,7 +172,7 @@ class CreatorCloudSyncManager(context: Context) {
             "accepted", "unchanged" -> {
                 if (bindWorkspace) state.bindWorkspace(session.userId)
                 state.recordSuccess(session.userId, pushed.contentSha256.ifBlank { prepared.contentSha256 }, pushed.revision)
-                CreatorCloudSyncResult.Synced(pushed.revision, if (pushed.status == "accepted") "Creator backup synced automatically." else "Creator backup is up to date.")
+                CreatorCloudSyncResult.Synced(pushed.revision, if (pushed.status == "accepted") "Creator records synced. Original Best Frames stay on this phone; export a separate Creator backup for photos." else "Creator records are up to date. Original Best Frames are not included in new cloud copies.")
             }
             "conflict" -> {
                 val cloud = api.fetchCreatorSyncHead(session)
@@ -185,8 +185,8 @@ class CreatorCloudSyncManager(context: Context) {
     private suspend fun restoreSnapshot(session: CloudSession, cloud: CloudCreatorSnapshot): CreatorCloudSyncResult {
         require(sha256(cloud.payload) == cloud.payloadSha256) { "Cloud backup integrity check failed" }
         require(contentSha256(cloud.payload) == cloud.contentSha256) { "Cloud backup content check failed" }
-        val preview = backup.validate(cloud.payload)
-        backup.restore(cloud.payload)
+        val preview = backup.validateCloud(cloud.payload)
+        backup.restoreCloud(cloud.payload)
         voiceMedia.restoreMissing(session)
         state.bindWorkspace(session.userId)
         state.recordSuccess(session.userId, cloud.contentSha256, cloud.revision)
@@ -210,8 +210,8 @@ class CreatorCloudSyncManager(context: Context) {
 
     private suspend fun prepare(session: CloudSession): PreparedCreatorSnapshot {
         voiceMedia.protectLocal(session)
-        val payload = CreatorCloudPayloadSanitizer.sanitize(backup.createBackup(), backup)
-        val preview = backup.validate(payload)
+        val payload = CreatorCloudPayloadSanitizer.sanitize(backup.createCloudBackup(), backup)
+        val preview = backup.validateCloud(payload)
         return PreparedCreatorSnapshot(
             payload = payload,
             preview = preview,
