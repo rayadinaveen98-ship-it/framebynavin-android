@@ -18,8 +18,8 @@ import com.framebynavin.app.ui.theme.*
 /** Device-only data reset. Never deletes cloud user accounts, snapshots or media. */
 internal object FreshStartPolicy {
     const val CONFIRM_PHRASE = "ERASE THIS PHONE"
-    fun allowed(phrase: String, savedBackup: Boolean, cloudAcknowledged: Boolean) =
-        phrase.trim() == CONFIRM_PHRASE && savedBackup && cloudAcknowledged
+    fun allowed(phrase: String, lossAcknowledged: Boolean, cloudAcknowledged: Boolean) =
+        phrase.trim() == CONFIRM_PHRASE && lossAcknowledged && cloudAcknowledged
 }
 
 class FreshStartActivity : ComponentActivity() {
@@ -28,7 +28,7 @@ class FreshStartActivity : ComponentActivity() {
         setContent {
             FrameByNavinTheme {
                 var phrase by remember { mutableStateOf("") }
-                var savedBackup by remember { mutableStateOf(false) }
+                var lossAcknowledged by remember { mutableStateOf(false) }
                 var cloudAcknowledged by remember { mutableStateOf(false) }
                 var armed by remember { mutableStateOf(false) }
                 var error by remember { mutableStateOf(false) }
@@ -56,14 +56,14 @@ class FreshStartActivity : ComponentActivity() {
                             color = MutedGold,
                         )
                         Text(
-                            "First export and verify separate Creator and Personal backups. " +
-                                "On success Android closes Backlot; reopen it for fresh setup.",
+                            "Export Creator and Personal backups only if you want to keep any copies. " +
+                                "Android closes Backlot after erasing; reopen it for fresh setup.",
                             color = MutedText,
                         )
                         Row {
-                            Checkbox(checked = savedBackup,
-                                onCheckedChange = { savedBackup = it; armed = false })
-                            Text("I saved and verified BOTH Creator and Personal backups.",
+                            Checkbox(checked = lossAcknowledged,
+                                onCheckedChange = { lossAcknowledged = it; armed = false })
+                            Text("I understand all local Creator and Personal data will be lost, including recovery copies.",
                                 color = ProjectorIvory, modifier = Modifier.padding(top = 10.dp))
                         }
                         Row {
@@ -79,7 +79,7 @@ class FreshStartActivity : ComponentActivity() {
                             label = { Text("Type ERASE THIS PHONE") },
                             singleLine = true,
                         )
-                        val enabled = FreshStartPolicy.allowed(phrase, savedBackup, cloudAcknowledged)
+                        val enabled = FreshStartPolicy.allowed(phrase, lossAcknowledged, cloudAcknowledged)
                         Button(
                             enabled = enabled && !armed,
                             onClick = { armed = true },
