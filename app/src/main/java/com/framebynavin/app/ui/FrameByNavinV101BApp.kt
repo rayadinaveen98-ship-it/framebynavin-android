@@ -92,7 +92,7 @@ import java.util.Calendar
 import java.util.Locale
 
 internal enum class PTab { TODAY, IDEAS, CREATE, CALENDAR, INSIGHTS }
-private enum class POverlay { NONE, WEEK, RELEASE, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS, PROFILE, CREATOR_PROGRESS }
+private enum class POverlay { NONE, WEEK, RELEASE, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS, PROFILE, CREATOR_PROGRESS, PROGRESS_JOURNEY }
 
 private data class PPermissions(
     val notifications: Boolean,
@@ -616,6 +616,13 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     saved
                 },
             )
+            POverlay.PROGRESS_JOURNEY -> V282ProgressJourneyScreen(
+                tasks = vm.tasks.toList(),
+                ideas = vm.ideas.toList(),
+                onClose = { overlay = POverlay.NONE },
+                onOpenProject = ::openProject,
+                onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
+            )
             POverlay.CREATOR_PROGRESS -> V23CreatorProgressScreen(
                 snapshot = CreatorRewardsV22Engine.snapshot(vm.rewardLedger),
                 onClose = { overlay = POverlay.NONE },
@@ -747,6 +754,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onReminders = { showControl = false; showReminders = true },
                 onAutomation = { showControl = false; overlay = POverlay.AUTOMATION },
                 onCreatorProgress = { showControl = false; overlay = POverlay.CREATOR_PROGRESS },
+                onProgressJourney = { showControl = false; overlay = POverlay.PROGRESS_JOURNEY },
                 onSettings = { showControl = false; overlay = POverlay.SETTINGS },
                 onPublishLate = vm::publishLate,
                 onReschedule = { id -> pPickDateTime(context, vm.tasks.firstOrNull { it.id == id }?.dueAtMillis ?: 0L) { vm.rescheduleDeadline(id, it) } },
@@ -1083,6 +1091,7 @@ private fun PControlCenter(
     onReminders: () -> Unit,
     onAutomation: () -> Unit,
     onCreatorProgress: () -> Unit,
+    onProgressJourney: () -> Unit,
     onSettings: () -> Unit,
     onPublishLate: (String) -> Unit,
     onReschedule: (String) -> Unit,
@@ -1103,6 +1112,7 @@ private fun PControlCenter(
         onReminders = onReminders,
         onAutomation = onAutomation,
         onCreatorProgress = onCreatorProgress,
+        onProgressJourney = onProgressJourney,
         onSettings = onSettings,
         onPublishLate = onPublishLate,
         onReschedule = onReschedule,
