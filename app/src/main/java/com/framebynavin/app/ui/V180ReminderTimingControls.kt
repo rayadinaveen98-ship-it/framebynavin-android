@@ -52,6 +52,9 @@ internal fun V180ReminderTimingControls(
     onRepeatGapSeconds: (Int) -> Unit,
     alarmTimeoutSeconds: Int,
     onAlarmTimeoutSeconds: (Int) -> Unit,
+    snoozeMinutes: Int = 0,
+    defaultSnoozeMinutes: Int = 10,
+    onSnoozeMinutes: (Int) -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth().testTag("v180-reminder-timing-controls")) {
         Text("VOICE & ALARM TIMING", color = MutedGold,
@@ -92,6 +95,21 @@ internal fun V180ReminderTimingControls(
                         label = { Text("${seconds}s") },
                     )
                 }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Text("Snooze when I tap Snooze", color = ProjectorIvory, fontSize = V173ProjectUiMetrics.bodyText)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().testTag("v280-project-snooze"),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(0, 5, 10, 15, 30).forEach { minutes ->
+                FilterChip(
+                    selected = snoozeMinutes == minutes,
+                    onClick = { onSnoozeMinutes(minutes) },
+                    label = { Text(if (minutes == 0) "Default (${defaultSnoozeMinutes}m)" else "${minutes}m") },
+                )
+            }
         }
 
         Spacer(Modifier.height(10.dp))
