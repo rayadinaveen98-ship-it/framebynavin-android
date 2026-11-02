@@ -73,7 +73,7 @@ object ReminderNotifications {
     ): Boolean {
         ensureChannel(context)
         val prefs = CreatorOsSettingsStore(context.applicationContext).snapshot()
-        val snoozeMinutes = prefs.snoozeMinutes
+        val snoozeMinutes = V280ReminderSnoozePolicy.effectiveCreatorMinutes(task.snoozeMinutes, prefs.snoozeMinutes)
         val stageCheckIn = ProjectPulseEngine.isStageCheckIn(task)
         // Only an ordinary notification, or Smart's gentle notification stage,
         // can be quieted. Explicit Voice, Alarm, and Smart ringing stages are

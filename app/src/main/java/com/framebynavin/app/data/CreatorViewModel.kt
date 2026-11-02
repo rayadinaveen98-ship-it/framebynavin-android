@@ -309,6 +309,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         voiceRepeatCount: Int,
         voiceRepeatIntervalSeconds: Int,
         alarmTimeoutSeconds: Int,
+        snoozeMinutes: Int = 0,
         attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
         deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO,
     ): String? {
@@ -354,6 +355,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
                 voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
                 alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
+                snoozeMinutes = snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) } ?: 0,
                 autoStageReminder = false,
                 origin = CreatorTaskOrigin.MANUAL,
                 attentionPlan = if (enabled) ProjectAttentionPlan.CUSTOM else ProjectAttentionPlan.OFF,
@@ -404,6 +406,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
             voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
             alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
+            snoozeMinutes = snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) } ?: 0,
             attentionPlan = attentionPlan,
         )
         val refreshReminders = V171ProjectEditSafety.remindersNeedRefresh(current, requested, formatChanged)

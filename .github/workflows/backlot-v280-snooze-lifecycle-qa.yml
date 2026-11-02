@@ -1,0 +1,206 @@
+name: Backlot Build280 - Reminder Snooze and Playback Lifecycle QA
+on:
+  push:
+    branches: [feature/backlot-v280-snooze-lifecycle-p1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-snooze-lifecycle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  progress-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Guard existing stable release and privacy boundaries
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 280' in gradle
+          assert 'applicationId = "com.framebynavin.app"' in gradle
+          snooze=Path('app/src/main/java/com/framebynavin/app/reminders/V280ReminderSnoozePolicy.kt').read_text()
+          assert 'nextAtMillis' in snooze and 'effectiveCreatorMinutes' in snooze
+          personal=Path('app/src/main/java/com/framebynavin/app/personal/PersonalReminder.kt').read_text()
+          assert 'val snoozeMinutes: Int = 10' in personal
+          task=Path('app/src/main/java/com/framebynavin/app/data/CreatorTask.kt').read_text()
+          assert 'val snoozeMinutes: Int = 0' in task
+          print('PASS per-reminder snooze storage and scheduling contracts')
+          engine=Path('app/src/main/java/com/framebynavin/app/data/ProgressJourneyEngine.kt').read_text()
+          assert 'Personal Reminders' in engine
+          assert 'CreatorWorkflowTimelineSource.OBSERVED_CURRENT' not in engine.split('fun build(')[1]
+          assert 'PROJECT_FINISHED' in engine and 'IDEA_CAPTURED' in engine
+          fresh=Path('app/src/main/java/com/framebynavin/app/ui/FreshStartActivity.kt').read_text()
+          assert 'clearApplicationUserData()' in fresh
+          assert 'lossAcknowledged' in fresh and 'cloudAcknowledged' in fresh
+          assert 'onClick = { armed = true }' in fresh
+          assert 'clearApplicationUserData()' not in Path('app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt').read_text()
+          source=Path('app/src/main/java/com/framebynavin/app/data/PortableBestFrameMedia.kt').read_text()
+          verify=source.split('fun verifyCompactPreview(')[1].split('fun expand(')[0]
+          assert 'digestCanonicalFrameRecord(digest, frame)' in verify, 'Streaming original-image verification missing'
+          assert 'Base64.encodeToString(' not in verify
+          assert 'val base64 =' not in verify
+          assert 'val item = JSONObject()' not in verify
+          assert 'file.readBytes(),' not in verify
+          print('PASS: memory-bounded original-image verification retained')
+          cloud=Path('app/src/main/java/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt').read_text()
+          assert 'backup.createCloudBackup()' in cloud
+          assert 'backup.validateCloud(' in cloud and 'backup.restoreCloud(' in cloud
+          assert 'backup.createBackup(), backup' not in cloud
+          core=Path('app/src/main/java/com/framebynavin/app/data/CreatorBackupManager.kt').read_text()
+          assert 'CLOUD_FRAMES_OMITTED' in core and 'snapshot(includeHero = false).copy(heroJson = CLOUD_FRAMES_OMITTED)' in core
+          assert 'CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)' in core
+          print('PASS: photo-free cloud creation, strict validation and preserved original-frame rollback')
+          personal=Path('app/src/main/java/com/framebynavin/app/cloud/PersonalCloudSyncManager.kt').read_text()
+          assert 'PersonalCloudReconciliation.decide(' in personal
+          assert 'ownerUserId()' in personal and 'PersonalCloudResult.Conflict' in personal
+          creator=Path('app/src/main/java/com/framebynavin/app/cloud/CreatorCloudSyncManager.kt').read_text()
+          assert 'withPersonal(account.withFreshSession' in creator
+          assert 'resolvePersonalConflict' in creator
+          raw=Path('app/src/main/java/com/framebynavin/app/personal/PersonalBackupTransfer.kt').read_text()
+          assert 'suspend fun exportForCloud()' in raw
+          print('PASS: private Personal cloud sync is integrated into the existing button')
+          print('PASS: stable version unchanged; no fabricated observed-current creation; creator-only projection')
+          PY
+      - name: Compile, run project and idea history tests, lint and assemble owner preview
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*ProgressJourneyEngineTest.xml'))
+          assert len(files)==1, 'ProgressJourneyEngineTest not executed'
+          root=ET.parse(files[0]).getroot()
+          assert int(root.attrib.get('tests',0)) >= 4
+          assert int(root.attrib.get('errors',0)) == 0
+          assert int(root.attrib.get('failures',0)) == 0
+          personal=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalCompletionJournalTest.xml'))
+          assert len(personal)==1, 'PersonalCompletionJournalTest not executed'
+          p=ET.parse(personal[0]).getroot()
+          assert int(p.attrib.get('tests',0)) >= 3
+          assert int(p.attrib.get('errors',0)) == 0 and int(p.attrib.get('failures',0)) == 0
+          backup=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalCompletionBackupCodecTest.xml'))
+          assert len(backup)==1, 'PersonalCompletionBackupCodecTest not executed'
+          b=ET.parse(backup[0]).getroot()
+          assert int(b.attrib.get('tests',0)) >= 4
+          assert int(b.attrib.get('errors',0)) == 0 and int(b.attrib.get('failures',0)) == 0
+          fresh=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*FreshStartPolicyTest.xml'))
+          assert len(fresh)==1, 'FreshStartPolicyTest not executed'
+          f=ET.parse(fresh[0]).getroot()
+          assert int(f.attrib.get('tests',0)) >= 2
+          assert int(f.attrib.get('errors',0)) == 0 and int(f.attrib.get('failures',0)) == 0
+          mix=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V276ReminderMusicMixPolicyTest.xml'))
+          assert len(mix)==1, 'V276ReminderMusicMixPolicyTest not executed'
+          m=ET.parse(mix[0]).getroot()
+          assert int(m.attrib.get('tests',0)) >= 2
+          assert int(m.attrib.get('errors',0)) == 0 and int(m.attrib.get('failures',0)) == 0
+          unified=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V279PersonalCloudReconciliationTest.xml'))
+          assert len(unified)==1, 'Unified Personal conflict tests missing'
+          u=ET.parse(unified[0]).getroot()
+          assert int(u.attrib.get('tests',0)) >= 3
+          assert int(u.attrib.get('errors',0)) == 0 and int(u.attrib.get('failures',0)) == 0
+          snooze=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V280ReminderSnoozePolicyTest.xml'))
+          assert len(snooze)==1, 'V280 snooze policy tests missing'
+          s=ET.parse(snooze[0]).getroot()
+          assert int(s.attrib.get('tests',0)) >= 3 and int(s.attrib.get('failures',0)) == 0
+          print('PASS per-reminder snooze and inherited cloud backup unit tests')
+          PY
+      - name: Verify sideload build identity and archive for feature testing
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$APK"
+          mkdir -p output
+          cp "$APK" output/Backlot-Build280-SnoozeLifecycle-Owner-Test.apk
+          cp app/build/outputs/apk/debug/app-debug.apk output/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/app-debug-androidTest.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Build280-SnoozeLifecycle-Owner-Test
+          path: output/
+          retention-days: 14
+          if-no-files-found: error
+
+  android-personal-history:
+    needs: progress-journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Build280-SnoozeLifecycle-Owner-Test
+          path: output
+      - name: Verify artifact checksums
+        run: (cd output && sha256sum -c SHA256SUMS.txt)
+      - name: Enable Android Emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test Personal history data-store, backup, restore and recovery on Android 11
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r output/app-debug.apk
+            adb install -r output/app-debug-androidTest.apk
+            # Both classes create independent pre-restore snapshots; they must not
+            # read each other's recovery copies. Wipe ONLY the disposable CI
+            # emulator's target package between test classes, never a user phone.
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.cloud.V279UnifiedPersonalCloudDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v279-personal-unified.log
+            grep -F 'OK (3 tests)' /tmp/backlot-v279-personal-unified.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v279-personal-unified.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V280PersonalSnoozeBackupTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v280-personal-snooze.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v280-personal-snooze.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v280-personal-snooze.log; then exit 1; fi
+
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.cloud.V278CloudBackupMemoryTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v278-cloud-memory.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v278-cloud-memory.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v278-cloud-memory.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.data.V277MemoryBoundedBackupPreviewTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v277-memory.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v277-memory.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v277-memory.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.data.V210StreamedFramesExportTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v210-frame-compat.log
+            grep -F 'OK (3 tests)' /tmp/backlot-v210-frame-compat.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v210-frame-compat.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.data.V210BackupIoFailureTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v210-backup-io.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v210-backup-io.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v210-backup-io.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V282PersonalProgressRestoreTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v282-personal-history.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v282-personal-history.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v282-personal-history.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V226PersonalBackupTransferTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v226-personal-backup.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v226-personal-backup.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v226-personal-backup.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.V276CreatorDefaultMusicDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v276-global-music.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v276-global-music.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v276-global-music.log; then exit 1; fi

@@ -72,6 +72,8 @@ internal data class PersonalReminder(
     val purpose: PersonalPurpose = PersonalPurpose.CUSTOM,
     val voiceMusicMode: ReminderMusicMode = ReminderMusicMode.PIANO,
     val voiceMusicUri: String = "",
+    /** Saved per-reminder manual snooze duration; never a repeat interval. */
+    val snoozeMinutes: Int = 10,
 ) {
     fun checked(): PersonalReminder {
         ReminderMusicChoice(voiceMusicMode, voiceMusicUri).checked()
@@ -80,6 +82,7 @@ internal data class PersonalReminder(
             "Personal reminder title must contain 1–180 characters"
         }
         require(notes.length <= 2_000) { "Personal reminder notes are too long" }
+        require(snoozeMinutes in setOf(5, 10, 15, 30)) { "Snooze must be 5, 10, 15 or 30 minutes" }
         require(everyNDays in 1..365) { "Custom repeat interval must be 1–365 days" }
         require(everyNHours in 1..24) { "Hourly interval must be 1–24 hours" }
         require(repeat != PersonalRepeat.EVERY_N_HOURS || !hourlyUntil.isBefore(time)) {

@@ -101,6 +101,7 @@ class AlarmRingingService : Service() {
             val endingTask = currentTask
             val endingStage = currentSmartStage
             stopCurrent()
+            ReminderSurfaceRegistry.close(task.id, token)
             // At most the selected ring duration: stop sound/vibration first.
             // Do not treat stopping hardware as a dismissal or another snooze.
             // A single normal notification keeps the *same* occurrence actionable.

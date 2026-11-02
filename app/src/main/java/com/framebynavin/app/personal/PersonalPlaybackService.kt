@@ -273,12 +273,16 @@ internal class PersonalPlaybackService : Service() {
     }
 
     private fun endPlayback() {
+        val completedId = currentId
+        val completedToken = currentToken
         ++generation
         currentId = ""
         currentToken = ""
         stopHardware()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+        // Never mark Done on audio completion. Quiet action notification survives.
+        PersonalAlertSurfaceRegistry.closeAfterPlayback(completedId, completedToken)
     }
 
     private fun stopHardware() {

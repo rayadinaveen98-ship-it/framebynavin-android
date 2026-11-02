@@ -104,7 +104,7 @@ internal object PersonalReminderNotifications {
             .setContentIntent(opening)
             .setAutoCancel(false)
             .addAction(0, "DONE", action(context, reminder, PersonalDeliveryContract.ACTION_DONE, 11))
-            .addAction(0, "SNOOZE 10m", action(context, reminder, PersonalDeliveryContract.ACTION_SNOOZE, 12))
+            .addAction(0, "SNOOZE ${reminder.snoozeMinutes}m", action(context, reminder, PersonalDeliveryContract.ACTION_SNOOZE, 12))
             .addAction(0, "DISMISS", action(context, reminder, PersonalDeliveryContract.ACTION_DISMISS, 13))
         return V268FullScreenReminderAccess.configure(
             builder,

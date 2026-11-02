@@ -50,7 +50,8 @@ class VoiceReminderActivity : ComponentActivity() {
             return
         }
         ReminderSurfaceRegistry.attachVoice(this, taskId, occurrenceId)
-        val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
+        val snoozeMinutes = V280ReminderSnoozePolicy.effectiveCreatorMinutes(task.snoozeMinutes,
+            CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes)
 
         lifecycleScope.launch {
             // Service owns normal speech completion. This is only a later safety watchdog.

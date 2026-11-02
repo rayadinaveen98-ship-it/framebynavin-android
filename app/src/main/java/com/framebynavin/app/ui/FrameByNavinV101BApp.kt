@@ -900,6 +900,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     voiceRepeatCount = draft.voiceRepeatCount,
                     voiceRepeatIntervalSeconds = draft.voiceRepeatIntervalSeconds,
                     alarmTimeoutSeconds = draft.alarmTimeoutSeconds,
+                    snoozeMinutes = draft.snoozeMinutes,
                     attentionPlan = draft.attentionPlan,
                     deliveryPreference = draft.deliveryPreference,
                 )

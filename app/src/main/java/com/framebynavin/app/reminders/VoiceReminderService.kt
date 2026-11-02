@@ -275,6 +275,7 @@ class VoiceReminderService : Service() {
         // Completing speech is not user acknowledgement: preserve the
         // already-visible scene and leave the same occurrence actionable.
         stopVoiceService(task.id, token)
+        ReminderSurfaceRegistry.close(task.id, token)
     }
 
     private fun utteranceIndex(utteranceId: String): Int =
