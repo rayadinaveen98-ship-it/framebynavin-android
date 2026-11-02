@@ -57,10 +57,24 @@ jobs:
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$OLD" > /tmp/old-apk-signature.txt
           "$APKSIGNER" verify --verbose --print-certs "$NEW" > /tmp/new-apk-signature.txt
-          OLD_FP="$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/old-apk-signature.txt)"
-          NEW_FP="$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/new-apk-signature.txt)"
-          test "$OLD_FP" = "$NEW_FP"
-          echo 'PASS exact Build282/RC1 preview certificate match and SHA256SUMS'
+          # Build Tools 37 reports "V2 Signer: certificate SHA-256 digest" rather
+          # than older "Signer #1 certificate SHA-256 digest". Parse values,
+          # compare actual fingerprint bytes, not the human-readable prefix.
+          python3 - <<'PY'
+          import pathlib
+          import re
+          def fingerprint(path):
+              text = pathlib.Path(path).read_text()
+              matches = re.findall(r'certificate SHA-256 digest:\\s*([0-9a-fA-F]{64})', text)
+              assert matches, f'No signer X.509 certificate SHA256 found in {path}'
+              assert len(set(x.lower() for x in matches)) == 1, f'Ambiguous signer certificate in {path}'
+              return matches[0].lower()
+          old = fingerprint('/tmp/old-apk-signature.txt')
+          new = fingerprint('/tmp/new-apk-signature.txt')
+          assert old == new, f'APK signer mismatch! Build282: {old} / RC1: {new}'
+          print('PASS exact preview certificate match:',new)
+          PY
+          echo 'PASS Build282/RC1 APK SHA256SUMS and v2-signature verification'
       - name: Enable Android emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
