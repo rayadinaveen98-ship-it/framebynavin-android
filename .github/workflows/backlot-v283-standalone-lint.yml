@@ -1,7 +1,7 @@
 name: Backlot Build283 - Standalone Android Lint Diagnostics
 on:
   push:
-    branches: [feature/backlot-v283-creator-optin-audible-retry]
+    branches: [feature/backlot-v283-creator-optin-audible-retry, feature/backlot-v283-lint-diagnostics-fix]
   workflow_dispatch:
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           free -h
-          timeout 25m gradle :app:lintDebug --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-X6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          timeout 25m gradle :app:lintDebug --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Upload lint reports for owner review
         if: always()
         uses: actions/upload-artifact@v4
