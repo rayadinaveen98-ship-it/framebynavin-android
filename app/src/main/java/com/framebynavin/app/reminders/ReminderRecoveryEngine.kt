@@ -50,8 +50,13 @@ object ReminderRecoveryEngine {
             scheduler.cancel(task.id)
             smart.cancel(task.id)
             runCatching { V179ReminderFollowUps.cancel(appContext, task.id) }
+            runCatching { V283CreatorAutoRetry.cancel(appContext, task.id) }
             return
         }
+
+        // Re-arm any valid optional audio retry after reboot or app update.
+        // Unknown or stale tokens are removed, never replayed.
+        runCatching { V283CreatorAutoRetry.reconcile(appContext, task, nowMillis) }
 
         if (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled) {
             // Do not use cancel(): it invalidates an active Smart action token and

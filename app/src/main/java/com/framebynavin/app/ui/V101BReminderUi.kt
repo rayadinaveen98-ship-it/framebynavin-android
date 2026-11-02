@@ -69,6 +69,9 @@ internal data class PProjectDraft(
     val voiceRepeatIntervalSeconds: Int,
     val alarmTimeoutSeconds: Int,
     val snoozeMinutes: Int,
+    val autoRetryEnabled: Boolean,
+    val autoRetryMinutes: Int,
+    val autoRetryMaxAttempts: Int,
 )
 
 @Composable
@@ -263,6 +266,9 @@ internal fun PProjectComposer(
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 10) }
     var alarmTimeout by rememberSaveable(task?.id) { mutableIntStateOf(task?.alarmTimeoutSeconds ?: defaults.defaultAlarmTimeoutSeconds) }
     var snoozeMinutes by rememberSaveable(task?.id) { mutableIntStateOf(task?.snoozeMinutes ?: 0) }
+    var autoRetryEnabled by rememberSaveable(task?.id) { mutableStateOf(task?.autoRetryEnabled ?: false) }
+    var autoRetryMinutes by rememberSaveable(task?.id) { mutableIntStateOf(task?.autoRetryMinutes ?: 5) }
+    var autoRetryMaxAttempts by rememberSaveable(task?.id) { mutableIntStateOf(task?.autoRetryMaxAttempts ?: 2) }
     var showCreativeSetup by rememberSaveable(task?.id) { mutableStateOf(false) }
     // Editing an existing custom delivery choice reveals the controls that created it.
     var showReminderAdvanced by rememberSaveable(task?.id) {
@@ -334,6 +340,7 @@ internal fun PProjectComposer(
             platform, contentType, dueAt.toString(), attentionPlan.name,
             deliveryPreference.name, customReminderAt.toString(), priority.name, notes,
             soundUri, voice.name, repeatCount.toString(), repeatGap.toString(), alarmTimeout.toString(), snoozeMinutes.toString(),
+            autoRetryEnabled.toString(), autoRetryMinutes.toString(), autoRetryMaxAttempts.toString(),
         )
     )
     val originalDraftSignature = rememberSaveable(task?.id) { draftSignature }
@@ -409,6 +416,16 @@ internal fun PProjectComposer(
             snoozeMinutes = snoozeMinutes,
             defaultSnoozeMinutes = defaults.snoozeMinutes,
             onSnoozeMinutes = { snoozeMinutes = it },
+            autoRetry = V283CreatorAutoRetryChoice(
+                enabled = autoRetryEnabled,
+                minutes = autoRetryMinutes,
+                maximumExtraAlerts = autoRetryMaxAttempts,
+            ),
+            onAutoRetryChanged = { choice ->
+                autoRetryEnabled = choice.enabled
+                autoRetryMinutes = choice.minutes
+                autoRetryMaxAttempts = choice.maximumExtraAlerts
+            },
             notes = notes,
             onNotesChange = { notes = it },
             reminderSetupReady = reminderSetupReady,
@@ -444,6 +461,9 @@ internal fun PProjectComposer(
                         voiceRepeatIntervalSeconds = repeatGap,
                         alarmTimeoutSeconds = alarmTimeout,
                         snoozeMinutes = snoozeMinutes,
+                        autoRetryEnabled = autoRetryEnabled,
+                        autoRetryMinutes = autoRetryMinutes,
+                        autoRetryMaxAttempts = autoRetryMaxAttempts,
                     )
                 )
             },
@@ -650,6 +670,16 @@ internal fun PProjectComposer(
                                 snoozeMinutes = snoozeMinutes,
                                 defaultSnoozeMinutes = defaults.snoozeMinutes,
                                 onSnoozeMinutes = { snoozeMinutes = it },
+                                autoRetry = V283CreatorAutoRetryChoice(
+                                    enabled = autoRetryEnabled,
+                                    minutes = autoRetryMinutes,
+                                    maximumExtraAlerts = autoRetryMaxAttempts,
+                                ),
+                                onAutoRetryChanged = { choice ->
+                                    autoRetryEnabled = choice.enabled
+                                    autoRetryMinutes = choice.minutes
+                                    autoRetryMaxAttempts = choice.maximumExtraAlerts
+                                },
                             )
                             if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                 Spacer(Modifier.height(12.dp))
@@ -721,6 +751,9 @@ internal fun PProjectComposer(
                                     voiceRepeatIntervalSeconds = repeatGap,
                                     alarmTimeoutSeconds = alarmTimeout,
                                     snoozeMinutes = snoozeMinutes,
+                                    autoRetryEnabled = autoRetryEnabled,
+                                    autoRetryMinutes = autoRetryMinutes,
+                                    autoRetryMaxAttempts = autoRetryMaxAttempts,
                                 )
                             )
                         },

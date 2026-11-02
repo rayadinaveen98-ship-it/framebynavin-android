@@ -39,6 +39,13 @@ internal object V180ReminderTimingPolicy {
             " · ${gap(gapSeconds)}s gap · Alarm up to ${durationLabel(alarm(alarmSeconds))}"
 }
 
+/** Compact immutable value reduces Composer function-parameter count in the large project wizard. */
+internal data class V283CreatorAutoRetryChoice(
+    val enabled: Boolean = false,
+    val minutes: Int = 5,
+    val maximumExtraAlerts: Int = 2,
+)
+
 /**
  * Shares exactly the same controls between Quick Create, full New Project, and Edit.
  * Values update the existing draft fields; no new project schema or setting migration.
@@ -55,6 +62,8 @@ internal fun V180ReminderTimingControls(
     snoozeMinutes: Int = 0,
     defaultSnoozeMinutes: Int = 10,
     onSnoozeMinutes: (Int) -> Unit = {},
+    autoRetry: V283CreatorAutoRetryChoice = V283CreatorAutoRetryChoice(),
+    onAutoRetryChanged: (V283CreatorAutoRetryChoice) -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth().testTag("v180-reminder-timing-controls")) {
         Text("VOICE & ALARM TIMING", color = MutedGold,
@@ -109,6 +118,43 @@ internal fun V180ReminderTimingControls(
                     onClick = { onSnoozeMinutes(minutes) },
                     label = { Text(if (minutes == 0) "Default (${defaultSnoozeMinutes}m)" else "${minutes}m") },
                 )
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Text("Automatic voice/alarm re-alert (off by default)", color = ProjectorIvory,
+            fontSize = V173ProjectUiMetrics.bodyText)
+        Text("Regular Voice/Alarm only; Smart escalation remains independent. Playback must finish first.",
+            color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(false, true).forEach { value ->
+                FilterChip(
+                    selected = autoRetry.enabled == value,
+                    onClick = { onAutoRetryChanged(autoRetry.copy(enabled = value)) },
+                    label = { Text(if (value) "On" else "Off") },
+                )
+            }
+        }
+        if (autoRetry.enabled) {
+            Spacer(Modifier.height(10.dp))
+            Text("Re-alert when unanswered after", color = ProjectorIvory,
+                fontSize = V173ProjectUiMetrics.bodyText)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(5, 10, 15, 30).forEach { minutes ->
+                    FilterChip(selected = autoRetry.minutes == minutes,
+                        onClick = { onAutoRetryChanged(autoRetry.copy(minutes = minutes)) },
+                        label = { Text("${minutes}m") })
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Maximum extra alerts", color = ProjectorIvory,
+                fontSize = V173ProjectUiMetrics.bodyText)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(1, 2, 3).forEach { count ->
+                    FilterChip(selected = autoRetry.maximumExtraAlerts == count,
+                        onClick = { onAutoRetryChanged(autoRetry.copy(maximumExtraAlerts = count)) },
+                        label = { Text("$count") })
+                }
             }
         }
 

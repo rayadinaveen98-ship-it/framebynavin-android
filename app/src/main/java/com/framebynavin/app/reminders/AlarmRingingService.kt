@@ -100,6 +100,7 @@ class AlarmRingingService : Service() {
             if (!isCurrent(task.id, token)) return@postDelayed
             val endingTask = currentTask
             val endingStage = currentSmartStage
+            val audibleAlarmWasPlaying = runCatching { player?.isPlaying == true }.getOrDefault(false)
             stopCurrent()
             ReminderSurfaceRegistry.close(task.id, token)
             // At most the selected ring duration: stop sound/vibration first.
@@ -131,6 +132,15 @@ class AlarmRingingService : Service() {
                             applicationContext, task, token,
                             finalSmartStage = terminalSmart,
                         )
+                    }
+                    if (!isSmart && audibleAlarmWasPlaying) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            runCatching {
+                                V283CreatorAutoRetry.armAfterPlayback(applicationContext, task.id, token)
+                            }.onFailure {
+                                android.util.Log.w("BacklotCreatorRetry", "Alarm auto retry not armed", it)
+                            }
+                        }
                     }
                 }
             }
@@ -365,6 +375,11 @@ internal fun Intent.putTask(task: CreatorTask): Intent =
         .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, task.voiceRepeatCount)
         .putExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, task.voiceRepeatIntervalSeconds)
         .putExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, task.alarmTimeoutSeconds)
+        // Keep the opt-in attached to the running service snapshot; missing
+        // Intent fields would silently restore OFF and double quiet follow-ups.
+        .putExtra("backlot.creator.auto.retry.enabled", task.autoRetryEnabled)
+        .putExtra("backlot.creator.auto.retry.minutes", task.autoRetryMinutes)
+        .putExtra("backlot.creator.auto.retry.max", task.autoRetryMaxAttempts)
         .putExtra(ReminderConstants.EXTRA_WORKFLOW_STAGE, task.workflowStageIndex)
         .putExtra(ReminderConstants.EXTRA_CHECKPOINT_STAGE, task.checkpointStageId)
         .putExtra(ReminderConstants.EXTRA_CHECKPOINT_AT, task.checkpointAtMillis)
@@ -423,5 +438,8 @@ internal fun Intent.toTask(): CreatorTask? {
         voiceRepeatCount = getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, 3).coerceIn(1, 3),
         voiceRepeatIntervalSeconds = getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 10).coerceIn(5, 60),
         alarmTimeoutSeconds = getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
+        autoRetryEnabled = getBooleanExtra("backlot.creator.auto.retry.enabled", false),
+        autoRetryMinutes = getIntExtra("backlot.creator.auto.retry.minutes", 5).takeIf { it in setOf(5, 10, 15, 30) } ?: 5,
+        autoRetryMaxAttempts = getIntExtra("backlot.creator.auto.retry.max", 2).coerceIn(1, 3),
     )
 }

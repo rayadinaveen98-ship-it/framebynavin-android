@@ -901,6 +901,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     voiceRepeatIntervalSeconds = draft.voiceRepeatIntervalSeconds,
                     alarmTimeoutSeconds = draft.alarmTimeoutSeconds,
                     snoozeMinutes = draft.snoozeMinutes,
+                    autoRetryEnabled = draft.autoRetryEnabled,
+                    autoRetryMinutes = draft.autoRetryMinutes,
+                    autoRetryMaxAttempts = draft.autoRetryMaxAttempts,
                     attentionPlan = draft.attentionPlan,
                     deliveryPreference = draft.deliveryPreference,
                 )

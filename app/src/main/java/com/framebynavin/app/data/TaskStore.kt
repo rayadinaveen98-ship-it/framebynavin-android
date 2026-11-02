@@ -168,6 +168,9 @@ class TaskStore(private val context: Context) {
                     .put("voiceRepeatIntervalSeconds", task.voiceRepeatIntervalSeconds)
                     .put("alarmTimeoutSeconds", task.alarmTimeoutSeconds)
                     .put("snoozeMinutes", task.snoozeMinutes)
+                    .put("autoRetryEnabled", task.autoRetryEnabled)
+                    .put("autoRetryMinutes", task.autoRetryMinutes)
+                    .put("autoRetryMaxAttempts", task.autoRetryMaxAttempts)
                     .put("scheduleSlotId", task.scheduleSlotId)
                     .put("scheduleOccurrenceKey", task.scheduleOccurrenceKey)
                     .put("autoStageReminder", task.autoStageReminder)
@@ -290,6 +293,9 @@ class TaskStore(private val context: Context) {
                         voiceRepeatIntervalSeconds = item.optInt("voiceRepeatIntervalSeconds", 10).coerceIn(5, 60),
                         alarmTimeoutSeconds = item.optInt("alarmTimeoutSeconds", 120).coerceIn(30, 300),
                         snoozeMinutes = item.optInt("snoozeMinutes", 0).takeIf { it in setOf(5, 10, 15, 30) } ?: 0,
+                        autoRetryEnabled = item.optBoolean("autoRetryEnabled", false),
+                        autoRetryMinutes = item.optInt("autoRetryMinutes", 5).takeIf { it in setOf(5, 10, 15, 30) } ?: 5,
+                        autoRetryMaxAttempts = item.optInt("autoRetryMaxAttempts", 2).coerceIn(1, 3),
                         scheduleSlotId = scheduleSlotId,
                         scheduleOccurrenceKey = item.optString("scheduleOccurrenceKey", ""),
                         autoStageReminder = item.optBoolean("autoStageReminder", false),

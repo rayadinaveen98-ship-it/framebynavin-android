@@ -22,6 +22,9 @@ import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskPriority
 import java.lang.ref.WeakReference
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class VoiceReminderService : Service() {
     private var tts: TextToSpeech? = null
@@ -250,11 +253,13 @@ class VoiceReminderService : Service() {
     /**
      * A finished voice cycle is not a user response. Hand the same occurrence to an ordinary
      * actionable notification before closing the speaking screen. Do not generate a new
-     * occurrence, auto-snooze, or schedule another audible reminder here.
+     * occurrence or auto-snooze. A separately configured, bounded audible retry
+     * may be scheduled only when all three spoken announcements completed.
      */
     private fun finishUnansweredVoice(task: CreatorTask, token: String, reason: String) {
         if (!isCurrent(task.id, token)) return
         val stillCurrent = ReminderOccurrenceStore(applicationContext).matches(task, token)
+        var actionablePosted = false
         if (V178PlaybackLifecyclePolicy.shouldPreserveActionableNotification(stillCurrent)) {
             val posted = runCatching {
                 ReminderNotifications.show(
@@ -268,6 +273,7 @@ class VoiceReminderService : Service() {
             runCatching {
                 ReminderAcknowledgementStore(applicationContext).markUnanswered(task.id, token, reason)
             }
+            actionablePosted = posted
             if (posted) runCatching {
                 V179ReminderFollowUps.armAfterUnanswered(applicationContext, task, token)
             }
@@ -276,6 +282,15 @@ class VoiceReminderService : Service() {
         // already-visible scene and leave the same occurrence actionable.
         stopVoiceService(task.id, token)
         ReminderSurfaceRegistry.close(task.id, token)
+        if (actionablePosted && reason == "voice_playback_finished_no_response") {
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching {
+                    V283CreatorAutoRetry.armAfterPlayback(applicationContext, task.id, token)
+                }.onFailure {
+                    android.util.Log.w("BacklotCreatorRetry", "Voice auto retry not armed", it)
+                }
+            }
+        }
     }
 
     private fun utteranceIndex(utteranceId: String): Int =

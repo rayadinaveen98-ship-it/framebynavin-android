@@ -103,6 +103,8 @@ internal fun V20NewProjectWizard(
     snoozeMinutes: Int,
     defaultSnoozeMinutes: Int,
     onSnoozeMinutes: (Int) -> Unit,
+    autoRetry: V283CreatorAutoRetryChoice,
+    onAutoRetryChanged: (V283CreatorAutoRetryChoice) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
     reminderSetupReady: Boolean,
@@ -398,6 +400,8 @@ internal fun V20NewProjectWizard(
                                             snoozeMinutes = snoozeMinutes,
                                             defaultSnoozeMinutes = defaultSnoozeMinutes,
                                             onSnoozeMinutes = onSnoozeMinutes,
+                                            autoRetry = autoRetry,
+                                            onAutoRetryChanged = onAutoRetryChanged,
                                         )
                                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                             Spacer(Modifier.height(12.dp))
@@ -703,6 +707,8 @@ internal fun V20NewProjectWizard(
                                     snoozeMinutes = snoozeMinutes,
                                     defaultSnoozeMinutes = defaultSnoozeMinutes,
                                     onSnoozeMinutes = onSnoozeMinutes,
+                                    autoRetry = autoRetry,
+                                    onAutoRetryChanged = onAutoRetryChanged,
                                 )
                                 if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                     Spacer(Modifier.height(12.dp))

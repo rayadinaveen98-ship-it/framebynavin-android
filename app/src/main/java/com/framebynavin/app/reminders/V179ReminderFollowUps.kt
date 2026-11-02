@@ -36,6 +36,10 @@ internal object V179ReminderFollowUps {
         token: String,
         finalSmartStage: Boolean = false,
     ) {
+        // Audible opt-in retries replace, rather than duplicate, quiet follow-ups.
+        if (task.autoRetryEnabled && task.reminderMode in
+            setOf(com.framebynavin.app.data.ReminderMode.VOICE,
+                  com.framebynavin.app.data.ReminderMode.ALARM)) return
         if (!enabled(context) || !V179FollowUpPolicy.eligible(task, finalSmartStage)) return
         enqueue(context, task, token, attempt = 1, terminalSmart = finalSmartStage, postedGrace = false)
     }
