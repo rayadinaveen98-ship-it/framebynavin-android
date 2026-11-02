@@ -37,7 +37,11 @@ internal object PersonalPlaybackPolicy {
         // Only an explicit user Snooze/Reschedule may change the audio age anchor.
         val userDeferred = reminder.snoozedUntilMillis == fireMillis &&
             reminder.lastResponse in setOf(PersonalResponse.SNOOZED, PersonalResponse.RESCHEDULED)
-        val ageAnchor = if (userDeferred) fireMillis else originalMillis
+        // A claimed opt-in retry also advances the audible age anchor, but it
+        // must match the exact persisted retry fire time, not an OS recovery time.
+        val automaticDeferred = reminder.autoRetryCount > 0 &&
+            reminder.snoozedUntilMillis == fireMillis
+        val ageAnchor = if (userDeferred || automaticDeferred) fireMillis else originalMillis
         return nowMillis >= fireMillis - 5_000L &&
             nowMillis - fireMillis <= MAX_AUDIO_AGE_MILLIS &&
             nowMillis - ageAnchor <= MAX_AUDIO_AGE_MILLIS
