@@ -14,6 +14,25 @@ import kotlinx.coroutines.launch
  */
 internal class PersonalReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == PersonalDeliveryContract.ACTION_AUTO_RETRY) {
+            val id = intent.getStringExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID).orEmpty()
+            val token = intent.getStringExtra(PersonalDeliveryContract.EXTRA_TOKEN).orEmpty()
+            val occurrence = intent.getLongExtra(PersonalDeliveryContract.EXTRA_OCCURRENCE, 0L)
+            val scheduledAt = intent.getLongExtra(PersonalDeliveryContract.EXTRA_FIRE_AT, 0L)
+            if (id.isBlank() || token.isBlank() || occurrence <= 0L || scheduledAt <= 0L) return
+            val pending = goAsync()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    PersonalDeliveryCoordinator(context.applicationContext)
+                        .deliverAutomaticRetry(id, occurrence, token, scheduledAt)
+                } catch (failure: Exception) {
+                    android.util.Log.e("BacklotPersonal", "Optional audible retry failed", failure)
+                } finally {
+                    pending.finish()
+                }
+            }
+            return
+        }
         if (intent.action == PersonalDeliveryContract.ACTION_FOLLOW_UP) {
             val id = intent.getStringExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID).orEmpty()
             val token = intent.getStringExtra(PersonalDeliveryContract.EXTRA_TOKEN).orEmpty()
