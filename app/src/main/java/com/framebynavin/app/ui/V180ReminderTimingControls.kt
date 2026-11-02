@@ -55,6 +55,12 @@ internal fun V180ReminderTimingControls(
     snoozeMinutes: Int = 0,
     defaultSnoozeMinutes: Int = 10,
     onSnoozeMinutes: (Int) -> Unit = {},
+    autoRetryEnabled: Boolean = false,
+    onAutoRetryEnabled: (Boolean) -> Unit = {},
+    autoRetryMinutes: Int = 5,
+    onAutoRetryMinutes: (Int) -> Unit = {},
+    autoRetryMaxAttempts: Int = 2,
+    onAutoRetryMaxAttempts: (Int) -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth().testTag("v180-reminder-timing-controls")) {
         Text("VOICE & ALARM TIMING", color = MutedGold,
@@ -109,6 +115,43 @@ internal fun V180ReminderTimingControls(
                     onClick = { onSnoozeMinutes(minutes) },
                     label = { Text(if (minutes == 0) "Default (${defaultSnoozeMinutes}m)" else "${minutes}m") },
                 )
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Text("Automatic voice/alarm re-alert (off by default)", color = ProjectorIvory,
+            fontSize = V173ProjectUiMetrics.bodyText)
+        Text("Regular Voice/Alarm only; Smart escalation remains independent. Playback must finish first.",
+            color = MutedText, fontSize = V173ProjectUiMetrics.supportingText)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(false, true).forEach { value ->
+                FilterChip(
+                    selected = autoRetryEnabled == value,
+                    onClick = { onAutoRetryEnabled(value) },
+                    label = { Text(if (value) "On" else "Off") },
+                )
+            }
+        }
+        if (autoRetryEnabled) {
+            Spacer(Modifier.height(10.dp))
+            Text("Re-alert when unanswered after", color = ProjectorIvory,
+                fontSize = V173ProjectUiMetrics.bodyText)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(5, 10, 15, 30).forEach { minutes ->
+                    FilterChip(selected = autoRetryMinutes == minutes,
+                        onClick = { onAutoRetryMinutes(minutes) },
+                        label = { Text("${minutes}m") })
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Maximum extra alerts", color = ProjectorIvory,
+                fontSize = V173ProjectUiMetrics.bodyText)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(1, 2, 3).forEach { count ->
+                    FilterChip(selected = autoRetryMaxAttempts == count,
+                        onClick = { onAutoRetryMaxAttempts(count) },
+                        label = { Text("$count") })
+                }
             }
         }
 
