@@ -1,0 +1,165 @@
+name: Backlot Build283 - Parallel APK and Device QA
+on:
+  push:
+    branches: [feature/backlot-v283-split-qa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v283-split-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  owner-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify owner-test identity (NOT Play release signing)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 283' in p
+          assert 'applicationId = "com.framebynavin.app"' in p
+          assert 'signingConfig = signingConfigs.getByName("prototypeStable")' in p
+          assert 'Private Play upload signing' in p
+          print('PASS: owner preview signer, package ID and Play release safety preserved')
+          PY
+      - name: Assemble preview-only PersonalStable APK (full debug lint verified independently)
+        run: |
+          set -euo pipefail
+          free -h
+          # Standalone lintDebug passed on the same Build283 application source.
+          # The preview-only lintVitalPersonalStable step stalls for ~20 minutes;
+          # exclude it ONLY on this non-production PersonalStable APK job.
+          # NEVER apply this exclusion to :app:bundleRelease or :app:assembleRelease.
+          timeout 47m gradle :app:assemblePersonalStable -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Validate and archive owner installable APK
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$APK"
+          mkdir -p owner-artifact
+          cp "$APK" owner-artifact/Backlot-Build283-CreatorAutoRetry-Owner-Test.apk
+          (cd owner-artifact && sha256sum *.apk > SHA256SUMS.txt)
+          # GitHub-hosted runners do not expose apksigner on PATH by default.
+          # Android Gradle Plugin installs build-tools in ANDROID_HOME/build-tools.
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$SDK_ROOT"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -1)"
+          test -n "$APKSIGNER" && test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > owner-artifact/SIGNATURE-VERIFICATION.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' owner-artifact/SIGNATURE-VERIFICATION.txt
+          echo 'OWNER-APK READY: CI signed test build, not Play Store-ready'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Build283-Owner-APK
+          path: owner-artifact/
+          retention-days: 14
+          if-no-files-found: error
+
+  test-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile debug + unit tests + emulator test APK (no PersonalStable or lint)
+        run: |
+          set -euo pipefail
+          free -h
+          timeout 45m gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify Creator policy and Personal retry regression tests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          required={
+              'V283CreatorAutoRetryPolicyTest':4,
+              'V282PersonalAutoRetryPolicyTest':4,
+              'V280ReminderSnoozePolicyTest':3,
+              'V279PersonalCloudReconciliationTest':3,
+          }
+          for name, minimum in required.items():
+              files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*'+name+'.xml'))
+              assert len(files)==1, 'Test suite not executed: '+name
+              root=ET.parse(files[0]).getroot()
+              assert int(root.attrib.get('tests',0))>=minimum, name+' test count too low'
+              assert int(root.attrib.get('errors',0))==0, name+' had errors'
+              assert int(root.attrib.get('failures',0))==0, name+' had failures'
+              print('PASS', name, root.attrib.get('tests'))
+          PY
+          mkdir -p test-artifact
+          cp app/build/outputs/apk/debug/app-debug.apk test-artifact/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk test-artifact/app-debug-androidTest.apk
+          (cd test-artifact && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Build283-Android-Tests
+          path: test-artifact/
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator:
+    needs: test-artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Build283-Android-Tests
+          path: test-artifact
+      - name: Verify exact compiled APK files
+        run: (cd test-artifact && sha256sum -c SHA256SUMS.txt)
+      - name: Enable Android emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test Creator retry safety and Personal cloud restore on disposable emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r test-artifact/app-debug.apk
+            adb install -r test-artifact/app-debug-androidTest.apk
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.V283CreatorAutoRetryDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/creator-v283.log
+            grep -F 'OK (3 tests)' /tmp/creator-v283.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/creator-v283.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V282PersonalAutomaticRetryDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/personal-v282.log
+            grep -F 'OK (2 tests)' /tmp/personal-v282.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/personal-v282.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.cloud.V279UnifiedPersonalCloudDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/cloud-v279.log
+            grep -F 'OK (3 tests)' /tmp/cloud-v279.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/cloud-v279.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V280PersonalSnoozeBackupTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/snooze-v280.log
+            grep -F 'OK (2 tests)' /tmp/snooze-v280.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/snooze-v280.log; then exit 1; fi
