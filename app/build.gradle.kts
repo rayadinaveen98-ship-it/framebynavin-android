@@ -58,8 +58,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
-        versionCode = 280
-        versionName = "2.17.6-rc7-snooze-lifecycle-owner-test"
+        versionCode = 281
+        versionName = "2.17.7-rc8-personal-playback-owner-test"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
