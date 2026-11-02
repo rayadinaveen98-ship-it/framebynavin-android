@@ -38,24 +38,4 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -euo pipefail
-            adb install -r test-artifact/app-debug.apk
-            adb install -r test-artifact/app-debug-androidTest.apk
-            for suite in \
-              'com.framebynavin.app.reminders.V283CreatorAutoRetryDeviceTest:3:creator' \
-              'com.framebynavin.app.personal.V282PersonalAutomaticRetryDeviceTest:2:personal' \
-              'com.framebynavin.app.cloud.V279UnifiedPersonalCloudDeviceTest:3:cloud' \
-              'com.framebynavin.app.personal.V280PersonalSnoozeBackupTest:2:snooze' \
-              'com.framebynavin.app.reminders.V283Phase2ReminderSafetyDeviceTest:5:reliability' \
-              'com.framebynavin.app.personal.V283NotificationFallbackDeviceTest:5:fullscreen'; do
-              CLASS="${suite%%:*}"
-              TAIL="${suite#*:}"
-              COUNT="${TAIL%%:*}"
-              LABEL="${suite##*:}"
-              adb shell pm clear com.framebynavin.app
-              adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class "$CLASS" com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "/tmp/rc1-api36-${LABEL}.log"
-              grep -F "OK (${COUNT} tests)" "/tmp/rc1-api36-${LABEL}.log"
-              if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "/tmp/rc1-api36-${LABEL}.log"; then exit 1; fi
-            done
-            echo 'PASS RC1 API36 20 targeted Creator/Personal emulator tests'
+          script: bash .github/scripts/backlot-api36-reliability.sh
