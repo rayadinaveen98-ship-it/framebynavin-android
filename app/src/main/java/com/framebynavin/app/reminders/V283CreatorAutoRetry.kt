@@ -218,7 +218,8 @@ internal object V283CreatorAutoRetry {
         // A consumed receipt has scheduledAt=0 while speech/ringing is in
         // progress. Preserve its attempt count across app resume and reboot,
         // otherwise every resumed playback could reset to retry #1 forever.
-        if (receipt.scheduledAt > 0L)
-            armAlarm(context, task.id, receipt.token, receipt.scheduledAt, nowMillis)
+        if (receipt.scheduledAt > 0L &&
+            !armAlarm(context, task.id, receipt.token, receipt.scheduledAt, nowMillis))
+            cancel(context, task.id)
     }
 }
