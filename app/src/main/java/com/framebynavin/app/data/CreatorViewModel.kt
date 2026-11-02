@@ -310,6 +310,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         voiceRepeatIntervalSeconds: Int,
         alarmTimeoutSeconds: Int,
         snoozeMinutes: Int = 0,
+        autoRetryEnabled: Boolean = false,
+        autoRetryMinutes: Int = 5,
+        autoRetryMaxAttempts: Int = 2,
         attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
         deliveryPreference: ReminderDeliveryPreference = ReminderDeliveryPreference.AUTO,
     ): String? {
@@ -356,6 +359,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
                 alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
                 snoozeMinutes = snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) } ?: 0,
+                autoRetryEnabled = autoRetryEnabled,
+                autoRetryMinutes = autoRetryMinutes.takeIf { it in setOf(5, 10, 15, 30) } ?: 5,
+                autoRetryMaxAttempts = autoRetryMaxAttempts.coerceIn(1, 3),
                 autoStageReminder = false,
                 origin = CreatorTaskOrigin.MANUAL,
                 attentionPlan = if (enabled) ProjectAttentionPlan.CUSTOM else ProjectAttentionPlan.OFF,
@@ -407,6 +413,9 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
             alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
             snoozeMinutes = snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) } ?: 0,
+            autoRetryEnabled = autoRetryEnabled,
+            autoRetryMinutes = autoRetryMinutes.takeIf { it in setOf(5, 10, 15, 30) } ?: 5,
+            autoRetryMaxAttempts = autoRetryMaxAttempts.coerceIn(1, 3),
             attentionPlan = attentionPlan,
         )
         val refreshReminders = V171ProjectEditSafety.remindersNeedRefresh(current, requested, formatChanged)
