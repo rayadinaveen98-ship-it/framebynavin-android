@@ -1,0 +1,61 @@
+name: Backlot RC1 - Android16 API36 Compatibility QA
+on:
+  push:
+    branches: [feature/backlot-v283-rc1-api36-compatibility-qa]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android16:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC1-Integrated-Android-Tests
+          path: test-artifact
+          run-id: 41486414618
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+      - name: Pin verified integrated source and APK artifact checksums
+        run: |
+          set -euo pipefail
+          (cd test-artifact && sha256sum -c SHA256SUMS.txt)
+          test -s test-artifact/app-debug.apk
+          test -s test-artifact/app-debug-androidTest.apk
+      - name: Enable emulator KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API36 Creator and Personal integrated regressions
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r test-artifact/app-debug.apk
+            adb install -r test-artifact/app-debug-androidTest.apk
+            for suite in \
+              'com.framebynavin.app.reminders.V283CreatorAutoRetryDeviceTest:3:creator' \
+              'com.framebynavin.app.personal.V282PersonalAutomaticRetryDeviceTest:2:personal' \
+              'com.framebynavin.app.cloud.V279UnifiedPersonalCloudDeviceTest:3:cloud' \
+              'com.framebynavin.app.personal.V280PersonalSnoozeBackupTest:2:snooze' \
+              'com.framebynavin.app.reminders.V283Phase2ReminderSafetyDeviceTest:5:reliability' \
+              'com.framebynavin.app.personal.V283NotificationFallbackDeviceTest:5:fullscreen'; do
+              CLASS="${suite%%:*}"
+              TAIL="${suite#*:}"
+              COUNT="${TAIL%%:*}"
+              LABEL="${suite##*:}"
+              adb shell pm clear com.framebynavin.app
+              adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class "$CLASS" com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "/tmp/rc1-api36-${LABEL}.log"
+              grep -F "OK (${COUNT} tests)" "/tmp/rc1-api36-${LABEL}.log"
+              if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "/tmp/rc1-api36-${LABEL}.log"; then exit 1; fi
+            done
+            echo 'PASS RC1 API36 20 targeted Creator/Personal emulator tests'
