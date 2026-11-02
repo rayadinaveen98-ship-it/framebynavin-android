@@ -78,6 +78,13 @@ internal data class PersonalReminder(
     val voiceRepeatCount: Int = 3,
     val voiceRepeatGapMillis: Long = 2_500L,
     val alarmDurationSeconds: Int = 60,
+    /** Automatic voice/alarm retries need deliberate opt-in; default is OFF. */
+    val autoRetryEnabled: Boolean = false,
+    val autoRetryMinutes: Int = 5,
+    val autoRetryMaxAttempts: Int = 2,
+    /** Local delivery receipts; cleared before backup/cloud export. */
+    val autoRetryCount: Int = 0,
+    val autoRetryScheduledAtMillis: Long = 0L,
 ) {
     fun checked(): PersonalReminder {
         ReminderMusicChoice(voiceMusicMode, voiceMusicUri).checked()
@@ -90,6 +97,11 @@ internal data class PersonalReminder(
         require(voiceRepeatCount in 1..3) { "Voice repeats must be 1, 2, or 3" }
         require(voiceRepeatGapMillis in setOf(2_500L, 5_000L, 10_000L, 20_000L, 30_000L, 60_000L)) { "Invalid Personal voice gap" }
         require(alarmDurationSeconds in setOf(30, 45, 60, 120, 180, 300)) { "Invalid Personal alarm duration" }
+        require(autoRetryMinutes in PersonalAutoRetryPolicy.INTERVAL_CHOICES) { "Invalid automatic retry interval" }
+        require(autoRetryMaxAttempts in PersonalAutoRetryPolicy.MAX_ATTEMPT_CHOICES) { "Invalid automatic retry limit" }
+        require(autoRetryCount in 0..autoRetryMaxAttempts && autoRetryScheduledAtMillis >= 0L) {
+            "Invalid automatic retry receipt"
+        }
         require(everyNDays in 1..365) { "Custom repeat interval must be 1–365 days" }
         require(everyNHours in 1..24) { "Hourly interval must be 1–24 hours" }
         require(repeat != PersonalRepeat.EVERY_N_HOURS || !hourlyUntil.isBefore(time)) {
