@@ -484,6 +484,9 @@ internal fun V2232PersonalEditor(
     var alert by rememberSaveable(existing?.id) {
         mutableStateOf(existing?.alert?.name ?: PersonalAlert.NOTIFICATION.name)
     }
+    var snoozeMinutes by rememberSaveable(existing?.id) {
+        mutableIntStateOf(existing?.snoozeMinutes ?: 10)
+    }
     var voiceMusicMode by rememberSaveable(existing?.id) {
         mutableStateOf(existing?.voiceMusicMode ?: com.framebynavin.app.reminders.ReminderMusicMode.PIANO)
     }
@@ -715,6 +718,15 @@ internal fun V2232PersonalEditor(
                                 label = { Text(choice.name, fontSize = 10.sp) })
                         }
                     }
+                    Text("SNOOZE DURATION", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        listOf(5, 10, 15, 30).forEach { minutes ->
+                            FilterChip(selected = snoozeMinutes == minutes,
+                                onClick = { snoozeMinutes = minutes },
+                                label = { Text("${minutes} min", fontSize = 11.sp) })
+                        }
+                    }
                     if (alert != PersonalAlert.NOTIFICATION.name) {
                         Text("Voice and Alarm play short audio when Android allows; the notification remains your fallback.",
                             color = MutedGold, fontSize = 11.sp)
@@ -816,6 +828,7 @@ internal fun V2232PersonalEditor(
                                     alert = PersonalAlert.valueOf(alert),
                                     voiceMusicMode = voiceMusicMode,
                                     voiceMusicUri = voiceMusicUri,
+                                    snoozeMinutes = snoozeMinutes,
                                 ).checked()
                                 onSave(draft)
                             } catch (invalid: Exception) {
