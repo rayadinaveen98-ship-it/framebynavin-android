@@ -74,6 +74,10 @@ internal data class PersonalReminder(
     val voiceMusicUri: String = "",
     /** Saved per-reminder manual snooze duration; never a repeat interval. */
     val snoozeMinutes: Int = 10,
+    /** Spoken cycles, gap and alarm duration are explicitly chosen per Personal reminder. */
+    val voiceRepeatCount: Int = 3,
+    val voiceRepeatGapMillis: Long = 2_500L,
+    val alarmDurationSeconds: Int = 60,
 ) {
     fun checked(): PersonalReminder {
         ReminderMusicChoice(voiceMusicMode, voiceMusicUri).checked()
@@ -83,6 +87,9 @@ internal data class PersonalReminder(
         }
         require(notes.length <= 2_000) { "Personal reminder notes are too long" }
         require(snoozeMinutes in setOf(5, 10, 15, 30)) { "Snooze must be 5, 10, 15 or 30 minutes" }
+        require(voiceRepeatCount in 1..3) { "Voice repeats must be 1, 2, or 3" }
+        require(voiceRepeatGapMillis in setOf(2_500L, 5_000L, 10_000L, 20_000L, 30_000L, 60_000L)) { "Invalid Personal voice gap" }
+        require(alarmDurationSeconds in setOf(30, 45, 60, 120, 180, 300)) { "Invalid Personal alarm duration" }
         require(everyNDays in 1..365) { "Custom repeat interval must be 1–365 days" }
         require(everyNHours in 1..24) { "Hourly interval must be 1–24 hours" }
         require(repeat != PersonalRepeat.EVERY_N_HOURS || !hourlyUntil.isBefore(time)) {
