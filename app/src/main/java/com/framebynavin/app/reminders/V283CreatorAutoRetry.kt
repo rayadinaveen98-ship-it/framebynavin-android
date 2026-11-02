@@ -174,14 +174,22 @@ internal object V283CreatorAutoRetry {
             if (!save(app, taskId, consumed)) return@readyTransaction false
             // A sound-start failure consumes the attempt; at-most-once is safer
             // than retrying an FGS launch indefinitely on Android restrictions.
-            runCatching {
+            try {
                 when (task.reminderMode) {
-                    ReminderMode.VOICE -> VoiceReminderService.start(app, task, token, forceRestart = true)
-                    ReminderMode.ALARM -> AlarmRingingService.start(app, task, occurrenceId = token)
-                    else -> return@readyTransaction false
+                    ReminderMode.VOICE -> {
+                        VoiceReminderService.start(app, task, token, forceRestart = true)
+                        true
+                    }
+                    ReminderMode.ALARM -> {
+                        AlarmRingingService.start(app, task, occurrenceId = token)
+                        true
+                    }
+                    else -> false
                 }
-            }.onFailure { Log.w("BacklotCreatorRetry", "Audible retry unavailable; notification remains", it) }
-                .isSuccess
+            } catch (error: Exception) {
+                Log.w("BacklotCreatorRetry", "Audible retry unavailable; notification remains", error)
+                false
+            }
         }
     }
 
