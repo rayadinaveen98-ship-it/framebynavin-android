@@ -1,0 +1,41 @@
+name: Backlot RC1 - Android16 API36 Compatibility QA
+on:
+  push:
+    branches: [feature/backlot-v283-rc1-api36-compatibility-qa]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android16:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RC1-Integrated-Android-Tests
+          path: test-artifact
+          run-id: 41486414618
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+      - name: Pin verified integrated source and APK artifact checksums
+        run: |
+          set -euo pipefail
+          (cd test-artifact && sha256sum -c SHA256SUMS.txt)
+          test -s test-artifact/app-debug.apk
+          test -s test-artifact/app-debug-androidTest.apk
+      - name: Enable emulator KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API36 Creator and Personal integrated regressions
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-api36-reliability.sh
