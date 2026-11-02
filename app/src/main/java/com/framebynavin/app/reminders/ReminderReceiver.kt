@@ -13,6 +13,23 @@ import kotlinx.coroutines.launch
 
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == V283CreatorAutoRetry.ACTION_RETRY) {
+            val id = intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID).orEmpty()
+            val token = intent.getStringExtra(V283CreatorAutoRetry.EXTRA_TOKEN).orEmpty()
+            val target = intent.getLongExtra(V283CreatorAutoRetry.EXTRA_TARGET, 0L)
+            if (id.isBlank() || token.isBlank() || target <= 0L) return
+            val pending = goAsync()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    V283CreatorAutoRetry.deliver(context.applicationContext, id, token, target)
+                } catch (error: Exception) {
+                    android.util.Log.e("BacklotCreatorRetry", "Audible retry delivery failed", error)
+                } finally {
+                    pending.finish()
+                }
+            }
+            return
+        }
         val appContext = context.applicationContext
         val taskId = intent.getStringExtra(ReminderConstants.EXTRA_TASK_ID) ?: return
         val scheduledAt = intent.getLongExtra(ReminderConstants.EXTRA_SCHEDULED_AT, 0L)
