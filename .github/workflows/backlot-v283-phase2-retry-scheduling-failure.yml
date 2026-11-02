@@ -1,0 +1,49 @@
+name: Backlot Build283 - Phase2 Retry Scheduling Failure Guard
+on:
+  push:
+    branches: [feature/backlot-v283-phase2-alarm-schedule-failure]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: backlot-v283-retry-schedule-failure-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-retry-failure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build modified app and run unit regression tests
+        run: |
+          set -euo pipefail
+          timeout 52m gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          suites = {
+            'V283RetryScheduleFailureTest': 5,
+            'V283CreatorAutoRetryPolicyTest': 4,
+            'V282PersonalAutoRetryPolicyTest': 4,
+          }
+          for name, minimum in suites.items():
+            matches = list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*' + name + '.xml'))
+            assert len(matches) == 1, 'Missing suite: ' + name
+            root = ET.parse(matches[0]).getroot()
+            tests = int(root.attrib.get('tests', 0))
+            assert tests >= minimum, (name, tests, minimum)
+            assert int(root.attrib.get('failures', 0)) == 0
+            assert int(root.attrib.get('errors', 0)) == 0
+            print('PASS', name, tests)
+          PY
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          echo 'PASS failed-schedule rollback; final owner Android/physical QA still required'
