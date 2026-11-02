@@ -100,6 +100,9 @@ internal fun V20NewProjectWizard(
     onVoiceRepeatGapSeconds: (Int) -> Unit,
     alarmTimeoutSeconds: Int,
     onAlarmTimeoutSeconds: (Int) -> Unit,
+    snoozeMinutes: Int,
+    defaultSnoozeMinutes: Int,
+    onSnoozeMinutes: (Int) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
     reminderSetupReady: Boolean,
@@ -392,6 +395,9 @@ internal fun V20NewProjectWizard(
                                             onRepeatGapSeconds = onVoiceRepeatGapSeconds,
                                             alarmTimeoutSeconds = alarmTimeoutSeconds,
                                             onAlarmTimeoutSeconds = onAlarmTimeoutSeconds,
+                                            snoozeMinutes = snoozeMinutes,
+                                            defaultSnoozeMinutes = defaultSnoozeMinutes,
+                                            onSnoozeMinutes = onSnoozeMinutes,
                                         )
                                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                             Spacer(Modifier.height(12.dp))
@@ -694,6 +700,9 @@ internal fun V20NewProjectWizard(
                                     onRepeatGapSeconds = onVoiceRepeatGapSeconds,
                                     alarmTimeoutSeconds = alarmTimeoutSeconds,
                                     onAlarmTimeoutSeconds = onAlarmTimeoutSeconds,
+                                    snoozeMinutes = snoozeMinutes,
+                                    defaultSnoozeMinutes = defaultSnoozeMinutes,
+                                    onSnoozeMinutes = onSnoozeMinutes,
                                 )
                                 if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                     Spacer(Modifier.height(12.dp))
