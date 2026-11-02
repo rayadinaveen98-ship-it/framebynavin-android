@@ -39,6 +39,13 @@ internal object V180ReminderTimingPolicy {
             " · ${gap(gapSeconds)}s gap · Alarm up to ${durationLabel(alarm(alarmSeconds))}"
 }
 
+/** Compact immutable value reduces Composer function-parameter count in the large project wizard. */
+internal data class V283CreatorAutoRetryChoice(
+    val enabled: Boolean = false,
+    val minutes: Int = 5,
+    val maximumExtraAlerts: Int = 2,
+)
+
 /**
  * Shares exactly the same controls between Quick Create, full New Project, and Edit.
  * Values update the existing draft fields; no new project schema or setting migration.
@@ -55,12 +62,8 @@ internal fun V180ReminderTimingControls(
     snoozeMinutes: Int = 0,
     defaultSnoozeMinutes: Int = 10,
     onSnoozeMinutes: (Int) -> Unit = {},
-    autoRetryEnabled: Boolean = false,
-    onAutoRetryEnabled: (Boolean) -> Unit = {},
-    autoRetryMinutes: Int = 5,
-    onAutoRetryMinutes: (Int) -> Unit = {},
-    autoRetryMaxAttempts: Int = 2,
-    onAutoRetryMaxAttempts: (Int) -> Unit = {},
+    autoRetry: V283CreatorAutoRetryChoice = V283CreatorAutoRetryChoice(),
+    onAutoRetryChanged: (V283CreatorAutoRetryChoice) -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth().testTag("v180-reminder-timing-controls")) {
         Text("VOICE & ALARM TIMING", color = MutedGold,
@@ -126,20 +129,20 @@ internal fun V180ReminderTimingControls(
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(false, true).forEach { value ->
                 FilterChip(
-                    selected = autoRetryEnabled == value,
-                    onClick = { onAutoRetryEnabled(value) },
+                    selected = autoRetry.enabled == value,
+                    onClick = { onAutoRetryChanged(autoRetry.copy(enabled = value)) },
                     label = { Text(if (value) "On" else "Off") },
                 )
             }
         }
-        if (autoRetryEnabled) {
+        if (autoRetry.enabled) {
             Spacer(Modifier.height(10.dp))
             Text("Re-alert when unanswered after", color = ProjectorIvory,
                 fontSize = V173ProjectUiMetrics.bodyText)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(5, 10, 15, 30).forEach { minutes ->
-                    FilterChip(selected = autoRetryMinutes == minutes,
-                        onClick = { onAutoRetryMinutes(minutes) },
+                    FilterChip(selected = autoRetry.minutes == minutes,
+                        onClick = { onAutoRetryChanged(autoRetry.copy(minutes = minutes)) },
                         label = { Text("${minutes}m") })
                 }
             }
@@ -148,8 +151,8 @@ internal fun V180ReminderTimingControls(
                 fontSize = V173ProjectUiMetrics.bodyText)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(1, 2, 3).forEach { count ->
-                    FilterChip(selected = autoRetryMaxAttempts == count,
-                        onClick = { onAutoRetryMaxAttempts(count) },
+                    FilterChip(selected = autoRetry.maximumExtraAlerts == count,
+                        onClick = { onAutoRetryChanged(autoRetry.copy(maximumExtraAlerts = count)) },
                         label = { Text("$count") })
                 }
             }
