@@ -51,6 +51,11 @@ internal object PersonalReminderCodec {
                 .put("voiceRepeatCount", it.voiceRepeatCount)
                 .put("voiceRepeatGapMillis", it.voiceRepeatGapMillis)
                 .put("alarmDurationSeconds", it.alarmDurationSeconds)
+                .put("autoRetryEnabled", it.autoRetryEnabled)
+                .put("autoRetryMinutes", it.autoRetryMinutes)
+                .put("autoRetryMaxAttempts", it.autoRetryMaxAttempts)
+                .put("autoRetryCount", it.autoRetryCount)
+                .put("autoRetryScheduledAtMillis", it.autoRetryScheduledAtMillis)
                 .put("paused", it.paused)
                 .put("lastAcknowledgedOccurrenceMillis", it.lastAcknowledgedOccurrenceMillis)
                 .put("lastMissedOccurrenceMillis", it.lastMissedOccurrenceMillis)
@@ -118,6 +123,11 @@ internal object PersonalReminderCodec {
                     voiceRepeatCount = item.optInt("voiceRepeatCount", 3),
                     voiceRepeatGapMillis = item.optLong("voiceRepeatGapMillis", 2_500L),
                     alarmDurationSeconds = item.optInt("alarmDurationSeconds", 60),
+                    autoRetryEnabled = item.optBoolean("autoRetryEnabled", false),
+                    autoRetryMinutes = item.optInt("autoRetryMinutes", 5),
+                    autoRetryMaxAttempts = item.optInt("autoRetryMaxAttempts", 2),
+                    autoRetryCount = item.optInt("autoRetryCount", 0),
+                    autoRetryScheduledAtMillis = item.optLong("autoRetryScheduledAtMillis", 0L),
                     paused = item.getBoolean("paused"),
                     lastAcknowledgedOccurrenceMillis = item.getLong("lastAcknowledgedOccurrenceMillis"),
                     lastMissedOccurrenceMillis = item.optLong("lastMissedOccurrenceMillis", 0L),
