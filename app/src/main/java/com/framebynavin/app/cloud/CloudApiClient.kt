@@ -114,6 +114,41 @@ class CloudApiClient {
         )
     }
 
+    /** Private RLS Personal snapshots. No unauthenticated reads and no blind overwrites. */
+    internal suspend fun fetchPersonalSyncHead(session: CloudSession): PersonalCloudHead? {
+        val raw = request(
+            "GET",
+            "/rest/v1/personal_sync_heads?select=revision,payload,payload_sha256&user_id=eq.${session.userId}&limit=1",
+            token = session.accessToken,
+        )
+        val rows = JSONArray(raw)
+        if (rows.length() == 0) return null
+        val head = rows.getJSONObject(0)
+        val payload = head.getString("payload")
+        val sha = head.getString("payload_sha256")
+        val revision = head.getLong("revision")
+        require(revision > 0L && sha.matches(Regex("[a-f0-9]{64}")) && payload.length <= 6_000_000) {
+            "Invalid Personal cloud snapshot envelope"
+        }
+        return PersonalCloudHead(revision, sha, payload)
+    }
+
+    suspend fun pushPersonalSyncSnapshot(
+        session: CloudSession, expectedRevision: Long?, payload: String, sha: String,
+    ): String {
+        require(expectedRevision == null || expectedRevision > 0L)
+        require(payload.length <= 6_000_000 && sha.matches(Regex("[a-f0-9]{64}")))
+        val body = JSONObject()
+            .put("p_expected_revision", expectedRevision ?: JSONObject.NULL)
+            .put("p_payload", payload)
+            .put("p_payload_sha256", sha)
+        val response = JSONObject(request(
+            "POST", "/rest/v1/rpc/push_personal_sync_snapshot",
+            token = session.accessToken, body = body.toString(),
+        ))
+        return response.getString("status")
+    }
+
     suspend fun deleteCreatorSyncData(session: CloudSession) {
         request("POST", "/rest/v1/rpc/delete_creator_sync_data", token = session.accessToken, body = "{}")
     }

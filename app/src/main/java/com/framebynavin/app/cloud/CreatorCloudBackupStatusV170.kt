@@ -23,7 +23,8 @@ internal object CreatorCloudBackupStatusV170 {
             CreatorBackupBadgeStatus.CHECKING, "Checking cloud backup",
             "This request is still running. No new backup has been confirmed."
         )
-        latest is CreatorCloudSyncResult.Conflict || status.needsResolution ->
+        (latest is CreatorCloudSyncResult.Conflict ||
+            latest is CreatorCloudSyncResult.PersonalConflict) || status.needsResolution ->
             CreatorBackupStatusView(
                 CreatorBackupBadgeStatus.CONFLICT, "Two different copies need your choice",
                 "Nothing has been replaced. Decide whether to keep the phone or cloud copy."

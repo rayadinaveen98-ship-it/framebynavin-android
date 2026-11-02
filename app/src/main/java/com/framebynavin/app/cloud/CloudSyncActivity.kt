@@ -85,7 +85,9 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     fun describe(result: CreatorCloudSyncResult): String = when (result) {
         is CreatorCloudSyncResult.Synced -> result.message
         is CreatorCloudSyncResult.Restored -> "Cloud workspace restored: ${result.projectCount} projects and ${result.ideaCount} ideas."
-        is CreatorCloudSyncResult.Conflict -> "Your phone and cloud have different work. Choose which copy to keep; nothing was replaced."
+        is CreatorCloudSyncResult.Conflict -> "Your phone and cloud have different Creator work. Choose which copy to keep."
+        is CreatorCloudSyncResult.PersonalConflict ->
+            "Your phone has ${result.localCount} Personal Reminders and the cloud has ${result.cloudCount}. Choose one; neither has been replaced."
         is CreatorCloudSyncResult.Skipped -> result.message
         is CreatorCloudSyncResult.Failure -> result.message
     }
@@ -118,7 +120,9 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
         message = null
         scope.launch {
             try {
-                val result = if (restore) cloud.restoreCloud() else cloud.keepThisPhone()
+                val result = if (syncResult is CreatorCloudSyncResult.PersonalConflict)
+                    cloud.resolvePersonalConflict(restore)
+                else if (restore) cloud.restoreCloud() else cloud.keepThisPhone()
                 syncResult = result
                 syncStatus = cloud.status()
                 message = describe(result)
@@ -245,6 +249,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     LaunchedEffect(session?.email, driveToken) { driveToken?.let(::loadDrivePoints) }
 
     val conflict = syncResult as? CreatorCloudSyncResult.Conflict
+    val personalConflict = syncResult as? CreatorCloudSyncResult.PersonalConflict
     val backupView = CreatorCloudBackupStatusV170.resolve(syncStatus, syncResult, cloudChecking)
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -264,10 +269,10 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
             CloudCard {
                 Icon(Icons.Outlined.CloudDone, null, tint = MutedGold, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.height(9.dp))
-                Text("Automatic creator backup", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text("Unified Backlot cloud sync", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    "Creator projects, ideas, schedules and supported Voice Idea recordings sync privately. Original Best Frame photos and Personal Reminders are NOT included. Export a separate Creator backup for the photos. Restoring another copy needs your approval.",
+                    "One Sync Now backs up Creator projects, ideas, schedules, and Personal Reminders with their completion history. Supported Voice Idea recordings sync separately. Original Best Frame photos and custom music files still require separate local exports. Android alarm permissions must be enabled again on each phone.",
                     color = MutedText,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
@@ -308,15 +313,21 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                     }
                 }
 
-                if (conflict != null) {
+                if (conflict != null || personalConflict != null) {
                     Spacer(Modifier.height(12.dp))
                     CloudCard {
                         Text("TWO DIFFERENT COPIES FOUND", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
                         Text("Your work is safe", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                        Text("Phone: ${conflict.localProjectCount} projects · ${conflict.localIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
-                        Text("Cloud: ${conflict.cloudProjectCount} projects · ${conflict.cloudIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
+                        if (conflict != null) {
+                            Text("Phone: ${conflict.localProjectCount} projects · ${conflict.localIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
+                            Text("Cloud: ${conflict.cloudProjectCount} projects · ${conflict.cloudIdeaCount} ideas", color = MutedText, fontSize = 12.sp)
+                        } else if (personalConflict != null) {
+                            Text("Phone: ${personalConflict.localCount} Personal Reminders", color = MutedText, fontSize = 12.sp)
+                            Text("Cloud: ${personalConflict.cloudCount} Personal Reminders", color = MutedText, fontSize = 12.sp)
+                            Text("Choosing a copy replaces Personal Reminders and completion history only.", color = MutedText, fontSize = 12.sp)
+                        }
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = { resolveCloud(true) }, enabled = !busy && conflict.cloudRevision > 0L, modifier = Modifier.fillMaxWidth()) {
+                        Button(onClick = { resolveCloud(true) }, enabled = !busy && (conflict?.cloudRevision ?: personalConflict?.cloudRevision ?: 0L) > 0L, modifier = Modifier.fillMaxWidth()) {
                             Text("USE CLOUD COPY")
                         }
                         Spacer(Modifier.height(8.dp))

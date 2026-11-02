@@ -56,7 +56,8 @@ internal fun V20DriveRecoveryGate(
                     busy = false
                     finishRecovery()
                 }
-                is CreatorCloudSyncResult.Conflict -> {
+                is CreatorCloudSyncResult.Conflict,
+                is CreatorCloudSyncResult.PersonalConflict -> {
                     result = value
                     busy = false
                 }
@@ -78,10 +79,13 @@ internal fun V20DriveRecoveryGate(
         busy = true
         error = null
         scope.launch {
-            when (val value = sync.keepThisPhone()) {
+            val choice = if (result is CreatorCloudSyncResult.PersonalConflict)
+                sync.resolvePersonalConflict(false) else sync.keepThisPhone()
+            when (val value = choice) {
                 is CreatorCloudSyncResult.Synced,
                 is CreatorCloudSyncResult.Restored -> { busy = false; finishRecovery() }
-                is CreatorCloudSyncResult.Conflict -> { result = value; busy = false }
+                is CreatorCloudSyncResult.Conflict,
+                is CreatorCloudSyncResult.PersonalConflict -> { result = value; busy = false }
                 is CreatorCloudSyncResult.Skipped -> { error = value.message; busy = false }
                 is CreatorCloudSyncResult.Failure -> { error = value.message; busy = false }
             }
@@ -92,10 +96,13 @@ internal fun V20DriveRecoveryGate(
         busy = true
         error = null
         scope.launch {
-            when (val value = sync.restoreCloud()) {
+            val choice = if (result is CreatorCloudSyncResult.PersonalConflict)
+                sync.resolvePersonalConflict(true) else sync.restoreCloud()
+            when (val value = choice) {
                 is CreatorCloudSyncResult.Synced,
                 is CreatorCloudSyncResult.Restored -> { busy = false; finishRecovery() }
-                is CreatorCloudSyncResult.Conflict -> { result = value; busy = false }
+                is CreatorCloudSyncResult.Conflict,
+                is CreatorCloudSyncResult.PersonalConflict -> { result = value; busy = false }
                 is CreatorCloudSyncResult.Skipped -> { error = value.message; busy = false }
                 is CreatorCloudSyncResult.Failure -> { error = value.message; busy = false }
             }
@@ -104,6 +111,8 @@ internal fun V20DriveRecoveryGate(
 
     LaunchedEffect(session.userId) { runSync() }
     val conflict = result as? CreatorCloudSyncResult.Conflict
+    val personalConflict = result as? CreatorCloudSyncResult.PersonalConflict
+    val anyConflict = conflict != null || personalConflict != null
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -111,14 +120,14 @@ internal fun V20DriveRecoveryGate(
             verticalArrangement = Arrangement.Center,
         ) {
             Icon(
-                if (conflict == null) Icons.Outlined.CloudDone else Icons.Outlined.SyncProblem,
+                if (!anyConflict) Icons.Outlined.CloudDone else Icons.Outlined.SyncProblem,
                 null,
                 tint = MutedGold,
                 modifier = Modifier.size(34.dp),
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                if (conflict == null) "Recover your creator workspace" else "Choose which workspace to keep",
+                if (!anyConflict) "Recover Backlot" else "Choose which copy to keep",
                 color = ProjectorIvory,
                 fontSize = 28.sp,
                 lineHeight = 32.sp,
@@ -127,8 +136,8 @@ internal fun V20DriveRecoveryGate(
             Spacer(Modifier.height(6.dp))
             Text(session.email, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Text(
-                if (conflict == null)
-                    "We'll check for saved work without changing anything on this phone."
+                if (!anyConflict)
+                    "We'll check your saved Creator projects and Personal Reminders without silently overwriting either."
                 else
                     "Your phone and cloud contain different work. Choose which copy to keep.",
                 color = MutedText,
@@ -141,7 +150,7 @@ internal fun V20DriveRecoveryGate(
                 LinearProgressIndicator(Modifier.fillMaxWidth(), color = RecRed)
                 Spacer(Modifier.height(8.dp))
                 Text("Checking saved backups…", color = MutedText)
-            } else if (conflict != null) {
+            } else if (anyConflict) {
                 Surface(
                     Modifier.fillMaxWidth(),
                     color = CinemaSurface,
@@ -150,16 +159,19 @@ internal fun V20DriveRecoveryGate(
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text("THIS PHONE", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                        Text("${conflict.localProjectCount} projects · ${conflict.localIdeaCount} ideas", color = ProjectorIvory, fontWeight = FontWeight.Bold)
+                        Text(if (conflict != null) "${conflict.localProjectCount} projects · ${conflict.localIdeaCount} ideas"
+                            else "${personalConflict?.localCount ?: 0} Personal Reminders", color = ProjectorIvory, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(10.dp))
                         Text("CLOUD", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                        Text("${conflict.cloudProjectCount} projects · ${conflict.cloudIdeaCount} ideas", color = ProjectorIvory, fontWeight = FontWeight.Bold)
+                        Text(if (conflict != null) "${conflict.cloudProjectCount} projects · ${conflict.cloudIdeaCount} ideas"
+                            else "${personalConflict?.cloudCount ?: 0} Personal Reminders", color = ProjectorIvory, fontWeight = FontWeight.Bold)
+                        if (personalConflict != null) Text("Choosing a copy replaces Personal Reminders and completion history only; Creator work is untouched.", color = MutedText, fontSize = 12.sp)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = ::resolveRestoreCloud,
-                    enabled = conflict.cloudRevision > 0L,
+                    enabled = (conflict?.cloudRevision ?: personalConflict?.cloudRevision ?: 0L) > 0L,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                 ) { Text("USE CLOUD COPY", fontWeight = FontWeight.Black) }

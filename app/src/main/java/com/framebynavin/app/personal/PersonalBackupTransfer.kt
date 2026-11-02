@@ -32,6 +32,19 @@ internal class PersonalBackupTransfer(context: Context) {
 
     suspend fun export(): String = store.exportPersonalJson()
 
+    /** Portable Personal cloud data never contains device-specific alarm leases or music URIs. */
+    suspend fun exportForCloud(): String {
+        // Read reminders and completion history under one locked DataStore
+        // snapshot; a concurrent Done/Delete must never split their revisions.
+        val source = PersonalCompletionBackupCodec.decode(store.exportPersonalJson())
+        val clean = PersonalBackupPolicy.resetDeviceLeases(source.reminders).map { r ->
+            if (r.voiceMusicMode == com.framebynavin.app.reminders.ReminderMusicMode.CUSTOM)
+                r.copy(voiceMusicMode = com.framebynavin.app.reminders.ReminderMusicMode.PIANO, voiceMusicUri = "")
+            else r.copy(voiceMusicUri = "")
+        }
+        return PersonalCompletionBackupCodec.encode(clean, source.completions)
+    }
+
     fun preview(raw: String): PersonalBackupPreview {
         val snapshot = PersonalCompletionBackupCodec.decode(raw)
         return PersonalBackupPreview(
@@ -103,6 +116,9 @@ internal object PersonalBackupPolicy {
                 pendingFireAtMillis = 0L,
                 pendingToken = "",
                 presentedToken = "",
+                presentedAtMillis = 0L,
+                followUpSentToken = "",
+                followUpSentOccurrenceMillis = 0L,
                 snoozedUntilMillis = 0L,
             ).checked()
         }

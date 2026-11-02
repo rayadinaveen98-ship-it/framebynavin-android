@@ -58,8 +58,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
-        versionCode = 278
-        versionName = "2.17.4-rc5-cloud-memory-owner-test"
+        versionCode = 279
+        versionName = "2.17.5-rc6-unified-cloud-owner-test"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
