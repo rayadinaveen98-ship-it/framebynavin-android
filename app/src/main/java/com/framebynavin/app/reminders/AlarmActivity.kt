@@ -49,7 +49,8 @@ class AlarmActivity : ComponentActivity() {
             return
         }
         ReminderSurfaceRegistry.attachAlarm(this, taskId, occurrenceId)
-        val snoozeMinutes = CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
+        val snoozeMinutes = task.snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) }
+            ?: CreatorOsSettingsStore(applicationContext).snapshot().snoozeMinutes
 
         lifecycleScope.launch {
             delay(V196ReminderResponseWindow.alarmActivityWatchdogMillis(task))
