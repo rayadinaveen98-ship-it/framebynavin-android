@@ -47,6 +47,7 @@ internal object PersonalReminderCodec {
                 .put("alert", it.alert.name)
                 .put("voiceMusicMode", it.voiceMusicMode.name)
                 .put("voiceMusicUri", it.voiceMusicUri)
+                .put("snoozeMinutes", it.snoozeMinutes)
                 .put("paused", it.paused)
                 .put("lastAcknowledgedOccurrenceMillis", it.lastAcknowledgedOccurrenceMillis)
                 .put("lastMissedOccurrenceMillis", it.lastMissedOccurrenceMillis)
@@ -110,6 +111,7 @@ internal object PersonalReminderCodec {
                     alert = PersonalAlert.valueOf(item.getString("alert")),
                     voiceMusicMode = ReminderMusicMode.valueOf(item.optString("voiceMusicMode", "PIANO")),
                     voiceMusicUri = item.optString("voiceMusicUri", ""),
+                    snoozeMinutes = item.optInt("snoozeMinutes", 10),
                     paused = item.getBoolean("paused"),
                     lastAcknowledgedOccurrenceMillis = item.getLong("lastAcknowledgedOccurrenceMillis"),
                     lastMissedOccurrenceMillis = item.optLong("lastMissedOccurrenceMillis", 0L),
