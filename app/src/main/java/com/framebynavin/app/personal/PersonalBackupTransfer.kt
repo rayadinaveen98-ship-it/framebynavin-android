@@ -116,6 +116,9 @@ internal object PersonalBackupPolicy {
                 pendingFireAtMillis = 0L,
                 pendingToken = "",
                 presentedToken = "",
+                presentedAtMillis = 0L,
+                followUpSentToken = "",
+                followUpSentOccurrenceMillis = 0L,
                 snoozedUntilMillis = 0L,
             ).checked()
         }
