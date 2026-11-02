@@ -65,8 +65,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     val now = System.currentTimeMillis()
                     val generation = CreatorDataGate.generation(app)
                     val rescheduleAt = intent.getLongExtra(ReminderConstants.EXTRA_RESCHEDULE_AT, 0L)
-                    val snoozeMinutes = task.snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) }
-                        ?: CreatorOsSettingsStore(app).snapshot().snoozeMinutes
+                    val defaultSnoozeMinutes = CreatorOsSettingsStore(app).snapshot().snoozeMinutes
                     val pauseUntil = intent.getLongExtra(
                         ReminderConstants.EXTRA_RESCHEDULE_AT,
                         now + ReminderConstants.DEFAULT_PAUSE_MINUTES * 60_000L,
@@ -159,7 +158,8 @@ class ReminderActionReceiver : BroadcastReceiver() {
                                 }
                                 ReminderConstants.ACTION_SNOOZE -> {
                                     response = ProjectPulseResponse.SNOOZED
-                                    resumeAt = now + snoozeMinutes * 60_000L
+                                    resumeAt = now + (task.snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) }
+                                        ?: defaultSnoozeMinutes) * 60_000L
                                     val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled
                                     if (isSmart && ProjectPulseEngine.isStageCheckIn(task)) {
                                         // Keep Smart's final target intact; only repeat the reached delivery stage.
