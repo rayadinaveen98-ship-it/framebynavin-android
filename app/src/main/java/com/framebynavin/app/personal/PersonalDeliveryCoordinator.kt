@@ -321,7 +321,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                         )
                     PersonalDeliveryContract.ACTION_SNOOZE, PersonalDeliveryContract.ACTION_RESCHEDULE -> {
                         val next = if (action == PersonalDeliveryContract.ACTION_SNOOZE)
-                            nowMillis + PersonalDeliveryContract.SNOOZE_MINUTES * 60_000L
+                            nowMillis + item.snoozeMinutes * 60_000L
                         else rescheduleAtMillis
                         common.copy(
                             pendingFireAtMillis = next,
