@@ -16,6 +16,36 @@ import org.junit.runner.RunWith
 /** Disposable Android11 emulator only. Does NOT touch real Supabase accounts. */
 @RunWith(AndroidJUnit4::class)
 class V279UnifiedPersonalCloudDeviceTest {
+    @Test fun personalCloudNeverExportsOtherPhonesAlarmHandoffReceipts() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val reminder = PersonalReminder(
+            title = "Cloud portability regression",
+            startDate = LocalDate.now().plusDays(1),
+            time = LocalTime.of(10, 0),
+        )
+        val token = "11111111-1111-4111-8111-111111111111"
+        val withLocalLease = reminder.copy(
+            pendingOccurrenceMillis = 1_000L,
+            pendingFireAtMillis = 1_500L,
+            pendingToken = token,
+            presentedToken = token,
+            presentedAtMillis = 1_750L,
+            followUpSentToken = token,
+            followUpSentOccurrenceMillis = 1_000L,
+            snoozedUntilMillis = 2_000L,
+        ).checked()
+        val portable = PersonalBackupPolicy.resetDeviceLeases(listOf(withLocalLease)).single()
+        assertEquals(reminder, portable)
+        assertEquals(0L, portable.presentedAtMillis)
+        assertTrue(portable.followUpSentToken.isEmpty())
+        assertEquals(0L, portable.followUpSentOccurrenceMillis)
+        // Different phones may have different notification state, but they
+        // must export the same portable Personal reminder snapshot.
+        assertEquals(
+            PersonalReminderCodec.encode(listOf(reminder)),
+            PersonalReminderCodec.encode(listOf(portable)),
+        )
+    }
     @Test fun portablePersonalCloudCopyRestoresWithoutLeasesOrMusicFilePaths(): Unit = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val app = InstrumentationRegistry.getInstrumentation().targetContext
