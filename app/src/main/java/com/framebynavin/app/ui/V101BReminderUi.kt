@@ -416,12 +416,16 @@ internal fun PProjectComposer(
             snoozeMinutes = snoozeMinutes,
             defaultSnoozeMinutes = defaults.snoozeMinutes,
             onSnoozeMinutes = { snoozeMinutes = it },
-            autoRetryEnabled = autoRetryEnabled,
-            onAutoRetryEnabled = { autoRetryEnabled = it },
-            autoRetryMinutes = autoRetryMinutes,
-            onAutoRetryMinutes = { autoRetryMinutes = it },
-            autoRetryMaxAttempts = autoRetryMaxAttempts,
-            onAutoRetryMaxAttempts = { autoRetryMaxAttempts = it },
+            autoRetry = V283CreatorAutoRetryChoice(
+                enabled = autoRetryEnabled,
+                minutes = autoRetryMinutes,
+                maximumExtraAlerts = autoRetryMaxAttempts,
+            ),
+            onAutoRetryChanged = { choice ->
+                autoRetryEnabled = choice.enabled
+                autoRetryMinutes = choice.minutes
+                autoRetryMaxAttempts = choice.maximumExtraAlerts
+            },
             notes = notes,
             onNotesChange = { notes = it },
             reminderSetupReady = reminderSetupReady,
@@ -666,12 +670,16 @@ internal fun PProjectComposer(
                                 snoozeMinutes = snoozeMinutes,
                                 defaultSnoozeMinutes = defaults.snoozeMinutes,
                                 onSnoozeMinutes = { snoozeMinutes = it },
-                                autoRetryEnabled = autoRetryEnabled,
-                                onAutoRetryEnabled = { autoRetryEnabled = it },
-                                autoRetryMinutes = autoRetryMinutes,
-                                onAutoRetryMinutes = { autoRetryMinutes = it },
-                                autoRetryMaxAttempts = autoRetryMaxAttempts,
-                                onAutoRetryMaxAttempts = { autoRetryMaxAttempts = it },
+                                autoRetry = V283CreatorAutoRetryChoice(
+                                    enabled = autoRetryEnabled,
+                                    minutes = autoRetryMinutes,
+                                    maximumExtraAlerts = autoRetryMaxAttempts,
+                                ),
+                                onAutoRetryChanged = { choice ->
+                                    autoRetryEnabled = choice.enabled
+                                    autoRetryMinutes = choice.minutes
+                                    autoRetryMaxAttempts = choice.maximumExtraAlerts
+                                },
                             )
                             if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                 Spacer(Modifier.height(12.dp))
