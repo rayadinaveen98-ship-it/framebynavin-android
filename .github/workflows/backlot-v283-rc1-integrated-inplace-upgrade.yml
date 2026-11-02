@@ -65,7 +65,7 @@ jobs:
           import re
           def fingerprint(path):
               text = pathlib.Path(path).read_text()
-              matches = re.findall(r'certificate SHA-256 digest:\\s*([0-9a-fA-F]{64})', text)
+              matches = re.findall(r'certificate SHA-256 digest:\s*([0-9a-fA-F]{64})', text)
               assert matches, f'No signer X.509 certificate SHA256 found in {path}'
               assert len(set(x.lower() for x in matches)) == 1, f'Ambiguous signer certificate in {path}'
               return matches[0].lower()
