@@ -103,6 +103,12 @@ internal fun V20NewProjectWizard(
     snoozeMinutes: Int,
     defaultSnoozeMinutes: Int,
     onSnoozeMinutes: (Int) -> Unit,
+    autoRetryEnabled: Boolean,
+    onAutoRetryEnabled: (Boolean) -> Unit,
+    autoRetryMinutes: Int,
+    onAutoRetryMinutes: (Int) -> Unit,
+    autoRetryMaxAttempts: Int,
+    onAutoRetryMaxAttempts: (Int) -> Unit,
     notes: String,
     onNotesChange: (String) -> Unit,
     reminderSetupReady: Boolean,
@@ -398,6 +404,12 @@ internal fun V20NewProjectWizard(
                                             snoozeMinutes = snoozeMinutes,
                                             defaultSnoozeMinutes = defaultSnoozeMinutes,
                                             onSnoozeMinutes = onSnoozeMinutes,
+                                            autoRetryEnabled = autoRetryEnabled,
+                                            onAutoRetryEnabled = onAutoRetryEnabled,
+                                            autoRetryMinutes = autoRetryMinutes,
+                                            onAutoRetryMinutes = onAutoRetryMinutes,
+                                            autoRetryMaxAttempts = autoRetryMaxAttempts,
+                                            onAutoRetryMaxAttempts = onAutoRetryMaxAttempts,
                                         )
                                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                             Spacer(Modifier.height(12.dp))
@@ -703,6 +715,12 @@ internal fun V20NewProjectWizard(
                                     snoozeMinutes = snoozeMinutes,
                                     defaultSnoozeMinutes = defaultSnoozeMinutes,
                                     onSnoozeMinutes = onSnoozeMinutes,
+                                    autoRetryEnabled = autoRetryEnabled,
+                                    onAutoRetryEnabled = onAutoRetryEnabled,
+                                    autoRetryMinutes = autoRetryMinutes,
+                                    onAutoRetryMinutes = onAutoRetryMinutes,
+                                    autoRetryMaxAttempts = autoRetryMaxAttempts,
+                                    onAutoRetryMaxAttempts = onAutoRetryMaxAttempts,
                                 )
                                 if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                     Spacer(Modifier.height(12.dp))
