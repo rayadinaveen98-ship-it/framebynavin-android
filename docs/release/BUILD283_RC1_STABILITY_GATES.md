@@ -48,7 +48,7 @@ Subject: CN=FrameByNavin Dev, O=FrameByNavin, C=IN
 
 - Draft [PR #246](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/246) adds an upgrade test harness compiled against the **Build282 API**.
 - [Run 41479960679](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/41479960679) started on 2026-11-02: installs the exact signed Build282 owner APK, seeds Creator and Personal data, then installs the exact verified Build283 owner APK **without deleting data** and asserts both persisted records and settings.
-- **Status: PENDING** until the actual upgrade test passes. Preview signer compatibility only establishes that an in-place upgrade should be permitted; it is not proof of lossless migration.
+- **Status: PASS (sampled records on API30 disposable emulator)**. Run 41479960679 finished successfully. Both `seed282` and `verify283` reported `OK (1 test)`; CI used `adb install -r` without uninstall or clearing data, and assertions verified selected Creator + Personal reminder records/settings. This is not complete field/media coverage, and Play signer migration is still a separate blocker.
 
 ## Phase 2: Reminder reliability — owner-device matrix
 
