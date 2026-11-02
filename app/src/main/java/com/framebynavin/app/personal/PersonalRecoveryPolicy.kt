@@ -13,6 +13,9 @@ internal object PersonalRecoveryPolicy {
     private const val NEXT_OCCURRENCE_LEAD_MILLIS = 2L * 60L * 60L * 1_000L
 
     private fun hasUserDeferred(reminder: PersonalReminder): Boolean =
+        // A scheduled automatic retry is NOT a new user Snooze and must not
+        // extend the 24-hour or next-recurring-reminder recovery boundary.
+        reminder.autoRetryCount == 0 &&
         reminder.snoozedUntilMillis == reminder.pendingFireAtMillis &&
             reminder.lastResponse in setOf(PersonalResponse.SNOOZED, PersonalResponse.RESCHEDULED)
 
