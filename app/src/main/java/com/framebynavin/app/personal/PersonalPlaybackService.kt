@@ -112,8 +112,7 @@ internal class PersonalPlaybackService : Service() {
                 return@launch
             }
             val verified = reminder ?: return@launch
-            val maxDuration = if (verified.alert == PersonalAlert.ALARM)
-                PersonalPlaybackPolicy.ALARM_MAX_MILLIS else PersonalPlaybackPolicy.VOICE_MAX_MILLIS
+            val maxDuration = PersonalPlaybackPolicy.maximumPlaybackMillis(verified)
             acquireShortWakeLock(maxDuration)
             handler.postDelayed({
                 if (generation == admittedGeneration) endPlayback()
@@ -121,7 +120,8 @@ internal class PersonalPlaybackService : Service() {
             when (verified.alert) {
                 PersonalAlert.ALARM -> playAlarm(admittedGeneration)
                 PersonalAlert.VOICE -> speakReminder(verified.title, admittedGeneration,
-                    ReminderMusicChoice(verified.voiceMusicMode, verified.voiceMusicUri))
+                    ReminderMusicChoice(verified.voiceMusicMode, verified.voiceMusicUri),
+                    verified.voiceRepeatCount, verified.voiceRepeatGapMillis)
                 PersonalAlert.NOTIFICATION -> endPlayback()
             }
         }
@@ -195,9 +195,10 @@ internal class PersonalPlaybackService : Service() {
     }
 
     private fun speakReminder(title: String, expectedGeneration: Int,
-                              choice: ReminderMusicChoice) {
+                              choice: ReminderMusicChoice, repeatCount: Int,
+                              repeatGapMillis: Long) {
         // Spoken personal notes are deliberately excluded; the title is frozen
-        // for all three repeats. User Done/Snooze or another occurrence ends
+        // for the selected repeats. User Done/Snooze or another occurrence ends
         // this generation and silences both TTS and piano immediately.
         val message = "Personal reminder. $title"
         music.start(choice) // Best-effort local backing; TTS always remains primary.
@@ -241,7 +242,7 @@ internal class PersonalPlaybackService : Service() {
                             music.setSpeaking(false)
                             val completed = utteranceId?.substringAfterLast(':')?.toIntOrNull()
                                 ?: run { endPlayback(); return@post }
-                            val next = PersonalPlaybackPolicy.nextVoiceIndex(completed)
+                            val next = PersonalPlaybackPolicy.nextVoiceIndex(completed, repeatCount)
                             if (next == null) {
                                 // Let the stronger post-voice music be heard briefly.
                                 handler.postDelayed({
@@ -249,7 +250,7 @@ internal class PersonalPlaybackService : Service() {
                                 }, com.framebynavin.app.reminders.ReminderMusicMixPolicy.RETURN_TAIL_MILLIS)
                             } else handler.postDelayed({
                                 if (expectedGeneration == generation && activeId == null) play(next)
-                            }, PersonalPlaybackPolicy.VOICE_REPEAT_GAP_MILLIS)
+                            }, repeatGapMillis)
                         }
                     }
                     @Deprecated("Required by Android TextToSpeech callback")
