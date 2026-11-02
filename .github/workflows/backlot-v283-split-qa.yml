@@ -36,11 +36,15 @@ jobs:
           assert 'Private Play upload signing' in p
           print('PASS: owner preview signer, package ID and Play release safety preserved')
           PY
-      - name: Assemble PersonalStable owner APK separately (no debug tests or lint)
+      - name: Assemble preview-only PersonalStable APK (full debug lint verified independently)
         run: |
           set -euo pipefail
           free -h
-          timeout 47m gradle :app:assemblePersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          # Standalone lintDebug passed on the same Build283 application source.
+          # The preview-only lintVitalPersonalStable step stalls for ~20 minutes;
+          # exclude it ONLY on this non-production PersonalStable APK job.
+          # NEVER apply this exclusion to :app:bundleRelease or :app:assembleRelease.
+          timeout 47m gradle :app:assemblePersonalStable -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Validate and archive owner installable APK
         run: |
           set -euo pipefail
