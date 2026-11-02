@@ -10,8 +10,19 @@ internal object PersonalPlaybackPolicy {
     const val VOICE_MAX_MILLIS = 90_000L
 
     /** Never mark speech Done; this only advances the audible repeat cycle. */
-    fun nextVoiceIndex(completedIndex: Int): Int? =
-        (completedIndex + 1).takeIf { it < VOICE_REPEAT_COUNT }
+    fun nextVoiceIndex(completedIndex: Int, count: Int = VOICE_REPEAT_COUNT): Int? =
+        (completedIndex + 1).takeIf { it < count.coerceIn(1, 3) }
+
+    /** Never use the alarm duration for the actionable-notification lifetime. */
+    fun maximumPlaybackMillis(reminder: PersonalReminder): Long = when (reminder.alert) {
+        PersonalAlert.ALARM -> reminder.alarmDurationSeconds.coerceIn(30, 300) * 1_000L
+        PersonalAlert.VOICE -> maxOf(
+            VOICE_MAX_MILLIS,
+            reminder.voiceRepeatCount.coerceIn(1, 3) * 45_000L +
+                (reminder.voiceRepeatCount.coerceIn(1, 3) - 1) * reminder.voiceRepeatGapMillis.coerceIn(2_500L, 60_000L) + 5_000L,
+        )
+        PersonalAlert.NOTIFICATION -> 0L
+    }
     const val ALARM_MAX_MILLIS = 60_000L
 
     fun isEligible(reminder: PersonalReminder?, id: String, originalMillis: Long,

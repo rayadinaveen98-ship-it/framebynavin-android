@@ -487,6 +487,15 @@ internal fun V2232PersonalEditor(
     var snoozeMinutes by rememberSaveable(existing?.id) {
         mutableIntStateOf(existing?.snoozeMinutes ?: 10)
     }
+    var personalVoiceCount by rememberSaveable(existing?.id) {
+        mutableIntStateOf(existing?.voiceRepeatCount ?: 3)
+    }
+    var personalVoiceGap by rememberSaveable(existing?.id) {
+        mutableLongStateOf(existing?.voiceRepeatGapMillis ?: 2_500L)
+    }
+    var personalAlarmSeconds by rememberSaveable(existing?.id) {
+        mutableIntStateOf(existing?.alarmDurationSeconds ?: 60)
+    }
     var voiceMusicMode by rememberSaveable(existing?.id) {
         mutableStateOf(existing?.voiceMusicMode ?: com.framebynavin.app.reminders.ReminderMusicMode.PIANO)
     }
@@ -758,6 +767,26 @@ internal fun V2232PersonalEditor(
                         }
                     }
                     if (alert == PersonalAlert.VOICE.name) {
+                        Text("VOICE ANNOUNCEMENTS", color = MutedGold,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf(1, 2, 3).forEach { times ->
+                                FilterChip(selected = personalVoiceCount == times,
+                                    onClick = { personalVoiceCount = times },
+                                    label = { Text(if (times == 1) "Once" else "$times times", fontSize = 11.sp) })
+                            }
+                        }
+                        Text("PAUSE BETWEEN ANNOUNCEMENTS", color = MutedGold,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf(2_500L, 5_000L, 10_000L, 20_000L, 30_000L, 60_000L).forEach { millis ->
+                                FilterChip(selected = personalVoiceGap == millis,
+                                    onClick = { personalVoiceGap = millis },
+                                    label = { Text(if (millis == 2_500L) "2.5s" else "${millis / 1_000}s", fontSize = 11.sp) })
+                            }
+                        }
                         V273ReminderMusicPicker(
                             mode = voiceMusicMode,
                             uri = voiceMusicUri,
@@ -767,6 +796,18 @@ internal fun V2232PersonalEditor(
                             },
                             modifier = Modifier.fillMaxWidth().testTag("v273-personal-music"),
                         )
+                    }
+                    if (alert == PersonalAlert.ALARM.name) {
+                        Text("STOP ALARM SOUND AFTER", color = MutedGold,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            listOf(30, 45, 60, 120, 180, 300).forEach { seconds ->
+                                FilterChip(selected = personalAlarmSeconds == seconds,
+                                    onClick = { personalAlarmSeconds = seconds },
+                                    label = { Text(if (seconds < 60) "${seconds}s" else "${seconds / 60}m", fontSize = 11.sp) })
+                            }
+                        }
                     }
                     Surface(
                         modifier = Modifier.fillMaxWidth().testTag("v274-personal-review"),
@@ -829,6 +870,9 @@ internal fun V2232PersonalEditor(
                                     voiceMusicMode = voiceMusicMode,
                                     voiceMusicUri = voiceMusicUri,
                                     snoozeMinutes = snoozeMinutes,
+                                    voiceRepeatCount = personalVoiceCount,
+                                    voiceRepeatGapMillis = personalVoiceGap,
+                                    alarmDurationSeconds = personalAlarmSeconds,
                                 ).checked()
                                 onSave(draft)
                             } catch (invalid: Exception) {
