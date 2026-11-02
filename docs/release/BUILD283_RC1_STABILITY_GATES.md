@@ -18,7 +18,7 @@
 | Android 11 targeted emulator tests | Workflow 41419431433: Creator retry 3, Personal retry 2, unified Personal cloud 3, Personal snooze 2 | PASS (10 tests) |
 | Standalone `lintDebug` | Workflow 41422459238: `BUILD SUCCESSFUL`, report artifact ID 13133745643 | PASS with warnings |
 | Lint report triage | 307 Warnings, 1 Information, 0 Errors. Large clusters: UseKtx 175, HardcodedText 30, GradleDependency 18, SmallSp 18. Review relevant correctness warnings; not a zero-warning result. | OPEN |
-| Non-debuggable preview APK | Workflow 41414520477 assembled APK successfully; archive failed because apksigner was not on PATH. Later workflow 41419431433 timed out while running `lintVitalAnalyzePersonalStable`; new preview-only bypass in the split QA workflow is under verification. | OPEN |
+| Non-debuggable preview APK | Workflow 41463961020 completed successfully with independent build/test/emulator jobs; owner artifact ID 13154465574; APK SHA-256 `1e0786828718db560b5a75c2f7ef8a2670dde00972ddd921325830cd44005cfe` and APK Signature Scheme v2 verified against the public preview signer. | PASS (preview only) |
 | Production signed AAB | Private Play upload key is not configured; public preview signer is prohibited in production | BLOCKED |
 | Owner device reliability, fresh-device restore, signing migration | Owner acceptance and migration not proven | BLOCKED |
 | Data safety, in-app and web account deletion, permissions policy review | In-app account deletion explicitly unavailable in preview | BLOCKED |
@@ -43,6 +43,12 @@ Subject: CN=FrameByNavin Dev, O=FrameByNavin, C=IN
 3. `lintDebug` passes; review and classify actionable correctness/security/performance warnings. `bundleRelease` must later pass release Lint without excluded release tasks.
 4. Record SHA-256 and provenance for every distributed artifact. No sandbox/download link from a filename guess.
 5. Keep draft PR and preview variants distinct from stable `main`; no automatic Play publication.
+
+## Actual Build282 → Build283 upgrade test
+
+- Draft [PR #246](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/246) adds an upgrade test harness compiled against the **Build282 API**.
+- [Run 41479960679](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/41479960679) started on 2026-11-02: installs the exact signed Build282 owner APK, seeds Creator and Personal data, then installs the exact verified Build283 owner APK **without deleting data** and asserts both persisted records and settings.
+- **Status: PENDING** until the actual upgrade test passes. Preview signer compatibility only establishes that an in-place upgrade should be permitted; it is not proof of lossless migration.
 
 ## Phase 2: Reminder reliability — owner-device matrix
 
