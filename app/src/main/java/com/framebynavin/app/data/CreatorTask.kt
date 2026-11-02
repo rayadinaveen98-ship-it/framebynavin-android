@@ -79,6 +79,10 @@ data class CreatorTask(
     val alarmTimeoutSeconds: Int = 120,
     /** Zero retains the global Creator snooze preference for existing projects. */
     val snoozeMinutes: Int = 0,
+    /** Explicit opt-in to bounded audible retries for regular Voice/Alarm only. */
+    val autoRetryEnabled: Boolean = false,
+    val autoRetryMinutes: Int = 5,
+    val autoRetryMaxAttempts: Int = 2,
     val dueAtMillis: Long = 0L,
     val workflowStageIndex: Int = -1,
     val scheduleSlotId: String = "",
