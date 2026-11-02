@@ -103,17 +103,22 @@ internal object V283CreatorAutoRetry {
             flags,
         )
 
+    /** Success means Android accepted scheduling, never merely that a receipt was saved. */
     private fun armAlarm(context: Context, id: String, token: String,
-                         targetMillis: Long, nowMillis: Long) {
+                         targetMillis: Long, nowMillis: Long): Boolean {
         val manager = context.getSystemService(AlarmManager::class.java)
         val pi = pending(context, id, token, targetMillis,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) ?: return
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) ?: return false
         val at = maxOf(targetMillis, nowMillis + 1_000L)
-        runCatching {
+        return runCatching {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms())
                 manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
             else manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-        }.onFailure { Log.w("BacklotCreatorRetry", "Could not schedule optional audible retry", it) }
+            true
+        }.getOrElse {
+            Log.w("BacklotCreatorRetry", "Could not schedule optional audible retry", it)
+            false
+        }
     }
 
     private fun cancelAlarm(context: Context, id: String) {
@@ -147,7 +152,12 @@ internal object V283CreatorAutoRetry {
             val target = V283CreatorAutoRetryPolicy.nextAt(task, count, nowMillis)
                 ?: return@readyTransaction false
             if (!save(app, taskId, Receipt(token, epoch, count, target))) return@readyTransaction false
-            armAlarm(app, taskId, token, target, nowMillis)
+            if (!armAlarm(app, taskId, token, target, nowMillis)) {
+                // An OS scheduling failure is not a successful audible retry.
+                // Remove only this task's retry receipt; the original notification remains.
+                cancel(app, taskId)
+                return@readyTransaction false
+            }
             true
         }
     }
