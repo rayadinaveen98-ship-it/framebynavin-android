@@ -1,4 +1,5 @@
 name: Backlot RC1 - Integrated Owner APK In-Place Data Preservation
+# Integrated owner artifact verified: run 41486414618, SHA256 b455463cbd9c645ac17f22cf1cc92abd9e9dbfc9addf7196f0fe3dd3252968a9
 on:
   push:
     branches: [feature/backlot-v283-rc1-integrated-upgrade-qa]
