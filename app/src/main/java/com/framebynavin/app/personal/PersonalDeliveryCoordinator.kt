@@ -104,8 +104,9 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                 cancelFire(record.id)
                 armRecovery(record)
                 armFollowUp(record, followUpSettings, nowMillis)
-                if (record.autoRetryScheduledAtMillis > 0L) armAutomaticRetry(record, nowMillis)
-                else cancelAutomaticRetry(record.id)
+                if (record.autoRetryScheduledAtMillis > 0L) {
+                    if (!armAutomaticRetry(record, nowMillis)) clearUnscheduledRetryIfCurrent(record)
+                } else cancelAutomaticRetry(record.id)
                 return@forEach
             }
             if (record.pendingToken.isBlank()) {
@@ -177,22 +178,32 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         flags,
     )
 
-    private fun armAutomaticRetry(record: PersonalReminder, nowMillis: Long) {
+    /** Only report success when Android accepted the alarm; no phantom retry receipts. */
+    private fun armAutomaticRetry(record: PersonalReminder, nowMillis: Long): Boolean {
         val target = record.autoRetryScheduledAtMillis
         if (target <= 0L || !record.autoRetryEnabled || record.paused ||
             record.presentedToken != record.pendingToken) {
             cancelAutomaticRetry(record.id)
-            return
+            return false
         }
         val pi = automaticRetryIntent(record.id, record.pendingToken,
             record.pendingOccurrenceMillis, target,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) ?: return
-        runCatching {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) ?: return false
+        return runCatching {
             val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
             if (exact) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, maxOf(target, nowMillis + 1_000L), pi)
             else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, maxOf(target, nowMillis + 1_000L), pi)
-        }.onFailure {
+            true
+        }.getOrElse {
             android.util.Log.w("BacklotPersonal", "Could not arm opt-in audible retry", it)
+            false
+        }
+    }
+
+    /** Only clear the same failed lease, never a concurrent Snooze or newer occurrence. */
+    private suspend fun clearUnscheduledRetryIfCurrent(record: PersonalReminder) {
+        store.mutate { list ->
+            list.map { latest -> PersonalRetryScheduleReceipt.clearOnlyMatching(record, latest) }
         }
     }
 
@@ -329,7 +340,10 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             }
         }
         val record = scheduled ?: return false
-        armAutomaticRetry(record, nowMillis)
+        if (!armAutomaticRetry(record, nowMillis)) {
+            clearUnscheduledRetryIfCurrent(record)
+            return false
+        }
         return true
     }
 

@@ -35,3 +35,18 @@ internal object PersonalAutoRetryPolicy {
             now >= scheduledAt && now - scheduledAt <= MAX_LATE_MILLIS &&
             now < PersonalRecoveryPolicy.expiresAtMillis(reminder)
 }
+
+
+/** Pure race guard for rolling back a failed Android AlarmManager scheduling call.
+ * A newer Snooze/Done/new occurrence must never be overwritten by this rollback.
+ */
+internal object PersonalRetryScheduleReceipt {
+    fun clearOnlyMatching(failed: PersonalReminder, current: PersonalReminder): PersonalReminder =
+        if (current.id == failed.id &&
+            current.pendingToken == failed.pendingToken &&
+            current.pendingOccurrenceMillis == failed.pendingOccurrenceMillis &&
+            current.autoRetryScheduledAtMillis == failed.autoRetryScheduledAtMillis &&
+            failed.autoRetryScheduledAtMillis > 0L)
+            current.copy(autoRetryScheduledAtMillis = 0L)
+        else current
+}
