@@ -225,7 +225,7 @@ jobs:
             if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v282-auto-retry.log; then exit 1; fi
 
             adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.V283CreatorAutoRetryDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v283-creator-retry.log
-            grep -F 'OK (2 tests)' /tmp/backlot-v283-creator-retry.log
+            grep -F 'OK (3 tests)' /tmp/backlot-v283-creator-retry.log
             if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v283-creator-retry.log; then exit 1; fi
 
             adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.cloud.V278CloudBackupMemoryTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v278-cloud-memory.log
