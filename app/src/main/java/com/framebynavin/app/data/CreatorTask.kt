@@ -77,6 +77,8 @@ data class CreatorTask(
     val voiceRepeatCount: Int = 3,
     val voiceRepeatIntervalSeconds: Int = 20,
     val alarmTimeoutSeconds: Int = 120,
+    /** Zero retains the global Creator snooze preference for existing projects. */
+    val snoozeMinutes: Int = 0,
     val dueAtMillis: Long = 0L,
     val workflowStageIndex: Int = -1,
     val scheduleSlotId: String = "",
