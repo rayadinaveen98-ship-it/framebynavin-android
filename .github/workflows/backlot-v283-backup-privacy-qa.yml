@@ -1,0 +1,57 @@
+name: Backlot RC1 - Android System Backup Privacy Gate
+on:
+  push:
+    branches: [feature/backlot-v283-rc1-backup-extraction-policy]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup-privacy-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure private Creator and Personal data cannot enter OS backup policies
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          android_ns = '{http://schemas.android.com/apk/res/android}'
+          manifest = ET.parse('app/src/main/AndroidManifest.xml').getroot()
+          app = manifest.find('application')
+          assert app is not None
+          assert app.get(android_ns + 'allowBackup') == 'false'
+          assert app.get(android_ns + 'fullBackupContent') == '@xml/backlot_no_system_backup_legacy'
+          assert app.get(android_ns + 'dataExtractionRules') == '@xml/backlot_no_system_backup'
+
+          domains = {
+              'root', 'file', 'database', 'sharedpref', 'external',
+              'device_root', 'device_file', 'device_database', 'device_sharedpref',
+          }
+          modern = ET.parse('app/src/main/res/xml/backlot_no_system_backup.xml').getroot()
+          assert modern.tag == 'data-extraction-rules'
+          assert {x.tag for x in modern} == {'cloud-backup', 'device-transfer'}
+          for section in ('cloud-backup', 'device-transfer'):
+              node = modern.find(section)
+              assert node is not None
+              assert not node.findall('include')
+              excluded = node.findall('exclude')
+              assert len(excluded) == len(domains), section
+              assert {n.get('domain') for n in excluded} == domains, section
+              assert all(n.get('path') == '.' for n in excluded), section
+              print('PASS Android 12+ explicit', section, 'exclusions')
+
+          legacy = ET.parse('app/src/main/res/xml/backlot_no_system_backup_legacy.xml').getroot()
+          assert legacy.tag == 'full-backup-content'
+          assert not legacy.findall('include')
+          excluded = legacy.findall('exclude')
+          assert len(excluded) == len(domains)
+          assert {n.get('domain') for n in excluded} == domains
+          assert all(n.get('path') == '.' for n in excluded)
+          print('PASS Android 11- full backup exclusions')
+          print('PASS manifest retains allowBackup=false and both OS backup restriction resources')
+          PY
