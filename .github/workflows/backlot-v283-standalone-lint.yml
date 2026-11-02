@@ -14,7 +14,7 @@ concurrency:
 jobs:
   lint-diagnostics:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -28,7 +28,9 @@ jobs:
         run: |
           set -euo pipefail
           free -h
-          timeout 25m gradle :app:lintDebug --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          # Debug compile completes in ~18m; lint analysis previously ran past
+          # a 25-minute combined watchdog. Isolate a full lint validation window.
+          timeout 50m gradle :app:lintDebug --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Upload lint reports for owner review
         if: always()
         uses: actions/upload-artifact@v4
