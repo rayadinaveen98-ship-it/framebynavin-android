@@ -68,6 +68,7 @@ internal data class PProjectDraft(
     val voiceRepeatCount: Int,
     val voiceRepeatIntervalSeconds: Int,
     val alarmTimeoutSeconds: Int,
+    val snoozeMinutes: Int,
 )
 
 @Composable
@@ -261,6 +262,7 @@ internal fun PProjectComposer(
     var repeatCount by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatCount ?: 3) }
     var repeatGap by rememberSaveable(task?.id) { mutableIntStateOf(task?.voiceRepeatIntervalSeconds ?: 10) }
     var alarmTimeout by rememberSaveable(task?.id) { mutableIntStateOf(task?.alarmTimeoutSeconds ?: defaults.defaultAlarmTimeoutSeconds) }
+    var snoozeMinutes by rememberSaveable(task?.id) { mutableIntStateOf(task?.snoozeMinutes ?: 0) }
     var showCreativeSetup by rememberSaveable(task?.id) { mutableStateOf(false) }
     // Editing an existing custom delivery choice reveals the controls that created it.
     var showReminderAdvanced by rememberSaveable(task?.id) {
@@ -331,7 +333,7 @@ internal fun PProjectComposer(
             title, creatorModeId, archetypeId, productionStyles.sorted().joinToString("\\u001f"),
             platform, contentType, dueAt.toString(), attentionPlan.name,
             deliveryPreference.name, customReminderAt.toString(), priority.name, notes,
-            soundUri, voice.name, repeatCount.toString(), repeatGap.toString(), alarmTimeout.toString(),
+            soundUri, voice.name, repeatCount.toString(), repeatGap.toString(), alarmTimeout.toString(), snoozeMinutes.toString(),
         )
     )
     val originalDraftSignature = rememberSaveable(task?.id) { draftSignature }
@@ -404,6 +406,9 @@ internal fun PProjectComposer(
             onVoiceRepeatGapSeconds = { repeatGap = it },
             alarmTimeoutSeconds = alarmTimeout,
             onAlarmTimeoutSeconds = { alarmTimeout = it },
+            snoozeMinutes = snoozeMinutes,
+            defaultSnoozeMinutes = defaults.snoozeMinutes,
+            onSnoozeMinutes = { snoozeMinutes = it },
             notes = notes,
             onNotesChange = { notes = it },
             reminderSetupReady = reminderSetupReady,
@@ -438,6 +443,7 @@ internal fun PProjectComposer(
                         voiceRepeatCount = repeatCount,
                         voiceRepeatIntervalSeconds = repeatGap,
                         alarmTimeoutSeconds = alarmTimeout,
+                        snoozeMinutes = snoozeMinutes,
                     )
                 )
             },
@@ -641,6 +647,9 @@ internal fun PProjectComposer(
                                 onRepeatGapSeconds = { repeatGap = it },
                                 alarmTimeoutSeconds = alarmTimeout,
                                 onAlarmTimeoutSeconds = { alarmTimeout = it },
+                                snoozeMinutes = snoozeMinutes,
+                                defaultSnoozeMinutes = defaults.snoozeMinutes,
+                                onSnoozeMinutes = { snoozeMinutes = it },
                             )
                             if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                                 Spacer(Modifier.height(12.dp))
@@ -711,6 +720,7 @@ internal fun PProjectComposer(
                                     voiceRepeatCount = repeatCount,
                                     voiceRepeatIntervalSeconds = repeatGap,
                                     alarmTimeoutSeconds = alarmTimeout,
+                                    snoozeMinutes = snoozeMinutes,
                                 )
                             )
                         },
