@@ -91,6 +91,7 @@ internal class PersonalAlertActivity : ComponentActivity() {
             }
         }
         refreshLockState()
+        PersonalAlertSurfaceRegistry.attach(this, id, token)
         setContent {
             FrameByNavinTheme {
                 var reminder by remember { mutableStateOf<PersonalReminder?>(null) }
@@ -161,6 +162,11 @@ internal class PersonalAlertActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        PersonalAlertSurfaceRegistry.detach(this)
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
