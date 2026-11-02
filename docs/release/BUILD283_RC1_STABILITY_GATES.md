@@ -50,6 +50,15 @@ Subject: CN=FrameByNavin Dev, O=FrameByNavin, C=IN
 - [Run 41479960679](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/41479960679) started on 2026-11-02: installs the exact signed Build282 owner APK, seeds Creator and Personal data, then installs the exact verified Build283 owner APK **without deleting data** and asserts both persisted records and settings.
 - **Status: PASS (sampled records on API30 disposable emulator)**. Run 41479960679 finished successfully. Both `seed282` and `verify283` reported `OK (1 test)`; CI used `adb install -r` without uninstall or clearing data, and assertions verified selected Creator + Personal reminder records/settings. This is not complete field/media coverage, and Play signer migration is still a separate blocker.
 
+## Phase 2 automated evidence (2026-11-02)
+
+- [Run 41480846644](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/41480846644) **PASS**: five new Creator/Personal safety tests on Android 11/API30 and Android 15/API35: **10/10 instrumented test executions** (all three CI jobs green). Covers old Creator reminder tokens, post-Done replay, Personal Snooze token rotation, notification-only retry suppression and recovery isolation. These tests do not prove audible output or full-screen presentation.
+- [Draft PR #248](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/248) adds five notification-construction tests for full-screen denial; [run 41482990714](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/41482990714) **PENDING** as of last review.
+- [Draft PR #249](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/249) fixes a swallowed Android AlarmManager failure that could leave a phantom scheduled Creator/Personal audible retry; includes five pure race-safe rollback tests; [run 41485145196](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/41485145196) **PENDING** as of last review.
+- [Draft integration PR #250](https://github.com/rayadinaveen98-ship-it/framebynavin-android/pull/250) combines the above fixes and previously verified backup privacy restrictions and runs fresh owner APK + debug tests from one source revision, then Android 11/15 emulator matrices. [Run 41486414618](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/41486414618) **PENDING** as of last review. Do not distribute integrated APK until signature, hashes and all applicable gates pass.
+
+**Phase 2 remains OPEN**: physical OEM lock-screen alarm, VOICE/ALARM audio, full-screen and exact-alarm permission behavior, reboot/Doze, music mixing, and user-data recovery still require observed results.
+
 ## Phase 2: Reminder reliability — owner-device matrix
 
 Test on physical Android devices and API 30/33/34/35/36 emulator scenarios where feasible:
