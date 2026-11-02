@@ -28,6 +28,9 @@ internal data class PersonalReminderDraft(
     val voiceMusicMode: ReminderMusicMode = ReminderMusicMode.PIANO,
     val voiceMusicUri: String = "",
     val snoozeMinutes: Int = 10,
+    val voiceRepeatCount: Int = 3,
+    val voiceRepeatGapMillis: Long = 2_500L,
+    val alarmDurationSeconds: Int = 60,
 ) {
     fun checked(): PersonalReminderDraft {
         val candidate = toRecord().checked()
@@ -53,6 +56,9 @@ internal data class PersonalReminderDraft(
         voiceMusicMode = voiceMusicMode,
         voiceMusicUri = voiceMusicUri,
         snoozeMinutes = snoozeMinutes,
+        voiceRepeatCount = voiceRepeatCount,
+        voiceRepeatGapMillis = voiceRepeatGapMillis,
+        alarmDurationSeconds = alarmDurationSeconds,
     )
 }
 
@@ -90,6 +96,9 @@ internal class PersonalReminderCommands(context: Context) {
                 voiceMusicMode = checked.voiceMusicMode,
                 voiceMusicUri = checked.voiceMusicUri,
                 snoozeMinutes = checked.snoozeMinutes,
+                voiceRepeatCount = checked.voiceRepeatCount,
+                voiceRepeatGapMillis = checked.voiceRepeatGapMillis,
+                alarmDurationSeconds = checked.alarmDurationSeconds,
                 pendingOccurrenceMillis = 0L,
                 pendingFireAtMillis = 0L,
                 pendingToken = "",
