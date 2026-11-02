@@ -191,12 +191,16 @@ internal object V283CreatorAutoRetry {
         if (receipt.epoch != CreatorDataGate.generation(context) ||
             !V283CreatorAutoRetryPolicy.eligible(task, nowMillis) ||
             !ReminderOccurrenceStore(context).matches(task, receipt.token) ||
-            receipt.deliveredCount !in 0 until task.autoRetryMaxAttempts ||
-            receipt.scheduledAt <= 0L ||
-            nowMillis > receipt.scheduledAt + V283CreatorAutoRetryPolicy.MAX_LATE_MILLIS) {
+            receipt.deliveredCount !in 0..task.autoRetryMaxAttempts ||
+            (receipt.scheduledAt > 0L &&
+                nowMillis > receipt.scheduledAt + V283CreatorAutoRetryPolicy.MAX_LATE_MILLIS)) {
             cancel(context, task.id)
             return
         }
-        armAlarm(context, task.id, receipt.token, receipt.scheduledAt, nowMillis)
+        // A consumed receipt has scheduledAt=0 while speech/ringing is in
+        // progress. Preserve its attempt count across app resume and reboot,
+        // otherwise every resumed playback could reset to retry #1 forever.
+        if (receipt.scheduledAt > 0L)
+            armAlarm(context, task.id, receipt.token, receipt.scheduledAt, nowMillis)
     }
 }
