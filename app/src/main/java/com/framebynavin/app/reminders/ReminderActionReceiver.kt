@@ -65,7 +65,8 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     val now = System.currentTimeMillis()
                     val generation = CreatorDataGate.generation(app)
                     val rescheduleAt = intent.getLongExtra(ReminderConstants.EXTRA_RESCHEDULE_AT, 0L)
-                    val snoozeMinutes = CreatorOsSettingsStore(app).snapshot().snoozeMinutes
+                    val snoozeMinutes = task.snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) }
+                        ?: CreatorOsSettingsStore(app).snapshot().snoozeMinutes
                     val pauseUntil = intent.getLongExtra(
                         ReminderConstants.EXTRA_RESCHEDULE_AT,
                         now + ReminderConstants.DEFAULT_PAUSE_MINUTES * 60_000L,
