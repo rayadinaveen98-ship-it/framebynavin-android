@@ -19,6 +19,8 @@
 
     <application
         android:allowBackup="false"
+        android:fullBackupContent="@xml/backlot_no_system_backup_legacy"
+        android:dataExtractionRules="@xml/backlot_no_system_backup"
         android:usesCleartextTraffic="false"
         android:icon="@mipmap/backlot_v198_launcher"
         android:roundIcon="@mipmap/backlot_v198_launcher"
