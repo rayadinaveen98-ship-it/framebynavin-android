@@ -100,6 +100,7 @@ class AlarmRingingService : Service() {
             if (!isCurrent(task.id, token)) return@postDelayed
             val endingTask = currentTask
             val endingStage = currentSmartStage
+            val audibleAlarmWasPlaying = runCatching { player?.isPlaying == true }.getOrDefault(false)
             stopCurrent()
             ReminderSurfaceRegistry.close(task.id, token)
             // At most the selected ring duration: stop sound/vibration first.
@@ -131,6 +132,15 @@ class AlarmRingingService : Service() {
                             applicationContext, task, token,
                             finalSmartStage = terminalSmart,
                         )
+                    }
+                    if (!isSmart && audibleAlarmWasPlaying) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            runCatching {
+                                V283CreatorAutoRetry.armAfterPlayback(applicationContext, task.id, token)
+                            }.onFailure {
+                                android.util.Log.w("BacklotCreatorRetry", "Alarm auto retry not armed", it)
+                            }
+                        }
                     }
                 }
             }
