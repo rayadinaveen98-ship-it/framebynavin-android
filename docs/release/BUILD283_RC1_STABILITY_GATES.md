@@ -25,6 +25,17 @@
 
 **CI lint treatment:** Full `lintDebug` passed on the same application source. The split CI workflow now excludes **only** `lintVitalPersonalStable` while packaging a non-production owner-test APK to avoid repeated 47-minute timeouts. Do not extend this exclusion to `release` or `bundleRelease`; Play upload remains gated on full release-specific validation.
 
+## Preview APK signer compatibility evidence
+
+Local verified APKs: `Backlot-Build282-PersonalAutoRetry-Owner-Test.apk` and `Backlot-Build283-Developer-Test.apk`. The APK Signature Scheme v2 signing block in both was parsed and the first embedded X.509 signing certificate hashed with SHA-256:
+
+```
+SHA-256: F0:DD:EC:78:91:72:EC:9F:83:A0:37:A9:5B:14:E9:02:93:12:6F:61:93:6D:8B:AB:05:6D:3A:57:E0:D4:72:A0
+Subject: CN=FrameByNavin Dev, O=FrameByNavin, C=IN
+```
+
+**Result:** Build 282 owner-preview and Build 283 developer-preview identities match. This only proves signing compatibility for these two checked artifacts. It does **not** verify safe migration of task, Personal reminder, attachments, or cloud data, and it does **not** approve the public preview signing key for Google Play. The Build 283 **non-debuggable owner APK** must be independently checked on artifact completion before being distributed.
+
 ## Phase 1: Release candidate and CI — acceptance criteria
 
 1. Exact frozen-source build produces a **non-debuggable, prototype-signed owner-test APK**. Check checksum, APK v2+ signature validity, package ID, versionCode, and the public signer fingerprint against prior owner previews.
