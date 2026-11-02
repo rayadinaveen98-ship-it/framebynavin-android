@@ -34,6 +34,39 @@ class V283CreatorAutoRetryDeviceTest {
         assertEquals(3, roundTrip.autoRetryMaxAttempts)
     }
 
+    @Test fun naturalCompletionSchedulesOnceAndInvalidatedTokenCannotRing(): Unit = runBlocking {
+        HardeningTestEnvironment.requireCiEmulator()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = TaskStore(app)
+        val previous = store.load()
+        val now = System.currentTimeMillis()
+        val id = UUID.randomUUID().toString()
+        val task = CreatorTask(
+            id = id, title = "Creator retry lease test",
+            platform = "YouTube", contentType = "Long", dueLabel = "Today",
+            reminderEnabled = true, reminderAtMillis = now - 10_000L,
+            dueAtMillis = now + 60 * 60_000L, reminderMode = ReminderMode.VOICE,
+            autoRetryEnabled = true, autoRetryMinutes = 5, autoRetryMaxAttempts = 2,
+        )
+        try {
+            store.save(previous + task)
+            val token = ReminderOccurrenceStore(app).issue(task)
+            val ack = ReminderAcknowledgementStore(app)
+            assertEquals(true, ack.begin(task, token, "REGULAR"))
+            assertEquals(true, ack.markVoiceActive(id, token))
+            assertEquals(true, ack.markUnanswered(id, token, "voice_playback_finished_no_response"))
+            assertEquals(true, V283CreatorAutoRetry.armAfterPlayback(app, id, token, now))
+            assertFalse(V283CreatorAutoRetry.armAfterPlayback(app, id, token, now + 1_000L))
+            ReminderOccurrenceStore(app).invalidate(id)
+            assertFalse(V283CreatorAutoRetry.deliver(app, id, token,
+                now + 5 * 60_000L, now + 5 * 60_000L))
+        } finally {
+            V283CreatorAutoRetry.cancel(app, id)
+            ReminderOccurrenceStore(app).invalidate(id)
+            store.save(previous)
+        }
+    }
+
     @Test fun staleOrUnknownCreatorTokenCannotQueueOrDeliverAudio(): Unit = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val app = InstrumentationRegistry.getInstrumentation().targetContext
