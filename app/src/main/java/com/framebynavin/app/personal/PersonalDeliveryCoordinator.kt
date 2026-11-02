@@ -200,17 +200,10 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         }
     }
 
-    /** Clear a failed alarm receipt only if this exact occurrence still owns it. */
+    /** Only clear the same failed lease, never a concurrent Snooze or newer occurrence. */
     private suspend fun clearUnscheduledRetryIfCurrent(record: PersonalReminder) {
         store.mutate { list ->
-            list.map { latest ->
-                if (latest.id == record.id &&
-                    latest.pendingToken == record.pendingToken &&
-                    latest.pendingOccurrenceMillis == record.pendingOccurrenceMillis &&
-                    latest.autoRetryScheduledAtMillis == record.autoRetryScheduledAtMillis)
-                    latest.copy(autoRetryScheduledAtMillis = 0L)
-                else latest
-            }
+            list.map { latest -> PersonalRetryScheduleReceipt.clearOnlyMatching(record, latest) }
         }
     }
 
