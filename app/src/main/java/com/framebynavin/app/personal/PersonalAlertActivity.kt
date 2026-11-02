@@ -243,8 +243,8 @@ internal fun V2233PersonalAlertScreen(
                 textAlign = TextAlign.Center, modifier = Modifier.testTag("v2233-personal-alert-title"))
             Text(
                 when (reminder.alert) {
-                    PersonalAlert.ALARM -> "Ringing is limited to one minute. Your response remains available afterward."
-                    PersonalAlert.VOICE -> "Spoken three times when on-device speech is available. Notification remains as backup."
+                    PersonalAlert.ALARM -> "Ringing stops after ${reminder.alarmDurationSeconds} seconds. Your response remains available."
+                    PersonalAlert.VOICE -> "Spoken ${reminder.voiceRepeatCount} ${if (reminder.voiceRepeatCount == 1) "time" else "times"} if on-device speech is available."
                     PersonalAlert.NOTIFICATION -> "Your personal reminder is ready."
                 },
                 color = Color(0xFFB6C3DB), fontSize = 12.sp, textAlign = TextAlign.Center,
