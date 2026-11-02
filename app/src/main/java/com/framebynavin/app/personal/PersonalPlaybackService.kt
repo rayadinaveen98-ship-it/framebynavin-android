@@ -115,7 +115,11 @@ internal class PersonalPlaybackService : Service() {
             val maxDuration = PersonalPlaybackPolicy.maximumPlaybackMillis(verified)
             acquireShortWakeLock(maxDuration)
             handler.postDelayed({
-                if (generation == admittedGeneration) endPlayback()
+                if (generation == admittedGeneration) {
+                    val normalAlarmTimeout = verified.alert == PersonalAlert.ALARM &&
+                        runCatching { player?.isPlaying == true }.getOrDefault(false)
+                    endPlayback(naturallyFinished = normalAlarmTimeout)
+                }
             }, maxDuration)
             when (verified.alert) {
                 PersonalAlert.ALARM -> playAlarm(admittedGeneration)
@@ -246,7 +250,8 @@ internal class PersonalPlaybackService : Service() {
                             if (next == null) {
                                 // Let the stronger post-voice music be heard briefly.
                                 handler.postDelayed({
-                                    if (expectedGeneration == generation && activeId == null) endPlayback()
+                                    if (expectedGeneration == generation && activeId == null)
+                                        endPlayback(naturallyFinished = true)
                                 }, com.framebynavin.app.reminders.ReminderMusicMixPolicy.RETURN_TAIL_MILLIS)
                             } else handler.postDelayed({
                                 if (expectedGeneration == generation && activeId == null) play(next)
@@ -273,17 +278,38 @@ internal class PersonalPlaybackService : Service() {
         handler.post { if (id == currentId && token == currentToken) endPlayback() }
     }
 
-    private fun endPlayback() {
+    private fun endPlayback(naturallyFinished: Boolean = false) {
         val completedId = currentId
         val completedToken = currentToken
-        ++generation
+        val finishedGeneration = ++generation
         currentId = ""
         currentToken = ""
         stopHardware()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-        // Never mark Done on audio completion. Quiet action notification survives.
+        // Never mark Done on audio completion. The original notification
+        // remains actionable while an optional automatic retry is pending.
         PersonalAlertSurfaceRegistry.closeAfterPlayback(completedId, completedToken)
+        if (naturallyFinished && completedId.isNotBlank() && completedToken.isNotBlank()) {
+            // Keep this foreground service alive until the durable retry alarm
+            // is committed. If Done/Snooze beats us, CAS rejects the old lease.
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        PersonalDeliveryCoordinator(applicationContext)
+                            .scheduleAutomaticRetryAfterPlayback(completedId, completedToken)
+                    }
+                } catch (failure: Exception) {
+                    android.util.Log.w("BacklotPersonal", "Automatic retry not armed", failure)
+                } finally {
+                    if (finishedGeneration == generation) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    }
+                }
+            }
+        } else {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
     }
 
     private fun stopHardware() {

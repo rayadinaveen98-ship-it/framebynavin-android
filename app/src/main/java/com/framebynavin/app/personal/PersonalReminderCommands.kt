@@ -31,6 +31,9 @@ internal data class PersonalReminderDraft(
     val voiceRepeatCount: Int = 3,
     val voiceRepeatGapMillis: Long = 2_500L,
     val alarmDurationSeconds: Int = 60,
+    val autoRetryEnabled: Boolean = false,
+    val autoRetryMinutes: Int = 5,
+    val autoRetryMaxAttempts: Int = 2,
 ) {
     fun checked(): PersonalReminderDraft {
         val candidate = toRecord().checked()
@@ -59,6 +62,9 @@ internal data class PersonalReminderDraft(
         voiceRepeatCount = voiceRepeatCount,
         voiceRepeatGapMillis = voiceRepeatGapMillis,
         alarmDurationSeconds = alarmDurationSeconds,
+        autoRetryEnabled = autoRetryEnabled,
+        autoRetryMinutes = autoRetryMinutes,
+        autoRetryMaxAttempts = autoRetryMaxAttempts,
     )
 }
 
@@ -99,6 +105,11 @@ internal class PersonalReminderCommands(context: Context) {
                 voiceRepeatCount = checked.voiceRepeatCount,
                 voiceRepeatGapMillis = checked.voiceRepeatGapMillis,
                 alarmDurationSeconds = checked.alarmDurationSeconds,
+                autoRetryEnabled = checked.autoRetryEnabled,
+                autoRetryMinutes = checked.autoRetryMinutes,
+                autoRetryMaxAttempts = checked.autoRetryMaxAttempts,
+                autoRetryCount = 0,
+                autoRetryScheduledAtMillis = 0L,
                 pendingOccurrenceMillis = 0L,
                 pendingFireAtMillis = 0L,
                 pendingToken = "",
@@ -134,6 +145,8 @@ internal class PersonalReminderCommands(context: Context) {
                 followUpSentToken = "",
                 followUpSentOccurrenceMillis = 0L,
                 snoozedUntilMillis = 0L,
+                autoRetryCount = 0,
+                autoRetryScheduledAtMillis = 0L,
                 updatedAtMillis = System.currentTimeMillis(),
             )
         }

@@ -496,6 +496,15 @@ internal fun V2232PersonalEditor(
     var personalAlarmSeconds by rememberSaveable(existing?.id) {
         mutableIntStateOf(existing?.alarmDurationSeconds ?: 60)
     }
+    var automaticRetry by rememberSaveable(existing?.id) {
+        mutableStateOf(existing?.autoRetryEnabled ?: false)
+    }
+    var automaticRetryMinutes by rememberSaveable(existing?.id) {
+        mutableIntStateOf(existing?.autoRetryMinutes ?: 5)
+    }
+    var automaticRetryLimit by rememberSaveable(existing?.id) {
+        mutableIntStateOf(existing?.autoRetryMaxAttempts ?: 2)
+    }
     var voiceMusicMode by rememberSaveable(existing?.id) {
         mutableStateOf(existing?.voiceMusicMode ?: com.framebynavin.app.reminders.ReminderMusicMode.PIANO)
     }
@@ -809,6 +818,42 @@ internal fun V2232PersonalEditor(
                             }
                         }
                     }
+                    if (alert == PersonalAlert.VOICE.name || alert == PersonalAlert.ALARM.name) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().testTag("v282-personal-auto-retry-toggle"),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("REPEAT IF I DON'T RESPOND", color = ProjectorIvory, fontSize = 13.sp)
+                                Text("Off by default. Only after sound finishes; Done, Dismiss or Snooze cancels it.",
+                                    color = MutedText, fontSize = 11.sp)
+                            }
+                            Switch(checked = automaticRetry, onCheckedChange = { automaticRetry = it })
+                        }
+                        if (automaticRetry) {
+                            Text("RE-ALERT AFTER", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                listOf(5, 10, 15, 30).forEach { minutes ->
+                                    FilterChip(selected = automaticRetryMinutes == minutes,
+                                        onClick = { automaticRetryMinutes = minutes },
+                                        label = { Text("${minutes} min", fontSize = 11.sp) })
+                                }
+                            }
+                            Text("MAXIMUM EXTRA ALERTS", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                listOf(1, 2, 3).forEach { count ->
+                                    FilterChip(selected = automaticRetryLimit == count,
+                                        onClick = { automaticRetryLimit = count },
+                                        label = { Text("$count", fontSize = 11.sp) })
+                                }
+                            }
+                            Text("Android may delay background alerts when exact alarm access is unavailable.",
+                                color = MutedText, fontSize = 11.sp)
+                        }
+                    }
                     Surface(
                         modifier = Modifier.fillMaxWidth().testTag("v274-personal-review"),
                         color = CinemaSurface,
@@ -873,6 +918,9 @@ internal fun V2232PersonalEditor(
                                     voiceRepeatCount = personalVoiceCount,
                                     voiceRepeatGapMillis = personalVoiceGap,
                                     alarmDurationSeconds = personalAlarmSeconds,
+                                    autoRetryEnabled = automaticRetry && alert != PersonalAlert.NOTIFICATION.name,
+                                    autoRetryMinutes = automaticRetryMinutes,
+                                    autoRetryMaxAttempts = automaticRetryLimit,
                                 ).checked()
                                 onSave(draft)
                             } catch (invalid: Exception) {

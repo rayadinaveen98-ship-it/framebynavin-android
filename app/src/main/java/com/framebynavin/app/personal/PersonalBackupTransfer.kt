@@ -120,6 +120,8 @@ internal object PersonalBackupPolicy {
                 followUpSentToken = "",
                 followUpSentOccurrenceMillis = 0L,
                 snoozedUntilMillis = 0L,
+                autoRetryCount = 0,
+                autoRetryScheduledAtMillis = 0L,
             ).checked()
         }
 }

@@ -21,6 +21,7 @@ internal object PersonalDeliveryContract {
     const val ACTION_FIRE = "com.framebynavin.app.personal.FIRE"
     const val ACTION_RECOVER = "com.framebynavin.app.personal.RECOVER"
     const val ACTION_FOLLOW_UP = "com.framebynavin.app.personal.FOLLOW_UP"
+    const val ACTION_AUTO_RETRY = "com.framebynavin.app.personal.AUTO_RETRY"
     const val ACTION_DONE = "com.framebynavin.app.personal.DONE"
     const val ACTION_SNOOZE = "com.framebynavin.app.personal.SNOOZE"
     const val ACTION_DISMISS = "com.framebynavin.app.personal.DISMISS"
@@ -84,6 +85,8 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                         pendingToken = "",
                         presentedToken = "",
                         snoozedUntilMillis = 0L,
+                        autoRetryCount = 0,
+                        autoRetryScheduledAtMillis = 0L,
                     )
                 }.first { it.id == expired.id }
                 if (record.pendingToken.isBlank()) {
@@ -101,6 +104,8 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                 cancelFire(record.id)
                 armRecovery(record)
                 armFollowUp(record, followUpSettings, nowMillis)
+                if (record.autoRetryScheduledAtMillis > 0L) armAutomaticRetry(record, nowMillis)
+                else cancelAutomaticRetry(record.id)
                 return@forEach
             }
             if (record.pendingToken.isBlank()) {
@@ -121,6 +126,8 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                         followUpSentToken = "",
                         followUpSentOccurrenceMillis = 0L,
                         snoozedUntilMillis = 0L,
+                        autoRetryCount = 0,
+                        autoRetryScheduledAtMillis = 0L,
                     )
                 }.first { it.id == record.id }
             }
@@ -143,10 +150,50 @@ internal class PersonalDeliveryCoordinator(context: Context) {
     }
 
     fun cancelPending(id: String) {
+        cancelAutomaticRetry(id)
         cancelFollowUp(id)
         cancelFire(id)
         recoveryIntent(id, flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
             ?.let { alarms.cancel(it) }
+    }
+
+    private fun cancelAutomaticRetry(id: String) {
+        automaticRetryIntent(id, flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+            ?.let { alarms.cancel(it) }
+    }
+
+    private fun automaticRetryIntent(
+        id: String, token: String = "", occurrence: Long = 0L,
+        scheduledAt: Long = 0L, flags: Int,
+    ): PendingIntent? = PendingIntent.getBroadcast(
+        app, id.hashCode() xor 0x28A2,
+        Intent(app, PersonalReminderReceiver::class.java)
+            .setAction(PersonalDeliveryContract.ACTION_AUTO_RETRY)
+            .setData(PersonalDeliveryContract.uri(id, "audible-auto-retry"))
+            .putExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID, id)
+            .putExtra(PersonalDeliveryContract.EXTRA_OCCURRENCE, occurrence)
+            .putExtra(PersonalDeliveryContract.EXTRA_TOKEN, token)
+            .putExtra(PersonalDeliveryContract.EXTRA_FIRE_AT, scheduledAt),
+        flags,
+    )
+
+    private fun armAutomaticRetry(record: PersonalReminder, nowMillis: Long) {
+        val target = record.autoRetryScheduledAtMillis
+        if (target <= 0L || !record.autoRetryEnabled || record.paused ||
+            record.presentedToken != record.pendingToken) {
+            cancelAutomaticRetry(record.id)
+            return
+        }
+        val pi = automaticRetryIntent(record.id, record.pendingToken,
+            record.pendingOccurrenceMillis, target,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) ?: return
+        runCatching {
+            val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
+            if (exact) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, maxOf(target, nowMillis + 1_000L), pi)
+            else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, maxOf(target, nowMillis + 1_000L), pi)
+        }.onFailure {
+            android.util.Log.w("BacklotPersonal", "Could not arm opt-in audible retry", it)
+        }
     }
 
     private fun cancelFire(id: String) {
@@ -265,6 +312,74 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         return PendingIntent.getBroadcast(app, id.hashCode(), intent, flags)
     }
 
+    /** A natural playback finish may queue ONE bounded, opt-in audible retry. */
+    suspend fun scheduleAutomaticRetryAfterPlayback(
+        id: String, token: String, nowMillis: Long = System.currentTimeMillis(),
+    ): Boolean {
+        if (id.isBlank() || token.isBlank()) return false
+        var scheduled: PersonalReminder? = null
+        store.mutate { list ->
+            list.map { current ->
+                if (current.id != id) current else {
+                    val target = PersonalAutoRetryPolicy.nextAt(current, token, nowMillis)
+                    if (target == null) current
+                    else current.copy(autoRetryScheduledAtMillis = target,
+                        updatedAtMillis = nowMillis).also { scheduled = it }
+                }
+            }
+        }
+        val record = scheduled ?: return false
+        armAutomaticRetry(record, nowMillis)
+        return true
+    }
+
+    /** Convert a pending retry into a fresh lease, and present only that lease. */
+    suspend fun deliverAutomaticRetry(
+        id: String, occurrence: Long, token: String, scheduledAt: Long,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): Boolean {
+        if (id.isBlank() || token.isBlank() || occurrence <= 0L) return false
+        var claimed: PersonalReminder? = null
+        store.mutate { list ->
+            list.map { item ->
+                if (item.id != id || item.pendingOccurrenceMillis != occurrence ||
+                    !PersonalAutoRetryPolicy.canDeliver(item, token, scheduledAt, nowMillis)) item
+                else item.copy(
+                    pendingToken = UUID.randomUUID().toString(),
+                    presentedToken = "",
+                    presentedAtMillis = 0L,
+                    pendingFireAtMillis = scheduledAt,
+                    snoozedUntilMillis = scheduledAt,
+                    autoRetryCount = item.autoRetryCount + 1,
+                    autoRetryScheduledAtMillis = 0L,
+                    followUpSentToken = "",
+                    followUpSentOccurrenceMillis = 0L,
+                    updatedAtMillis = nowMillis,
+                ).also { claimed = it }
+            }
+        }
+        val retry = claimed ?: return false
+        cancelAutomaticRetry(id)
+        cancelFollowUp(id)
+        // Previous actionable card refers to an invalidated old lease; remove it.
+        PersonalReminderNotifications.cancel(app, id)
+        val current = currentLease(id, occurrence, scheduledAt, retry.pendingToken)
+        if (current == null) return false
+        if (PersonalReminderNotifications.show(app, current)) {
+            if (acknowledgePosted(id, occurrence, scheduledAt, retry.pendingToken)) {
+                PersonalPlaybackService.tryStart(app, current.copy(presentedToken = retry.pendingToken))
+                V224WidgetUpdater.refresh(app)
+                return true
+            }
+            // Another user action may have won after notify(); repair stale card.
+            val latest = store.load().firstOrNull { it.id == id }
+            if (latest == null || latest.pendingToken.isBlank()) PersonalReminderNotifications.cancel(app, id)
+        }
+        // Reconcile can recover the new, still-unposted lease on an OS wakeup.
+        reconcile(nowMillis)
+        return false
+    }
+
     /**
      * Claim a real response under the *same* Personal DataStore mutation lock
      * as the occurrence journal. A stale token or repeated action is rejected.
@@ -316,6 +431,8 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                             followUpSentToken = "",
                             followUpSentOccurrenceMillis = 0L,
                             snoozedUntilMillis = 0L,
+                            autoRetryCount = 0,
+                            autoRetryScheduledAtMillis = 0L,
                             lastResponse = if (action == PersonalDeliveryContract.ACTION_DONE)
                                 PersonalResponse.DONE else PersonalResponse.DISMISSED,
                         )
@@ -331,6 +448,8 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                             presentedAtMillis = 0L,
                             followUpSentToken = item.followUpSentToken,
                             followUpSentOccurrenceMillis = item.followUpSentOccurrenceMillis,
+                            autoRetryCount = 0,
+                            autoRetryScheduledAtMillis = 0L,
                             lastResponse = if (action == PersonalDeliveryContract.ACTION_SNOOZE)
                                 PersonalResponse.SNOOZED else PersonalResponse.RESCHEDULED,
                         )
