@@ -257,7 +257,7 @@ internal fun V2233PersonalAlertScreen(
                     .testTag("v2233-personal-snooze"),
                 border = BorderStroke(1.dp, blue.copy(alpha = .75f)),
                 shape = RoundedCornerShape(16.dp),
-            ) { Text("SNOOZE 10 MINUTES", color = Color.White) }
+            ) { Text("SNOOZE ${reminder.snoozeMinutes} MINUTES", color = Color.White) }
             TextButton(
                 onClick = onDismiss, enabled = !busy,
                 modifier = Modifier.testTag("v2233-personal-dismiss"),
