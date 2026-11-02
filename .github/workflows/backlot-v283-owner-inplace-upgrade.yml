@@ -1,0 +1,102 @@
+name: Backlot RC1 - Build282 to Build283 In-Place Upgrade Safety
+on:
+  push:
+    branches: [feature/backlot-v283-rc1-upgrade-test]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: backlot-v283-inplace-upgrade-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile upgrade fixture instrumentation from Build282 source API
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 282' app/build.gradle.kts
+          timeout 48m gradle :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          mkdir -p output
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/upgrade-androidTest.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-282-to-283-InPlace-Test-Harness
+          path: output/
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator-upgrade:
+    needs: test-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-282-to-283-InPlace-Test-Harness
+          path: harness
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Build282-PersonalAutoRetry-Owner-Test
+          path: old
+          run-id: 41394336705
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Build283-Owner-APK
+          path: new
+          run-id: 41463961020
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+      - name: Verify exact signed preview owners and fixture checksums
+        run: |
+          set -euo pipefail
+          (cd old && sha256sum -c SHA256SUMS.txt)
+          (cd new && sha256sum -c SHA256SUMS.txt)
+          (cd harness && sha256sum -c SHA256SUMS.txt)
+          test -s old/Backlot-Build282-PersonalAutoRetry-Owner-Test.apk
+          test -s new/Backlot-Build283-CreatorAutoRetry-Owner-Test.apk
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' new/SIGNATURE-VERIFICATION.txt
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Seed Build282, install Build283 over it without clearing data, verify both domains
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install old/Backlot-Build282-PersonalAutoRetry-Owner-Test.apk
+            adb install harness/upgrade-androidTest.apk
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class 'com.framebynavin.app.release.V283UpgradeDeviceTest#seed282' com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/upgrade-seed.log
+            grep -F 'OK (1 test)' /tmp/upgrade-seed.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/upgrade-seed.log; then exit 1; fi
+            # No uninstall, pm clear, backup restore, or storage reset between versions.
+            adb shell am force-stop com.framebynavin.app
+            adb install -r new/Backlot-Build283-CreatorAutoRetry-Owner-Test.apk
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class 'com.framebynavin.app.release.V283UpgradeDeviceTest#verify283' com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/upgrade-verify.log
+            grep -F 'OK (1 test)' /tmp/upgrade-verify.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/upgrade-verify.log; then exit 1; fi
+            echo 'PASS non-destructive owner Build282 to Build283 upgrade with Creator and Personal records'
