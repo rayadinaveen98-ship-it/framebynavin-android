@@ -32,6 +32,10 @@ class V283CreatorAutoRetryDeviceTest {
         assertEquals(true, roundTrip.autoRetryEnabled)
         assertEquals(15, roundTrip.autoRetryMinutes)
         assertEquals(3, roundTrip.autoRetryMaxAttempts)
+        val serviceSnapshot = android.content.Intent().putTask(task).toTask()
+        assertEquals(true, serviceSnapshot?.autoRetryEnabled)
+        assertEquals(15, serviceSnapshot?.autoRetryMinutes)
+        assertEquals(3, serviceSnapshot?.autoRetryMaxAttempts)
     }
 
     @Test fun naturalCompletionSchedulesOnceAndInvalidatedTokenCannotRing(): Unit = runBlocking {
