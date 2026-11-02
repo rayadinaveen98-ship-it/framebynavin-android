@@ -99,15 +99,15 @@ jobs:
           print('PASS: private Personal cloud sync is integrated into the existing button')
           print('PASS: stable version unchanged; no fabricated observed-current creation; creator-only projection')
           PY
-      - name: Compile, run project and idea history tests, lint and assemble owner preview
+      - name: Compile, run project and reminder tests, assemble owner preview
         run: |
           set -euo pipefail
           free -h
-          # Build282 passed with 4 GiB. Build283 added CreatorTask fields and hit the
-          # Kotlin compiler's 4 GiB heap ceiling. Public ubuntu runner has more RAM;
-          # use a larger bounded single compiler heap, with a watchdog instead of
-          # silently tying up the CI runner until job cancellation.
-          timeout 30m gradle :app:testDebugUnitTest :app:lintDebug :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx7g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC -Dfile.encoding=UTF-8' --stacktrace
+          # Build283 CI previously compiled Kotlin and passed unit tests, but lintAnalyzeDebug
+          # stalled until the combined 30-minute watchdog expired. Keep the owner APK
+          # and emulator gates isolated from the separate lint-diagnostics workflow.
+          # A larger bounded heap protects this single-build job from compiler OOM.
+          timeout 28m gradle :app:testDebugUnitTest :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx7g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC -Dfile.encoding=UTF-8' --stacktrace
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
