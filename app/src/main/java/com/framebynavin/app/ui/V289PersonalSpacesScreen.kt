@@ -844,7 +844,7 @@ internal fun V289PersonalSpacesScreen(
             text = {
                 Text(
                     if (photos.isEmpty() && interruptedPhotos.isEmpty())
-                        "This removes local notes and progress. Linked Personal reminders are never deleted."
+                        "This removes local notes, progress and unfinished temporary photo copies. Personal reminders remain untouched."
                     else "Resolve all saved and interrupted private photos before deleting this Space."
                 )
             },
@@ -861,6 +861,9 @@ internal fun V289PersonalSpacesScreen(
                                     id, System.currentTimeMillis() + 120_000L
                                 ).isEmpty()
                             ) { "Resolve interrupted private photo copies first" }
+                            // Owner explicitly confirmed Space deletion. Clear only
+                            // incomplete .UUID.partial copies before removing records.
+                            interruptedRecovery.removeTemporaryCopiesOnOwnerSpaceDelete(id)
                             check(repository.deleteSpaceAfterOwnerConfirmation(id)) {
                                 "Space no longer exists"
                             }
