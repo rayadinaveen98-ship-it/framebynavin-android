@@ -36,6 +36,9 @@ val productionSigningConfigured = listOf(
 android {
     namespace = "com.framebynavin.app"
     compileSdk = 36
+    // CI-only branches: instrumentation must compile against personalStable
+    // to match Kotlin internal-symbol mangling in signed owner APKs.
+    testBuildType = "personalStable"
 
     signingConfigs {
         create("prototypeStable") {
