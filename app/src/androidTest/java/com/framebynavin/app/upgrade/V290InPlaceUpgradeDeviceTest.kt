@@ -57,7 +57,7 @@ class V290InPlaceUpgradeDeviceTest {
 
     @Test fun seedOnV288() = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
-        requireInstalledVersion(290L)
+        requireInstalledVersion(288L)
 
         val personal = PersonalReminder(
             id = personalId,
@@ -101,7 +101,7 @@ class V290InPlaceUpgradeDeviceTest {
 
     @Test fun verifyOnV290() = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
-        requireInstalledVersion(288L)
+        requireInstalledVersion(290L)
 
         val personal = PersonalReminderStore(app).load().singleOrNull { it.id == personalId }
         assertTrue("Personal reminder lost during V288 to V290 in-place update", personal != null)
