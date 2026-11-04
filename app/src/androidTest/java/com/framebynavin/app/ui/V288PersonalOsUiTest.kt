@@ -50,6 +50,23 @@ class V288PersonalOsUiTest {
         assertEquals(before, runBlocking { store.load() })
     }
 
+    @Test fun toolbarBackFromSettingsReturnsToTodayWithoutClosing() {
+        HardeningTestEnvironment.requireCiEmulator()
+        var closed = false
+        rule.setContent {
+            FrameByNavinTheme {
+                V2232PersonalReminderHub(onClose = { closed = true }, onCreator = {})
+            }
+        }
+        rule.waitUntil(12_000) {
+            rule.onAllNodesWithTag("v288-today-home").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("v288-personal-toggle-settings").performClick()
+        rule.onNodeWithContentDescription("Back to personal Today").performClick()
+        rule.onNodeWithTag("v288-today-home").assertExists()
+        rule.runOnIdle { assertEquals(false, closed) }
+    }
+
     @Test fun emptyTodayDoesNotOfferPrematureDoneOrSnooze() {
         HardeningTestEnvironment.requireCiEmulator()
         val snapshot = V288PersonalTodayPolicy.snapshot(
