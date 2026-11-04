@@ -19,7 +19,12 @@ for classname in "$@"; do
     -e hardeningTestEnvironment ci-emulator \
     -e class "$classname" \
     com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$logfile"
-  grep -F 'OK (2 tests)' "$logfile"
+  expected=2
+  case "$classname" in
+    *V288PersonalOsUiTest) expected=3 ;;
+    *V274SelfCareEditorUiTest) expected=1 ;;
+  esac
+  grep -F "OK (${expected} tests)" "$logfile"
   if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$logfile"; then
     echo "Android instrumentation failed: $classname" >&2
     exit 1
