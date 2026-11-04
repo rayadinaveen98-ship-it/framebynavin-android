@@ -59,8 +59,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
-        versionCode = 290
-        versionName = "2.24.0-rc1-private-spaces-photo-owner-test"
+        versionCode = 291
+        versionName = "2.25.0-rc1-oriented-photo-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
