@@ -48,6 +48,7 @@ internal fun V290PersonalPhotoSection(
     interruptedPhotos: List<V290InterruptedPhoto>,
     journal: V290PhotoJournal,
     enabled: Boolean,
+    allowNewPhotos: Boolean,
     onAddPhoto: () -> Unit,
     onRemovePhoto: (V290SpacePhotoEntity) -> Unit,
     onRecoverPhoto: (V290InterruptedPhoto) -> Unit,
@@ -79,7 +80,7 @@ internal fun V290PersonalPhotoSection(
                 }
                 OutlinedButton(
                     onClick = onAddPhoto,
-                    enabled = enabled,
+                    enabled = enabled && allowNewPhotos,
                     contentPadding = PaddingValues(horizontal = 10.dp),
                     modifier = Modifier.testTag("v290-pick-photo"),
                 ) {
