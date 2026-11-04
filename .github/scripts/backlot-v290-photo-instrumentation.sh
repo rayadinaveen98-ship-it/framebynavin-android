@@ -9,7 +9,7 @@ for entry in \
   "com.framebynavin.app.personal.spaces.V290PrivatePhotoJournalDeviceTest:3" \
   "com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest:4" \
   "com.framebynavin.app.personal.spaces.V289SpacesMetadataRecoveryDeviceTest:3" \
-  "com.framebynavin.app.ui.V289PersonalSpacesUiTest:4"; do
+  "com.framebynavin.app.ui.V289PersonalSpacesUiTest:5"; do
   class="${entry%:*}"
   count="${entry##*:}"
   echo "CI TEST CLASS: $class"
