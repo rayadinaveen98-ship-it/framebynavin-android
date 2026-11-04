@@ -400,7 +400,8 @@ internal fun V289PersonalSpacesScreen(
                         photos = photos,
                         interruptedPhotos = interruptedPhotos,
                         journal = photoJournal,
-                        enabled = !busy && selected.archivedAtMillis == null,
+                        enabled = !busy,
+                        allowNewPhotos = selected.archivedAtMillis == null,
                         onAddPhoto = {
                             pickPhotoLauncher.launch(
                                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -853,7 +854,16 @@ internal fun V289PersonalSpacesScreen(
                     onClick = {
                         val id = selected.id
                         write {
-                            repository.deleteSpaceAfterOwnerConfirmation(id)
+                            // Recheck disk right before deletion, including files
+                            // younger than the display scanner's grace period.
+                            check(
+                                interruptedRecovery.find(
+                                    id, System.currentTimeMillis() + 120_000L
+                                ).isEmpty()
+                            ) { "Resolve interrupted private photo copies first" }
+                            check(repository.deleteSpaceAfterOwnerConfirmation(id)) {
+                                "Space no longer exists"
+                            }
                             selectedSpaceId = null
                             deleteVisible = false
                         }
