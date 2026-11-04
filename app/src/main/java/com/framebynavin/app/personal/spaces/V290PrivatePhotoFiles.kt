@@ -212,15 +212,14 @@ internal class V290PhotoJournal(
 
     suspend fun removePhoto(id: String): Boolean = withContext(Dispatchers.IO) {
         val photo = dao.getPhoto(id) ?: return@withContext false
-        // A successful DB removal is never used as a false claim that disk
-        // deletion succeeded; a later orphan sweep can clean interrupted work.
-        val deleted = dao.deletePhoto(id) == 1
-        if (deleted) {
-            check(V290PrivatePhotoFiles.deleteFile(context, photo)) {
-                "Photo record removed; private file requires cleanup"
-            }
+        // Delete bytes FIRST. If that fails the DB record remains visible,
+        // rather than silently leaving an inaccessible private file behind.
+        // If the app crashes after file removal, the visible record can be
+        // explicitly deleted again. Missing bytes are treated as already removed.
+        check(V290PrivatePhotoFiles.deleteFile(context, photo)) {
+            "Unable to delete the private photo; its journal record was retained"
         }
-        deleted
+        dao.deletePhoto(id) == 1
     }
 
     suspend fun readVerifiedPhotoBytes(photo: V290SpacePhotoEntity): ByteArray =
