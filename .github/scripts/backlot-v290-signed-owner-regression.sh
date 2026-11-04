@@ -6,10 +6,12 @@
 # Debug-target UI tests already passed in upstream full regression. This gate
 # verifies actual signed binary for non-Compose notification/DB/photo domains.
 # The emulator contains disposable data only. NEVER run pm clear on owner phones.
+# The instrumentation is built with testBuildType=personalStable, matching
+# the module-suffixed Kotlin internal methods in the signed owner APK.
 set -euo pipefail
 
 owner_apk=output/Backlot-V290-Private-Spaces-Owner-Test.apk
-test_apk=output/app-debug-androidTest.apk
+test_apk=output/app-personalStable-androidTest.apk
 test -s "$owner_apk"
 test -s "$test_apk"
 
