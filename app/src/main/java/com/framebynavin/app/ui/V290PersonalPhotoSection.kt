@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.personal.spaces.V290InterruptedPhoto
 import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290PrivatePhotoFiles
 import com.framebynavin.app.personal.spaces.V290PhotoJournal
@@ -44,10 +45,13 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun V290PersonalPhotoSection(
     photos: List<V290SpacePhotoEntity>,
+    interruptedPhotos: List<V290InterruptedPhoto>,
     journal: V290PhotoJournal,
     enabled: Boolean,
     onAddPhoto: () -> Unit,
     onRemovePhoto: (V290SpacePhotoEntity) -> Unit,
+    onRecoverPhoto: (V290InterruptedPhoto) -> Unit,
+    onDiscardPhoto: (V290InterruptedPhoto) -> Unit,
 ) {
     val nowMillis = System.currentTimeMillis()
     val pair = remember(photos) {
@@ -122,6 +126,42 @@ internal fun V290PersonalPhotoSection(
                     }
                     Text("Images are shown side by side; no automatic changes or results are inferred.",
                         color = BacklotSecondaryText, fontSize = 10.sp)
+                }
+            }
+            if (interruptedPhotos.isNotEmpty()) {
+                Surface(
+                    color = BacklotBorder,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("v290-interrupted-photo"),
+                ) {
+                    Column(
+                        Modifier.padding(11.dp),
+                        verticalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        Text(
+                            "Unfinished photo save detected",
+                            color = BacklotPrimaryText, fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                        )
+                        Text(
+                            "The photo copy is still on this device, but its journal entry was interrupted. Choose to recover or discard it.",
+                            color = BacklotSecondaryText, fontSize = 11.sp,
+                        )
+                        interruptedPhotos.take(3).forEach { item ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    enabled = enabled,
+                                    onClick = { onRecoverPhoto(item) },
+                                    modifier = Modifier.testTag("v290-recover-photo-open"),
+                                ) { Text("RECOVER", fontSize = 11.sp) }
+                                TextButton(
+                                    enabled = enabled,
+                                    onClick = { onDiscardPhoto(item) },
+                                    modifier = Modifier.testTag("v290-discard-photo-open"),
+                                ) { Text("DISCARD", fontSize = 11.sp) }
+                            }
+                        }
+                    }
                 }
             }
             if (photos.isNotEmpty()) {
