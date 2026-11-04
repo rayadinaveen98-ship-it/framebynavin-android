@@ -40,7 +40,7 @@ jobs:
           PY
       - name: Compile full app and run V289 domain policy unit tests
         run: |
-          timeout 60m gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.spaces.V289PersonalSpacePolicyTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          timeout 65m gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Require all seven V289 tests green
         run: |
           python3 - <<'PY'
@@ -55,3 +55,19 @@ jobs:
           assert int(suite.attrib.get('failures','0'))==0
           print('PASS: V289 Space domain tests')
           PY
+
+      - name: Android 15 Room persistence, isolation, cascade and dedupe tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v289-room.log
+            grep -F 'OK (4 tests)' /tmp/backlot-v289-room.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v289-room.log; then exit 1; fi
