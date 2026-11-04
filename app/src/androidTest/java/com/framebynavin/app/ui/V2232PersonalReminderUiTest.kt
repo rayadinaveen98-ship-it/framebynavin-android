@@ -48,7 +48,9 @@ class V2232PersonalReminderUiTest {
                     rule.onAllNodesWithTag("v2232-personal-item").fetchSemanticsNodes().isNotEmpty() &&
                     rule.onAllNodesWithTag("v2232-personal-editor").fetchSemanticsNodes().isEmpty()
             }
-            rule.onAllNodesWithText("Pay electricity bill").assertCountEquals(1)
+            // V288 intentionally displays the next reminder in both its hero and agenda row.
+            rule.onAllNodesWithText("Pay electricity bill").assertCountEquals(2)
+            rule.onNodeWithTag("v288-personal-expand").performClick()
             rule.onNodeWithTag("v2282-personal-delivery-health").assertExists()
             val personal = runBlocking { store.load() }
             assertEquals(1, personal.size)
