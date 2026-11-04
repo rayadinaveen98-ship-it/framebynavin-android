@@ -61,7 +61,7 @@ internal fun V287NapWakeCard(
     var feedback by remember { mutableStateOf<String?>(null) }
     val selectedEnd = nap.endTime(selected)
     val timeLabel = remember { DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()) }
-    val alreadySelected = existing?.time == selectedEnd && !existing.paused
+    val alreadySelected = existing != null && existing.time == selectedEnd && !existing.paused
 
     Surface(
         color = CinemaSurface,
