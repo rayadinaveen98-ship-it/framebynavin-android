@@ -58,6 +58,7 @@ internal fun V289PersonalSpacesScreen(
     val repository = remember(dao) { V289SpacesRepository(dao) }
     val coroutineScope = rememberCoroutineScope()
     var spaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
+    var spacesLoaded by remember { mutableStateOf(false) }
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
     var createVisible by remember { mutableStateOf(false) }
@@ -68,7 +69,10 @@ internal fun V289PersonalSpacesScreen(
 
     LaunchedEffect(dao) {
         try {
-            dao.observeSpaces().collect { spaces = it }
+            dao.observeSpaces().collect {
+                spaces = it
+                spacesLoaded = true
+            }
         } catch (_: Exception) {
             error = "Spaces could not be read. No data was changed."
         }
@@ -144,7 +148,11 @@ internal fun V289PersonalSpacesScreen(
                 ) {
                     Text("Your habits, skills and little wins — in one place.",
                         color = BacklotSecondaryText, fontSize = 12.sp)
-                    if (spaces.isEmpty()) {
+                    if (!spacesLoaded) {
+                        if (error == null) CircularProgressIndicator(color = BacklotSecondaryAccent)
+                        else Text("Spaces are unavailable. No data was reset.",
+                            color = BacklotSecondaryText, fontSize = 12.sp)
+                    } else if (spaces.isEmpty()) {
                         Surface(
                             color = BacklotSurface,
                             border = BorderStroke(1.dp, BacklotBorder),
@@ -246,6 +254,31 @@ internal fun V289PersonalSpacesScreen(
                             },
                             modifier = Modifier.testTag("v289-archive"),
                         ) { Text(if (selected.archivedAtMillis == null) "ARCHIVE" else "RESTORE") }
+                    }
+                    val summary = remember(entries) {
+                        V289SpaceProgressPolicy.summarize(entries, System.currentTimeMillis())
+                    }
+                    Surface(color = BacklotSurface,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, BacklotBorder),
+                        modifier = Modifier.fillMaxWidth().testTag("v289-progress-summary")) {
+                        Row(Modifier.padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text("${summary.manualCheckIns} check-ins",
+                                    color = BacklotPrimaryText,
+                                    fontWeight = FontWeight.SemiBold)
+                                Text("Recorded by you", color = BacklotSecondaryText,
+                                    fontSize = 10.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("${summary.daysWithActivityLastSeven} active days",
+                                    color = BacklotPrimaryText,
+                                    fontWeight = FontWeight.SemiBold)
+                                Text("Past 7 days", color = BacklotSecondaryText,
+                                    fontSize = 10.sp)
+                            }
+                        }
                     }
                     Text("Activity", color = BacklotPrimaryText,
                         fontSize = 17.sp, fontWeight = FontWeight.Bold)
