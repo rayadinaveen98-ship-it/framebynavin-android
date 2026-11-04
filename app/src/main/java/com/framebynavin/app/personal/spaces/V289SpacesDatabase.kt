@@ -125,6 +125,13 @@ internal interface V289SpacesDao {
 
     @Query("SELECT * FROM personal_space_entries WHERE spaceId = :spaceId ORDER BY occurredAtMillis DESC, createdAtMillis DESC")
     suspend fun entriesForSpace(spaceId: String): List<V289SpaceEntryEntity>
+
+    /** Internal metadata snapshots only; excludes photo file data by construction. */
+    @Query("SELECT * FROM personal_space_reminder_links ORDER BY spaceId, reminderId")
+    suspend fun allLinks(): List<V289SpaceReminderLinkEntity>
+
+    @Query("SELECT * FROM personal_space_entries ORDER BY spaceId, id")
+    suspend fun allEntries(): List<V289SpaceEntryEntity>
 }
 
 @Database(
