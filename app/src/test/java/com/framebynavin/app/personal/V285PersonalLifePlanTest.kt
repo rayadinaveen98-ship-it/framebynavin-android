@@ -84,6 +84,27 @@ class V285PersonalLifePlanTest {
         assertFalse(plan.hasReadingConflict(listOf(v284.copy(paused = true))))
     }
 
+    @Test fun dateSpecificPromptsAreOneTimeAndNeverBackfillPastDays() {
+        val justBeforeStart = LocalDate.of(2026, 11, 4)
+            .atTime(23, 0).atZone(zone).toInstant().toEpochMilli()
+        val all = plan.focusTemplates(justBeforeStart, zone)
+        assertEquals(21, all.size)
+        assertTrue(all.all { it.repeat == PersonalRepeat.ONCE })
+        assertTrue(all.all { it.alert == PersonalAlert.NOTIFICATION })
+        assertTrue(all.all { it.time == LocalTime.of(8, 50) })
+        assertTrue(all.all { it.id.startsWith(plan.ID_PREFIX + "focus-") })
+        assertEquals(21, all.map { it.id }.toSet().size)
+        val afterNov7 = LocalDate.of(2026, 11, 7)
+            .atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+        val later = plan.focusTemplates(afterNov7, zone)
+        assertEquals(18, later.size)
+        assertEquals(LocalDate.of(2026, 11, 8), later.first().startDate)
+        assertTrue(later.none { it.startDate.isBefore(LocalDate.of(2026, 11, 8)) })
+        val afterPlan = LocalDate.of(2026, 11, 26)
+            .atStartOfDay(zone).toInstant().toEpochMilli()
+        assertTrue(plan.focusTemplates(afterPlan, zone).isEmpty())
+    }
+
     @Test fun recurringRoutinesRemainEditableWithoutCreatorWrites() {
         val templates = plan.templates(LocalDate.of(2026, 11, 12), zone)
         assertTrue(templates.all { it.startDate == LocalDate.of(2026, 11, 12) })
