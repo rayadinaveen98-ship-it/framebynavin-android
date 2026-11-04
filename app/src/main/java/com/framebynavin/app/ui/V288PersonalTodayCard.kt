@@ -46,6 +46,7 @@ internal fun V288PersonalTodayCard(
     snapshot: V288TodaySnapshot,
     nowMillis: Long,
     busy: Boolean,
+    historyReady: Boolean,
     onRespond: (PersonalReminder, String) -> Unit,
 ) {
     val next = snapshot.next
@@ -64,8 +65,8 @@ internal fun V288PersonalTodayCard(
             }
             // These are separate factual counts, not an invented progress ratio.
             Column(horizontalAlignment = Alignment.End) {
-                Text("${snapshot.confirmedDoneToday} done",
-                    color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                Text(if (historyReady) "${snapshot.confirmedDoneToday} done" else "Progress unavailable",
+                    color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.testTag("v288-today-confirmed-done"))
                 Text("${snapshot.activeReminderCount} active routines",
                     color = MutedText, fontSize = 10.sp)
