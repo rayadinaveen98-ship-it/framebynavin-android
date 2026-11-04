@@ -27,11 +27,15 @@ class V288PersonalTodayPolicyTest {
 
     @Test fun nextUsesTheNearestScheduledTodayActivityWithoutOverwriting() {
         val records = V285PersonalLifePlan.templates(day, zone)
+        // Compare the same records before/after projection: fresh templates use
+        // System.currentTimeMillis() for metadata, so rebuilding them is not
+        // a valid deterministic no-mutation assertion.
+        val originalRecords = records.map { it.copy() }
         val next = policy.snapshot(records, emptyList(), now, zone)
         assertEquals("life21-v1-skin-am", next.next?.id)
         assertEquals(10, next.activeReminderCount)
         assertEquals(0, next.confirmedDoneToday)
-        assertEquals(records, V285PersonalLifePlan.templates(day, zone))
+        assertEquals(originalRecords, records)
     }
 
     @Test fun actualPostedPendingTakesPriorityOverLaterDueTime() {
