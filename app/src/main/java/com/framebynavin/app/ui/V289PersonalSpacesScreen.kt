@@ -133,7 +133,10 @@ internal fun V289PersonalSpacesScreen(
         }
     }
 
-    fun backupAction(block: suspend () -> Unit) {
+    fun backupAction(
+        failureMessage: String = "Backup operation failed. Existing Spaces and reminders were not deleted.",
+        block: suspend () -> Unit,
+    ) {
         if (busy) return
         busy = true
         coroutineScope.launch {
@@ -141,7 +144,7 @@ internal fun V289PersonalSpacesScreen(
                 block()
                 error = null
             } catch (_: Exception) {
-                error = "Backup operation failed. Existing Spaces and reminders were not deleted."
+                error = failureMessage
             } finally {
                 busy = false
             }
@@ -150,10 +153,13 @@ internal fun V289PersonalSpacesScreen(
     val saveBackupDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(V289SpacesOwnerBackupFile.MIME_TYPE)
     ) { uri ->
-        if (uri != null) backupAction {
+        if (uri != null) backupAction(
+            failureMessage = "Spaces export could not be verified. A partial file may exist in the chosen location; check or delete that file before retrying. Existing Space notes were unchanged.",
+        ) {
+            backupNotice = null
             val raw = V289SpacesMetadataRecovery(database).prepareLocalMetadataExport()
             V289SpacesOwnerBackupFile.writeToSelectedFile(context, uri, raw)
-            backupNotice = "Saved Spaces metadata. Keep this plaintext file in a safe place."
+            backupNotice = "Saved and verified Spaces metadata against the chosen file. Keep this plaintext file private."
             backupVisible = false
         }
     }
