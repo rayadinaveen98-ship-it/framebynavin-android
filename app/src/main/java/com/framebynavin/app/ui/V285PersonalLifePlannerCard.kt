@@ -65,7 +65,7 @@ internal fun V285PersonalLifePlannerCard(
             else -> today
         }
     ) }
-    var selectedCategories by remember { mutableStateOf(plan.Category.entries.toSet()) }
+    var selectedCategories by remember { mutableStateOf(V285PersonalLifePlan.Category.entries.toSet()) }
     var showingConfirmation by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<String?>(null) }
@@ -153,7 +153,7 @@ internal fun V285PersonalLifePlannerCard(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                plan.Category.entries.forEach { category ->
+                V285PersonalLifePlan.Category.entries.forEach { category ->
                     FilterChip(
                         selected = category in selectedCategories,
                         enabled = enabled && !saving,
@@ -205,7 +205,7 @@ internal fun V285PersonalLifePlannerCard(
                 ) {
                     Text("Add $missing missing recurring Personal Reminders. " +
                         "No current reminders or completed history will be replaced.")
-                    plan.Category.entries.filter { it in selectedCategories }.forEach { category ->
+                    V285PersonalLifePlan.Category.entries.filter { it in selectedCategories }.forEach { category ->
                         Text(category.title + ": " + plan.routines
                             .filter { it.category == category }
                             .joinToString { it.time.toString() + " " + it.title },
