@@ -1,8 +1,8 @@
-name: Backlot V290 - Private Photo Journal Foundation QA
+name: Backlot V290/V291 - Private Photo Journal and EXIF Orientation QA
 
 on:
   push:
-    branches: [feature/backlot-v290-private-photo-journal, feature/backlot-v290-photo-picker-comparison-ui, feature/backlot-v290-photo-crash-recovery]
+    branches: [feature/backlot-v290-private-photo-journal, feature/backlot-v290-photo-picker-comparison-ui, feature/backlot-v290-photo-crash-recovery, feature/backlot-v291-private-photo-orientation]
   workflow_dispatch:
 
 permissions:
