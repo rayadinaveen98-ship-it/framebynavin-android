@@ -125,4 +125,32 @@ class V290InterruptedPhotoRecoveryDeviceTest {
             db.close()
         }
     }
+    @Test fun explicitSpaceDeleteCleansOnlyOurPrivateIncompleteFiles() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val space = newSpace()
+        val folder = File(
+            File(app.filesDir, "backlot-personal-space-photos"), space.id
+        )
+        assertTrue(folder.isDirectory || folder.mkdirs())
+        val photoId = UUID.randomUUID().toString()
+        val incomplete = File(folder, ".$photoId.partial")
+        val unrelated = File(folder, ".user-owned-other-file.partial")
+        incomplete.writeText("interrupted private photo bytes")
+        unrelated.writeText("not a Backlot temporary photo")
+        try {
+            runBlocking {
+                V289SpacesRepository(db.spaces()).createSpace(space)
+                V290InterruptedPhotoRecovery(app, db.spaces())
+                    .removeTemporaryCopiesOnOwnerSpaceDelete(space.id)
+            }
+            assertFalse(incomplete.exists())
+            assertTrue(unrelated.isFile)
+        } finally {
+            incomplete.delete()
+            unrelated.delete()
+            db.close()
+        }
+    }
+
 }
