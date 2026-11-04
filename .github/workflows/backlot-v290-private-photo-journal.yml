@@ -2,7 +2,7 @@ name: Backlot V290 - Private Photo Journal Foundation QA
 
 on:
   push:
-    branches: [feature/backlot-v290-private-photo-journal, feature/backlot-v290-photo-picker-comparison-ui]
+    branches: [feature/backlot-v290-private-photo-journal, feature/backlot-v290-photo-picker-comparison-ui, feature/backlot-v290-photo-crash-recovery]
   workflow_dispatch:
 
 permissions:
