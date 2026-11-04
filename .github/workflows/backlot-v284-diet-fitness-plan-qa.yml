@@ -1,0 +1,74 @@
+name: Backlot V284 - Diet & Fitness Personal Reminder QA
+
+on:
+  push:
+    branches: [feature/backlot-v284-diet-fitness-personal-plan]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v284-personal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-test-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify plan scope, run unit tests and assemble preview-only APK
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          plan = Path('app/src/main/java/com/framebynavin/app/personal/PersonalDietFitnessPlanV1.kt').read_text()
+          assert 'PersonalReminderStore' in plan and 'PersonalDeliveryCoordinator' in plan
+          assert 'mergeMissing' in plan and 'autoRetryEnabled = false' in plan
+          assert 'CreatorTask(' not in plan
+          assert 'chapathi' not in plan.lower() and 'chapati' not in plan.lower()
+          print('PASS: Personal-only reviewed plan and roti preference')
+          PY
+          timeout 58m gradle :app:testDebugUnitTest :app:assemblePersonalStable -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify all V284 tests passed
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          suites=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V284DietFitnessPlanTest.xml'))
+          assert len(suites)==1, 'V284 plan test suite missing'
+          root=ET.parse(suites[0]).getroot()
+          assert int(root.attrib.get('tests',0))>=7, 'Insufficient V284 plan tests'
+          assert int(root.attrib.get('errors',0))==0
+          assert int(root.attrib.get('failures',0))==0
+          print('PASS: V284 weekly recurrence, meal menus, idempotence and settings')
+          PY
+      - name: Verify owner-installable preview identity and archive
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$APK"
+          mkdir -p output
+          cp "$APK" output/Backlot-V284-Diet-Fitness-Owner-Test.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$SDK_ROOT"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > output/SIGNATURE-VERIFICATION.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' output/SIGNATURE-VERIFICATION.txt
+          echo 'PASS: non-Play owner test APK signed with public prototype signer'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V284-Diet-Fitness-Owner-Test
+          path: output/
+          retention-days: 14
+          if-no-files-found: error
