@@ -7,7 +7,7 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
 for entry in \
   "com.framebynavin.app.personal.spaces.V290PrivatePhotoJournalDeviceTest:3" \
-  "com.framebynavin.app.personal.spaces.V290InterruptedPhotoRecoveryDeviceTest:3" \
+  "com.framebynavin.app.personal.spaces.V290InterruptedPhotoRecoveryDeviceTest:4" \
   "com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest:4" \
   "com.framebynavin.app.personal.spaces.V289SpacesMetadataRecoveryDeviceTest:3" \
   "com.framebynavin.app.ui.V289PersonalSpacesUiTest:6"; do
