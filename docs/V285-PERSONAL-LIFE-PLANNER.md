@@ -80,6 +80,9 @@ timestamps are not silently committed as Creator deadlines.
 
 - [x] Separate V285 branch based on V284 successful owner-test source.
 - [x] 21-day local preview with date navigation.
+- [x] Personal agenda scopes: Today (default), Next 7 days, All; pending
+  and missed needs-attention items always visible. Filters never modify data.
+- [x] Optional one-time future-date YouTube focus prompts at 08:50 local time.
 - [x] Ten stable, idempotent recurring routines, selectable by category.
 - [x] Optional one-time 08:50 local focus prompts only for future dates.
 - [x] No automatic installation, overwrite, cloud modification, or Creator writes.
@@ -90,8 +93,8 @@ timestamps are not silently committed as Creator deadlines.
 - [ ] GitHub Actions compile and Android 15 emulator tests **PASS**.
 - [ ] Verify owner APK version 285, SHA-256 and preview signature.
 - [ ] Physical-phone tests with owner, no uninstall/reinstallation or data reset.
-- [ ] Reliability UX next: compact Today view, Day/Week tabs, manual Done/Snooze
-  indicators, permission-health and late/missed reasons.
+- [ ] Reliability UX next: richer Day timeline, explicit delivery-permission health,
+  manual Done/Snooze response indicators and why a reminder was delayed.
 - [ ] Phase next: real 21-day progress log and rescheduling without Creator writes,
   data export/import and cross-device personal history validation.
 - [ ] Final Play readiness: app data handling, policy, signing, privacy and OEM QA.
