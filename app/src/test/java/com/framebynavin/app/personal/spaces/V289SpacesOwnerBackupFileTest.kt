@@ -72,7 +72,7 @@ class V289SpacesOwnerBackupFileTest {
     }
 
     @Test fun readBackVerificationRejectsInvalidChecksumEvenIfCopiesMatch() {
-        val malformed = "{\\\"format\\\":\\\"backlot.personal.spaces\\\",\\\"spaces\\\":[]}"
+        val malformed = """{"format":"backlot.personal.spaces","spaces":[]}"""
         assertTrue(runCatching {
             V289SpacesOwnerBackupFile.verifyWrittenCopy(malformed, malformed)
         }.isFailure)
