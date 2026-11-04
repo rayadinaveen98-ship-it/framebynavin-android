@@ -460,7 +460,7 @@ internal fun V289PersonalSpacesScreen(
             confirmButton = {
                 TextButton(
                     enabled = !busy && selected?.id == spaceId &&
-                        selected.archivedAtMillis == null,
+                        selected?.archivedAtMillis == null,
                     modifier = Modifier.testTag("v290-save-picked-photo"),
                     onClick = {
                         val note = photoNote.trim()
