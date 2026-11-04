@@ -169,4 +169,38 @@ class V289PersonalSpacesUiTest {
         }
     }
 
+    @Test fun newSpacePhotoJournalIsOptInAndWarnsAboutNoCloudBackup() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val originalReminders = runBlocking { PersonalReminderStore(app).load() }
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val mounted = mutableStateOf(true)
+        try {
+            rule.setContent {
+                if (mounted.value) {
+                    FrameByNavinTheme {
+                        V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                    }
+                }
+            }
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-create-open").performClick()
+            rule.onNodeWithTag("v289-create-save").performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v290-photo-journal").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v290-photo-empty").assertExists()
+            rule.onNodeWithTag("v290-pick-photo").assertExists().assertIsEnabled()
+            rule.onNodeWithTag("v290-photo-private-notice").assertExists()
+            val space = runBlocking { db.spaces().loadSpaces().single() }
+            assertTrue(runBlocking { db.spaces().photosForSpace(space.id).isEmpty() })
+            assertEquals(originalReminders, runBlocking { PersonalReminderStore(app).load() })
+        } finally {
+            rule.runOnIdle { mounted.value = false }
+            rule.waitForIdle()
+            db.close()
+        }
+    }
+
 }

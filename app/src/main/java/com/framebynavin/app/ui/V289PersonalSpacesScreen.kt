@@ -3,6 +3,8 @@ package com.framebynavin.app.ui
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -59,10 +61,14 @@ internal fun V289PersonalSpacesScreen(
     }
     val dao = remember(database) { database.spaces() }
     val repository = remember(dao) { V289SpacesRepository(dao) }
+    val photoJournal = remember(context, dao) { V290PhotoJournal(context, dao) }
     val coroutineScope = rememberCoroutineScope()
     var spaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
     var spacesLoaded by remember { mutableStateOf(false) }
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
+    var photos by remember { mutableStateOf(emptyList<V290SpacePhotoEntity>()) }
+    var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
+    var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
     var createVisible by remember { mutableStateOf(false) }
     var backupVisible by remember { mutableStateOf(false) }
@@ -92,6 +98,12 @@ internal fun V289PersonalSpacesScreen(
             error = "Entries could not be loaded. No data was changed."
             emptyList()
         }
+        photos = if (id == null) emptyList() else try {
+            dao.photosForSpace(id)
+        } catch (_: Exception) {
+            error = "Photos could not be loaded. No files were changed."
+            emptyList()
+        }
     }
     fun write(block: suspend () -> Unit) {
         if (busy) return
@@ -101,7 +113,7 @@ internal fun V289PersonalSpacesScreen(
                 block()
                 error = null
             } catch (_: Exception) {
-                error = "Couldn't save that change. Existing Spaces were preserved."
+                error = "Action failed. Review the current Space before trying again."
             } finally {
                 busy = false
             }
@@ -144,10 +156,20 @@ internal fun V289PersonalSpacesScreen(
         }
     }
 
+    val pickPhotoLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        val spaceId = selectedSpaceId
+        if (spaceId != null && uri != null) {
+            pendingPickedPhoto = spaceId to uri
+        }
+    }
+
     val selected = spaces.firstOrNull { it.id == selectedSpaceId }
     BackHandler {
         if (selectedSpaceId != null) {
             entries = emptyList()
+            photos = emptyList()
             selectedSpaceId = null
         } else onClose()
     }
@@ -163,6 +185,7 @@ internal fun V289PersonalSpacesScreen(
                     onClick = {
                         if (selectedSpaceId != null) {
             entries = emptyList()
+            photos = emptyList()
             selectedSpaceId = null
         } else onClose()
                     },
@@ -241,6 +264,7 @@ internal fun V289PersonalSpacesScreen(
                                 onClick = {
                                     // Prevent showing another Space’s journal while loading this one.
                                     entries = emptyList()
+                                    photos = emptyList()
                                     selectedSpaceId = space.id
                                 },
                                 color = BacklotSurface,
@@ -356,6 +380,17 @@ internal fun V289PersonalSpacesScreen(
                             }
                         }
                     }
+                    V290PersonalPhotoSection(
+                        photos = photos,
+                        journal = photoJournal,
+                        enabled = !busy && selected.archivedAtMillis == null,
+                        onAddPhoto = {
+                            pickPhotoLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        onRemovePhoto = { photo -> selectedPhotoForDelete = photo },
+                    )
                     Text("Activity", color = BacklotPrimaryText,
                         fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Text("Only things you explicitly record appear here.",
@@ -394,6 +429,86 @@ internal fun V289PersonalSpacesScreen(
                 }
             }
         }
+    }
+
+    pendingPickedPhoto?.let { (spaceId, photoUri) ->
+        var photoNote by remember(spaceId, photoUri) { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { if (!busy) pendingPickedPhoto = null },
+            title = { Text("Save private photo?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Text(
+                        "A copy will be saved inside Backlot on this device. Original GPS/EXIF metadata is removed. The source photo stays where it is.",
+                        color = BacklotPrimaryText, fontSize = 12.sp,
+                    )
+                    OutlinedTextField(
+                        value = photoNote,
+                        onValueChange = { photoNote = it.take(500) },
+                        modifier = Modifier.fillMaxWidth().testTag("v290-photo-note"),
+                        label = { Text("Add a note (optional)") },
+                        minLines = 2,
+                        maxLines = 4,
+                    )
+                    Text(
+                        "Photos are NOT included in Spaces JSON backups or cloud restore. Reinstalling or clearing app data may remove them.",
+                        color = BacklotAccent, fontSize = 11.sp,
+                        modifier = Modifier.testTag("v290-photo-backup-warning"),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && selected?.id == spaceId &&
+                        selected?.archivedAtMillis == null,
+                    modifier = Modifier.testTag("v290-save-picked-photo"),
+                    onClick = {
+                        val note = photoNote.trim()
+                        write {
+                            photoJournal.addOwnerPickedPhoto(spaceId, photoUri, note)
+                            photos = dao.photosForSpace(spaceId)
+                            pendingPickedPhoto = null
+                        }
+                    },
+                ) { Text("SAVE ON DEVICE") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingPickedPhoto = null }, enabled = !busy) {
+                    Text("CANCEL")
+                }
+            },
+        )
+    }
+
+    selectedPhotoForDelete?.let { photo ->
+        AlertDialog(
+            onDismissRequest = { if (!busy) selectedPhotoForDelete = null },
+            title = { Text("Delete private photo?") },
+            text = {
+                Text("This permanently removes the saved photo from this device's Space journal. It does not delete your original gallery photo.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    modifier = Modifier.testTag("v290-delete-photo-confirm"),
+                    onClick = {
+                        write {
+                            check(photoJournal.removePhoto(photo.id)) { "Photo not found" }
+                            if (selectedSpaceId == photo.spaceId) {
+                                photos = dao.photosForSpace(photo.spaceId)
+                            }
+                            selectedPhotoForDelete = null
+                        }
+                    },
+                ) { Text("DELETE PRIVATE COPY", color = BacklotAccent) }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = { selectedPhotoForDelete = null },
+                ) { Text("CANCEL") }
+            },
+        )
     }
 
     if (backupVisible) {
@@ -531,6 +646,7 @@ internal fun V289PersonalSpacesScreen(
                             repository.createSpace(record)
                             createVisible = false
                             entries = emptyList()
+                            photos = emptyList()
                             selectedSpaceId = record.id
                         }
                     },
@@ -660,11 +776,15 @@ internal fun V289PersonalSpacesScreen(
             onDismissRequest = { if (!busy) deleteVisible = false },
             title = { Text("Delete this Space?") },
             text = {
-                Text("This removes its local notes and progress entries. Linked Personal reminders are never deleted.")
+                Text(
+                    if (photos.isEmpty())
+                        "This removes local notes and progress. Linked Personal reminders are never deleted."
+                    else "Remove every private photo in this Space first. Space deletion is blocked while photos remain."
+                )
             },
             confirmButton = {
                 TextButton(
-                    enabled = !busy,
+                    enabled = !busy && photos.isEmpty(),
                     onClick = {
                         val id = selected.id
                         write {
