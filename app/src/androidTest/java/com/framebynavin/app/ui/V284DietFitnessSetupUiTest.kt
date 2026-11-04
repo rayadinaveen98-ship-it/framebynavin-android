@@ -46,5 +46,6 @@ class V284DietFitnessSetupUiTest {
         }
         rule.onNodeWithTag("v284-plan-progress").assertExists()
         rule.onNodeWithTag("v284-preview-plan").assertDoesNotExist()
+        rule.onNodeWithTag("v284-retry-delivery").assertExists()
     }
 }
