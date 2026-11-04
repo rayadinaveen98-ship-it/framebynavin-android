@@ -115,7 +115,7 @@ jobs:
             set -euo pipefail
             adb install -r output/app-debug.apk
             adb install -r output/app-debug-androidTest.apk
-            for classname in com.framebynavin.app.ui.V285PersonalLifePlannerUiTest com.framebynavin.app.ui.V284DietFitnessSetupUiTest com.framebynavin.app.personal.V284DietFitnessPlanDeviceTest; do
+            for classname in com.framebynavin.app.ui.V285PersonalLifePlannerUiTest com.framebynavin.app.personal.V285PersonalLifeNotificationsDeviceTest com.framebynavin.app.ui.V284DietFitnessSetupUiTest com.framebynavin.app.personal.V284DietFitnessPlanDeviceTest; do
               adb shell pm clear com.framebynavin.app
               adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class "$classname" com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v285-suite.log
               grep -F 'OK (2 tests)' /tmp/backlot-v285-suite.log
