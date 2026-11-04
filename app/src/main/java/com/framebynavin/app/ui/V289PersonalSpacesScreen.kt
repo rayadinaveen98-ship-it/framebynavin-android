@@ -43,10 +43,17 @@ import kotlinx.coroutines.launch
  * Creator writes or automatic Done receipts are possible from this screen.
  */
 @Composable
-internal fun V289PersonalSpacesScreen(onClose: () -> Unit) {
+internal fun V289PersonalSpacesScreen(
+    onClose: () -> Unit,
+    databaseForTesting: V289SpacesDatabase? = null,
+) {
     val context = LocalContext.current.applicationContext
-    val database = remember(context) { V289SpacesDatabase.open(context) }
-    DisposableEffect(database) { onDispose { database.close() } }
+    val database = remember(context, databaseForTesting) {
+        databaseForTesting ?: V289SpacesDatabase.open(context)
+    }
+    DisposableEffect(database, databaseForTesting) {
+        onDispose { if (databaseForTesting == null) database.close() }
+    }
     val dao = remember(database) { database.spaces() }
     val repository = remember(dao) { V289SpacesRepository(dao) }
     val coroutineScope = rememberCoroutineScope()
