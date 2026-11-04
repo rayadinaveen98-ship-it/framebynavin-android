@@ -1,0 +1,83 @@
+name: Backlot V290 - Private Photo Journal Foundation QA
+
+on:
+  push:
+    branches: [feature/backlot-v290-private-photo-journal]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v290-private-photos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  photo-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify private-first photo migration and backup isolation
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          db=Path('app/src/main/java/com/framebynavin/app/personal/spaces/V289SpacesDatabase.kt').read_text()
+          photos=Path('app/src/main/java/com/framebynavin/app/personal/spaces/V290PrivatePhotoFiles.kt').read_text()
+          timeline=Path('app/src/main/java/com/framebynavin/app/personal/spaces/V290SpacePhotos.kt').read_text()
+          backup=Path('app/src/main/java/com/framebynavin/app/personal/spaces/V289SpacesMetadataCodec.kt').read_text()
+          assert 'version = 2' in db and 'V290SpacePhotoEntity::class' in db
+          assert '.addMigrations(V290SpacePhotosMigration.MIGRATION_1_2)' in db
+          assert 'fallbackToDestructiveMigration' not in db
+          assert 'FOREIGN KEY(' in timeline and 'CREATE TABLE IF NOT EXISTS' in timeline
+          assert 'BitmapFactory.decodeByteArray' in photos
+          assert 'Bitmap.CompressFormat.JPEG' in photos
+          assert 'context.filesDir' in photos
+          assert 'https://' not in photos and 'Firebase' not in photos
+          assert 'V290SpacePhotoEntity' not in backup
+          print('PASS: private files, explicit migration, no photo export/cloud dependency')
+          PY
+      - name: Compile Room v2, JVM tests and Android test APKs
+        run: |
+          timeout 75m gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require six V290 calendar-date and metadata safety tests green
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          reports=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V290PhotoTimelinePolicyTest.xml'))
+          assert len(reports)==1, f'Expected one V290 test report, got {len(reports)}'
+          root=ET.parse(reports[0]).getroot()
+          assert int(root.attrib.get('tests','0'))>=6
+          assert int(root.attrib.get('failures','0'))==0
+          assert int(root.attrib.get('errors','0'))==0
+          print('PASS: all V290 photo calendar-day and safety tests')
+          PY
+      - name: Enable Android 15 emulator acceleration where available
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          if test -r /dev/kvm && test -w /dev/kvm; then
+            echo 'KVM usable'
+          else
+            echo 'KVM unavailable, testing with software emulator fallback'
+          fi
+      - name: Android 15 V290 migration and old Spaces regression suite
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v290-photo-instrumentation.sh
