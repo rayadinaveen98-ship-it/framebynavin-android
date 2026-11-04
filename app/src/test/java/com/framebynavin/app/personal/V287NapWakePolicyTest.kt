@@ -14,16 +14,16 @@ class V287NapWakePolicyTest {
     private val today = LocalDate.of(2026, 11, 5)
 
     @Test fun selectedDurationsYieldOneThreeOrFourPmAndNoOvernightDrift() {
-        assertEquals(LocalTime.of(15, 0), p.endTime(p.Duration.ONE_HOUR))
-        assertEquals(LocalTime.of(15, 30), p.endTime(p.Duration.NINETY_MINUTES))
-        assertEquals(LocalTime.of(16, 0), p.endTime(p.Duration.TWO_HOURS))
-        assertEquals(3, p.Duration.entries.size)
+        assertEquals(LocalTime.of(15, 0), p.endTime(V287NapWakePolicy.Duration.ONE_HOUR))
+        assertEquals(LocalTime.of(15, 30), p.endTime(V287NapWakePolicy.Duration.NINETY_MINUTES))
+        assertEquals(LocalTime.of(16, 0), p.endTime(V287NapWakePolicy.Duration.TWO_HOURS))
+        assertEquals(3, V287NapWakePolicy.Duration.entries.size)
     }
 
     @Test fun longerNapsWarnAboutProductionOverlap() {
-        assertFalse(p.overlapsEditing(p.Duration.ONE_HOUR))
-        assertTrue(p.overlapsEditing(p.Duration.NINETY_MINUTES))
-        assertTrue(p.overlapsEditing(p.Duration.TWO_HOURS))
+        assertFalse(p.overlapsEditing(V287NapWakePolicy.Duration.ONE_HOUR))
+        assertTrue(p.overlapsEditing(V287NapWakePolicy.Duration.NINETY_MINUTES))
+        assertTrue(p.overlapsEditing(V287NapWakePolicy.Duration.TWO_HOURS))
     }
 
     @Test fun installBeforeTwoPmCanIncludeToday() {
@@ -39,8 +39,8 @@ class V287NapWakePolicyTest {
     }
 
     @Test fun napEndHasStableIdAndExplicitAlarmSettings() {
-        val one = p.template(p.Duration.ONE_HOUR, today, zone)
-        val two = p.template(p.Duration.TWO_HOURS, today, zone)
+        val one = p.template(V287NapWakePolicy.Duration.ONE_HOUR, today, zone)
+        val two = p.template(V287NapWakePolicy.Duration.TWO_HOURS, today, zone)
         assertEquals(p.ID, one.id)
         assertEquals(one.id, two.id)
         assertEquals(LocalTime.of(15, 0), one.time)
@@ -58,6 +58,6 @@ class V287NapWakePolicyTest {
     @Test fun napEndIsSeparateFromExistingNapStartAndDietSchedule() {
         assertFalse(p.ID == "life21-v1-nap")
         assertFalse(p.ID.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX))
-        assertTrue(p.template(p.Duration.ONE_HOUR, today, zone).checked().id == p.ID)
+        assertTrue(p.template(V287NapWakePolicy.Duration.ONE_HOUR, today, zone).checked().id == p.ID)
     }
 }
