@@ -167,7 +167,16 @@ tasks.matching {
     dependsOn(verifyPrivateReleaseSigning)
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
+    // V289: isolated local-only Personal Spaces SQLite persistence, no migration of reminders.
+    implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.room:room-ktx:2.8.5")
+    ksp("androidx.room:room-compiler:2.8.5")
+    androidTestImplementation("androidx.room:room-testing:2.8.5")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
