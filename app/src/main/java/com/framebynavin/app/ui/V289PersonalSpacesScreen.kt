@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -226,7 +225,7 @@ internal fun V289PersonalSpacesScreen(onClose: () -> Unit) {
                             onClick = {
                                 val id = selected.id
                                 if (selected.archivedAtMillis == null) write {
-                                    val current = dao.getSpace(id) ?: error("Space missing")
+                                    val current = checkNotNull(dao.getSpace(id)) { "Space missing" }
                                     val domain = V289SpaceType.valueOf(current.type)
                                     repository.archiveSpace(
                                         V289PersonalSpace(
