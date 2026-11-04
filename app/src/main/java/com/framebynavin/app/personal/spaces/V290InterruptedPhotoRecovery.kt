@@ -125,6 +125,30 @@ internal class V290InterruptedPhotoRecovery(
             photo
         }
 
+    /**
+     * The owner confirmed DELETE SPACE. Remove only the exact private temporary
+     * .UUID.partial files that our own atomic JPEG writer can produce. These
+     * incomplete bytes are never recoverable as journal entries, and unknown
+     * files (including non-matching names) are left untouched.
+     */
+    suspend fun removeTemporaryCopiesOnOwnerSpaceDelete(spaceId: String) =
+        withContext(Dispatchers.IO) {
+            val folder = checkedFolder(spaceId)
+            if (!folder.isDirectory) return@withContext
+            val pendingName = Regex(
+                "\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.partial"
+            )
+            folder.listFiles().orEmpty().forEach { file ->
+                if (file.isFile && pendingName.matches(file.name) &&
+                    file.canonicalPath == File(folder.canonicalPath, file.name).path
+                ) {
+                    check(file.delete()) {
+                        "Unable to clean an incomplete private photo copy"
+                    }
+                }
+            }
+        }
+
     /** Only called after the owner separately confirms permanent discard. */
     suspend fun discard(item: V290InterruptedPhoto): Boolean =
         withContext(Dispatchers.IO) {
