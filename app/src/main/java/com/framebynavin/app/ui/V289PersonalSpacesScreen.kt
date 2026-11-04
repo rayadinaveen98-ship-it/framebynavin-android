@@ -3,6 +3,8 @@ package com.framebynavin.app.ui
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -59,10 +61,14 @@ internal fun V289PersonalSpacesScreen(
     }
     val dao = remember(database) { database.spaces() }
     val repository = remember(dao) { V289SpacesRepository(dao) }
+    val photoJournal = remember(context, dao) { V290PhotoJournal(context, dao) }
     val coroutineScope = rememberCoroutineScope()
     var spaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
     var spacesLoaded by remember { mutableStateOf(false) }
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
+    var photos by remember { mutableStateOf(emptyList<V290SpacePhotoEntity>()) }
+    var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
+    var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
     var createVisible by remember { mutableStateOf(false) }
     var backupVisible by remember { mutableStateOf(false) }
@@ -90,6 +96,12 @@ internal fun V289PersonalSpacesScreen(
             dao.entriesForSpace(id)
         } catch (_: Exception) {
             error = "Entries could not be loaded. No data was changed."
+            emptyList()
+        }
+        photos = if (id == null) emptyList() else try {
+            dao.photosForSpace(id)
+        } catch (_: Exception) {
+            error = "Photos could not be loaded. No files were changed."
             emptyList()
         }
     }
@@ -144,10 +156,20 @@ internal fun V289PersonalSpacesScreen(
         }
     }
 
+    val pickPhotoLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        val spaceId = selectedSpaceId
+        if (spaceId != null && uri != null) {
+            pendingPickedPhoto = spaceId to uri
+        }
+    }
+
     val selected = spaces.firstOrNull { it.id == selectedSpaceId }
     BackHandler {
         if (selectedSpaceId != null) {
             entries = emptyList()
+            photos = emptyList()
             selectedSpaceId = null
         } else onClose()
     }
@@ -163,6 +185,7 @@ internal fun V289PersonalSpacesScreen(
                     onClick = {
                         if (selectedSpaceId != null) {
             entries = emptyList()
+            photos = emptyList()
             selectedSpaceId = null
         } else onClose()
                     },
@@ -241,6 +264,7 @@ internal fun V289PersonalSpacesScreen(
                                 onClick = {
                                     // Prevent showing another Space’s journal while loading this one.
                                     entries = emptyList()
+                                    photos = emptyList()
                                     selectedSpaceId = space.id
                                 },
                                 color = BacklotSurface,
@@ -356,6 +380,17 @@ internal fun V289PersonalSpacesScreen(
                             }
                         }
                     }
+                    V290PersonalPhotoSection(
+                        photos = photos,
+                        journal = photoJournal,
+                        enabled = !busy && selected.archivedAtMillis == null,
+                        onAddPhoto = {
+                            pickPhotoLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        onRemovePhoto = { photo -> selectedPhotoForDelete = photo },
+                    )
                     Text("Activity", color = BacklotPrimaryText,
                         fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Text("Only things you explicitly record appear here.",
@@ -531,6 +566,7 @@ internal fun V289PersonalSpacesScreen(
                             repository.createSpace(record)
                             createVisible = false
                             entries = emptyList()
+                            photos = emptyList()
                             selectedSpaceId = record.id
                         }
                     },
@@ -660,11 +696,15 @@ internal fun V289PersonalSpacesScreen(
             onDismissRequest = { if (!busy) deleteVisible = false },
             title = { Text("Delete this Space?") },
             text = {
-                Text("This removes its local notes and progress entries. Linked Personal reminders are never deleted.")
+                Text(
+                    if (photos.isEmpty())
+                        "This removes local notes and progress. Linked Personal reminders are never deleted."
+                    else "Remove every private photo in this Space first. Space deletion is blocked while photos remain."
+                )
             },
             confirmButton = {
                 TextButton(
-                    enabled = !busy,
+                    enabled = !busy && photos.isEmpty(),
                     onClick = {
                         val id = selected.id
                         write {
