@@ -185,6 +185,19 @@ internal fun V2232PersonalReminderHub(
                 Text(if (personalPageName == "TODAY") "My day" else "Personal settings",
                     color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Bold)
             }
+            if (personalPageName == "TODAY") {
+                IconButton(
+                    onClick = { spacesOpen = true },
+                    enabled = loaded && loadError == null,
+                    modifier = Modifier.testTag("v289-open-spaces"),
+                ) {
+                    Icon(
+                        Icons.Outlined.AutoAwesome,
+                        contentDescription = "Personal Spaces",
+                        tint = MutedGold,
+                    )
+                }
+            }
             IconButton(
                 onClick = { personalPageName = if (personalPageName == "TODAY") "SETTINGS" else "TODAY" },
                 modifier = Modifier.testTag("v288-personal-toggle-settings"),
@@ -363,26 +376,6 @@ internal fun V2232PersonalReminderHub(
                             }
                         },
                     )
-                    Surface(
-                        onClick = { spacesOpen = true },
-                        color = CinemaSurface,
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, CinemaLine),
-                        modifier = Modifier.fillMaxWidth().testTag("v289-open-spaces"),
-                    ) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.AutoAwesome, null, tint = MutedGold,
-                                modifier = Modifier.size(21.dp))
-                            Spacer(Modifier.width(11.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("Your Spaces", color = ProjectorIvory,
-                                    fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Text("Skincare, fitness, reading and more",
-                                    color = MutedText, fontSize = 11.sp)
-                            }
-                            Icon(Icons.Outlined.ChevronRight, "Open Personal Spaces", tint = MutedGold)
-                        }
-                    }
                     if (!completionHistoryReady) {
                         Text("Progress history unavailable; no completions were inferred.",
                             color = MutedText, fontSize = 10.sp)

@@ -62,6 +62,7 @@ internal fun V289PersonalSpacesScreen(
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
     var createVisible by remember { mutableStateOf(false) }
+    var editVisible by remember { mutableStateOf(false) }
     var deleteVisible by remember { mutableStateOf(false) }
     var activityVisible by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -235,6 +236,16 @@ internal fun V289PersonalSpacesScreen(
                             Text(selected.goalText.ifBlank { "One step at a time." },
                                 color = BacklotSecondaryText, fontSize = 13.sp)
                         }
+                        if (selected.archivedAtMillis == null) {
+                            IconButton(
+                                onClick = { editVisible = true },
+                                enabled = !busy,
+                                modifier = Modifier.testTag("v289-edit-open"),
+                            ) {
+                                Icon(Icons.Outlined.Edit, "Edit Space details",
+                                    tint = BacklotSecondaryAccent)
+                            }
+                        }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         Button(
@@ -388,6 +399,68 @@ internal fun V289PersonalSpacesScreen(
             },
             dismissButton = {
                 TextButton(enabled = !busy, onClick = { createVisible = false }) {
+                    Text("CANCEL")
+                }
+            },
+        )
+    }
+
+    if (editVisible && selected != null && selected.archivedAtMillis == null) {
+        // Reinitialize from the selected record when changing Spaces.
+        var editName by remember(selected.id) { mutableStateOf(selected.title) }
+        var editGoal by remember(selected.id) { mutableStateOf(selected.goalText) }
+        AlertDialog(
+            onDismissRequest = { if (!busy) editVisible = false },
+            title = { Text("Edit Space") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = { editName = it.take(80) },
+                        label = { Text("Name") },
+                        modifier = Modifier.fillMaxWidth().testTag("v289-edit-title"),
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = editGoal,
+                        onValueChange = { editGoal = it.take(500) },
+                        label = { Text("Goal (optional)") },
+                        modifier = Modifier.fillMaxWidth().testTag("v289-edit-goal"),
+                        minLines = 2,
+                        maxLines = 3,
+                    )
+                    Text("Changing this Space never edits your linked reminders.",
+                        color = BacklotSecondaryText, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && editName.trim().isNotEmpty(),
+                    modifier = Modifier.testTag("v289-edit-save"),
+                    onClick = {
+                        val original = V289PersonalSpace(
+                            id = selected.id,
+                            title = selected.title,
+                            type = V289SpaceType.valueOf(selected.type),
+                            iconKey = selected.iconKey,
+                            goalText = selected.goalText,
+                            createdAtMillis = selected.createdAtMillis,
+                            archivedAtMillis = selected.archivedAtMillis,
+                            displayOrder = selected.displayOrder,
+                        )
+                        val title = editName.trim()
+                        val goal = editGoal.trim()
+                        write {
+                            check(repository.editSpace(
+                                original, title, goal, original.iconKey
+                            )) { "The Space was not found" }
+                            editVisible = false
+                        }
+                    },
+                ) { Text("SAVE") }
+            },
+            dismissButton = {
+                TextButton(enabled = !busy, onClick = { editVisible = false }) {
                     Text("CANCEL")
                 }
             },

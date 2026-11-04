@@ -2,7 +2,7 @@ name: Backlot V289 - Personal Spaces Domain Safety
 
 on:
   push:
-    branches: [feature/backlot-v289-personal-spaces-data-contract, feature/backlot-v289-personal-spaces-ui]
+    branches: [feature/backlot-v289-personal-spaces-data-contract, feature/backlot-v289-personal-spaces-ui, feature/backlot-v289-compact-spaces-nav]
   workflow_dispatch:
 
 permissions:
@@ -84,7 +84,7 @@ jobs:
             fi
             adb logcat -c || true
             adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.ui.V289PersonalSpacesUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v289-spaces-ui.log
-            if ! grep -F 'OK (2 tests)' /tmp/backlot-v289-spaces-ui.log || grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v289-spaces-ui.log; then
+            if ! grep -F 'OK (3 tests)' /tmp/backlot-v289-spaces-ui.log || grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v289-spaces-ui.log; then
               echo 'Spaces UI instrumentation failed: AndroidRuntime/crash log follows'
               adb logcat -d -v threadtime | grep -E -A 25 'FATAL EXCEPTION|AndroidRuntime|Process: com.framebynavin.app|SQLiteException|INSTRUMENTATION_FAILED' | tail -180 || true
               exit 1
