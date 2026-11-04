@@ -113,7 +113,7 @@ internal fun V289PersonalSpacesScreen(
                 block()
                 error = null
             } catch (_: Exception) {
-                error = "Couldn't save that change. Existing Spaces were preserved."
+                error = "Action failed. Review the current Space before trying again."
             } finally {
                 busy = false
             }
@@ -429,6 +429,86 @@ internal fun V289PersonalSpacesScreen(
                 }
             }
         }
+    }
+
+    pendingPickedPhoto?.let { (spaceId, photoUri) ->
+        var photoNote by remember(spaceId, photoUri) { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { if (!busy) pendingPickedPhoto = null },
+            title = { Text("Save private photo?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Text(
+                        "A copy will be saved inside Backlot on this device. Original GPS/EXIF metadata is removed. The source photo stays where it is.",
+                        color = BacklotPrimaryText, fontSize = 12.sp,
+                    )
+                    OutlinedTextField(
+                        value = photoNote,
+                        onValueChange = { photoNote = it.take(500) },
+                        modifier = Modifier.fillMaxWidth().testTag("v290-photo-note"),
+                        label = { Text("Add a note (optional)") },
+                        minLines = 2,
+                        maxLines = 4,
+                    )
+                    Text(
+                        "Photos are NOT included in Spaces JSON backups or cloud restore. Reinstalling or clearing app data may remove them.",
+                        color = BacklotAccent, fontSize = 11.sp,
+                        modifier = Modifier.testTag("v290-photo-backup-warning"),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && selected?.id == spaceId &&
+                        selected.archivedAtMillis == null,
+                    modifier = Modifier.testTag("v290-save-picked-photo"),
+                    onClick = {
+                        val note = photoNote.trim()
+                        write {
+                            photoJournal.addOwnerPickedPhoto(spaceId, photoUri, note)
+                            photos = dao.photosForSpace(spaceId)
+                            pendingPickedPhoto = null
+                        }
+                    },
+                ) { Text("SAVE ON DEVICE") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingPickedPhoto = null }, enabled = !busy) {
+                    Text("CANCEL")
+                }
+            },
+        )
+    }
+
+    selectedPhotoForDelete?.let { photo ->
+        AlertDialog(
+            onDismissRequest = { if (!busy) selectedPhotoForDelete = null },
+            title = { Text("Delete private photo?") },
+            text = {
+                Text("This permanently removes the saved photo from this device's Space journal. It does not delete your original gallery photo.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    modifier = Modifier.testTag("v290-delete-photo-confirm"),
+                    onClick = {
+                        write {
+                            check(photoJournal.removePhoto(photo.id)) { "Photo not found" }
+                            if (selectedSpaceId == photo.spaceId) {
+                                photos = dao.photosForSpace(photo.spaceId)
+                            }
+                            selectedPhotoForDelete = null
+                        }
+                    },
+                ) { Text("DELETE PRIVATE COPY", color = BacklotAccent) }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = { selectedPhotoForDelete = null },
+                ) { Text("CANCEL") }
+            },
+        )
     }
 
     if (backupVisible) {
