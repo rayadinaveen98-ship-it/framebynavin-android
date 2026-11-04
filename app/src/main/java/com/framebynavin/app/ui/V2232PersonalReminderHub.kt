@@ -335,6 +335,7 @@ internal fun V2232PersonalReminderHub(
                         snapshot = summary,
                         nowMillis = agendaNowMillis,
                         busy = busy,
+                        historyReady = completionHistoryReady,
                         onRespond = { item, action ->
                             perform {
                                 val result = coordinator.apply(
