@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -66,13 +68,16 @@ internal fun V285PersonalLifePlannerCard(
         }
     ) }
     var selectedCategories by remember { mutableStateOf(V285PersonalLifePlan.Category.entries.toSet()) }
+    var includingDailyFocus by remember { mutableStateOf(false) }
     var showingConfirmation by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<String?>(null) }
     val existingIds = remember(reminders) { reminders.mapTo(HashSet()) { it.id } }
-    val desired = remember(selectedCategories) {
+    val routineTemplates = remember(selectedCategories) {
         plan.templates(plan.firstDay, java.time.ZoneId.systemDefault(), selectedCategories)
     }
+    val availableFocus = plan.focusTemplates(System.currentTimeMillis(), java.time.ZoneId.systemDefault())
+    val desired = routineTemplates + if (includingDailyFocus) availableFocus else emptyList()
     val missing = desired.count { it.id !in existingIds }
     val installed = plan.routines.count { it.id in existingIds }
     val day = plan.focusOn(selectedDay) ?: plan.days.first()
@@ -169,17 +174,36 @@ internal fun V285PersonalLifePlannerCard(
                     )
                 }
             }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("One daily filming priority at 8:50 AM", color = ProjectorIvory,
+                        fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    Text("Optional · future dates only · one quiet notification/day",
+                        color = MutedText, fontSize = 10.sp)
+                }
+                Switch(
+                    checked = includingDailyFocus,
+                    enabled = enabled && !saving && availableFocus.isNotEmpty(),
+                    onCheckedChange = { includingDailyFocus = it },
+                    modifier = Modifier.testTag("v285-daily-focus-toggle"),
+                )
+            }
             Text("$installed of " + plan.routines.size +
-                " possible routine reminders saved · selected: " + desired.size,
+                " routine reminders saved · selected notifications: " + desired.size,
                 color = MutedText, fontSize = 11.sp,
                 modifier = Modifier.testTag("v285-install-count"))
             if (missing > 0) {
                 Button(
                     onClick = { showingConfirmation = true },
-                    enabled = enabled && !saving && selectedCategories.isNotEmpty(),
+                    enabled = enabled && !saving &&
+                        (selectedCategories.isNotEmpty() || includingDailyFocus),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     modifier = Modifier.fillMaxWidth().testTag("v285-install-routines"),
-                ) { Text("REVIEW & ADD $missing ROUTINE REMINDERS") }
+                ) { Text("REVIEW & ADD $missing REMINDERS") }
             } else {
                 Text(
                     "Your selected routines are saved. Edit, pause or delete individual " +
@@ -203,8 +227,9 @@ internal fun V285PersonalLifePlannerCard(
                     Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(9.dp),
                 ) {
-                    Text("Add $missing missing recurring Personal Reminders. " +
-                        "No current reminders or completed history will be replaced.")
+                    Text("Add $missing missing Personal Reminders. All selected routines recur " +
+                        "and optional daily focus prompts happen only once on their planned dates. " +
+                        "No current reminders or completion history will be replaced.")
                     V285PersonalLifePlan.Category.entries.filter { it in selectedCategories }.forEach { category ->
                         Text(category.title + ": " + plan.routines
                             .filter { it.category == category }
@@ -214,8 +239,9 @@ internal fun V285PersonalLifePlannerCard(
                     Text("All new reminders are gentle notifications with manual snooze; " +
                         "no surprise full-screen alerts or repeated voice loops. " +
                         "You can customize each later.")
-                    Text("The 21-day YouTube milestones are a view-only plan. " +
-                        "This action does not modify Creator projects or YouTube publishing.")
+                    Text("The 21-day YouTube goals are shown as a planning board. " +
+                        "An optional 8:50 AM prompt is a private reminder, not a Creator " +
+                        "project, publication event or automatic YouTube action.")
                     if (plan.hasReadingConflict(reminders)) {
                         Text("10:15 PM wind-down conflicts with 10 PM reading. " +
                             "Edit the existing wind-down time separately.")
@@ -229,7 +255,7 @@ internal fun V285PersonalLifePlannerCard(
                         saving = true
                         scope.launch {
                             try {
-                                val result = plan.install(context, selectedCategories)
+                                val result = plan.install(context, selectedCategories, includingDailyFocus)
                                 feedback = if (result.schedulingAccepted) {
                                     "${result.added} reminder records saved. Android delivery was " +
                                         "rechecked; verify notification and alarm permissions."
