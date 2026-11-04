@@ -12,6 +12,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -80,6 +81,8 @@ internal fun V2232PersonalReminderHub(
     // Reduce alarm-list fatigue: show the day first, but never hide action-needed items.
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
+    // Page switches reset their viewport; the two layouts must never share a scroll offset.
+    val personalPageScroll = remember(personalPageName) { ScrollState(0) }
     var completionEvents by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
     var completionHistoryReady by remember { mutableStateOf(false) }
     LaunchedEffect(store) {
@@ -164,8 +167,14 @@ internal fun V2232PersonalReminderHub(
             modifier = Modifier.fillMaxWidth().padding(start = 11.dp, end = 15.dp, top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = "Close reminders", tint = ProjectorIvory)
+            IconButton(onClick = {
+                if (personalPageName == "SETTINGS") personalPageName = "TODAY"
+                else onClose()
+            }) {
+                Icon(Icons.Outlined.ArrowBack,
+                    contentDescription = if (personalPageName == "SETTINGS")
+                        "Back to personal Today" else "Close reminders",
+                    tint = ProjectorIvory)
             }
             Column(Modifier.weight(1f)) {
                 Text("BACKLOT / PERSONAL", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
@@ -216,7 +225,7 @@ internal fun V2232PersonalReminderHub(
                 color = MutedText, fontSize = 10.sp)
         }
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxSize().verticalScroll(personalPageScroll)
                 .padding(horizontal = 18.dp, vertical = 10.dp)
                 .padding(bottom = 56.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
