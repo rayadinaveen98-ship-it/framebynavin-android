@@ -30,6 +30,10 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          app_build = Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 284' in app_build
+          assert 'versionName = "2.18.0-rc1-diet-fitness-owner-test"' in app_build
+          assert 'applicationId = "com.framebynavin.app"' in app_build
           plan = Path('app/src/main/java/com/framebynavin/app/personal/PersonalDietFitnessPlanV1.kt').read_text()
           assert 'PersonalReminderStore' in plan and 'PersonalDeliveryCoordinator' in plan
           assert 'mergeMissing' in plan and 'autoRetryEnabled = false' in plan
