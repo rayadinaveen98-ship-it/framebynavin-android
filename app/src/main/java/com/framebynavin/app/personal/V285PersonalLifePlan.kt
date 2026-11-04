@@ -142,6 +142,28 @@ internal object V285PersonalLifePlan {
             ).checked()
         }
 
+    /**
+     * One optional reminder for each *future* planned day (8:50 AM local time).
+     * A late install never generates stale, backdated alarms; IDs remain stable.
+     */
+    fun focusTemplates(nowMillis: Long, zone: ZoneId): List<PersonalReminder> =
+        days.filter { day ->
+            day.date.atTime(8, 50).atZone(zone).toInstant().toEpochMilli() > nowMillis
+        }.map { day ->
+            PersonalReminder(
+                id = ID_PREFIX + "focus-" + day.date.toString(),
+                title = "Today's filmmaking focus",
+                notes = day.primary + " " + day.secondary,
+                startDate = day.date,
+                time = LocalTime.of(8, 50),
+                zoneId = zone,
+                repeat = PersonalRepeat.ONCE,
+                alert = PersonalAlert.NOTIFICATION,
+                snoozeMinutes = 10,
+                autoRetryEnabled = false,
+            ).checked()
+        }
+
     fun mergeMissing(existing: List<PersonalReminder>, additions: List<PersonalReminder>): List<PersonalReminder> {
         val ids = existing.mapTo(HashSet()) { it.id }
         return existing + additions.filter { it.id !in ids }
@@ -154,11 +176,19 @@ internal object V285PersonalLifePlan {
     )
 
     /** One atomic Personal-only save, followed by independently reported delivery reconciliation. */
-    suspend fun install(context: Context, categories: Set<Category>): InstallResult {
-        require(categories.isNotEmpty()) { "Choose at least one routine group." }
+    suspend fun install(
+        context: Context,
+        categories: Set<Category>,
+        includeDailyFocus: Boolean = false,
+    ): InstallResult {
+        require(categories.isNotEmpty() || includeDailyFocus) {
+            "Choose at least one routine or daily focus reminder."
+        }
         val app = context.applicationContext
         val zone = ZoneId.systemDefault()
-        val desired = templates(LocalDate.now(zone), zone, categories)
+        val now = System.currentTimeMillis()
+        val desired = templates(LocalDate.now(zone), zone, categories) +
+            if (includeDailyFocus) focusTemplates(now, zone) else emptyList()
         var added = 0
         PersonalReminderStore(app).mutate { current ->
             val updated = mergeMissing(current, desired)
