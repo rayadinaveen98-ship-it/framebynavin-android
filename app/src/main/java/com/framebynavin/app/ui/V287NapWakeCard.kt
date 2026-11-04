@@ -50,9 +50,9 @@ internal fun V287NapWakeCard(
     val scope = rememberCoroutineScope()
     val nap = V287NapWakePolicy
     val existing = reminders.firstOrNull { it.id == nap.ID }
-    var selected by remember {
+    var selected by remember(existing?.time) {
         mutableStateOf(
-            nap.Duration.entries.firstOrNull { nap.endTime(it) == existing?.time }
+            V287NapWakePolicy.Duration.entries.firstOrNull { nap.endTime(it) == existing?.time }
                 ?: nap.Duration.ONE_HOUR
         )
     }
@@ -80,7 +80,7 @@ internal fun V287NapWakeCard(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                nap.Duration.entries.forEach { option ->
+                V287NapWakePolicy.Duration.entries.forEach { option ->
                     FilterChip(
                         selected = selected == option,
                         onClick = { selected = option },
