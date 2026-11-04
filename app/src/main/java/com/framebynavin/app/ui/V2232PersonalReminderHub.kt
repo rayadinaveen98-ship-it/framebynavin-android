@@ -167,10 +167,13 @@ internal fun V2232PersonalReminderHub(
             modifier = Modifier.fillMaxWidth().padding(start = 11.dp, end = 15.dp, top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = {
-                if (personalPageName == "SETTINGS") personalPageName = "TODAY"
-                else onClose()
-            }) {
+            IconButton(
+                onClick = {
+                    if (personalPageName == "SETTINGS") personalPageName = "TODAY"
+                    else onClose()
+                },
+                modifier = Modifier.testTag("v288-personal-toolbar-back"),
+            ) {
                 Icon(Icons.Outlined.ArrowBack,
                     contentDescription = if (personalPageName == "SETTINGS")
                         "Back to personal Today" else "Close reminders",
