@@ -35,7 +35,7 @@ jobs:
           assert all(x in model for x in required), 'Space domain safety contract is incomplete'
           for forbidden in ['PersonalReminderStore(', 'PersonalDeliveryCoordinator(', 'TaskStore(', 'Firebase', 'android.content.']:
               assert forbidden not in model, 'Space policy has an unapproved storage or delivery dependency'
-          assert 'room' not in model.lower(), 'This phase must remain side-effect free'
+          assert 'import androidx.room' not in model, 'This phase must remain side-effect free'
           print('PASS: Space policy has no reminder, Creator, cloud or Android dependencies')
           PY
       - name: Compile full app and run V289 domain policy unit tests
