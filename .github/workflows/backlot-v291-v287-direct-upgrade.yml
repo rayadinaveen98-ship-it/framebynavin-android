@@ -1,0 +1,90 @@
+name: Backlot V291 - Direct Signed V287 In-Place Owner Data Preservation
+
+on:
+  push:
+    branches: [feature/backlot-v291-direct-v287-upgrade-preservation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v291-v287-upgrade-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  direct-owner-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 130
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile V291 signed owner APK and matching personalStable test ABI
+        run: |
+          set -euo pipefail
+          timeout 80m gradle :app:assemblePersonalStable :app:assemblePersonalStableAndroidTest \
+            -PbacklotSignedOwnerTest=true -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          mkdir -p output/v291
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/v291/Backlot-V291-Direct-Upgrade.apk
+          cp app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk output/v291/app-personalStable-androidTest.apk
+          (cd output/v291 && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Download verified working V287 sideload build
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V287-Nap-Wake-Owner-Test
+          path: output/v287
+          run-id: 41809150847
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Fail closed on checksum, package, version or signer mismatch
+        run: |
+          set -euo pipefail
+          (cd output/v287 && sha256sum -c SHA256SUMS.txt)
+          (cd output/v291 && sha256sum -c SHA256SUMS.txt)
+          grep -q "package: name='com.framebynavin.app' versionCode='287'" output/v287/APK-IDENTITY.txt
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          "$signer" verify --verbose --print-certs output/v291/Backlot-V291-Direct-Upgrade.apk > output/v291/SIGNATURE-VERIFICATION.txt
+          "$aapt" dump badging output/v291/Backlot-V291-Direct-Upgrade.apk > output/v291/APK-IDENTITY.txt
+          grep -q "package: name='com.framebynavin.app' versionCode='291'" output/v291/APK-IDENTITY.txt
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          certs=[]
+          for version in ('v287','v291'):
+              raw=Path(f'output/{version}/SIGNATURE-VERIFICATION.txt').read_text()
+              assert 'Verified using v2 scheme (APK Signature Scheme v2): true' in raw
+              match=re.search(r'V2 Signer: certificate SHA-256 digest: ([0-9a-f]{64})',raw)
+              assert match, f'certificate missing for {version}'
+              certs.append(match.group(1))
+          assert certs[0]==certs[1], 'Upgrade would require a different app signing certificate'
+          assert certs[0]=='f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0'
+          print('PASS: V287/V291 package and V2 signature match')
+          PY
+      - name: Enable Android 15 emulator acceleration where available
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 signed direct V287 to V291 preservation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v291-v287-direct-upgrade.sh
