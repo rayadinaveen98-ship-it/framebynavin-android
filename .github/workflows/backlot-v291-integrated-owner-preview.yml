@@ -43,7 +43,15 @@ jobs:
           assert '.addMigrations(V290SpacePhotosMigration.MIGRATION_1_2)' in db
           assert 'fallbackToDestructiveMigration' not in db
           assert 'V290SpacePhotoEntity' not in backup
-          print('PASS: V291 owner-preview identity; private photo bytes excluded from existing backup')
+          private_photo=Path('app/src/main/java/com/framebynavin/app/personal/spaces/V290PrivatePhotoFiles.kt').read_text()
+          manual_backup=Path('app/src/main/java/com/framebynavin/app/personal/spaces/V289SpacesOwnerBackupFile.kt').read_text()
+          cloud_ui=Path('app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt').read_text()
+          runner=Path('.github/scripts/backlot-v290-photo-instrumentation.sh').read_text()
+          assert 'ExifInterface.TAG_ORIENTATION' in private_photo
+          assert 'V291PhotoOrientationDeviceTest:2' in runner
+          assert 'verifyWrittenCopy(raw, saved)' in manual_backup
+          assert 'V290CloudCoverageDisclosure.EXCLUDED' in cloud_ui
+          print('PASS: V291 preview includes portrait correction, verified backup, honest cloud scope')
           PY
       - name: Compile full app, unit tests, owner preview and Android test APKs
         run: |
@@ -89,7 +97,7 @@ jobs:
               assert int(xml.attrib.get('errors','0'))==0, suite+' errors'
           print('PASS: V288 through V290 unit regression reports')
           PY
-          echo 'PASS: app version 290 uses public OWNER preview signer, not a Play upload identity'
+          echo 'PASS: app version 291 uses public OWNER preview signer, not a Play upload identity'
       - uses: actions/upload-artifact@v4
         with:
           name: Backlot-V291-Private-Spaces-Oriented-Owner-Test
