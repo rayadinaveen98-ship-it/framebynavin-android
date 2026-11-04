@@ -76,6 +76,8 @@ internal fun V2232PersonalReminderHub(
     // Recompute local calendar labels while this screen is visible; the next
     // occurrence journal and Android alarms remain authoritative.
     var agendaNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    // Reduce alarm-list fatigue: show the day first, but never hide action-needed items.
+    var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(60_000L)
@@ -193,6 +195,7 @@ internal fun V2232PersonalReminderHub(
             Text("Private reminders, separate from your creative projects.",
                 color = MutedText, fontSize = 12.sp)
             if (loaded && loadError == null) {
+                V285PersonalLifePlannerCard(reminders = reminders, enabled = !busy)
                 V284DietFitnessSetupCard(reminders = reminders, enabled = !busy)
             }
             Surface(
@@ -306,8 +309,33 @@ internal fun V2232PersonalReminderHub(
                 Text("${reminders.count { !it.paused }} ACTIVE · ${reminders.count { it.paused }} PAUSED",
                     color = MutedGold, fontWeight = FontWeight.Bold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v2232-personal-count"))
-                val agendaGroups = remember(reminders, agendaNowMillis) {
-                    PersonalAgendaPolicy.groups(reminders, agendaNowMillis)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .testTag("v285-agenda-scope-selector"),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    V285AgendaScope.entries.forEach { scope ->
+                        FilterChip(
+                            selected = agendaScopeName == scope.name,
+                            onClick = { agendaScopeName = scope.name },
+                            label = { Text(scope.label, fontSize = 11.sp) },
+                            modifier = Modifier.testTag("v285-agenda-scope-" + scope.name),
+                        )
+                    }
+                }
+                val agendaGroups = remember(reminders, agendaNowMillis, agendaScopeName) {
+                    V285PersonalAgendaFilter.groups(
+                        reminders, agendaNowMillis, V285AgendaScope.valueOf(agendaScopeName)
+                    )
+                }
+                val visibleCount = agendaGroups.sumOf { it.items.size }
+                Text("$visibleCount visible of " + reminders.size +
+                    " saved · hidden reminders remain scheduled and editable under ALL",
+                    color = MutedText, fontSize = 10.sp,
+                    modifier = Modifier.testTag("v285-agenda-count"))
+                if (agendaGroups.isEmpty()) {
+                    Text("No reminders in this time window. Select ALL to see " +
+                        "other upcoming or paused reminders.", color = MutedText, fontSize = 12.sp)
                 }
                 agendaGroups.forEach { group ->
                     Row(

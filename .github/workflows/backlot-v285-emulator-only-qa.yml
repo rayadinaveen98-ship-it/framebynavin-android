@@ -1,0 +1,45 @@
+name: Backlot V285 - Emulator Only QA (reuse verified APK)
+on:
+  push:
+    branches: [feature/backlot-v285-personal-life-planner]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: backlot-v285-emulator-only-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  emulator-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download V285 binary from successful compile (same app code)
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V285-Life-Planner-Owner-Test
+          run-id: 41798860428
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output
+      - name: Verify APK checksums and version 285
+        run: |
+          set -euo pipefail
+          (cd output && sha256sum -c SHA256SUMS.txt)
+          grep -q "package: name='com.framebynavin.app' versionCode='285'" output/APK-IDENTITY.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' output/SIGNATURE-VERIFICATION.txt
+          echo 'PASS: exact original V285 signed owner preview'
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 owner preview app and personal reminder smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-personal-instrumentation.sh com.framebynavin.app.ui.V285PersonalLifePlannerUiTest com.framebynavin.app.personal.V285PersonalLifeNotificationsDeviceTest com.framebynavin.app.ui.V284DietFitnessSetupUiTest com.framebynavin.app.personal.V284DietFitnessPlanDeviceTest

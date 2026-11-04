@@ -92,8 +92,10 @@ internal object PersonalReminderNotifications {
         }
         // Show the selected day's actual meal and activity instructions in the
         // expanded notification. Its public lock-screen version stays generic.
-        val planDetails = reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
-            reminder.notes.isNotBlank()
+        val planDetails = (
+            reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) ||
+                reminder.id.startsWith(V285PersonalLifePlan.ID_PREFIX)
+            ) && reminder.notes.isNotBlank()
         val builder = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle(reminder.title)
