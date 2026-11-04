@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.*
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -27,18 +28,25 @@ class V289PersonalSpacesUiTest {
         HardeningTestEnvironment.requireCiEmulator()
         val before = runBlocking { PersonalReminderStore(app).load() }
         val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val mounted = mutableStateOf(true)
         try {
             rule.setContent {
-                FrameByNavinTheme {
-                    V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                if (mounted.value) {
+                    FrameByNavinTheme {
+                        V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                    }
                 }
             }
             rule.onNodeWithTag("v289-spaces-root").assertExists()
-            rule.onNodeWithTag("v289-spaces-empty").assertExists()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
+            }
             assertEquals(0, runBlocking { db.spaces().loadSpaces().size })
             assertEquals(before, runBlocking { PersonalReminderStore(app).load() })
         } finally {
-            // ComposeRule owns the only content lifecycle; never call setContent twice.
+            // Dispose Room Flow collectors before closing the in-memory database.
+            rule.runOnIdle { mounted.value = false }
+            rule.waitForIdle()
             db.close()
         }
     }
@@ -47,10 +55,13 @@ class V289PersonalSpacesUiTest {
         HardeningTestEnvironment.requireCiEmulator()
         val before = runBlocking { PersonalReminderStore(app).load() }
         val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val mounted = mutableStateOf(true)
         try {
             rule.setContent {
-                FrameByNavinTheme {
-                    V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                if (mounted.value) {
+                    FrameByNavinTheme {
+                        V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                    }
                 }
             }
             rule.onNodeWithTag("v289-create-open").performClick()
@@ -75,7 +86,9 @@ class V289PersonalSpacesUiTest {
             assertTrue(runBlocking { db.spaces().linksForSpace(spaces.single().id).isEmpty() })
             assertEquals(before, runBlocking { PersonalReminderStore(app).load() })
         } finally {
-            // ComposeRule owns the only content lifecycle; never call setContent twice.
+            // Dispose Room Flow collectors before closing the in-memory database.
+            rule.runOnIdle { mounted.value = false }
+            rule.waitForIdle()
             db.close()
         }
     }
