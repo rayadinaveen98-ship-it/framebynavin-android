@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -78,6 +79,23 @@ internal fun V2232PersonalReminderHub(
     var agendaNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     // Reduce alarm-list fatigue: show the day first, but never hide action-needed items.
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
+    var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
+    var completionEvents by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
+    var completionHistoryReady by remember { mutableStateOf(false) }
+    LaunchedEffect(store) {
+        try {
+            store.completionHistoryFlow.collect {
+                completionEvents = it
+                completionHistoryReady = true
+            }
+        } catch (_: Exception) {
+            // Fail closed: never represent a broken history as a verified zero.
+            completionHistoryReady = false
+        }
+    }
+    BackHandler(enabled = personalPageName == "SETTINGS") {
+        personalPageName = "TODAY"
+    }
     LaunchedEffect(Unit) {
         while (true) {
             delay(60_000L)
@@ -150,8 +168,19 @@ internal fun V2232PersonalReminderHub(
                 Icon(Icons.Outlined.ArrowBack, contentDescription = "Close reminders", tint = ProjectorIvory)
             }
             Column(Modifier.weight(1f)) {
-                Text("PERSONAL REMINDERS", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                Text("Your everyday life", color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text("BACKLOT / PERSONAL", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text(if (personalPageName == "TODAY") "My day" else "Personal settings",
+                    color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            }
+            IconButton(
+                onClick = { personalPageName = if (personalPageName == "TODAY") "SETTINGS" else "TODAY" },
+                modifier = Modifier.testTag("v288-personal-toggle-settings"),
+            ) {
+                Icon(if (personalPageName == "TODAY") Icons.Outlined.Settings
+                     else Icons.Outlined.Home,
+                     contentDescription = if (personalPageName == "TODAY") "Personal settings"
+                         else "Back to personal Today",
+                     tint = MutedGold)
             }
             IconButton(
                 enabled = !busy && loadError == null,
@@ -163,28 +192,28 @@ internal fun V2232PersonalReminderHub(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 7.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 3.dp)
                 .testTag("v2232-personal-space-switcher"),
             horizontalArrangement = Arrangement.spacedBy(9.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(onClick = onCreator,
-                modifier = Modifier.weight(1f).height(43.dp).testTag("v2232-open-creator"),
-                color = CinemaSurface,
-                shape = RoundedCornerShape(13.dp),
-                border = BorderStroke(1.dp, CinemaLine)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("CREATOR", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
             Surface(
-                modifier = Modifier.weight(1f).height(43.dp),
-                color = MutedGold.copy(alpha = .14f),
-                shape = RoundedCornerShape(13.dp),
-                border = BorderStroke(1.dp, MutedGold.copy(alpha = .55f))) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("PERSONAL", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                onClick = onCreator,
+                modifier = Modifier.height(34.dp).testTag("v2232-open-creator"),
+                color = CinemaSurface,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, CinemaLine),
+            ) {
+                Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Movie, null, tint = MutedGold, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(7.dp))
+                    Text("Creator", color = ProjectorIvory, fontSize = 12.sp)
                 }
             }
+            Text("PERSONAL", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.weight(1f))
+            Text(if (personalPageName == "TODAY") "TODAY" else "SETTINGS",
+                color = MutedText, fontSize = 10.sp)
         }
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -192,19 +221,28 @@ internal fun V2232PersonalReminderHub(
                 .padding(bottom = 56.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Private reminders, separate from your creative projects.",
+            if (personalPageName == "SETTINGS") {
+            Text("Keep your day simple. Customize every detail here.",
                 color = MutedText, fontSize = 12.sp)
             if (loaded && loadError == null) {
+                V288PersonalSettingsHeading(
+                    "Plans & routines", "Your 21-day plan and reusable routines")
                 V285PersonalLifePlannerCard(reminders = reminders, enabled = !busy)
+                V284DietFitnessSetupCard(reminders = reminders, enabled = !busy)
+                V288PersonalSettingsHeading(
+                    "Rest", "Nap timing and wake-up preferences")
+                V287NapWakeCard(reminders = reminders, enabled = !busy)
+                V288PersonalSettingsHeading(
+                    "Device reliability", "Android permissions and delivery diagnostics")
                 V286PersonalReadinessCard(
                     reminders = reminders,
                     permissionRevision = permissionRevision,
                     enabled = !busy,
                     onRecheck = { permissionRevision++ },
                 )
-                V287NapWakeCard(reminders = reminders, enabled = !busy)
-                V284DietFitnessSetupCard(reminders = reminders, enabled = !busy)
             }
+            V288PersonalSettingsHeading(
+                "Follow-ups", "Control quiet nudges for unanswered reminders")
             Surface(
                 color = CinemaSurface,
                 shape = RoundedCornerShape(15.dp),
@@ -286,6 +324,53 @@ internal fun V2232PersonalReminderHub(
                 color = MutedText, fontSize = 10.sp,
                 modifier = Modifier.testTag("v2232-personal-fallback-notice"))
 
+            } else {
+                if (loaded && loadError == null) {
+                    val summary = remember(reminders, completionEvents, agendaNowMillis) {
+                        V288PersonalTodayPolicy.snapshot(
+                            reminders, completionEvents, agendaNowMillis
+                        )
+                    }
+                    V288PersonalTodayCard(
+                        snapshot = summary,
+                        nowMillis = agendaNowMillis,
+                        busy = busy,
+                        onRespond = { item, action ->
+                            perform {
+                                val result = coordinator.apply(
+                                    id = item.id,
+                                    originalOccurrence = item.pendingOccurrenceMillis,
+                                    token = item.pendingToken,
+                                    action = action,
+                                )
+                                check(result == PersonalApplyResult.ACCEPTED) {
+                                    "This reminder is no longer awaiting a response."
+                                }
+                            }
+                        },
+                    )
+                    if (!completionHistoryReady) {
+                        Text("Progress history unavailable; no completions were inferred.",
+                            color = MutedText, fontSize = 10.sp)
+                    }
+                    if (!notificationsReady) {
+                        Surface(
+                            onClick = { personalPageName = "SETTINGS" },
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, RecRed.copy(alpha = .45f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().testTag("v288-permission-warning"),
+                        ) {
+                            Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.WarningAmber, null, tint = RecRed,
+                                    modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Notifications blocked · Open Personal settings",
+                                    color = ProjectorIvory, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
             if (loadError != null) {
                 Text(loadError.orEmpty(), color = RecRed,
                     modifier = Modifier.testTag("v2232-personal-load-error"))
@@ -313,7 +398,7 @@ internal fun V2232PersonalReminderHub(
                     }
                 }
             } else {
-                Text("${reminders.count { !it.paused }} ACTIVE · ${reminders.count { it.paused }} PAUSED",
+                Text("YOUR REMINDERS · ${reminders.count { !it.paused }} ACTIVE · ${reminders.count { it.paused }} PAUSED",
                     color = MutedGold, fontWeight = FontWeight.Bold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v2232-personal-count"))
                 Row(
@@ -336,8 +421,7 @@ internal fun V2232PersonalReminderHub(
                     )
                 }
                 val visibleCount = agendaGroups.sumOf { it.items.size }
-                Text("$visibleCount visible of " + reminders.size +
-                    " saved · hidden reminders remain scheduled and editable under ALL",
+                Text("$visibleCount shown · choose ALL for every saved reminder",
                     color = MutedText, fontSize = 10.sp,
                     modifier = Modifier.testTag("v285-agenda-count"))
                 if (agendaGroups.isEmpty()) {
@@ -377,6 +461,7 @@ internal fun V2232PersonalReminderHub(
                         )
                     }
                 }
+            }
             }
             if (infoMessage != null) {
                 Text(infoMessage.orEmpty(), color = RecRed,
