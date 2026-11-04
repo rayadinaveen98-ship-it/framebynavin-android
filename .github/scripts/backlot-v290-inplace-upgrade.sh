@@ -5,7 +5,7 @@ set -euo pipefail
 
 V288_APK=output/v288/Backlot-V288-Personal-OS-Owner-Test.apk
 V290_APK=output/v290/Backlot-V290-Private-Spaces-Owner-Test.apk
-TEST_APK=app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+TEST_APK=app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk
 CLASS=com.framebynavin.app.upgrade.V290InPlaceUpgradeDeviceTest
 RUNNER=com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner
 
