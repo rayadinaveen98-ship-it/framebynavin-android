@@ -136,6 +136,7 @@ internal fun V289PersonalSpacesScreen(
                 if (selected == null) {
                     IconButton(
                         onClick = { createVisible = true },
+                        enabled = spacesLoaded && error == null && !busy,
                         modifier = Modifier.testTag("v289-create-open"),
                     ) {
                         Icon(Icons.Outlined.AddCircleOutline, "Start a Space",
@@ -294,6 +295,9 @@ internal fun V289PersonalSpacesScreen(
                         fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Text("Only things you explicitly record appear here.",
                         color = BacklotSecondaryText, fontSize = 11.sp)
+                    Text("Device-only: current Backlot cloud backup does not include Spaces.",
+                        color = BacklotSecondaryText, fontSize = 11.sp,
+                        modifier = Modifier.testTag("v289-local-only-notice"))
                     if (entries.isEmpty()) {
                         Text("No entries yet. Add your first note or check-in.",
                             color = BacklotSecondaryText, fontSize = 13.sp,
@@ -358,7 +362,7 @@ internal fun V289PersonalSpacesScreen(
                         onValueChange = { goal = it.take(500) },
                         label = { Text("Goal (optional)") },
                         modifier = Modifier.fillMaxWidth())
-                    Text("Private and offline. No reminders or photos added automatically.",
+                    Text("Stored on this device only. Backlot cloud restore does not include Spaces yet. No reminders or photos are added automatically.",
                         color = BacklotSecondaryText, fontSize = 11.sp)
                 }
             },
