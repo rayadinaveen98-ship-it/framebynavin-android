@@ -1,0 +1,119 @@
+name: Backlot V284 - Diet & Fitness Personal Reminder QA
+
+on:
+  push:
+    branches: [feature/backlot-v284-diet-fitness-personal-plan]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v284-personal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-test-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify plan scope, run unit tests and assemble preview-only APK
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          app_build = Path('app/build.gradle.kts').read_text()
+          assert 'versionCode = 284' in app_build
+          assert 'versionName = "2.18.0-rc1-diet-fitness-owner-test"' in app_build
+          assert 'applicationId = "com.framebynavin.app"' in app_build
+          plan = Path('app/src/main/java/com/framebynavin/app/personal/PersonalDietFitnessPlanV1.kt').read_text()
+          assert 'PersonalReminderStore' in plan and 'PersonalDeliveryCoordinator' in plan
+          assert 'mergeMissing' in plan and 'autoRetryEnabled = false' in plan
+          assert 'CreatorTask(' not in plan
+          assert 'chapathi' not in plan.lower() and 'chapati' not in plan.lower()
+          print('PASS: Personal-only reviewed plan and roti preference')
+          PY
+          timeout 62m gradle :app:testDebugUnitTest :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify all V284 tests passed
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          suites=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V284DietFitnessPlanTest.xml'))
+          assert len(suites)==1, 'V284 plan test suite missing'
+          root=ET.parse(suites[0]).getroot()
+          assert int(root.attrib.get('tests',0))>=7, 'Insufficient V284 plan tests'
+          assert int(root.attrib.get('errors',0))==0
+          assert int(root.attrib.get('failures',0))==0
+          print('PASS: V284 weekly recurrence, meal menus, idempotence and settings')
+          PY
+      - name: Verify owner-installable preview identity and archive
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$APK"
+          mkdir -p output
+          cp "$APK" output/Backlot-V284-Diet-Fitness-Owner-Test.apk
+          cp app/build/outputs/apk/debug/app-debug.apk output/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/app-debug-androidTest.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$SDK_ROOT"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > output/SIGNATURE-VERIFICATION.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' output/SIGNATURE-VERIFICATION.txt
+          echo 'PASS: non-Play owner test APK signed with public prototype signer'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V284-Diet-Fitness-Owner-Test
+          path: output/
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator-smoke:
+    needs: compile-test-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V284-Diet-Fitness-Owner-Test
+          path: output
+      - name: Verify exact build artifacts
+        run: (cd output && sha256sum -c SHA256SUMS.txt)
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run meal-notification and review-only UI tests on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r output/app-debug.apk
+            adb install -r output/app-debug-androidTest.apk
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V284DietFitnessPlanDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v284-notification.log
+            grep -F 'OK (2 tests)' /tmp/v284-notification.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/v284-notification.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.ui.V284DietFitnessSetupUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v284-setup-ui.log
+            grep -F 'OK (2 tests)' /tmp/v284-setup-ui.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/v284-setup-ui.log; then exit 1; fi
+            echo 'PASS: V284 reviewed install, private meal notes and full-screen fallback'

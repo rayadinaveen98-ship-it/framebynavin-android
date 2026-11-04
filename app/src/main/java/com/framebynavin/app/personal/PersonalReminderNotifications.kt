@@ -90,10 +90,14 @@ internal object PersonalReminderNotifications {
             PersonalAlert.VOICE -> "Voice will speak if Android permits · notification remains actionable"
             PersonalAlert.ALARM -> "Alarm will ring if Android permits · notification remains actionable"
         }
+        // Show the selected day's actual meal and activity instructions in the
+        // expanded notification. Its public lock-screen version stays generic.
+        val planDetails = reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
+            reminder.notes.isNotBlank()
         val builder = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
             .setContentTitle(reminder.title)
-            .setContentText(detail)
+            .setContentText(if (planDetails) reminder.notes else detail)
             .setCategory(if (reminder.alert == PersonalAlert.ALARM)
                 NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -106,6 +110,9 @@ internal object PersonalReminderNotifications {
             .addAction(0, "DONE", action(context, reminder, PersonalDeliveryContract.ACTION_DONE, 11))
             .addAction(0, "SNOOZE ${reminder.snoozeMinutes}m", action(context, reminder, PersonalDeliveryContract.ACTION_SNOOZE, 12))
             .addAction(0, "DISMISS", action(context, reminder, PersonalDeliveryContract.ACTION_DISMISS, 13))
+        if (planDetails) {
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText(reminder.notes))
+        }
         return V268FullScreenReminderAccess.configure(
             builder,
             opening,

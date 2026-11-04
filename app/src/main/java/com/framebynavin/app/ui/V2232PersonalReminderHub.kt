@@ -192,6 +192,9 @@ internal fun V2232PersonalReminderHub(
         ) {
             Text("Private reminders, separate from your creative projects.",
                 color = MutedText, fontSize = 12.sp)
+            if (loaded && loadError == null) {
+                V284DietFitnessSetupCard(reminders = reminders, enabled = !busy)
+            }
             Surface(
                 color = CinemaSurface,
                 shape = RoundedCornerShape(15.dp),
@@ -418,6 +421,12 @@ private fun V2232PersonalItem(
                         color = MutedText, fontSize = 11.sp)
                 }
             }
+            if (reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
+                reminder.notes.isNotBlank()) {
+                Text(reminder.notes, color = ProjectorIvory, fontSize = 12.sp,
+                    maxLines = 3, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("v284-plan-meal-details"))
+            }
             Text("${reminder.repeat.name.replace('_', ' ')} · ${reminder.alert.name}" +
                     "${if (reminder.alert == PersonalAlert.NOTIFICATION) "" else " (audio when permitted)"}",
                 color = MutedText, fontSize = 10.sp)
@@ -451,7 +460,7 @@ private fun V2232PersonalItem(
                     }
                     OutlinedButton(enabled = !busy,
                         onClick = { onRespond(PersonalDeliveryContract.ACTION_SNOOZE) }) {
-                        Text("SNOOZE 10m")
+                        Text("SNOOZE ${reminder.snoozeMinutes}m")
                     }
                 }
             }
