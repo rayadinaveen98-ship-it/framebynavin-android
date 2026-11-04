@@ -38,7 +38,7 @@ class V289PersonalSpacesUiTest {
             assertEquals(0, runBlocking { db.spaces().loadSpaces().size })
             assertEquals(before, runBlocking { PersonalReminderStore(app).load() })
         } finally {
-            rule.setContent { }
+            // ComposeRule owns the only content lifecycle; never call setContent twice.
             db.close()
         }
     }
@@ -75,7 +75,7 @@ class V289PersonalSpacesUiTest {
             assertTrue(runBlocking { db.spaces().linksForSpace(spaces.single().id).isEmpty() })
             assertEquals(before, runBlocking { PersonalReminderStore(app).load() })
         } finally {
-            rule.setContent { }
+            // ComposeRule owns the only content lifecycle; never call setContent twice.
             db.close()
         }
     }
