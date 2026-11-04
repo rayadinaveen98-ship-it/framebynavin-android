@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # Run the REAL signed/non-debuggable owner APK, not the debug application.
+# Compose UI instrumentation uses ui-test-manifest's test-only ComponentActivity,
+# injected only in the DEBUG target. Running those UI tests against a signed
+# personalStable binary incorrectly resolves that Activity under the test APK.
+# Debug-target UI tests already passed in upstream full regression. This gate
+# verifies actual signed binary for non-Compose notification/DB/photo domains.
 # The emulator contains disposable data only. NEVER run pm clear on owner phones.
 set -euo pipefail
 
@@ -15,20 +20,12 @@ adb shell dumpsys package com.framebynavin.app | grep -E -m 1 'versionCode=290'
 runner=com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner
 
 for test_case in \
-  com.framebynavin.app.ui.V288PersonalOsUiTest:4 \
-  com.framebynavin.app.ui.V2232PersonalReminderUiTest:2 \
-  com.framebynavin.app.ui.V274SelfCareEditorUiTest:1 \
-  com.framebynavin.app.ui.V287NapWakeUiTest:2 \
-  com.framebynavin.app.ui.V286PersonalReadinessUiTest:2 \
-  com.framebynavin.app.ui.V285PersonalLifePlannerUiTest:2 \
   com.framebynavin.app.personal.V285PersonalLifeNotificationsDeviceTest:2 \
-  com.framebynavin.app.ui.V284DietFitnessSetupUiTest:2 \
   com.framebynavin.app.personal.V284DietFitnessPlanDeviceTest:2 \
   com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest:4 \
   com.framebynavin.app.personal.spaces.V289SpacesMetadataRecoveryDeviceTest:3 \
   com.framebynavin.app.personal.spaces.V290PrivatePhotoJournalDeviceTest:3 \
-  com.framebynavin.app.personal.spaces.V290InterruptedPhotoRecoveryDeviceTest:4 \
-  com.framebynavin.app.ui.V289PersonalSpacesUiTest:6; do
+  com.framebynavin.app.personal.spaces.V290InterruptedPhotoRecoveryDeviceTest:4; do
   classname="${test_case%:*}"
   expected="${test_case##*:}"
   echo "SIGNED OWNER APK TEST: $classname ($expected)"
@@ -60,4 +57,4 @@ done
 
 # Preserve the identity check until the final test; no debug app substitution.
 adb shell dumpsys package com.framebynavin.app | grep -E -m 1 'versionCode=290'
-echo 'PASS: signed V290 APK exercised 39 Android regression tests in 14 classes'
+echo 'PASS: signed V290 APK exercised 18 non-Compose Android tests in 6 classes'
