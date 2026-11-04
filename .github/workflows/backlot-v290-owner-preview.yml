@@ -1,0 +1,130 @@
+name: Backlot V290 - Owner Preview APK and Full Regression
+
+on:
+  push:
+    branches: [feature/backlot-v290-owner-preview-qa]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v290-owner-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-owner-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Validate version, private media isolation, no destructive Space migration
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          app=Path('app/build.gradle.kts').read_text()
+          manifest=Path('app/src/main/AndroidManifest.xml').read_text()
+          db=Path('app/src/main/java/com/framebynavin/app/personal/spaces/V289SpacesDatabase.kt').read_text()
+          backup=Path('app/src/main/java/com/framebynavin/app/personal/spaces/V289SpacesMetadataCodec.kt').read_text()
+          assert 'applicationId = "com.framebynavin.app"' in app
+          assert 'versionCode = 290' in app
+          assert 'versionName = "2.24.0-rc1-private-spaces-photo-owner-test"' in app
+          assert 'create("personalStable")' in app
+          assert 'android:allowBackup="false"' in manifest
+          assert '@xml/backlot_no_system_backup' in manifest
+          assert '.addMigrations(V290SpacePhotosMigration.MIGRATION_1_2)' in db
+          assert 'fallbackToDestructiveMigration' not in db
+          assert 'V290SpacePhotoEntity' not in backup
+          print('PASS: V290 owner-preview identity; private photo bytes excluded from existing backup')
+          PY
+      - name: Compile full app, unit tests, owner preview and Android test APKs
+        run: |
+          timeout 75m gradle :app:testDebugUnitTest :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify archive package identity, preview signature and unit reports
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$APK"
+          mkdir -p output
+          cp "$APK" output/Backlot-V290-Private-Spaces-Owner-Test.apk
+          cp app/build/outputs/apk/debug/app-debug.apk output/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/app-debug-androidTest.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$SDK_ROOT"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -1)"
+          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt -print | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > output/SIGNATURE-VERIFICATION.txt
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' output/SIGNATURE-VERIFICATION.txt
+          grep -Fq 'V2 Signer: certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/SIGNATURE-VERIFICATION.txt
+          "$AAPT" dump badging "$APK" > output/APK-IDENTITY.txt
+          grep -q "package: name='com.framebynavin.app' versionCode='290'" output/APK-IDENTITY.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=Path('app/build/test-results/testDebugUnitTest')
+          for suite,minimum in [
+            ('V288PersonalTodayPolicyTest', 6),
+            ('V289PersonalSpacePolicyTest', 7),
+            ('V289SpacesMetadataCodecTest', 7),
+            ('V289SpacesOwnerBackupFileTest', 4),
+            ('V290PhotoTimelinePolicyTest', 6),
+          ]:
+              reports=list(root.glob('TEST-*'+suite+'.xml'))
+              assert len(reports)==1, f'{suite}: expected one test report'
+              xml=ET.parse(reports[0]).getroot()
+              assert int(xml.attrib.get('tests','0'))>=minimum, suite+' insufficient tests'
+              assert int(xml.attrib.get('failures','0'))==0, suite+' failed tests'
+              assert int(xml.attrib.get('errors','0'))==0, suite+' errors'
+          print('PASS: V288 through V290 unit regression reports')
+          PY
+          echo 'PASS: app version 290 uses public OWNER preview signer, not a Play upload identity'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V290-Private-Spaces-Owner-Test
+          path: output/
+          retention-days: 14
+          if-no-files-found: error
+
+  emulator-regression:
+    needs: compile-owner-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V290-Private-Spaces-Owner-Test
+          path: output
+      - name: Verify exact owner APKs and instrumentation binaries
+        run: (cd output && sha256sum -c SHA256SUMS.txt)
+      - name: Enable Android 15 emulator acceleration when available
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          if test -r /dev/kvm && test -w /dev/kvm; then
+            echo 'KVM ready'
+          else
+            echo 'KVM unavailable; allow Android emulator software fallback'
+          fi
+      - name: Android 15 V288 Personal and V289/V290 Spaces/photo regressions
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v290-owner-preview-smoke.sh
