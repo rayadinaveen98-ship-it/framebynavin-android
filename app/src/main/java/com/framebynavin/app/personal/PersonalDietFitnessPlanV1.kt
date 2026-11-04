@@ -15,6 +15,13 @@ import java.time.ZoneId
  * it does not write CreatorTask, creator projects, YouTube data or health telemetry.
  * Stable IDs allow safe re-entry without replacing user edits or Snooze/Done leases.
  */
+/** Distinguishes durable DataStore saves from best-effort Android scheduling. */
+internal data class PersonalDietFitnessInstallResult(
+    val added: Int,
+    val deliverySchedulingAccepted: Boolean,
+    val widgetsRefreshed: Boolean,
+)
+
 internal object PersonalDietFitnessPlanV1 {
     const val ID_PREFIX = "dietfit-v1-"
 
@@ -166,21 +173,34 @@ internal object PersonalDietFitnessPlanV1 {
      * Atomic commit of all missing reminders; one reconciliation after save.
      * A repeated install is a no-op and existing Personal/Creator entries survive.
      */
-    suspend fun install(context: Context): Int {
+    suspend fun install(context: Context): PersonalDietFitnessInstallResult {
         val app = context.applicationContext
         val zone = ZoneId.systemDefault()
         val desired = templates(LocalDate.now(zone), zone)
         val store = PersonalReminderStore(app)
         var added = 0
+        // This transaction is the only mutation. A scheduler failure AFTER it
+        // commits must never be described to the user as a failed save.
         store.mutate { existing ->
             val updated = mergeMissing(existing, desired)
             added = updated.size - existing.size
             updated
         }
-        if (added > 0) {
+        return ensureDelivery(app, added)
+    }
+
+    /**
+     * Explicit retry of Android scheduling without touching the saved plan.
+     * Caller can offer this after a device setting, permission or OS failure.
+     */
+    suspend fun ensureDelivery(context: Context, added: Int = 0): PersonalDietFitnessInstallResult {
+        val app = context.applicationContext
+        val schedulingAccepted = runCatching {
             PersonalDeliveryCoordinator(app).reconcile()
+        }.isSuccess
+        val widgetRefresh = runCatching {
             V224WidgetUpdater.refresh(app)
-        }
-        return added
+        }.isSuccess
+        return PersonalDietFitnessInstallResult(added, schedulingAccepted, widgetRefresh)
     }
 }
