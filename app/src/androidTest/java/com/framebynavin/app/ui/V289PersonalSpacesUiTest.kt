@@ -1,6 +1,13 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.*
+import android.graphics.Bitmap
+import java.io.ByteArrayOutputStream
+import java.util.UUID
+import com.framebynavin.app.personal.spaces.V289PersonalSpacePolicy
+import com.framebynavin.app.personal.spaces.V289SpacesRepository
+import com.framebynavin.app.personal.spaces.V289SpaceType
+import com.framebynavin.app.personal.spaces.V290PrivatePhotoFiles
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.room.Room
@@ -199,6 +206,62 @@ class V289PersonalSpacesUiTest {
         } finally {
             rule.runOnIdle { mounted.value = false }
             rule.waitForIdle()
+            db.close()
+        }
+    }
+
+    @Test fun interruptedSaveOffersOwnerRecoveryWithoutWritingPersonalReminders() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val originalReminders = runBlocking { PersonalReminderStore(app).load() }
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val space = V289PersonalSpacePolicy.newSpace(
+            V289SpaceType.SKIN_CARE, System.currentTimeMillis(), UUID.randomUUID().toString()
+        )
+        runBlocking { V289SpacesRepository(db.spaces()).createSpace(space) }
+
+        val original = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
+        val output = ByteArrayOutputStream()
+        try {
+            assertTrue(original.compress(Bitmap.CompressFormat.PNG, 100, output))
+        } finally {
+            original.recycle()
+        }
+        val prepared = V290PrivatePhotoFiles.sanitizeImage(
+            output.toByteArray(), UUID.randomUUID().toString()
+        )
+        val orphan = V290PrivatePhotoFiles.storePrepared(app, space.id, prepared)
+        assertTrue(orphan.setLastModified(System.currentTimeMillis() - 120_000L))
+        val mounted = mutableStateOf(true)
+        try {
+            rule.setContent {
+                if (mounted.value) {
+                    FrameByNavinTheme {
+                        V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                    }
+                }
+            }
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-space-" + space.id).fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-space-" + space.id).performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v290-recover-photo-open").fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            assertTrue(runBlocking { db.spaces().photosForSpace(space.id).isEmpty() })
+            rule.onNodeWithTag("v290-recover-photo-open").performClick()
+            rule.onNodeWithTag("v290-interrupted-action-confirm").performClick()
+            rule.waitUntil(12_000) {
+                runBlocking { db.spaces().photosForSpace(space.id).size == 1 }
+            }
+            val restored = runBlocking { db.spaces().photosForSpace(space.id).single() }
+            assertEquals(prepared.id, restored.id)
+            assertEquals(originalReminders, runBlocking { PersonalReminderStore(app).load() })
+        } finally {
+            rule.runOnIdle { mounted.value = false }
+            rule.waitForIdle()
+            orphan.delete()
             db.close()
         }
     }
