@@ -99,6 +99,32 @@ internal fun V284DietFitnessSetupCard(
                 Text("Plan saved. Edit, pause or delete any reminder below.",
                     color = ProjectorIvory, fontSize = 11.sp)
             }
+            if (installedCount > 0) {
+                OutlinedButton(
+                    modifier = Modifier.fillMaxWidth().testTag("v284-retry-delivery"),
+                    enabled = enabled && !installing,
+                    onClick = {
+                        installing = true
+                        scope.launch {
+                            try {
+                                val check = PersonalDietFitnessPlanV1.ensureDelivery(context)
+                                message = if (check.deliverySchedulingAccepted) {
+                                    "Android scheduling was rechecked. Ensure notification " +
+                                        "and exact-alarm permissions are enabled."
+                                } else {
+                                    "Reminder records are saved, but Android scheduling " +
+                                        "still needs attention. Check app permissions."
+                                }
+                            } catch (_: Exception) {
+                                message = "Delivery check could not finish. Saved reminders " +
+                                    "were not changed."
+                            } finally {
+                                installing = false
+                            }
+                        }
+                    },
+                ) { Text("RECHECK REMINDER DELIVERY") }
+            }
             message?.let {
                 Text(it, color = MutedGold, fontSize = 11.sp,
                     modifier = Modifier.testTag("v284-install-feedback"))
@@ -139,14 +165,20 @@ internal fun V284DietFitnessSetupCard(
                         installing = true
                         scope.launch {
                             try {
-                                val added = PersonalDietFitnessPlanV1.install(context)
-                                message = if (added == 0) "All plan slots were already saved."
-                                    else "$added reminders saved. Enable notifications and " +
-                                        "exact alarm access for reliable delivery."
+                                val result = PersonalDietFitnessPlanV1.install(context)
+                                message = if (!result.deliverySchedulingAccepted) {
+                                    "${result.added} reminders saved, but Android scheduling " +
+                                        "needs attention. Use RECHECK REMINDER DELIVERY."
+                                } else if (result.added == 0) {
+                                    "All plan slots were already saved; scheduling was rechecked."
+                                } else {
+                                    "${result.added} reminders saved. Enable notifications and " +
+                                        "exact alarm access for the best delivery reliability."
+                                }
                                 showConfirmation = false
-                            } catch (error: Exception) {
-                                message = "Could not finish setup. Your existing reminders " +
-                                    "were retained. Review the saved count and retry."
+                            } catch (_: Exception) {
+                                message = "Could not save the plan. Previously saved " +
+                                    "reminders were preserved. Review the saved count."
                                 showConfirmation = false
                             } finally {
                                 installing = false
