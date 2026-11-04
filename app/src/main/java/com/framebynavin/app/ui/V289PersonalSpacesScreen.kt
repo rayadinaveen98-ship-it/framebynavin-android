@@ -62,11 +62,18 @@ internal fun V289PersonalSpacesScreen(
     val dao = remember(database) { database.spaces() }
     val repository = remember(dao) { V289SpacesRepository(dao) }
     val photoJournal = remember(context, dao) { V290PhotoJournal(context, dao) }
+    val interruptedRecovery = remember(context, dao) {
+        V290InterruptedPhotoRecovery(context, dao)
+    }
     val coroutineScope = rememberCoroutineScope()
     var spaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
     var spacesLoaded by remember { mutableStateOf(false) }
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
     var photos by remember { mutableStateOf(emptyList<V290SpacePhotoEntity>()) }
+    var interruptedPhotos by remember { mutableStateOf(emptyList<V290InterruptedPhoto>()) }
+    var pendingInterruptedAction by remember {
+        mutableStateOf<Pair<V290InterruptedPhoto, Boolean>?>(null)
+    }
     var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
@@ -102,6 +109,12 @@ internal fun V289PersonalSpacesScreen(
             dao.photosForSpace(id)
         } catch (_: Exception) {
             error = "Photos could not be loaded. No files were changed."
+            emptyList()
+        }
+        interruptedPhotos = if (id == null) emptyList() else try {
+            interruptedRecovery.find(id)
+        } catch (_: Exception) {
+            error = "Unfinished photo saves could not be checked. No files were changed."
             emptyList()
         }
     }
@@ -170,6 +183,7 @@ internal fun V289PersonalSpacesScreen(
         if (selectedSpaceId != null) {
             entries = emptyList()
             photos = emptyList()
+            interruptedPhotos = emptyList()
             selectedSpaceId = null
         } else onClose()
     }
@@ -186,6 +200,7 @@ internal fun V289PersonalSpacesScreen(
                         if (selectedSpaceId != null) {
             entries = emptyList()
             photos = emptyList()
+            interruptedPhotos = emptyList()
             selectedSpaceId = null
         } else onClose()
                     },
@@ -265,6 +280,7 @@ internal fun V289PersonalSpacesScreen(
                                     // Prevent showing another Space’s journal while loading this one.
                                     entries = emptyList()
                                     photos = emptyList()
+            interruptedPhotos = emptyList()
                                     selectedSpaceId = space.id
                                 },
                                 color = BacklotSurface,
@@ -382,6 +398,7 @@ internal fun V289PersonalSpacesScreen(
                     }
                     V290PersonalPhotoSection(
                         photos = photos,
+                        interruptedPhotos = interruptedPhotos,
                         journal = photoJournal,
                         enabled = !busy && selected.archivedAtMillis == null,
                         onAddPhoto = {
@@ -390,6 +407,8 @@ internal fun V289PersonalSpacesScreen(
                             )
                         },
                         onRemovePhoto = { photo -> selectedPhotoForDelete = photo },
+                        onRecoverPhoto = { item -> pendingInterruptedAction = item to true },
+                        onDiscardPhoto = { item -> pendingInterruptedAction = item to false },
                     )
                     Text("Activity", color = BacklotPrimaryText,
                         fontSize = 17.sp, fontWeight = FontWeight.Bold)
@@ -431,6 +450,49 @@ internal fun V289PersonalSpacesScreen(
         }
     }
 
+    pendingInterruptedAction?.let { (item, shouldRecover) ->
+        AlertDialog(
+            onDismissRequest = { if (!busy) pendingInterruptedAction = null },
+            title = {
+                Text(if (shouldRecover) "Recover private photo?" else "Discard unfinished photo?")
+            },
+            text = {
+                Text(
+                    if (shouldRecover)
+                        "This restores the private JPEG to your Space journal using its saved timestamp. Original notes from the interrupted save cannot be recovered."
+                    else "This permanently deletes only the unfinished private copy. Your original gallery photo is never touched."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && selectedSpaceId == item.spaceId,
+                    modifier = Modifier.testTag("v290-interrupted-action-confirm"),
+                    onClick = {
+                        write {
+                            if (shouldRecover) {
+                                interruptedRecovery.recover(item)
+                            } else {
+                                check(interruptedRecovery.discard(item)) {
+                                    "Could not remove unfinished private photo"
+                                }
+                            }
+                            if (selectedSpaceId == item.spaceId) {
+                                photos = dao.photosForSpace(item.spaceId)
+                                interruptedPhotos = interruptedRecovery.find(item.spaceId)
+                            }
+                            pendingInterruptedAction = null
+                        }
+                    },
+                ) { Text(if (shouldRecover) "RECOVER" else "DISCARD", color = BacklotAccent) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingInterruptedAction = null }, enabled = !busy) {
+                    Text("CANCEL")
+                }
+            },
+        )
+    }
+
     pendingPickedPhoto?.let { (spaceId, photoUri) ->
         var photoNote by remember(spaceId, photoUri) { mutableStateOf("") }
         AlertDialog(
@@ -467,6 +529,7 @@ internal fun V289PersonalSpacesScreen(
                         write {
                             photoJournal.addOwnerPickedPhoto(spaceId, photoUri, note)
                             photos = dao.photosForSpace(spaceId)
+                            interruptedPhotos = interruptedRecovery.find(spaceId)
                             pendingPickedPhoto = null
                         }
                     },
@@ -496,6 +559,7 @@ internal fun V289PersonalSpacesScreen(
                             check(photoJournal.removePhoto(photo.id)) { "Photo not found" }
                             if (selectedSpaceId == photo.spaceId) {
                                 photos = dao.photosForSpace(photo.spaceId)
+                                interruptedPhotos = interruptedRecovery.find(photo.spaceId)
                             }
                             selectedPhotoForDelete = null
                         }
@@ -647,6 +711,7 @@ internal fun V289PersonalSpacesScreen(
                             createVisible = false
                             entries = emptyList()
                             photos = emptyList()
+            interruptedPhotos = emptyList()
                             selectedSpaceId = record.id
                         }
                     },
@@ -777,14 +842,14 @@ internal fun V289PersonalSpacesScreen(
             title = { Text("Delete this Space?") },
             text = {
                 Text(
-                    if (photos.isEmpty())
+                    if (photos.isEmpty() && interruptedPhotos.isEmpty())
                         "This removes local notes and progress. Linked Personal reminders are never deleted."
-                    else "Remove every private photo in this Space first. Space deletion is blocked while photos remain."
+                    else "Resolve all saved and interrupted private photos before deleting this Space."
                 )
             },
             confirmButton = {
                 TextButton(
-                    enabled = !busy && photos.isEmpty(),
+                    enabled = !busy && photos.isEmpty() && interruptedPhotos.isEmpty(),
                     onClick = {
                         val id = selected.id
                         write {
