@@ -69,8 +69,12 @@ class V289SpacesDatabaseTest {
                 )
                 repository.createSpace(first)
                 repository.createSpace(second)
+                val link = V289SpaceReminderLink(first.id, "owner-reminder-stable-id", now)
+                assertTrue(runCatching {
+                    repository.linkExistingReminder(link, emptySet())
+                }.isFailure)
                 assertTrue(repository.linkExistingReminder(
-                    V289SpaceReminderLink(first.id, "owner-reminder-stable-id", now)
+                    link, setOf("owner-reminder-stable-id")
                 ))
                 assertTrue(repository.logManualEntry(
                     V289SpaceEntry(
