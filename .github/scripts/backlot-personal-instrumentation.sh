@@ -21,7 +21,7 @@ for classname in "$@"; do
     com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$logfile"
   expected=2
   case "$classname" in
-    *V288PersonalOsUiTest) expected=3 ;;
+    *V288PersonalOsUiTest) expected=4 ;;
     *V274SelfCareEditorUiTest) expected=1 ;;
   esac
   grep -F "OK (${expected} tests)" "$logfile"
