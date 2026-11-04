@@ -64,7 +64,10 @@ class V289PersonalSpacesUiTest {
                     }
                 }
             }
-            rule.onNodeWithTag("v289-create-open").performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-create-open").assertIsEnabled().performClick()
             rule.onNodeWithTag("v289-create-save").performClick()
             rule.waitUntil(12_000) {
                 rule.onAllNodesWithTag("v289-log-open").fetchSemanticsNodes().isNotEmpty()
@@ -92,4 +95,47 @@ class V289PersonalSpacesUiTest {
             db.close()
         }
     }
+    @Test fun editingSpaceDetailsDoesNotCreateOrMutateReminders() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val before = runBlocking { PersonalReminderStore(app).load() }
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val mounted = mutableStateOf(true)
+        try {
+            rule.setContent {
+                if (mounted.value) {
+                    FrameByNavinTheme {
+                        V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                    }
+                }
+            }
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-create-open").performClick()
+            rule.onNodeWithTag("v289-create-save").performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-edit-open").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-edit-open").performClick()
+            rule.onNodeWithTag("v289-edit-title").performTextReplacement("My Skin Journal")
+            rule.onNodeWithTag("v289-edit-goal").performTextInput(
+                "A simple routine I can maintain"
+            )
+            rule.onNodeWithTag("v289-edit-save").performClick()
+            rule.waitUntil(12_000) {
+                runBlocking {
+                    db.spaces().loadSpaces().singleOrNull()?.title == "My Skin Journal"
+                }
+            }
+            val saved = runBlocking { db.spaces().loadSpaces().single() }
+            assertEquals("A simple routine I can maintain", saved.goalText)
+            assertTrue(runBlocking { db.spaces().linksForSpace(saved.id).isEmpty() })
+            assertEquals(before, runBlocking { PersonalReminderStore(app).load() })
+        } finally {
+            rule.runOnIdle { mounted.value = false }
+            rule.waitForIdle()
+            db.close()
+        }
+    }
+
 }
