@@ -55,7 +55,11 @@ class V292SpaceMetricUiTest {
             }
             rule.onNodeWithTag("v289-log-open").performClick()
             rule.onNodeWithTag("v292-metric-toggle").assertExists().performClick()
-            rule.onNodeWithTag("v292-metric-value").performTextInput("40")
+            rule.onNodeWithTag("v289-checkin-save").assertIsNotEnabled()
+            rule.onNodeWithTag("v292-metric-value").performTextInput("0")
+            rule.onNodeWithTag("v289-checkin-save").assertIsNotEnabled()
+            rule.onNodeWithTag("v292-metric-value").performTextReplacement("40")
+            rule.onNodeWithTag("v289-checkin-save").assertIsEnabled()
             rule.onNodeWithTag("v289-checkin-note").performTextInput("Morning walk")
             rule.onNodeWithTag("v289-checkin-save").assertIsEnabled().performClick()
             rule.waitUntil(12_000) {
