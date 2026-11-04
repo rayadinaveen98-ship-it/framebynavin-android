@@ -190,8 +190,14 @@ internal class V289SpacesRepository(private val dao: V289SpacesDao) {
     suspend fun deleteSpaceAfterOwnerConfirmation(id: String): Boolean =
         dao.deleteSpace(id) == 1
 
-    suspend fun linkExistingReminder(link: V289SpaceReminderLink): Boolean {
+    suspend fun linkExistingReminder(
+        link: V289SpaceReminderLink,
+        existingReminderIds: Set<String>,
+    ): Boolean {
         val checked = V289PersonalSpacePolicy.validateLink(link)
+        require(checked.reminderId in existingReminderIds) {
+            "Only an existing Personal reminder can be linked"
+        }
         return dao.insertLink(
             V289SpaceReminderLinkEntity(
                 checked.spaceId, checked.reminderId, checked.linkedAtMillis
