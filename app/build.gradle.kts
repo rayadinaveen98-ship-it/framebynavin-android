@@ -36,6 +36,11 @@ val productionSigningConfigured = listOf(
 android {
     namespace = "com.framebynavin.app"
     compileSdk = 36
+    // Opt-in CI only: tests against signed owner must compile with that variant's
+    // Kotlin internal-method ABI. Default UI instrumentation remains debug.
+    if (providers.gradleProperty("backlotSignedOwnerTest").orNull == "true") {
+        testBuildType = "personalStable"
+    }
 
     signingConfigs {
         create("prototypeStable") {

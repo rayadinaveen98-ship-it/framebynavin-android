@@ -1,0 +1,111 @@
+name: Backlot V291 - Signed Owner Domain Regression
+
+on:
+  push:
+    branches: [feature/backlot-v291-signed-owner-domain-regression]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v291-signed-domain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-signed-owner-and-matching-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 105
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build signed V291 app and personalStable-matched Android test APK
+        run: |
+          set -euo pipefail
+          # Test variant selection is opt-in; existing debug UI QA is unchanged.
+          grep -Fq 'testBuildType = "personalStable"' app/build.gradle.kts
+          timeout 80m gradle :app:testDebugUnitTest :app:assemblePersonalStable :app:assemblePersonalStableAndroidTest \
+            -PbacklotSignedOwnerTest=true -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify artifact identity, V2 preview signer and regression results
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/personalStable/app-personalStable.apk
+          TEST=app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk
+          test -s "$APK"
+          test -s "$TEST"
+          mkdir -p output
+          cp "$APK" output/Backlot-V291-Signed-Owner-Regression.apk
+          cp "$TEST" output/app-personalStable-androidTest.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$SDK_ROOT"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > output/SIGNATURE-VERIFICATION.txt
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' output/SIGNATURE-VERIFICATION.txt
+          grep -Fq 'V2 Signer: certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/SIGNATURE-VERIFICATION.txt
+          "$AAPT" dump badging "$APK" > output/APK-IDENTITY.txt
+          grep -q "package: name='com.framebynavin.app' versionCode='291'" output/APK-IDENTITY.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=Path('app/build/test-results/testDebugUnitTest')
+          for suite,minimum in [
+              ('V289SpacesOwnerBackupFileTest',7),
+              ('V290CloudCoverageDisclosureTest',3),
+              ('V290PhotoTimelinePolicyTest',6),
+          ]:
+              matches=list(root.glob('TEST-*'+suite+'.xml'))
+              assert len(matches)==1, (suite, 'missing report')
+              report=ET.parse(matches[0]).getroot()
+              assert int(report.get('tests','0')) >= minimum, (suite, 'too few tests')
+              assert int(report.get('failures','0')) == 0, (suite, 'failures')
+              assert int(report.get('errors','0')) == 0, (suite, 'errors')
+          print('PASS: metadata, cloud scope and photo timeline unit regressions')
+          PY
+          echo 'PASS: signed V291 owner and matching personalStable test binary built'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V291-Signed-Owner-Domain-Regression
+          path: output/
+          retention-days: 14
+          if-no-files-found: error
+
+  android-15-signed-owner-regression:
+    needs: build-signed-owner-and-matching-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V291-Signed-Owner-Domain-Regression
+          path: output
+      - name: Verify exact signed artifact checksums
+        run: (cd output && sha256sum -c SHA256SUMS.txt)
+      - name: Allow KVM emulator acceleration
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 - 20 non-Compose domain tests on V291 signed owner APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v291-signed-owner-regression.sh
