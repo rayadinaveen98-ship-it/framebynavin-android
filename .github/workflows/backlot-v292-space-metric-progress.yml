@@ -32,13 +32,13 @@ jobs:
             --no-daemon --no-parallel --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
-      - name: Check five metric JVM tests and preserve V289 domain regression
+      - name: Check six metric JVM tests and preserve V289 domain regression
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
           base=Path('app/build/test-results/testDebugUnitTest')
-          for suite,minimum in [('V292SpaceMetricSuggestionsTest',5),('V289PersonalSpacePolicyTest',7)]:
+          for suite,minimum in [('V292SpaceMetricSuggestionsTest',6),('V289PersonalSpacePolicyTest',7)]:
               matches=list(base.glob('TEST-*'+suite+'.xml'))
               assert len(matches)==1, f'{suite}: expected one test report'
               xml=ET.parse(matches[0]).getroot()
