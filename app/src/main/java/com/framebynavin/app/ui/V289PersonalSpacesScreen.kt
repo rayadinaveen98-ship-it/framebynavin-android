@@ -821,7 +821,10 @@ internal fun V289PersonalSpacesScreen(
             onDismissRequest = { if (!busy) activityVisible = false },
             title = { Text("Log your progress") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Column(
+                    Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
                     Text("Log what you did. Optional measures are saved only when you choose.",
                         color = BacklotSecondaryText, fontSize = 12.sp)
                     OutlinedTextField(value = note,
@@ -844,7 +847,7 @@ internal fun V289PersonalSpacesScreen(
                             OutlinedTextField(
                                 value = metricText,
                                 onValueChange = { raw ->
-                                    metricText = raw.filter { it in '0'..'9' }.take(5)
+                                    metricText = raw.take(6)
                                 },
                                 label = {
                                     Text(metricPreset.name + " (" + metricPreset.unit + ")")
