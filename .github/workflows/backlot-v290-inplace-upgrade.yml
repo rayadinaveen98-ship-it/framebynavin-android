@@ -16,7 +16,7 @@ concurrency:
 jobs:
   signed-upgrade:
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -26,9 +26,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Compile separate two-stage upgrade instrumentation APK
+      - name: Compile owner-ABI-matched personalStable upgrade instrumentation APK
         run: |
-          timeout 65m gradle :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          timeout 75m gradle :app:assemblePersonalStableAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Download fully verified V288 owner APK
         uses: actions/download-artifact@v4
         with:
