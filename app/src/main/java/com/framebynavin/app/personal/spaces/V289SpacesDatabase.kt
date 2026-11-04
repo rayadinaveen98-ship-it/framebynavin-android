@@ -126,6 +126,18 @@ internal interface V289SpacesDao {
     @Query("SELECT * FROM personal_space_entries WHERE spaceId = :spaceId ORDER BY occurredAtMillis DESC, createdAtMillis DESC")
     suspend fun entriesForSpace(spaceId: String): List<V289SpaceEntryEntity>
 
+    @Query("SELECT * FROM personal_space_photos WHERE spaceId = :spaceId ORDER BY takenAtMillis ASC, id ASC")
+    suspend fun photosForSpace(spaceId: String): List<V290SpacePhotoEntity>
+
+    @Query("SELECT * FROM personal_space_photos WHERE id = :photoId LIMIT 1")
+    suspend fun getPhoto(photoId: String): V290SpacePhotoEntity?
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertPhoto(photo: V290SpacePhotoEntity)
+
+    @Query("DELETE FROM personal_space_photos WHERE id = :photoId")
+    suspend fun deletePhoto(photoId: String): Int
+
     /** Internal metadata snapshots only; excludes photo file data by construction. */
     @Query("SELECT * FROM personal_space_reminder_links ORDER BY spaceId, reminderId")
     suspend fun allLinks(): List<V289SpaceReminderLinkEntity>
@@ -139,8 +151,9 @@ internal interface V289SpacesDao {
         V289SpaceEntity::class,
         V289SpaceReminderLinkEntity::class,
         V289SpaceEntryEntity::class,
+        V290SpacePhotoEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 internal abstract class V289SpacesDatabase : RoomDatabase() {
@@ -154,7 +167,8 @@ internal abstract class V289SpacesDatabase : RoomDatabase() {
                 context.applicationContext,
                 V289SpacesDatabase::class.java,
                 FILE_NAME,
-            ).build() // No destructive fallback. Future schema updates require explicit migrations.
+            ).addMigrations(V290SpacePhotosMigration.MIGRATION_1_2)
+                .build() // Preserve all V289 Space, reminder-link and journal data.
     }
 }
 
@@ -193,9 +207,17 @@ internal class V289SpacesRepository(private val dao: V289SpacesDao) {
     suspend fun unarchiveSpace(id: String): Boolean =
         dao.setArchivedAt(id, null) == 1
 
-    /** Caller must display an explicit destructive confirmation before invocation. */
-    suspend fun deleteSpaceAfterOwnerConfirmation(id: String): Boolean =
-        dao.deleteSpace(id) == 1
+    /**
+     * Fail closed if a Space still has private photo files. The caller must
+     * explicitly delete/clean photo files before deleting the Space record.
+     * Avoid a silent Room FK cascade that would leave untracked private bytes.
+     */
+    suspend fun deleteSpaceAfterOwnerConfirmation(id: String): Boolean {
+        check(dao.photosForSpace(id).isEmpty()) {
+            "Remove and clean up Space photos before deleting this Space"
+        }
+        return dao.deleteSpace(id) == 1
+    }
 
     suspend fun linkExistingReminder(
         link: V289SpaceReminderLink,
