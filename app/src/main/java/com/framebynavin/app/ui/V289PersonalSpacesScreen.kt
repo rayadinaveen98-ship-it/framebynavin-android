@@ -103,7 +103,10 @@ internal fun V289PersonalSpacesScreen(
 
     val selected = spaces.firstOrNull { it.id == selectedSpaceId }
     BackHandler {
-        if (selectedSpaceId != null) selectedSpaceId = null else onClose()
+        if (selectedSpaceId != null) {
+            entries = emptyList()
+            selectedSpaceId = null
+        } else onClose()
     }
     CreatorAdaptiveFullScreen(onDismissRequest = onClose) {
         Column(
@@ -115,7 +118,10 @@ internal fun V289PersonalSpacesScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = {
-                        if (selectedSpaceId != null) selectedSpaceId = null else onClose()
+                        if (selectedSpaceId != null) {
+            entries = emptyList()
+            selectedSpaceId = null
+        } else onClose()
                     },
                     modifier = Modifier.testTag("v289-spaces-back"),
                 ) {
@@ -176,7 +182,11 @@ internal fun V289PersonalSpacesScreen(
                     } else {
                         spaces.forEach { space ->
                             Surface(
-                                onClick = { selectedSpaceId = space.id },
+                                onClick = {
+                                    // Prevent showing another Space’s journal while loading this one.
+                                    entries = emptyList()
+                                    selectedSpaceId = space.id
+                                },
                                 color = BacklotSurface,
                                 shape = RoundedCornerShape(16.dp),
                                 border = BorderStroke(1.dp, BacklotBorder),
@@ -366,6 +376,7 @@ internal fun V289PersonalSpacesScreen(
                             ).copy(title = chosenName, goalText = chosenGoal)
                             repository.createSpace(record)
                             createVisible = false
+                            entries = emptyList()
                             selectedSpaceId = record.id
                         }
                     },
