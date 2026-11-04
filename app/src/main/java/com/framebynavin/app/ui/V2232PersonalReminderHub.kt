@@ -81,6 +81,7 @@ internal fun V2232PersonalReminderHub(
     // Reduce alarm-list fatigue: show the day first, but never hide action-needed items.
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
+    var spacesOpen by rememberSaveable { mutableStateOf(false) }
     // Page switches reset their viewport; the two layouts must never share a scroll offset.
     val personalPageScroll = remember(personalPageName) { ScrollState(0) }
     var completionEvents by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
@@ -362,6 +363,26 @@ internal fun V2232PersonalReminderHub(
                             }
                         },
                     )
+                    Surface(
+                        onClick = { spacesOpen = true },
+                        color = CinemaSurface,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, CinemaLine),
+                        modifier = Modifier.fillMaxWidth().testTag("v289-open-spaces"),
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.AutoAwesome, null, tint = MutedGold,
+                                modifier = Modifier.size(21.dp))
+                            Spacer(Modifier.width(11.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Your Spaces", color = ProjectorIvory,
+                                    fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Skincare, fitness, reading and more",
+                                    color = MutedText, fontSize = 11.sp)
+                            }
+                            Icon(Icons.Outlined.ChevronRight, "Open Personal Spaces", tint = MutedGold)
+                        }
+                    }
                     if (!completionHistoryReady) {
                         Text("Progress history unavailable; no completions were inferred.",
                             color = MutedText, fontSize = 10.sp)
@@ -481,6 +502,10 @@ internal fun V2232PersonalReminderHub(
                     modifier = Modifier.testTag("v2232-personal-feedback"))
             }
         }
+    }
+
+    if (spacesOpen) {
+        V289PersonalSpacesScreen(onClose = { spacesOpen = false })
     }
 
     if (editorOpen) {

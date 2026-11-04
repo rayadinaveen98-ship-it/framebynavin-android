@@ -2,7 +2,7 @@ name: Backlot V289 - Personal Spaces Domain Safety
 
 on:
   push:
-    branches: [feature/backlot-v289-personal-spaces-data-contract]
+    branches: [feature/backlot-v289-personal-spaces-data-contract, feature/backlot-v289-personal-spaces-ui]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   domain-unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -71,3 +71,6 @@ jobs:
             adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v289-room.log
             grep -F 'OK (4 tests)' /tmp/backlot-v289-room.log
             if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v289-room.log; then exit 1; fi
+            adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.ui.V289PersonalSpacesUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v289-spaces-ui.log
+            grep -F 'OK (2 tests)' /tmp/backlot-v289-spaces-ui.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v289-spaces-ui.log; then exit 1; fi

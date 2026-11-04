@@ -1,0 +1,82 @@
+package com.framebynavin.app.ui
+
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.room.Room
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.framebynavin.app.data.HardeningTestEnvironment
+import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.spaces.V289SpacesDatabase
+import com.framebynavin.app.ui.theme.FrameByNavinTheme
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/** Disposable Room and CI emulator only. Nothing here writes real owner reminders. */
+@RunWith(AndroidJUnit4::class)
+class V289PersonalSpacesUiTest {
+    @get:Rule val rule = createComposeRule()
+    private val app get() =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+
+    @Test fun openingSpacesDoesNotSeedAnyDataOrAlterReminders() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val before = runBlocking { PersonalReminderStore(app).load() }
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        try {
+            rule.setContent {
+                FrameByNavinTheme {
+                    V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                }
+            }
+            rule.onNodeWithTag("v289-spaces-root").assertExists()
+            rule.onNodeWithTag("v289-spaces-empty").assertExists()
+            assertEquals(0, runBlocking { db.spaces().loadSpaces().size })
+            assertEquals(before, runBlocking { PersonalReminderStore(app).load() })
+        } finally {
+            // ComposeRule owns the only content lifecycle; never call setContent twice.
+            db.close()
+        }
+    }
+
+    @Test fun createSpaceThenManualLogPersistsInIsolatedDatabase() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val before = runBlocking { PersonalReminderStore(app).load() }
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        try {
+            rule.setContent {
+                FrameByNavinTheme {
+                    V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                }
+            }
+            rule.onNodeWithTag("v289-create-open").performClick()
+            rule.onNodeWithTag("v289-create-save").performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-log-open").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-log-open").performClick()
+            rule.onNodeWithTag("v289-checkin-note").performTextInput(
+                "Washed face and applied sunscreen"
+            )
+            rule.onNodeWithTag("v289-checkin-save").performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-entry").fetchSemanticsNodes().size == 1
+            }
+            val spaces = runBlocking { db.spaces().loadSpaces() }
+            assertEquals(1, spaces.size)
+            val logs = runBlocking { db.spaces().entriesForSpace(spaces.single().id) }
+            assertEquals(1, logs.size)
+            assertEquals("MANUAL", logs.single().source)
+            assertEquals("Washed face and applied sunscreen", logs.single().note)
+            assertTrue(runBlocking { db.spaces().linksForSpace(spaces.single().id).isEmpty() })
+            assertEquals(before, runBlocking { PersonalReminderStore(app).load() })
+        } finally {
+            // ComposeRule owns the only content lifecycle; never call setContent twice.
+            db.close()
+        }
+    }
+}
