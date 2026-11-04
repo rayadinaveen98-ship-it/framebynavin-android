@@ -241,6 +241,12 @@ internal fun V2233PersonalAlertScreen(
             Text(reminder.title, color = Color.White, fontSize = 26.sp,
                 fontWeight = FontWeight.Bold, lineHeight = 33.sp,
                 textAlign = TextAlign.Center, modifier = Modifier.testTag("v2233-personal-alert-title"))
+            if (reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
+                reminder.notes.isNotBlank()) {
+                Text(reminder.notes, color = Color(0xFFDBE4F2), fontSize = 14.sp,
+                    lineHeight = 20.sp, textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("v284-plan-alert-details"))
+            }
             Text(
                 when (reminder.alert) {
                     PersonalAlert.ALARM -> "Ringing stops after ${reminder.alarmDurationSeconds} seconds. Your response remains available."
