@@ -3,6 +3,8 @@ package com.framebynavin.app.personal.spaces
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -55,6 +57,41 @@ internal object V290PrivatePhotoFiles {
         return output.toByteArray()
     }
 
+    /**
+     * Correct image orientation BEFORE re-encoding; otherwise a phone photo
+     * that stores its portrait direction only in EXIF becomes sideways when
+     * GPS/EXIF fields are stripped from our app-private JPEG.
+     *
+     * Unknown/invalid EXIF is treated as normal without retaining any metadata.
+     */
+    private fun orientedBitmap(decoded: Bitmap, raw: ByteArray): Bitmap {
+        val orientation = runCatching {
+            ExifInterface(ByteArrayInputStream(raw)).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL
+            )
+        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+        val transform = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> transform.setScale(-1f, 1f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> transform.setRotate(180f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> transform.setScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                transform.setRotate(90f)
+                transform.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_90 -> transform.setRotate(90f)
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                transform.setRotate(270f)
+                transform.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_270 -> transform.setRotate(270f)
+            else -> return decoded
+        }
+        return Bitmap.createBitmap(
+            decoded, 0, 0, decoded.width, decoded.height, transform, true
+        )
+    }
+
     /** Re-encoding removes location EXIF, original filenames and other metadata. */
     internal fun sanitizeImage(raw: ByteArray, photoId: String): PreparedPhoto {
         require(UUID.fromString(photoId).toString() == photoId) {
@@ -85,13 +122,17 @@ internal object V290PrivatePhotoFiles {
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
         ) ?: error("Unable to decode selected image")
+        var corrected: Bitmap? = null
         val encoded = try {
+            val oriented = orientedBitmap(bitmap, raw)
+            if (oriented !== bitmap) corrected = oriented
             val sink = ByteArrayOutputStream()
-            check(bitmap.compress(Bitmap.CompressFormat.JPEG, 88, sink)) {
+            check(oriented.compress(Bitmap.CompressFormat.JPEG, 88, sink)) {
                 "Unable to re-encode selected image"
             }
             sink.toByteArray()
         } finally {
+            corrected?.recycle()
             bitmap.recycle()
         }
         require(encoded.isNotEmpty() && encoded.size <= MAX_OUTPUT_BYTES) {
