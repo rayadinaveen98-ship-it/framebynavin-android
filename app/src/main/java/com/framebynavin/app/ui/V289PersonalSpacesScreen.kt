@@ -1,6 +1,8 @@
 package com.framebynavin.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.spaces.*
+import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.ui.theme.*
 import java.time.Instant
 import java.time.ZoneId
@@ -62,6 +65,9 @@ internal fun V289PersonalSpacesScreen(
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
     var createVisible by remember { mutableStateOf(false) }
+    var backupVisible by remember { mutableStateOf(false) }
+    var backupNotice by remember { mutableStateOf<String?>(null) }
+    var pendingImport by remember { mutableStateOf<Pair<String, V289SpaceState>?>(null) }
     var editVisible by remember { mutableStateOf(false) }
     var deleteVisible by remember { mutableStateOf(false) }
     var activityVisible by remember { mutableStateOf(false) }
@@ -102,6 +108,42 @@ internal fun V289PersonalSpacesScreen(
         }
     }
 
+    fun backupAction(block: suspend () -> Unit) {
+        if (busy) return
+        busy = true
+        coroutineScope.launch {
+            try {
+                block()
+                error = null
+            } catch (_: Exception) {
+                error = "Backup operation failed. Existing Spaces and reminders were not deleted."
+            } finally {
+                busy = false
+            }
+        }
+    }
+    val saveBackupDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(V289SpacesOwnerBackupFile.MIME_TYPE)
+    ) { uri ->
+        if (uri != null) backupAction {
+            val raw = V289SpacesMetadataRecovery(database).prepareLocalMetadataExport()
+            V289SpacesOwnerBackupFile.writeToSelectedFile(context, uri, raw)
+            backupNotice = "Saved Spaces metadata. Keep this plaintext file in a safe place."
+            backupVisible = false
+        }
+    }
+    val selectBackupDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) backupAction {
+            val raw = V289SpacesOwnerBackupFile.readFromSelectedFile(context, uri)
+            val snapshot = V289SpacesMetadataCodec.decode(raw)
+            // Selection is not consent to import. Require a separate confirmation.
+            pendingImport = raw to snapshot
+            backupVisible = false
+        }
+    }
+
     val selected = spaces.firstOrNull { it.id == selectedSpaceId }
     BackHandler {
         if (selectedSpaceId != null) {
@@ -134,6 +176,14 @@ internal fun V289PersonalSpacesScreen(
                         fontSize = 21.sp, fontWeight = FontWeight.Bold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                IconButton(
+                    onClick = { backupVisible = true },
+                    enabled = spacesLoaded && error == null && !busy,
+                    modifier = Modifier.testTag("v289-backup-open")
+                ) {
+                    Icon(Icons.Outlined.SaveAlt, "Backup or restore Space notes",
+                        tint = BacklotSecondaryAccent)
+                }
                 if (selected == null) {
                     IconButton(
                         onClick = { createVisible = true },
@@ -148,6 +198,10 @@ internal fun V289PersonalSpacesScreen(
             if (error != null) {
                 Text(error.orEmpty(), color = BacklotAccent,
                     fontSize = 12.sp, modifier = Modifier.testTag("v289-error"))
+            }
+            if (backupNotice != null) {
+                Text(backupNotice.orEmpty(), color = BacklotSecondaryAccent,
+                    fontSize = 11.sp, modifier = Modifier.testTag("v289-backup-notice"))
             }
             if (selected == null) {
                 Column(
@@ -340,6 +394,91 @@ internal fun V289PersonalSpacesScreen(
                 }
             }
         }
+    }
+
+    if (backupVisible) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) backupVisible = false },
+            title = { Text("Spaces backup") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Save or restore your Spaces, goals and manual journal notes.",
+                        color = BacklotPrimaryText)
+                    Text("This JSON file does not include photos, sounds or your actual reminders. Backlot cloud sync is not connected to Spaces yet.",
+                        color = BacklotSecondaryText, fontSize = 12.sp)
+                    Text("Your notes are NOT encrypted in the exported file. Choose a trusted location. A cloud file provider may upload it.",
+                        color = BacklotAccent, fontSize = 12.sp,
+                        modifier = Modifier.testTag("v289-backup-plaintext-warning"))
+                    Button(
+                        onClick = {
+                            saveBackupDocument.launch(V289SpacesOwnerBackupFile.DEFAULT_FILE_NAME)
+                        },
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth().testTag("v289-backup-export"),
+                    ) { Text("SAVE METADATA FILE") }
+                    OutlinedButton(
+                        onClick = {
+                            selectBackupDocument.launch(
+                                arrayOf(V289SpacesOwnerBackupFile.MIME_TYPE, "text/plain")
+                            )
+                        },
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth().testTag("v289-backup-import"),
+                    ) { Text("CHOOSE FILE TO RESTORE") }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { backupVisible = false }, enabled = !busy) {
+                    Text("CLOSE")
+                }
+            },
+        )
+    }
+
+    pendingImport?.let { (raw, snapshot) ->
+        AlertDialog(
+            onDismissRequest = { if (!busy) pendingImport = null },
+            title = { Text("Review Spaces restore") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Found " + snapshot.spaces.size + " Spaces, " +
+                            snapshot.entries.size + " journal entries and " +
+                            snapshot.links.size + " reminder links.",
+                        color = BacklotPrimaryText,
+                        modifier = Modifier.testTag("v289-backup-import-preview"),
+                    )
+                    Text("This merges records only. It does not replace existing Spaces or reminders. Conflicts or missing linked reminders cancel the entire restore.",
+                        color = BacklotSecondaryText, fontSize = 12.sp)
+                    Text("Only metadata and manual entries are supported. Photos are not restored.",
+                        color = BacklotSecondaryText, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        backupAction {
+                            val existingReminders = PersonalReminderStore(context)
+                                .load().mapTo(HashSet<String>()) { it.id }
+                            val result = V289SpacesMetadataRecovery(database)
+                                .mergeVerifiedMetadata(raw, existingReminders)
+                            // Refresh currently selected Space history after a merge.
+                            entries = selectedSpaceId?.let { dao.entriesForSpace(it) }.orEmpty()
+                            backupNotice = "Restored " + result.spacesAdded +
+                                " Spaces and " + result.entriesAdded + " journal entries."
+                            pendingImport = null
+                        }
+                    },
+                    modifier = Modifier.testTag("v289-backup-import-confirm"),
+                ) { Text("MERGE SAFELY") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingImport = null }, enabled = !busy) {
+                    Text("CANCEL")
+                }
+            },
+        )
     }
 
     if (createVisible) {
