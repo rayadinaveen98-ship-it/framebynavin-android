@@ -4,7 +4,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -108,7 +111,10 @@ internal fun V284DietFitnessSetupCard(
             onDismissRequest = { if (!installing) showConfirmation = false },
             title = { Text("Install Diet & Fitness V1.0?") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Column(
+                    Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
                     Text("Adds $missingCount new recurring Personal Reminders (not Creator projects).")
                     Text("Meals: 8:15 AM breakfast, 11 AM fruit, 1:30 PM lunch, " +
                         "4:30 PM snack and 7:30 PM dinner. The menus change by weekday.")
