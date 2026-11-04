@@ -269,13 +269,21 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
             CloudCard {
                 Icon(Icons.Outlined.CloudDone, null, tint = MutedGold, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.height(9.dp))
-                Text("Unified Backlot cloud sync", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text(V290CloudCoverageDisclosure.TITLE, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    "One Sync Now backs up Creator projects, ideas, schedules, and Personal Reminders with their completion history. Supported Voice Idea recordings sync separately. Original Best Frame photos and custom music files still require separate local exports. Android alarm permissions must be enabled again on each phone.",
+                    V290CloudCoverageDisclosure.INCLUDED,
                     color = MutedText,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    V290CloudCoverageDisclosure.EXCLUDED,
+                    color = MutedText,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.testTag("v290-cloud-coverage-exclusions"),
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -299,6 +307,13 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                         fontWeight = FontWeight.Bold,
                     )
                     Text(backupView.explanation, color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    Text(
+                        V290CloudCoverageDisclosure.SUCCESS_SCOPE,
+                        color = MutedText,
+                        fontSize = 10.sp,
+                        lineHeight = 15.sp,
+                        modifier = Modifier.testTag("v290-cloud-coverage-success-scope"),
+                    )
                     if (syncStatus.lastSuccessMillis > 0L) {
                         Text("Last confirmed · ${cloudTime(syncStatus.lastSuccessMillis)}",
                             color = MutedText, fontSize = 11.sp)

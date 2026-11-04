@@ -45,6 +45,14 @@ internal object V289SpacesOwnerBackupFile {
             stream.use { readLimited(it) }
         }
 
+    /** Confirmation means the document provider returned the exact saved, valid JSON. */
+    internal fun verifyWrittenCopy(expectedRaw: String, actualRaw: String) {
+        require(actualRaw == expectedRaw) {
+            "Saved Spaces backup did not match the original export"
+        }
+        V289SpacesMetadataCodec.decode(actualRaw)
+    }
+
     suspend fun writeToSelectedFile(context: Context, uri: Uri, raw: String) {
         // Never write malformed or unverified data into a backup document.
         V289SpacesMetadataCodec.decode(raw)
@@ -56,6 +64,12 @@ internal object V289SpacesOwnerBackupFile {
                 writer.write(raw)
                 writer.flush()
             }
+            // Storage Access Framework providers can acknowledge a write that
+            // was not fully persisted. Reopen the chosen document and fail closed
+            // on a truncated, changed or inaccessible copy.
+            val saved = context.contentResolver.openInputStream(uri)?.use(::readLimited)
+                ?: error("Saved Spaces backup could not be reopened for verification")
+            verifyWrittenCopy(raw, saved)
         }
     }
 }
