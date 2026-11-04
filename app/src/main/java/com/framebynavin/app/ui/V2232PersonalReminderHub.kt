@@ -192,6 +192,9 @@ internal fun V2232PersonalReminderHub(
         ) {
             Text("Private reminders, separate from your creative projects.",
                 color = MutedText, fontSize = 12.sp)
+            if (loaded && loadError == null) {
+                V284DietFitnessSetupCard(reminders = reminders, enabled = !busy)
+            }
             Surface(
                 color = CinemaSurface,
                 shape = RoundedCornerShape(15.dp),
