@@ -77,8 +77,5 @@ jobs:
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb logcat -c || true
             adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v289-room.log
-            if ! grep -F 'OK (4 tests)' /tmp/backlot-v289-room.log || grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v289-room.log; then
-              echo 'Room instrumentation failed: AndroidRuntime/crash log follows'
-              adb logcat -d -v threadtime | grep -E -A 25 'FATAL EXCEPTION|AndroidRuntime|Process: com.framebynavin.app|RoomException|SQLiteException|INSTRUMENTATION_FAILED' | tail -180 || true
-              exit 1
-            fi
+            grep -F 'OK (4 tests)' /tmp/backlot-v289-room.log || { echo 'Room test result missing: Android crash log follows'; adb logcat -d -v threadtime | tail -180; exit 1; }
+            ! grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v289-room.log || { echo 'Room instrumentation error: Android crash log follows'; adb logcat -d -v threadtime | tail -180; exit 1; }
