@@ -723,6 +723,35 @@ internal fun V2232PersonalEditor(
                 }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    if (existing == null) {
+                        Text("START WITH A ROUTINE", color = MutedGold,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                                .testTag("v288-quick-suggestions"),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            V288ReminderSuggestion.entries.forEach { suggestion ->
+                                FilterChip(
+                                    selected = title == suggestion.title,
+                                    onClick = {
+                                        title = suggestion.title
+                                        purpose = suggestion.purpose
+                                        selectedTime = suggestion.nextOccurrenceMillis(
+                                            System.currentTimeMillis(), zone
+                                        )
+                                        repeat = suggestion.repeat.name
+                                        alert = PersonalAlert.NOTIFICATION.name
+                                        error = null
+                                    },
+                                    label = { Text(suggestion.label, fontSize = 11.sp) },
+                                    modifier = Modifier.testTag("v288-suggestion-" + suggestion.name),
+                                )
+                            }
+                        }
+                        Text("Suggestions are editable. Nothing is scheduled until you save.",
+                            color = MutedText, fontSize = 10.sp)
+                    }
                     V274PersonalPurposePicker(
                         selected = purpose,
                         onSelected = { selected ->
