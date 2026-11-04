@@ -516,71 +516,96 @@ private fun V2232PersonalItem(
     onRespond: (String) -> Unit,
 ) {
     val deliveryHealth = PersonalDeliveryHealthPolicy.status(reminder, nowMillis)
-    val next = PersonalAgendaPolicy.dueAtMillis(reminder, nowMillis)
-    val whenLabel = next?.let {
+    val due = PersonalAgendaPolicy.dueAtMillis(reminder, nowMillis)
+    val whenLabel = due?.let {
         Instant.ofEpochMilli(it).atZone(reminder.zoneId)
             .format(DateTimeFormatter.ofPattern("EEE, d MMM · h:mm a", Locale.getDefault()))
     } ?: "No upcoming occurrence"
+    var expanded by rememberSaveable(reminder.id) { mutableStateOf(false) }
+    val actionReady = V288PersonalTodayPolicy.canRespond(reminder)
+    val needsAttention = PersonalAgendaPolicy.section(reminder, nowMillis) ==
+        PersonalAgendaSection.NEEDS_ATTENTION
     Surface(
         color = CinemaSurface,
-        shape = RoundedCornerShape(17.dp),
-        border = BorderStroke(1.dp, CinemaLine),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, if (needsAttention) MutedGold.copy(alpha = .55f)
+            else CinemaLine),
         modifier = Modifier.fillMaxWidth().testTag("v2232-personal-item"),
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.NotificationsActive, null,
-                    tint = if (reminder.paused) MutedText else MutedGold,
-                    modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(10.dp))
+                V288PersonalReminderIcon(reminder)
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(reminder.title, color = ProjectorIvory, fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold, maxLines = 2,
+                    Text(reminder.title, color = ProjectorIvory, fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 2,
                         overflow = TextOverflow.Ellipsis)
-                    Text(if (reminder.paused) "PAUSED" else whenLabel,
-                        color = MutedText, fontSize = 11.sp)
+                    Text(
+                        when {
+                            reminder.paused -> "Paused"
+                            needsAttention -> "Needs attention · " + whenLabel
+                            else -> whenLabel
+                        },
+                        color = if (needsAttention) MutedGold else MutedText,
+                        fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                IconButton(
+                    onClick = { expanded = !expanded },
+                    modifier = Modifier.testTag("v288-personal-expand"),
+                ) {
+                    Icon(if (expanded) Icons.Outlined.ExpandLess
+                        else Icons.Outlined.MoreVert,
+                        contentDescription = if (expanded) "Hide reminder details"
+                            else "Show reminder options",
+                        tint = MutedGold)
                 }
             }
-            if (reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
-                reminder.notes.isNotBlank()) {
-                Text(reminder.notes, color = ProjectorIvory, fontSize = 12.sp,
-                    maxLines = 3, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag("v284-plan-meal-details"))
-            }
-            Text("${reminder.repeat.name.replace('_', ' ')} · ${reminder.alert.name}" +
-                    "${if (reminder.alert == PersonalAlert.NOTIFICATION) "" else " (audio when permitted)"}",
-                color = MutedText, fontSize = 10.sp)
-            Text(
-                deliveryHealth.label,
-                color = if (deliveryHealth.needsAttention) RecRed else MutedGold,
-                fontSize = 11.sp,
-                modifier = Modifier.testTag("v2282-personal-delivery-health"),
-            )
-            if (reminder.lastMissedOccurrenceMillis > reminder.lastAcknowledgedOccurrenceMillis) {
-                Text(
-                    "MISSED · An earlier reminder received no response",
-                    color = RecRed, fontSize = 10.sp,
-                    modifier = Modifier.testTag("v2234-personal-missed"),
-                )
-            }
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                TextButton(enabled = !busy, onClick = onEdit) { Text("EDIT", color = ProjectorIvory) }
-                TextButton(enabled = !busy, onClick = onPause) {
-                    Text(if (reminder.paused) "RESUME" else "PAUSE", color = MutedGold)
+            if (actionReady) {
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = { onRespond(PersonalDeliveryContract.ACTION_DONE) },
+                        modifier = Modifier.testTag("v288-row-done"),
+                    ) { Text("DONE", fontSize = 11.sp) }
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = { onRespond(PersonalDeliveryContract.ACTION_SNOOZE) },
+                        modifier = Modifier.testTag("v288-row-snooze"),
+                    ) { Text("SNOOZE ${reminder.snoozeMinutes}m", fontSize = 11.sp) }
                 }
-                TextButton(enabled = !busy, onClick = onDelete) { Text("DELETE", color = RecRed) }
             }
-            if (reminder.presentedToken.isNotBlank() &&
-                reminder.presentedToken == reminder.pendingToken && !reminder.paused) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(enabled = !busy,
-                        onClick = { onRespond(PersonalDeliveryContract.ACTION_DONE) }) {
-                        Text("DONE")
+            if (expanded) {
+                if (reminder.notes.isNotBlank()) {
+                    Text(reminder.notes, color = ProjectorIvory, fontSize = 12.sp,
+                        maxLines = 4, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("v284-plan-meal-details"))
+                }
+                Text("${reminder.repeat.name.replace('_', ' ')} · ${reminder.alert.name}",
+                    color = MutedText, fontSize = 10.sp)
+                Text(deliveryHealth.label,
+                    color = if (deliveryHealth.needsAttention) RecRed else MutedGold,
+                    fontSize = 11.sp,
+                    modifier = Modifier.testTag("v2282-personal-delivery-health"))
+                if (reminder.lastMissedOccurrenceMillis > reminder.lastAcknowledgedOccurrenceMillis) {
+                    Text("An earlier alert received no response",
+                        color = MutedGold, fontSize = 10.sp,
+                        modifier = Modifier.testTag("v2234-personal-missed"))
+                }
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    TextButton(enabled = !busy, onClick = onEdit) {
+                        Text("EDIT", color = ProjectorIvory)
                     }
-                    OutlinedButton(enabled = !busy,
-                        onClick = { onRespond(PersonalDeliveryContract.ACTION_SNOOZE) }) {
-                        Text("SNOOZE ${reminder.snoozeMinutes}m")
+                    TextButton(enabled = !busy, onClick = onPause) {
+                        Text(if (reminder.paused) "RESUME" else "PAUSE",
+                            color = MutedGold)
+                    }
+                    TextButton(enabled = !busy, onClick = onDelete) {
+                        Text("DELETE", color = RecRed)
                     }
                 }
             }
