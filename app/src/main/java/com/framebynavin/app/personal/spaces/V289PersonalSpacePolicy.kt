@@ -155,10 +155,8 @@ internal object V289PersonalSpacePolicy {
                 }
             }
             V289SpaceEntrySource.CONFIRMED_REMINDER_DONE -> {
-                require(entry.reminderId?.isNotBlank() == true &&
-                    entry.reminderId.length <= 128 &&
-                    entry.originalOccurrenceMillis != null &&
-                    entry.originalOccurrenceMillis > 0L &&
+                require(entry.reminderId.orEmpty().length in 1..128 &&
+                    (entry.originalOccurrenceMillis ?: 0L) > 0L &&
                     entry.kind == V289SpaceEntryKind.CHECK_IN) {
                     "Confirmed reminder activity needs an accepted Done receipt"
                 }
