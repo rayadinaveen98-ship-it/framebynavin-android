@@ -56,6 +56,33 @@ class V292SpaceMetricSuggestionsTest {
         assertTrue(entry.reminderId == null && entry.originalOccurrenceMillis == null)
     }
 
+    @Test fun recordedMetricSurvivesSpacesMetadataBackupRoundtrip() {
+        val space = V289PersonalSpacePolicy.newSpace(
+            V289SpaceType.READING,
+            1_792_050_000_000L,
+            "10000000-0000-4000-8000-000000000081",
+        )
+        val entry = V289SpaceEntry(
+            id = "20000000-0000-4000-8000-000000000081",
+            spaceId = space.id,
+            kind = V289SpaceEntryKind.METRIC,
+            source = V289SpaceEntrySource.MANUAL,
+            occurredAtMillis = 1_792_050_100_000L,
+            createdAtMillis = 1_792_050_100_000L,
+            note = "A chapter completed",
+            metricName = "Pages read",
+            metricValue = 32.0,
+            metricUnit = "pages",
+        )
+        val raw = V289SpacesMetadataCodec.encode(
+            V289SpaceState(spaces = listOf(space), entries = listOf(entry))
+        )
+        val decoded = V289SpacesMetadataCodec.decode(raw)
+        assertEquals(space, decoded.spaces.single())
+        assertEquals(entry, decoded.entries.single())
+        assertTrue(decoded.links.isEmpty())
+    }
+
     @Test fun historicDecimalMetricsDisplayWithoutRounding() {
         val describe = V292SpaceMetricSuggestions::describe
         assertEquals("Pages read: 23 pages", describe("Pages read", 23.0, "pages"))
