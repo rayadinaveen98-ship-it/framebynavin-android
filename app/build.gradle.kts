@@ -58,8 +58,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
-        versionCode = 285
-        versionName = "2.19.0-rc1-personal-life-planner-owner-test"
+        versionCode = 286
+        versionName = "2.20.0-rc1-personal-delivery-health-owner-test"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

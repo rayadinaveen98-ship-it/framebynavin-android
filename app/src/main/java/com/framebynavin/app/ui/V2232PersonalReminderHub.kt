@@ -196,6 +196,12 @@ internal fun V2232PersonalReminderHub(
                 color = MutedText, fontSize = 12.sp)
             if (loaded && loadError == null) {
                 V285PersonalLifePlannerCard(reminders = reminders, enabled = !busy)
+                V286PersonalReadinessCard(
+                    reminders = reminders,
+                    permissionRevision = permissionRevision,
+                    enabled = !busy,
+                    onRecheck = { permissionRevision++ },
+                )
                 V284DietFitnessSetupCard(reminders = reminders, enabled = !busy)
             }
             Surface(
