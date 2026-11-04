@@ -49,7 +49,7 @@ jobs:
           import xml.etree.ElementTree as ET
           from pathlib import Path
           root=Path('app/build/test-results/testDebugUnitTest')
-          for name,minimum in [('V285PersonalLifePlanTest',8),('V284DietFitnessPlanTest',7)]:
+          for name,minimum in [('V285PersonalLifePlanTest',9),('V285PersonalAgendaFilterTest',3),('V284DietFitnessPlanTest',7)]:
               suites=list(root.glob('TEST-*'+name+'.xml'))
               assert len(suites)==1, name+' suite missing'
               report=ET.parse(suites[0]).getroot()
