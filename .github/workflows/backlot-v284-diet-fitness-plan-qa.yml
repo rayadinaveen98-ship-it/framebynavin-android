@@ -37,7 +37,7 @@ jobs:
           assert 'chapathi' not in plan.lower() and 'chapati' not in plan.lower()
           print('PASS: Personal-only reviewed plan and roti preference')
           PY
-          timeout 58m gradle :app:testDebugUnitTest :app:assemblePersonalStable -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          timeout 62m gradle :app:testDebugUnitTest :app:assemblePersonalStable :app:assembleDebug :app:assembleDebugAndroidTest -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Verify all V284 tests passed
         run: |
           python3 - <<'PY'
@@ -58,6 +58,8 @@ jobs:
           test -s "$APK"
           mkdir -p output
           cp "$APK" output/Backlot-V284-Diet-Fitness-Owner-Test.apk
+          cp app/build/outputs/apk/debug/app-debug.apk output/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/app-debug-androidTest.apk
           (cd output && sha256sum *.apk > SHA256SUMS.txt)
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
           test -n "$SDK_ROOT"
@@ -72,3 +74,42 @@ jobs:
           path: output/
           retention-days: 14
           if-no-files-found: error
+
+  emulator-smoke:
+    needs: compile-test-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V284-Diet-Fitness-Owner-Test
+          path: output
+      - name: Verify exact build artifacts
+        run: (cd output && sha256sum -c SHA256SUMS.txt)
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run meal-notification and review-only UI tests on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install -r output/app-debug.apk
+            adb install -r output/app-debug-androidTest.apk
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.V284DietFitnessPlanDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v284-notification.log
+            grep -F 'OK (2 tests)' /tmp/v284-notification.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/v284-notification.log; then exit 1; fi
+            adb shell pm clear com.framebynavin.app
+            adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.ui.V284DietFitnessSetupUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/v284-setup-ui.log
+            grep -F 'OK (2 tests)' /tmp/v284-setup-ui.log
+            if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/v284-setup-ui.log; then exit 1; fi
+            echo 'PASS: V284 reviewed install, private meal notes and full-screen fallback'
