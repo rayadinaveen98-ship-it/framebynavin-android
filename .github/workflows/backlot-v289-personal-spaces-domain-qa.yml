@@ -2,7 +2,7 @@ name: Backlot V289 - Personal Spaces Domain Safety
 
 on:
   push:
-    branches: [feature/backlot-v289-personal-spaces-data-contract, feature/backlot-v289-personal-spaces-ui, feature/backlot-v289-compact-spaces-nav, feature/backlot-v289-spaces-metadata-recovery]
+    branches: [feature/backlot-v289-personal-spaces-data-contract, feature/backlot-v289-personal-spaces-ui, feature/backlot-v289-compact-spaces-nav, feature/backlot-v289-spaces-metadata-recovery, feature/backlot-v289-spaces-owner-backup]
   workflow_dispatch:
 
 permissions:
@@ -71,13 +71,32 @@ jobs:
           print('PASS: V289 bounded, versioned metadata codec')
           PY
 
+      - name: Require four owner backup file IO guardrail unit tests green
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=Path('app/build/test-results/testDebugUnitTest')
+          files=list(root.glob('TEST-*V289SpacesOwnerBackupFileTest.xml'))
+          assert len(files)==1, f'Expected backup file test report, found {len(files)}'
+          suite=ET.parse(files[0]).getroot()
+          assert int(suite.attrib.get('tests','0'))==4
+          assert int(suite.attrib.get('errors','0'))==0
+          assert int(suite.attrib.get('failures','0'))==0
+          print('PASS: bounded metadata file input and UTF-8')
+          PY
+
       - name: Enable KVM for reliable Android 15 emulator
         run: |
           set -euo pipefail
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-          test -r /dev/kvm && test -w /dev/kvm
+          if test -r /dev/kvm && test -w /dev/kvm; then
+            echo 'KVM usable for Android emulator'
+          else
+            echo 'KVM unavailable on this GitHub runner; allow software-emulator fallback'
+          fi
       - name: Android 15 Room persistence, isolation, cascade and dedupe tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -96,7 +115,7 @@ jobs:
             ! grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v289-room.log || { echo 'Room instrumentation error: Android crash log follows'; adb logcat -d -v threadtime | tail -180; exit 1; }
             adb logcat -c || true
             adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.ui.V289PersonalSpacesUiTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v289-spaces-ui.log
-            grep -F 'OK (3 tests)' /tmp/backlot-v289-spaces-ui.log || { echo 'Spaces UI test result missing: Android crash log follows'; adb logcat -d -v threadtime | tail -180; exit 1; }
+            grep -F 'OK (4 tests)' /tmp/backlot-v289-spaces-ui.log || { echo 'Spaces UI test result missing: Android crash log follows'; adb logcat -d -v threadtime | tail -180; exit 1; }
             ! grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v289-spaces-ui.log || { echo 'Spaces UI instrumentation error: Android crash log follows'; adb logcat -d -v threadtime | tail -180; exit 1; }
             adb logcat -c || true
             adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.personal.spaces.V289SpacesMetadataRecoveryDeviceTest com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v289-metadata-restore.log
