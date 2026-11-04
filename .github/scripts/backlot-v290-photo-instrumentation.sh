@@ -6,6 +6,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
 for entry in \
+  "com.framebynavin.app.personal.spaces.V291PhotoOrientationDeviceTest:2" \
   "com.framebynavin.app.personal.spaces.V290PrivatePhotoJournalDeviceTest:3" \
   "com.framebynavin.app.personal.spaces.V290InterruptedPhotoRecoveryDeviceTest:4" \
   "com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest:4" \
@@ -38,4 +39,4 @@ for entry in \
   rm -f "$logfile"
 done
 
-echo "PASS: V290 migration, private photo integrity, V289 DB/restore/UI regressions"
+echo "PASS: V291 EXIF orientation and metadata stripping with V290/V289 regressions"
