@@ -53,7 +53,7 @@ internal fun V287NapWakeCard(
     var selected by remember(existing?.time) {
         mutableStateOf(
             V287NapWakePolicy.Duration.entries.firstOrNull { nap.endTime(it) == existing?.time }
-                ?: nap.Duration.ONE_HOUR
+                ?: V287NapWakePolicy.Duration.ONE_HOUR
         )
     }
     var confirming by remember { mutableStateOf(false) }
