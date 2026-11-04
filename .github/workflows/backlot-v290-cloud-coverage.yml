@@ -1,0 +1,60 @@
+name: Backlot V290 - Truthful Cloud Backup Coverage QA
+
+on:
+  push:
+    branches: [feature/backlot-v290-cloud-coverage-disclosure]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v290-cloud-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cloud-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Check owner-visible scope copy is wired into Cloud UI
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          ui=Path('app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt').read_text()
+          scope=Path('app/src/main/java/com/framebynavin/app/cloud/V290CloudCoverageDisclosure.kt').read_text()
+          assert 'V290CloudCoverageDisclosure.INCLUDED' in ui
+          assert 'V290CloudCoverageDisclosure.EXCLUDED' in ui
+          assert 'V290CloudCoverageDisclosure.SUCCESS_SCOPE' in ui
+          assert 'Personal Spaces' in scope
+          assert 'private photo journals' in scope
+          assert 'photo bytes stay on' in scope
+          assert 'Unified Backlot cloud sync' not in ui
+          assert 'app/src/main/java/com/framebynavin/app/cloud/V290CloudCoverageDisclosure.kt' != ''
+          print('PASS: Cloud settings disclose supported and excluded data domains')
+          PY
+      - name: Compile Cloud screen and run disclosure unit tests
+        run: |
+          timeout 75m gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require three release-scope regression tests
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          reports=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V290CloudCoverageDisclosureTest.xml'))
+          assert len(reports)==1, f'Expected a single cloud coverage report, got {len(reports)}'
+          suite=ET.parse(reports[0]).getroot()
+          assert int(suite.attrib.get('tests','0'))==3
+          assert int(suite.attrib.get('errors','0'))==0
+          assert int(suite.attrib.get('failures','0'))==0
+          print('PASS: all three V290 cloud backup-scope tests')
+          PY
