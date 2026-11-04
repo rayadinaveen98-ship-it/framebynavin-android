@@ -82,7 +82,7 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK" > output/SIGNATURE-VERIFICATION.txt
           grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' output/SIGNATURE-VERIFICATION.txt
           "$AAPT" dump badging "$APK" > output/APK-IDENTITY.txt
-          grep -q "package: name='com.framebynavin.app' versionCode='285'" output/APK-IDENTITY.txt
+          grep -q "package: name='com.framebynavin.app' versionCode='286'" output/APK-IDENTITY.txt
           echo 'PASS: V285 Android package/version and non-Play owner test signature'
       - uses: actions/upload-artifact@v4
         with:
@@ -116,14 +116,4 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -euo pipefail
-            adb install -r output/app-debug.apk
-            adb install -r output/app-debug-androidTest.apk
-            for classname in com.framebynavin.app.ui.V286PersonalReadinessUiTest com.framebynavin.app.ui.V285PersonalLifePlannerUiTest com.framebynavin.app.personal.V285PersonalLifeNotificationsDeviceTest com.framebynavin.app.ui.V284DietFitnessSetupUiTest com.framebynavin.app.personal.V284DietFitnessPlanDeviceTest; do
-              adb shell pm clear com.framebynavin.app
-              adb shell am instrument -w -r -e hardeningTestEnvironment ci-emulator -e class "$classname" com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/backlot-v285-suite.log
-              grep -F 'OK (2 tests)' /tmp/backlot-v285-suite.log
-              if grep -E 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' /tmp/backlot-v285-suite.log; then exit 1; fi
-            done
-            echo 'PASS: V286 readiness, V285 planner, V284 diet and privacy checks'
+          script: bash .github/scripts/backlot-personal-instrumentation.sh com.framebynavin.app.ui.V286PersonalReadinessUiTest com.framebynavin.app.ui.V285PersonalLifePlannerUiTest com.framebynavin.app.personal.V285PersonalLifeNotificationsDeviceTest com.framebynavin.app.ui.V284DietFitnessSetupUiTest com.framebynavin.app.personal.V284DietFitnessPlanDeviceTest
