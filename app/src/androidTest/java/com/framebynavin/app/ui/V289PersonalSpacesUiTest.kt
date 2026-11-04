@@ -138,4 +138,35 @@ class V289PersonalSpacesUiTest {
         }
     }
 
+    @Test fun manualBackupDialogWarnsAboutPlaintextAndRequiresExplicitPicker() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val personalBefore = runBlocking { PersonalReminderStore(app).load() }
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val mounted = mutableStateOf(true)
+        try {
+            rule.setContent {
+                if (mounted.value) {
+                    FrameByNavinTheme {
+                        V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                    }
+                }
+            }
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-backup-open").performClick()
+            rule.onNodeWithTag("v289-backup-plaintext-warning").assertExists()
+            rule.onNodeWithTag("v289-backup-export").assertExists().assertIsEnabled()
+            rule.onNodeWithTag("v289-backup-import").assertExists().assertIsEnabled()
+            rule.onNodeWithTag("v289-backup-import-confirm").assertDoesNotExist()
+            // Merely opening the backup dialog cannot create a file or import data.
+            assertTrue(runBlocking { db.spaces().loadSpaces().isEmpty() })
+            assertEquals(personalBefore, runBlocking { PersonalReminderStore(app).load() })
+        } finally {
+            rule.runOnIdle { mounted.value = false }
+            rule.waitForIdle()
+            db.close()
+        }
+    }
+
 }
