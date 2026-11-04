@@ -202,6 +202,7 @@ internal fun V2232PersonalReminderHub(
                     enabled = !busy,
                     onRecheck = { permissionRevision++ },
                 )
+                V287NapWakeCard(reminders = reminders, enabled = !busy)
                 V284DietFitnessSetupCard(reminders = reminders, enabled = !busy)
             }
             Surface(
