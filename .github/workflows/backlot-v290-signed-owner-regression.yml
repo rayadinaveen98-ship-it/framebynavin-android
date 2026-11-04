@@ -80,7 +80,7 @@ jobs:
           else
             echo 'KVM not exposed; let Android Emulator runner attempt software mode'
           fi
-      - name: Android 15 - exercise actual signed owner APK across 39 regression tests
+      - name: Android 15 - run 18 non-Compose domain tests against signed owner APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
