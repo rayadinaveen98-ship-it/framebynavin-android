@@ -49,4 +49,33 @@ class V289SpacesOwnerBackupFileTest {
         )
         assertTrue(runCatching { V289SpacesMetadataCodec.decode(loaded) }.isFailure)
     }
+    @Test fun readBackVerificationAcceptsExactSavedCopyWithUnicodeNotes() {
+        val space = V289PersonalSpacePolicy.newSpace(
+            V289SpaceType.SKIN_CARE,
+            1_792_050_000_000L,
+            "10000000-0000-4000-8000-000000000001",
+        )
+        val expected = V289SpacesMetadataCodec.encode(V289SpaceState(
+            spaces = listOf(space.copy(goalText = "వారానికి మూడు రోజులు")),
+        ))
+        V289SpacesOwnerBackupFile.verifyWrittenCopy(expected, expected)
+    }
+
+    @Test fun readBackVerificationRejectsTruncatedOrChangedFile() {
+        val raw = V289SpacesMetadataCodec.encode(V289SpaceState())
+        assertTrue(runCatching {
+            V289SpacesOwnerBackupFile.verifyWrittenCopy(raw, raw.dropLast(1))
+        }.isFailure)
+        assertTrue(runCatching {
+            V289SpacesOwnerBackupFile.verifyWrittenCopy(raw, raw + " ")
+        }.isFailure)
+    }
+
+    @Test fun readBackVerificationRejectsInvalidChecksumEvenIfCopiesMatch() {
+        val malformed = "{\\\"format\\\":\\\"backlot.personal.spaces\\\",\\\"spaces\\\":[]}"
+        assertTrue(runCatching {
+            V289SpacesOwnerBackupFile.verifyWrittenCopy(malformed, malformed)
+        }.isFailure)
+    }
+
 }
