@@ -96,7 +96,7 @@ internal class V290InterruptedPhotoRecovery(
                 "Private photo is missing or too large"
             }
             val bytes = file.readBytes()
-            require(bytes.size in 1..maxBytes.toInt() &&
+            require(bytes.size in 2..maxBytes.toInt() &&
                 bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte()) {
                 "Interrupted save is not a valid JPEG"
             }
