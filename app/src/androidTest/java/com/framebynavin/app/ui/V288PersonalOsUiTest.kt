@@ -62,7 +62,7 @@ class V288PersonalOsUiTest {
             rule.onAllNodesWithTag("v288-today-home").fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("v288-personal-toggle-settings").performClick()
-        rule.onNodeWithContentDescription("Back to personal Today").performClick()
+        rule.onNodeWithTag("v288-personal-toolbar-back").performClick()
         rule.onNodeWithTag("v288-today-home").assertExists()
         rule.runOnIdle { assertEquals(false, closed) }
     }
