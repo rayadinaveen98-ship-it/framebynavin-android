@@ -16,9 +16,24 @@ concurrency:
 jobs:
   signed-owner-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile personalStable-variant instrumentation (not debug) against owner ABI
+        run: |
+          set -euo pipefail
+          timeout 75m gradle :app:assemblePersonalStableAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          test -s app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk
+          mkdir -p output
+          cp app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk output/app-personalStable-androidTest.apk
+          echo 'PASS: tests compiled against personalStable Kotlin ABI'
       - name: Wait for pinned independent owner-preview artifact (never rebuild/debug substitute)
         env:
           GH_TOKEN: ${{ github.token }}
