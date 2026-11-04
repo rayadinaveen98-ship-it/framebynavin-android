@@ -1,0 +1,431 @@
+package com.framebynavin.app.ui
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.framebynavin.app.personal.spaces.*
+import com.framebynavin.app.ui.theme.*
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlinx.coroutines.launch
+
+/**
+ * V289 Personal Spaces — optional, local-only owner UI.
+ *
+ * This opens its own app-owned full screen, separate from Personal Today.
+ * Nothing is created/scheduled on open. No photo access, cloud sync, permissions,
+ * Creator writes or automatic Done receipts are possible from this screen.
+ */
+@Composable
+internal fun V289PersonalSpacesScreen(onClose: () -> Unit) {
+    val context = LocalContext.current.applicationContext
+    val database = remember(context) { V289SpacesDatabase.open(context) }
+    DisposableEffect(database) { onDispose { database.close() } }
+    val dao = remember(database) { database.spaces() }
+    val repository = remember(dao) { V289SpacesRepository(dao) }
+    val coroutineScope = rememberCoroutineScope()
+    var spaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
+    var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
+    var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    var createVisible by remember { mutableStateOf(false) }
+    var deleteVisible by remember { mutableStateOf(false) }
+    var activityVisible by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(dao) {
+        try {
+            dao.observeSpaces().collect { spaces = it }
+        } catch (_: Exception) {
+            error = "Spaces could not be read. No data was changed."
+        }
+    }
+    LaunchedEffect(dao, selectedSpaceId) {
+        val id = selectedSpaceId
+        entries = if (id == null) emptyList() else try {
+            dao.entriesForSpace(id)
+        } catch (_: Exception) {
+            error = "Entries could not be loaded. No data was changed."
+            emptyList()
+        }
+    }
+    fun write(block: suspend () -> Unit) {
+        if (busy) return
+        busy = true
+        coroutineScope.launch {
+            try {
+                block()
+                error = null
+            } catch (_: Exception) {
+                error = "Couldn't save that change. Existing Spaces were preserved."
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    val selected = spaces.firstOrNull { it.id == selectedSpaceId }
+    BackHandler {
+        if (selectedSpaceId != null) selectedSpaceId = null else onClose()
+    }
+    CreatorAdaptiveFullScreen(onDismissRequest = onClose) {
+        Column(
+            Modifier.fillMaxSize()
+                .padding(horizontal = 18.dp, vertical = 12.dp)
+                .testTag("v289-spaces-root"),
+            verticalArrangement = Arrangement.spacedBy(13.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = {
+                        if (selectedSpaceId != null) selectedSpaceId = null else onClose()
+                    },
+                    modifier = Modifier.testTag("v289-spaces-back"),
+                ) {
+                    Icon(Icons.Outlined.ArrowBack, "Back", tint = BacklotPrimaryText)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("BACKLOT / PERSONAL", color = BacklotSecondaryAccent, fontSize = 10.sp)
+                    Text(selected?.title ?: "Your spaces", color = BacklotPrimaryText,
+                        fontSize = 21.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (selected == null) {
+                    IconButton(
+                        onClick = { createVisible = true },
+                        modifier = Modifier.testTag("v289-create-open"),
+                    ) {
+                        Icon(Icons.Outlined.AddCircleOutline, "Start a Space",
+                            tint = BacklotPrimaryText)
+                    }
+                }
+            }
+            if (error != null) {
+                Text(error.orEmpty(), color = BacklotAccent,
+                    fontSize = 12.sp, modifier = Modifier.testTag("v289-error"))
+            }
+            if (selected == null) {
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(13.dp),
+                ) {
+                    Text("Your habits, skills and little wins — in one place.",
+                        color = BacklotSecondaryText, fontSize = 12.sp)
+                    if (spaces.isEmpty()) {
+                        Surface(
+                            color = BacklotSurface,
+                            border = BorderStroke(1.dp, BacklotBorder),
+                            shape = RoundedCornerShape(18.dp),
+                            modifier = Modifier.fillMaxWidth().testTag("v289-spaces-empty"),
+                        ) {
+                            Column(Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Outlined.AutoAwesome, null,
+                                    tint = BacklotSecondaryAccent)
+                                Text("Make room for your progress",
+                                    color = BacklotPrimaryText, fontWeight = FontWeight.Bold)
+                                Text("Create one Space for your skincare, workouts, reading or another goal. Nothing is tracked until you log it.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp)
+                                Button(onClick = { createVisible = true },
+                                    modifier = Modifier.testTag("v289-empty-create")) {
+                                    Text("START A SPACE")
+                                }
+                            }
+                        }
+                    } else {
+                        spaces.forEach { space ->
+                            Surface(
+                                onClick = { selectedSpaceId = space.id },
+                                color = BacklotSurface,
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, BacklotBorder),
+                                modifier = Modifier.fillMaxWidth()
+                                    .testTag("v289-space-" + space.id),
+                            ) {
+                                Row(Modifier.padding(15.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Icon(V289SpaceIcon(space.type), null,
+                                        tint = BacklotSecondaryAccent,
+                                        modifier = Modifier.size(24.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(space.title, color = BacklotPrimaryText,
+                                            fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                        Text(if (space.archivedAtMillis == null) "Active"
+                                            else "Archived", color = BacklotSecondaryText,
+                                            fontSize = 11.sp)
+                                    }
+                                    Icon(Icons.Outlined.ChevronRight, "Open",
+                                        tint = BacklotSecondaryText)
+                                }
+                            }
+                        }
+                        OutlinedButton(onClick = { createVisible = true },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("START ANOTHER SPACE")
+                        }
+                    }
+                }
+            } else {
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(V289SpaceIcon(selected.type), null,
+                            tint = BacklotSecondaryAccent,
+                            modifier = Modifier.size(30.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(if (selected.archivedAtMillis == null) "YOUR JOURNEY" else "ARCHIVED SPACE",
+                                color = BacklotSecondaryAccent, fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold)
+                            Text(selected.goalText.ifBlank { "One step at a time." },
+                                color = BacklotSecondaryText, fontSize = 13.sp)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Button(
+                            onClick = { activityVisible = true },
+                            enabled = !busy && selected.archivedAtMillis == null,
+                            modifier = Modifier.testTag("v289-log-open"),
+                        ) {
+                            Icon(Icons.Outlined.EditNote, null,
+                                modifier = Modifier.size(18.dp))
+                            Text("LOG PROGRESS")
+                        }
+                        OutlinedButton(
+                            enabled = !busy,
+                            onClick = {
+                                val id = selected.id
+                                if (selected.archivedAtMillis == null) write {
+                                    val current = dao.getSpace(id) ?: error("Space missing")
+                                    val domain = V289SpaceType.valueOf(current.type)
+                                    repository.archiveSpace(
+                                        V289PersonalSpace(
+                                            current.id, current.title, domain, current.iconKey,
+                                            current.goalText, current.createdAtMillis,
+                                            current.archivedAtMillis, current.displayOrder,
+                                        ),
+                                        System.currentTimeMillis()
+                                    )
+                                } else write { repository.unarchiveSpace(id) }
+                            },
+                            modifier = Modifier.testTag("v289-archive"),
+                        ) { Text(if (selected.archivedAtMillis == null) "ARCHIVE" else "RESTORE") }
+                    }
+                    Text("Activity", color = BacklotPrimaryText,
+                        fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("Only things you explicitly record appear here.",
+                        color = BacklotSecondaryText, fontSize = 11.sp)
+                    if (entries.isEmpty()) {
+                        Text("No entries yet. Add your first note or check-in.",
+                            color = BacklotSecondaryText, fontSize = 13.sp,
+                            modifier = Modifier.testTag("v289-entries-empty"))
+                    } else {
+                        entries.forEach { item ->
+                            Surface(color = BacklotSurface,
+                                border = BorderStroke(1.dp, BacklotBorder),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.fillMaxWidth().testTag("v289-entry")) {
+                                Column(Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        Instant.ofEpochMilli(item.occurredAtMillis)
+                                            .atZone(ZoneId.systemDefault())
+                                            .format(DateTimeFormatter.ofPattern("d MMM yyyy · h:mm a", Locale.getDefault())),
+                                        color = BacklotSecondaryAccent, fontSize = 11.sp)
+                                    Text(item.note.ifBlank { "Checked in" },
+                                        color = BacklotPrimaryText, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = { deleteVisible = true },
+                        enabled = !busy,
+                        modifier = Modifier.testTag("v289-delete-open"),
+                    ) { Text("DELETE THIS SPACE", color = BacklotAccent) }
+                }
+            }
+        }
+    }
+
+    if (createVisible) {
+        var type by remember { mutableStateOf(V289SpaceType.SKIN_CARE) }
+        var name by remember { mutableStateOf(type.defaultTitle) }
+        var goal by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { if (!busy) createVisible = false },
+            title = { Text("Start a Space") },
+            text = {
+                Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Choose a starting point", fontSize = 12.sp)
+                    V289SpaceType.entries.forEach { suggestion ->
+                        FilterChip(
+                            selected = type == suggestion,
+                            onClick = {
+                                val replaceSuggested = name == type.defaultTitle
+                                type = suggestion
+                                if (replaceSuggested) name = type.defaultTitle
+                            },
+                            label = { Text(suggestion.defaultTitle) },
+                        )
+                    }
+                    OutlinedTextField(value = name,
+                        onValueChange = { name = it.take(80) },
+                        label = { Text("Space name") },
+                        modifier = Modifier.fillMaxWidth().testTag("v289-new-title"),
+                        singleLine = true)
+                    OutlinedTextField(value = goal,
+                        onValueChange = { goal = it.take(500) },
+                        label = { Text("Goal (optional)") },
+                        modifier = Modifier.fillMaxWidth())
+                    Text("Private and offline. No reminders or photos added automatically.",
+                        color = BacklotSecondaryText, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && name.trim().isNotEmpty(),
+                    modifier = Modifier.testTag("v289-create-save"),
+                    onClick = {
+                        val chosenType = type
+                        val chosenName = name.trim()
+                        val chosenGoal = goal.trim()
+                        write {
+                            val record = V289PersonalSpacePolicy.newSpace(
+                                chosenType, System.currentTimeMillis()
+                            ).copy(title = chosenName, goalText = chosenGoal)
+                            repository.createSpace(record)
+                            createVisible = false
+                            selectedSpaceId = record.id
+                        }
+                    },
+                ) { Text("CREATE") }
+            },
+            dismissButton = {
+                TextButton(enabled = !busy, onClick = { createVisible = false }) {
+                    Text("CANCEL")
+                }
+            },
+        )
+    }
+
+    if (activityVisible && selected != null) {
+        var note by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { if (!busy) activityVisible = false },
+            title = { Text("Log your progress") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("Only your own check-ins count toward progress.",
+                        color = BacklotSecondaryText, fontSize = 12.sp)
+                    OutlinedTextField(value = note,
+                        onValueChange = { note = it.take(2000) },
+                        label = { Text("What did you do today?") },
+                        modifier = Modifier.fillMaxWidth().testTag("v289-checkin-note"),
+                        minLines = 3, maxLines = 5)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        val spaceId = selected.id
+                        val text = note.trim()
+                        write {
+                            repository.logManualEntry(
+                                V289SpaceEntry(
+                                    id = V289PersonalSpacePolicy.canonicalUuid(),
+                                    spaceId = spaceId,
+                                    kind = V289SpaceEntryKind.CHECK_IN,
+                                    source = V289SpaceEntrySource.MANUAL,
+                                    occurredAtMillis = System.currentTimeMillis(),
+                                    createdAtMillis = System.currentTimeMillis(),
+                                    note = text,
+                                )
+                            )
+                            entries = dao.entriesForSpace(spaceId)
+                            activityVisible = false
+                        }
+                    },
+                    modifier = Modifier.testTag("v289-checkin-save"),
+                ) { Text("SAVE") }
+            },
+            dismissButton = {
+                TextButton(enabled = !busy, onClick = { activityVisible = false }) {
+                    Text("CANCEL")
+                }
+            },
+        )
+    }
+
+    if (deleteVisible && selected != null) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) deleteVisible = false },
+            title = { Text("Delete this Space?") },
+            text = {
+                Text("This removes its local notes and progress entries. Linked Personal reminders are never deleted.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        val id = selected.id
+                        write {
+                            repository.deleteSpaceAfterOwnerConfirmation(id)
+                            selectedSpaceId = null
+                            deleteVisible = false
+                        }
+                    },
+                    modifier = Modifier.testTag("v289-delete-confirm"),
+                ) { Text("DELETE", color = BacklotAccent) }
+            },
+            dismissButton = {
+                TextButton(enabled = !busy, onClick = { deleteVisible = false }) {
+                    Text("CANCEL")
+                }
+            },
+        )
+    }
+}
+
+private fun V289SpaceIcon(type: String): ImageVector =
+    when (runCatching { V289SpaceType.valueOf(type) }.getOrDefault(V289SpaceType.CUSTOM)) {
+        V289SpaceType.SKIN_CARE -> Icons.Outlined.WbSunny
+        V289SpaceType.FITNESS -> Icons.Outlined.FitnessCenter
+        V289SpaceType.READING -> Icons.Outlined.MenuBook
+        V289SpaceType.EDITING -> Icons.Outlined.Movie
+        V289SpaceType.GAME_DEVELOPMENT -> Icons.Outlined.Code
+        V289SpaceType.GAMING -> Icons.Outlined.SportsEsports
+        V289SpaceType.CUSTOM -> Icons.Outlined.AutoAwesome
+    }
