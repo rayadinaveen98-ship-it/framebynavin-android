@@ -133,7 +133,9 @@ class V289PersonalSpacePolicyTest {
             if (it.id == skin.id) policy.archive(it, startedAt + 5000L) else it
         })
         assertEquals(1, policy.overviews(archived).last().manualEntries)
-        assertEquals(archived.spaces.last(), policy.unarchive(archived.spaces.last()))
+        val restored = policy.unarchive(archived.spaces.first())
+        assertEquals(skin.id, restored.id)
+        assertEquals(null, restored.archivedAtMillis)
         val deleted = policy.deleteSpace(archived, skin.id)
         assertEquals(listOf(editing.id), deleted.spaces.map { it.id })
         assertEquals(listOf(editing.id), deleted.entries.map { it.spaceId })
