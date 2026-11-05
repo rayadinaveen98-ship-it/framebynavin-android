@@ -10,8 +10,8 @@ internal enum class V167SettingsSection {
 
 internal object V167SettingsNavigationPolicy {
     val homeSections = listOf(
-        "My Profile", "Personalization", "Reminders & Alerts",
-        "Planning & Calendar", "Backup & Data", "About & Help",
+        "Account", "Appearance & sound", "Notifications & alarms",
+        "Planning & integrations", "Backup & storage", "Help & about",
     )
 
     fun parent(section: V167SettingsSection): V167SettingsSection = when (section) {
