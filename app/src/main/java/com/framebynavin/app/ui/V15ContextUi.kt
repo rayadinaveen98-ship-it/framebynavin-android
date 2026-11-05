@@ -163,14 +163,7 @@ internal fun V15ContentCalendarScreen(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = bottomNavigationClearance)
         ) {
-            V15BackHeader("CONTENT CALENDAR", "Your next 14 days", onClose)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Project deadlines and weekly-plan previews, shown separately.",
-                color = MutedText,
-                fontSize = 9.2.sp,
-                lineHeight = 14.sp,
-            )
+            V15BackHeader("CALENDAR", "Next 14 days", onClose)
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
