@@ -15,6 +15,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.PersonalReminder
+import java.time.LocalDate
+import java.time.LocalTime
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import kotlinx.coroutines.runBlocking
@@ -303,4 +306,105 @@ class V289PersonalSpacesUiTest {
         }
     }
 
+
+    @Test fun standaloneNoteIsDurableAndDoesNotClaimReminderDone() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val before = runBlocking { PersonalReminderStore(app).load() }
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val mounted = mutableStateOf(true)
+        try {
+            rule.setContent {
+                if (mounted.value) FrameByNavinTheme {
+                    V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                }
+            }
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-create-open").performClick()
+            rule.onNodeWithTag("v289-create-save").performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v295-note-open").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v295-note-open").performScrollTo().performClick()
+            rule.onNodeWithTag("v295-note-input").performTextInput("Private standalone observation")
+            rule.onNodeWithTag("v295-note-save").performClick()
+            rule.waitUntil(12_000) {
+                runBlocking { db.spaces().allEntries().size == 1 }
+            }
+            val entry = runBlocking { db.spaces().allEntries().single() }
+            assertEquals("NOTE", entry.kind)
+            assertEquals("MANUAL", entry.source)
+            assertEquals("Private standalone observation", entry.note)
+            assertEquals(null, entry.reminderId)
+            assertEquals(null, entry.originalOccurrenceMillis)
+            rule.onNodeWithTag("v295-saved-note").assertExists()
+            assertEquals(before, runBlocking { PersonalReminderStore(app).load() })
+        } finally {
+            rule.runOnIdle { mounted.value = false }
+            rule.waitForIdle()
+            db.close()
+        }
+    }
+
+    @Test fun linkingAndUnlinkingReminderNeverMutatesItsSchedule() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val store = PersonalReminderStore(app)
+        val before = runBlocking { store.load() }
+        val reminder = PersonalReminder(
+            id = "v295-fixture-" + UUID.randomUUID(),
+            title = "V295 skincare fixture",
+            startDate = LocalDate.now().plusDays(1),
+            time = LocalTime.of(8, 0),
+        ).checked()
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val mounted = mutableStateOf(true)
+        val openedId = mutableStateOf("")
+        try {
+            runBlocking { store.mutate { it + reminder } }
+            rule.setContent {
+                if (mounted.value) FrameByNavinTheme {
+                    V289PersonalSpacesScreen(
+                        onClose = {}, databaseForTesting = db,
+                        onEditReminder = { openedId.value = it },
+                    )
+                }
+            }
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-create-open").performClick()
+            rule.onNodeWithTag("v289-create-save").performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v295-link-open").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v295-link-open").performScrollTo().performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithText("V295 skincare fixture").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithText("V295 skincare fixture").performClick()
+            rule.waitUntil(12_000) {
+                runBlocking {
+                    val space = db.spaces().loadSpaces().single()
+                    db.spaces().linksForSpace(space.id).size == 1
+                }
+            }
+            assertEquals(before + reminder, runBlocking { store.load() })
+            rule.onNodeWithTag("v295-edit-linked-reminder").performScrollTo().performClick()
+            assertEquals(reminder.id, openedId.value)
+            rule.onNodeWithTag("v295-unlink-reminder").performScrollTo().performClick()
+            rule.waitUntil(12_000) {
+                runBlocking {
+                    val space = db.spaces().loadSpaces().single()
+                    db.spaces().linksForSpace(space.id).isEmpty()
+                }
+            }
+            assertEquals(before + reminder, runBlocking { store.load() })
+        } finally {
+            rule.runOnIdle { mounted.value = false }
+            rule.waitForIdle()
+            runBlocking { store.mutate { it.filterNot { item -> item.id == reminder.id } } }
+            db.close()
+        }
+    }
 }
