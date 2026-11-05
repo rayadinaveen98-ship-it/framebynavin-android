@@ -79,6 +79,7 @@ internal fun V289PersonalSpacesScreen(
     var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    var spaceActionsOpen by remember(selectedSpaceId) { mutableStateOf(false) }
     var createVisible by remember { mutableStateOf(false) }
     var backupVisible by remember { mutableStateOf(false) }
     var backupNotice by remember { mutableStateOf<String?>(null) }
@@ -218,7 +219,7 @@ internal fun V289PersonalSpacesScreen(
                 }
                 Column(Modifier.weight(1f)) {
                     Text("BACKLOT / PERSONAL", color = BacklotSecondaryAccent, fontSize = 10.sp)
-                    Text(selected?.title ?: "Your spaces", color = BacklotPrimaryText,
+                    Text(selected?.title ?: "My Spaces", color = BacklotPrimaryText,
                         fontSize = 21.sp, fontWeight = FontWeight.Bold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -254,8 +255,6 @@ internal fun V289PersonalSpacesScreen(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(13.dp),
                 ) {
-                    Text("Your habits, skills and little wins — in one place.",
-                        color = BacklotSecondaryText, fontSize = 12.sp)
                     if (!spacesLoaded) {
                         if (error == null) CircularProgressIndicator(color = BacklotSecondaryAccent)
                         else Text("Spaces are unavailable. No data was reset.",
@@ -271,13 +270,13 @@ internal fun V289PersonalSpacesScreen(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Icon(Icons.Outlined.AutoAwesome, null,
                                     tint = BacklotSecondaryAccent)
-                                Text("Make room for your progress",
+                                Text("No spaces yet",
                                     color = BacklotPrimaryText, fontWeight = FontWeight.Bold)
-                                Text("Create one Space for your skincare, workouts, reading or another goal. Nothing is tracked until you log it.",
+                                Text("Create a space to track a goal.",
                                     color = BacklotSecondaryText, fontSize = 12.sp)
                                 Button(onClick = { createVisible = true },
                                     modifier = Modifier.testTag("v289-empty-create")) {
-                                    Text("START A SPACE")
+                                    Text("CREATE SPACE")
                                 }
                             }
                         }
@@ -317,7 +316,7 @@ internal fun V289PersonalSpacesScreen(
                         }
                         OutlinedButton(onClick = { createVisible = true },
                             modifier = Modifier.fillMaxWidth()) {
-                            Text("START ANOTHER SPACE")
+                            Text("NEW SPACE")
                         }
                     }
                 }
@@ -332,11 +331,13 @@ internal fun V289PersonalSpacesScreen(
                             tint = BacklotSecondaryAccent,
                             modifier = Modifier.size(30.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(if (selected.archivedAtMillis == null) "YOUR JOURNEY" else "ARCHIVED SPACE",
-                                color = BacklotSecondaryAccent, fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold)
-                            Text(selected.goalText.ifBlank { "One step at a time." },
-                                color = BacklotSecondaryText, fontSize = 13.sp)
+                            if (selected.archivedAtMillis != null) {
+                                Text("Archived", color = BacklotSecondaryAccent, fontSize = 12.sp)
+                            }
+                            if (selected.goalText.isNotBlank()) {
+                                Text(selected.goalText,
+                                    color = BacklotSecondaryText, fontSize = 13.sp)
+                            }
                         }
                         if (selected.archivedAtMillis == null) {
                             IconButton(
@@ -346,6 +347,29 @@ internal fun V289PersonalSpacesScreen(
                             ) {
                                 Icon(Icons.Outlined.Edit, "Edit Space details",
                                     tint = BacklotSecondaryAccent)
+                            }
+                        }
+                        androidx.compose.foundation.layout.Box {
+                            IconButton(
+                                onClick = { spaceActionsOpen = true },
+                                enabled = !busy,
+                                modifier = Modifier.testTag("v294-space-actions"),
+                            ) {
+                                Icon(Icons.Outlined.MoreVert, "More Space actions",
+                                    tint = BacklotSecondaryText)
+                            }
+                            DropdownMenu(
+                                expanded = spaceActionsOpen,
+                                onDismissRequest = { spaceActionsOpen = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Delete space", color = BacklotError) },
+                                    onClick = {
+                                        spaceActionsOpen = false
+                                        deleteVisible = true
+                                    },
+                                    modifier = Modifier.testTag("v289-delete-open"),
+                                )
                             }
                         }
                     }
@@ -392,8 +416,6 @@ internal fun V289PersonalSpacesScreen(
                                 Text("${summary.totalRecordedEntries} logs",
                                     color = BacklotPrimaryText,
                                     fontWeight = FontWeight.SemiBold)
-                                Text("Your recorded activity", color = BacklotSecondaryText,
-                                    fontSize = 10.sp)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text("${summary.daysWithActivityLastSeven} active days",
@@ -421,9 +443,7 @@ internal fun V289PersonalSpacesScreen(
                     )
                     Text("Activity", color = BacklotPrimaryText,
                         fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    Text("Only things you explicitly record appear here.",
-                        color = BacklotSecondaryText, fontSize = 11.sp)
-                    Text("Device-only: current Backlot cloud backup does not include Spaces.",
+                    Text("Spaces and photos aren't included in cloud backup.",
                         color = BacklotSecondaryText, fontSize = 11.sp,
                         modifier = Modifier.testTag("v289-local-only-notice"))
                     if (entries.isEmpty()) {
@@ -462,11 +482,6 @@ internal fun V289PersonalSpacesScreen(
                             }
                         }
                     }
-                    OutlinedButton(
-                        onClick = { deleteVisible = true },
-                        enabled = !busy,
-                        modifier = Modifier.testTag("v289-delete-open"),
-                    ) { Text("DELETE THIS SPACE", color = BacklotAccent) }
                 }
             }
         }
