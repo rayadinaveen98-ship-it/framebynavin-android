@@ -97,6 +97,7 @@ jobs:
               ('V292SpaceMetricSuggestionsTest',6),
               ('V297ChallengeTest',7),
               ('V299RecoveryCountsTest',5),
+              ('V299PhotoIntegrityPolicyTest',4),
               ('V298ReminderGroupTest',7),
           ]
           for name,minimum in required:
