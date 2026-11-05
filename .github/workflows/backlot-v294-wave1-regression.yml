@@ -2,14 +2,14 @@ name: Backlot V294 - Wave 1 Unit and Data-Preservation Guard
 
 on:
   push:
-    branches: [feature/backlot-v294-universal-ui-wave1]
+    branches: [feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: backlot-v294-wave1-unit
+  group: backlot-v294-unit-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

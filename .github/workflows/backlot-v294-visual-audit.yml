@@ -2,14 +2,14 @@ name: Backlot V294 - Synthetic Android 15 UX Screenshots
 
 on:
   push:
-    branches: [design/backlot-v294-app-wide-experience-audit, feature/backlot-v294-universal-ui-wave1]
+    branches: [design/backlot-v294-app-wide-experience-audit, feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: backlot-v294-visual-audit
+  group: backlot-v294-visual-audit-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

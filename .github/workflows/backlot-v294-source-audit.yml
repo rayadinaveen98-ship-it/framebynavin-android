@@ -2,14 +2,14 @@ name: Backlot V294 - App-Wide Static UX and Copy Audit
 
 on:
   push:
-    branches: [design/backlot-v294-app-wide-experience-audit, feature/backlot-v294-universal-ui-wave1]
+    branches: [design/backlot-v294-app-wide-experience-audit, feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: backlot-v294-source-audit
+  group: backlot-v294-source-audit-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

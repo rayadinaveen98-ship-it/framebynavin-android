@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -44,6 +45,19 @@ class V167SettingsNavigationUiTest {
                 onYouTube = {},
             )
         }
+    }
+
+    @Test fun quietSettingsHomeUsesConciseRowsWithoutRedundantDescriptions() {
+        show()
+        for (title in V167SettingsNavigationPolicy.homeSections) {
+            rule.onNodeWithText(title).assertExists()
+        }
+        rule.onNodeWithText("Profile and sign-in").assertDoesNotExist()
+        rule.onNodeWithText("Theme, companion and voice").assertDoesNotExist()
+        rule.onNodeWithText("App tour and version").assertDoesNotExist()
+        rule.onNodeWithText("Sync, exports and recovery").assertDoesNotExist()
+        rule.onNodeWithText("Permissions need attention").assertExists()
+        rule.onNodeWithText("Advanced").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun profileIsSingleTapAndNoDuplicateConnectionsCategory() {
