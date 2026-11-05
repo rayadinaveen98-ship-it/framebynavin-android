@@ -751,7 +751,12 @@ internal fun V2232PersonalEditor(
     // inset Dialog can shift its Cancel button outside the display despite
     // the Compose root measuring it inside its own bounds. The existing
     // Activity-owned overlay handles safe drawing and IME exactly once.
-    CreatorAdaptiveFullScreen(onDismissRequest = onDismiss) {
+    CreatorAdaptiveFullScreen(
+        onDismissRequest = {
+            if (composerStep > 0) { composerStep--; error = null }
+            else onDismiss()
+        },
+    ) {
         Surface(
             modifier = Modifier.fillMaxSize()
                 .testTag("v2232-personal-editor"),
@@ -819,7 +824,7 @@ internal fun V2232PersonalEditor(
                             error = null
                         },
                     )
-                    Text("02  YOUR REMINDER", color = MutedGold,
+                    Text("YOUR REMINDER", color = MutedGold,
                         fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(
                         value = title, onValueChange = { title = it.take(180); error = null },
@@ -1171,6 +1176,10 @@ internal fun V2232PersonalEditor(
                                         .replaceFirstChar { it.uppercase() },
                                 color = MutedText, fontSize = 12.sp,
                             )
+                            Text("Snooze: ${snoozeMinutes} minutes" +
+                                    if (alert == PersonalAlert.VOICE.name)
+                                        " · Voice repeats: ${personalVoiceCount}" else "",
+                                color = MutedText, fontSize = 12.sp)
                             Text(
                                 "Preview only. Android battery and notification settings may delay alerts.",
                                 color = MutedText, fontSize = 11.sp,
