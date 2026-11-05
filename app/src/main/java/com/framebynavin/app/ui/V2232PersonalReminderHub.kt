@@ -11,6 +11,11 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -710,6 +715,16 @@ internal fun V2232PersonalEditor(
     var hourlyUntil by rememberSaveable(existing?.id) {
         mutableStateOf((existing?.hourlyUntil ?: LocalTime.of(23, 59)).toString())
     }
+    // The creation flow progressively discloses details; editing retains the
+    // familiar all-fields layout until the guided editor passes owner QA.
+    // This step is UI-only and never schedules a notification before Save.
+    var composerStep by rememberSaveable(existing?.id) {
+        mutableIntStateOf(if (existing == null) 0 else -1)
+    }
+    var advancedOptionsOpen by rememberSaveable(existing?.id) {
+        mutableStateOf(existing != null)
+    }
+    val composerScroll = remember(composerStep) { ScrollState(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var fullScreenAllowed by remember { mutableStateOf(
         com.framebynavin.app.reminders.V268FullScreenReminderAccess.allowed(context)
@@ -748,15 +763,28 @@ internal fun V2232PersonalEditor(
                     Column(Modifier.weight(1f)) {
                         Text(if (existing == null) "NEW PERSONAL REMINDER" else "EDIT PERSONAL REMINDER",
                             color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Text("Your personal rhythm", color = ProjectorIvory,
-                            fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                        Text(if (existing == null) "Make it yours" else "Your personal rhythm",
+                            color = ProjectorIvory, fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold)
+                        if (composerStep >= 0) Text(
+                            "STEP ${composerStep + 1} OF 4  ·  " +
+                                listOf("Purpose", "Schedule", "Alert", "Review")[composerStep],
+                            color = MutedText, fontSize = 12.sp,
+                            modifier = Modifier.testTag("v296-composer-progress"),
+                        )
                     }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Outlined.Close, contentDescription = "Close editor", tint = ProjectorIvory)
                     }
                 }
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                Column(Modifier.weight(1f).verticalScroll(composerScroll),
                     verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    AnimatedVisibility(
+                        visible = composerStep == 0 || composerStep < 0,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     if (existing == null) {
                         Text("START WITH A ROUTINE", color = MutedGold,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -803,7 +831,15 @@ internal fun V2232PersonalEditor(
                         label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Text("03  WHEN SHOULD IT HAPPEN?", color = MutedGold,
+                    }
+                    }
+                    AnimatedVisibility(
+                        visible = composerStep == 1 || composerStep < 0,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    Text("WHEN SHOULD IT HAPPEN?", color = MutedGold,
                         fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedButton(onClick = {
                         v2232PickDateTime(context, selectedTime) { selectedTime = it; error = null }
@@ -940,7 +976,15 @@ internal fun V2232PersonalEditor(
                                 color = ProjectorIvory, fontSize = 12.sp)
                         }
                     }
-                    Text("04  HOW SHOULD BACKLOT REACH YOU?", color = MutedGold,
+                    }
+                    }
+                    AnimatedVisibility(
+                        visible = composerStep == 2 || composerStep < 0,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    Text("HOW SHOULD BACKLOT REACH YOU?", color = MutedGold,
                         fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -950,6 +994,24 @@ internal fun V2232PersonalEditor(
                                 label = { Text(choice.name, fontSize = 10.sp) })
                         }
                     }
+                    if (composerStep == 2) {
+                        Text("Snooze defaults to ${snoozeMinutes} minutes. Voice uses " +
+                            "${personalVoiceCount} announcements and your selected music.",
+                            color = MutedText, fontSize = 12.sp)
+                        TextButton(
+                            onClick = { advancedOptionsOpen = !advancedOptionsOpen },
+                            modifier = Modifier.testTag("v296-composer-advanced"),
+                        ) {
+                            Text(if (advancedOptionsOpen) "HIDE SOUND & SNOOZE OPTIONS"
+                                else "CUSTOMIZE SOUND & SNOOZE")
+                        }
+                    }
+                    AnimatedVisibility(
+                        visible = advancedOptionsOpen || composerStep < 0,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     Text("SNOOZE DURATION", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1068,6 +1130,16 @@ internal fun V2232PersonalEditor(
                                 color = MutedText, fontSize = 11.sp)
                         }
                     }
+                    }
+                    }
+                    }
+                    }
+                    AnimatedVisibility(
+                        visible = composerStep == 3 || composerStep < 0,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     Surface(
                         modifier = Modifier.fillMaxWidth().testTag("v274-personal-review"),
                         color = CinemaSurface,
@@ -1076,8 +1148,13 @@ internal fun V2232PersonalEditor(
                     ) {
                         Column(Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text("YOUR PLAN", color = MutedGold, fontSize = 10.sp,
+                            Text("REVIEW BEFORE SAVING", color = MutedGold, fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold)
+                            Text(title.trim().ifBlank { "Unnamed reminder" },
+                                color = ProjectorIvory, fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold)
+                            if (notes.isNotBlank()) Text(notes.trim(),
+                                color = MutedText, fontSize = 12.sp)
                             Text(
                                 PersonalSelfCarePresets.scheduleLabel(
                                     PersonalRepeat.valueOf(repeat),
@@ -1100,10 +1177,47 @@ internal fun V2232PersonalEditor(
                             )
                         }
                     }
+                    if (composerStep == 3) Text(
+                        "To connect this reminder to a Space, save it first and use " +
+                            "Link existing reminder inside My Spaces.",
+                        color = MutedText, fontSize = 12.sp,
+                    )
+                    }
+                    }
                     error?.let {
                         Text(it, color = RecRed, modifier = Modifier.testTag("v2232-editor-error"))
                     }
                 }
+                if (composerStep in 0..2) {
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                if (composerStep == 0) onDismiss()
+                                else { composerStep--; error = null }
+                            },
+                            modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                                .testTag("v296-composer-back"),
+                        ) { Text(if (composerStep == 0) "CANCEL" else "BACK") }
+                        Button(
+                            onClick = {
+                                if (composerStep == 0 && title.isBlank()) {
+                                    error = "Give your reminder a name to continue."
+                                } else {
+                                    error = null
+                                    composerStep++
+                                }
+                            },
+                            enabled = !saving,
+                            modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                                .testTag("v296-composer-next"),
+                        ) { Text("CONTINUE") }
+                    }
+                } else {
+                    if (composerStep == 3) TextButton(
+                        onClick = { composerStep = 2; error = null },
+                        modifier = Modifier.fillMaxWidth().testTag("v296-composer-review-back"),
+                    ) { Text("BACK TO ALERTS") }
                 // V227.1: keyboard-safe, adaptive actions; retains all validation.
                 V2271PersonalEditorFooter(
                     saving = saving,
@@ -1142,6 +1256,7 @@ internal fun V2232PersonalEditor(
                             }
                 },
                 )
+                }
             }
         }
     }
