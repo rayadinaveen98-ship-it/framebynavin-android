@@ -21,9 +21,9 @@ if ! adb shell am instrument -w -r \
   rm -f "$logfile"
   exit 1
 fi
-if ! grep -Fq 'OK (2 tests)' "$logfile" || \
+if ! grep -Fq 'OK (3 tests)' "$logfile" || \
   grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$logfile"; then
-  echo 'FAIL: expected two V293 backup preflight device tests' >&2
+  echo 'FAIL: expected three V293 backup preflight device tests' >&2
   cat "$logfile" >&2
   adb logcat -d -v threadtime | tail -180 || true
   rm -f "$logfile"
