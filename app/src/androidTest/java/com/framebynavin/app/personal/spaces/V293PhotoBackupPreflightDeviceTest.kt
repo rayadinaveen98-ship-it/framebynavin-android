@@ -45,6 +45,50 @@ class V293PhotoBackupPreflightDeviceTest {
         }
     }
 
+    @Test fun interruptedOrUntrackedPrivatePhotoCannotBeSilentlyOmitted() = runBlocking {
+        HardeningTestEnvironment.requireCiEmulator()
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val spaceId = UUID.randomUUID().toString()
+        try {
+            V289SpacesRepository(db.spaces()).createSpace(
+                V289PersonalSpacePolicy.newSpace(
+                    V289SpaceType.SKIN_CARE,
+                    System.currentTimeMillis(),
+                    spaceId,
+                )
+            )
+            val image = Bitmap.createBitmap(48, 72, Bitmap.Config.ARGB_8888)
+            val png = ByteArrayOutputStream()
+            try {
+                assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, png))
+            } finally {
+                image.recycle()
+            }
+            val prepared = V290PrivatePhotoFiles.sanitizeImage(
+                png.toByteArray(), UUID.randomUUID().toString()
+            )
+            val orphan = V290PrivatePhotoFiles.storePrepared(app, spaceId, prepared)
+            try {
+                assertTrue(runCatching { V293PhotoBackupPreflight(app, db).inspect() }.isFailure)
+            } finally {
+                orphan.delete()
+            }
+            val unfinished = java.io.File(
+                orphan.parentFile, "." + UUID.randomUUID().toString() + ".partial"
+            )
+            try {
+                unfinished.writeBytes("unfinished CI-only image".toByteArray())
+                assertTrue(runCatching { V293PhotoBackupPreflight(app, db).inspect() }.isFailure)
+            } finally {
+                unfinished.delete()
+            }
+            assertEquals(0, V293PhotoBackupPreflight(app, db).inspect().photoCount)
+            assertEquals(0, db.spaces().photosForSpace(spaceId).size)
+        } finally {
+            db.close()
+        }
+    }
+
     @Test fun corruptOrMissingPrivateJpegBlocksWholeBackupCandidate() = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val beforePersonal = PersonalReminderStore(app).load()
