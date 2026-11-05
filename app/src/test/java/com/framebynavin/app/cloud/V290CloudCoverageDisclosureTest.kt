@@ -21,6 +21,8 @@ class V290CloudCoverageDisclosureTest {
         assertTrue(notice.contains("Personal Spaces"))
         assertTrue(notice.contains("check-in notes"))
         assertTrue(notice.contains("private photo journals"))
+        assertTrue(notice.contains("21-day challenges"))
+        assertTrue(notice.contains("Reminder Groups"))
         assertTrue(notice.contains("photo bytes stay on"))
         assertTrue(notice.contains("export Spaces metadata separately"))
     }
