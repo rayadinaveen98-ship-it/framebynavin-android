@@ -7,6 +7,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.spaces.*
@@ -387,10 +389,10 @@ internal fun V289PersonalSpacesScreen(
                         Row(Modifier.padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween) {
                             Column {
-                                Text("${summary.manualCheckIns} check-ins",
+                                Text("${summary.totalRecordedEntries} logs",
                                     color = BacklotPrimaryText,
                                     fontWeight = FontWeight.SemiBold)
-                                Text("Recorded by you", color = BacklotSecondaryText,
+                                Text("Your recorded activity", color = BacklotSecondaryText,
                                     fontSize = 10.sp)
                             }
                             Column(horizontalAlignment = Alignment.End) {
@@ -441,8 +443,21 @@ internal fun V289PersonalSpacesScreen(
                                             .atZone(ZoneId.systemDefault())
                                             .format(DateTimeFormatter.ofPattern("d MMM yyyy · h:mm a", Locale.getDefault())),
                                         color = BacklotSecondaryAccent, fontSize = 11.sp)
-                                    Text(item.note.ifBlank { "Checked in" },
-                                        color = BacklotPrimaryText, fontSize = 13.sp)
+                                    Text(item.note.ifBlank {
+                                        if (item.kind == V289SpaceEntryKind.METRIC.name)
+                                            "Measured progress" else "Checked in"
+                                    }, color = BacklotPrimaryText, fontSize = 13.sp)
+                                    if (item.kind == V289SpaceEntryKind.METRIC.name &&
+                                        item.metricValue != null && item.metricName != null &&
+                                        item.metricUnit != null) {
+                                        Text(
+                                            V292SpaceMetricSuggestions.describe(
+                                                item.metricName, item.metricValue, item.metricUnit
+                                            ),
+                                            color = BacklotSecondaryAccent, fontSize = 12.sp,
+                                            modifier = Modifier.testTag("v292-recorded-metric")
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -795,25 +810,69 @@ internal fun V289PersonalSpacesScreen(
     }
 
     if (activityVisible && selected != null) {
-        var note by remember { mutableStateOf("") }
+        var note by remember(selected.id) { mutableStateOf("") }
+        val metricPreset = V292SpaceMetricSuggestions.forType(
+            V289SpaceType.valueOf(selected.type)
+        )
+        var includeMetric by remember(selected.id) { mutableStateOf(false) }
+        var metricText by remember(selected.id) { mutableStateOf("") }
+        val safeMetric = if (includeMetric) metricPreset?.parseOrNull(metricText) else null
         AlertDialog(
             onDismissRequest = { if (!busy) activityVisible = false },
             title = { Text("Log your progress") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("Only your own check-ins count toward progress.",
+                Column(
+                    Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    Text("Log what you did. Optional measures are saved only when you choose.",
                         color = BacklotSecondaryText, fontSize = 12.sp)
                     OutlinedTextField(value = note,
                         onValueChange = { note = it.take(2000) },
                         label = { Text("What did you do today?") },
                         modifier = Modifier.fillMaxWidth().testTag("v289-checkin-note"),
-                        minLines = 3, maxLines = 5)
+                        minLines = 2, maxLines = 4)
+                    if (metricPreset != null) {
+                        TextButton(
+                            onClick = {
+                                includeMetric = !includeMetric
+                                if (!includeMetric) metricText = ""
+                            },
+                            enabled = !busy,
+                            modifier = Modifier.testTag("v292-metric-toggle"),
+                        ) {
+                            Text(if (includeMetric) "REMOVE MEASURE" else "ADD MEASUREMENT")
+                        }
+                        if (includeMetric) {
+                            OutlinedTextField(
+                                value = metricText,
+                                onValueChange = { raw ->
+                                    metricText = raw.take(6)
+                                },
+                                label = {
+                                    Text(metricPreset.name + " (" + metricPreset.unit + ")")
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number
+                                ),
+                                singleLine = true,
+                                isError = metricText.isNotBlank() && safeMetric == null,
+                                supportingText = {
+                                    Text("Whole number, 1–" + metricPreset.maxValue)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                                    .testTag("v292-metric-value"),
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = !busy,
+                    enabled = !busy && (!includeMetric || safeMetric != null),
                     onClick = {
+                        val measuredValue = safeMetric
+                        val chosenMetric = metricPreset
                         val spaceId = selected.id
                         val text = note.trim()
                         write {
@@ -821,11 +880,15 @@ internal fun V289PersonalSpacesScreen(
                                 V289SpaceEntry(
                                     id = V289PersonalSpacePolicy.canonicalUuid(),
                                     spaceId = spaceId,
-                                    kind = V289SpaceEntryKind.CHECK_IN,
+                                    kind = if (measuredValue == null)
+                                        V289SpaceEntryKind.CHECK_IN else V289SpaceEntryKind.METRIC,
                                     source = V289SpaceEntrySource.MANUAL,
                                     occurredAtMillis = System.currentTimeMillis(),
                                     createdAtMillis = System.currentTimeMillis(),
                                     note = text,
+                                    metricName = if (measuredValue != null) chosenMetric?.name else null,
+                                    metricValue = measuredValue,
+                                    metricUnit = if (measuredValue != null) chosenMetric?.unit else null,
                                 )
                             )
                             entries = dao.entriesForSpace(spaceId)
