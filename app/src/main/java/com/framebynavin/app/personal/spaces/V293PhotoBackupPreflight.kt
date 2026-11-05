@@ -2,8 +2,9 @@ package com.framebynavin.app.personal.spaces
 
 import android.content.Context
 import androidx.room.withTransaction
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import java.io.File
+import java.util.UUID
 import kotlinx.coroutines.withContext
 
 /**
@@ -78,6 +79,37 @@ internal class V293PhotoBackupPreflight(
     private val db: V289SpacesDatabase,
 ) {
     private val app = context.applicationContext
+    private fun requireNoUntrackedPrivateMedia(candidate: V293PhotoBackupCandidate) {
+        val root = File(app.filesDir, "backlot-personal-space-photos")
+        if (!root.exists()) return
+        check(root.isDirectory && root.canonicalFile == root.absoluteFile) {
+            "Private photo storage folder is not safe to inspect"
+        }
+        val permittedSpaces = V289SpacesMetadataCodec.decode(candidate.metadataJson)
+            .spaces.mapTo(HashSet()) { it.id }
+        val indexed = candidate.photos.mapTo(HashSet()) { it.spaceId to it.fileName }
+        for (folder in root.listFiles() ?: error("Cannot inspect photo folders")) {
+            val folderId = folder.name
+            check(runCatching { UUID.fromString(folderId).toString() == folderId }
+                .getOrDefault(false) && folderId in permittedSpaces) {
+                "An untracked private photo folder needs owner review"
+            }
+            check(folder.isDirectory &&
+                folder.canonicalFile == File(root.canonicalFile, folderId)) {
+                "Unexpected private photo folder type or link"
+            }
+            for (file in folder.listFiles() ?: error("Cannot inspect photo folder")) {
+                check(file.isFile &&
+                    file.canonicalFile == File(folder.canonicalFile, file.name)) {
+                    "Unexpected private photo file type or link"
+                }
+                check((folderId to file.name) in indexed) {
+                    "An unfinished or untracked private photo needs recovery before backup"
+                }
+            }
+        }
+    }
+
     suspend fun inspect(): V293PhotoBackupCandidate = withContext(Dispatchers.IO) {
         // Capture metadata + photo rows in one Room transaction. File bytes
         // are verified afterwards without holding a long database write lock.
@@ -85,12 +117,10 @@ internal class V293PhotoBackupPreflight(
             V289SpacesMetadataRecovery(db).prepareLocalMetadataExport() to
                 db.spaces().allPhotos()
         }
-        try {
-            V293PhotoBackupPolicy.validate(metadata, photos) { row ->
-                V290PrivatePhotoFiles.verifyPrivateBytes(app, row)
-            }
-        } catch (cancel: CancellationException) {
-            throw cancel
+        val candidate = V293PhotoBackupPolicy.validate(metadata, photos) { row ->
+            V290PrivatePhotoFiles.verifyPrivateBytes(app, row)
         }
+        requireNoUntrackedPrivateMedia(candidate)
+        candidate
     }
 }
