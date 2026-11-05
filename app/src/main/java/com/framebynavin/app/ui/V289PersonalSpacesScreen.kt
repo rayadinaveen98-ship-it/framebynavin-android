@@ -455,6 +455,108 @@ internal fun V289PersonalSpacesScreen(
                             }
                         }
                     }
+
+                    val linkedIds = linkedReminders.mapTo(HashSet()) { it.reminderId }
+                    val confirmedDone = doneReceipts.count { it.reminderId in linkedIds }
+                    Surface(color = BacklotSurface, shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, BacklotBorder),
+                        modifier = Modifier.fillMaxWidth().testTag("v295-linked-reminders")) {
+                        Column(Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Linked reminders", color = BacklotPrimaryText,
+                                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("${linkedReminders.size} linked · $confirmedDone confirmed Done",
+                                        color = BacklotSecondaryText, fontSize = 12.sp,
+                                        modifier = Modifier.testTag("v295-linked-done"))
+                                }
+                                TextButton(onClick = { linkRemindersVisible = true },
+                                    enabled = !busy && !personalReadError &&
+                                        selected.archivedAtMillis == null,
+                                    modifier = Modifier.testTag("v295-link-open")) { Text("LINK") }
+                            }
+                            if (personalReadError) {
+                                Text("Couldn't load Personal reminders. Links weren't changed.",
+                                    color = BacklotError, fontSize = 12.sp)
+                            } else if (linkedReminders.isEmpty()) {
+                                Text("Link a reminder to see it alongside your progress.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp)
+                            }
+                            linkedReminders.forEach { link ->
+                                val reminder = personalReminders.firstOrNull {
+                                    it.id == link.reminderId
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(reminder?.title ?: "Reminder unavailable",
+                                            color = BacklotPrimaryText, fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium)
+                                        val nextAt = reminder?.let {
+                                            runCatching {
+                                                PersonalRecurrence.nextAfter(
+                                                    it, System.currentTimeMillis()
+                                                )
+                                            }.getOrNull()
+                                        }
+                                        Text(
+                                            if (reminder == null) "Unlink this missing reminder"
+                                            else if (reminder.paused) "Paused"
+                                            else nextAt?.let {
+                                                "Next · " + Instant.ofEpochMilli(it)
+                                                    .atZone(reminder.zoneId)
+                                                    .format(DateTimeFormatter.ofPattern("EEE h:mm a"))
+                                            } ?: "No upcoming occurrence",
+                                            color = BacklotSecondaryText, fontSize = 11.sp,
+                                        )
+                                    }
+                                    if (reminder != null) {
+                                        TextButton(onClick = { onEditReminder(reminder.id) },
+                                            modifier = Modifier.testTag("v295-edit-linked-reminder")) {
+                                            Text("EDIT")
+                                        }
+                                    }
+                                    IconButton(enabled = !busy,
+                                        onClick = {
+                                            val id = selected.id
+                                            write {
+                                                dao.unlinkReminder(id, link.reminderId)
+                                                linkedReminders = dao.linksForSpace(id)
+                                            }
+                                        },
+                                        modifier = Modifier.testTag("v295-unlink-reminder")) {
+                                        Icon(Icons.Outlined.LinkOff, "Unlink reminder",
+                                            tint = BacklotSecondaryText)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Surface(color = BacklotSurface, shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, BacklotBorder),
+                        modifier = Modifier.fillMaxWidth().testTag("v295-space-notes")) {
+                        Column(Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Notes", color = BacklotPrimaryText, fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f))
+                                TextButton(enabled = !busy && selected.archivedAtMillis == null,
+                                    onClick = { newNoteText = ""; newNoteVisible = true },
+                                    modifier = Modifier.testTag("v295-note-open")) { Text("ADD NOTE") }
+                            }
+                            val notes = entries.filter { it.kind == V289SpaceEntryKind.NOTE.name }
+                            if (notes.isEmpty()) {
+                                Text("No notes yet.", color = BacklotSecondaryText, fontSize = 12.sp)
+                            } else {
+                                notes.forEach { item ->
+                                    Text(item.note, color = BacklotPrimaryText,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.testTag("v295-saved-note"))
+                                }
+                            }
+                        }
+                    }
                     V290PersonalPhotoSection(
                         photos = photos,
                         interruptedPhotos = interruptedPhotos,
@@ -475,12 +577,15 @@ internal fun V289PersonalSpacesScreen(
                     Text("Spaces and photos aren't included in cloud backup.",
                         color = BacklotSecondaryText, fontSize = 11.sp,
                         modifier = Modifier.testTag("v289-local-only-notice"))
-                    if (entries.isEmpty()) {
-                        Text("No entries yet. Add your first note or check-in.",
+                    val progressEntries = entries.filter {
+                        it.kind != V289SpaceEntryKind.NOTE.name
+                    }
+                    if (progressEntries.isEmpty()) {
+                        Text("No progress yet. Log a check-in when you're ready.",
                             color = BacklotSecondaryText, fontSize = 13.sp,
                             modifier = Modifier.testTag("v289-entries-empty"))
                     } else {
-                        entries.forEach { item ->
+                        progressEntries.forEach { item ->
                             Surface(color = BacklotSurface,
                                 border = BorderStroke(1.dp, BacklotBorder),
                                 shape = RoundedCornerShape(14.dp),
