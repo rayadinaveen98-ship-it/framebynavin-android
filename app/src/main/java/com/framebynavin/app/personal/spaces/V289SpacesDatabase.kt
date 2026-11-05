@@ -96,6 +96,16 @@ internal interface V289SpacesDao {
     @Query("SELECT * FROM personal_spaces ORDER BY (archivedAtMillis IS NOT NULL) ASC, displayOrder ASC, createdAtMillis ASC")
     suspend fun loadSpaces(): List<V289SpaceEntity>
 
+    // Read-only backup coverage audit. These queries never mutate or sync data.
+    @Query("SELECT COUNT(*) FROM personal_spaces")
+    suspend fun countSpaces(): Int
+
+    @Query("SELECT COUNT(*) FROM personal_space_entries")
+    suspend fun countEntries(): Int
+
+    @Query("SELECT COUNT(*) FROM personal_space_photos")
+    suspend fun countPhotos(): Int
+
     @Query("SELECT * FROM personal_spaces WHERE id = :id LIMIT 1")
     suspend fun getSpace(id: String): V289SpaceEntity?
 
