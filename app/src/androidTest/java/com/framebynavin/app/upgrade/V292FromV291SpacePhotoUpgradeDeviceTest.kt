@@ -41,7 +41,7 @@ class V292FromV291SpacePhotoUpgradeDeviceTest {
 
     @Test fun seedOnV291() = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
-        requireVersion(292L)
+        requireVersion(291L)
         val db = V289SpacesDatabase.open(app)
         try {
             val dao = db.spaces()
@@ -106,7 +106,7 @@ class V292FromV291SpacePhotoUpgradeDeviceTest {
 
     @Test fun verifyOnV292() = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
-        requireVersion(291L)
+        requireVersion(292L)
         val db = V289SpacesDatabase.open(app)
         try {
             val dao = db.spaces()
