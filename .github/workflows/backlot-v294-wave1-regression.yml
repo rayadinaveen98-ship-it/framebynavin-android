@@ -28,7 +28,10 @@ jobs:
             echo 'FAIL: production data, reminder, cloud or manifest changes forbidden' >&2
             exit 1
           fi
-          if grep -E '^app/src/main/java/com/framebynavin/app/personal/' /tmp/v294-rc-changed.txt | grep -Ev '^app/src/main/java/com/framebynavin/app/personal/V288ReminderSuggestion.kt
+          if grep -E '^app/src/main/java/com/framebynavin/app/personal/' /tmp/v294-rc-changed.txt | grep -Fv 'app/src/main/java/com/framebynavin/app/personal/V288ReminderSuggestion.kt'; then
+            echo 'FAIL: only Personal reminder suggestion display copy may change in this phase' >&2
+            exit 1
+          fi
           git show origin/feature/backlot-v294-wave2-quiet-settings:app/build.gradle.kts > /tmp/v294-base-gradle
           sed -e 's/versionCode = 292/versionCode = 294/' -e 's/versionName = "2.26.0-rc2-personal-metrics"/versionName = "2.27.0-rc1-universal-ui"/' /tmp/v294-base-gradle > /tmp/v294-expected-gradle
           cmp -s /tmp/v294-expected-gradle app/build.gradle.kts || { echo 'FAIL: unsupported build configuration change' >&2; exit 1; }
