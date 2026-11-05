@@ -433,8 +433,15 @@ internal fun V289PersonalSpacesScreen(
                             modifier = Modifier.testTag("v289-archive"),
                         ) { Text(if (selected.archivedAtMillis == null) "ARCHIVE" else "RESTORE") }
                     }
-                    val summary = remember(entries) {
-                        V289SpaceProgressPolicy.summarize(entries, System.currentTimeMillis())
+                    // A private note is not an activity check-in or fitness
+                    // measurement. It must not inflate progress or active days.
+                    val progressEntries = entries.filter {
+                        it.kind != V289SpaceEntryKind.NOTE.name
+                    }
+                    val summary = remember(progressEntries) {
+                        V289SpaceProgressPolicy.summarize(
+                            progressEntries, System.currentTimeMillis()
+                        )
                     }
                     Surface(color = BacklotSurface,
                         shape = RoundedCornerShape(12.dp),
@@ -589,9 +596,6 @@ internal fun V289PersonalSpacesScreen(
                     Text("Spaces and photos aren't included in cloud backup.",
                         color = BacklotSecondaryText, fontSize = 11.sp,
                         modifier = Modifier.testTag("v289-local-only-notice"))
-                    val progressEntries = entries.filter {
-                        it.kind != V289SpaceEntryKind.NOTE.name
-                    }
                     if (progressEntries.isEmpty()) {
                         Text("No progress yet. Log a check-in when you're ready.",
                             color = BacklotSecondaryText, fontSize = 13.sp,
