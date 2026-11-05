@@ -1,0 +1,79 @@
+name: Backlot V294 - Wave 1 Unit and Data-Preservation Guard
+
+on:
+  push:
+    branches: [feature/backlot-v294-universal-ui-wave1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v294-wave1-unit
+  cancel-in-progress: true
+
+jobs:
+  unit-and-source-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce UI-only source-change scope
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin refs/heads/design/backlot-v294-app-wide-experience-audit:refs/remotes/origin/design/backlot-v294-app-wide-experience-audit
+          git diff --name-only origin/design/backlot-v294-app-wide-experience-audit HEAD > /tmp/v294-wave1-changed.txt
+          echo "Changed paths:"
+          cat /tmp/v294-wave1-changed.txt
+          if grep -E '^app/src/main/java/com/framebynavin/app/(data|personal|cloud|reminders)/|^app/src/main/AndroidManifest.xml$|^app/build.gradle.kts$' /tmp/v294-wave1-changed.txt; then
+            echo "FAIL: this UX-only wave cannot change data storage, reminders, cloud, manifest or signing." >&2
+            exit 1
+          fi
+          echo "PASS: no forbidden data/permission/build logic changed"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Run full debug unit suite including Settings and safe starter cleanup
+        run: |
+          set -euo pipefail
+          timeout 65m gradle :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify critical owner-data preservation unit suites
+        run: |
+          set -euo pipefail
+          mkdir -p output/v294-wave1-units
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          src=Path('app/build/test-results/testDebugUnitTest')
+          required=[
+              ('V167SettingsNavigationPolicyTest',3),
+              ('V230LegacyStarterProjectPolicyTest',5),
+              ('V2281StarterSchedulePolicyTest',2),
+              ('V290CloudCoverageDisclosureTest',3),
+              ('V292SpaceMetricSuggestionsTest',6),
+          ]
+          for name,minimum in required:
+              paths=list(src.glob('TEST-*'+name+'.xml'))
+              assert len(paths)==1, (name, 'missing expected test suite')
+              result=ET.parse(paths[0]).getroot()
+              tests=int(result.get('tests','0'))
+              failures=int(result.get('failures','0'))
+              errors=int(result.get('errors','0'))
+              assert tests>=minimum and not failures and not errors, (name,tests,failures,errors)
+              print(f"PASS {name}: {tests} tests")
+          PY
+          cp app/build/test-results/testDebugUnitTest/TEST-*.xml output/v294-wave1-units/
+          (cd output/v294-wave1-units && sha256sum *.xml > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V294-Wave1-Unit-Regression-Results
+          path: output/v294-wave1-units/
+          retention-days: 30
+          if-no-files-found: error
