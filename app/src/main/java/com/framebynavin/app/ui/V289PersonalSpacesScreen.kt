@@ -35,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.spaces.*
 import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.PersonalReminder
+import com.framebynavin.app.personal.PersonalCompletionEvent
+import com.framebynavin.app.personal.PersonalRecurrence
 import com.framebynavin.app.ui.theme.*
 import java.time.Instant
 import java.time.ZoneId
@@ -53,6 +56,7 @@ import kotlinx.coroutines.launch
 internal fun V289PersonalSpacesScreen(
     onClose: () -> Unit,
     databaseForTesting: V289SpacesDatabase? = null,
+    onEditReminder: (String) -> Unit = {},
 ) {
     val context = LocalContext.current.applicationContext
     val database = remember(context, databaseForTesting) {
@@ -63,6 +67,18 @@ internal fun V289PersonalSpacesScreen(
     }
     val dao = remember(database) { database.spaces() }
     val repository = remember(dao) { V289SpacesRepository(dao) }
+    val personalStore = remember(context) { PersonalReminderStore(context) }
+    var personalReminders by remember { mutableStateOf(emptyList<PersonalReminder>()) }
+    var doneReceipts by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
+    var personalReadError by remember { mutableStateOf(false) }
+    LaunchedEffect(personalStore) {
+        try { personalStore.remindersFlow.collect { personalReminders = it } }
+        catch (_: Exception) { personalReadError = true }
+    }
+    LaunchedEffect(personalStore) {
+        try { personalStore.completionHistoryFlow.collect { doneReceipts = it } }
+        catch (_: Exception) { personalReadError = true }
+    }
     val photoJournal = remember(context, dao) { V290PhotoJournal(context, dao) }
     val interruptedRecovery = remember(context, dao) {
         V290InterruptedPhotoRecovery(context, dao)
@@ -71,6 +87,9 @@ internal fun V289PersonalSpacesScreen(
     var spaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
     var spacesLoaded by remember { mutableStateOf(false) }
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
+    var linkedReminders by remember { mutableStateOf(emptyList<V289SpaceReminderLinkEntity>()) }
+    var linkRemindersVisible by remember { mutableStateOf(false) }
+    var newNoteVisible by remember { mutableStateOf(false) }
     var photos by remember { mutableStateOf(emptyList<V290SpacePhotoEntity>()) }
     var interruptedPhotos by remember { mutableStateOf(emptyList<V290InterruptedPhoto>()) }
     var pendingInterruptedAction by remember {
@@ -79,6 +98,8 @@ internal fun V289PersonalSpacesScreen(
     var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    var newNoteText by remember(selectedSpaceId) { mutableStateOf("") }
+    var allNotesVisible by remember(selectedSpaceId) { mutableStateOf(false) }
     var spaceActionsOpen by remember(selectedSpaceId) { mutableStateOf(false) }
     var createVisible by remember { mutableStateOf(false) }
     var backupVisible by remember { mutableStateOf(false) }
@@ -106,6 +127,12 @@ internal fun V289PersonalSpacesScreen(
             dao.entriesForSpace(id)
         } catch (_: Exception) {
             error = "Entries could not be loaded. No data was changed."
+            emptyList()
+        }
+        linkedReminders = if (id == null) emptyList() else try {
+            dao.linksForSpace(id)
+        } catch (_: Exception) {
+            error = "Linked reminders could not be loaded. Nothing was changed."
             emptyList()
         }
         photos = if (id == null) emptyList() else try {
@@ -191,6 +218,7 @@ internal fun V289PersonalSpacesScreen(
     BackHandler {
         if (selectedSpaceId != null) {
             entries = emptyList()
+            linkedReminders = emptyList()
             photos = emptyList()
             interruptedPhotos = emptyList()
             selectedSpaceId = null
@@ -208,6 +236,7 @@ internal fun V289PersonalSpacesScreen(
                     onClick = {
                         if (selectedSpaceId != null) {
             entries = emptyList()
+            linkedReminders = emptyList()
             photos = emptyList()
             interruptedPhotos = emptyList()
             selectedSpaceId = null
@@ -286,6 +315,7 @@ internal fun V289PersonalSpacesScreen(
                                 onClick = {
                                     // Prevent showing another Space’s journal while loading this one.
                                     entries = emptyList()
+                                    linkedReminders = emptyList()
                                     photos = emptyList()
             interruptedPhotos = emptyList()
                                     selectedSpaceId = space.id
@@ -403,8 +433,15 @@ internal fun V289PersonalSpacesScreen(
                             modifier = Modifier.testTag("v289-archive"),
                         ) { Text(if (selected.archivedAtMillis == null) "ARCHIVE" else "RESTORE") }
                     }
-                    val summary = remember(entries) {
-                        V289SpaceProgressPolicy.summarize(entries, System.currentTimeMillis())
+                    // A private note is not an activity check-in or fitness
+                    // measurement. It must not inflate progress or active days.
+                    val progressEntries = entries.filter {
+                        it.kind != V289SpaceEntryKind.NOTE.name
+                    }
+                    val summary = remember(progressEntries) {
+                        V289SpaceProgressPolicy.summarize(
+                            progressEntries, System.currentTimeMillis()
+                        )
                     }
                     Surface(color = BacklotSurface,
                         shape = RoundedCornerShape(12.dp),
@@ -423,6 +460,119 @@ internal fun V289PersonalSpacesScreen(
                                     fontWeight = FontWeight.SemiBold)
                                 Text("Past 7 days", color = BacklotSecondaryText,
                                     fontSize = 10.sp)
+                            }
+                        }
+                    }
+
+                    val linkedIds = linkedReminders.mapTo(HashSet()) { it.reminderId }
+                    val confirmedDone = doneReceipts.count { it.reminderId in linkedIds }
+                    Surface(color = BacklotSurface, shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, BacklotBorder),
+                        modifier = Modifier.fillMaxWidth().testTag("v295-linked-reminders")) {
+                        Column(Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Linked reminders", color = BacklotPrimaryText,
+                                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("${linkedReminders.size} linked · $confirmedDone confirmed Done",
+                                        color = BacklotSecondaryText, fontSize = 12.sp,
+                                        modifier = Modifier.testTag("v295-linked-done"))
+                                }
+                                TextButton(onClick = { linkRemindersVisible = true },
+                                    enabled = !busy && !personalReadError &&
+                                        selected.archivedAtMillis == null,
+                                    modifier = Modifier.testTag("v295-link-open")) { Text("LINK") }
+                            }
+                            if (personalReadError) {
+                                Text("Couldn't load Personal reminders. Links weren't changed.",
+                                    color = BacklotError, fontSize = 12.sp)
+                            } else if (linkedReminders.isEmpty()) {
+                                Text("Link a reminder to see it alongside your progress.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp)
+                            }
+                            linkedReminders.forEach { link ->
+                                val reminder = personalReminders.firstOrNull {
+                                    it.id == link.reminderId
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(reminder?.title ?: "Reminder unavailable",
+                                            color = BacklotPrimaryText, fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium)
+                                        val nextAt = reminder?.let {
+                                            runCatching {
+                                                PersonalRecurrence.nextAfter(
+                                                    it, System.currentTimeMillis()
+                                                )
+                                            }.getOrNull()
+                                        }
+                                        Text(
+                                            if (reminder == null) "Unlink this missing reminder"
+                                            else if (reminder.paused) "Paused"
+                                            else nextAt?.let {
+                                                "Next · " + Instant.ofEpochMilli(it)
+                                                    .atZone(reminder.zoneId)
+                                                    .format(DateTimeFormatter.ofPattern("EEE h:mm a"))
+                                            } ?: "No upcoming occurrence",
+                                            color = BacklotSecondaryText, fontSize = 11.sp,
+                                        )
+                                    }
+                                    if (reminder != null) {
+                                        TextButton(onClick = { onEditReminder(reminder.id) },
+                                            modifier = Modifier.testTag("v295-edit-linked-reminder")) {
+                                            Text("EDIT")
+                                        }
+                                    }
+                                    IconButton(enabled = !busy,
+                                        onClick = {
+                                            val id = selected.id
+                                            write {
+                                                dao.unlinkReminder(id, link.reminderId)
+                                                linkedReminders = dao.linksForSpace(id)
+                                            }
+                                        },
+                                        modifier = Modifier.testTag("v295-unlink-reminder")) {
+                                        Icon(Icons.Outlined.LinkOff, "Unlink reminder",
+                                            tint = BacklotSecondaryText)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Surface(color = BacklotSurface, shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, BacklotBorder),
+                        modifier = Modifier.fillMaxWidth().testTag("v295-space-notes")) {
+                        Column(Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Notes", color = BacklotPrimaryText, fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f))
+                                TextButton(enabled = !busy && selected.archivedAtMillis == null,
+                                    onClick = { newNoteText = ""; newNoteVisible = true },
+                                    modifier = Modifier.testTag("v295-note-open")) { Text("ADD NOTE") }
+                            }
+                            val notes = entries.filter { it.kind == V289SpaceEntryKind.NOTE.name }
+                            if (notes.isEmpty()) {
+                                Text("No notes yet.", color = BacklotSecondaryText, fontSize = 12.sp)
+                            } else {
+                                notes.take(if (allNotesVisible) notes.size else 3).forEach { item ->
+                                    Text(Instant.ofEpochMilli(item.occurredAtMillis)
+                                        .atZone(ZoneId.systemDefault())
+                                        .format(DateTimeFormatter.ofPattern("d MMM · h:mm a")),
+                                        color = BacklotSecondaryAccent, fontSize = 11.sp)
+                                    Text(item.note, color = BacklotPrimaryText,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.testTag("v295-saved-note"))
+                                }
+                                if (notes.size > 3) {
+                                    TextButton(onClick = { allNotesVisible = !allNotesVisible },
+                                        modifier = Modifier.testTag("v295-notes-expand")) {
+                                        Text(if (allNotesVisible) "SHOW LESS"
+                                            else "VIEW ALL ${notes.size} NOTES")
+                                    }
+                                }
                             }
                         }
                     }
@@ -446,12 +596,12 @@ internal fun V289PersonalSpacesScreen(
                     Text("Spaces and photos aren't included in cloud backup.",
                         color = BacklotSecondaryText, fontSize = 11.sp,
                         modifier = Modifier.testTag("v289-local-only-notice"))
-                    if (entries.isEmpty()) {
-                        Text("No entries yet. Add your first note or check-in.",
+                    if (progressEntries.isEmpty()) {
+                        Text("No progress yet. Log a check-in when you're ready.",
                             color = BacklotSecondaryText, fontSize = 13.sp,
                             modifier = Modifier.testTag("v289-entries-empty"))
                     } else {
-                        entries.forEach { item ->
+                        progressEntries.forEach { item ->
                             Surface(color = BacklotSurface,
                                 border = BorderStroke(1.dp, BacklotBorder),
                                 shape = RoundedCornerShape(14.dp),
@@ -820,6 +970,93 @@ internal fun V289PersonalSpacesScreen(
                 TextButton(enabled = !busy, onClick = { editVisible = false }) {
                     Text("CANCEL")
                 }
+            },
+        )
+    }
+
+
+    if (linkRemindersVisible && selected != null) {
+        val spaceId = selected.id
+        val alreadyLinked = linkedReminders.mapTo(HashSet()) { it.reminderId }
+        val available = personalReminders.filter { it.id !in alreadyLinked }
+        AlertDialog(
+            onDismissRequest = { if (!busy) linkRemindersVisible = false },
+            title = { Text("Link reminders") },
+            text = {
+                Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("Linking doesn't change reminder timing, alerts or scheduling.",
+                        color = BacklotSecondaryText, fontSize = 12.sp)
+                    if (available.isEmpty()) {
+                        Text("No other Personal reminders to link.", fontSize = 12.sp)
+                    }
+                    available.forEach { reminder ->
+                        OutlinedButton(
+                            enabled = !busy && !personalReadError,
+                            onClick = {
+                                write {
+                                    repository.linkExistingReminder(
+                                        V289SpaceReminderLink(
+                                            spaceId = spaceId,
+                                            reminderId = reminder.id,
+                                            linkedAtMillis = System.currentTimeMillis(),
+                                        ),
+                                        personalReminders.mapTo(HashSet()) { it.id },
+                                    )
+                                    linkedReminders = dao.linksForSpace(spaceId)
+                                    linkRemindersVisible = false
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("v295-link-available"),
+                        ) { Text(reminder.title, maxLines = 1) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { linkRemindersVisible = false }) { Text("DONE") }
+            },
+        )
+    }
+    if (newNoteVisible && selected != null) {
+        val spaceId = selected.id
+        AlertDialog(
+            onDismissRequest = { if (!busy) newNoteVisible = false },
+            title = { Text("New Space note") },
+            text = {
+                OutlinedTextField(
+                    value = newNoteText,
+                    onValueChange = { newNoteText = it.take(2000) },
+                    label = { Text("Your note") },
+                    minLines = 4,
+                    modifier = Modifier.fillMaxWidth().testTag("v295-note-input"),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && newNoteText.isNotBlank(),
+                    onClick = {
+                        val content = newNoteText.trim()
+                        write {
+                            repository.logManualEntry(
+                                V289SpaceEntry(
+                                    id = V289PersonalSpacePolicy.canonicalUuid(),
+                                    spaceId = spaceId,
+                                    kind = V289SpaceEntryKind.NOTE,
+                                    source = V289SpaceEntrySource.MANUAL,
+                                    occurredAtMillis = System.currentTimeMillis(),
+                                    createdAtMillis = System.currentTimeMillis(),
+                                    note = content,
+                                )
+                            )
+                            entries = dao.entriesForSpace(spaceId)
+                            newNoteVisible = false
+                        }
+                    },
+                    modifier = Modifier.testTag("v295-note-save"),
+                ) { Text("SAVE NOTE") }
+            },
+            dismissButton = {
+                TextButton(onClick = { newNoteVisible = false }) { Text("CANCEL") }
             },
         )
     }

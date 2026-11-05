@@ -36,16 +36,19 @@ class V288PersonalOsUiTest {
             }
         }
         rule.waitUntil(12_000) {
-            rule.onAllNodesWithTag("v288-today-home").fetchSemanticsNodes().isNotEmpty()
+            rule.onAllNodesWithTag("v2232-personal-space-switcher").fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("v285-personal-life-planner").assertDoesNotExist()
         rule.onNodeWithTag("v288-personal-toggle-settings").performClick()
-        rule.onNodeWithTag("v285-personal-life-planner").assertExists()
-        rule.onNodeWithTag("v286-personal-readiness").assertExists()
-        rule.onNodeWithTag("v287-nap-end-card").assertExists()
+        rule.onNodeWithTag("v295-personal-routines").assertExists()
+        rule.onNodeWithText("My Routines").assertExists()
+        rule.onNodeWithText("Daily Rhythm").assertExists()
+        rule.onNodeWithTag("v285-personal-life-planner").assertDoesNotExist()
+        rule.onNodeWithTag("v286-personal-readiness").assertDoesNotExist()
+        rule.onNodeWithTag("v287-nap-end-card").assertDoesNotExist()
         rule.onNodeWithTag("v2283-follow-up-settings").assertExists()
         rule.onNodeWithTag("v288-personal-toggle-settings").performClick()
-        rule.onNodeWithTag("v288-today-home").assertExists()
+        rule.onNodeWithTag("v2232-personal-space-switcher").assertExists()
         rule.onNodeWithTag("v285-personal-life-planner").assertDoesNotExist()
         assertEquals(before, runBlocking { store.load() })
     }
@@ -59,11 +62,11 @@ class V288PersonalOsUiTest {
             }
         }
         rule.waitUntil(12_000) {
-            rule.onAllNodesWithTag("v288-today-home").fetchSemanticsNodes().isNotEmpty()
+            rule.onAllNodesWithTag("v2232-personal-space-switcher").fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("v288-personal-toggle-settings").performClick()
         rule.onNodeWithTag("v288-personal-toolbar-back").performClick()
-        rule.onNodeWithTag("v288-today-home").assertExists()
+        rule.onNodeWithTag("v2232-personal-space-switcher").assertExists()
         rule.runOnIdle { assertEquals(false, closed) }
     }
 
@@ -102,13 +105,18 @@ class V288PersonalOsUiTest {
         }
         rule.onNodeWithTag("v288-quick-suggestions").assertExists()
         rule.onNodeWithTag("v288-suggestion-SKINCARE").performClick()
-        rule.onNodeWithTag("v2232-personal-title").assertTextContains("Morning skincare")
+        rule.onNodeWithTag("v2232-personal-title").assertTextContains("Skin care routine")
+        rule.onNodeWithTag("v2232-personal-title")
+            .performTextReplacement("My personally chosen routine")
+        rule.onNodeWithTag("v288-suggestion-SUNSCREEN").performClick()
+        rule.onNodeWithTag("v2232-personal-title")
+            .assertTextContains("My personally chosen routine")
         rule.runOnIdle { assertEquals(null, submitted) }
         rule.onNodeWithTag("v2232-personal-save").performClick()
         rule.runOnIdle {
-            assertEquals("Morning skincare", submitted?.title)
+            assertEquals("My personally chosen routine", submitted?.title)
             assertEquals(PersonalPurpose.PERSONAL_GOAL, submitted?.purpose)
-            assertEquals(PersonalRepeat.DAILY, submitted?.repeat)
+            assertEquals(PersonalRepeat.ONCE, submitted?.repeat)
             assertTrue(submitted != null)
         }
     }

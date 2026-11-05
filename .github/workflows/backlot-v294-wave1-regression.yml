@@ -2,7 +2,7 @@ name: Backlot V294 - Wave 1 Unit and Data-Preservation Guard
 
 on:
   push:
-    branches: [feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings, qa/backlot-v294-wave2-release-candidate]
+    branches: [feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings, qa/backlot-v294-wave2-release-candidate, feature/backlot-v295-universal-personal-foundation]
   workflow_dispatch:
 
 permissions:
@@ -24,8 +24,12 @@ jobs:
           git fetch --depth=1 origin refs/heads/feature/backlot-v294-wave2-quiet-settings:refs/remotes/origin/feature/backlot-v294-wave2-quiet-settings
           git diff --name-only origin/feature/backlot-v294-wave2-quiet-settings HEAD > /tmp/v294-rc-changed.txt
           cat /tmp/v294-rc-changed.txt
-          if grep -E '^(app/src/main/java/com/framebynavin/app/(data|personal|cloud|reminders)/|app/src/main/AndroidManifest.xml)' /tmp/v294-rc-changed.txt; then
+          if grep -E '^(app/src/main/java/com/framebynavin/app/(data|cloud|reminders)/|app/src/main/AndroidManifest.xml)' /tmp/v294-rc-changed.txt; then
             echo 'FAIL: production data, reminder, cloud or manifest changes forbidden' >&2
+            exit 1
+          fi
+          if grep -E '^app/src/main/java/com/framebynavin/app/personal/' /tmp/v294-rc-changed.txt | grep -Fv 'app/src/main/java/com/framebynavin/app/personal/V288ReminderSuggestion.kt'; then
+            echo 'FAIL: only user-facing Personal suggestion copy may change in V295' >&2
             exit 1
           fi
           git show origin/feature/backlot-v294-wave2-quiet-settings:app/build.gradle.kts > /tmp/v294-base-gradle

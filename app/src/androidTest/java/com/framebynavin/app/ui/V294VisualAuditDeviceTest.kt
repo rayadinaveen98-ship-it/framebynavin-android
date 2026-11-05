@@ -242,4 +242,27 @@ class V294VisualAuditDeviceTest {
         screenshot("09-daily-brief-empty.png")
     }
 
+
+    @Test fun personalSettingsAreUniversal() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme {
+                V2232PersonalReminderHub(onClose = {}, onCreator = {})
+            }
+        }
+        rule.onNodeWithTag("v288-personal-toggle-settings").performClick()
+        rule.waitUntil(15_000) {
+            rule.onAllNodesWithTag("v295-personal-routines")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithText("My Routines").assertExists()
+        rule.onNodeWithText("Daily Rhythm").assertExists()
+        rule.onNodeWithTag("v295-routines-new").assertExists()
+        rule.onNodeWithText("YOUR LIFE · 21-DAY RESET").assertDoesNotExist()
+        rule.onNodeWithText("Device reliability").assertDoesNotExist()
+        screenshot("10-personal-settings-universal.png")
+        rule.onNodeWithTag("v295-routines-new").performClick()
+        rule.onNodeWithTag("v2232-personal-editor").assertExists()
+        rule.onNodeWithContentDescription("Close editor").performClick()
+    }
 }
