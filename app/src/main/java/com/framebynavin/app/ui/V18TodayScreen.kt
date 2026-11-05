@@ -131,16 +131,6 @@ internal fun PTodayScreen(
             // creator's actionable project on compact/large-font phones.
             // No-image Home stays short; the creator can reach today's work first.
             Spacer(Modifier.height(12.dp))
-            if (selected == null && projectsLoaded) {
-                Text("TODAY", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                Spacer(Modifier.height(4.dp))
-                Text(personalization.focusTitle, color = ProjectorIvory, fontSize = 23.sp, lineHeight = 28.sp, fontWeight = FontWeight.Black)
-                if (personalization.focusBody.isNotBlank()) {
-                    Text(personalization.focusBody, color = MutedText, fontSize = 11.5.sp, lineHeight = 16.sp)
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-
             if (selected == null && !projectsLoaded) {
                 // An empty StateList before the first DataStore emission is not
                 // an empty creator account. Avoid a misleading first-launch CTA.
@@ -161,8 +151,8 @@ internal fun PTodayScreen(
             } else if (selected == null) {
                 PEmptyState(
                     icon = Icons.Outlined.MovieCreation,
-                    title = "Nothing needs your attention",
-                    body = personalization.emptyProjectBody,
+                    title = "No projects yet",
+                    body = "Create a project to plan your next step.",
                     button = "CREATE PROJECT",
                     onClick = onAdd,
                 )
