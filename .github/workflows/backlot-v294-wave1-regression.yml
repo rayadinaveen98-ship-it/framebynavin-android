@@ -37,7 +37,8 @@ jobs:
           # Only V296 may add the explicitly pinned-by-BOM Compose animation module.
           # All earlier V294/V295 source contracts remain unchanged.
           if [[ "${GITHUB_REF_NAME}" == "feature/backlot-v296-guided-personal-composer" ]]; then
-            sed -i '/    implementation("androidx.compose.ui:ui")/a\\    // V296 guided composer uses explicit animated step transitions.\n    implementation("androidx.compose.animation:animation")' /tmp/v294-expected-gradle
+            sed -i '/    implementation("androidx.compose.ui:ui")/a\    // V296 guided composer uses explicit animated step transitions.' /tmp/v294-expected-gradle
+            sed -i '/    \/\/ V296 guided composer uses explicit animated step transitions./a\    implementation("androidx.compose.animation:animation")' /tmp/v294-expected-gradle
           fi
           cmp -s /tmp/v294-expected-gradle app/build.gradle.kts || { echo 'FAIL: unsupported build configuration change' >&2; exit 1; }
           echo 'PASS: pinned dependency boundary; storage and scheduling logic unchanged'
