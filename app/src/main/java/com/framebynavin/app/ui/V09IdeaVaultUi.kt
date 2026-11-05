@@ -146,8 +146,7 @@ internal fun V09IdeaVaultScreen(
             ) {
                 if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column(Modifier.weight(1f)) {
-                    Text("IDEAS", color = MutedGold, fontSize = 9.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
-                    Text("Save it now. Make it later.", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    Text("Ideas", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = {
                     showDeleted = !showDeleted
@@ -212,9 +211,9 @@ internal fun V09IdeaVaultScreen(
 
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${filtered.size} IDEA${if (filtered.size == 1) "" else "S"}", color = MutedText, fontSize = 8.5.sp, letterSpacing = 1.sp)
+                Text("${filtered.size} ideas", color = MutedText, fontSize = 12.sp)
                 Spacer(Modifier.weight(1f))
-                if (!showDeleted) Text("$readyCount READY", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                if (!showDeleted && readyCount > 0) Text("$readyCount ready", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
 
             if (filtered.isEmpty()) {
@@ -225,11 +224,10 @@ internal fun V09IdeaVaultScreen(
                 ) {
                     Icon(Icons.Outlined.Lightbulb, null, tint = MutedGold, modifier = Modifier.size(34.dp))
                     Spacer(Modifier.height(9.dp))
-                    Text(if (showDeleted) "No deleted ideas" else if (ideas.isEmpty()) "Your vault is empty" else "No ideas match this filter", color = ProjectorIvory, fontWeight = FontWeight.Bold)
-                    Text("Keep ideas here until you're ready to use them.", color = MutedText, fontSize = 10.sp)
+                    Text(if (showDeleted) "No deleted ideas" else if (ideas.isEmpty()) "No ideas yet" else "No ideas match this filter", color = ProjectorIvory, fontWeight = FontWeight.Bold)
                     if (!showDeleted && ideas.isEmpty()) {
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = { onCreateIdeaRequested?.invoke() ?: run { creating = true } }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("SAVE YOUR FIRST IDEA") }
+                        Button(onClick = { onCreateIdeaRequested?.invoke() ?: run { creating = true } }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("ADD IDEA") }
                     }
                 }
             } else {
