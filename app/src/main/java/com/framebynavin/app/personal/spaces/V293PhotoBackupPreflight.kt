@@ -92,14 +92,21 @@ internal class V293PhotoBackupPreflight(
         for (folder in root.listFiles() ?: error("Cannot inspect photo folders")) {
             val folderId = folder.name
             check(runCatching { UUID.fromString(folderId).toString() == folderId }
-                .getOrDefault(false) && folderId in permittedSpaces) {
-                "An untracked private photo folder needs owner review"
+                .getOrDefault(false)) {
+                "An unexpected private photo folder needs owner review"
             }
             check(folder.isDirectory &&
                 folder.canonicalFile == File(root.canonicalFile, folderId)) {
                 "Unexpected private photo folder type or link"
             }
-            for (file in folder.listFiles() ?: error("Cannot inspect photo folder")) {
+            val files = folder.listFiles() ?: error("Cannot inspect photo folder")
+            // Deleting a Space's last photo can leave an empty private folder.
+            // Such an empty folder has no media bytes to preserve.
+            if (files.isEmpty()) continue
+            check(folderId in permittedSpaces) {
+                "A removed Space still has private photo files; owner review required"
+            }
+            for (file in files) {
                 check(file.isFile &&
                     file.canonicalFile == File(folder.canonicalFile, file.name)) {
                     "Unexpected private photo file type or link"
