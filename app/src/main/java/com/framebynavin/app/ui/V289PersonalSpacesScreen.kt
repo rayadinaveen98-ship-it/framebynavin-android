@@ -35,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.spaces.*
 import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.PersonalReminder
+import com.framebynavin.app.personal.PersonalCompletionEvent
+import com.framebynavin.app.personal.PersonalRecurrence
 import com.framebynavin.app.ui.theme.*
 import java.time.Instant
 import java.time.ZoneId
@@ -53,6 +56,7 @@ import kotlinx.coroutines.launch
 internal fun V289PersonalSpacesScreen(
     onClose: () -> Unit,
     databaseForTesting: V289SpacesDatabase? = null,
+    onEditReminder: (String) -> Unit = {},
 ) {
     val context = LocalContext.current.applicationContext
     val database = remember(context, databaseForTesting) {
@@ -63,6 +67,18 @@ internal fun V289PersonalSpacesScreen(
     }
     val dao = remember(database) { database.spaces() }
     val repository = remember(dao) { V289SpacesRepository(dao) }
+    val personalStore = remember(context) { PersonalReminderStore(context) }
+    var personalReminders by remember { mutableStateOf(emptyList<PersonalReminder>()) }
+    var doneReceipts by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
+    var personalReadError by remember { mutableStateOf(false) }
+    LaunchedEffect(personalStore) {
+        try { personalStore.remindersFlow.collect { personalReminders = it } }
+        catch (_: Exception) { personalReadError = true }
+    }
+    LaunchedEffect(personalStore) {
+        try { personalStore.completionHistoryFlow.collect { doneReceipts = it } }
+        catch (_: Exception) { personalReadError = true }
+    }
     val photoJournal = remember(context, dao) { V290PhotoJournal(context, dao) }
     val interruptedRecovery = remember(context, dao) {
         V290InterruptedPhotoRecovery(context, dao)
@@ -71,6 +87,10 @@ internal fun V289PersonalSpacesScreen(
     var spaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
     var spacesLoaded by remember { mutableStateOf(false) }
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
+    var linkedReminders by remember { mutableStateOf(emptyList<V289SpaceReminderLinkEntity>()) }
+    var linkRemindersVisible by remember { mutableStateOf(false) }
+    var newNoteVisible by remember { mutableStateOf(false) }
+    var newNoteText by remember(selectedSpaceId) { mutableStateOf("") }
     var photos by remember { mutableStateOf(emptyList<V290SpacePhotoEntity>()) }
     var interruptedPhotos by remember { mutableStateOf(emptyList<V290InterruptedPhoto>()) }
     var pendingInterruptedAction by remember {
@@ -106,6 +126,12 @@ internal fun V289PersonalSpacesScreen(
             dao.entriesForSpace(id)
         } catch (_: Exception) {
             error = "Entries could not be loaded. No data was changed."
+            emptyList()
+        }
+        linkedReminders = if (id == null) emptyList() else try {
+            dao.linksForSpace(id)
+        } catch (_: Exception) {
+            error = "Linked reminders could not be loaded. Nothing was changed."
             emptyList()
         }
         photos = if (id == null) emptyList() else try {
@@ -191,6 +217,7 @@ internal fun V289PersonalSpacesScreen(
     BackHandler {
         if (selectedSpaceId != null) {
             entries = emptyList()
+            linkedReminders = emptyList()
             photos = emptyList()
             interruptedPhotos = emptyList()
             selectedSpaceId = null
@@ -208,6 +235,7 @@ internal fun V289PersonalSpacesScreen(
                     onClick = {
                         if (selectedSpaceId != null) {
             entries = emptyList()
+            linkedReminders = emptyList()
             photos = emptyList()
             interruptedPhotos = emptyList()
             selectedSpaceId = null
@@ -286,6 +314,7 @@ internal fun V289PersonalSpacesScreen(
                                 onClick = {
                                     // Prevent showing another Space’s journal while loading this one.
                                     entries = emptyList()
+                                    linkedReminders = emptyList()
                                     photos = emptyList()
             interruptedPhotos = emptyList()
                                     selectedSpaceId = space.id
