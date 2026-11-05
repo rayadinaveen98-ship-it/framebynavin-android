@@ -278,4 +278,18 @@ class V294VisualAuditDeviceTest {
         screenshot("11-challenges-owner-blank.png")
     }
 
+    @Test fun ownerReminderGroupsStartUnpopulated() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme { V298ReminderGroupsScreen(onClose = {}) }
+        }
+        rule.waitUntil(15_000) {
+            rule.onAllNodesWithTag("v298-create-open")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithText("Reminder Groups").assertExists()
+        rule.onNodeWithTag("v298-create-open").assertExists()
+        screenshot("12-reminder-groups-blank.png")
+    }
+
 }
