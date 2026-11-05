@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.framebynavin.app.data.CreatorOsSettings
 import org.junit.Assert.assertEquals
@@ -47,38 +48,53 @@ class V167SettingsNavigationUiTest {
     @Test fun profileIsSingleTapAndNoDuplicateConnectionsCategory() {
         var opened = 0
         show { opened++ }
-        rule.onNodeWithText("My Profile").performClick()
+        rule.onNodeWithText("Account").performClick()
         rule.runOnIdle { assertEquals(1, opened) }
         rule.onNodeWithText("Connections").assertDoesNotExist()
-        rule.onNodeWithText("Backup & Data").assertExists()
+        rule.onNodeWithText("Backup & storage").assertExists()
     }
 
     @Test fun personalizationBackReturnsToParentThenHome() {
         show()
-        rule.onNodeWithText("Personalization").performClick()
+        rule.onNodeWithText("Appearance & sound").performClick()
         rule.onNodeWithText("Voice").performClick()
         rule.onNodeWithText("Default voice for new projects").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithText("Spark").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Backup & Data").assertExists()
+        rule.onNodeWithText("Backup & storage").assertExists()
     }
 
     @Test fun backupsRemainAvailableWithoutConnectionsPage() {
         show()
-        rule.onNodeWithText("Backup & Data").performClick()
+        rule.onNodeWithText("Backup & storage").performClick()
         rule.onNodeWithText("Cloud Sync").assertExists()
         rule.onNodeWithText("Local Data & Backup").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Planning & Calendar").assertExists()
+        rule.onNodeWithText("Planning & integrations").assertExists()
+    }
+
+    @Test fun privacyAndAdvancedAreSeparateAndDeviceResetIsNotInBackup() {
+        show()
+        rule.onNodeWithText("Backup & storage").performScrollTo().performClick()
+        rule.onNodeWithText("Start fresh on this phone").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Back").performClick()
+        rule.onNodeWithText("Privacy & permissions").performScrollTo().performClick()
+        rule.onNodeWithText("Data & privacy").assertExists()
+        rule.onNodeWithText("Notification permissions").assertExists()
+        rule.onNodeWithContentDescription("Back").performClick()
+        rule.onNodeWithText("Advanced").performScrollTo().performClick()
+        rule.onNodeWithText("Start fresh on this phone").assertExists()
+        // Deliberately never tap the destructive action in a navigation test.
     }
 
     @Test fun remindersAndCalendarStillHaveTheirPriorControls() {
         show()
-        rule.onNodeWithText("Reminders & Alerts").performClick()
-        rule.onNodeWithText("Exact reminder timing").assertExists()
+        rule.onNodeWithText("Notifications & alarms").performClick()
+        rule.onNodeWithText("MORE ANDROID OPTIONS", substring = true).performClick()
+        rule.onNodeWithText("Exact alarm timing").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Planning & Calendar").performClick()
+        rule.onNodeWithText("Planning & integrations").performClick()
         rule.onNodeWithText("Weekly Auto Plan").assertExists()
         rule.onNodeWithText("Export project deadlines").assertExists()
     }

@@ -42,7 +42,7 @@ class V166SettingsSafetyUiTest {
                 onYouTube = {},
             )
         }
-        rule.onNodeWithText("Planning & Calendar").performClick()
+        rule.onNodeWithText("Planning & integrations").performClick()
     }
 
     @Test fun openingOrCancellingSettingsAutoPlanMustNotCreateProjects() {
