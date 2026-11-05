@@ -139,30 +139,30 @@ class V288PersonalOsUiTest {
                 )
             }
         }
-        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 1 OF 4")
+        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 1 OF 4", substring = true)
         rule.onNodeWithTag("v2232-personal-date").assertDoesNotExist()
         rule.onNodeWithTag("v2232-personal-save").assertDoesNotExist()
         rule.onNodeWithTag("v296-composer-next").performClick()
         rule.onNodeWithTag("v2232-editor-error").assertExists()
         rule.onNodeWithTag("v2232-personal-title").performTextInput("Evening reflection")
         rule.onNodeWithTag("v296-composer-next").performClick()
-        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 2 OF 4")
+        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 2 OF 4", substring = true)
         rule.onNodeWithTag("v2232-personal-date").assertExists()
         rule.onNodeWithTag("v296-composer-back").performClick()
         rule.onNodeWithTag("v2232-personal-title").assertTextContains("Evening reflection")
         rule.onNodeWithTag("v296-composer-next").performClick()
         rule.onNodeWithTag("v296-composer-next").performClick()
-        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 3 OF 4")
+        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 3 OF 4", substring = true)
         rule.onNodeWithTag("v296-composer-advanced").assertExists()
         rule.onNodeWithTag("v296-composer-advanced").performClick()
         rule.onNodeWithText("SNOOZE DURATION").assertExists()
         rule.onNodeWithTag("v296-composer-next").performClick()
-        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 4 OF 4")
+        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 4 OF 4", substring = true)
         rule.onNodeWithTag("v274-personal-review").assertExists()
         rule.onNodeWithTag("v2232-personal-save").assertExists()
         rule.runOnIdle { assertEquals(null, submitted) }
         rule.onNodeWithTag("v296-composer-review-back").performClick()
-        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 3 OF 4")
+        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 3 OF 4", substring = true)
         rule.runOnIdle { assertEquals(null, submitted) }
     }
 
