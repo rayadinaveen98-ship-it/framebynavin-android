@@ -97,7 +97,6 @@ internal fun V144SettingsHub(
         Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
             when (section) {
             V167SettingsSection.HOME -> V144SettingsHome(
-                settings = settings,
                 weeklyAutoPlanEnabled = weeklyAutoPlanEnabled,
                 notificationsReady = notificationsReady,
                 preciseTimingReady = preciseTimingReady,
@@ -108,7 +107,7 @@ internal fun V144SettingsHub(
                 onOpen = { sectionName = it.name },
             )
 
-            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("PERSONALIZATION", "Make Backlot yours", ::navigateBack) {
+            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("APPEARANCE & SOUND", "Appearance & sound", ::navigateBack) {
                 V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) {
                     sectionName = V167SettingsSection.APPEARANCE.name
                 }
@@ -117,7 +116,7 @@ internal fun V144SettingsHub(
                 }
                 V144CategoryCard(
                     "Home screen widgets",
-                    "Add Quick Capture, Today Focus and My Day; safely replace pinned old widgets",
+                    "Manage your widgets",
                     Icons.Outlined.Widgets,
                     MutedGold,
                 ) {
@@ -129,7 +128,7 @@ internal fun V144SettingsHub(
                 V144CategoryCard("Voice", "Reminder voice and previews", Icons.Outlined.RecordVoiceOver, RecRed) {
                     sectionName = V167SettingsSection.VOICE.name
                 }
-                V144SettingsNote("These choices change how Backlot looks and sounds. Existing projects stay unchanged.")
+                // Ordinary app defaults are self-describing; no introduction card.
             }
 
             V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
@@ -407,7 +406,7 @@ internal fun V144SettingsHub(
                 V129GoogleCalendarSettings(tasks)
             }
 
-            V167SettingsSection.DATA -> V144SettingsPage("DATA, BACKUP & SYNC", "Keep your Backlot data recoverable", { sectionName = V167SettingsSection.HOME.name }) {
+            V167SettingsSection.DATA -> V144SettingsPage("BACKUP & STORAGE", "Manage backups and recovery", { sectionName = V167SettingsSection.HOME.name }) {
                 V144ActionCard(
                     title = "Cloud Sync",
                     subtitle = "Google account · cloud backups",
@@ -423,20 +422,40 @@ internal fun V144SettingsHub(
                     accent = MutedGold,
                     onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
                 )
-                Spacer(Modifier.height(14.dp))
-                V144ActionCard(
-                    title = "Start fresh on this phone",
-                    subtitle = "Erase local app data after two confirmations. Cloud data is NOT deleted.",
-                    icon = Icons.Outlined.DeleteForever,
-                    accent = RecRed,
-                    onClick = { context.startActivity(Intent(context, FreshStartActivity::class.java)) },
-                )
+
                 Spacer(Modifier.height(12.dp))
                 V144SettingsNote(
                     "A portable backup includes projects, ideas, supported Voice Idea recordings, original Best Frames, reminders and planning. " +
                         "Project attachments keep their links only: the referenced files are not included. " +
                         "Companion, theme, app icon, launch sound, Calendar connection and sign-in remain device-specific. " +
                         "Exported files are not encrypted: keep them private."
+                )
+            }
+
+            V167SettingsSection.PRIVACY -> V144SettingsPage("PRIVACY & PERMISSIONS", "Privacy and device access", ::navigateBack) {
+                V144ActionCard(
+                    title = "Data & privacy",
+                    subtitle = "Review stored information and privacy controls",
+                    icon = Icons.Outlined.Shield,
+                    accent = MutedGold,
+                    onClick = { context.startActivity(Intent(context, V269DataPrivacyActivity::class.java)) },
+                )
+                V144ActionCard(
+                    title = "Notification permissions",
+                    subtitle = "Check alarm and notification access",
+                    icon = Icons.Outlined.NotificationsActive,
+                    accent = MutedGold,
+                    onClick = { sectionName = V167SettingsSection.REMINDERS.name },
+                )
+            }
+
+            V167SettingsSection.ADVANCED -> V144SettingsPage("ADVANCED", "Device data controls", ::navigateBack) {
+                V144ActionCard(
+                    title = "Start fresh on this phone",
+                    subtitle = "Erases local app data after confirmation. Cloud data stays.",
+                    icon = Icons.Outlined.DeleteForever,
+                    accent = RecRed,
+                    onClick = { context.startActivity(Intent(context, FreshStartActivity::class.java)) },
                 )
             }
 
@@ -490,7 +509,6 @@ internal fun V144SettingsHub(
 
 @Composable
 private fun V144SettingsHome(
-    settings: CreatorOsSettings,
     weeklyAutoPlanEnabled: Boolean,
     notificationsReady: Boolean,
     preciseTimingReady: Boolean,
@@ -504,45 +522,43 @@ private fun V144SettingsHome(
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
-        V144SettingsHeader("SETTINGS", "Backlot, your way", onClose)
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "Choose what you'd like to change.",
-            color = MutedText,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
-        )
+        V144SettingsHeader("BACKLOT", "Settings", onClose)
         Spacer(Modifier.height(18.dp))
 
         V144CategoryCard(
-            title = "My Profile",
-            subtitle = settings.creatorProfile.safeDisplayName +
-                settings.creatorProfile.category.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty(),
+            title = "Account",
+            subtitle = "Profile and sign-in",
             icon = Icons.Outlined.Person,
             accent = MutedGold,
             onClick = onProfile,
         )
-        V144CategoryCard("Personalization", "Appearance, Spark and voice", Icons.Outlined.Palette, RecRed) {
+        V144CategoryCard("Appearance & sound", "Theme, companion and voice", Icons.Outlined.Palette, RecRed) {
             onOpen(V167SettingsSection.PERSONALIZATION)
         }
         V144CategoryCard(
-            "Reminders & Alerts",
-            if (reminderReady) "Permissions ready · snooze, alarms and quiet hours"
-            else "Check permissions · reminder defaults and quiet hours",
+            "Notifications & alarms",
+            if (reminderReady) "Timing, snooze and quiet hours"
+            else "Permissions need attention",
             Icons.Outlined.NotificationsActive,
             if (reminderReady) SuccessGreen else MutedGold,
         ) { onOpen(V167SettingsSection.REMINDERS) }
         V144CategoryCard(
-            "Planning & Calendar",
-            if (weeklyAutoPlanEnabled) "Auto Plan on · Google Calendar" else "Auto Plan off · Google Calendar",
+            "Planning & integrations",
+            if (weeklyAutoPlanEnabled) "Weekly plan on · Calendar" else "Weekly plan and calendar",
             Icons.Outlined.CalendarMonth,
             MutedGold,
         ) { onOpen(V167SettingsSection.PLANNING) }
-        V144CategoryCard("Backup & Data", "Cloud backup, local export and recovery", Icons.Outlined.CloudSync, MutedGold) {
+        V144CategoryCard("Backup & storage", "Sync, exports and recovery", Icons.Outlined.CloudSync, MutedGold) {
             onOpen(V167SettingsSection.DATA)
         }
-        V144CategoryCard("About & Help", "App tour and version", Icons.Outlined.Info, RecRed) {
+        V144CategoryCard("Privacy & permissions", "Data and device access", Icons.Outlined.Shield, MutedGold) {
+            onOpen(V167SettingsSection.PRIVACY)
+        }
+        V144CategoryCard("Help & about", "App tour and version", Icons.Outlined.Info, RecRed) {
             onOpen(V167SettingsSection.ABOUT)
+        }
+        V144CategoryCard("Advanced", "Device data controls", Icons.Outlined.Tune, MutedGold) {
+            onOpen(V167SettingsSection.ADVANCED)
         }
     }
 }

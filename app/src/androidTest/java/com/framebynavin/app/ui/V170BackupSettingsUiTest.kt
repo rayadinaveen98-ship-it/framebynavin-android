@@ -32,18 +32,18 @@ class V170BackupSettingsUiTest {
 
     @Test fun backupAndCloudDestinationsAreStillAvailableAfterS5() {
         show()
-        rule.onNodeWithText("Backup & Data").performClick()
+        rule.onNodeWithText("Backup & storage").performClick()
         rule.onNodeWithText("Cloud Sync").assertExists()
         rule.onNodeWithText("Local Data & Backup").assertExists()
-        rule.onNodeWithText("Exported backup files are not encrypted: keep them private.", substring = true)
+        rule.onNodeWithText("Exported files are not encrypted: keep them private.", substring = true)
             .assertExists()
     }
 
     @Test fun backFromBackupStillExposesOtherSettingsWithoutResettingData() {
         show()
-        rule.onNodeWithText("Backup & Data").performClick()
+        rule.onNodeWithText("Backup & storage").performClick()
         rule.onNodeWithText("Cloud Sync").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("My Profile").assertExists()
+        rule.onNodeWithText("Account").assertExists()
     }
 }

@@ -101,13 +101,13 @@ class V197SettingsOnboardingUiTest {
                 }
             }
         }
-        rule.onNodeWithText("About & Help").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Advanced").performScrollTo().assertIsDisplayed()
         val root = rule.onRoot().getUnclippedBoundsInRoot()
-        val lastRow = rule.onNodeWithText("About & Help").getUnclippedBoundsInRoot()
+        val lastRow = rule.onNodeWithText("Advanced").getUnclippedBoundsInRoot()
         assertTrue("Final Settings row clipped", lastRow.bottom <= root.bottom && lastRow.top >= root.top)
-        rule.onNodeWithText("About & Help").performClick()
-        rule.onNodeWithText("ABOUT BACKLOT").assertExists()
+        rule.onNodeWithText("Advanced").performClick()
+        rule.onNodeWithText("ADVANCED").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Backup & Data").assertExists()
+        rule.onNodeWithText("Backup & storage").assertExists()
     }
 }

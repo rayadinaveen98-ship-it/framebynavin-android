@@ -44,7 +44,7 @@ class V169SettingsRemindersPlanningUiTest {
     @Test fun advancedPermissionsAreAvailableWithoutPretendingEverythingIsReady() {
         var exactOpens = 0
         showSettings(ready = true, onExact = { exactOpens++ })
-        rule.onNodeWithText("Reminders & Alerts").performClick()
+        rule.onNodeWithText("Notifications & alarms").performClick()
         rule.onNodeWithText("Standard notifications allowed").assertExists()
         rule.onNodeWithText("Everything is ready.").assertDoesNotExist()
         rule.onNodeWithText("MORE ANDROID OPTIONS · 3 NEED ATTENTION").performClick()
@@ -54,7 +54,7 @@ class V169SettingsRemindersPlanningUiTest {
 
     @Test fun nonstandardStoredReminderDefaultsRemainSelectable() {
         showSettings()
-        rule.onNodeWithText("Reminders & Alerts").performClick()
+        rule.onNodeWithText("Notifications & alarms").performClick()
         rule.onNodeWithText("17m").assertExists()
         rule.onNodeWithText("1m 30s").assertExists()
     }
@@ -63,7 +63,7 @@ class V169SettingsRemindersPlanningUiTest {
         var weekly = 0
         var automation = 0
         showSettings(onWeekly = { weekly++ }, onAutomation = { automation++ })
-        rule.onNodeWithText("Planning & Calendar").performClick()
+        rule.onNodeWithText("Planning & integrations").performClick()
         rule.onNodeWithText("Edit weekly plan").performClick()
         rule.onNodeWithText("Automation").performClick()
         rule.runOnIdle {

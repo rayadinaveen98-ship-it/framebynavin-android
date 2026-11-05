@@ -5,11 +5,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class V167SettingsNavigationPolicyTest {
-    @Test fun homeHasSixUniqueDestinations() {
-        assertEquals(6, V167SettingsNavigationPolicy.homeSections.size)
-        assertEquals(6, V167SettingsNavigationPolicy.homeSections.toSet().size)
-        assertEquals("My Profile", V167SettingsNavigationPolicy.homeSections.first())
-        assertEquals("About & Help", V167SettingsNavigationPolicy.homeSections.last())
+    @Test fun homeHasEightUniqueDestinations() {
+        assertEquals(8, V167SettingsNavigationPolicy.homeSections.size)
+        assertEquals(8, V167SettingsNavigationPolicy.homeSections.toSet().size)
+        assertEquals("Account", V167SettingsNavigationPolicy.homeSections.first())
+        assertEquals("Advanced", V167SettingsNavigationPolicy.homeSections.last())
+        assertEquals(
+            listOf("Account", "Appearance & sound", "Notifications & alarms",
+                "Planning & integrations", "Backup & storage", "Privacy & permissions",
+                "Help & about", "Advanced"),
+            V167SettingsNavigationPolicy.homeSections,
+        )
     }
 
     @Test fun customizationSubpagesReturnToPersonalizationInsteadOfHome() {
@@ -28,6 +34,8 @@ class V167SettingsNavigationPolicyTest {
             V167SettingsSection.PLANNING,
             V167SettingsSection.DATA,
             V167SettingsSection.ABOUT,
+            V167SettingsSection.PRIVACY,
+            V167SettingsSection.ADVANCED,
         ).forEach { assertEquals(V167SettingsSection.HOME, V167SettingsNavigationPolicy.parent(it)) }
         assertEquals(V167SettingsSection.HOME, V167SettingsNavigationPolicy.fromSavedName("CONNECTIONS"))
         assertEquals(V167SettingsSection.HOME, V167SettingsNavigationPolicy.fromSavedName("unknown"))

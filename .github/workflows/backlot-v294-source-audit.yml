@@ -2,7 +2,7 @@ name: Backlot V294 - App-Wide Static UX and Copy Audit
 
 on:
   push:
-    branches: [design/backlot-v294-app-wide-experience-audit]
+    branches: [design/backlot-v294-app-wide-experience-audit, feature/backlot-v294-universal-ui-wave1]
   workflow_dispatch:
 
 permissions:
