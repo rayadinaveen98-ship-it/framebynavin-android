@@ -339,6 +339,8 @@ class V289PersonalSpacesUiTest {
             assertEquals(null, entry.reminderId)
             assertEquals(null, entry.originalOccurrenceMillis)
             rule.onNodeWithTag("v295-saved-note").assertExists()
+            rule.onNodeWithText("0 logs").assertExists()
+            rule.onNodeWithText("0 active days").assertExists()
             assertEquals(before, runBlocking { PersonalReminderStore(app).load() })
         } finally {
             rule.runOnIdle { mounted.value = false }
