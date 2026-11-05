@@ -28,9 +28,9 @@ rm -f "$logfile"
 settings_log="$(mktemp)"
 adb shell am instrument -w -r \
   -e hardeningTestEnvironment ci-emulator \
-  -e class com.framebynavin.app.ui.V167SettingsNavigationUiTest,com.framebynavin.app.ui.V170BackupSettingsUiTest,com.framebynavin.app.ui.V166SettingsSafetyUiTest,com.framebynavin.app.ui.V169SettingsRemindersPlanningUiTest,com.framebynavin.app.ui.V197SettingsOnboardingUiTest \
+  -e class com.framebynavin.app.ui.V167SettingsNavigationUiTest,com.framebynavin.app.ui.V170BackupSettingsUiTest,com.framebynavin.app.ui.V166SettingsSafetyUiTest,com.framebynavin.app.ui.V169SettingsRemindersPlanningUiTest,com.framebynavin.app.ui.V197SettingsOnboardingUiTest,com.framebynavin.app.ui.V288PersonalOsUiTest \
   com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$settings_log"
-if ! grep -Fq "OK (16 tests)" "$settings_log" ||
+if ! grep -Fq "OK (20 tests)" "$settings_log" ||
    grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$settings_log"; then
   cat "$settings_log" >&2
   adb logcat -d -v threadtime | tail -180 || true
