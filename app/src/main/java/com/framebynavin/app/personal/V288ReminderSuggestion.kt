@@ -12,12 +12,12 @@ internal enum class V288ReminderSuggestion(
     val time: LocalTime,
     val repeat: PersonalRepeat,
 ) {
-    SKINCARE("Skincare", "Morning skincare", PersonalPurpose.PERSONAL_GOAL, LocalTime.of(8, 0), PersonalRepeat.DAILY),
+    SKINCARE("Skincare", "Skin care routine", PersonalPurpose.PERSONAL_GOAL, LocalTime.of(8, 0), PersonalRepeat.DAILY),
     SUNSCREEN("Sunscreen", "Apply sunscreen", PersonalPurpose.PERSONAL_GOAL, LocalTime.of(8, 0), PersonalRepeat.DAILY),
-    READING("Reading", "Read my novel", PersonalPurpose.PERSONAL_GOAL, LocalTime.of(22, 0), PersonalRepeat.DAILY),
-    WORKOUT("Workout", "Workout session", PersonalPurpose.MOVEMENT, LocalTime.of(7, 15), PersonalRepeat.WEEKDAYS),
-    EDITING("Editing", "Practice video editing", PersonalPurpose.PERSONAL_GOAL, LocalTime.of(11, 15), PersonalRepeat.WEEKDAYS),
-    GAME_DEV("Game dev", "Game development practice", PersonalPurpose.PERSONAL_GOAL, LocalTime.of(17, 45), PersonalRepeat.WEEKDAYS);
+    READING("Reading", "Reading time", PersonalPurpose.PERSONAL_GOAL, LocalTime.of(22, 0), PersonalRepeat.DAILY),
+    WORKOUT("Workout", "Movement session", PersonalPurpose.MOVEMENT, LocalTime.of(7, 15), PersonalRepeat.WEEKDAYS),
+    EDITING("Learning", "Practice a skill", PersonalPurpose.PERSONAL_GOAL, LocalTime.of(11, 15), PersonalRepeat.WEEKDAYS),
+    GAME_DEV("Hobbies", "Make time for a hobby", PersonalPurpose.PERSONAL_GOAL, LocalTime.of(17, 45), PersonalRepeat.WEEKDAYS);
 
     fun nextOccurrenceMillis(nowMillis: Long, zone: ZoneId): Long {
         val now = Instant.ofEpochMilli(nowMillis).atZone(zone)
