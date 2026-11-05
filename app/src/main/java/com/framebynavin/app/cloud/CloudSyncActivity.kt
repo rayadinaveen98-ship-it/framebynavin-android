@@ -61,6 +61,7 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     val accountManager = remember { CloudSyncManager(context.applicationContext) }
     val cloud = remember { CreatorCloudSyncManager(context.applicationContext) }
+    val backupInventoryReader = remember { V292LocalBackupInventoryReader(context.applicationContext) }
     val drive = remember { DriveVaultManager(context.applicationContext) }
     val credentialManager = remember(context) { CredentialManager.create(context) }
     val credentialContext = remember(context) { MutableContextWrapper(context) }
@@ -68,6 +69,10 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
 
     var session by remember { mutableStateOf(accountManager.localState().session) }
     var syncResult by remember { mutableStateOf<CreatorCloudSyncResult?>(null) }
+    var localBackupInventory by remember { mutableStateOf<V292LocalBackupInventory?>(null) }
+    LaunchedEffect(backupInventoryReader) {
+        localBackupInventory = backupInventoryReader.inspect()
+    }
     var syncStatus by remember { mutableStateOf(cloud.status()) }
     var driveToken by remember(session?.email) { mutableStateOf(session?.email?.let(DriveVaultTokenMemory::get)) }
     var drivePoints by remember { mutableStateOf<List<DriveVaultRestorePoint>>(emptyList()) }
@@ -285,6 +290,17 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                     lineHeight = 18.sp,
                     modifier = Modifier.testTag("v290-cloud-coverage-exclusions"),
                 )
+                V292BackupInventoryCopy.summary(localBackupInventory
+                    ?: V292LocalBackupInventory.NoSpacesDatabase)?.let { localNotice ->
+                    Spacer(Modifier.height(7.dp))
+                    Text(
+                        localNotice,
+                        color = MutedGold,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        modifier = Modifier.testTag("v292-local-backup-coverage"),
+                    )
+                }
             }
             Spacer(Modifier.height(12.dp))
 
