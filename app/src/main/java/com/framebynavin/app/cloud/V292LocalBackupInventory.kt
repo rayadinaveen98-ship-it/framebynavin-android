@@ -3,6 +3,7 @@ package com.framebynavin.app.cloud
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -91,6 +92,8 @@ internal class V292LocalBackupInventoryReader(context: Context) {
             } finally {
                 db.close()
             }
+        } catch (cancel: CancellationException) {
+            throw cancel // Never swallow lifecycle cancellation while querying storage.
         } catch (_: Exception) {
             V292LocalBackupInventory.Unavailable
         }
