@@ -2,7 +2,7 @@ name: Backlot V291 - Signed Owner Domain Regression
 
 on:
   push:
-    branches: [feature/backlot-v291-signed-owner-domain-regression]
+    branches: [feature/backlot-v291-signed-owner-domain-regression, feature/backlot-v291-exif-pixel-regression-fix]
   workflow_dispatch:
 
 permissions:
