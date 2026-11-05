@@ -165,7 +165,7 @@ internal class V299PersonalRecoveryPreflight(context: Context) {
                         val saved = File(
                             File(privateRoot, photo.spaceId), photo.fileName
                         )
-                        if (saved.isFile && saved.length() in 1..V299PhotoIntegrityPolicy.MAX_BYTES &&
+                        if (saved.isFile && saved.length() in 1L..V299PhotoIntegrityPolicy.MAX_BYTES &&
                             saved.inputStream().use {
                                 V299PhotoIntegrityPolicy.matches(it, photo.sha256Hex)
                             }) verified++
