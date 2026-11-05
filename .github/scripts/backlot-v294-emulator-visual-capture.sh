@@ -38,6 +38,21 @@ if ! grep -Fq "OK (15 tests)" "$settings_log" ||
   exit 1
 fi
 rm -f "$settings_log"
+# Confirm Space CRUD stays isolated from Personal reminders and that deletion
+# is secondary, explicit and cancellable; include the explicit metric regression.
+spaces_log="$(mktemp)"
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class com.framebynavin.app.ui.V289PersonalSpacesUiTest,com.framebynavin.app.ui.V292SpaceMetricUiTest \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$spaces_log"
+if ! grep -Fq "OK (8 tests)" "$spaces_log" ||
+   grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$spaces_log"; then
+  cat "$spaces_log" >&2
+  adb logcat -d -v threadtime | tail -180 || true
+  rm -f "$spaces_log"
+  exit 1
+fi
+rm -f "$spaces_log"
 mkdir -p output/v294-visual-audit
 adb pull /sdcard/Android/data/com.framebynavin.app/files/v294-visual-audit/. output/v294-visual-audit/
 test "$(find output/v294-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 9

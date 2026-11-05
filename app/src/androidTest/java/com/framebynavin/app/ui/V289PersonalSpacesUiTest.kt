@@ -266,4 +266,41 @@ class V289PersonalSpacesUiTest {
         }
     }
 
+    @Test fun deleteActionIsBehindMoreMenuAndCancelPreservesOwnerData() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val remindersBefore = runBlocking { PersonalReminderStore(app).load() }
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        val mounted = mutableStateOf(true)
+        try {
+            rule.setContent {
+                if (mounted.value) FrameByNavinTheme {
+                    V289PersonalSpacesScreen(onClose = {}, databaseForTesting = db)
+                }
+            }
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v289-create-open").performClick()
+            rule.onNodeWithTag("v289-create-save").performClick()
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v294-space-actions").fetchSemanticsNodes().isNotEmpty()
+            }
+            val before = runBlocking { db.spaces().loadSpaces() }
+            assertEquals(1, before.size)
+            rule.onNodeWithTag("v289-delete-open").assertDoesNotExist()
+            rule.onNodeWithTag("v294-space-actions").performClick()
+            rule.onNodeWithTag("v289-delete-open").assertExists().performClick()
+            rule.onNodeWithText("Delete this Space?").assertExists()
+            rule.onNodeWithTag("v289-delete-confirm").assertExists()
+            rule.onNodeWithText("CANCEL").performClick()
+            rule.onNodeWithTag("v289-delete-confirm").assertDoesNotExist()
+            assertEquals(before, runBlocking { db.spaces().loadSpaces() })
+            assertEquals(remindersBefore, runBlocking { PersonalReminderStore(app).load() })
+        } finally {
+            rule.runOnIdle { mounted.value = false }
+            rule.waitForIdle()
+            db.close()
+        }
+    }
+
 }
