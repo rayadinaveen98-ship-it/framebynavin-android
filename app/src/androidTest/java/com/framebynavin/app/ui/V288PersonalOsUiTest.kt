@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.personal.PersonalReminderDraft
 import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.V297ChallengeStore
 import com.framebynavin.app.personal.PersonalRepeat
 import com.framebynavin.app.personal.PersonalPurpose
 import com.framebynavin.app.personal.V288PersonalTodayPolicy
@@ -164,6 +165,27 @@ class V288PersonalOsUiTest {
         rule.onNodeWithTag("v296-composer-review-back").performClick()
         rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 3 OF 4")
         rule.runOnIdle { assertEquals(null, submitted) }
+    }
+
+    @Test fun challengePlannerStartsBlankAndCancelDoesNotCreatePlan() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val store = V297ChallengeStore(app)
+        val before = runBlocking { store.load() }
+        rule.setContent {
+            FrameByNavinTheme { V297ChallengeScreen(onClose = {}) }
+        }
+        rule.waitUntil(12_000) {
+            rule.onAllNodesWithTag("v297-create-open").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("v297-create-open").performClick()
+        rule.onNodeWithTag("v297-create-title").assertExists()
+        rule.onNodeWithTag("v297-start-date").assertExists()
+        rule.onNodeWithTag("v297-create-save").assertIsNotEnabled()
+        rule.onNodeWithTag("v297-create-title").performTextInput("My own challenge")
+        rule.onNodeWithTag("v297-create-save").assertIsEnabled()
+        // No implicit Save, no sample tasks, and cancel never touches persistence.
+        rule.onNodeWithText("CANCEL").performClick()
+        assertEquals(before, runBlocking { store.load() })
     }
 
 }
