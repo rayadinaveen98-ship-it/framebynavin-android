@@ -8,7 +8,6 @@ import com.framebynavin.app.personal.spaces.V289SpaceEntity
 import com.framebynavin.app.personal.spaces.V289SpaceEntryEntity
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
-import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -31,9 +30,10 @@ class V292LocalBackupInventoryDeviceTest {
 
     @Before fun resetSyntheticDatabase() {
         HardeningTestEnvironment.requireCiEmulator()
-        assertTrue("Spaces DB fixture must be disposable", app.deleteDatabase(V289SpacesDatabase.FILE_NAME))
-        // deleteDatabase returns true on some API levels for absent databases.
-        // Even if no file existed, nothing in an owner profile is accessible.
+        app.deleteDatabase(V289SpacesDatabase.FILE_NAME)
+        // An absent DB may make deleteDatabase return false. This test is CI
+        // emulator-only and must begin with no existing local Spaces DB.
+        assertFalse(dbFile.exists())
     }
 
     @After fun disposeSyntheticDatabase() {
