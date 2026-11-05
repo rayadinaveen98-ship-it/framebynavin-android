@@ -26,10 +26,13 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.V297Challenge
 import com.framebynavin.app.personal.V297ChallengeStore
 import com.framebynavin.app.ui.theme.*
+import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Owner-authored plans. No pre-installed goals, reminder scheduling, cloud
@@ -50,6 +53,7 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
     var newTitle by rememberSaveable { mutableStateOf("") }
     var newStart by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var confirmArchive by remember { mutableStateOf(false) }
+    var pendingImport by remember { mutableStateOf<List<V297Challenge>?>(null) }
     val selected = plans.firstOrNull { it.id == selectedId }
     var dayActivity by rememberSaveable(selectedId, dayIndex) { mutableStateOf("") }
     LaunchedEffect(selected?.id, dayIndex, selected?.days?.getOrNull(dayIndex)?.activity) {
@@ -81,8 +85,41 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
             stream.use { it.write(json.toByteArray(Charsets.UTF_8)) }
         }
     }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null && !busy) {
+            scope.launch {
+                try {
+                    val raw = withContext(Dispatchers.IO) {
+                        val stream = context.contentResolver.openInputStream(uri)
+                            ?: throw IllegalStateException("Could not read chosen file")
+                        stream.use { input ->
+                            val buffer = ByteArray(8192)
+                            val output = ByteArrayOutputStream()
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                require(output.size() + count <= 1_000_000) {
+                                    "Challenge backup is too large"
+                                }
+                                output.write(buffer, 0, count)
+                            }
+                            output.toString(Charsets.UTF_8.name())
+                        }
+                    }
+                    pendingImport = store.validateImport(raw)
+                    error = null
+                } catch (e: Exception) {
+                    pendingImport = null
+                    error = e.message ?: "Import could not be validated. Nothing was changed."
+                }
+            }
+        }
+    }
     val goBack: () -> Unit = {
         when {
+            pendingImport != null -> pendingImport = null
             confirmArchive -> confirmArchive = false
             createOpen -> createOpen = false
             selectedId != null -> selectedId = null
@@ -209,6 +246,11 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
                             modifier = Modifier.fillMaxWidth().testTag("v297-export"),
                         ) { Text("EXPORT PRIVATE PLAN BACKUP") }
                     }
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = { importLauncher.launch(arrayOf("application/json", "text/plain")) },
+                        modifier = Modifier.fillMaxWidth().testTag("v297-import-open"),
+                    ) { Text("IMPORT CHALLENGE BACKUP") }
                     Text("These plans stay on this device and are not included in cloud sync. " +
                         "Export a private backup before changing devices or clearing app data.",
                         color = MutedText, fontSize = 12.sp)
@@ -289,6 +331,41 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
                 }
             }
         }
+    }
+
+    pendingImport?.let { incoming ->
+        val existingIds = plans.mapTo(HashSet()) { it.id }
+        val newCount = incoming.count { it.id !in existingIds }
+        val skipped = incoming.size - newCount
+        AlertDialog(
+            onDismissRequest = { if (!busy) pendingImport = null },
+            title = { Text("Import these challenges?") },
+            text = {
+                Text("${incoming.size} valid challenges found. " +
+                    "${newCount} will be added, ${skipped} with existing IDs skipped. " +
+                    "No existing challenge will be overwritten, and no reminders will be scheduled.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && newCount > 0,
+                    onClick = {
+                        write {
+                            store.mutate { current ->
+                                val ids = current.mapTo(HashSet()) { it.id }
+                                current + incoming.filter { it.id !in ids }
+                            }
+                            pendingImport = null
+                        }
+                    },
+                    modifier = Modifier.testTag("v297-import-confirm"),
+                ) { Text("IMPORT ${newCount}") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingImport = null }, enabled = !busy) {
+                    Text("CANCEL")
+                }
+            },
+        )
     }
 
     if (confirmArchive && selected != null) {
