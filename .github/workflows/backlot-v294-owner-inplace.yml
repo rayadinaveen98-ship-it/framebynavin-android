@@ -1,0 +1,110 @@
+name: Backlot V294 - Signed V292 to V294 In-Place Upgrade
+
+on:
+  push:
+    branches: [qa/backlot-v294-signed-inplace-upgrade]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v294-owner-inplace
+  cancel-in-progress: true
+
+jobs:
+  signed-owner-preservation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 125
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build signed V294 preview and matching Android test runner
+        run: |
+          set -euo pipefail
+          grep -Fq 'testBuildType = "personalStable"' app/build.gradle.kts
+          timeout 85m gradle :app:assemblePersonalStable :app:assemblePersonalStableAndroidTest \
+            -PbacklotSignedOwnerTest=true -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          mkdir -p output/v294
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/v294/Backlot-V294-Signed-Upgrade-Candidate.apk
+          cp app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk output/v294/app-personalStable-androidTest.apk
+          (cd output/v294 && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Download successful V292 signed owner preview
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V292-Consolidated-Owner-Preview
+          path: output/v292
+          run-id: 41955914433
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify V292 and V294 identity, checksums, and V2 signer equivalence
+        run: |
+          set -euo pipefail
+          (cd output/v292 && sha256sum -c SHA256SUMS.txt)
+          (cd output/v294 && sha256sum -c SHA256SUMS.txt)
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          old=output/v292/Backlot-V292-Consolidated-Signed-Owner.apk
+          new=output/v294/Backlot-V294-Signed-Upgrade-Candidate.apk
+          "$signer" verify --verbose --print-certs "$old" > output/v292/UPGRADE-OLD-SIGNATURE.txt
+          "$signer" verify --verbose --print-certs "$new" > output/v294/SIGNATURE-VERIFICATION.txt
+          "$aapt" dump badging "$old" > output/v292/UPGRADE-OLD-IDENTITY.txt
+          "$aapt" dump badging "$new" > output/v294/APK-IDENTITY.txt
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          for version,path in [
+              (292,Path('output/v292/UPGRADE-OLD-IDENTITY.txt')),
+              (294,Path('output/v294/APK-IDENTITY.txt')),
+          ]:
+              value=path.read_text()
+              assert f"package: name='com.framebynavin.app' versionCode='{version}'" in value, (version,value[:400])
+          certs=[]
+          for path in [
+              Path('output/v292/UPGRADE-OLD-SIGNATURE.txt'),
+              Path('output/v294/SIGNATURE-VERIFICATION.txt'),
+          ]:
+              value=path.read_text()
+              assert 'Verified using v2 scheme (APK Signature Scheme v2): true' in value, path
+              match=re.search(r'V2 Signer: certificate SHA-256 digest: ([0-9a-f]{64})',value)
+              assert match, path
+              certs.append(match.group(1))
+          assert len(set(certs))==1, certs
+          assert certs[0]=='f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0'
+          print('PASS: signed V292 and V294 owner sideload certificates match')
+          PY
+      - name: Enable Android 15 emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Assert V292 -> V294 signed in-place preservation without clearing
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v294-inplace-upgrade.sh
+      - name: Upload signed preview for verified test review
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V294-Signed-Upgrade-Review-Only
+          path: output/v294/
+          retention-days: 14
+          if-no-files-found: error
