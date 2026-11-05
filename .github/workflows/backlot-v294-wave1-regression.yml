@@ -2,7 +2,7 @@ name: Backlot V294 - Wave 1 Unit and Data-Preservation Guard
 
 on:
   push:
-    branches: [feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings]
+    branches: [feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings, qa/backlot-v294-wave2-release-candidate]
   workflow_dispatch:
 
 permissions:
@@ -18,18 +18,20 @@ jobs:
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
-      - name: Enforce UI-only source-change scope
+      - name: Enforce no storage changes and version-only build update
         run: |
           set -euo pipefail
-          git fetch --depth=1 origin refs/heads/design/backlot-v294-app-wide-experience-audit:refs/remotes/origin/design/backlot-v294-app-wide-experience-audit
-          git diff --name-only origin/design/backlot-v294-app-wide-experience-audit HEAD > /tmp/v294-wave1-changed.txt
-          echo "Changed paths:"
-          cat /tmp/v294-wave1-changed.txt
-          if grep -E '^app/src/main/java/com/framebynavin/app/(data|personal|cloud|reminders)/|^app/src/main/AndroidManifest.xml$|^app/build.gradle.kts$' /tmp/v294-wave1-changed.txt; then
-            echo "FAIL: this UX-only wave cannot change data storage, reminders, cloud, manifest or signing." >&2
+          git fetch --depth=1 origin refs/heads/feature/backlot-v294-wave2-quiet-settings:refs/remotes/origin/feature/backlot-v294-wave2-quiet-settings
+          git diff --name-only origin/feature/backlot-v294-wave2-quiet-settings HEAD > /tmp/v294-rc-changed.txt
+          cat /tmp/v294-rc-changed.txt
+          if grep -E '^(app/src/main/java/com/framebynavin/app/(data|personal|cloud|reminders)/|app/src/main/AndroidManifest.xml)' /tmp/v294-rc-changed.txt; then
+            echo 'FAIL: production data, reminder, cloud or manifest changes forbidden' >&2
             exit 1
           fi
-          echo "PASS: no forbidden data/permission/build logic changed"
+          git show origin/feature/backlot-v294-wave2-quiet-settings:app/build.gradle.kts > /tmp/v294-base-gradle
+          sed -e 's/versionCode = 292/versionCode = 294/' -e 's/versionName = "2.26.0-rc2-personal-metrics"/versionName = "2.27.0-rc1-universal-ui"/' /tmp/v294-base-gradle > /tmp/v294-expected-gradle
+          cmp -s /tmp/v294-expected-gradle app/build.gradle.kts || { echo 'FAIL: unsupported build configuration change' >&2; exit 1; }
+          echo 'PASS: version bump only; storage logic unchanged'
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
