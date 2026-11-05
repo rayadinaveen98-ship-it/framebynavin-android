@@ -36,7 +36,7 @@ class V288PersonalOsUiTest {
             }
         }
         rule.waitUntil(12_000) {
-            rule.onAllNodesWithTag("v288-today-home").fetchSemanticsNodes().isNotEmpty()
+            rule.onAllNodesWithTag("v2232-personal-space-switcher").fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("v285-personal-life-planner").assertDoesNotExist()
         rule.onNodeWithTag("v288-personal-toggle-settings").performClick()
@@ -48,7 +48,7 @@ class V288PersonalOsUiTest {
         rule.onNodeWithTag("v287-nap-end-card").assertDoesNotExist()
         rule.onNodeWithTag("v2283-follow-up-settings").assertExists()
         rule.onNodeWithTag("v288-personal-toggle-settings").performClick()
-        rule.onNodeWithTag("v288-today-home").assertExists()
+        rule.onNodeWithTag("v2232-personal-space-switcher").assertExists()
         rule.onNodeWithTag("v285-personal-life-planner").assertDoesNotExist()
         assertEquals(before, runBlocking { store.load() })
     }
@@ -62,11 +62,11 @@ class V288PersonalOsUiTest {
             }
         }
         rule.waitUntil(12_000) {
-            rule.onAllNodesWithTag("v288-today-home").fetchSemanticsNodes().isNotEmpty()
+            rule.onAllNodesWithTag("v2232-personal-space-switcher").fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("v288-personal-toggle-settings").performClick()
         rule.onNodeWithTag("v288-personal-toolbar-back").performClick()
-        rule.onNodeWithTag("v288-today-home").assertExists()
+        rule.onNodeWithTag("v2232-personal-space-switcher").assertExists()
         rule.runOnIdle { assertEquals(false, closed) }
     }
 
