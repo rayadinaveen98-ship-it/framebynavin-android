@@ -1,0 +1,45 @@
+name: Backlot V294 - App-Wide Static UX and Copy Audit
+
+on:
+  push:
+    branches: [design/backlot-v294-app-wide-experience-audit]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v294-source-audit
+  cancel-in-progress: true
+
+jobs:
+  source-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify scanner does not include comments, identifiers or unrelated code literals
+        run: python3 .github/scripts/test_backlot_v294_catalog.py -v
+      - name: Catalog source UI labels, risky copy, very small typography and sample origins
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/backlot_v294_catalog.py --repo . --out output/v294-source-audit
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('output/v294-source-audit/summary.json').read_text())
+          assert d['kotlin_files'] >= 400, 'Unexpected source inventory shrinkage'
+          assert d['copy_candidates_total'] > 100, 'No realistic copy candidates enumerated'
+          assert d['composable_functions'] > 100, 'Composable scan likely broken'
+          assert d['font_declarations_under_12sp'] > 50, 'Small typography scan likely broken'
+          print('PASS: catalog populated. Counts are candidates requiring live/visual verification.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V294-Source-Audit-Catalog
+          path: output/v294-source-audit/
+          retention-days: 30
+          if-no-files-found: error
