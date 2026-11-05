@@ -62,7 +62,7 @@ class V167SettingsNavigationUiTest {
         rule.onNodeWithText("Default voice and background music").assertExists()
         rule.onNodeWithTag("v276-global-music-settings").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Spark").assertExists()
+        rule.onNodeWithText("Companion").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithText("Backup & storage").assertExists()
     }
