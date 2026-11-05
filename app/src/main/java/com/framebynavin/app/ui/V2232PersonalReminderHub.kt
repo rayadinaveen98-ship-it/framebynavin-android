@@ -769,13 +769,10 @@ internal fun V2232PersonalEditor(
                                 FilterChip(
                                     selected = title == suggestion.title,
                                     onClick = {
-                                        title = suggestion.title
+                                        // Suggestions classify, not schedule. Never replace
+                                        // the user's selected time, recurrence or alert type.
+                                        if (title.isBlank()) title = suggestion.title
                                         purpose = suggestion.purpose
-                                        selectedTime = suggestion.nextOccurrenceMillis(
-                                            System.currentTimeMillis(), zone
-                                        )
-                                        repeat = suggestion.repeat.name
-                                        alert = PersonalAlert.NOTIFICATION.name
                                         error = null
                                     },
                                     label = { Text(suggestion.label, fontSize = 11.sp) },
@@ -783,8 +780,8 @@ internal fun V2232PersonalEditor(
                                 )
                             }
                         }
-                        Text("Suggestions are editable. Nothing is scheduled until you save.",
-                            color = MutedText, fontSize = 10.sp)
+                        Text("Set your own title, time and repeat. Nothing is scheduled until Save.",
+                            color = MutedText, fontSize = 12.sp)
                     }
                     V274PersonalPurposePicker(
                         selected = purpose,
