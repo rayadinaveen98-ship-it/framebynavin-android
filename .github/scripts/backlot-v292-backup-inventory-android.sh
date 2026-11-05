@@ -24,7 +24,7 @@ if ! adb shell am instrument -w -r \
   rm -f "$log"
   exit 1
 fi
-if ! grep -Fq 'OK (3 tests)' "$log" || \
+if ! grep -Fq 'OK (4 tests)' "$log" || \
     grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
   cat "$log" >&2
   adb logcat -d -v threadtime | tail -140 || true
@@ -32,4 +32,4 @@ if ! grep -Fq 'OK (3 tests)' "$log" || \
   exit 1
 fi
 rm -f "$log"
-echo 'PASS: no creation, real record counts, corrupt DB fail-closed'
+echo 'PASS: no creation, accurate record counts, v1 no migration, corruption fail-closed'
