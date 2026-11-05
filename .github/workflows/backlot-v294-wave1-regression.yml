@@ -24,8 +24,15 @@ jobs:
           git fetch --depth=1 origin refs/heads/feature/backlot-v294-wave2-quiet-settings:refs/remotes/origin/feature/backlot-v294-wave2-quiet-settings
           git diff --name-only origin/feature/backlot-v294-wave2-quiet-settings HEAD > /tmp/v294-rc-changed.txt
           cat /tmp/v294-rc-changed.txt
-          if grep -E '^(app/src/main/java/com/framebynavin/app/(data|cloud|reminders)/|app/src/main/AndroidManifest.xml)' /tmp/v294-rc-changed.txt; then
-            echo 'FAIL: production data, reminder, cloud or manifest changes forbidden' >&2
+          if grep -E '^(app/src/main/java/com/framebynavin/app/(data|reminders)/|app/src/main/AndroidManifest.xml)' /tmp/v294-rc-changed.txt; then
+            echo 'FAIL: production data, reminder delivery or manifest changes forbidden' >&2
+            exit 1
+          fi
+          # Cloud behavior is frozen: permit only a narrow release-copy correction
+          # identifying challenges/groups as outside the existing sync contract.
+          if grep -E '^app/src/main/java/com/framebynavin/app/cloud/' /tmp/v294-rc-changed.txt |
+             grep -Fv 'app/src/main/java/com/framebynavin/app/cloud/V290CloudCoverageDisclosure.kt'; then
+            echo 'FAIL: cloud sync implementation must not change in V298' >&2
             exit 1
           fi
           # Refuse edits to established reminder, alarm, data or cloud source.
@@ -80,6 +87,7 @@ jobs:
               ('V2281StarterSchedulePolicyTest',2),
               ('V290CloudCoverageDisclosureTest',3),
               ('V292SpaceMetricSuggestionsTest',6),
+              ('V290CloudCoverageDisclosureTest',3),
               ('V297ChallengeTest',7),
               ('V298ReminderGroupTest',7),
           ]
