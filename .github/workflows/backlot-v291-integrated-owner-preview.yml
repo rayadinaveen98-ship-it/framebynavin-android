@@ -2,7 +2,7 @@ name: Backlot V291 - Integrated Owner Preview APK and Full Regression
 
 on:
   push:
-    branches: [feature/backlot-v291-integrated-owner-preview]
+    branches: [feature/backlot-v291-integrated-owner-preview, feature/backlot-v291-exif-pixel-regression-fix]
   workflow_dispatch:
 
 permissions:
