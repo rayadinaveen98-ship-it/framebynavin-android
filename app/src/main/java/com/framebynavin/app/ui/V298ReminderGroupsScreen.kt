@@ -207,7 +207,7 @@ internal fun V298ReminderGroupsScreen(
             } else if (selected == null) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                    Text("Organize the reminders you already have. Groups never create or change alert schedules.",
+                    Text("One reminder can live in more than one group.",
                         color = MutedText, fontSize = 13.sp)
                     Button(
                         onClick = { openEditor(null) },
@@ -215,7 +215,7 @@ internal fun V298ReminderGroupsScreen(
                         modifier = Modifier.fillMaxWidth().testTag("v298-create-open"),
                     ) { Text("NEW REMINDER GROUP") }
                     if (groups.isEmpty()) {
-                        Text("No groups yet. Your reminders stay exactly as they are.",
+                        Text("No groups yet.",
                             color = MutedText, fontSize = 13.sp,
                             modifier = Modifier.testTag("v298-empty"))
                     }
@@ -255,8 +255,8 @@ internal fun V298ReminderGroupsScreen(
                         onClick = { importFile.launch(arrayOf("application/json", "text/plain")) },
                         modifier = Modifier.fillMaxWidth().testTag("v298-import-open"),
                     ) { Text("IMPORT GROUP BACKUP") }
-                    Text("Groups and their links are stored on this device and are NOT yet in cloud sync. " +
-                        "A group backup contains IDs, not the reminder details or photos.",
+                    Text("Device-only groups · Not included in cloud sync. " +
+                        "Exports contain links, not reminder records.",
                         color = MutedText, fontSize = 12.sp)
                 }
             } else {
@@ -269,7 +269,7 @@ internal fun V298ReminderGroupsScreen(
                         Column(Modifier.weight(1f)) {
                             Text("${selected.reminderIds.size} reminders", color = ProjectorIvory,
                                 fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Links only · original schedules remain unchanged",
+                            Text("Linked to existing Personal reminders",
                                 color = MutedText, fontSize = 11.sp)
                         }
                     }
@@ -331,8 +331,7 @@ internal fun V298ReminderGroupsScreen(
                             }
                         }
                     }
-                    Text("Deleting this group only removes these links. It cannot delete " +
-                        "or reschedule any Personal reminder.",
+                    Text("Group changes never alter reminder schedules.",
                         color = MutedText, fontSize = 12.sp)
                 }
             }
@@ -369,7 +368,7 @@ internal fun V298ReminderGroupsScreen(
                                 color = v298Accent(key), fontSize = 11.sp) })
                     }
                 }
-                Text("A group never creates or changes any reminder schedule.",
+                Text("Schedules are managed in Personal reminders.",
                     color = MutedText, fontSize = 12.sp)
             }
         },
@@ -414,7 +413,7 @@ internal fun V298ReminderGroupsScreen(
             val candidates = reminders.filterNot { it.id in selected.reminderIds }
             Column(Modifier.heightIn(max = 370.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("No copies or new schedules are created.",
+                Text("Choose an existing Personal reminder.",
                     color = MutedText, fontSize = 12.sp)
                 if (candidates.isEmpty()) Text("No more saved reminders to link.",
                     color = MutedText, fontSize = 12.sp)
