@@ -1,5 +1,6 @@
 package com.framebynavin.app.cloud
 
+import android.database.sqlite.SQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
@@ -105,6 +106,38 @@ class V292LocalBackupInventoryDeviceTest {
             reopened.close()
         }
         assertEquals(beforeReminders, PersonalReminderStore(app).load())
+    }
+
+    @Test fun legacyV289DatabaseIsInspectedWithoutApplyingAnyRoomMigration() = runBlocking {
+        val raw = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
+        try {
+            raw.execSQL("CREATE TABLE personal_spaces (id TEXT PRIMARY KEY)")
+            raw.execSQL("CREATE TABLE personal_space_entries (id TEXT PRIMARY KEY)")
+            raw.version = 1
+        } finally {
+            raw.close()
+        }
+        val originalBytes = dbFile.readBytes()
+        assertEquals(
+            V292LocalBackupInventory.Recorded(0, 0, 0),
+            V292LocalBackupInventoryReader(app).inspect(),
+        )
+        val reopened = SQLiteDatabase.openDatabase(
+            dbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY
+        )
+        try {
+            assertEquals(1, reopened.version)
+            assertFalse("A read-only audit must not create the V290 media table",
+                reopened.rawQuery(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='personal_space_photos'",
+                    null,
+                ).use { it.moveToFirst() }
+            )
+        } finally {
+            reopened.close()
+        }
+        assertTrue("Opening Backup & Sync must not rewrite the v1 DB file",
+            originalBytes.contentEquals(dbFile.readBytes()))
     }
 
     @Test fun corruptedExistingDatabaseFailsClosedRatherThanReportingZero() = runBlocking {
