@@ -78,7 +78,7 @@ jobs:
               ('V2281StarterSchedulePolicyTest',2),
               ('V290CloudCoverageDisclosureTest',3),
               ('V292SpaceMetricSuggestionsTest',6),
-              ('V297ChallengeTest',6),
+              ('V297ChallengeTest',7),
           ]
           for name,minimum in required:
               paths=list(src.glob('TEST-*'+name+'.xml'))
