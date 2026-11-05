@@ -22,3 +22,9 @@ Using the visible content area, `01-settings-home.png` had **0%** pixels with ma
 At commit `d94ba6bc32616f8d67916d6a421a094ec66715d8`, the isolated Android screenshot test was updated to require painted readable content; it retries Android window captures and falls back to a Compose-root capture before failing rather than accepting a blank PNG. [Stricter screenshot workflow run 41976409971](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/41976409971) is the next gate.
 
 **No production app UI or database was modified by this corrective QA change.** Any initial scan-only 'pass' must not be reported as a complete screenshot review.
+
+## Second visual gate (run 41976590775): INVALID despite CI success
+
+Downloaded artifact 13392972405 and verified **all four SHA256SUMS.txt entries**. Independent image review revealed **all four screenshots were contaminated by the Android system modal `Quickstep isn't responding`**, including Settings, Personal My Day, empty My Spaces and synthetic Fitness. The earlier threshold gate misclassified the bright system dialog as rendered app content. This is an **emulator/system-screenshot capture failure**, not proof the production app is frozen.
+
+At commit `950d107a0c61576441fdd73c05f8496b9e6c19bf`, screenshot capture now uses `rule.onRoot().captureToImage().asAndroidBitmap()` exclusively, excluding Android launcher/system dialogs from app visual evidence. **Do not use either previous artifact as an approved visual baseline**. Rerun CI, download and inspect new screenshots before claiming visual QA is complete.
