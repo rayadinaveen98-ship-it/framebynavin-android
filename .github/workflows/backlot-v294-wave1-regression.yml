@@ -34,8 +34,13 @@ jobs:
           fi
           git show origin/feature/backlot-v294-wave2-quiet-settings:app/build.gradle.kts > /tmp/v294-base-gradle
           sed -e 's/versionCode = 292/versionCode = 294/' -e 's/versionName = "2.26.0-rc2-personal-metrics"/versionName = "2.27.0-rc1-universal-ui"/' /tmp/v294-base-gradle > /tmp/v294-expected-gradle
+          # Only V296 may add the explicitly pinned-by-BOM Compose animation module.
+          # All earlier V294/V295 source contracts remain unchanged.
+          if [[ "${GITHUB_REF_NAME}" == "feature/backlot-v296-guided-personal-composer" ]]; then
+            sed -i '/    implementation("androidx.compose.ui:ui")/a\\    // V296 guided composer uses explicit animated step transitions.\n    implementation("androidx.compose.animation:animation")' /tmp/v294-expected-gradle
+          fi
           cmp -s /tmp/v294-expected-gradle app/build.gradle.kts || { echo 'FAIL: unsupported build configuration change' >&2; exit 1; }
-          echo 'PASS: version bump only; storage logic unchanged'
+          echo 'PASS: pinned dependency boundary; storage and scheduling logic unchanged'
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
