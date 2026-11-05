@@ -83,6 +83,18 @@ class V293PhotoBackupPreflightDeviceTest {
                 unfinished.delete()
             }
             assertEquals(0, V293PhotoBackupPreflight(app, db).inspect().photoCount)
+            // An empty directory from a previously deleted Space contains no
+            // recoverable bytes and must not permanently block export.
+            val staleEmptyFolder = java.io.File(
+                java.io.File(app.filesDir, "backlot-personal-space-photos"),
+                UUID.randomUUID().toString(),
+            )
+            try {
+                assertTrue(staleEmptyFolder.mkdirs())
+                assertEquals(0, V293PhotoBackupPreflight(app, db).inspect().photoCount)
+            } finally {
+                staleEmptyFolder.delete()
+            }
             assertEquals(0, db.spaces().photosForSpace(spaceId).size)
         } finally {
             db.close()
