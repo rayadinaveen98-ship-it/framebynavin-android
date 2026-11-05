@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.V297Challenge
 import com.framebynavin.app.personal.V297ChallengeStore
+import com.framebynavin.app.personal.V297ChallengeMergePolicy
 import com.framebynavin.app.ui.theme.*
 import java.io.ByteArrayOutputStream
 import java.time.LocalDate
@@ -351,8 +352,7 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
                     onClick = {
                         write {
                             store.mutate { current ->
-                                val ids = current.mapTo(HashSet()) { it.id }
-                                current + incoming.filter { it.id !in ids }
+                                V297ChallengeMergePolicy.addMissing(current, incoming)
                             }
                             pendingImport = null
                         }
