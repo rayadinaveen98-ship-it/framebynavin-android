@@ -43,7 +43,23 @@ def lex(src):
         elif src[i]=='"':
             i+=1;parts=[]
             while i<n:
-                if src[i]=="\\" and i+1<n:parts.append(src[i:i+2]);i+=2
+                if src[i]=="\\" and i+1<n:
+                    parts.append(src[i:i+2]);i+=2
+                elif src.startswith("$" + "{",i):
+                    # Kotlin templates can contain nested quoted expressions.
+                    # Skip those quotes instead of creating fake UI labels.
+                    opening=i;i+=2;level=1
+                    while i<n and level:
+                        if src[i]=='"':
+                            i+=1
+                            while i<n:
+                                if src[i]=="\\" and i+1<n:i+=2
+                                elif src[i]=='"':i+=1;break
+                                else:i+=1
+                        elif src[i]=="{":level+=1;i+=1
+                        elif src[i]=="}":level-=1;i+=1
+                        else:i+=1
+                    parts.append(src[opening:i])
                 elif src[i]=='"':i+=1;break
                 else:parts.append(src[i]);i+=1
             tokens.append((start,"".join(parts)))
@@ -74,6 +90,10 @@ def ancestors(mask,positions):
 def classify(value,prior,calls):
     t=value.strip()
     if not t or SENSITIVE.search(prior[-130:]) or len(t)>4000 or INTERNAL.search(t):
+        return "excluded"
+    if calls and calls[-1] in {"testTag","Regex","Uri","valueOf","getSharedPreferences","stringPreferencesKey"}:
+        return "excluded"
+    if re.fullmatch(r"v\d{2,}-[a-z0-9_-]+|s\d+-[a-z0-9_-]+",t,re.I):
         return "excluded"
     if any(c in DISPLAY_CALLS for c in calls):return "direct-ui"
     if ASSIGNMENT.search(prior[-90:]):return "possible-ui"
