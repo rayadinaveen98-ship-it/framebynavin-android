@@ -16,7 +16,7 @@ if ! adb shell am instrument -w -r \
   adb logcat -d -v threadtime | tail -160 || true
   rm -f "$logfile";exit 1
 fi
-if ! grep -Fq "OK (4 tests)" "$logfile" ||
+if ! grep -Fq "OK (9 tests)" "$logfile" ||
    grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$logfile"; then
   cat "$logfile" >&2
   adb logcat -d -v threadtime | tail -160 || true
@@ -25,6 +25,6 @@ fi
 rm -f "$logfile"
 mkdir -p output/v294-visual-audit
 adb pull /sdcard/Android/data/com.framebynavin.app/files/v294-visual-audit/. output/v294-visual-audit/
-test "$(find output/v294-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 4
+test "$(find output/v294-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 9
 (cd output/v294-visual-audit && sha256sum *.png > SHA256SUMS.txt)
-echo "PASS: four synthetic V294 Android 15 screenshots captured; no owner data"
+echo "PASS: nine synthetic V294 Android 15 screenshots captured; no owner data"
