@@ -82,6 +82,21 @@ internal data class V297Challenge(
     fun restore(): V297Challenge = copy(archivedAtMillis = null).checked()
 }
 
+/** Import is additive by identity. Never replace or delete owner's current plans. */
+internal object V297ChallengeMergePolicy {
+    fun addMissing(
+        existing: List<V297Challenge>,
+        incoming: List<V297Challenge>,
+    ): List<V297Challenge> {
+        existing.forEach { it.checked() }
+        incoming.forEach { it.checked() }
+        require(existing.map { it.id }.distinct().size == existing.size)
+        require(incoming.map { it.id }.distinct().size == incoming.size)
+        val currentIds = existing.mapTo(HashSet()) { it.id }
+        return existing + incoming.filter { it.id !in currentIds }
+    }
+}
+
 internal object V297ChallengeCodec {
     private const val FORMAT = "backlot.personal.challenges21"
     private const val VERSION = 1
