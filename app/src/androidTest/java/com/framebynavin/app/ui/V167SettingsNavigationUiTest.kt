@@ -46,6 +46,19 @@ class V167SettingsNavigationUiTest {
         }
     }
 
+    @Test fun quietSettingsHomeUsesConciseRowsWithoutRedundantDescriptions() {
+        show()
+        for (title in V167SettingsNavigationPolicy.homeSections) {
+            rule.onNodeWithText(title).assertExists()
+        }
+        rule.onNodeWithText("Profile and sign-in").assertDoesNotExist()
+        rule.onNodeWithText("Theme, companion and voice").assertDoesNotExist()
+        rule.onNodeWithText("App tour and version").assertDoesNotExist()
+        rule.onNodeWithText("Sync, exports and recovery").assertDoesNotExist()
+        rule.onNodeWithText("Permissions need attention").assertExists()
+        rule.onNodeWithText("Advanced").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun profileIsSingleTapAndNoDuplicateConnectionsCategory() {
         var opened = 0
         show { opened++ }
