@@ -82,4 +82,20 @@ class V297ChallengeTest {
         }
         assertFalse(plan().archivedAtMillis != null)
     }
+    @Test fun importOnlyAddsNewIdsAndKeepsExistingEdits() {
+        val original = plan().editDay(0, "My original activity").markDone(0, 3_000L)
+        val conflictingImport = original.copy(title = "Overwritten in backup")
+        val newPlan = plan().copy(id = "new-plan", title = "New imported plan")
+        val merged = V297ChallengeMergePolicy.addMissing(
+            listOf(original), listOf(conflictingImport, newPlan),
+        )
+        assertEquals(2, merged.size)
+        assertEquals(original, merged[0])
+        assertEquals(newPlan, merged[1])
+        assertEquals(3_000L, merged[0].days[0].completedAtMillis)
+        assertThrows(IllegalArgumentException::class.java) {
+            V297ChallengeMergePolicy.addMissing(listOf(original), listOf(newPlan, newPlan))
+        }
+    }
+
 }
