@@ -8,8 +8,13 @@ class V167SettingsNavigationPolicyTest {
     @Test fun homeHasSixUniqueDestinations() {
         assertEquals(6, V167SettingsNavigationPolicy.homeSections.size)
         assertEquals(6, V167SettingsNavigationPolicy.homeSections.toSet().size)
-        assertEquals("My Profile", V167SettingsNavigationPolicy.homeSections.first())
-        assertEquals("About & Help", V167SettingsNavigationPolicy.homeSections.last())
+        assertEquals("Account", V167SettingsNavigationPolicy.homeSections.first())
+        assertEquals("Help & about", V167SettingsNavigationPolicy.homeSections.last())
+        assertEquals(
+            listOf("Account", "Appearance & sound", "Notifications & alarms",
+                "Planning & integrations", "Backup & storage", "Help & about"),
+            V167SettingsNavigationPolicy.homeSections,
+        )
     }
 
     @Test fun customizationSubpagesReturnToPersonalizationInsteadOfHome() {
