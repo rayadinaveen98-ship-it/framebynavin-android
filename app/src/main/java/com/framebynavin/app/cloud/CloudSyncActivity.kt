@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.ui.V269DataPrivacyActivity
+import com.framebynavin.app.ui.V299RecoveryReadinessPanel
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
@@ -301,6 +302,10 @@ private fun CreatorCloudScreen(onClose: () -> Unit) {
                         modifier = Modifier.testTag("v292-local-backup-coverage"),
                     )
                 }
+            }
+            Spacer(Modifier.height(12.dp))
+            CloudCard {
+                V299RecoveryReadinessPanel()
             }
             Spacer(Modifier.height(12.dp))
 
