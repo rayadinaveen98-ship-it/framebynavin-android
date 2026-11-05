@@ -185,19 +185,6 @@ internal fun V2232PersonalReminderHub(
                 Text(if (personalPageName == "TODAY") "My day" else "Personal settings",
                     color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Bold)
             }
-            if (personalPageName == "TODAY") {
-                IconButton(
-                    onClick = { spacesOpen = true },
-                    enabled = loaded && loadError == null,
-                    modifier = Modifier.testTag("v289-open-spaces"),
-                ) {
-                    Icon(
-                        Icons.Outlined.AutoAwesome,
-                        contentDescription = "Personal Spaces",
-                        tint = MutedGold,
-                    )
-                }
-            }
             IconButton(
                 onClick = { personalPageName = if (personalPageName == "TODAY") "SETTINGS" else "TODAY" },
                 modifier = Modifier.testTag("v288-personal-toggle-settings"),
@@ -238,8 +225,19 @@ internal fun V2232PersonalReminderHub(
             }
             Text("PERSONAL", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.weight(1f))
-            Text(if (personalPageName == "TODAY") "TODAY" else "SETTINGS",
-                color = MutedText, fontSize = 10.sp)
+            if (personalPageName == "TODAY") {
+                TextButton(
+                    onClick = { spacesOpen = true },
+                    enabled = loaded && loadError == null,
+                    modifier = Modifier.testTag("v289-open-spaces"),
+                ) {
+                    Icon(Icons.Outlined.AutoAwesome, null,
+                        tint = MutedGold, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("My Spaces", color = ProjectorIvory, fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold)
+                }
+            }
         }
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(personalPageScroll)
@@ -248,8 +246,6 @@ internal fun V2232PersonalReminderHub(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (personalPageName == "SETTINGS") {
-            Text("Keep your day simple. Customize every detail here.",
-                color = MutedText, fontSize = 12.sp)
             if (loaded && loadError == null) {
                 V288PersonalSettingsHeading(
                     "Plans & routines", "Your 21-day plan and reusable routines")
@@ -357,7 +353,8 @@ internal fun V2232PersonalReminderHub(
                             reminders, completionEvents, agendaNowMillis
                         )
                     }
-                    V288PersonalTodayCard(
+                    if (reminders.isNotEmpty() || summary.confirmedDoneToday > 0) {
+                        V288PersonalTodayCard(
                         snapshot = summary,
                         nowMillis = agendaNowMillis,
                         busy = busy,
@@ -375,8 +372,9 @@ internal fun V2232PersonalReminderHub(
                                 }
                             }
                         },
-                    )
-                    if (!completionHistoryReady) {
+                        )
+                    }
+                    if (reminders.isNotEmpty() && !completionHistoryReady) {
                         Text("Progress history unavailable; no completions were inferred.",
                             color = MutedText, fontSize = 10.sp)
                     }
@@ -413,14 +411,12 @@ internal fun V2232PersonalReminderHub(
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Outlined.NotificationsNone, null, tint = MutedGold,
                             modifier = Modifier.size(30.dp))
-                        Text("Nothing to remember yet", color = ProjectorIvory,
+                        Text("No reminders yet", color = ProjectorIvory,
                             fontWeight = FontWeight.Bold)
-                        Text("Keep life simple: what, when and how you want to be reminded.",
-                            color = MutedText, fontSize = 12.sp)
                         Button(onClick = { editing = null; editorOpen = true },
                             modifier = Modifier.testTag("v2232-personal-empty-add"),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed)) {
-                            Text("ADD PERSONAL REMINDER")
+                            Text("ADD REMINDER")
                         }
                     }
                 }
