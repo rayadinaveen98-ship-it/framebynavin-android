@@ -247,20 +247,18 @@ internal fun V2232PersonalReminderHub(
         ) {
             if (personalPageName == "SETTINGS") {
             if (loaded && loadError == null) {
-                V288PersonalSettingsHeading(
-                    "Plans & routines", "Your 21-day plan and reusable routines")
-                V285PersonalLifePlannerCard(reminders = reminders, enabled = !busy)
-                V284DietFitnessSetupCard(reminders = reminders, enabled = !busy)
-                V288PersonalSettingsHeading(
-                    "Rest", "Nap timing and wake-up preferences")
-                V287NapWakeCard(reminders = reminders, enabled = !busy)
-                V288PersonalSettingsHeading(
-                    "Device reliability", "Android permissions and delivery diagnostics")
-                V286PersonalReadinessCard(
+                V295UniversalPersonalRoutines(
                     reminders = reminders,
-                    permissionRevision = permissionRevision,
                     enabled = !busy,
-                    onRecheck = { permissionRevision++ },
+                    onCreateReminder = {
+                        editing = null
+                        editorOpen = true
+                    },
+                    onEditReminder = { reminder ->
+                        editing = reminder
+                        editorOpen = true
+                    },
+                    onOpenSpaces = { spacesOpen = true },
                 )
             }
             V288PersonalSettingsHeading(
@@ -494,7 +492,16 @@ internal fun V2232PersonalReminderHub(
     }
 
     if (spacesOpen) {
-        V289PersonalSpacesScreen(onClose = { spacesOpen = false })
+        V289PersonalSpacesScreen(
+            onClose = { spacesOpen = false },
+            onEditReminder = { id ->
+                reminders.firstOrNull { it.id == id }?.let { reminder ->
+                    editing = reminder
+                    spacesOpen = false
+                    editorOpen = true
+                }
+            },
+        )
     }
 
     if (editorOpen) {
