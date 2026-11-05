@@ -132,6 +132,10 @@ internal interface V289SpacesDao {
     @Query("SELECT * FROM personal_space_photos WHERE id = :photoId LIMIT 1")
     suspend fun getPhoto(photoId: String): V290SpacePhotoEntity?
 
+    /** Verified owner-initiated backup preflight only: no JPEG bytes or changes. */
+    @Query("SELECT * FROM personal_space_photos ORDER BY spaceId, takenAtMillis, id")
+    suspend fun allPhotos(): List<V290SpacePhotoEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertPhoto(photo: V290SpacePhotoEntity)
 

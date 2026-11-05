@@ -1,0 +1,134 @@
+package com.framebynavin.app.personal.spaces
+
+import android.content.Context
+import androidx.room.withTransaction
+import kotlinx.coroutines.Dispatchers
+import java.io.File
+import java.util.UUID
+import kotlinx.coroutines.withContext
+
+/**
+ * V293: A fail-closed PRE-FLIGHT for a future owner-consented encrypted backup.
+ *
+ * This class does not export bytes or communicate with cloud services. In
+ * particular, successful validation is NOT a recoverable Backlot backup.
+ * The eventual writer must verify image bytes AGAIN immediately before each
+ * encrypted write, because files can change after this snapshot is taken.
+ */
+internal data class V293PhotoBackupCandidate(
+    val metadataJson: String,
+    val photos: List<V290SpacePhotoEntity>,
+) {
+    val photoCount: Int get() = photos.size
+}
+
+internal object V293PhotoBackupPolicy {
+    const val MAX_PHOTOS = 256
+
+    /**
+     * Never allow an incomplete archive to masquerade as a complete backup.
+     * Each JPEG must be valid, attached to an existing Space, unique, within
+     * storage bounds and cryptographically verified on the source device.
+     * Validation only; the given verifier MUST NOT write/delete any file.
+     */
+    fun validate(
+        metadataJson: String,
+        photos: List<V290SpacePhotoEntity>,
+        verifyPrivateCopy: (V290SpacePhotoEntity) -> Boolean,
+    ): V293PhotoBackupCandidate {
+        val state = V289SpacesMetadataCodec.decode(metadataJson)
+        require(photos.size <= MAX_PHOTOS) {
+            "Too many private photos for the initial portable backup format"
+        }
+        val spaces = state.spaces.mapTo(HashSet()) { it.id }
+        val ids = HashSet<String>()
+        val spaceNames = HashSet<Pair<String, String>>()
+        val ordered = photos.sortedWith(
+            compareBy<V290SpacePhotoEntity> { it.spaceId }
+                .thenBy { it.takenAtMillis }.thenBy { it.id }
+        )
+        for (photo in ordered) {
+            V290PhotoTimelinePolicy.validate(photo)
+            require(photo.fileName == "${photo.id}.jpg") {
+                "Private photo name differs from its verified identity"
+            }
+            require(photo.spaceId in spaces) {
+                "Private photo refers to a missing Space"
+            }
+            require(ids.add(photo.id)) {
+                "Duplicate private photo id"
+            }
+            require(spaceNames.add(photo.spaceId to photo.fileName)) {
+                "Duplicate private photo name"
+            }
+            check(verifyPrivateCopy(photo)) {
+                "A private photo is missing or changed: backup cannot proceed"
+            }
+        }
+        return V293PhotoBackupCandidate(metadataJson, ordered)
+    }
+}
+
+/**
+ * Read-only owner-invoked local inspection. Not called by Home or by cloud
+ * sync. The existing metadata export remains unchanged and intentionally
+ * excludes confirmed-Done receipts; it is not a replacement for Personal sync.
+ */
+internal class V293PhotoBackupPreflight(
+    context: Context,
+    private val db: V289SpacesDatabase,
+) {
+    private val app = context.applicationContext
+    private fun requireNoUntrackedPrivateMedia(candidate: V293PhotoBackupCandidate) {
+        val root = File(app.filesDir, "backlot-personal-space-photos")
+        if (!root.exists()) return
+        check(root.isDirectory &&
+            root.canonicalFile == File(app.filesDir.canonicalFile, root.name)) {
+            "Private photo storage folder is not safe to inspect"
+        }
+        val permittedSpaces = V289SpacesMetadataCodec.decode(candidate.metadataJson)
+            .spaces.mapTo(HashSet()) { it.id }
+        val indexed = candidate.photos.mapTo(HashSet()) { it.spaceId to it.fileName }
+        for (folder in root.listFiles() ?: error("Cannot inspect photo folders")) {
+            val folderId = folder.name
+            check(runCatching { UUID.fromString(folderId).toString() == folderId }
+                .getOrDefault(false)) {
+                "An unexpected private photo folder needs owner review"
+            }
+            check(folder.isDirectory &&
+                folder.canonicalFile == File(root.canonicalFile, folderId)) {
+                "Unexpected private photo folder type or link"
+            }
+            val files = folder.listFiles() ?: error("Cannot inspect photo folder")
+            // Deleting a Space's last photo can leave an empty private folder.
+            // Such an empty folder has no media bytes to preserve.
+            if (files.isEmpty()) continue
+            check(folderId in permittedSpaces) {
+                "A removed Space still has private photo files; owner review required"
+            }
+            for (file in files) {
+                check(file.isFile &&
+                    file.canonicalFile == File(folder.canonicalFile, file.name)) {
+                    "Unexpected private photo file type or link"
+                }
+                check((folderId to file.name) in indexed) {
+                    "An unfinished or untracked private photo needs recovery before backup"
+                }
+            }
+        }
+    }
+
+    suspend fun inspect(): V293PhotoBackupCandidate = withContext(Dispatchers.IO) {
+        // Capture metadata + photo rows in one Room transaction. File bytes
+        // are verified afterwards without holding a long database write lock.
+        val (metadata, photos) = db.withTransaction {
+            V289SpacesMetadataRecovery(db).prepareLocalMetadataExport() to
+                db.spaces().allPhotos()
+        }
+        val candidate = V293PhotoBackupPolicy.validate(metadata, photos) { row ->
+            V290PrivatePhotoFiles.verifyPrivateBytes(app, row)
+        }
+        requireNoUntrackedPrivateMedia(candidate)
+        candidate
+    }
+}
