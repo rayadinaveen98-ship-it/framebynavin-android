@@ -99,6 +99,7 @@ internal fun V289PersonalSpacesScreen(
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
     var newNoteText by remember(selectedSpaceId) { mutableStateOf("") }
+    var allNotesVisible by remember(selectedSpaceId) { mutableStateOf(false) }
     var spaceActionsOpen by remember(selectedSpaceId) { mutableStateOf(false) }
     var createVisible by remember { mutableStateOf(false) }
     var backupVisible by remember { mutableStateOf(false) }
@@ -549,10 +550,21 @@ internal fun V289PersonalSpacesScreen(
                             if (notes.isEmpty()) {
                                 Text("No notes yet.", color = BacklotSecondaryText, fontSize = 12.sp)
                             } else {
-                                notes.forEach { item ->
+                                notes.take(if (allNotesVisible) notes.size else 3).forEach { item ->
+                                    Text(Instant.ofEpochMilli(item.occurredAtMillis)
+                                        .atZone(ZoneId.systemDefault())
+                                        .format(DateTimeFormatter.ofPattern("d MMM · h:mm a")),
+                                        color = BacklotSecondaryAccent, fontSize = 11.sp)
                                     Text(item.note, color = BacklotPrimaryText,
                                         fontSize = 13.sp,
                                         modifier = Modifier.testTag("v295-saved-note"))
+                                }
+                                if (notes.size > 3) {
+                                    TextButton(onClick = { allNotesVisible = !allNotesVisible },
+                                        modifier = Modifier.testTag("v295-notes-expand")) {
+                                        Text(if (allNotesVisible) "SHOW LESS"
+                                            else "VIEW ALL ${notes.size} NOTES")
+                                    }
                                 }
                             }
                         }
