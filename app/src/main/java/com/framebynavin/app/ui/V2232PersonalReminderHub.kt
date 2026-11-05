@@ -1198,30 +1198,22 @@ internal fun V2232PersonalEditor(
                     }
                 }
                 if (composerStep in 0..2) {
-                    Row(Modifier.fillMaxWidth().padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                if (composerStep == 0) onDismiss()
-                                else { composerStep--; error = null }
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-                                .testTag("v296-composer-back"),
-                        ) { Text(if (composerStep == 0) "CANCEL" else "BACK") }
-                        Button(
-                            onClick = {
-                                if (composerStep == 0 && title.isBlank()) {
-                                    error = "Give your reminder a name to continue."
-                                } else {
-                                    error = null
-                                    composerStep++
-                                }
-                            },
-                            enabled = !saving,
-                            modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-                                .testTag("v296-composer-next"),
-                        ) { Text("CONTINUE") }
-                    }
+                    V296PersonalStepActions(
+                        step = composerStep,
+                        saving = saving,
+                        onBack = {
+                            if (composerStep == 0) onDismiss()
+                            else { composerStep--; error = null }
+                        },
+                        onContinue = {
+                            if (composerStep == 0 && title.isBlank()) {
+                                error = "Give your reminder a name to continue."
+                            } else {
+                                error = null
+                                composerStep++
+                            }
+                        },
+                    )
                 } else {
                     if (composerStep == 3) TextButton(
                         onClick = { composerStep = 2; error = null },
