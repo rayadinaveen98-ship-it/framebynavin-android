@@ -422,20 +422,40 @@ internal fun V144SettingsHub(
                     accent = MutedGold,
                     onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
                 )
-                Spacer(Modifier.height(14.dp))
-                V144ActionCard(
-                    title = "Start fresh on this phone",
-                    subtitle = "Erase local app data after two confirmations. Cloud data is NOT deleted.",
-                    icon = Icons.Outlined.DeleteForever,
-                    accent = RecRed,
-                    onClick = { context.startActivity(Intent(context, FreshStartActivity::class.java)) },
-                )
+
                 Spacer(Modifier.height(12.dp))
                 V144SettingsNote(
                     "A portable backup includes projects, ideas, supported Voice Idea recordings, original Best Frames, reminders and planning. " +
                         "Project attachments keep their links only: the referenced files are not included. " +
                         "Companion, theme, app icon, launch sound, Calendar connection and sign-in remain device-specific. " +
                         "Exported files are not encrypted: keep them private."
+                )
+            }
+
+            V167SettingsSection.PRIVACY -> V144SettingsPage("PRIVACY & PERMISSIONS", "Privacy and device access", ::navigateBack) {
+                V144ActionCard(
+                    title = "Data & privacy",
+                    subtitle = "Review stored information and privacy controls",
+                    icon = Icons.Outlined.Shield,
+                    accent = MutedGold,
+                    onClick = { context.startActivity(Intent(context, V269DataPrivacyActivity::class.java)) },
+                )
+                V144ActionCard(
+                    title = "Notification permissions",
+                    subtitle = "Check alarm and notification access",
+                    icon = Icons.Outlined.NotificationsActive,
+                    accent = MutedGold,
+                    onClick = { sectionName = V167SettingsSection.REMINDERS.name },
+                )
+            }
+
+            V167SettingsSection.ADVANCED -> V144SettingsPage("ADVANCED", "Device data controls", ::navigateBack) {
+                V144ActionCard(
+                    title = "Start fresh on this phone",
+                    subtitle = "Erases local app data after confirmation. Cloud data stays.",
+                    icon = Icons.Outlined.DeleteForever,
+                    accent = RecRed,
+                    onClick = { context.startActivity(Intent(context, FreshStartActivity::class.java)) },
                 )
             }
 
@@ -531,8 +551,14 @@ private fun V144SettingsHome(
         V144CategoryCard("Backup & storage", "Sync, exports and recovery", Icons.Outlined.CloudSync, MutedGold) {
             onOpen(V167SettingsSection.DATA)
         }
+        V144CategoryCard("Privacy & permissions", "Data and device access", Icons.Outlined.Shield, MutedGold) {
+            onOpen(V167SettingsSection.PRIVACY)
+        }
         V144CategoryCard("Help & about", "App tour and version", Icons.Outlined.Info, RecRed) {
             onOpen(V167SettingsSection.ABOUT)
+        }
+        V144CategoryCard("Advanced", "Device data controls", Icons.Outlined.Tune, MutedGold) {
+            onOpen(V167SettingsSection.ADVANCED)
         }
     }
 }
