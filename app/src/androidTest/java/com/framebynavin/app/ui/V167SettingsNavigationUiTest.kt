@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -58,7 +59,8 @@ class V167SettingsNavigationUiTest {
         show()
         rule.onNodeWithText("Appearance & sound").performClick()
         rule.onNodeWithText("Voice").performClick()
-        rule.onNodeWithText("Default voice for new projects").assertExists()
+        rule.onNodeWithText("Default voice and background music").assertExists()
+        rule.onNodeWithTag("v276-global-music-settings").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithText("Spark").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
