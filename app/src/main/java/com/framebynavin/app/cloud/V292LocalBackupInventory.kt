@@ -1,6 +1,7 @@
 package com.framebynavin.app.cloud
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,14 +58,36 @@ internal class V292LocalBackupInventoryReader(context: Context) {
             if (!app.getDatabasePath(V289SpacesDatabase.FILE_NAME).exists()) {
                 return@withContext V292LocalBackupInventory.NoSpacesDatabase
             }
-            val db = V289SpacesDatabase.open(app)
+            // OPEN_READONLY is essential: Room.open() may migrate a V289
+            // database even when the caller only wants to count rows.
+            val db = SQLiteDatabase.openDatabase(
+                app.getDatabasePath(V289SpacesDatabase.FILE_NAME).absolutePath,
+                null,
+                SQLiteDatabase.OPEN_READONLY,
+            )
             try {
-                val dao = db.spaces()
-                V292LocalBackupInventory.Recorded(
-                    spaceCount = dao.countSpaces(),
-                    journalEntryCount = dao.countEntries(),
-                    photoRecordCount = dao.countPhotos(),
-                )
+                val version = db.version
+                check(version == 1 || version == 2) {
+                    "Unsupported Spaces database version"
+                }
+                fun count(table: String): Int {
+                    // Table names are internal hard-coded identifiers only.
+                    check(table in setOf(
+                        "personal_spaces", "personal_space_entries",
+                        "personal_space_photos"
+                    ))
+                    return db.rawQuery("SELECT COUNT(*) FROM $table", null).use { cursor ->
+                        check(cursor.moveToFirst()) { "Count query failed" }
+                        val value = cursor.getInt(0)
+                        check(value >= 0) { "Negative inventory count" }
+                        value
+                    }
+                }
+                val spaces = count("personal_spaces")
+                val entries = count("personal_space_entries")
+                val photos = if (version == 1) 0
+                    else count("personal_space_photos")
+                V292LocalBackupInventory.Recorded(spaces, entries, photos)
             } finally {
                 db.close()
             }
