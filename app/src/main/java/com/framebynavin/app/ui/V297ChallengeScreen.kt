@@ -77,7 +77,7 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
         if (uri != null) write {
             val json = store.exportJson()
             val stream = context.contentResolver.openOutputStream(uri)
-                ?: error("Could not open the selected file.")
+                ?: throw IllegalStateException("Could not open the selected file.")
             stream.use { it.write(json.toByteArray(Charsets.UTF_8)) }
         }
     }
