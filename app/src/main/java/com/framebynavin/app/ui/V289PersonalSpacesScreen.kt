@@ -90,7 +90,6 @@ internal fun V289PersonalSpacesScreen(
     var linkedReminders by remember { mutableStateOf(emptyList<V289SpaceReminderLinkEntity>()) }
     var linkRemindersVisible by remember { mutableStateOf(false) }
     var newNoteVisible by remember { mutableStateOf(false) }
-    var newNoteText by remember(selectedSpaceId) { mutableStateOf("") }
     var photos by remember { mutableStateOf(emptyList<V290SpacePhotoEntity>()) }
     var interruptedPhotos by remember { mutableStateOf(emptyList<V290InterruptedPhoto>()) }
     var pendingInterruptedAction by remember {
@@ -99,6 +98,7 @@ internal fun V289PersonalSpacesScreen(
     var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    var newNoteText by remember(selectedSpaceId) { mutableStateOf("") }
     var spaceActionsOpen by remember(selectedSpaceId) { mutableStateOf(false) }
     var createVisible by remember { mutableStateOf(false) }
     var backupVisible by remember { mutableStateOf(false) }
