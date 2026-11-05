@@ -8,6 +8,7 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -520,47 +521,104 @@ private fun V144SettingsHome(
 ) {
     val reminderReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader("BACKLOT", "Settings", onClose)
         Spacer(Modifier.height(18.dp))
-
-        V144CategoryCard(
-            title = "Account",
-            subtitle = "Profile and sign-in",
-            icon = Icons.Outlined.Person,
-            accent = MutedGold,
-            onClick = onProfile,
-        )
-        V144CategoryCard("Appearance & sound", "Theme, companion and voice", Icons.Outlined.Palette, RecRed) {
-            onOpen(V167SettingsSection.PERSONALIZATION)
-        }
-        V144CategoryCard(
-            "Notifications & alarms",
-            if (reminderReady) "Timing, snooze and quiet hours"
-            else "Permissions need attention",
-            Icons.Outlined.NotificationsActive,
-            if (reminderReady) SuccessGreen else MutedGold,
-        ) { onOpen(V167SettingsSection.REMINDERS) }
-        V144CategoryCard(
-            "Planning & integrations",
-            if (weeklyAutoPlanEnabled) "Weekly plan on · Calendar" else "Weekly plan and calendar",
-            Icons.Outlined.CalendarMonth,
-            MutedGold,
-        ) { onOpen(V167SettingsSection.PLANNING) }
-        V144CategoryCard("Backup & storage", "Sync, exports and recovery", Icons.Outlined.CloudSync, MutedGold) {
-            onOpen(V167SettingsSection.DATA)
-        }
-        V144CategoryCard("Privacy & permissions", "Data and device access", Icons.Outlined.Shield, MutedGold) {
-            onOpen(V167SettingsSection.PRIVACY)
-        }
-        V144CategoryCard("Help & about", "App tour and version", Icons.Outlined.Info, RecRed) {
-            onOpen(V167SettingsSection.ABOUT)
-        }
-        V144CategoryCard("Advanced", "Device data controls", Icons.Outlined.Tune, MutedGold) {
-            onOpen(V167SettingsSection.ADVANCED)
+        // One calm, accessible list instead of eight competing feature cards.
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = CinemaSurface,
+            border = BorderStroke(1.dp, CinemaLine),
+        ) {
+            Column {
+                V294QuietSettingRow("Account", Icons.Outlined.Person, onClick = onProfile)
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Appearance & sound", Icons.Outlined.Palette) {
+                    onOpen(V167SettingsSection.PERSONALIZATION)
+                }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow(
+                    title = "Notifications & alarms",
+                    icon = Icons.Outlined.NotificationsActive,
+                    support = if (reminderReady) null else "Permissions need attention",
+                    isWarning = !reminderReady,
+                ) { onOpen(V167SettingsSection.REMINDERS) }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow(
+                    title = "Planning & integrations",
+                    icon = Icons.Outlined.CalendarMonth,
+                    support = if (weeklyAutoPlanEnabled) "Weekly plan enabled" else null,
+                ) { onOpen(V167SettingsSection.PLANNING) }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Backup & storage", Icons.Outlined.CloudSync) {
+                    onOpen(V167SettingsSection.DATA)
+                }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Privacy & permissions", Icons.Outlined.Shield) {
+                    onOpen(V167SettingsSection.PRIVACY)
+                }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Help & about", Icons.Outlined.Info) {
+                    onOpen(V167SettingsSection.ABOUT)
+                }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Advanced", Icons.Outlined.Tune) {
+                    onOpen(V167SettingsSection.ADVANCED)
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun V294QuietSettingRow(
+    title: String,
+    icon: ImageVector,
+    support: String? = null,
+    isWarning: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            icon, contentDescription = null,
+            tint = if (isWarning) RecRed else MutedGold,
+            modifier = Modifier.size(21.dp),
+        )
+        Spacer(Modifier.width(15.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                title, color = ProjectorIvory, fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            if (support != null) {
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    support, color = if (isWarning) RecRed else MutedText,
+                    fontSize = 12.sp, lineHeight = 16.sp,
+                )
+            }
+        }
+        Icon(
+            Icons.Outlined.ChevronRight, contentDescription = null,
+            tint = MutedText, modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun V294QuietSettingsDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 52.dp, end = 14.dp),
+        thickness = 1.dp, color = CinemaLine,
+    )
 }
 
 @Composable
@@ -580,7 +638,7 @@ private fun V144SettingsHeader(kicker: String, title: String, onBack: () -> Unit
         IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
         Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
-            Text(kicker, color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text(kicker, color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
             Text(title, color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
