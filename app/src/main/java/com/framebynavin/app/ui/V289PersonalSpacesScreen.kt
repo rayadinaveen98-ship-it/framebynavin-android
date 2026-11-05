@@ -958,6 +958,93 @@ internal fun V289PersonalSpacesScreen(
         )
     }
 
+
+    if (linkRemindersVisible && selected != null) {
+        val spaceId = selected.id
+        val alreadyLinked = linkedReminders.mapTo(HashSet()) { it.reminderId }
+        val available = personalReminders.filter { it.id !in alreadyLinked }
+        AlertDialog(
+            onDismissRequest = { if (!busy) linkRemindersVisible = false },
+            title = { Text("Link reminders") },
+            text = {
+                Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("Linking doesn't change reminder timing, alerts or scheduling.",
+                        color = BacklotSecondaryText, fontSize = 12.sp)
+                    if (available.isEmpty()) {
+                        Text("No other Personal reminders to link.", fontSize = 12.sp)
+                    }
+                    available.forEach { reminder ->
+                        OutlinedButton(
+                            enabled = !busy && !personalReadError,
+                            onClick = {
+                                write {
+                                    repository.linkExistingReminder(
+                                        V289SpaceReminderLink(
+                                            spaceId = spaceId,
+                                            reminderId = reminder.id,
+                                            linkedAtMillis = System.currentTimeMillis(),
+                                        ),
+                                        personalReminders.mapTo(HashSet()) { it.id },
+                                    )
+                                    linkedReminders = dao.linksForSpace(spaceId)
+                                    linkRemindersVisible = false
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("v295-link-available"),
+                        ) { Text(reminder.title, maxLines = 1) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { linkRemindersVisible = false }) { Text("DONE") }
+            },
+        )
+    }
+    if (newNoteVisible && selected != null) {
+        val spaceId = selected.id
+        AlertDialog(
+            onDismissRequest = { if (!busy) newNoteVisible = false },
+            title = { Text("New Space note") },
+            text = {
+                OutlinedTextField(
+                    value = newNoteText,
+                    onValueChange = { newNoteText = it.take(2000) },
+                    label = { Text("Your note") },
+                    minLines = 4,
+                    modifier = Modifier.fillMaxWidth().testTag("v295-note-input"),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && newNoteText.isNotBlank(),
+                    onClick = {
+                        val content = newNoteText.trim()
+                        write {
+                            repository.logManualEntry(
+                                V289SpaceEntry(
+                                    id = V289PersonalSpacePolicy.canonicalUuid(),
+                                    spaceId = spaceId,
+                                    kind = V289SpaceEntryKind.NOTE,
+                                    source = V289SpaceEntrySource.MANUAL,
+                                    occurredAtMillis = System.currentTimeMillis(),
+                                    createdAtMillis = System.currentTimeMillis(),
+                                    note = content,
+                                )
+                            )
+                            entries = dao.entriesForSpace(spaceId)
+                            newNoteVisible = false
+                        }
+                    },
+                    modifier = Modifier.testTag("v295-note-save"),
+                ) { Text("SAVE NOTE") }
+            },
+            dismissButton = {
+                TextButton(onClick = { newNoteVisible = false }) { Text("CANCEL") }
+            },
+        )
+    }
+
     if (activityVisible && selected != null) {
         var note by remember(selected.id) { mutableStateOf("") }
         val metricPreset = V292SpaceMetricSuggestions.forType(
