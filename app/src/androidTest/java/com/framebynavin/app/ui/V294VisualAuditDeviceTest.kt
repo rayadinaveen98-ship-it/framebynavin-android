@@ -70,7 +70,7 @@ class V294VisualAuditDeviceTest {
                 )
             }
         }
-        rule.onNodeWithText("Settings", substring = true).assertExists()
+        rule.onNodeWithText("Backlot, your way").assertExists()
         screenshot("01-settings-home.png")
     }
 
