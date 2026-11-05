@@ -10,14 +10,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -46,13 +46,13 @@ private fun v298Accent(key: String): Color = when (key) {
     else -> MutedText
 }
 
-private fun v298Symbol(key: String): String = when (key) {
-    "HEART" -> "♡"
-    "SUN" -> "☀"
-    "BOOK" -> "▣"
-    "STAR" -> "☆"
-    "CHECK" -> "✓"
-    else -> "○"
+private fun v298Icon(key: String): ImageVector = when (key) {
+    "HEART" -> Icons.Outlined.FavoriteBorder
+    "SUN" -> Icons.Outlined.WbSunny
+    "BOOK" -> Icons.Outlined.MenuBook
+    "STAR" -> Icons.Outlined.StarBorder
+    "CHECK" -> Icons.Outlined.CheckCircleOutline
+    else -> Icons.Outlined.RadioButtonUnchecked
 }
 
 /**
@@ -230,8 +230,9 @@ internal fun V298ReminderGroupsScreen(
                             Row(Modifier.padding(13.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text(v298Symbol(group.iconKey), fontSize = 23.sp,
-                                    color = v298Accent(group.colorKey))
+                                Icon(v298Icon(group.iconKey), contentDescription = null,
+                                    tint = v298Accent(group.colorKey),
+                                    modifier = Modifier.size(24.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(group.name, color = ProjectorIvory,
                                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -264,8 +265,9 @@ internal fun V298ReminderGroupsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(v298Symbol(selected.iconKey), fontSize = 25.sp,
-                            color = v298Accent(selected.colorKey))
+                        Icon(v298Icon(selected.iconKey), contentDescription = null,
+                            tint = v298Accent(selected.colorKey),
+                            modifier = Modifier.size(26.dp))
                         Column(Modifier.weight(1f)) {
                             Text("${selected.reminderIds.size} reminders", color = ProjectorIvory,
                                 fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -356,7 +358,13 @@ internal fun V298ReminderGroupsScreen(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     V298ReminderGroupOptions.iconKeys.forEach { key ->
                         FilterChip(selected = iconKey == key, onClick = { iconKey = key },
-                            label = { Text(v298Symbol(key) + " " + key.lowercase(), fontSize = 11.sp) })
+                            leadingIcon = {
+                                Icon(v298Icon(key), contentDescription = null,
+                                    modifier = Modifier.size(16.dp))
+                            },
+                            label = { Text(key.lowercase().replaceFirstChar {
+                                it.uppercase()
+                            }, fontSize = 11.sp) })
                     }
                 }
                 Text("Color", color = MutedText, fontSize = 12.sp)
