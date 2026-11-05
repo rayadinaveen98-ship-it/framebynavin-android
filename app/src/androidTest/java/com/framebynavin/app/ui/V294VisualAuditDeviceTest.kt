@@ -77,7 +77,7 @@ class V294VisualAuditDeviceTest {
                 )
             }
         }
-        rule.onNodeWithText("Backlot, your way").assertExists()
+        rule.onNodeWithText("Settings").assertExists()
         screenshot("01-settings-home.png")
     }
 
@@ -92,7 +92,16 @@ class V294VisualAuditDeviceTest {
             rule.onAllNodesWithTag("v2232-personal-space-switcher")
                 .fetchSemanticsNodes().isNotEmpty()
         }
+        rule.waitUntil(15_000) {
+            rule.onAllNodesWithTag("v289-open-spaces").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithText("My Spaces").assertExists()
         screenshot("02-personal-my-day-empty.png")
+        // Verify the previously hidden destination is now reachable by label.
+        rule.onNodeWithTag("v289-open-spaces").performClick()
+        rule.waitUntil(15_000) {
+            rule.onAllNodesWithTag("v289-spaces-root").fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test fun mySpacesEmpty() {
@@ -108,6 +117,7 @@ class V294VisualAuditDeviceTest {
             rule.waitUntil(15_000) {
                 rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
             }
+            rule.onNodeWithText("No spaces yet").assertExists()
             screenshot("03-my-spaces-empty.png")
         } finally {
             rule.runOnIdle { mounted.value = false }
@@ -171,7 +181,7 @@ class V294VisualAuditDeviceTest {
                 )
             }
         }
-        rule.onNodeWithText("Nothing needs your attention").assertExists()
+        rule.onNodeWithText("No projects yet").assertExists()
         screenshot("05-creator-today-empty.png")
     }
 
@@ -187,7 +197,7 @@ class V294VisualAuditDeviceTest {
                 )
             }
         }
-        rule.onNodeWithText("Your vault is empty").assertExists()
+        rule.onNodeWithText("No ideas yet").assertExists()
         screenshot("06-ideas-empty.png")
     }
 
@@ -201,7 +211,7 @@ class V294VisualAuditDeviceTest {
                 )
             }
         }
-        rule.onNodeWithText("Your next 14 days").assertExists()
+        rule.onNodeWithText("Next 14 days").assertExists()
         screenshot("07-calendar-empty.png")
     }
 
