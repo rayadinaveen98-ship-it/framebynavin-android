@@ -16,7 +16,7 @@ internal object V290CloudCoverageDisclosure {
 
     const val EXCLUDED =
         "NOT yet in this cloud backup: Personal Spaces, progress/check-in notes, " +
-            "private photo journals, original Best Frame photos and custom music files. " +
+            "private photo journals, 21-day challenges, Reminder Groups, original Best Frame photos and custom music files. " +
             "You can export Spaces metadata separately; private photo bytes stay on " +
             "this device. Android reminder permissions must be set up on each phone."
 
