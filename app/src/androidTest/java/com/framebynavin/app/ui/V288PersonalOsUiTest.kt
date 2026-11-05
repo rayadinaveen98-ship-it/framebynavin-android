@@ -9,6 +9,7 @@ import com.framebynavin.app.personal.PersonalReminderDraft
 import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.personal.V297ChallengeStore
 import com.framebynavin.app.personal.V298ReminderGroupStore
+import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.personal.PersonalRepeat
 import com.framebynavin.app.personal.PersonalPurpose
 import com.framebynavin.app.personal.V288PersonalTodayPolicy
@@ -232,6 +233,27 @@ class V288PersonalOsUiTest {
         rule.onNodeWithTag("v298-group-name").performTextInput("Not saved")
         rule.onNodeWithText("CANCEL").performClick()
         assertEquals(before, runBlocking { store.load() })
+    }
+
+    @Test fun recoveryPreflightDoesNotCreateSpacesDbOrMutateReminders() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val store = PersonalReminderStore(app)
+        val original = runBlocking { store.load() }
+        val originalHistory = runBlocking { store.loadCompletionHistory() }
+        val spacesDatabase = app.getDatabasePath(V289SpacesDatabase.FILE_NAME)
+        val databaseAlreadyExists = spacesDatabase.exists()
+        rule.setContent { FrameByNavinTheme { V299RecoveryReadinessPanel() } }
+        rule.onNodeWithTag("v299-preflight-counts").assertDoesNotExist()
+        rule.onNodeWithTag("v299-run-preflight").performClick()
+        rule.waitUntil(20_000) {
+            rule.onAllNodesWithTag("v299-preflight-counts")
+                .fetchSemanticsNodes().isNotEmpty() ||
+            rule.onAllNodesWithTag("v299-preflight-unavailable")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(original, runBlocking { store.load() })
+        assertEquals(originalHistory, runBlocking { store.loadCompletionHistory() })
+        assertEquals(databaseAlreadyExists, spacesDatabase.exists())
     }
 
 }
