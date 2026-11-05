@@ -11,7 +11,7 @@ The earlier Personal Settings was too specific to one user's schedules. Universa
 - New `backlot_personal_reminder_groups_v1` private DataStore with mutex-serialized atomic mutation, checksum-verified versioned codec, bounded records/links, fail-closed corruption handling, previous revision retained.
 - Personal Settings → My Reminder Groups, with compact cards, create/edit, link existing reminders, view/edit linked reminder, unlink, and explicit group-delete confirmation. Missing/deleted reminder references are marked unavailable and may be unlinked without touching reminder storage.
 - Owner-invoked group-only JSON export and import with checksum validation, file-size limit, confirmation preview and additive-only merge. Existing groups are never overwritten by an imported ID collision. **A groups file contains only group names/appearance and reminder IDs, not the reminder records, completion history, photos or other Backlot data.**
-- No changes to existing `PersonalReminderStore`/codec, alarm or notification delivery, Room schema, Android manifest, cloud syncing, Play signing or Creator task storage.
+- No changes to existing `PersonalReminderStore`/codec, alarm or notification delivery, Room schema, Android manifest, cloud sync **behavior**, Play signing or Creator task storage. The existing Sync screen's coverage notice was corrected to explicitly exclude challenges and Reminder Groups; a regression test enforces it.
 
 ## QA
 - `V298ReminderGroupTest`: seven tests cover no seeded groups, reference-only linking, multi-group ownership, unchanged membership on rename/decorate, checksum roundtrip, invalid data rejection, and no-overwrite import.
