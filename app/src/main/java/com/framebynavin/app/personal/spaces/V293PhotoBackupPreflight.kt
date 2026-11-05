@@ -82,7 +82,8 @@ internal class V293PhotoBackupPreflight(
     private fun requireNoUntrackedPrivateMedia(candidate: V293PhotoBackupCandidate) {
         val root = File(app.filesDir, "backlot-personal-space-photos")
         if (!root.exists()) return
-        check(root.isDirectory && root.canonicalFile == root.absoluteFile) {
+        check(root.isDirectory &&
+            root.canonicalFile == File(app.filesDir.canonicalFile, root.name)) {
             "Private photo storage folder is not safe to inspect"
         }
         val permittedSpaces = V289SpacesMetadataCodec.decode(candidate.metadataJson)
