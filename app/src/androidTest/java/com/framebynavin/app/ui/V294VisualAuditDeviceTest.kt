@@ -158,4 +158,78 @@ class V294VisualAuditDeviceTest {
             db.close()
         }
     }
+    @Test fun creatorTodayEmpty() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme {
+                PTodayScreen(
+                    creatorProfile = com.framebynavin.app.data.CreatorProfile(),
+                    tasks = emptyList(),
+                    projectsLoaded = true,
+                    onAdd = {}, onStart = {}, onAdvance = {},
+                    onViewAllReminders = {}, onFocus = {},
+                )
+            }
+        }
+        rule.onNodeWithText("Nothing needs your attention").assertExists()
+        screenshot("05-creator-today-empty.png")
+    }
+
+    @Test fun ideaVaultEmpty() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme {
+                V09IdeaVaultScreen(
+                    ideas = emptyList(), onClose = null,
+                    onSave = { null }, onDelete = {}, onArchive = {},
+                    onConvert = { _, _, _, _ -> null },
+                    onCreateIdeaRequested = {},
+                )
+            }
+        }
+        rule.onNodeWithText("Your vault is empty").assertExists()
+        screenshot("06-ideas-empty.png")
+    }
+
+    @Test fun contentCalendarEmpty() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme {
+                V15ContentCalendarScreen(
+                    tasks = emptyList(), weeklySlots = emptyList(),
+                    onClose = null,
+                )
+            }
+        }
+        rule.onNodeWithText("Your next 14 days").assertExists()
+        screenshot("07-calendar-empty.png")
+    }
+
+    @Test fun insightsDisconnected() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme {
+                V11InsightsScreen(
+                    creatorProfile = com.framebynavin.app.data.CreatorProfile(),
+                    tasks = emptyList(), ideas = emptyList(), onAdd = {},
+                )
+            }
+        }
+        rule.onNodeWithText("Insights").assertExists()
+        screenshot("08-insights-disconnected.png")
+    }
+
+    @Test fun dailyBriefEmpty() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme {
+                V15DailyBriefScreen(
+                    tasks = emptyList(), weeklySlots = emptyList(), onClose = {},
+                )
+            }
+        }
+        rule.onNodeWithText("What matters today").assertExists()
+        screenshot("09-daily-brief-empty.png")
+    }
+
 }
