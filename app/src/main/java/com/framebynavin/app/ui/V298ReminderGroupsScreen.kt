@@ -6,6 +6,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -82,6 +84,7 @@ internal fun V298ReminderGroupsScreen(
     var iconKey by rememberSaveable { mutableStateOf("CIRCLE") }
     var colorKey by rememberSaveable { mutableStateOf("NEUTRAL") }
     var linkVisible by remember { mutableStateOf(false) }
+    var linkSearch by rememberSaveable(selectedId) { mutableStateOf("") }
     var deleteVisible by remember { mutableStateOf(false) }
     var pendingImport by remember { mutableStateOf<List<V298ReminderGroup>?>(null) }
     val selected = groups.firstOrNull { it.id == selectedId }
@@ -287,7 +290,7 @@ internal fun V298ReminderGroupsScreen(
                         ) { Text("DELETE GROUP") }
                     }
                     Button(
-                        onClick = { linkVisible = true },
+                        onClick = { linkSearch = ""; linkVisible = true },
                         enabled = !busy && readError == null,
                         modifier = Modifier.fillMaxWidth().testTag("v298-link-open"),
                     ) { Text("LINK AN EXISTING REMINDER") }
@@ -418,30 +421,45 @@ internal fun V298ReminderGroupsScreen(
         onDismissRequest = { if (!busy) linkVisible = false },
         title = { Text("Link saved reminders") },
         text = {
-            val candidates = reminders.filterNot { it.id in selected.reminderIds }
-            Column(Modifier.heightIn(max = 370.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Choose an existing Personal reminder.",
-                    color = MutedText, fontSize = 12.sp)
-                if (candidates.isEmpty()) Text("No more saved reminders to link.",
-                    color = MutedText, fontSize = 12.sp)
-                candidates.forEach { reminder ->
-                    TextButton(
-                        enabled = !busy && readError == null,
-                        onClick = {
-                            val id = selected.id
-                            val reminderId = reminder.id
-                            write {
-                                groupsStore.update(id) { group ->
-                                    group.linkExisting(reminderId,
-                                        reminders.mapTo(HashSet()) { it.id },
-                                        System.currentTimeMillis())
-                                }
-                                linkVisible = false
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().testTag("v298-link-choice"),
-                    ) { Text(reminder.title, maxLines = 2) }
+            val available = reminders.filterNot { it.id in selected.reminderIds }
+            val matches = available.filter {
+                it.title.contains(linkSearch.trim(), ignoreCase = true)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = linkSearch,
+                    onValueChange = { linkSearch = it.take(80) },
+                    singleLine = true,
+                    label = { Text("Search reminders") },
+                    modifier = Modifier.fillMaxWidth().testTag("v298-link-search"),
+                )
+                if (matches.isEmpty()) {
+                    Text(if (available.isEmpty()) "All saved reminders are already linked."
+                        else "No matching reminders.",
+                        color = MutedText, fontSize = 12.sp)
+                } else {
+                    Text("${matches.size} matches", color = MutedText, fontSize = 12.sp)
+                    LazyColumn(Modifier.heightIn(max = 290.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(matches, key = { it.id }) { reminder ->
+                            TextButton(
+                                enabled = !busy && readError == null,
+                                onClick = {
+                                    val id = selected.id
+                                    val reminderId = reminder.id
+                                    write {
+                                        groupsStore.update(id) { group ->
+                                            group.linkExisting(reminderId,
+                                                reminders.mapTo(HashSet()) { it.id },
+                                                System.currentTimeMillis())
+                                        }
+                                        linkVisible = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().testTag("v298-link-choice"),
+                            ) { Text(reminder.title, maxLines = 2) }
+                        }
+                    }
                 }
             }
         },
