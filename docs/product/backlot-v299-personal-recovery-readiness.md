@@ -4,7 +4,7 @@
 
 ## What this actually does
 
-Backup & Recovery now has one explicitly initiated **CHECK LOCAL BACKUP COVERAGE** action. It uses an isolated `V299PersonalRecoveryPreflight` scanner to count existing Personal reminders and completion receipts, challenges, Reminder Groups, Spaces, journal entries and Space links. It verifies the SHA-256 integrity of every **recorded private Space JPEG file**, rather than trusting a database photo row as proof the bytes exist.
+Backup & Recovery now has one explicitly initiated **CHECK LOCAL BACKUP COVERAGE** action. It uses an isolated `V299PersonalRecoveryPreflight` scanner to count existing Personal reminders and completion receipts, challenges, Reminder Groups, Spaces, journal entries and Space links. It verifies the SHA-256 integrity of every **recorded private Space JPEG file** with bounded 8 KiB streaming reads (12 MiB maximum per JPEG), rather than trusting a database photo row as proof the bytes exist.
 
 - Spaces SQLite is opened using `SQLiteDatabase.OPEN_READONLY`; the scanner never invokes Room.open or a migration.
 - If the Spaces database does not exist, an existing private photo directory is an error, not an unexplained zero.
