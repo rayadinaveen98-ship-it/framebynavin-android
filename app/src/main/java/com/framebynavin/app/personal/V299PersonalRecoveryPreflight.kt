@@ -3,13 +3,14 @@ package com.framebynavin.app.personal
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
-import com.framebynavin.app.personal.spaces.V290PrivatePhotoFiles
 import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.InputStream
+import java.security.MessageDigest
 
 /**
  * Owner-invoked READ-ONLY preflight. It checks the actual private JPEG bytes,
@@ -161,7 +162,13 @@ internal class V299PersonalRecoveryPreflight(context: Context) {
                             note = cursor.getString(8),
                         ))
                         // This verifies actual bytes against metadata SHA-256.
-                        if (V290PrivatePhotoFiles.verifyPrivateBytes(app, photo)) verified++
+                        val saved = File(
+                            File(privateRoot, photo.spaceId), photo.fileName
+                        )
+                        if (saved.isFile && saved.length() in 1..V299PhotoIntegrityPolicy.MAX_BYTES &&
+                            saved.inputStream().use {
+                                V299PhotoIntegrityPolicy.matches(it, photo.sha256Hex)
+                            }) verified++
                     }
                     check(seen == nPhotos) { "Photo inventory changed during verification" }
                 }
@@ -170,5 +177,31 @@ internal class V299PersonalRecoveryPreflight(context: Context) {
         } finally {
             db.close()
         }
+    }
+}
+
+/**
+ * Bounded streaming verification for app-private, re-encoded JPEGs.
+ * Memory stays constant even when an owner has thousands of photo records.
+ */
+internal object V299PhotoIntegrityPolicy {
+    const val MAX_BYTES = 12L * 1024L * 1024L
+    private val SHA256 = Regex("[0-9a-f]{64}")
+
+    fun matches(stream: InputStream, expectedSha256: String): Boolean {
+        require(SHA256.matches(expectedSha256)) { "Invalid photo checksum" }
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(8 * 1024)
+        var total = 0L
+        while (true) {
+            val n = stream.read(buffer)
+            if (n < 0) break
+            if (n == 0) continue
+            total += n
+            if (total > MAX_BYTES) return false
+            digest.update(buffer, 0, n)
+        }
+        if (total == 0L) return false
+        return digest.digest().joinToString("") { "%02x".format(it) } == expectedSha256
     }
 }
