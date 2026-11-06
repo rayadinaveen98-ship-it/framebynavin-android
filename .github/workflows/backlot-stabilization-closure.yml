@@ -15,7 +15,7 @@ concurrency:
 jobs:
   first-run-visual-closure:
     runs-on: ubuntu-latest
-    timeout-minutes: 110
+    timeout-minutes: 140
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,10 +43,19 @@ jobs:
       - name: Compile complete debug app and Android tests, run full unit regression
         run: |
           set -euo pipefail
-          timeout 85m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+          # Keep Kotlin in-process heap within hosted runner memory limits,
+          # and preserve diagnostics if a compiler task stops making progress.
+          (while sleep 180; do
+            echo '--- Gradle resource heartbeat ---'
+            free -m
+            ps -eo pid,etime,rss,%cpu,comm --sort=-rss | head -9
+          done) &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || true' EXIT
+          timeout 110m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
             --no-daemon --no-parallel --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
-            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+            '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=900m -Dfile.encoding=UTF-8' --stacktrace
       - name: Require nine all-domain recovery target-planning regression cases
         run: |
           set -euo pipefail
