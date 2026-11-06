@@ -142,6 +142,43 @@ internal class StabilizationRestoreWriteAheadJournal(private val root: File) {
         return StabilizationRestoreJournalCodec.decode(active.readBytes())
     }
 
+    /**
+     * Forensic read ONLY when a process died between fsync of active.pending
+     * and atomic replacement of active.journal. This deliberately does not
+     * choose a winner, delete files, or grant a recovery write permit.
+     * Any ambiguity is a hard failure requiring offline owner review.
+     */
+    @Synchronized
+    fun inspectTornCheckpointReadOnly(): TornCheckpointEvidence {
+        check(root.isDirectory && !Files.isSymbolicLink(root.toPath())) {
+            "Recovery journal root is unavailable"
+        }
+        check(root.list()?.toSet() == setOf(active.name, pending.name)) {
+            "Unexpected recovery files; manual review required"
+        }
+        fun readStrict(file: File): StabilizationRestoreJournalRecord {
+            check(!Files.isSymbolicLink(file.toPath()) &&
+                file.isFile &&
+                file.length() in 1..StabilizationRestoreJournalCodec.MAX_FILE_BYTES.toLong()) {
+                "Recovery checkpoint is missing or incomplete"
+            }
+            return StabilizationRestoreJournalCodec.decode(file.readBytes())
+        }
+        val durable = readStrict(active)
+        val staged = readStrict(pending)
+        check(staged.transactionId == durable.transactionId &&
+            staged.preparedId == durable.preparedId &&
+            staged.escrowId == durable.escrowId &&
+            staged.originalDigest == durable.originalDigest &&
+            staged.targetDigest == durable.targetDigest &&
+            staged.createdAtMillis == durable.createdAtMillis &&
+            staged.updatedAtMillis >= durable.updatedAtMillis &&
+            staged.step.ordinal == durable.step.ordinal + 1) {
+            "Torn checkpoint is not an adjacent, authenticated journal stage"
+        }
+        return TornCheckpointEvidence(durable, staged)
+    }
+
     @Synchronized
     fun checkpoint(
         expected: StabilizationRestoreWriteStep,
@@ -168,4 +205,13 @@ internal class StabilizationRestoreWriteAheadJournal(private val root: File) {
             StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         FileChannel.open(root.toPath(), StandardOpenOption.READ).use { it.force(true) }
     }
+}
+
+/** No automatic recovery authority: both durable candidates remain untouched. */
+internal data class TornCheckpointEvidence(
+    val lastActive: StabilizationRestoreJournalRecord,
+    val stagedPending: StabilizationRestoreJournalRecord,
+) {
+    val canAutoResume: Boolean get() = false
+    val canDeleteEitherFile: Boolean get() = false
 }
