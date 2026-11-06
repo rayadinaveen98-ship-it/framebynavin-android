@@ -444,6 +444,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                             tasks = vm.tasks,
                             ideas = vm.ideas,
                             onOpenReminders = { showReminders = true },
+                            onOpenActivity = {
+                                personalReminderSpace = false
+                                activityCenterOpen = true
+                                showReminders = true
+                            },
+                            onOpenPersonal = {
+                                personalReminderSpace = true
+                                activityCenterOpen = false
+                                showReminders = true
+                            },
                             onOpenProject = ::openProject,
                             onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
                             enabled = companionEnabled,
