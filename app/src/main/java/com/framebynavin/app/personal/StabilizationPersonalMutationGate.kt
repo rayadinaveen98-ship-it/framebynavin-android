@@ -33,6 +33,46 @@ internal object StabilizationPersonalMutationGate {
         companion object Key : CoroutineContext.Key<Permit>
     }
 
+    private class RecoveryPermit(
+        val root: String,
+        val transactionId: String,
+        val originalDigest: String,
+        val targetDigest: String,
+    ) : AbstractCoroutineContextElement(Key) {
+        @Volatile var active = true
+        companion object Key : CoroutineContext.Key<RecoveryPermit>
+    }
+
+    /**
+     * A recovery writer may ONLY be opened by a coroutine already holding
+     * the ordinary mutation lock, AFTER it has durably prepared a matching
+     * journal. Other coroutines and all regular UI writers remain frozen.
+     * An expired permit cannot escape into child tasks after this scope.
+     */
+    internal suspend fun <T> withPreparedRecovery(
+        journalRoot: File,
+        expected: StabilizationRestoreJournalRecord,
+        action: suspend () -> T,
+    ): T {
+        val path = journalRoot.absoluteFile.normalize().path
+        val owner = currentCoroutineContext()[Permit]
+        check(owner != null && owner.active && owner.root == path) {
+            "Recovery requires the exclusive existing owner mutation lock"
+        }
+        check(currentCoroutineContext()[RecoveryPermit] == null) {
+            "Recovery authority cannot be nested or borrowed"
+        }
+        require(expected.step == StabilizationRestoreWriteStep.PREPARED) {
+            "Recovery cannot start from an unreviewed interrupted journal"
+        }
+        ensureMatchingRecoveryJournal(journalRoot, expected)
+        val granted = RecoveryPermit(
+            path, expected.transactionId, expected.originalDigest, expected.targetDigest,
+        )
+        return try { withContext(granted) { action() } }
+        finally { granted.active = false }
+    }
+
     internal fun journalRootFor(context: Context): File =
         File(context.applicationContext.filesDir, ACTIVE)
 
@@ -54,6 +94,14 @@ internal object StabilizationPersonalMutationGate {
 
     private suspend fun <T> holdGate(root: File, action: suspend () -> T): T {
         val path = root.absoluteFile.normalize().path
+        val recovery = currentCoroutineContext()[RecoveryPermit]
+        if (recovery != null) {
+            check(recovery.active && recovery.root == path) {
+                "Expired or unrelated restore authority"
+            }
+            ensureMatchingRecoveryJournal(root, recovery)
+            return action()
+        }
         val inherited = currentCoroutineContext()[Permit]
         if (inherited != null) {
             check(inherited.active && inherited.root == path) {
@@ -77,6 +125,32 @@ internal object StabilizationPersonalMutationGate {
      */
     internal fun requireNoPendingRecovery(context: Context) {
         ensureNoRecoveryJournal(journalRootFor(context))
+    }
+
+    private fun ensureMatchingRecoveryJournal(
+        root: File, expected: StabilizationRestoreJournalRecord,
+    ) {
+        val current = checkNotNull(
+            StabilizationRestoreWriteAheadJournal(root).inspectAfterRestart()
+        ) { "Recovery transaction journal is missing" }
+        check(
+            current.transactionId == expected.transactionId &&
+                current.preparedId == expected.preparedId &&
+                current.escrowId == expected.escrowId &&
+                current.originalDigest == expected.originalDigest &&
+                current.targetDigest == expected.targetDigest
+        ) { "Recovery journal identity or fingerprints changed" }
+    }
+
+    private fun ensureMatchingRecoveryJournal(root: File, permit: RecoveryPermit) {
+        val current = checkNotNull(
+            StabilizationRestoreWriteAheadJournal(root).inspectAfterRestart()
+        ) { "Recovery transaction journal disappeared" }
+        check(current.transactionId == permit.transactionId &&
+            current.originalDigest == permit.originalDigest &&
+            current.targetDigest == permit.targetDigest) {
+            "Recovery authority does not match current durable transaction"
+        }
     }
 
     private fun ensureNoRecoveryJournal(journalRoot: File) {
