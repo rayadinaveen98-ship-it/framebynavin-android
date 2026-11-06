@@ -54,11 +54,11 @@ class V310ReviewLinksUiTest {
             }
         }
         rule.onNodeWithTag("v310-review-links").assertExists()
-        rule.onNodeWithTag("v310-space-\$spaceId").assertDoesNotExist()
-        rule.onNodeWithTag("v310-group-\$groupId").assertDoesNotExist()
+        rule.onNodeWithTag("v310-space-$spaceId").assertDoesNotExist()
+        rule.onNodeWithTag("v310-group-$groupId").assertDoesNotExist()
         rule.onNodeWithTag("v310-expand-links").performClick()
-        rule.onNodeWithTag("v310-space-\$spaceId").performClick()
-        rule.onNodeWithTag("v310-group-\$groupId").performClick()
+        rule.onNodeWithTag("v310-space-$spaceId").performClick()
+        rule.onNodeWithTag("v310-group-$groupId").performClick()
         rule.runOnIdle {
             assertEquals(spaceId, targets.spaceId)
             assertEquals(groupId, targets.groupId)
@@ -76,8 +76,8 @@ class V310ReviewLinksUiTest {
             }
             check(file.length() > 10_000L)
         } finally { image.recycle() }
-        rule.onNodeWithTag("v310-space-\$spaceId").performClick()
-        rule.onNodeWithTag("v310-group-\$groupId").performClick()
+        rule.onNodeWithTag("v310-space-$spaceId").performClick()
+        rule.onNodeWithTag("v310-group-$groupId").performClick()
         rule.runOnIdle { assertEquals(V310LinkTargets(), targets) }
     }
 
