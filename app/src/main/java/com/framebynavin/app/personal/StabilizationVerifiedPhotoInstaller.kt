@@ -4,6 +4,7 @@ import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -85,18 +86,42 @@ internal class StabilizationVerifiedPhotoInstaller(private val root: File) {
             digest.digest().joinToString("") { "%02x".format(it) } == photo.sha256Hex) {
             "Private photo changed during write; owner review required"
         }
-        // Hard-link creation is atomic, same-folder and refuses an existing
-        // destination. Rename/move could overwrite the owner's existing JPEG.
-        // A crash before removing .pending is detected and never auto-deleted.
-        Files.createLink(destination.toPath(), pending.toPath())
-        syncFolder(spaceFolder)
-        Files.delete(pending.toPath())
+        // Android app-private filesystems can deny hard-link creation.
+        // CREATE_NEW is an atomic O_EXCL-style reservation: unlike rename or
+        // FileOutputStream(destination), it can NEVER replace an existing JPEG.
+        // Copy verified .pending bytes into that new destination and fsync it.
+        // A crash can leave an incomplete destination, but .pending remains
+        // and forces explicit recovery review rather than claiming success.
+        FileChannel.open(
+            destination.toPath(),
+            StandardOpenOption.CREATE_NEW,
+            StandardOpenOption.WRITE,
+            LinkOption.NOFOLLOW_LINKS,
+        ).use { channel ->
+            pending.inputStream().use { input ->
+                val chunk = ByteArray(16 * 1024)
+                while (true) {
+                    val count = input.read(chunk)
+                    if (count < 0) break
+                    if (count == 0) continue
+                    val buffer = ByteBuffer.wrap(chunk, 0, count)
+                    while (buffer.hasRemaining()) {
+                        check(channel.write(buffer) > 0) {
+                            "Failed to complete private photo copy"
+                        }
+                    }
+                }
+            }
+            channel.force(true)
+        }
         syncFolder(spaceFolder)
         check(Files.isRegularFile(destination.toPath(), LinkOption.NOFOLLOW_LINKS) &&
             destination.length() == expectedBytes &&
             hashFile(destination, expectedBytes) == photo.sha256Hex) {
-            "Installed photo did not pass final byte verification"
+            "Installed photo failed final verification; keep pending for review"
         }
+        Files.delete(pending.toPath())
+        syncFolder(spaceFolder)
         return StabilizationPhotoInstallResult.INSTALLED
     }
 
