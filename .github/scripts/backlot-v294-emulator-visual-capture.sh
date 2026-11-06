@@ -16,7 +16,7 @@ if ! adb shell am instrument -w -r \
   adb logcat -d -v threadtime | tail -160 || true
   rm -f "$logfile";exit 1
 fi
-if ! grep -Fq "OK (13 tests)" "$logfile" ||
+if ! grep -Fq "OK (14 tests)" "$logfile" ||
    grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$logfile"; then
   cat "$logfile" >&2
   adb logcat -d -v threadtime | tail -160 || true
@@ -30,7 +30,7 @@ adb shell am instrument -w -r \
   -e hardeningTestEnvironment ci-emulator \
   -e class com.framebynavin.app.ui.V167SettingsNavigationUiTest,com.framebynavin.app.ui.V170BackupSettingsUiTest,com.framebynavin.app.ui.V166SettingsSafetyUiTest,com.framebynavin.app.ui.V169SettingsRemindersPlanningUiTest,com.framebynavin.app.ui.V197SettingsOnboardingUiTest,com.framebynavin.app.ui.V288PersonalOsUiTest \
   com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$settings_log"
-if ! grep -Fq "OK (26 tests)" "$settings_log" ||
+if ! grep -Fq "OK (28 tests)" "$settings_log" ||
    grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$settings_log"; then
   cat "$settings_log" >&2
   adb logcat -d -v threadtime | tail -180 || true
@@ -55,6 +55,6 @@ fi
 rm -f "$spaces_log"
 mkdir -p output/v294-visual-audit
 adb pull /sdcard/Android/data/com.framebynavin.app/files/v294-visual-audit/. output/v294-visual-audit/
-test "$(find output/v294-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 13
+test "$(find output/v294-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 14
 (cd output/v294-visual-audit && sha256sum *.png > SHA256SUMS.txt)
-echo "PASS: thirteen synthetic V299 Android 15 screenshots captured; no owner data"
+echo "PASS: fourteen synthetic V302 Android 15 screenshots captured; no owner data"
