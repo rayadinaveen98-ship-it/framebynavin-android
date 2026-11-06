@@ -12,6 +12,6 @@ adb shell am instrument -w -r \
   -e hardeningTestEnvironment ci-emulator \
   -e class com.framebynavin.app.personal.StabilizationPersonalMutationGateDeviceTest,com.framebynavin.app.personal.spaces.V289SpacesMetadataRecoveryDeviceTest \
   com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
-grep -Fq 'OK (5 tests)' "$log"
+grep -Fq 'OK (6 tests)' "$log"
 if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then exit 1; fi
 echo 'PASS: existing Personal, Challenge and Group records survive pending recovery lock'
