@@ -8,6 +8,7 @@ import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.personal.PersonalReminderDraft
 import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.personal.V297ChallengeStore
+import com.framebynavin.app.personal.V298ReminderGroupStore
 import com.framebynavin.app.personal.PersonalRepeat
 import com.framebynavin.app.personal.PersonalPurpose
 import com.framebynavin.app.personal.V288PersonalTodayPolicy
@@ -187,6 +188,51 @@ class V288PersonalOsUiTest {
         rule.onNodeWithTag("v297-create-title").performTextInput("My own challenge")
         rule.onNodeWithTag("v297-create-save").assertIsEnabled()
         // No implicit Save, no sample tasks, and cancel never touches persistence.
+        rule.onNodeWithText("CANCEL").performClick()
+        assertEquals(before, runBlocking { store.load() })
+    }
+
+    @Test fun groupsCanBeCreatedAndDeletedWithoutChangingReminders() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val groupStore = V298ReminderGroupStore(app)
+        val remindersStore = PersonalReminderStore(app)
+        val beforeGroups = runBlocking { groupStore.load() }
+        val beforeReminders = runBlocking { remindersStore.load() }
+        try {
+            rule.setContent { FrameByNavinTheme { V298ReminderGroupsScreen(onClose = {}) } }
+            rule.waitUntil(12_000) {
+                rule.onAllNodesWithTag("v298-create-open").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("v298-create-open").performClick()
+            rule.onNodeWithTag("v298-group-save").assertIsNotEnabled()
+            rule.onNodeWithTag("v298-group-name").performTextInput("My reading plan")
+            rule.onNodeWithTag("v298-group-save").performClick()
+            rule.waitUntil(12_000) {
+                runBlocking { groupStore.load().any { it.name == "My reading plan" } }
+            }
+            assertEquals(beforeReminders, runBlocking { remindersStore.load() })
+            rule.onNodeWithTag("v298-delete-open").performClick()
+            rule.onNodeWithTag("v298-delete-confirm").performClick()
+            rule.waitUntil(12_000) {
+                runBlocking { groupStore.load() == beforeGroups }
+            }
+            assertEquals(beforeReminders, runBlocking { remindersStore.load() })
+        } finally {
+            // Only on a disposable emulator: restore groups if an assertion fails.
+            runBlocking { groupStore.mutate { beforeGroups } }
+        }
+    }
+
+    @Test fun groupEditorCancelNeverWritesAnyOwnerRecord() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val store = V298ReminderGroupStore(app)
+        val before = runBlocking { store.load() }
+        rule.setContent { FrameByNavinTheme { V298ReminderGroupsScreen(onClose = {}) } }
+        rule.waitUntil(12_000) {
+            rule.onAllNodesWithTag("v298-create-open").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("v298-create-open").performClick()
+        rule.onNodeWithTag("v298-group-name").performTextInput("Not saved")
         rule.onNodeWithText("CANCEL").performClick()
         assertEquals(before, runBlocking { store.load() })
     }

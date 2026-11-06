@@ -88,6 +88,7 @@ internal fun V2232PersonalReminderHub(
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
     var challengesOpen by rememberSaveable { mutableStateOf(false) }
+    var reminderGroupsOpen by rememberSaveable { mutableStateOf(false) }
     // Page switches reset their viewport; the two layouts must never share a scroll offset.
     val personalPageScroll = remember(personalPageName) { ScrollState(0) }
     var completionEvents by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
@@ -266,6 +267,7 @@ internal fun V2232PersonalReminderHub(
                     },
                     onOpenSpaces = { spacesOpen = true },
                     onOpenChallenges = { challengesOpen = true },
+                    onOpenGroups = { reminderGroupsOpen = true },
                 )
             }
             V288PersonalSettingsHeading(
@@ -496,6 +498,19 @@ internal fun V2232PersonalReminderHub(
                     modifier = Modifier.testTag("v2232-personal-feedback"))
             }
         }
+    }
+
+    if (reminderGroupsOpen) {
+        V298ReminderGroupsScreen(
+            onClose = { reminderGroupsOpen = false },
+            onEditReminder = { id ->
+                reminders.firstOrNull { it.id == id }?.let { reminder ->
+                    editing = reminder
+                    reminderGroupsOpen = false
+                    editorOpen = true
+                }
+            },
+        )
     }
 
     if (challengesOpen) {
