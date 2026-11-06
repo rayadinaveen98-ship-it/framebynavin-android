@@ -28,7 +28,7 @@ jobs:
           cat /tmp/v307-changed.txt
           while IFS= read -r path; do
             case "$path" in
-              .github/workflows/backlot-v307-creator-cleanup.yml|docs/product/backlot-v307-compact-creator-reminders.md|app/src/main/java/com/framebynavin/app/ui/V307CompactCreatorActivity.kt|app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/test/java/com/framebynavin/app/ui/V307CreatorActivityPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V307CompactCreatorActivityUiTest.kt) ;;
+              .github/workflows/backlot-v307-creator-cleanup.yml|.github/scripts/backlot-v307-android15-creator.sh|docs/product/backlot-v307-compact-creator-reminders.md|app/src/main/java/com/framebynavin/app/ui/V307CompactCreatorActivity.kt|app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/test/java/com/framebynavin/app/ui/V307CreatorActivityPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V307CompactCreatorActivityUiTest.kt) ;;
               *) echo "FAIL: V307 changed non-allowlisted file: $path" >&2; exit 1;;
             esac
           done < /tmp/v307-changed.txt
@@ -75,23 +75,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -euo pipefail
-            test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = "1"
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell pm clear com.framebynavin.app
-            logfile="$(mktemp)"
-            adb shell am instrument -w -r \
-              -e hardeningTestEnvironment ci-emulator \
-              -e class com.framebynavin.app.ui.V307CompactCreatorActivityUiTest \
-              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$logfile"
-            grep -Fq "OK (1 test)" "$logfile"
-            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$logfile"; then exit 1; fi
-            mkdir -p output/v307-visual-audit
-            adb pull /sdcard/Android/data/com.framebynavin.app/files/v307-visual-audit/. output/v307-visual-audit/
-            test "$(find output/v307-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 1
-            (cd output/v307-visual-audit && sha256sum *.png > SHA256SUMS.txt)
+          script: bash .github/scripts/backlot-v307-android15-creator.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
