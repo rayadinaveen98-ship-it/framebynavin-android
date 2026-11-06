@@ -24,3 +24,20 @@ adb pull /sdcard/Android/data/com.framebynavin.app/files/stabilization-visual-au
 test "$(find output/stabilization-creator-empty -maxdepth 1 -name '*.png' | wc -l)" -eq 1
 (cd output/stabilization-creator-empty && sha256sum *.png > SHA256SUMS.txt)
 echo "PASS: minimal first-run UI, preserved History and Activity Center links, no change to reminder data"
+
+# Separate isolated scenario after screenshots are saved. No owner device or
+# cloud is accessed; clear only this disposable emulator before the fixture.
+adb shell pm clear com.framebynavin.app
+log2="$(mktemp)"
+trap 'rm -f "$log" "$log2"' EXIT
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class com.framebynavin.app.personal.PersonalLinkedReferenceGuardDeviceTest \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log2"
+if ! grep -Fq 'OK (1 test)' "$log2" ||
+   grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log2"; then
+  cat "$log2" >&2
+  adb logcat -d -v threadtime | tail -160 || true
+  exit 1
+fi
+echo "PASS: real Group + Space links block unsafe Personal cloud restore while valid same-ID restore succeeds"
