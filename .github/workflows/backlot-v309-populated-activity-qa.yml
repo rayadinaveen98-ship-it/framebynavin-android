@@ -15,7 +15,7 @@ concurrency:
 jobs:
   populated-visual-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 105
+    timeout-minutes: 135
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,10 +44,20 @@ jobs:
       - name: Compile matching debug app and instrumentation APK
         run: |
           set -euo pipefail
-          timeout 80m gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+          # Prior exact-head run reached :app:compileDebugKotlin but timed
+          # out without a compiler error. Capture RSS/CPU every 3 minutes
+          # before declaring another failure to be a Kotlin source bug.
+          (while sleep 180; do
+            echo '--- Gradle resource heartbeat ---'
+            free -m
+            ps -eo pid,etime,rss,%cpu,comm --sort=-rss | head -9
+          done) &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || true' EXIT
+          timeout 105m gradle :app:assembleDebug :app:assembleDebugAndroidTest \
             --no-daemon --no-parallel --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
-            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+            '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=900m -Dfile.encoding=UTF-8' --stacktrace
       - name: Enable Android 15 emulator KVM
         run: |
           set -euo pipefail
