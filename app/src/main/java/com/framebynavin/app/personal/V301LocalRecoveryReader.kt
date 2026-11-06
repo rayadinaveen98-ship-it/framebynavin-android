@@ -39,13 +39,15 @@ internal class V301LocalRecoveryReader(context: Context) {
         val personal = PersonalReminderStore(app).exportPersonalJson()
         val challenges = V297ChallengeStore(app).exportJson()
         val groups = V298ReminderGroupStore(app).exportJson()
-        val (spaceMetadata, photos) = readSpacesWithoutOpeningRoom()
+        val (spaceMetadata, photos) = readSpacesWithoutOpeningRoom(
+            PersonalCompletionBackupCodec.decode(personal))
         val source = V300PersonalComponents(
             personal = personal, challenges = challenges,
             groups = groups, spaces = spaceMetadata,
         )
         val reminderData = PersonalCompletionBackupCodec.decode(personal)
-        val spaceData = V289SpacesMetadataCodec.decode(spaceMetadata)
+        val spaceData = V303SpaceReceiptArchiveCodec.decode(
+            spaceMetadata, reminderData)
 
         // If either source changes while the read progresses, fail closed,
         // never describe a torn multi-DataStore read as an atomic snapshot.
@@ -84,7 +86,9 @@ internal class V301LocalRecoveryReader(context: Context) {
      * confirmed-Done entry, the existing metadata codec refuses to encode it:
      * an incomplete dry run is worse than a clearly blocked one.
      */
-    private fun readSpacesWithoutOpeningRoom(): Pair<String, List<V290SpacePhotoEntity>> {
+    private fun readSpacesWithoutOpeningRoom(
+        personal: PersonalCompletionBackupSnapshot,
+    ): Pair<String, List<V290SpacePhotoEntity>> {
         val file = app.getDatabasePath(V289SpacesDatabase.FILE_NAME)
         val photoRoot = File(app.filesDir, "backlot-personal-space-photos")
         if (!file.isFile) {
@@ -165,8 +169,8 @@ internal class V301LocalRecoveryReader(context: Context) {
                     note = c.getString(8),
                 ))
             }
-            val metadata = V289SpacesMetadataCodec.encode(
-                V289SpaceState(spaces, links, entries)
+            val metadata = V303SpaceReceiptArchiveCodec.encode(
+                V289SpaceState(spaces, links, entries), personal,
             )
             metadata to photos
         } finally {
