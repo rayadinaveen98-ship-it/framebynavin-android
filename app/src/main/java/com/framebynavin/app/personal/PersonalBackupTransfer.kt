@@ -71,20 +71,27 @@ internal class PersonalBackupTransfer(context: Context) {
         // replaces only reminder definitions/Done receipts. Refuse it if
         // existing local Groups or Spaces would be left pointing to removed
         // IDs. Keep all original data intact on this read-only rejection.
-        PersonalLinkedReferenceGuard(app).verifyIncomingIds(
-            clean.mapTo(HashSet()) { it.id },
-        )
         var previous = emptyList<PersonalReminder>()
-        // Retain both journals under the same serialized Personal DataStore lock.
-        // Failure to persist the independent recovery copy aborts the replacement.
-        store.mutate(
-            replacementHistory = snapshot.completions,
-            beforeReplace = { existing, existingHistory ->
-                retained.retainRaw(PersonalCompletionBackupCodec.encode(existing, existingHistory))
-            },
-        ) { existing ->
-            previous = existing
-            clean
+        // The linked-reference check and replacement MUST share the exact
+        // mutation gate. Otherwise a new Group/Space link could appear after
+        // preflight but before the destructive Personal-only replacement.
+        // The inner Personal store mutation borrows the scoped same-root
+        // permit and keeps its own independent durable pre-restore copy.
+        StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            PersonalLinkedReferenceGuard(app).verifyIncomingIds(
+                clean.mapTo(HashSet()) { it.id },
+            )
+            store.mutate(
+                replacementHistory = snapshot.completions,
+                beforeReplace = { existing, existingHistory ->
+                    retained.retainRaw(
+                        PersonalCompletionBackupCodec.encode(existing, existingHistory)
+                    )
+                },
+            ) { existing ->
+                previous = existing
+                clean
+            }
         }
         // At this point the data is already committed. Cleanup and scheduling
         // failures are reported separately; never claim the whole restore
