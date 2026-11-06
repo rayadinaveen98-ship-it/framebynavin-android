@@ -1,0 +1,132 @@
+name: Backlot V305 - Signed Owner APK and Upgrade
+
+on:
+  push:
+    branches: [qa/backlot-v305-signed-owner-296]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v305-signed-owner-296
+  cancel-in-progress: true
+
+jobs:
+  signed-owner-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Freeze verified source and require owner-test identity
+        run: |
+          set -euo pipefail
+          grep -Fq 'versionCode = 296' app/build.gradle.kts
+          grep -Fq 'versionName = "2.28.1-owner-qa-recovery-safety"' app/build.gradle.kts
+          grep -Fq 'create("personalStable")' app/build.gradle.kts
+          git fetch --depth=1 origin refs/heads/feature/backlot-v305-rollback-escrow:refs/remotes/origin/feature/backlot-v305-rollback-escrow
+          git diff --name-only origin/feature/backlot-v305-rollback-escrow HEAD |
+            grep -v -e '^app/build.gradle.kts$' \
+                    -e '^.github/workflows/backlot-v305-signed-owner-apk.yml$' \
+                    -e '^.github/scripts/backlot-v305-signed-inplace-upgrade.sh$' > /tmp/v305-disallowed.txt || true
+          if test -s /tmp/v305-disallowed.txt; then
+            echo "FAIL: release candidate contains unexpected changes from fully tested V305 source" >&2
+            cat /tmp/v305-disallowed.txt >&2
+            exit 1
+          fi
+          echo 'PASS: V305 code identical to automated-test green branch except APK version and CI'
+
+      - name: Build installable signed owner APK
+        run: |
+          set -euo pipefail
+          timeout 90m gradle :app:assemblePersonalStable -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+
+      - name: Verify package, owner-test signature and checksum
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          mkdir -p output/v305
+          cp "$apk" output/v305/Backlot-V305-Signed-Owner-Preview-296.apk
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          "$signer" verify --verbose --print-certs "$apk" > output/v305/SIGNATURE.txt
+          "$aapt" dump badging "$apk" > output/v305/IDENTITY.txt
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' output/v305/SIGNATURE.txt
+          grep -Fq 'V2 Signer: certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/v305/SIGNATURE.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='296'" output/v305/IDENTITY.txt
+          (cd output/v305 && sha256sum *.apk > SHA256SUMS.txt)
+          echo 'PASS: signed V305 owner APK; version 296; same preview signer as V302'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V305-Signed-Owner-Preview-296
+          path: output/v305/
+          retention-days: 30
+          if-no-files-found: error
+
+  v302-to-v305-upgrade:
+    needs: signed-owner-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V305-Signed-Owner-Preview-296
+          path: output/v305
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V302-Signed-Owner-Preview-295
+          path: output/v302
+          run-id: 42175337283
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify BOTH signed APKs and their recorded file digests
+        run: |
+          set -euo pipefail
+          (cd output/v302 && sha256sum -c SHA256SUMS.txt)
+          (cd output/v305 && sha256sum -c SHA256SUMS.txt)
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          "$signer" verify --print-certs output/v302/Backlot-V302-Signed-Owner-Preview-295.apk > output/v302/signature-rechecked.txt
+          "$signer" verify --print-certs output/v305/Backlot-V305-Signed-Owner-Preview-296.apk > output/v305/signature-rechecked.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/v302/signature-rechecked.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/v305/signature-rechecked.txt
+          "$aapt" dump badging output/v302/Backlot-V302-Signed-Owner-Preview-295.apk | grep -F "versionCode='295'"
+          "$aapt" dump badging output/v305/Backlot-V305-Signed-Owner-Preview-296.apk | grep -F "versionCode='296'"
+
+      - name: Enable Android 15 emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Verify signed V302 to V305 install WITHOUT uninstall or data clear
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v305-signed-inplace-upgrade.sh
