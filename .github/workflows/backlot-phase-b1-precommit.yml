@@ -1,4 +1,4 @@
-name: Backlot Phase B1 - authenticated precommit safety
+name: Backlot Phase B1-B2 - authenticated precommit and emulator recovery journal
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - name: Keep B1 source scope strictly additive and read-only
+      - name: Keep B1-B2 changes scoped to read-only policy and emulator-only recovery fixture
         run: |
           set -euo pipefail
           frozen=44f815f94885a25ab80ad4e3bc9f7ff6d97818b6
@@ -28,12 +28,12 @@ jobs:
           git diff --name-only "$frozen" HEAD > /tmp/phase-b1-files.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/personal/B01RestorePrecommitPolicy.kt|app/src/test/java/com/framebynavin/app/personal/B01RestorePrecommitPolicyTest.kt|docs/release/BACKLOT_PHASE_B_RECOVERY.md|.github/workflows/backlot-phase-b1-precommit.yml) ;;
+              app/src/main/java/com/framebynavin/app/personal/B01RestorePrecommitPolicy.kt|app/src/test/java/com/framebynavin/app/personal/B01RestorePrecommitPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B02OwnerPrecommitDeviceTest.kt|.github/scripts/backlot-phase-b2-android15.sh|docs/release/BACKLOT_PHASE_B_RECOVERY.md|.github/workflows/backlot-phase-b1-precommit.yml) ;;
               *) echo "BLOCKED: unexpected Phase B1 change $path" >&2; exit 1;;
             esac
           done < /tmp/phase-b1-files.txt
           test -s /tmp/phase-b1-files.txt
-          echo 'PASS: only read-only B1 policy, tests and documentation'
+          echo 'PASS: only B1 policy, disposable B2 emulator fixture, CI and documentation'
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -69,3 +69,18 @@ jobs:
               assert int(suite.get('errors','0'))==0, 'Error '+name
               print('PASS:',name,suite.get('tests'))
           PY
+      - name: Enable Android 15 KVM emulator
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Authenticate encrypted recovery and freeze on disposable Android 15 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-phase-b2-android15.sh
