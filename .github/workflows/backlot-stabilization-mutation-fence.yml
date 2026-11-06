@@ -29,7 +29,7 @@ jobs:
           git diff --name-only "$frozen" HEAD > /tmp/mutation-fence-files.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderStore.kt|app/src/main/java/com/framebynavin/app/personal/V297ChallengeStore.kt|app/src/main/java/com/framebynavin/app/personal/V298ReminderGroupStore.kt|app/src/main/java/com/framebynavin/app/personal/V301LocalRecoveryReader.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V289PersonalSpacesScreen.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V290PrivatePhotoFiles.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V290InterruptedPhotoRecovery.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateDeviceTest.kt|.github/workflows/backlot-stabilization-mutation-fence.yml|.github/scripts/backlot-stabilization-mutation-fence-android15.sh|docs/release/BACKLOT_STABILIZATION_MUTATION_FENCE.md) ;;
+              app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderStore.kt|app/src/main/java/com/framebynavin/app/personal/V297ChallengeStore.kt|app/src/main/java/com/framebynavin/app/personal/V298ReminderGroupStore.kt|app/src/main/java/com/framebynavin/app/personal/V301LocalRecoveryReader.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V289PersonalSpacesScreen.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V290PrivatePhotoFiles.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V289SpacesMetadataRecovery.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V290InterruptedPhotoRecovery.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/spaces/V289SpacesMetadataRecoveryDeviceTest.kt|.github/workflows/backlot-stabilization-mutation-fence.yml|.github/scripts/backlot-stabilization-mutation-fence-android15.sh|docs/release/BACKLOT_STABILIZATION_MUTATION_FENCE.md) ;;
               *) echo "BLOCKED: change outside mutation-fence stabilization $path" >&2; exit 1;;
             esac
           done < /tmp/mutation-fence-files.txt
@@ -74,7 +74,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Real DataStore journal blocking on disposable emulator
+      - name: Real DataStore and direct Room metadata journal blocking on disposable emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
