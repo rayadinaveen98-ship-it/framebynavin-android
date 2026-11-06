@@ -103,4 +103,55 @@ class StabilizationRestoreWriteAheadJournalTest {
         assertEquals(StabilizationRestoreWriteStep.VERIFYING, j.inspectAfterRestart()!!.step)
         assertTrue(j.inspectAfterRestart()!!.recoveryRequiresOwnerReview)
     }
+    @Test fun validFsyncedTornCheckpointIsInspectableButNeverActionable() = fixture { root, j ->
+        val active = j.prepare(receipt, b, true, 100L)
+        val staged = active.copy(
+            step = StabilizationRestoreWriteStep.BEFORE_PERSONAL,
+            updatedAtMillis = 101L,
+        )
+        File(root, "active.pending").writeBytes(StabilizationRestoreJournalCodec.encode(staged))
+        val evidence = StabilizationRestoreWriteAheadJournal(root).inspectTornCheckpointReadOnly()
+        assertEquals(active, evidence.lastActive)
+        assertEquals(staged, evidence.stagedPending)
+        assertFalse(evidence.canAutoResume)
+        assertFalse(evidence.canDeleteEitherFile)
+        assertEquals(setOf("active.journal", "active.pending"), root.list()!!.toSet())
+        assertThrows(IllegalStateException::class.java) { j.inspectAfterRestart() }
+    }
+
+    @Test fun tornCheckpointRefusesNonAdjacentOrDifferentTransaction() = fixture { root, j ->
+        val active = j.prepare(receipt, b, true, 100L)
+        val pending = File(root, "active.pending")
+        pending.writeBytes(StabilizationRestoreJournalCodec.encode(active.copy(
+            step = StabilizationRestoreWriteStep.PERSONAL_WRITTEN, updatedAtMillis = 101L,
+        )))
+        assertThrows(IllegalStateException::class.java) { j.inspectTornCheckpointReadOnly() }
+        pending.writeBytes(StabilizationRestoreJournalCodec.encode(active.copy(
+            transactionId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+            step = StabilizationRestoreWriteStep.BEFORE_PERSONAL,
+            updatedAtMillis = 101L,
+        )))
+        assertThrows(IllegalStateException::class.java) { j.inspectTornCheckpointReadOnly() }
+        assertEquals(active, StabilizationRestoreJournalCodec.decode(
+            File(root, "active.journal").readBytes(),
+        ))
+    }
+
+    @Test fun tornCheckpointRefusesCorruptPendingAndUnexpectedFiles() = fixture { root, j ->
+        val active = j.prepare(receipt, b, true, 100L)
+        val pending = File(root, "active.pending")
+        pending.writeText("truncated")
+        assertThrows(IllegalArgumentException::class.java) {
+            j.inspectTornCheckpointReadOnly()
+        }
+        pending.writeBytes(StabilizationRestoreJournalCodec.encode(active.copy(
+            step = StabilizationRestoreWriteStep.BEFORE_PERSONAL,
+            updatedAtMillis = 101L,
+        )))
+        File(root, "unexpected").writeText("foreign")
+        assertThrows(IllegalStateException::class.java) {
+            j.inspectTornCheckpointReadOnly()
+        }
+    }
+
 }
