@@ -77,7 +77,14 @@ internal class V300PersonalArchiveSource(context: Context) {
             }
             val inputs = rows.map { photo ->
                 val validated = V290PhotoTimelinePolicy.validate(photo)
-                val file = File(File(photoRoot, validated.spaceId), validated.fileName)
+                val root = photoRoot.canonicalFile
+                val spaceFolder = File(root, validated.spaceId).canonicalFile
+                val file = File(spaceFolder, validated.fileName).canonicalFile
+                check(spaceFolder.parentFile == root &&
+                    file.parentFile == spaceFolder &&
+                    file.name == validated.fileName) {
+                    "Unsafe private photo file location"
+                }
                 check(file.isFile && file.canRead()) {
                     "A private photo is missing; no complete archive was produced"
                 }
