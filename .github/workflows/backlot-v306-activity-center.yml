@@ -28,7 +28,7 @@ jobs:
           cat /tmp/v306-changed.txt
           while IFS= read -r path; do
             case "$path" in
-              .github/workflows/backlot-v306-activity-center.yml|docs/product/backlot-v306-activity-center.md|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterPolicy.kt|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterScreen.kt|app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt|app/src/test/java/com/framebynavin/app/ui/V306ActivityCenterPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V306ActivityCenterUiTest.kt) ;;
+              .github/workflows/backlot-v306-activity-center.yml|.github/scripts/backlot-v306-android15-activity.sh|docs/product/backlot-v306-activity-center.md|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterPolicy.kt|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterScreen.kt|app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt|app/src/test/java/com/framebynavin/app/ui/V306ActivityCenterPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V306ActivityCenterUiTest.kt) ;;
               *) echo "FAIL: V306 changed a non-allowlisted file: $path" >&2; exit 1;;
             esac
           done < /tmp/v306-changed.txt
@@ -78,23 +78,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -euo pipefail
-            test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = "1"
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell pm clear com.framebynavin.app
-            logfile="$(mktemp)"
-            adb shell am instrument -w -r \
-              -e hardeningTestEnvironment ci-emulator \
-              -e class com.framebynavin.app.ui.V306ActivityCenterUiTest \
-              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$logfile"
-            grep -Fq "OK (2 tests)" "$logfile"
-            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$logfile"; then exit 1; fi
-            mkdir -p output/v306-visual-audit
-            adb pull /sdcard/Android/data/com.framebynavin.app/files/v306-visual-audit/. output/v306-visual-audit/
-            test "$(find output/v306-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 2
-            (cd output/v306-visual-audit && sha256sum *.png > SHA256SUMS.txt)
+          script: bash .github/scripts/backlot-v306-android15-activity.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
