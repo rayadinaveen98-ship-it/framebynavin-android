@@ -113,11 +113,7 @@ internal class PersonalBackupTransfer(context: Context) {
         // The Personal DataStore replacement has already committed above.
         // Widget failure must never look like an uncommitted restore or invite
         // a second destructive import of the same backup.
-        try {
-            V224WidgetUpdater.refresh(app)
-        } catch (cancel: CancellationException) {
-            throw cancel
-        } catch (_: Exception) {
+        if (!PersonalPostRestoreWidgetPolicy.refresh { V224WidgetUpdater.refresh(app) }) {
             attention = true
             android.util.Log.w(
                 "BacklotPersonal",
@@ -167,5 +163,21 @@ internal object PersonalBackupIo {
             output.write(buffer, 0, count)
         }
         return output.toByteArray().toString(Charsets.UTF_8)
+    }
+}
+
+/**
+ * A failed widget refresh occurs strictly AFTER the canonical DataStore
+ * transaction. Preserve the restored data and mark follow-up attention.
+ * Cancellation is never hidden as a successful refresh.
+ */
+internal object PersonalPostRestoreWidgetPolicy {
+    fun refresh(refreshWidget: () -> Unit): Boolean = try {
+        refreshWidget()
+        true
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
     }
 }
