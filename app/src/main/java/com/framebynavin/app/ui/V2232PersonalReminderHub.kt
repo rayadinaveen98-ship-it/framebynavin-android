@@ -110,19 +110,28 @@ internal fun V2232PersonalReminderHub(
             editorGroupsReady = false
             editorSpacesError = null
             editorGroupsError = null
-            val db = runCatching { V289SpacesDatabase.open(context) }
-            if (db.isFailure) {
+            val existingSpacesDb = context.getDatabasePath(V289SpacesDatabase.FILE_NAME)
+            if (!existingSpacesDb.exists()) {
+                // A reminder can be created with no Spaces. Opening the
+                // optional chooser must not create a Room DB on first use.
+                editorSpacesReady = true
+            } else if (!existingSpacesDb.isFile) {
                 editorSpacesError = "Spaces couldn't be read. You can still save this reminder."
             } else {
-                val opened = db.getOrThrow()
-                try {
-                    availableEditorSpaces = opened.spaces().loadSpaces()
-                        .filter { it.archivedAtMillis == null }
-                    editorSpacesReady = true
-                } catch (_: Exception) {
+                val db = runCatching { V289SpacesDatabase.open(context) }
+                if (db.isFailure) {
                     editorSpacesError = "Spaces couldn't be read. You can still save this reminder."
-                } finally {
-                    opened.close()
+                } else {
+                    val opened = db.getOrThrow()
+                    try {
+                        availableEditorSpaces = opened.spaces().loadSpaces()
+                            .filter { it.archivedAtMillis == null }
+                        editorSpacesReady = true
+                    } catch (_: Exception) {
+                        editorSpacesError = "Spaces couldn't be read. You can still save this reminder."
+                    } finally {
+                        opened.close()
+                    }
                 }
             }
             try {
