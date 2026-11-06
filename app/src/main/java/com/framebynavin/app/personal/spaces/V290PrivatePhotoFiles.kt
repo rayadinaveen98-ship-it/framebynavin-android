@@ -170,6 +170,7 @@ internal object V290PrivatePhotoFiles {
     internal fun storePrepared(
         context: Context, spaceId: String, photo: PreparedPhoto,
     ): File {
+        StabilizationPersonalMutationGate.requireNoPendingRecovery(context)
         require(photo.fileName == "${photo.id}.jpg" &&
             UUID.fromString(photo.id).toString() == photo.id)
         val dir = photoFolder(context, spaceId)
@@ -197,6 +198,7 @@ internal object V290PrivatePhotoFiles {
     }
 
     internal fun deleteFile(context: Context, photo: V290SpacePhotoEntity): Boolean {
+        StabilizationPersonalMutationGate.requireNoPendingRecovery(context)
         val file = photoFile(context, photo)
         return !file.exists() || file.delete()
     }
