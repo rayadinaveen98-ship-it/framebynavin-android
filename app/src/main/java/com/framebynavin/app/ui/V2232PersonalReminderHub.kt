@@ -40,6 +40,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.*
+import com.framebynavin.app.personal.spaces.V289SpaceEntity
+import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.ui.theme.*
 import java.time.DayOfWeek
 import java.time.Instant
@@ -66,6 +68,8 @@ internal fun V2232PersonalReminderHub(
     val context = LocalContext.current
     val store = remember(context) { PersonalReminderStore(context) }
     val commands = remember(context) { PersonalReminderCommands(context) }
+    val creatorOfLinkedReminders = remember(context) { V310CreateAndLink(context) }
+    val groupCatalog = remember(context) { V298ReminderGroupStore(context) }
     val coordinator = remember(context) { PersonalDeliveryCoordinator(context) }
     val followUpStore = remember(context) { PersonalFollowUpSettingsStore(context) }
     var followUpSettings by remember { mutableStateOf(PersonalFollowUpSettings()) }
@@ -79,6 +83,12 @@ internal fun V2232PersonalReminderHub(
     var busy by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<PersonalReminder?>(null) }
     var editorOpen by remember { mutableStateOf(false) }
+    var availableEditorSpaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
+    var availableEditorGroups by remember { mutableStateOf(emptyList<V298ReminderGroup>()) }
+    var editorSpacesReady by remember { mutableStateOf(false) }
+    var editorGroupsReady by remember { mutableStateOf(false) }
+    var editorSpacesError by remember { mutableStateOf<String?>(null) }
+    var editorGroupsError by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<PersonalReminder?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
     // Recompute local calendar labels while this screen is visible; the next
@@ -92,6 +102,37 @@ internal fun V2232PersonalReminderHub(
     var reminderGroupsOpen by rememberSaveable { mutableStateOf(false) }
     // Page switches reset their viewport; the two layouts must never share a scroll offset.
     val personalPageScroll = remember(personalPageName) { ScrollState(0) }
+    LaunchedEffect(editorOpen, editing?.id) {
+        if (editorOpen && editing == null) {
+            availableEditorSpaces = emptyList()
+            availableEditorGroups = emptyList()
+            editorSpacesReady = false
+            editorGroupsReady = false
+            editorSpacesError = null
+            editorGroupsError = null
+            val db = runCatching { V289SpacesDatabase.open(context) }
+            if (db.isFailure) {
+                editorSpacesError = "Spaces couldn't be read. You can still save this reminder."
+            } else {
+                val opened = db.getOrThrow()
+                try {
+                    availableEditorSpaces = opened.spaces().loadSpaces()
+                        .filter { it.archivedAtMillis == null }
+                    editorSpacesReady = true
+                } catch (_: Exception) {
+                    editorSpacesError = "Spaces couldn't be read. You can still save this reminder."
+                } finally {
+                    opened.close()
+                }
+            }
+            try {
+                availableEditorGroups = groupCatalog.load()
+                editorGroupsReady = true
+            } catch (_: Exception) {
+                editorGroupsError = "Groups couldn't be read. You can still save this reminder."
+            }
+        }
+    }
     var completionEvents by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
     var completionHistoryReady by remember { mutableStateOf(false) }
     LaunchedEffect(store) {
@@ -538,18 +579,49 @@ internal fun V2232PersonalReminderHub(
     }
 
     if (editorOpen) {
-        V2232PersonalEditor(
-            existing = editing,
-            saving = busy,
-            onDismiss = { if (!busy) editorOpen = false },
-            onSave = { draft ->
-                perform {
-                    if (editing == null) commands.create(draft)
-                    else commands.revise(editing!!.id, draft)
+        fun saveDraft(draft: PersonalReminderDraft, targets: V310LinkTargets) {
+            perform {
+                val oldId = editing?.id
+                if (oldId == null) {
+                    // Verify only owner-visible Space/Group selections. No
+                    // cross-store write occurs before the reminder is saved.
+                    val validated = targets.checkedAgainst(
+                        validSpaceIds = availableEditorSpaces.map { it.id }.toSet(),
+                        validGroupIds = availableEditorGroups.map { it.id }.toSet(),
+                    )
+                    val result = creatorOfLinkedReminders.create(draft, validated)
+                    editorOpen = false
+                    editing = null
+                    if (result.linkProblems.isNotEmpty()) {
+                        // Do NOT leave the editor open or imply the reminder
+                        // failed to save. A partial link failure is recoverable
+                        // from existing My Spaces / Reminder Groups screens.
+                        throw IllegalStateException(
+                            "Reminder saved, but ${result.linkProblems.joinToString(" and ")}. " +
+                                "Open My Spaces or Reminder Groups to link it manually."
+                        )
+                    }
+                } else {
+                    // Existing reminder links are managed via the original
+                    // Space/Group tools and are never silently removed by edit.
+                    commands.revise(oldId, draft)
                     editorOpen = false
                     editing = null
                 }
-            },
+            }
+        }
+        V2232PersonalEditor(
+            existing = editing,
+            saving = busy,
+            availableSpaces = availableEditorSpaces,
+            availableGroups = availableEditorGroups,
+            spacesReady = editorSpacesReady,
+            groupsReady = editorGroupsReady,
+            spacesError = editorSpacesError,
+            groupsError = editorGroupsError,
+            onSaveWithLinks = ::saveDraft,
+            onDismiss = { if (!busy) editorOpen = false },
+            onSave = { draft -> saveDraft(draft, V310LinkTargets()) },
         )
     }
     deleteTarget?.let { item ->
@@ -685,6 +757,13 @@ internal fun V2232PersonalEditor(
     existing: PersonalReminder?,
     saving: Boolean,
     onDismiss: () -> Unit,
+    availableSpaces: List<V289SpaceEntity> = emptyList(),
+    availableGroups: List<V298ReminderGroup> = emptyList(),
+    spacesReady: Boolean = true,
+    groupsReady: Boolean = true,
+    spacesError: String? = null,
+    groupsError: String? = null,
+    onSaveWithLinks: ((PersonalReminderDraft, V310LinkTargets) -> Unit)? = null,
     onSave: (PersonalReminderDraft) -> Unit,
 ) {
     val context = LocalContext.current
@@ -754,6 +833,8 @@ internal fun V2232PersonalEditor(
     }
     val composerScroll = remember(composerStep) { ScrollState(0) }
     var error by remember { mutableStateOf<String?>(null) }
+    var selectedSpaceId by rememberSaveable(existing?.id) { mutableStateOf<String?>(null) }
+    var selectedGroupId by rememberSaveable(existing?.id) { mutableStateOf<String?>(null) }
     var fullScreenAllowed by remember { mutableStateOf(
         com.framebynavin.app.reminders.V268FullScreenReminderAccess.allowed(context)
     ) }
@@ -1214,11 +1295,21 @@ internal fun V2232PersonalEditor(
                             )
                         }
                     }
-                    if (composerStep == 3) Text(
-                        "To connect this reminder to a Space, save it first and use " +
-                            "Link existing reminder inside My Spaces.",
-                        color = MutedText, fontSize = 12.sp,
-                    )
+                    if (composerStep == 3 && existing == null) {
+                        V310ReviewLinks(
+                            availableSpaces = availableSpaces,
+                            availableGroups = availableGroups,
+                            spacesReady = spacesReady,
+                            groupsReady = groupsReady,
+                            spacesError = spacesError,
+                            groupsError = groupsError,
+                            value = V310LinkTargets(selectedSpaceId, selectedGroupId),
+                            onChange = {
+                                selectedSpaceId = it.spaceId
+                                selectedGroupId = it.groupId
+                            },
+                        )
+                    }
                     }
                     }
                     error?.let {
@@ -1279,7 +1370,12 @@ internal fun V2232PersonalEditor(
                                     autoRetryMinutes = automaticRetryMinutes,
                                     autoRetryMaxAttempts = automaticRetryLimit,
                                 ).checked()
-                                onSave(draft)
+                                val requestedLinks = V310LinkTargets(
+                                    spaceId = if (existing == null) selectedSpaceId else null,
+                                    groupId = if (existing == null) selectedGroupId else null,
+                                )
+                                if (onSaveWithLinks != null) onSaveWithLinks(draft, requestedLinks)
+                                else onSave(draft)
                             } catch (invalid: Exception) {
                                 error = invalid.message ?: "Check the reminder details."
                             }
