@@ -131,10 +131,11 @@ internal fun V157ReminderCenterUi(
 
     val reminderStatusPanels: @Composable () -> Unit = {
                     Spacer(Modifier.height(13.dp))
-                    V181ReminderResponseSection(
+                    V307CompactCreatorActivity(
                         tasks = responseTasks,
                         nowMillis = now,
                         snoozeMinutes = snoozeMinutes,
+                        onOpenActivityCenter = { activityOpen = true },
                         onOpenProject = onEdit,
                         onAcknowledge = onAcknowledge,
                     )
