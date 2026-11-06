@@ -70,6 +70,15 @@ internal object StabilizationPersonalMutationGate {
         }
     }
 
+    /**
+     * Extra fail-closed check for legacy synchronous private-file helpers.
+     * This does NOT replace the coroutine mutex: their normal owner-facing
+     * callers must already hold withOwnerMutation around the full operation.
+     */
+    internal fun requireNoPendingRecovery(context: Context) {
+        ensureNoRecoveryJournal(journalRootFor(context))
+    }
+
     private fun ensureNoRecoveryJournal(journalRoot: File) {
         check(!Files.exists(journalRoot.toPath(), LinkOption.NOFOLLOW_LINKS)) {
             "Personal recovery is pending. Changes are paused until the owner " +
