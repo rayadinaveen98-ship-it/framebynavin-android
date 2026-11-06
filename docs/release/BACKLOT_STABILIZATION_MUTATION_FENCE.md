@@ -43,3 +43,17 @@ Two extra emulator cases verify that follow-up preferences are unchanged
 and an encrypted export writes no bytes while a recovery journal exists.
 The Android 15 CI checks eight tests across the Personal and Room fixture
 classes. These safeguards are still not a live crash-safe all-domain restore.
+
+## Combined Phase A test gates
+
+The exact integration head must run all existing recovery safety tests again:
+12 durable journal JVM cases, 12 photo installer JVM cases, 10 nested-lock
+JVM cases, three Android 15 journal/JPEG/interrupted-real-DataStore cases and
+eight Android 15 Personal/FollowUp/Room mutation-gate cases. Each emulator
+cluster runs on its own **cleared disposable emulator app data** and never on
+an owner's device. No test success from an earlier branch substitutes for
+the integrated exact-head run.
+
+This is only an owner-data safety prerequisite. No live cross-store restore
+or rollback is enabled, and Phase B requires a fully audited global freeze
+for actual restore initiation plus crash-safe final verification.
