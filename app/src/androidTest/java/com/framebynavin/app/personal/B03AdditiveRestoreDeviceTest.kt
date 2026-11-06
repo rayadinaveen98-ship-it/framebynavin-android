@@ -89,6 +89,11 @@ class B03AdditiveRestoreDeviceTest {
             groups = V298ReminderGroupCodec.encode(listOf(group)),
             spaces = V303SpaceReceiptArchiveCodec.encode(state, portablePersonal),
         )
+        // A direct caller cannot evade the journal or invoke the Room writer.
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { B03RestoreDomainWriter(app).writeSpaces(data) }
+        }
+        assertFalse(app.getDatabasePath(V289SpacesDatabase.FILE_NAME).exists())
         val passphrase = "Synthetic-B03-Recovery-Only-2026".toCharArray()
         val bytes = ByteArrayOutputStream().also { encrypted ->
             V300EncryptedPersonalArchive.write(
