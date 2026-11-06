@@ -20,7 +20,7 @@ This **is not yet a recoverable owner backup feature**. There is no UI to export
 - **Creator projects, ideas, original Best Frames, Voice Idea recordings, and music files** are not in this Personal bundle. The existing Creator portable backup remains separate.
 - Personal records are exported using the portable cloud sanitizer: device alarm leases and nonportable custom music paths are dropped; on restore, device permissions and alerts must be reconciled. Custom song bytes are not exported.
 - V289 Spaces metadata codec currently refuses confirmed-Done Space journal receipts (rather than forging progress); export fails closed if existing Space metadata cannot be represented exactly. This needs a separately verified, backward-compatible schema before claiming full recovery.
-- A missing photo or stale dangling group/Space link fails export rather than silently producing an incomplete archive.
+- A missing photo, **untracked/orphan/partially saved private photo file**, or stale dangling group/Space link fails export rather than silently producing an incomplete archive. The exporter compares canonical private photo paths against all existing on-disk files, refusing silent omissions and never showing private paths in errors.
 - A password cannot be recovered. Loss of the passphrase renders an archive unreadable; the user must explicitly understand this before a future UI is exposed.
 - The temporary decoded JPEGs are in private app cache, **not encrypted at rest while staged**; they are removed on verification/preview exit. Later restore flow must use tightly controlled lifetimes.
 
