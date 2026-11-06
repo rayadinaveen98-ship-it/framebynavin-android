@@ -192,6 +192,52 @@ class V300EncryptedPersonalArchiveTest {
         }
     }
 
+    @Test fun anOrphanGroupLinkCannotBeAdvertisedAsRecoverable() {
+        val unlinked = V298ReminderGroup(
+            id = "group-with-dead-link", name = "My group",
+            reminderIds = listOf("deleted-reminder"),
+            createdAtMillis = 100L, updatedAtMillis = 100L,
+        )
+        val bad = components().copy(
+            groups = V298ReminderGroupCodec.encode(listOf(unlinked)),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            V300EncryptedPersonalArchive.write(
+                bad, emptyList(), passphrase, ByteArrayOutputStream(),
+            )
+        }
+    }
+
+    @Test fun unexpectedZipEntryIsRejectedAfterAllDataParts() {
+        val original = createArchive(includePhoto = false)
+        val out = ByteArrayOutputStream()
+        ZipInputStream(ByteArrayInputStream(original)).use { reader ->
+            ZipOutputStream(out).use { writer ->
+                while (true) {
+                    val entry = reader.nextEntry ?: break
+                    val bytes = reader.readBytes()
+                    writer.putNextEntry(ZipEntry(entry.name))
+                    writer.write(bytes)
+                    writer.closeEntry()
+                    reader.closeEntry()
+                }
+                writer.putNextEntry(ZipEntry("../../not-allowed.txt"))
+                writer.write("malicious extra".toByteArray())
+                writer.closeEntry()
+            }
+        }
+        val root = File(System.getProperty("java.io.tmpdir"), "v300-extra-zip-${System.nanoTime()}")
+        check(root.mkdirs())
+        try {
+            assertThrows(IllegalArgumentException::class.java) {
+                V300EncryptedPersonalArchive.stageAndVerify(
+                    ByteArrayInputStream(out.toByteArray()), passphrase, root,
+                )
+            }
+            assertTrue(root.listFiles().orEmpty().isEmpty())
+        } finally { root.deleteRecursively() }
+    }
+
     private fun rewriteZip(
         zipBytes: ByteArray,
         rewrite: (String, ByteArray) -> ByteArray?,
