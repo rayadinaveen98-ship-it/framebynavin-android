@@ -7,6 +7,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.junit.Assert.*
 import org.junit.Test
@@ -48,6 +49,7 @@ class StabilizationPersonalMutationGateTest {
         }
     }
     @Test fun snapshotSerializesWithOrdinaryWrite() = sandbox { journal ->
+        coroutineScope {
         val entered = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         val seen = mutableListOf<String>()
@@ -69,6 +71,7 @@ class StabilizationPersonalMutationGateTest {
         snapshot.await()
         write.await()
         assertEquals(listOf("reading", "read-complete", "write"), seen)
+        }
     }
     @Test fun journalCreatedByEarlierOperationBlocksNextWrite() = sandbox { journal ->
         StabilizationPersonalMutationGate.withOwnerMutation(journal) { journal.mkdir() }
