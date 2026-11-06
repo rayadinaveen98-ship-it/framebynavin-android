@@ -1,0 +1,38 @@
+# Backlot Stabilization — Existing Pending Work Only
+
+**Owner instruction, 6 Nov 2026:** Pause new version/feature work until current implementation is tested, recoverable and prepared for a stable release. This branch is a release-stabilization track, NOT a new numbered feature version, Play-ready binary, or permission to wipe user data.
+
+## Source baseline
+
+This branch is stacked on `feature/backlot-v310-personal-composer-links` (including previously tested V306–V308.1). It does not change installed signing, app versionCode, reminder storage, Personal DataStore, Room schema, cloud sync, speech/audio, or the V309 frozen owner candidate. **Do not merge to main or ship an APK until consolidation and owner device acceptance.**
+
+## Completed automated evidence
+
+- V306 Activity Center: [run 42187452479](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/42187452479), success
+- V307 compact Creator: [run 42187734039](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/42187734039), success
+- V308 Spark multi-item preview: [run 42187788530](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/42187788530), success
+- V308.1 individual hide: [run 42190109386](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/42190109386), success
+- V309 signed V305→V309 upgrade: [run 42188874206](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/42188874206), success
+- Direct V294→V309 signed upgrade: [run 42190654561](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/42190654561), success
+
+These prove Android emulator and source-specific behavior, not physical-phone or cloud parity.
+
+## Visual QA corrective finding
+
+The V307 Android 15 screenshot `01-creator-clean-empty.png` showed **three large cards with 0 NEEDS / 0 TODAY / 0 DELAYED**, a search field and multiple empty filters, despite having no reminders. This is excessive visual weight in the empty state.
+
+This branch keeps the original Activity Center action in the toolbar and a standalone History link, but collapses the redundant counts and search/filters while there are no active reminders. Valid reminders still show the full status, search and filtering controls; only active reminders trigger the delivery-permission warning. The empty-state test asserts retained History and Activity Center access and captures an Android 15 screenshot.
+
+## Still blocking stable release
+
+1. V309 **populated** Activity Center screenshot evidence and V310 optional Space/Group Android tests, currently running in their own QA branches.
+2. Signed *integrated* owner candidate containing accepted V308.1 + V310 and this empty-state patch; no signed candidate yet for the combined branch.
+3. Live full-domain Personal restore across independent DataStores/Room/photos: V300–V305 verify encrypted copies, conflict previews, prepared photo bytes and rollback escrow but do **not** commit or roll back live storage. Never imply those files alone restore a changed phone.
+4. One-tap all-domain cloud sync and verified new-phone restore, including Creator, Personal, Spaces, notes, JPEGs, Groups, Challenges, and explicit handling of audio/media references.
+5. On-phone alarm/voice three-cycle playback, full-screen locked alerts, native notification settings, snooze, background music/custom URI, Doze and auto-retry, on the exact candidate signed APK.
+6. Acceptance of navigation, responsive layout/large fonts, Spaces/Photo Journal, widgets/calendar, creator content and screen-reader semantics.
+7. Private Play production-signing identity and safe migration from public preview signer ([issue #180](https://github.com/rayadinaveen98-ship-it/framebynavin-android/issues/180)), production AAB, policies, privacy/Data Safety and internal testing.
+
+## Release invariants
+
+No uninstall or `pm clear` on the owner's phone; no re-sign of sideload APK with Play identity as an assumed update; no fabricated delivery/read/Done receipts; no automatic restore or deletion; no unsupported data migration; no claim of Play readiness from emulator-only tests.
