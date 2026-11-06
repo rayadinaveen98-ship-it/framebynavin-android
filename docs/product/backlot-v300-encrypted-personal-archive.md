@@ -11,6 +11,7 @@
 - `V300PersonalArchiveSource` can read current app Personal DataStore, challenge/group stores and existing Spaces/photos for explicit export; no Spaces database is created when none existed. It offers a verify-and-preview summary; it does not perform restore or present an export UI.
 - Limits: 500 photo files, each up to 12 MiB; total recorded photo bytes <=500 MiB; manifest <=24 MiB; no unlimited Base64 or whole-archive decryption buffer. Individual entries are authenticated independently to avoid buffering an entire multi-hundred-MB encrypted archive at once.
 - Nine focused unit tests verify a successful encrypted multi-domain/photo roundtrip, absence of plaintext notes, wrong passphrase, tampering, missing required entries, unexpected ZIP entries, missing linked reminders, changed source JPEGs, empty photo sets and short-passphrase rejection.
+- `V300RestoreReadinessPolicy` is a non-writing conflict gate. A destination with any existing Personal, challenge, group, Space, journal or photo records cannot be automatically overwritten. Missing/corrupt existing photo bytes block recovery; an empty target is only a candidate, **never an authorization to write**. Five additional tests enforce this. The exporter also rejects canonical-path escapes for private photo files.
 
 ## Important exclusions / release gates
 
