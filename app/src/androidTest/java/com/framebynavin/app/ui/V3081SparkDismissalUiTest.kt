@@ -1,5 +1,9 @@
 package com.framebynavin.app.ui
 
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -53,6 +57,19 @@ class V3081SparkDismissalUiTest {
         rule.onNodeWithText("Film project A").assertDoesNotExist()
         rule.onNodeWithText("Film project D").assertExists()
         rule.onNodeWithText("Personal reminder needs attention").assertExists()
+        rule.waitForIdle()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val directory = File(requireNotNull(app.getExternalFilesDir(null)), "v3081-visual-audit")
+        check(directory.isDirectory || directory.mkdirs())
+        val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
+        try {
+            check(bitmap.width >= 200 && bitmap.height >= 200)
+            val screenshot = File(directory, "01-spark-after-one-dismissal.png")
+            screenshot.outputStream().use { out ->
+                assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, out))
+            }
+            check(screenshot.length() > 10_000L)
+        } finally { bitmap.recycle() }
         rule.onNodeWithTag("v308-spark-see-all").performClick()
         rule.runOnIdle {
             assertEquals(1, allOpens)
