@@ -188,7 +188,7 @@ internal fun V289PersonalSpacesScreen(
             failureMessage = "Spaces export could not be verified. A partial file may exist in the chosen location; check or delete that file before retrying. Existing Space notes were unchanged.",
         ) {
             backupNotice = null
-            val raw = V289SpacesMetadataRecovery(database).prepareLocalMetadataExport()
+            val raw = V289SpacesMetadataRecovery(context, database).prepareLocalMetadataExport()
             V289SpacesOwnerBackupFile.writeToSelectedFile(context, uri, raw)
             backupNotice = "Saved and verified Spaces metadata against the chosen file. Keep this plaintext file private."
             backupVisible = false
@@ -828,7 +828,7 @@ internal fun V289PersonalSpacesScreen(
                         backupAction {
                             val existingReminders = PersonalReminderStore(context)
                                 .load().mapTo(HashSet<String>()) { it.id }
-                            val result = V289SpacesMetadataRecovery(database)
+                            val result = V289SpacesMetadataRecovery(context, database)
                                 .mergeVerifiedMetadata(raw, existingReminders)
                             // Refresh currently selected Space history after a merge.
                             entries = selectedSpaceId?.let { dao.entriesForSpace(it) }.orEmpty()
