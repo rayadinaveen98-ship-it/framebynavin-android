@@ -121,6 +121,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
+    var activityCenterOpen by rememberSaveable { mutableStateOf(false) }
     // V223.2 remembers the chosen Reminders space; never translates Personal into CreatorTask.
     var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
@@ -765,10 +766,26 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     if (showReminders) {
-        if (personalReminderSpace) {
+        if (activityCenterOpen) {
+            V306ActivityCenterScreen(
+                tasks = vm.tasks,
+                nowMillis = System.currentTimeMillis(),
+                onClose = { activityCenterOpen = false },
+                onOpenCreator = { id ->
+                    activityCenterOpen = false
+                    showReminders = false
+                    openComposer(id)
+                },
+                onOpenPersonal = {
+                    activityCenterOpen = false
+                    personalReminderSpace = true
+                },
+            )
+        } else if (personalReminderSpace) {
             V2232PersonalReminderHub(
                 onClose = { showReminders = false },
                 onCreator = { personalReminderSpace = false },
+                onOpenActivity = { activityCenterOpen = true },
             )
         } else {
         V131ReminderCenter(
