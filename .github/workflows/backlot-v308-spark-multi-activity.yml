@@ -1,0 +1,101 @@
+name: Backlot V308 - Spark Multi-Activity QA
+
+on:
+  push:
+    branches: [feature/backlot-v308-spark-multi-activity]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v308-spark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spark-multi-activity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Allow only read-only Spark presentation files
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin refs/heads/feature/backlot-v307-compact-creator-reminder-inbox:refs/remotes/origin/feature/backlot-v307-compact-creator-reminder-inbox
+          git diff --name-only origin/feature/backlot-v307-compact-creator-reminder-inbox HEAD > /tmp/v308-changed.txt
+          cat /tmp/v308-changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/backlot-v308-spark-multi-activity.yml|docs/product/backlot-v308-spark-activity.md|app/src/main/java/com/framebynavin/app/ui/V308SparkActivityDigest.kt|app/src/main/java/com/framebynavin/app/ui/V2214HomeCompanion.kt|app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt|app/src/test/java/com/framebynavin/app/ui/V308SparkActivityPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V308SparkActivityDigestUiTest.kt) ;;
+              *) echo "FAIL: unreviewed V308 source edit $path" >&2; exit 1;;
+            esac
+          done < /tmp/v308-changed.txt
+          echo 'PASS: original Creator/Personal storage, notification, cloud, signing untouched'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile debug app and run entire unit suite
+        run: |
+          set -euo pipefail
+          timeout 80m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Assert V308 policy suite runs
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V308SparkActivityPolicyTest.xml'))
+          assert len(files)==1, 'Spark policy tests missing'
+          root=ET.parse(files[0]).getroot()
+          assert int(root.get('tests', '0')) >= 6
+          assert int(root.get('failures', '0')) == 0
+          assert int(root.get('errors', '0')) == 0
+          print('PASS: Spark priority and privacy policy verified')
+          PY
+      - name: Enable Android emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 Spark multi-item privacy/navigation screenshot
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = "1"
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell pm clear com.framebynavin.app
+            log="$(mktemp)"
+            adb shell am instrument -w -r \
+              -e hardeningTestEnvironment ci-emulator \
+              -e class com.framebynavin.app.ui.V308SparkActivityDigestUiTest \
+              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
+            grep -Fq "OK (1 test)" "$log"
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then exit 1; fi
+            mkdir -p output/v308-visual-audit
+            adb pull /sdcard/Android/data/com.framebynavin.app/files/v308-visual-audit/. output/v308-visual-audit/
+            test "$(find output/v308-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 1
+            (cd output/v308-visual-audit && sha256sum *.png > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V308-Android15-Spark-Screenshot
+          path: output/v308-visual-audit/
+          retention-days: 30
+          if-no-files-found: warn
