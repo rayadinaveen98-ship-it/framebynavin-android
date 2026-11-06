@@ -63,6 +63,10 @@ class V306ActivityCenterUiTest {
         rule.onNodeWithTag("v306-filter-needs_action").assertExists()
         rule.onNodeWithTag("v306-filter-all").assertExists()
         rule.onNodeWithTag("v306-filter-history").assertExists()
+        rule.waitUntil(15_000) {
+            rule.onAllNodesWithText("Nothing currently needs a response.")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         capture("01-activity-needs-action.png")
         rule.onNodeWithTag("v306-filter-history").performClick()
         capture("02-activity-history.png")
