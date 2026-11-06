@@ -7,3 +7,19 @@ The private journal records opaque UUIDs of prepared incoming archive and authen
 Phases bracket separate writes to Personal+Done, Challenges, Groups, Room Spaces and JPEGs; a fresh process sees recovery required from the first BEFORE stage. No live write is authorized and there is deliberately no completed restore phase. Twelve JVM and one disposable Android emulator regression tests cover interrupted, corrupt and duplicate journals, stage sequencing and restart semantics.
 
 **Still blocking any Restore UI or stable release:** global mutation freeze, independently reauthenticated V300 archive and V305 escrow, live multi-DataStore/Room/JPEG writer, process-death recovery and rollback, full byte checksum reinspection, lossless-vs-portable media handling, local rearm, owner phone QA and Play signing migration. Portable archive does not preserve phone-local music URI/file bytes or alarm lease authority.
+
+## Verified private JPEG installation prerequisite
+
+`StabilizationVerifiedPhotoInstaller` accepts an already authenticated staged
+photo and metadata through an **injected sandbox root**. It validates file UUID,
+byte count and SHA-256, rejects symlink sources/destinations and cross-root stages,
+streams into a fresh fsynced partial, then publishes with an atomic **create-only
+hard link** (not a replacing rename). Existing different photos are never
+overwritten; exact existing bytes can be safely recognized as idempotent on
+replay. An interrupted `.restore.pending` is preserved and prevents
+automatic resume, so future owner-driven recovery must review it.
+
+12 new JVM fixture tests and a second disposable Android emulator test are
+required. The helper is not connected to a real app restore, Room, Personal
+DataStore, media chooser, cloud sync or a Restore button. It does not fix the
+missing cross-store global lock, transaction coordinator or rollback writer.

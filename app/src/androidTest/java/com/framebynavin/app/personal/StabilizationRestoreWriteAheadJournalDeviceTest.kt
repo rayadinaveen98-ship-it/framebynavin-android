@@ -5,6 +5,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
 import java.io.File
 import java.util.UUID
+import java.security.MessageDigest
+import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,5 +40,36 @@ class StabilizationRestoreWriteAheadJournalDeviceTest {
                 StabilizationRestoreWriteAheadJournal(root).inspectAfterRestart()
             }
         } finally { root.deleteRecursively() }
+    }
+
+    @Test fun verifiedJpegCopiesOnceOnAndroidWithoutOverwritingExistingBytes() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val fixture = File(app.cacheDir, "verified-photo-fixture-" + UUID.randomUUID().toString())
+        check(fixture.mkdirs())
+        try {
+            val space = "81ed09c3-5713-4bca-a40c-fbb909a55f06"
+            val id = "2e01c0b5-ec32-4f4c-8ea9-5ca7b4100cd1"
+            val synthetic = ByteArray(3072) { ((it * 13 + 7) % 251).toByte() }
+            val hash = MessageDigest.getInstance("SHA-256")
+                .digest(synthetic).joinToString("") { "%02x".format(it) }
+            val photo = V290SpacePhotoEntity(
+                id, space, 100L, 110L, "$id.jpg", hash, 24, 24, "",
+            )
+            val staged = File(fixture, "authenticated-stage.jpg")
+            staged.writeBytes(synthetic)
+            val targetRoot = File(fixture, "private-photo-root")
+            val installer = StabilizationVerifiedPhotoInstaller(targetRoot)
+            assertEquals(StabilizationPhotoInstallResult.INSTALLED,
+                installer.installVerified(photo, staged, synthetic.size.toLong()))
+            val target = File(File(targetRoot, space), "$id.jpg")
+            assertArrayEquals(synthetic, target.readBytes())
+            assertEquals(StabilizationPhotoInstallResult.ALREADY_VERIFIED,
+                StabilizationVerifiedPhotoInstaller(targetRoot)
+                    .installVerified(photo, staged, synthetic.size.toLong()))
+            assertArrayEquals(synthetic, target.readBytes())
+            val partial = File(target.parentFile, ".$id.restore.pending")
+            assertFalse(partial.exists())
+        } finally { fixture.deleteRecursively() }
     }
 }

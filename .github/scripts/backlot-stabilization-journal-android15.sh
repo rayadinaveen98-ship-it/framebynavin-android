@@ -13,6 +13,6 @@ adb shell am instrument -w -r \
   -e hardeningTestEnvironment ci-emulator \
   -e class com.framebynavin.app.personal.StabilizationRestoreWriteAheadJournalDeviceTest \
   com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
-grep -Fq 'OK (1 test)' "$log"
+grep -Fq 'OK (2 tests)' "$log"
 if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then exit 1; fi
 echo 'PASS: crash-safe checkpoints persisted on Android 15'

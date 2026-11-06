@@ -29,7 +29,7 @@ jobs:
           git diff --name-only "$frozen" HEAD > /tmp/restore-journal-changes.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournal.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalDeviceTest.kt|docs/release/BACKLOT_STABILIZATION_RESTORE_WRITE_JOURNAL.md|.github/workflows/backlot-stabilization-journal.yml|.github/scripts/backlot-stabilization-journal-android15.sh) ;;
+              app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournal.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationVerifiedPhotoInstaller.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationVerifiedPhotoInstallerTest.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalDeviceTest.kt|docs/release/BACKLOT_STABILIZATION_RESTORE_WRITE_JOURNAL.md|.github/workflows/backlot-stabilization-journal.yml|.github/scripts/backlot-stabilization-journal-android15.sh) ;;
               *) echo "FAIL: unreviewed change $path" >&2; exit 1;;
             esac
           done < /tmp/restore-journal-changes.txt
@@ -67,6 +67,19 @@ jobs:
           assert int(xml.get('tests','0')) >= 12
           assert int(xml.get('failures','0')) == 0 and int(xml.get('errors','0')) == 0
           print('PASS: crash checkpoints, cold restart, tamper and no false restore completion')
+          PY
+      - name: Require all twelve JPEG installation no-overwrite safety tests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          matches=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*StabilizationVerifiedPhotoInstallerTest.xml'))
+          assert len(matches)==1, 'Photo copy and overwrite regression suite missing'
+          xml=ET.parse(matches[0]).getroot()
+          assert int(xml.get('tests','0')) >= 12
+          assert int(xml.get('failures','0')) == 0 and int(xml.get('errors','0')) == 0
+          print('PASS: JPEG installed only by verified no-overwrite atomic publication')
           PY
       - name: Enable disposable Android emulator KVM
         run: |
