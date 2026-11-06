@@ -38,6 +38,8 @@ class V300EncryptedPersonalArchiveTest {
             notes = "Do not publish this note",
             startDate = LocalDate.of(2026, 12, 7),
             time = LocalTime.of(8, 30),
+            createdAtMillis = 1_000L,
+            updatedAtMillis = 1_000L,
         )
         val space = V289PersonalSpace(
             id = spaceId, title = "My space", type = V289SpaceType.CUSTOM,
