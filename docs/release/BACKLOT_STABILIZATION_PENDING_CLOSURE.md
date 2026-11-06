@@ -37,6 +37,14 @@ Now `PersonalLinkedReferenceGuard` reads current Groups and Space link IDs witho
 
 This safeguard has six pure policy tests and a separate Android emulator test that creates **real** Group, Space and reminder records, rejects an incompatible Personal cloud copy, then permits an explicitly selected same-ID replacement without losing links. It is not all-domain sync and does not transfer media or Spaces to another device.
 
+## Personal creation — post-commit delivery error correctness
+
+A Personal reminder is saved to its canonical DataStore **before** `PersonalDeliveryCoordinator.reconcile` and widget refresh. Previously, a permission or scheduling failure after that durable save could be reported like an unsaved reminder, encouraging duplicate creation on retry. `PersonalReminderCommands.create` now throws an explicitly typed, generic `PersonalReminderCreatedButNeedsAttention` containing the already-committed reminder ID; it does **not** falsely claim the save was rolled back.
+
+The already-existing V310 create-and-link coordinator catches this typed warning, retains the saved ID, completes optional Space and Group links where possible, and returns separate `deliveryNeedsAttention` from `linkProblems`. The Personal UI closes the saved composer and reports a specific scheduling/widget warning and any partial links. No duplicate record or silent false success. Kotlin coroutine cancellation still propagates and does not silently create fake completion evidence.
+
+Three JVM assertions verify committed-ID preservation, privacy-safe warnings and independence from Space/Group link state. This is a **post-save error-handling fix**, not proof Android alarms will be audible on an OEM phone. Real-device reliability remains a release gate.
+
 ## Still blocking stable release
 
 1. V309 **populated** Activity Center screenshot evidence and V310 optional Space/Group Android tests, currently running in their own QA branches.
