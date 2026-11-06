@@ -53,8 +53,8 @@ class V289SpacesMetadataRecoveryDeviceTest {
                     V289SpaceReminderLink(spaceId, knownReminder, now),
                     existingReminderIds = setOf(knownReminder)
                 )
-                val raw = V289SpacesMetadataRecovery(first).prepareLocalMetadataExport()
-                val recovery = V289SpacesMetadataRecovery(second)
+                val raw = V289SpacesMetadataRecovery(app, first).prepareLocalMetadataExport()
+                val recovery = V289SpacesMetadataRecovery(app, second)
                 val report = recovery.mergeVerifiedMetadata(raw, setOf(knownReminder))
                 assertEquals(1, report.spacesAdded)
                 assertEquals(1, report.linksAdded)
@@ -86,7 +86,7 @@ class V289SpacesMetadataRecoveryDeviceTest {
                 )
                 val raw = V289SpacesMetadataCodec.encode(incoming)
                 assertTrue(runCatching {
-                    V289SpacesMetadataRecovery(db).mergeVerifiedMetadata(raw, emptySet())
+                    V289SpacesMetadataRecovery(app, db).mergeVerifiedMetadata(raw, emptySet())
                 }.isFailure)
                 assertTrue(db.spaces().loadSpaces().isEmpty())
                 assertTrue(db.spaces().allEntries().isEmpty())
@@ -114,7 +114,7 @@ class V289SpacesMetadataRecoveryDeviceTest {
                 )
                 val raw = V289SpacesMetadataCodec.encode(incoming)
                 assertTrue(runCatching {
-                    V289SpacesMetadataRecovery(db).mergeVerifiedMetadata(raw, emptySet())
+                    V289SpacesMetadataRecovery(app, db).mergeVerifiedMetadata(raw, emptySet())
                 }.isFailure)
                 assertEquals(1, db.spaces().loadSpaces().size)
                 assertEquals("Owner's private progress",
@@ -122,7 +122,7 @@ class V289SpacesMetadataRecoveryDeviceTest {
                 assertTrue(db.spaces().allEntries().isEmpty())
                 val corrupt = JSONObject(raw).put("payloadSha256", "0".repeat(64)).toString()
                 assertTrue(runCatching {
-                    V289SpacesMetadataRecovery(db).mergeVerifiedMetadata(corrupt, emptySet())
+                    V289SpacesMetadataRecovery(app, db).mergeVerifiedMetadata(corrupt, emptySet())
                 }.isFailure)
                 assertEquals(1, db.spaces().loadSpaces().size)
             }
