@@ -83,6 +83,19 @@ class V290PhotoTimelinePolicyTest {
         }.isFailure)
     }
 
+    @Test fun validGeneratedPhotoUuidBasenameStillWorks() {
+        val original = photo(1, start)
+        assertEquals(original, V290PhotoTimelinePolicy.validate(original))
+    }
+
+    @Test fun rejectAnotherValidUuidFilenameEvenWhenPatternIsSafe() {
+        val first = photo(1, start)
+        val second = photo(2, start)
+        assertTrue(runCatching {
+            V290PhotoTimelinePolicy.validate(first.copy(fileName = second.fileName))
+        }.isFailure)
+    }
+
     @Test fun notesAndImageSizesHaveHardSafetyBounds() {
         val first = photo(1, start)
         assertTrue(runCatching {

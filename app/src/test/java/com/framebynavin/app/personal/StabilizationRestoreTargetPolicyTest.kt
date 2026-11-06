@@ -170,6 +170,18 @@ class StabilizationRestoreTargetPolicyTest {
         }
     }
 
+    @Test fun rejectArchivePhotoWhoseSafeUuidFilenameBelongsToAnotherRecord() {
+        val incoming = bundle(
+            spaces = V289SpaceState(spaces = listOf(space())),
+        )
+        val spoofed = photo().copy(fileName = "$otherPhoto.jpg")
+        assertThrows(IllegalArgumentException::class.java) {
+            StabilizationRestoreTargetPolicy.calculate(
+                local(), incoming, listOf(spoofed),
+            )
+        }
+    }
+
     @Test fun stableRepeatedMergeIsIdempotentForExactlyIdenticalRecords() {
         val remote = bundle(reminders = listOf(reminder("saved")))
         val once = StabilizationRestoreTargetPolicy.calculate(local(), remote, emptyList())

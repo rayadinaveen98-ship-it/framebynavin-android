@@ -45,6 +45,12 @@ The already-existing V310 create-and-link coordinator catches this typed warning
 
 Three JVM assertions verify committed-ID preservation, privacy-safe warnings and independence from Space/Group link state. This is a **post-save error-handling fix**, not proof Android alarms will be audible on an OEM phone. Real-device reliability remains a release gate.
 
+## Private JPEG identity validation — recovery-safety correction
+
+The existing save flow writes every photo as `<photo-record-uuid>.jpg`, while the metadata validator previously accepted any other UUID-shaped JPEG filename. The validator now checks that the basename is exactly the photo ID plus `.jpg`; a well-formed but different ID is rejected even when its filename looks safe. This invariant applies to archive and local snapshot verification and prevents accidentally associating a private image file with the wrong record during future recovery.
+
+Two additional photo timeline tests verify generated filenames still pass and mismatched UUID-shaped aliases fail. A tenth additive-restore target test rejects the same condition before a hypothetical live write. **This is validation only, not live restore implementation.**
+
 ## Still blocking stable release
 
 1. V309 **populated** Activity Center screenshot evidence and V310 optional Space/Group Android tests, currently running in their own QA branches.

@@ -28,7 +28,7 @@ jobs:
           cat /tmp/stabilization-files.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicy.kt|app/src/main/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuard.kt|app/src/main/java/com/framebynavin/app/personal/PersonalBackupTransfer.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderCommands.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/test/java/com/framebynavin/app/personal/PersonalCreationPostCommitWarningTest.kt|app/src/test/java/com/framebynavin/app/personal/PersonalPostRestoreWidgetPolicyTest.kt|app/src/main/java/com/framebynavin/app/cloud/PersonalCloudSyncManager.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicyTest.kt|app/src/test/java/com/framebynavin/app/personal/PersonalLinkedReferencePolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuardDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/BacklotStabilizationEmptyCreatorUiTest.kt|.github/scripts/backlot-stabilization-creator-empty-android15.sh|.github/workflows/backlot-stabilization-closure.yml|docs/release/BACKLOT_STABILIZATION_PENDING_CLOSURE.md) ;;
+              app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicy.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V290SpacePhotos.kt|app/src/test/java/com/framebynavin/app/personal/spaces/V290PhotoTimelinePolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuard.kt|app/src/main/java/com/framebynavin/app/personal/PersonalBackupTransfer.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderCommands.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/test/java/com/framebynavin/app/personal/PersonalCreationPostCommitWarningTest.kt|app/src/test/java/com/framebynavin/app/personal/PersonalPostRestoreWidgetPolicyTest.kt|app/src/main/java/com/framebynavin/app/cloud/PersonalCloudSyncManager.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicyTest.kt|app/src/test/java/com/framebynavin/app/personal/PersonalLinkedReferencePolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuardDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/BacklotStabilizationEmptyCreatorUiTest.kt|.github/scripts/backlot-stabilization-creator-empty-android15.sh|.github/workflows/backlot-stabilization-closure.yml|docs/release/BACKLOT_STABILIZATION_PENDING_CLOSURE.md) ;;
               *) echo "BLOCKED: non-stabilization source change $path" >&2; exit 1;;
             esac
           done < /tmp/stabilization-files.txt
@@ -65,10 +65,24 @@ jobs:
           matches=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*StabilizationRestoreTargetPolicyTest.xml'))
           assert len(matches)==1, 'Recovery target policy regression suite missing'
           result=ET.parse(matches[0]).getroot()
-          assert int(result.get('tests','0')) >= 9, 'Recovery target cases were skipped'
+          assert int(result.get('tests','0')) >= 10, 'Recovery target cases were skipped'
           assert int(result.get('failures','0')) == 0
           assert int(result.get('errors','0')) == 0
           print('PASS: all-domain non-destructive merge target, conflict, photo path and idempotency')
+          PY
+      - name: Require safe JPEG filename-to-photo-ID and timeline regression coverage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V290PhotoTimelinePolicyTest.xml'))
+          assert len(files)==1, 'Photo identity and timeline tests missing'
+          suite=ET.parse(files[0]).getroot()
+          assert int(suite.get('tests','0')) >= 8
+          assert int(suite.get('failures','0')) == 0
+          assert int(suite.get('errors','0')) == 0
+          print('PASS: genuine UUID JPEGs accepted; alias IDs rejected')
           PY
       - name: Require six linked-reference protection policy regressions
         run: |
