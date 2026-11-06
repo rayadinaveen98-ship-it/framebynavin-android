@@ -17,3 +17,16 @@ Ten JVM cases cover concurrency, cancellation, journal blocking, nested Space/ph
 ## Still blocked
 
 This is **partial** protection, not global write freeze: V289SpacesMetadataRecovery and other internal direct Room DAO/file mutations, synchronous file helpers and all potential cloud/restore entrypoints require further audit and gating. The future live restore coordinator must acquire the same lock, durably journal before the first live mutation, enforce owner-authorized rollback and prove exact data and JPEG integrity. No APK or Play release is justified solely by these tests.
+
+## Direct Room metadata import/export
+
+`V289SpacesMetadataRecovery` now takes an explicit app Context and acquires
+the same persistent gate for both export snapshots and merge-only Room imports.
+The existing owner-facing UI and Android tests pass that Context. This prevents
+direct internal callers from bypassing the owner-facing Space-screen lock.
+A fourth Room metadata emulator case checks that a pending recovery journal
+blocks both direct import and export without changing the in-memory database.
+The Android mutation-fence CI requires all five device tests in this fixture.
+
+This still does not intercept every raw Room DAO call; the global freeze and
+restoration transaction remain release blockers.
