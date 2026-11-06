@@ -2,7 +2,7 @@ name: Backlot V294 - Wave 1 Unit and Data-Preservation Guard
 
 on:
   push:
-    branches: [feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings, qa/backlot-v294-wave2-release-candidate, feature/backlot-v295-universal-personal-foundation, feature/backlot-v296-guided-personal-composer, feature/backlot-v297-owner-21-day-challenges, feature/backlot-v298-personal-reminder-groups, feature/backlot-v299-personal-recovery-preflight, feature/backlot-v300-encrypted-personal-archive-foundation, feature/backlot-v301-recovery-dry-run]
+    branches: [feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings, qa/backlot-v294-wave2-release-candidate, feature/backlot-v295-universal-personal-foundation, feature/backlot-v296-guided-personal-composer, feature/backlot-v297-owner-21-day-challenges, feature/backlot-v298-personal-reminder-groups, feature/backlot-v299-personal-recovery-preflight, feature/backlot-v300-encrypted-personal-archive-foundation, feature/backlot-v301-recovery-dry-run, feature/backlot-v302-owner-encrypted-archive-ui]
   workflow_dispatch:
 
 permissions:
@@ -67,7 +67,7 @@ jobs:
           sed -e 's/versionCode = 292/versionCode = 294/' -e 's/versionName = "2.26.0-rc2-personal-metrics"/versionName = "2.27.0-rc1-universal-ui"/' /tmp/v294-base-gradle > /tmp/v294-expected-gradle
           # Only V296 may add the explicitly pinned-by-BOM Compose animation module.
           # All earlier V294/V295 source contracts remain unchanged.
-          if [[ "${GITHUB_REF_NAME}" == "feature/backlot-v296-guided-personal-composer" || "${GITHUB_REF_NAME}" == "feature/backlot-v297-owner-21-day-challenges" || "${GITHUB_REF_NAME}" == "feature/backlot-v298-personal-reminder-groups" || "${GITHUB_REF_NAME}" == "feature/backlot-v299-personal-recovery-preflight" || "${GITHUB_REF_NAME}" == "feature/backlot-v300-encrypted-personal-archive-foundation" || "${GITHUB_REF_NAME}" == "feature/backlot-v301-recovery-dry-run" ]]; then
+          if [[ "${GITHUB_REF_NAME}" == "feature/backlot-v296-guided-personal-composer" || "${GITHUB_REF_NAME}" == "feature/backlot-v297-owner-21-day-challenges" || "${GITHUB_REF_NAME}" == "feature/backlot-v298-personal-reminder-groups" || "${GITHUB_REF_NAME}" == "feature/backlot-v299-personal-recovery-preflight" || "${GITHUB_REF_NAME}" == "feature/backlot-v300-encrypted-personal-archive-foundation" || "${GITHUB_REF_NAME}" == "feature/backlot-v301-recovery-dry-run" || "${GITHUB_REF_NAME}" == "feature/backlot-v302-owner-encrypted-archive-ui" ]]; then
             sed -i '/    implementation("androidx.compose.ui:ui")/a\    // V296 guided composer uses explicit animated step transitions.' /tmp/v294-expected-gradle
             sed -i '/    \/\/ V296 guided composer uses explicit animated step transitions./a\    implementation("androidx.compose.animation:animation")' /tmp/v294-expected-gradle
           fi
@@ -108,6 +108,7 @@ jobs:
               ('V300RestoreReadinessPolicyTest',5),
               ('V300PrivatePhotoInventoryPolicyTest',3),
               ('V301RestoreDryRunTest',10),
+              ('V302OwnerArchiveFingerprintTest',3),
               ('V298ReminderGroupTest',7),
           ]
           for name,minimum in required:

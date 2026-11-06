@@ -190,6 +190,8 @@ private fun PersonalBackupScreen(onClose: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(14.dp))
+            V302EncryptedPersonalArchivePanel()
+            Spacer(Modifier.height(14.dp))
             Surface(
                 color = CinemaSurface,
                 shape = RoundedCornerShape(16.dp),

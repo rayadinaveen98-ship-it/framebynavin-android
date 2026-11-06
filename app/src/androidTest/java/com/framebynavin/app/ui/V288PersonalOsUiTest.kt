@@ -274,4 +274,32 @@ class V288PersonalOsUiTest {
         assertEquals(databaseAlreadyExists, spacesDatabase.exists())
     }
 
+    @Test fun encryptedArchiveControlsRequirePassphraseAndDoNotStartRestore() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val store = PersonalReminderStore(app)
+        val before = runBlocking { store.exportPersonalJson() }
+        rule.setContent { FrameByNavinTheme { V302EncryptedPersonalArchivePanel() } }
+        rule.onNodeWithTag("v302-export-encrypted").assertIsNotEnabled()
+        rule.onNodeWithTag("v302-preview-archive").assertIsNotEnabled()
+        rule.onNodeWithTag("v302-archive-passphrase").performTextInput("too-short")
+        rule.onNodeWithTag("v302-export-encrypted").assertIsNotEnabled()
+        rule.onNodeWithTag("v302-preview-archive").assertIsNotEnabled()
+        rule.onNodeWithTag("v302-conflict-summary").assertDoesNotExist()
+        assertEquals(before, runBlocking { store.exportPersonalJson() })
+    }
+
+    @Test fun longArchivePassphraseOnlyEnablesOwnerDocumentPickersNotAutoImport() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val store = PersonalReminderStore(app)
+        val before = runBlocking { store.exportPersonalJson() }
+        rule.setContent { FrameByNavinTheme { V302EncryptedPersonalArchivePanel() } }
+        rule.onNodeWithTag("v302-archive-passphrase")
+            .performTextInput("this is my private export passphrase")
+        rule.onNodeWithTag("v302-export-encrypted").assertIsEnabled()
+        rule.onNodeWithTag("v302-preview-archive").assertIsEnabled()
+        rule.onNodeWithTag("v302-conflict-summary").assertDoesNotExist()
+        rule.onNodeWithTag("v302-archive-result").assertDoesNotExist()
+        assertEquals(before, runBlocking { store.exportPersonalJson() })
+    }
+
 }
