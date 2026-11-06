@@ -37,7 +37,7 @@ class V292SpaceMetricUiTest {
             System.currentTimeMillis(),
             "10000000-0000-4000-8000-000000000091",
         )
-        runBlocking { V289SpacesRepository(db.spaces()).createSpace(space) }
+        runBlocking { V289SpacesRepository(app, db.spaces()).createSpace(space) }
         val mounted = mutableStateOf(true)
         try {
             rule.setContent {
