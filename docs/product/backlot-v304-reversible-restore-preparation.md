@@ -20,7 +20,7 @@ V304 provides a bounded, private, **non-destructive PREPARE phase**. It is not a
 
 ## Tests and gates
 
-- **10 JVM tests:** consent requirement, valid private byte staging + cleanup, corrupted source, corrupted staged photo, extra files, tampered journal, changed live fingerprint, path-traversal protection, conflicting record rejection, and interrupted-preparation inventory that never deletes files.
+- **11 JVM tests:** consent requirement, valid private byte staging + cleanup, corrupted source, corrupted staged photo, extra files, tampered journal, changed live fingerprint, path-traversal protection, conflicting record rejection, interrupted-preparation inventory that never deletes files, and refusal of a same-size photo whose metadata differs from the authenticated archive plan.
 - **1 Android 15 instrumentation test** on a disposable emulator: prepares a synthetic authenticated JPEG inside the isolated app cache, verifies and discards it, and asserts that real Personal reminder records and the presence/absence of the Spaces DB do not change.
 - Existing source boundary allows only V304's new Personal code, while existing Creator, reminders/alarms, cloud engine, Room schema, manifest and signing remain frozen.
 - V303 receipt-provenance and earlier V295–V302 tests are inherited; exact-head JVM, Android 15 and signed-upgrade tests must pass separately.
