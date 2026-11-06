@@ -1,0 +1,71 @@
+name: Backlot Phase B1 - authenticated precommit safety
+
+on:
+  push:
+    branches: [stabilization/phase-b-restore-transaction]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-phase-b-authenticated-precommit
+  cancel-in-progress: true
+
+jobs:
+  b1-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Keep B1 source scope strictly additive and read-only
+        run: |
+          set -euo pipefail
+          frozen=44f815f94885a25ab80ad4e3bc9f7ff6d97818b6
+          git fetch --depth=1 origin "$frozen"
+          git diff --name-only "$frozen" HEAD > /tmp/phase-b1-files.txt
+          while IFS= read -r path; do
+            case "$path" in
+              app/src/main/java/com/framebynavin/app/personal/B01RestorePrecommitPolicy.kt|app/src/test/java/com/framebynavin/app/personal/B01RestorePrecommitPolicyTest.kt|docs/release/BACKLOT_PHASE_B_RECOVERY.md|.github/workflows/backlot-phase-b1-precommit.yml) ;;
+              *) echo "BLOCKED: unexpected Phase B1 change $path" >&2; exit 1;;
+            esac
+          done < /tmp/phase-b1-files.txt
+          test -s /tmp/phase-b1-files.txt
+          echo 'PASS: only read-only B1 policy, tests and documentation'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile all Android sources and run complete JVM regressions
+        run: |
+          set -euo pipefail
+          timeout 95m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require B1 precommit rejection suite and inherited Phase A regressions
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=Path('app/build/test-results/testDebugUnitTest')
+          for name,minimum in (
+              ('B01RestorePrecommitPolicyTest', 20),
+              ('StabilizationPersonalMutationGateTest', 10),
+              ('StabilizationRestoreWriteAheadJournalTest', 12),
+              ('StabilizationVerifiedPhotoInstallerTest', 12),
+          ):
+              items=list(root.glob('TEST-*'+name+'.xml'))
+              assert len(items)==1, 'Missing expected suite '+name
+              suite=ET.parse(items[0]).getroot()
+              assert int(suite.get('tests','0'))>=minimum, 'Skipped '+name
+              assert int(suite.get('failures','0'))==0, 'Failed '+name
+              assert int(suite.get('errors','0'))==0, 'Error '+name
+              print('PASS:',name,suite.get('tests'))
+          PY
