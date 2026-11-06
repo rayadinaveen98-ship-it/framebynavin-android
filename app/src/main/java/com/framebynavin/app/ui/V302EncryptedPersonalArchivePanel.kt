@@ -53,6 +53,14 @@ internal fun V302EncryptedPersonalArchivePanel() {
     var notice by remember { mutableStateOf<String?>(null) }
     var failed by remember { mutableStateOf(false) }
     var detailOpen by remember { mutableStateOf(false) }
+    // The activity-result picker can outlive this Composable. Never keep a
+    // reusable passphrase buffer after the screen is disposed.
+    DisposableEffect(Unit) {
+        onDispose {
+            exportingSecret?.fill('\u0000')
+            checkingSecret?.fill('\u0000')
+        }
+    }
 
     val createArchive = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip"),
@@ -186,7 +194,14 @@ internal fun V302EncryptedPersonalArchivePanel() {
                     failed = false
                     notice = null
                     val filename = SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.US).format(Date())
-                    createArchive.launch("Backlot-Personal-Encrypted-$filename.zip")
+                    try {
+                        createArchive.launch("Backlot-Personal-Encrypted-$filename.zip")
+                    } catch (_: Exception) {
+                        exportingSecret?.fill('\u0000')
+                        exportingSecret = null
+                        failed = true
+                        notice = "No compatible document picker was available. Nothing was exported."
+                    }
                 },
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth().testTag("v302-export-encrypted"),
@@ -198,9 +213,16 @@ internal fun V302EncryptedPersonalArchivePanel() {
                     passphrase = ""
                     failed = false
                     notice = null
-                    selectArchive.launch(arrayOf(
-                        "application/zip", "application/octet-stream", "*/*",
-                    ))
+                    try {
+                        selectArchive.launch(arrayOf(
+                            "application/zip", "application/octet-stream", "*/*",
+                        ))
+                    } catch (_: Exception) {
+                        checkingSecret?.fill('\u0000')
+                        checkingSecret = null
+                        failed = true
+                        notice = "No compatible document picker was available. Nothing was imported."
+                    }
                 },
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth().testTag("v302-preview-archive"),
