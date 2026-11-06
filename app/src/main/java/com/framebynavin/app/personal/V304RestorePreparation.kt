@@ -288,12 +288,19 @@ internal class V304RestorePreparationStore(private val privateRoot: File) {
         var ready = 0
         var interrupted = 0
         var unknown = 0
-        privateRoot.listFiles().orEmpty().forEach { child ->
+        val folders = checkNotNull(privateRoot.listFiles()) {
+            "Could not inspect private preparation folder"
+        }
+        folders.forEach { child ->
             if (child.isDirectory &&
                 !Files.isSymbolicLink(child.toPath()) &&
                 UUID_CANONICAL.matches(child.name)) {
-                if (runCatching { inspect(child.name) }.isSuccess) ready++
-                else interrupted++
+                try {
+                    inspect(child.name)
+                    ready++
+                } catch (_: Exception) {
+                    interrupted++
+                }
             } else {
                 unknown++
             }
