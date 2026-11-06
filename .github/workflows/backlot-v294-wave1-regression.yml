@@ -2,7 +2,7 @@ name: Backlot V294 - Wave 1 Unit and Data-Preservation Guard
 
 on:
   push:
-    branches: [feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings, qa/backlot-v294-wave2-release-candidate, feature/backlot-v295-universal-personal-foundation, feature/backlot-v296-guided-personal-composer, feature/backlot-v297-owner-21-day-challenges, feature/backlot-v298-personal-reminder-groups]
+    branches: [feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings, qa/backlot-v294-wave2-release-candidate, feature/backlot-v295-universal-personal-foundation, feature/backlot-v296-guided-personal-composer, feature/backlot-v297-owner-21-day-challenges, feature/backlot-v298-personal-reminder-groups, feature/backlot-v299-personal-recovery-preflight]
   workflow_dispatch:
 
 permissions:
@@ -30,11 +30,18 @@ jobs:
           fi
           # Cloud behavior is frozen: permit only a narrow release-copy correction
           # identifying challenges/groups as outside the existing sync contract.
-          if grep -E '^app/src/main/java/com/framebynavin/app/cloud/' /tmp/v294-rc-changed.txt |
-             grep -Fv 'app/src/main/java/com/framebynavin/app/cloud/V290CloudCoverageDisclosure.kt'; then
-            echo 'FAIL: cloud sync implementation must not change in V298' >&2
-            exit 1
-          fi
+          # V299 can add a single read-only panel reference to Backup & Recovery.
+          # The cloud upload/restore engine and its data formats stay frozen.
+          while IFS= read -r changed; do
+            case "$changed" in
+              app/src/main/java/com/framebynavin/app/cloud/V290CloudCoverageDisclosure.kt) ;;
+              app/src/main/java/com/framebynavin/app/cloud/CloudSyncActivity.kt) ;;
+              app/src/main/java/com/framebynavin/app/cloud/*)
+                echo 'FAIL: cloud sync engine must not change in V299' >&2
+                exit 1
+                ;;
+            esac
+          done < /tmp/v294-rc-changed.txt
           # Refuse edits to established reminder, alarm, data or cloud source.
           while IFS= read -r changed; do
             case "$changed" in
@@ -43,6 +50,7 @@ jobs:
               app/src/main/java/com/framebynavin/app/personal/V297ChallengeStore.kt) ;;
               app/src/main/java/com/framebynavin/app/personal/V298ReminderGroup.kt) ;;
               app/src/main/java/com/framebynavin/app/personal/V298ReminderGroupStore.kt) ;;
+              app/src/main/java/com/framebynavin/app/personal/V299PersonalRecoveryPreflight.kt) ;;
               app/src/main/java/com/framebynavin/app/personal/*)
                 echo 'FAIL: existing Personal source must not change' >&2
                 exit 1
@@ -53,7 +61,7 @@ jobs:
           sed -e 's/versionCode = 292/versionCode = 294/' -e 's/versionName = "2.26.0-rc2-personal-metrics"/versionName = "2.27.0-rc1-universal-ui"/' /tmp/v294-base-gradle > /tmp/v294-expected-gradle
           # Only V296 may add the explicitly pinned-by-BOM Compose animation module.
           # All earlier V294/V295 source contracts remain unchanged.
-          if [[ "${GITHUB_REF_NAME}" == "feature/backlot-v296-guided-personal-composer" || "${GITHUB_REF_NAME}" == "feature/backlot-v297-owner-21-day-challenges" || "${GITHUB_REF_NAME}" == "feature/backlot-v298-personal-reminder-groups" ]]; then
+          if [[ "${GITHUB_REF_NAME}" == "feature/backlot-v296-guided-personal-composer" || "${GITHUB_REF_NAME}" == "feature/backlot-v297-owner-21-day-challenges" || "${GITHUB_REF_NAME}" == "feature/backlot-v298-personal-reminder-groups" || "${GITHUB_REF_NAME}" == "feature/backlot-v299-personal-recovery-preflight" ]]; then
             sed -i '/    implementation("androidx.compose.ui:ui")/a\    // V296 guided composer uses explicit animated step transitions.' /tmp/v294-expected-gradle
             sed -i '/    \/\/ V296 guided composer uses explicit animated step transitions./a\    implementation("androidx.compose.animation:animation")' /tmp/v294-expected-gradle
           fi
@@ -87,8 +95,9 @@ jobs:
               ('V2281StarterSchedulePolicyTest',2),
               ('V290CloudCoverageDisclosureTest',3),
               ('V292SpaceMetricSuggestionsTest',6),
-              ('V290CloudCoverageDisclosureTest',3),
               ('V297ChallengeTest',7),
+              ('V299RecoveryCountsTest',5),
+              ('V299PhotoIntegrityPolicyTest',4),
               ('V298ReminderGroupTest',7),
           ]
           for name,minimum in required:

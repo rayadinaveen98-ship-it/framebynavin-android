@@ -292,4 +292,20 @@ class V294VisualAuditDeviceTest {
         screenshot("12-reminder-groups-blank.png")
     }
 
+    @Test fun localBackupReadinessIsOwnerInitiatedNotAnAutomaticCloudClaim() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme { V299RecoveryReadinessPanel() }
+        }
+        rule.onNodeWithTag("v299-preflight-counts").assertDoesNotExist()
+        rule.onNodeWithTag("v299-run-preflight").performClick()
+        rule.waitUntil(20_000) {
+            rule.onAllNodesWithTag("v299-preflight-counts")
+                .fetchSemanticsNodes().isNotEmpty() ||
+            rule.onAllNodesWithTag("v299-preflight-unavailable")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        screenshot("13-local-backup-preflight.png")
+    }
+
 }
