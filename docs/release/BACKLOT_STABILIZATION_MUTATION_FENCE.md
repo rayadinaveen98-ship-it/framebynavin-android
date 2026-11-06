@@ -30,3 +30,16 @@ The Android mutation-fence CI requires all five device tests in this fixture.
 
 This still does not intercept every raw Room DAO call; the global freeze and
 restoration transaction remain release blockers.
+
+## Personal settings and authenticated archive snapshot
+
+Personal follow-up reminder settings are separately stored in DataStore; their
+enabled and delay mutations now use the same recovery gate. The V300 encrypted
+full-Personal archive export now holds a stable snapshot lock while reading
+reminders, Done history, Groups, Challenges, Room and private JPEG bytes, rather
+than collecting a potentially torn archive during concurrent cooperating writes.
+
+Two extra emulator cases verify that follow-up preferences are unchanged
+and an encrypted export writes no bytes while a recovery journal exists.
+The Android 15 CI checks eight tests across the Personal and Room fixture
+classes. These safeguards are still not a live crash-safe all-domain restore.
