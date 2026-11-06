@@ -91,6 +91,7 @@ internal fun V157ReminderCenterUi(
     // V219: presentation-only filter, never changes reminder storage or action tokens.
     var hubFilter by remember { mutableStateOf(V219ReminderHubFilter.ALL) }
     var historyOpen by rememberSaveable { mutableStateOf(false) }
+    var activityOpen by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     // Compute visible groups from real Center data; no synthetic reminders.
     val matchingGroups = V219ReminderSearchPolicy.filter(grouped, searchQuery)
@@ -192,6 +193,17 @@ internal fun V157ReminderCenterUi(
 
     }
 
+    if (activityOpen) {
+        V306ActivityCenterScreen(
+            tasks = tasks,
+            nowMillis = now,
+            onClose = { activityOpen = false },
+            onOpenCreator = { id -> activityOpen = false; onEdit(id) },
+            onOpenPersonal = { activityOpen = false; onPersonal() },
+        )
+        return
+    }
+
     CreatorAdaptiveFullScreen(
         onDismissRequest = { if (selectionMode) selected = emptySet() else onDismiss() },
     ) {
@@ -220,6 +232,12 @@ internal fun V157ReminderCenterUi(
                             Icon(Icons.Outlined.DeleteOutline, "Delete selected", tint = RecRed)
                         }
                     } else {
+                        IconButton(
+                            onClick = { activityOpen = true },
+                            modifier = Modifier.testTag("v306-open-activity"),
+                        ) {
+                            Icon(Icons.Outlined.NotificationsActive, "Open Activity Center", tint = MutedGold)
+                        }
                         IconButton(onClick = onNew) {
                             Icon(Icons.Outlined.Add, "Add", tint = ProjectorIvory)
                         }
