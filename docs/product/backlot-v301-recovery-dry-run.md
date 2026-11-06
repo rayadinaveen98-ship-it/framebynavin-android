@@ -18,7 +18,7 @@ Build the dry-run that should precede an explicitly approved, non-destructive re
 
 ## Tests and boundaries
 
-- Ten unit tests cover empty target, same-ID/same-value, same-ID/different-value, phone-only records, exact Done receipt collisions, group collisions, missing local photo verification, photo metadata conflicts, orphan references, and inconsistent diff arithmetic.
+- Eleven unit tests cover empty target, same-ID/same-value, same-ID/different-value, phone-only records, exact Done receipt collisions, group collisions, missing local photo verification, photo metadata conflicts, orphan references, inconsistent diff arithmetic, and portable comparison of reminders with differing device-local alarm leases.
 - One Android emulator check asserts the reader never changes Personal reminders or creates a Spaces database. Synthetic screenshot count remains 13; Settings/Personal UI test count rises to 26.
 - Existing V295–V300 storage, notification, alarms, cloud sync, manifest, signing and Creator backup implementation remains unchanged. CI allows only the three new V301 files and the non-writing UI test.
 - V300's encrypted archive itself is **not user-facing** and does not have an approved export or restore button.
