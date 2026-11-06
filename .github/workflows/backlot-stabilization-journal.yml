@@ -29,7 +29,7 @@ jobs:
           git diff --name-only "$frozen" HEAD > /tmp/restore-journal-changes.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournal.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationVerifiedPhotoInstaller.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationVerifiedPhotoInstallerTest.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalDeviceTest.kt|docs/release/BACKLOT_STABILIZATION_RESTORE_WRITE_JOURNAL.md|.github/workflows/backlot-stabilization-journal.yml|.github/scripts/backlot-stabilization-journal-android15.sh) ;;
+              app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournal.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationVerifiedPhotoInstaller.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationVerifiedPhotoInstallerTest.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationRestoreCrossStoreInterruptDeviceTest.kt|docs/release/BACKLOT_STABILIZATION_RESTORE_WRITE_JOURNAL.md|.github/workflows/backlot-stabilization-journal.yml|.github/scripts/backlot-stabilization-journal-android15.sh) ;;
               *) echo "FAIL: unreviewed change $path" >&2; exit 1;;
             esac
           done < /tmp/restore-journal-changes.txt
