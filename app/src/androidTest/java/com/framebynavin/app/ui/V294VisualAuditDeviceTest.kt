@@ -308,4 +308,16 @@ class V294VisualAuditDeviceTest {
         screenshot("13-local-backup-preflight.png")
     }
 
+    @Test fun encryptedBackupPanelDisclosesNoRestoreAndRequiresPassphrase() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme { V302EncryptedPersonalArchivePanel() }
+        }
+        rule.onNodeWithTag("v302-export-encrypted").assertIsNotEnabled()
+        rule.onNodeWithTag("v302-preview-archive").assertIsNotEnabled()
+        rule.onNodeWithText("No restore action is available here.", substring = true)
+            .assertExists()
+        screenshot("14-encrypted-owner-archive-gate.png")
+    }
+
 }
