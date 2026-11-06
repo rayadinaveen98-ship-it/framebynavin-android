@@ -68,7 +68,7 @@ internal fun V2232PersonalReminderHub(
     val context = LocalContext.current
     val store = remember(context) { PersonalReminderStore(context) }
     val commands = remember(context) { PersonalReminderCommands(context) }
-    val creatorOfLinkedReminders = remember(context) { V310CreateAndLink(context) }
+    val personalLinkCreation = remember(context) { V310CreateAndLink(context) }
     val groupCatalog = remember(context) { V298ReminderGroupStore(context) }
     val coordinator = remember(context) { PersonalDeliveryCoordinator(context) }
     val followUpStore = remember(context) { PersonalFollowUpSettingsStore(context) }
@@ -589,7 +589,7 @@ internal fun V2232PersonalReminderHub(
                         validSpaceIds = availableEditorSpaces.map { it.id }.toSet(),
                         validGroupIds = availableEditorGroups.map { it.id }.toSet(),
                     )
-                    val result = creatorOfLinkedReminders.create(draft, validated)
+                    val result = personalLinkCreation.create(draft, validated)
                     editorOpen = false
                     editing = null
                     if (result.linkProblems.isNotEmpty()) {
