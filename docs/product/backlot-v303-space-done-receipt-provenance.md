@@ -16,14 +16,14 @@ V303 provides a separate, *Personal-archive-only* extension. The older V289 stan
 - The complete outer receipt payload is size-bounded and SHA-256 validated; the V300 archive additionally authenticates that payload using the archive's AES-256-GCM encryption and verifies all included photo files.
 - If there are no confirmed Done entries, `encode` returns the original V289 manual-only payload unchanged. `decode` explicitly supports both old V289 and new receipt-attested entries.
 - V300 archive creation, verification, V301 local read-only inventory and V301 conflict preview now accept this new Spaces format, always checking it against the accompanying real Personal completion history.
-- `V303SpaceSnapshotReader` reads all Spaces and journal rows inside a single Room transaction for an explicit owner-selected export. It does not modify any entry, fabricate a receipt or change Creator/reminder/cloud state.
+- `V303SpaceSnapshotReader` reads Spaces, journal rows and photo metadata rows together inside one Room transaction for an explicit owner-selected export. It does not modify any entry, fabricate a receipt or change Creator/reminder/cloud state.
 - Read-only previews still cannot authorize any writes. There is **no restore implementation**.
 
 ## Tests
 
 - Nine `V303SpaceReceiptArchiveCodecTest` unit tests: legacy compatibility, genuine receipt roundtrip, missing receipt, mismatched timestamp/occurrence, duplicate Done, missing reminder, tampering/version rejection, orphan Space, duplicate manual/Done ID.
 - One additional `V300EncryptedPersonalArchiveTest`: a real receipt-attested journal survives full password-protected ZIP encryption, authenticated staging, and decrypted validation with its completion event intact.
-- One Android 15 in-memory Room test, `V303SpaceReceiptDeviceTest`: inserts a synthetic confirmed Done entry, exports a snapshot, validates against a real synthetic completion record, and rejects the same archived row when the Done evidence is missing. It cannot access or mutate the owner's Spaces database.
+- One Android 15 in-memory Room test, `V303SpaceReceiptDeviceTest`: inserts a synthetic confirmed Done entry and photo metadata row, reads both in one transaction, and validates against a real synthetic completion record, and rejects the same archived row when the Done evidence is missing. It cannot access or mutate the owner's Spaces database.
 - CI expects ten V300 archive tests, nine V303 codec tests, and 11 synthetic Spaces/metrics/device tests. The V294 signed owner build remains frozen.
 
 ## What still blocks complete recovery
