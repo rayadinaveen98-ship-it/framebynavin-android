@@ -20,7 +20,8 @@ private val Context.v298GroupsDataStore by preferencesDataStore(
 private val groupMutationMutex = Mutex()
 
 internal class V298ReminderGroupStore(context: Context) {
-    private val data = context.applicationContext.v298GroupsDataStore
+    private val app = context.applicationContext
+    private val data = app.v298GroupsDataStore
     private val primary = stringPreferencesKey("groups_v1")
     private val lastGood = stringPreferencesKey("groups_last_good_v1")
 
@@ -61,7 +62,8 @@ internal class V298ReminderGroupStore(context: Context) {
 
     suspend fun mutate(
         change: (List<V298ReminderGroup>) -> List<V298ReminderGroup>,
-    ): List<V298ReminderGroup> = groupMutationMutex.withLock {
+    ): List<V298ReminderGroup> = StabilizationPersonalMutationGate.withOwnerMutation(app) {
+        groupMutationMutex.withLock {
         var result = emptyList<V298ReminderGroup>()
         data.edit { prefs ->
             val oldRaw = prefs[primary]
@@ -80,6 +82,7 @@ internal class V298ReminderGroupStore(context: Context) {
             result = updated
         }
         result
+        }
     }
 
     /** An explicit owner export of groups/IDs only, NOT a complete reminder backup. */
