@@ -1,0 +1,73 @@
+name: Backlot V306 - Activity Center Safety and Compile
+
+on:
+  push:
+    branches: [feature/backlot-v306-unified-activity-center]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v306-activity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  activity-center:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Enforce read-only Activity Center source boundary
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin refs/heads/feature/backlot-v305-rollback-escrow:refs/remotes/origin/feature/backlot-v305-rollback-escrow
+          git diff --name-only origin/feature/backlot-v305-rollback-escrow HEAD > /tmp/v306-changed.txt
+          cat /tmp/v306-changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/backlot-v306-activity-center.yml|docs/product/backlot-v306-activity-center.md|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterPolicy.kt|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterScreen.kt|app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/test/java/com/framebynavin/app/ui/V306ActivityCenterPolicyTest.kt) ;;
+              *) echo "FAIL: V306 changed a non-allowlisted file: $path" >&2; exit 1;;
+            esac
+          done < /tmp/v306-changed.txt
+          test -f app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterPolicy.kt
+          test -f app/src/test/java/com/framebynavin/app/ui/V306ActivityCenterPolicyTest.kt
+          echo 'PASS: reminder delivery, stores, cloud and app signing unchanged'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile app and execute all debug unit tests
+        run: |
+          set -euo pipefail
+          timeout 80m gradle :app:assembleDebug :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require V306 evidence-policy regression suite
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          paths=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V306ActivityCenterPolicyTest.xml'))
+          assert len(paths) == 1, 'V306 tests not executed'
+          root=ET.parse(paths[0]).getroot()
+          tests=int(root.get('tests', '0'))
+          failures=int(root.get('failures', '0'))
+          errors=int(root.get('errors', '0'))
+          assert tests >= 9 and failures == 0 and errors == 0, (tests, failures, errors)
+          print(f'PASS: {tests} V306 evidence and safety tests')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V306-Activity-Center-Test-Reports
+          path: app/build/test-results/testDebugUnitTest/TEST-*.xml
+          retention-days: 14
+          if-no-files-found: warn
