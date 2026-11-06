@@ -75,9 +75,11 @@ class PersonalLinkedReferenceGuardDeviceTest {
         assertEquals(listOf(stored), reminders.load())
         assertEquals(listOf(stored.id),
             groupStore.load().single().reminderIds)
-        V289SpacesDatabase.open(app).use {
-            assertEquals(stored.id, it.spaces().linksForSpace(spaceId).single().reminderId)
-        }
+        val afterRejected = V289SpacesDatabase.open(app)
+        try {
+            assertEquals(stored.id, afterRejected.spaces()
+                .linksForSpace(spaceId).single().reminderId)
+        } finally { afterRejected.close() }
 
         // A copy containing referenced IDs is valid and may be restored only
         // through the canonical Personal command while references remain.
@@ -88,8 +90,10 @@ class PersonalLinkedReferenceGuardDeviceTest {
         assertEquals(stored.id, reminders.load().single().id)
         assertEquals("Renamed, same identity", reminders.load().single().title)
         assertEquals(stored.id, groupStore.load().single().reminderIds.single())
-        V289SpacesDatabase.open(app).use {
-            assertEquals(stored.id, it.spaces().linksForSpace(spaceId).single().reminderId)
-        }
+        val afterApproved = V289SpacesDatabase.open(app)
+        try {
+            assertEquals(stored.id, afterApproved.spaces()
+                .linksForSpace(spaceId).single().reminderId)
+        } finally { afterApproved.close() }
     }
 }
