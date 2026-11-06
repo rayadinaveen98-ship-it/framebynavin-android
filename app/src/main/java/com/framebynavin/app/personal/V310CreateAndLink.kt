@@ -4,6 +4,7 @@ import android.content.Context
 import com.framebynavin.app.personal.spaces.V289SpaceReminderLink
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.personal.spaces.V289SpacesRepository
+import kotlinx.coroutines.CancellationException
 
 /**
  * Optional, deliberate links chosen on the personal reminder Review step.
@@ -76,8 +77,8 @@ internal class V310CreateAndLink(context: Context) {
         if (targets.spaceId != null) {
             try {
                 linkedSpace = withSpaceDao { dao ->
-                    check(dao.getSpace(targets.spaceId)?.archivedAtMillis == null &&
-                        dao.getSpace(targets.spaceId) != null) {
+                    val current = dao.getSpace(targets.spaceId)
+                    check(current != null && current.archivedAtMillis == null) {
                         "Space was removed or archived while saving"
                     }
                     val repository = V289SpacesRepository(dao)
@@ -91,6 +92,8 @@ internal class V310CreateAndLink(context: Context) {
                     )
                 }
                 if (!linkedSpace) problems.add("Space link wasn't added")
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 problems.add("Space link wasn't added")
             }
@@ -102,6 +105,8 @@ internal class V310CreateAndLink(context: Context) {
                     group.linkExisting(reminder.id, setOf(reminder.id), now)
                 }
                 linkedGroup = true
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 problems.add("Group link wasn't added")
             }
