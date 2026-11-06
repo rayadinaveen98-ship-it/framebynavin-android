@@ -63,6 +63,7 @@ jobs:
               app/src/main/java/com/framebynavin/app/personal/V304ArchivePreparationCoordinator.kt) ;;
               app/src/main/java/com/framebynavin/app/personal/V305RollbackEscrow.kt) ;;
               app/src/main/java/com/framebynavin/app/personal/V305RollbackEscrowCoordinator.kt) ;;
+              app/src/main/java/com/framebynavin/app/personal/V305RestoreCommitBarrier.kt) ;;
               app/src/main/java/com/framebynavin/app/personal/*)
                 echo 'FAIL: existing Personal source must not change' >&2
                 exit 1
@@ -114,6 +115,7 @@ jobs:
               ('V303SpaceReceiptArchiveCodecTest',9),
               ('V304RestorePreparationTest',11),
               ('V305RollbackEscrowTest',10),
+              ('V305RestoreCommitBarrierTest',6),
               ('V300RestoreReadinessPolicyTest',5),
               ('V300PrivatePhotoInventoryPolicyTest',3),
               ('V301RestoreDryRunTest',11),
