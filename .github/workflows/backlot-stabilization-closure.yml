@@ -43,8 +43,8 @@ jobs:
       - name: Compile complete debug app and Android tests, run full unit regression
         run: |
           set -euo pipefail
-          # Keep Kotlin in-process heap within hosted runner memory limits,
-          # and preserve diagnostics if a compiler task stops making progress.
+          # Confirmed prior Kotlin compiler Java-heap OOM at 4 GiB with ~9.7 GiB RAM available.
+          # Use one 8 GiB in-process compiler and capture diagnostics.
           (while sleep 180; do
             echo '--- Gradle resource heartbeat ---'
             free -m
@@ -55,7 +55,7 @@ jobs:
           timeout 110m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
             --no-daemon --no-parallel --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
-            '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=900m -Dfile.encoding=UTF-8' --stacktrace
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Require nine all-domain recovery target-planning regression cases
         run: |
           set -euo pipefail
