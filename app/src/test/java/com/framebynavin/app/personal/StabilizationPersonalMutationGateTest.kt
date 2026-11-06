@@ -124,4 +124,81 @@ class StabilizationPersonalMutationGateTest {
         }
         assertEquals("next", StabilizationPersonalMutationGate.withOwnerMutation(journal) { "next" })
     }
+    private fun prepared(journalRoot: File): StabilizationRestoreJournalRecord {
+        val bar = V305CommitBarrierReceipt(
+            preparedId = "e751c74e-8d47-4f69-bd46-c95c45d04c01",
+            rollbackEscrowId = "613c863a-b019-4085-9df3-5f38b84454ea",
+            localBaselineSha256 = "a".repeat(64),
+            incomingArchiveSha256 = "c".repeat(64),
+            rollbackArchiveSha256 = "d".repeat(64),
+        )
+        return StabilizationRestoreWriteAheadJournal(journalRoot)
+            .prepare(bar, "b".repeat(64), true, 100L)
+    }
+
+    @Test fun preparedRecoveryRequiresSameExclusiveOwnerGate() = sandbox { journal ->
+        val receipt = prepared(journal)
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
+                    "unsafe"
+                }
+            }
+        }
+    }
+
+    @Test fun verifiedRecoveryPermitWritesOnlyWithinItsOwnerGate() = sandbox { journal ->
+        var updated = false
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            val receipt = prepared(journal)
+            StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+                    updated = true
+                    StabilizationRestoreWriteAheadJournal(journal).checkpoint(
+                        StabilizationRestoreWriteStep.PREPARED,
+                        StabilizationRestoreWriteStep.BEFORE_PERSONAL,
+                        101L,
+                    )
+                }
+            }
+        }
+        assertTrue(updated)
+        assertEquals(
+            StabilizationRestoreWriteStep.BEFORE_PERSONAL,
+            StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart()!!.step,
+        )
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { StabilizationPersonalMutationGate.withOwnerMutation(journal) { "blocked" } }
+        }
+    }
+
+    @Test fun recoveryPermitRejectsWrongTransactionOrChangedTarget() = sandbox { journal ->
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            val receipt = prepared(journal)
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking {
+                    StabilizationPersonalMutationGate.withPreparedRecovery(
+                        journal, receipt.copy(targetDigest = "e".repeat(64)),
+                    ) { "bad" }
+                }
+            }
+            assertEquals(receipt, StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
+        }
+    }
+
+    @Test fun nestedRecoveryPermitCannotBeReusedAsDifferentAuthority() = sandbox { journal ->
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            val receipt = prepared(journal)
+            StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
+                assertThrows(IllegalStateException::class.java) {
+                    runBlocking {
+                        StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
+                            "bad"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }
