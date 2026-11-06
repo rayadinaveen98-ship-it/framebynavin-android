@@ -28,7 +28,7 @@ jobs:
           cat /tmp/stabilization-files.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicy.kt|app/src/main/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuard.kt|app/src/main/java/com/framebynavin/app/personal/PersonalBackupTransfer.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderCommands.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/test/java/com/framebynavin/app/personal/PersonalCreationPostCommitWarningTest.kt|app/src/main/java/com/framebynavin/app/cloud/PersonalCloudSyncManager.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicyTest.kt|app/src/test/java/com/framebynavin/app/personal/PersonalLinkedReferencePolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuardDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/BacklotStabilizationEmptyCreatorUiTest.kt|.github/scripts/backlot-stabilization-creator-empty-android15.sh|.github/workflows/backlot-stabilization-closure.yml|docs/release/BACKLOT_STABILIZATION_PENDING_CLOSURE.md) ;;
+              app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicy.kt|app/src/main/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuard.kt|app/src/main/java/com/framebynavin/app/personal/PersonalBackupTransfer.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderCommands.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/test/java/com/framebynavin/app/personal/PersonalCreationPostCommitWarningTest.kt|app/src/test/java/com/framebynavin/app/personal/PersonalPostRestoreWidgetPolicyTest.kt|app/src/main/java/com/framebynavin/app/cloud/PersonalCloudSyncManager.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicyTest.kt|app/src/test/java/com/framebynavin/app/personal/PersonalLinkedReferencePolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuardDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/BacklotStabilizationEmptyCreatorUiTest.kt|.github/scripts/backlot-stabilization-creator-empty-android15.sh|.github/workflows/backlot-stabilization-closure.yml|docs/release/BACKLOT_STABILIZATION_PENDING_CLOSURE.md) ;;
               *) echo "BLOCKED: non-stabilization source change $path" >&2; exit 1;;
             esac
           done < /tmp/stabilization-files.txt
@@ -97,6 +97,20 @@ jobs:
           assert int(result.get('failures','0')) == 0
           assert int(result.get('errors','0')) == 0
           print('PASS: saved reminder IDs are preserved and warnings are not false save failures')
+          PY
+      - name: Require post-restore widget refresh failure and cancellation regressions
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalPostRestoreWidgetPolicyTest.xml'))
+          assert len(files)==1, 'Post-restore widget policy tests missing'
+          suite=ET.parse(files[0]).getroot()
+          assert int(suite.get('tests','0')) >= 4
+          assert int(suite.get('failures','0')) == 0
+          assert int(suite.get('errors','0')) == 0
+          print('PASS: widget refresh failure is post-commit attention; cancellation propagates')
           PY
       - name: Enable Android 15 emulator KVM acceleration
         run: |
