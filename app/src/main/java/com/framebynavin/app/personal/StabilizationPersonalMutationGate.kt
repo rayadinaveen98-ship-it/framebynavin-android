@@ -73,6 +73,17 @@ internal object StabilizationPersonalMutationGate {
         finally { granted.active = false }
     }
 
+    /** Reject any direct restore domain call outside the journaled write scope. */
+    internal suspend fun requireActiveRecovery(context: Context) {
+        val root = journalRootFor(context)
+        val path = root.absoluteFile.normalize().path
+        val permit = currentCoroutineContext()[RecoveryPermit]
+        check(permit != null && permit.active && permit.root == path) {
+            "Only the exclusive authenticated restore coordinator may write recovery data"
+        }
+        ensureMatchingRecoveryJournal(root, permit)
+    }
+
     internal fun journalRootFor(context: Context): File =
         File(context.applicationContext.filesDir, ACTIVE)
 
