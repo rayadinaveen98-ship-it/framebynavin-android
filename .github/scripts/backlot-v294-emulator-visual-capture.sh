@@ -13,9 +13,9 @@ adb shell pm clear com.framebynavin.app # disposable test emulator only
 prep_log="$(mktemp)"
 adb shell am instrument -w -r \
   -e hardeningTestEnvironment ci-emulator \
-  -e class com.framebynavin.app.personal.V304RestorePreparationDeviceTest \
+  -e class com.framebynavin.app.personal.V304RestorePreparationDeviceTest,com.framebynavin.app.personal.V305RollbackEscrowDeviceTest \
   com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$prep_log"
-if ! grep -Fq "OK (1 test)" "$prep_log" ||
+if ! grep -Fq "OK (2 tests)" "$prep_log" ||
    grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$prep_log"; then
   cat "$prep_log" >&2
   adb logcat -d -v threadtime | tail -120 || true
