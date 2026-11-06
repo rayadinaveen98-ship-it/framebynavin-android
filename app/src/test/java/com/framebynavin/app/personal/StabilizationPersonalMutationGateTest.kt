@@ -7,6 +7,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -75,6 +76,40 @@ class StabilizationPersonalMutationGateTest {
         assertThrows(IllegalStateException::class.java) {
             runBlocking { StabilizationPersonalMutationGate.withOwnerMutation(journal) { "no" } }
         }
+    }
+    @Test fun nestedSpacePhotoWriteSharesPermitWithoutDeadlock() = sandbox { journal ->
+        val order = mutableListOf<String>()
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            order += "space"
+            withContext(Dispatchers.IO) {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+                    order += "photo"
+                }
+            }
+            order += "done"
+        }
+        assertEquals(listOf("space", "photo", "done"), order)
+    }
+    @Test fun nestedPermitForAnotherJournalRootIsRejected() = sandbox { journal ->
+        val other = File(journal.parentFile, "another-recovery")
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+                    StabilizationPersonalMutationGate.withOwnerMutation(other) { "unsafe" }
+                }
+            }
+        }
+    }
+    @Test fun nestedWriteRechecksJournalAfterItAppears() = sandbox { journal ->
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+                    journal.mkdir()
+                    StabilizationPersonalMutationGate.withOwnerMutation(journal) { "unsafe" }
+                }
+            }
+        }
+        assertTrue(journal.exists())
     }
     @Test fun cancelledOwnerWriteReleasesLock() = sandbox { journal ->
         assertThrows(CancellationException::class.java) {
