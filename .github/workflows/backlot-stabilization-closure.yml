@@ -1,0 +1,150 @@
+name: Backlot — Pending Work Closure / No New Features
+
+on:
+  push:
+    branches: [stabilization/backlot-pending-closure]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-stabilization-pending-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  first-run-visual-closure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 140
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Reject any unreviewed new feature or data change
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin refs/heads/feature/backlot-v310-personal-composer-links:refs/remotes/origin/feature/backlot-v310-personal-composer-links
+          git diff --name-only origin/feature/backlot-v310-personal-composer-links HEAD > /tmp/stabilization-files.txt
+          cat /tmp/stabilization-files.txt
+          while IFS= read -r path; do
+            case "$path" in
+              app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicy.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V290SpacePhotos.kt|app/src/test/java/com/framebynavin/app/personal/spaces/V290PhotoTimelinePolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuard.kt|app/src/main/java/com/framebynavin/app/personal/PersonalBackupTransfer.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderCommands.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/test/java/com/framebynavin/app/personal/PersonalCreationPostCommitWarningTest.kt|app/src/test/java/com/framebynavin/app/personal/PersonalPostRestoreWidgetPolicyTest.kt|app/src/main/java/com/framebynavin/app/cloud/PersonalCloudSyncManager.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicyTest.kt|app/src/test/java/com/framebynavin/app/personal/PersonalLinkedReferencePolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/PersonalLinkedReferenceGuardDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/BacklotStabilizationEmptyCreatorUiTest.kt|.github/scripts/backlot-stabilization-creator-empty-android15.sh|.github/workflows/backlot-v310-personal-links.yml|.github/workflows/backlot-stabilization-closure.yml|docs/release/BACKLOT_STABILIZATION_PENDING_CLOSURE.md) ;;
+              *) echo "BLOCKED: non-stabilization source change $path" >&2; exit 1;;
+            esac
+          done < /tmp/stabilization-files.txt
+          echo 'PASS: only empty-state polish, read-only recovery planning, acceptance tests and release tracking changed'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile complete debug app and Android tests, run full unit regression
+        run: |
+          set -euo pipefail
+          # Confirmed prior Kotlin compiler Java-heap OOM at 4 GiB with ~9.7 GiB RAM available.
+          # Use one 8 GiB in-process compiler and capture diagnostics.
+          (while sleep 180; do
+            echo '--- Gradle resource heartbeat ---'
+            free -m
+            ps -eo pid,etime,rss,%cpu,comm --sort=-rss | head -9
+          done) &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || true' EXIT
+          timeout 110m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require nine all-domain recovery target-planning regression cases
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          matches=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*StabilizationRestoreTargetPolicyTest.xml'))
+          assert len(matches)==1, 'Recovery target policy regression suite missing'
+          result=ET.parse(matches[0]).getroot()
+          assert int(result.get('tests','0')) >= 10, 'Recovery target cases were skipped'
+          assert int(result.get('failures','0')) == 0
+          assert int(result.get('errors','0')) == 0
+          print('PASS: all-domain non-destructive merge target, conflict, photo path and idempotency')
+          PY
+      - name: Require safe JPEG filename-to-photo-ID and timeline regression coverage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V290PhotoTimelinePolicyTest.xml'))
+          assert len(files)==1, 'Photo identity and timeline tests missing'
+          suite=ET.parse(files[0]).getroot()
+          assert int(suite.get('tests','0')) >= 8
+          assert int(suite.get('failures','0')) == 0
+          assert int(suite.get('errors','0')) == 0
+          print('PASS: genuine UUID JPEGs accepted; alias IDs rejected')
+          PY
+      - name: Require six linked-reference protection policy regressions
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          paths=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalLinkedReferencePolicyTest.xml'))
+          assert len(paths)==1, 'Linked-reference guard suite missing'
+          suite=ET.parse(paths[0]).getroot()
+          assert int(suite.get('tests','0')) >= 6
+          assert int(suite.get('failures','0')) == 0
+          assert int(suite.get('errors','0')) == 0
+          print('PASS: Personal cloud/manual replacement link protection')
+          PY
+      - name: Require Personal post-commit save-warning regression coverage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          matches=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalCreationPostCommitWarningTest.xml'))
+          assert len(matches)==1, 'Post-save warning test suite missing'
+          result=ET.parse(matches[0]).getroot()
+          assert int(result.get('tests','0')) >= 3
+          assert int(result.get('failures','0')) == 0
+          assert int(result.get('errors','0')) == 0
+          print('PASS: saved reminder IDs are preserved and warnings are not false save failures')
+          PY
+      - name: Require post-restore widget refresh failure and cancellation regressions
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*PersonalPostRestoreWidgetPolicyTest.xml'))
+          assert len(files)==1, 'Post-restore widget policy tests missing'
+          suite=ET.parse(files[0]).getroot()
+          assert int(suite.get('tests','0')) >= 4
+          assert int(suite.get('failures','0')) == 0
+          assert int(suite.get('errors','0')) == 0
+          print('PASS: widget refresh failure is post-commit attention; cancellation propagates')
+          PY
+      - name: Enable Android 15 emulator KVM acceleration
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify compact Creator screen and Personal cloud restore linked-ID safety
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-stabilization-creator-empty-android15.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-Stabilization-Creator-Empty-Android15
+          path: output/stabilization-creator-empty/
+          retention-days: 30
+          if-no-files-found: warn

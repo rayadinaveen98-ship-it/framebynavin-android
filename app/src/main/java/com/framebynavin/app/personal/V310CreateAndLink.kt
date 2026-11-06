@@ -36,6 +36,8 @@ internal data class V310CreateResult(
     val linkedGroup: Boolean,
     /** Never claim all linked if a post-save store write failed. */
     val linkProblems: List<String>,
+    /** Reminder saved but its alarm/widget post-commit setup needs review. */
+    val deliveryNeedsAttention: Boolean = false,
 )
 
 /**
@@ -70,7 +72,16 @@ internal class V310CreateAndLink(context: Context) {
             }
         }
 
-        val reminder = commands.create(draft)
+        // Scheduling and widgets happen after the canonical DataStore save.
+        // Even if Android refuses post-commit setup, preserve the committed ID
+        // and finish requested Space/Group links instead of making a duplicate.
+        var deliveryNeedsAttention = false
+        val reminder = try {
+            commands.create(draft)
+        } catch (saved: PersonalReminderCreatedButNeedsAttention) {
+            deliveryNeedsAttention = true
+            saved.savedReminder
+        }
         val problems = mutableListOf<String>()
         var linkedSpace = false
         var linkedGroup = false
@@ -111,7 +122,10 @@ internal class V310CreateAndLink(context: Context) {
                 problems.add("Group link wasn't added")
             }
         }
-        return V310CreateResult(reminder, linkedSpace, linkedGroup, problems)
+        return V310CreateResult(
+            reminder, linkedSpace, linkedGroup, problems,
+            deliveryNeedsAttention = deliveryNeedsAttention,
+        )
     }
 
     private suspend fun <T> withSpaceDao(

@@ -70,6 +70,12 @@ internal object V290PhotoTimelinePolicy {
             "Invalid photo timestamps"
         }
         require(NAME_PATTERN.matches(photo.fileName)) { "Unsafe photo file name" }
+        // All Backlot-generated JPEGs are named after their immutable photo ID.
+        // An imported UUID-shaped alias could point at another owner's/private
+        // photo even if it matches the generic safe-basename regex.
+        require(photo.fileName == "${photo.id}.jpg") {
+            "Photo file name does not match its record identity"
+        }
         require(HEX_PATTERN.matches(photo.sha256Hex)) { "Photo checksum missing" }
         require(photo.widthPx in 1..2048 && photo.heightPx in 1..2048) {
             "Photo dimensions are not supported"

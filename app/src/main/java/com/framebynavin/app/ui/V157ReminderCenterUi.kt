@@ -140,7 +140,7 @@ internal fun V157ReminderCenterUi(
         )
         // No redundant "alerts ready" status card. Real permission problems
         // remain visible and actionable; history lives in Activity Center.
-        if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE) {
+        if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE && activeReminders.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
             Surface(
                 onClick = {
@@ -273,6 +273,9 @@ internal fun V157ReminderCenterUi(
                         .padding(horizontal = 18.dp)
                         .padding(bottom = 45.dp),
                 ) {
+                    // A first-run empty inbox should not be a dashboard of three
+                    // zero tiles. Keep the full counters once a reminder exists.
+                    if (activeIds.isNotEmpty()) {
                     Text(
                         "Manage the next check-in without changing your project.",
                         color = MutedText,
@@ -288,7 +291,11 @@ internal fun V157ReminderCenterUi(
                         V157InboxCount("TODAY", todayCount, MutedGold, Modifier.weight(1f))
                         V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
                     }
+                    }
 
+                    // Empty state keeps History reachable but does not show
+                    // search and multiple zero-count chips with no reminders.
+                    if (activeIds.isNotEmpty() || historyOpen) {
                     // V219.2: on-device search, directly composed with V219 chips.
                     Spacer(Modifier.height(13.dp))
                     OutlinedTextField(
@@ -357,6 +364,24 @@ internal fun V157ReminderCenterUi(
                             label = { Text("History", fontSize = 11.sp, maxLines = 1) },
                             modifier = Modifier.testTag("v2193-history-tab"),
                         )
+                    }
+                    } else {
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 9.dp),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    historyOpen = true
+                                    hubFilter = V219ReminderHubFilter.ALL
+                                    searchQuery = ""
+                                    selected = emptySet()
+                                },
+                                modifier = Modifier.testTag("v2193-history-tab"),
+                            ) {
+                                Text("HISTORY", color = MutedGold, fontSize = 11.sp)
+                            }
+                        }
                     }
                     if (!historyOpen && searchQuery.isBlank()) reminderStatusPanels()
                     if (historyOpen) {

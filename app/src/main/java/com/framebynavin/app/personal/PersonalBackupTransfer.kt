@@ -67,6 +67,13 @@ internal class PersonalBackupTransfer(context: Context) {
     suspend fun restoreApproved(raw: String): PersonalBackupRestoreReceipt {
         val snapshot = PersonalCompletionBackupCodec.decode(raw)
         val clean = PersonalBackupPolicy.resetDeviceLeases(snapshot.reminders)
+        // Unlike the encrypted whole-Personal archive, this legacy import
+        // replaces only reminder definitions/Done receipts. Refuse it if
+        // existing local Groups or Spaces would be left pointing to removed
+        // IDs. Keep all original data intact on this read-only rejection.
+        PersonalLinkedReferenceGuard(app).verifyIncomingIds(
+            clean.mapTo(HashSet()) { it.id },
+        )
         var previous = emptyList<PersonalReminder>()
         // Retain both journals under the same serialized Personal DataStore lock.
         // Failure to persist the independent recovery copy aborts the replacement.
@@ -103,7 +110,16 @@ internal class PersonalBackupTransfer(context: Context) {
             attention = true
             android.util.Log.w("BacklotPersonal", "Post-restore reschedule deferred", error)
         }
-        V224WidgetUpdater.refresh(app)
+        // The Personal DataStore replacement has already committed above.
+        // Widget failure must never look like an uncommitted restore or invite
+        // a second destructive import of the same backup.
+        if (!PersonalPostRestoreWidgetPolicy.refresh { V224WidgetUpdater.refresh(app) }) {
+            attention = true
+            android.util.Log.w(
+                "BacklotPersonal",
+                "Post-restore widget refresh deferred; Personal records are saved",
+            )
+        }
         return PersonalBackupRestoreReceipt(clean.size, attention)
     }
 }
@@ -147,5 +163,21 @@ internal object PersonalBackupIo {
             output.write(buffer, 0, count)
         }
         return output.toByteArray().toString(Charsets.UTF_8)
+    }
+}
+
+/**
+ * A failed widget refresh occurs strictly AFTER the canonical DataStore
+ * transaction. Preserve the restored data and mark follow-up attention.
+ * Cancellation is never hidden as a successful refresh.
+ */
+internal object PersonalPostRestoreWidgetPolicy {
+    fun refresh(refreshWidget: () -> Unit): Boolean = try {
+        refreshWidget()
+        true
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
     }
 }

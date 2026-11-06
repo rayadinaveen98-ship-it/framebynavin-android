@@ -2,6 +2,7 @@ package com.framebynavin.app.cloud
 
 import android.content.Context
 import com.framebynavin.app.personal.PersonalBackupTransfer
+import com.framebynavin.app.personal.PersonalLinkProtectionException
 import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 import java.security.MessageDigest
@@ -185,6 +186,8 @@ internal class PersonalCloudSyncManager(context: Context) {
                     "Personal cloud session expired; sign in again."
                 else if (error is CloudHttpException && error.statusCode == 403)
                     "Personal cloud access was denied."
+                else if (error is PersonalLinkProtectionException)
+                    error.message ?: "Personal cloud replacement would remove linked reminders."
                 else "Personal Reminders were NOT confirmed synced. Check connection and try again.",
                 retryable,
             )

@@ -7,6 +7,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
 
 /**
  * One reliable write boundary for new Personal UI. This deliberately never
@@ -68,6 +69,19 @@ internal data class PersonalReminderDraft(
     )
 }
 
+/**
+ * The reminder itself has ALREADY been durably committed. This is not a failed
+ * Save, and retrying as a new reminder would duplicate the owner's schedule.
+ */
+internal class PersonalReminderCreatedButNeedsAttention(
+    val savedReminder: PersonalReminder,
+    cause: Throwable,
+) : IllegalStateException(
+    "Reminder saved, but alert scheduling or widget refresh needs attention. " +
+        "Review your reminder and Android alert permissions.",
+    cause,
+)
+
 internal class PersonalReminderCommands(context: Context) {
     private val app = context.applicationContext
     private val store = PersonalReminderStore(app)
@@ -76,8 +90,16 @@ internal class PersonalReminderCommands(context: Context) {
     suspend fun create(draft: PersonalReminderDraft): PersonalReminder {
         val checked = draft.checked().toRecord()
         store.create(checked)
-        delivery.reconcile()
-        V224WidgetUpdater.refresh(app)
+        // Anything after store.create is post-commit. A background permission,
+        // service or widget error must NOT masquerade as an unsaved reminder.
+        try {
+            delivery.reconcile()
+            V224WidgetUpdater.refresh(app)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            throw PersonalReminderCreatedButNeedsAttention(checked, failure)
+        }
         return checked
     }
 
