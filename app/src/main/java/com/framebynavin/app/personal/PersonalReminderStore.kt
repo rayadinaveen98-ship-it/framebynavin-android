@@ -75,7 +75,8 @@ internal class PersonalReminderStore(context: Context) {
         beforeReplace: ((List<PersonalReminder>, List<PersonalCompletionEvent>) -> Unit)? = null,
         change: (List<PersonalReminder>) -> List<PersonalReminder>,
     ): List<PersonalReminder> =
-        personalReminderMutationMutex.withLock {
+        StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            personalReminderMutationMutex.withLock {
             var committed = emptyList<PersonalReminder>()
             data.edit { prefs ->
                 val currentRaw = prefs[mainKey]
@@ -123,6 +124,7 @@ internal class PersonalReminderStore(context: Context) {
                 committed = updated
             }
             committed
+            }
         }
 
     suspend fun exportPersonalJson(): String = personalReminderMutationMutex.withLock {
