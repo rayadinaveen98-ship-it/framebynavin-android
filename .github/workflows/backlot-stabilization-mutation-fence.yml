@@ -1,0 +1,85 @@
+name: Backlot stabilization - Personal mutation fence QA
+
+on:
+  push:
+    branches: [stabilization/recovery-mutation-fence]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-stabilization-mutation-fence
+  cancel-in-progress: true
+
+jobs:
+  fence-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 140
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Reject unreviewed feature, cloud, signing or live restore changes
+        run: |
+          set -euo pipefail
+          frozen=e5c8121076e851af59d4b97b23bcaeddc99654f1
+          git fetch --depth=1 origin refs/heads/stabilization/pending-restore-journal:refs/remotes/origin/stabilization/pending-restore-journal
+          test "$(git rev-parse origin/stabilization/pending-restore-journal)" = "$frozen"
+          git diff --name-only "$frozen" HEAD > /tmp/mutation-fence-files.txt
+          while IFS= read -r path; do
+            case "$path" in
+              app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderStore.kt|app/src/main/java/com/framebynavin/app/personal/V297ChallengeStore.kt|app/src/main/java/com/framebynavin/app/personal/V298ReminderGroupStore.kt|app/src/main/java/com/framebynavin/app/personal/V301LocalRecoveryReader.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V289PersonalSpacesScreen.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateDeviceTest.kt|.github/workflows/backlot-stabilization-mutation-fence.yml|.github/scripts/backlot-stabilization-mutation-fence-android15.sh) ;;
+              *) echo "BLOCKED: change outside mutation-fence stabilization $path" >&2; exit 1;;
+            esac
+          done < /tmp/mutation-fence-files.txt
+          echo 'PASS: strictly existing Personal and Space mutation paths'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile app and run full Kotlin unit regression suite
+        run: |
+          set -euo pipefail
+          (while sleep 180; do
+            echo '--- Build memory heartbeat ---'
+            free -m
+            ps -eo pid,etime,rss,%cpu,comm --sort=-rss | head -9
+          done) &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || true' EXIT
+          timeout 110m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require seven recovery-mutation gate regressions
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          paths=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*StabilizationPersonalMutationGateTest.xml'))
+          assert len(paths)==1, 'Mutation gate suite did not execute'
+          root=ET.parse(paths[0]).getroot()
+          assert int(root.get('tests',0)) >= 7
+          assert int(root.get('failures',0)) == 0 and int(root.get('errors',0)) == 0
+          print('PASS: durable block, serialized read/write, cancelled action and corruption checks')
+          PY
+      - name: Enable Android 15 KVM emulator
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Real DataStore journal blocking on disposable emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-stabilization-mutation-fence-android15.sh
