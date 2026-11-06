@@ -28,7 +28,7 @@ jobs:
           cat /tmp/v306-changed.txt
           while IFS= read -r path; do
             case "$path" in
-              .github/workflows/backlot-v306-activity-center.yml|docs/product/backlot-v306-activity-center.md|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterPolicy.kt|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterScreen.kt|app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt|app/src/test/java/com/framebynavin/app/ui/V306ActivityCenterPolicyTest.kt) ;;
+              .github/workflows/backlot-v306-activity-center.yml|docs/product/backlot-v306-activity-center.md|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterPolicy.kt|app/src/main/java/com/framebynavin/app/ui/V306ActivityCenterScreen.kt|app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt|app/src/test/java/com/framebynavin/app/ui/V306ActivityCenterPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V306ActivityCenterUiTest.kt) ;;
               *) echo "FAIL: V306 changed a non-allowlisted file: $path" >&2; exit 1;;
             esac
           done < /tmp/v306-changed.txt
@@ -45,7 +45,7 @@ jobs:
       - name: Compile app and execute all debug unit tests
         run: |
           set -euo pipefail
-          timeout 80m gradle :app:assembleDebug :app:testDebugUnitTest \
+          timeout 80m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
             --no-daemon --no-parallel --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
@@ -64,6 +64,44 @@ jobs:
           assert tests >= 9 and failures == 0 and errors == 0, (tests, failures, errors)
           print(f'PASS: {tests} V306 evidence and safety tests')
           PY
+      - name: Allow Android 15 emulator KVM acceleration
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run two synthetic Android 15 activity UI tests and capture both views
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = "1"
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell pm clear com.framebynavin.app
+            logfile="$(mktemp)"
+            adb shell am instrument -w -r \
+              -e hardeningTestEnvironment ci-emulator \
+              -e class com.framebynavin.app.ui.V306ActivityCenterUiTest \
+              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$logfile"
+            grep -Fq "OK (2 tests)" "$logfile"
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$logfile"; then exit 1; fi
+            mkdir -p output/v306-visual-audit
+            adb pull /sdcard/Android/data/com.framebynavin.app/files/v306-visual-audit/. output/v306-visual-audit/
+            test "$(find output/v306-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 2
+            (cd output/v306-visual-audit && sha256sum *.png > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V306-Android15-Synthetic-Activity-Screens
+          path: output/v306-visual-audit/
+          retention-days: 30
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:
