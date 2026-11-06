@@ -89,6 +89,17 @@ internal object V304RestorePlanPolicy {
     }
 }
 
+internal data class V304PreparationInventory(
+    val ready: Int,
+    val interrupted: Int,
+    val unrecognized: Int,
+) {
+    init {
+        require(ready >= 0 && interrupted >= 0 && unrecognized >= 0)
+    }
+    val needsReview: Boolean get() = interrupted > 0 || unrecognized > 0
+}
+
 internal data class V304PreparedTransfer(
     val transactionId: String,
     val photoCount: Int,
@@ -261,6 +272,33 @@ internal class V304RestorePreparationStore(private val privateRoot: File) {
             "Untracked or incomplete private preparation files"
         }
         return V304PreparedTransfer(transactionId, array.length(), baseline, archive, "READY")
+    }
+
+    /**
+     * Read-only owner recovery inventory. Interrupted/corrupt folders are
+     * counted but NEVER deleted or installed automatically after a crash.
+     * Names, photo notes and sensitive file paths are never returned.
+     */
+    fun inspectInventory(): V304PreparationInventory {
+        if (!privateRoot.exists()) return V304PreparationInventory(0, 0, 0)
+        require(privateRoot.isDirectory &&
+            !Files.isSymbolicLink(privateRoot.toPath())) {
+            "Private recovery preparation root is unsafe"
+        }
+        var ready = 0
+        var interrupted = 0
+        var unknown = 0
+        privateRoot.listFiles().orEmpty().forEach { child ->
+            if (child.isDirectory &&
+                !Files.isSymbolicLink(child.toPath()) &&
+                UUID_CANONICAL.matches(child.name)) {
+                if (runCatching { inspect(child.name) }.isSuccess) ready++
+                else interrupted++
+            } else {
+                unknown++
+            }
+        }
+        return V304PreparationInventory(ready, interrupted, unknown)
     }
 
     /** Owner-invoked disposal, never touches any live photos or DataStore. */
