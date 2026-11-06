@@ -1,6 +1,5 @@
 package com.framebynavin.app.personal
 
-import com.framebynavin.app.personal.spaces.V289SpacesMetadataCodec
 import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
 import com.framebynavin.app.reminders.ReminderMusicMode
@@ -97,8 +96,10 @@ internal object V301RestoreDryRun {
         val importedChallenges = V297ChallengeCodec.decode(incoming.challenges)
         val existingGroups = V298ReminderGroupCodec.decode(local.components.groups)
         val importedGroups = V298ReminderGroupCodec.decode(incoming.groups)
-        val existingSpaces = V289SpacesMetadataCodec.decode(local.components.spaces)
-        val importedSpaces = V289SpacesMetadataCodec.decode(incoming.spaces)
+        val existingSpaces = V303SpaceReceiptArchiveCodec.decode(
+            local.components.spaces, existingPersonal)
+        val importedSpaces = V303SpaceReceiptArchiveCodec.decode(
+            incoming.spaces, importedPersonal)
 
         val incomingIds = importedPersonal.reminders.mapTo(HashSet()) { it.id }
         require(importedGroups.all { g -> g.reminderIds.all { it in incomingIds } }) {
