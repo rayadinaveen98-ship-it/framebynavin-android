@@ -23,7 +23,7 @@ jobs:
       - name: Reject unreviewed feature, cloud, signing or live restore changes
         run: |
           set -euo pipefail
-          frozen=e5c8121076e851af59d4b97b23bcaeddc99654f1
+          frozen=61efb9bddedfe959ba6820fa06322a070127bac0
           git fetch --depth=1 origin refs/heads/stabilization/pending-restore-journal:refs/remotes/origin/stabilization/pending-restore-journal
           test "$(git rev-parse origin/stabilization/pending-restore-journal)" = "$frozen"
           git diff --name-only "$frozen" HEAD > /tmp/mutation-fence-files.txt
