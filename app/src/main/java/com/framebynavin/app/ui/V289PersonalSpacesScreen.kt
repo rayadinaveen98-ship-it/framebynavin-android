@@ -67,7 +67,7 @@ internal fun V289PersonalSpacesScreen(
         onDispose { if (databaseForTesting == null) database.close() }
     }
     val dao = remember(database) { database.spaces() }
-    val repository = remember(dao) { V289SpacesRepository(dao) }
+    val repository = remember(dao) { V289SpacesRepository(context, dao) }
     val personalStore = remember(context) { PersonalReminderStore(context) }
     var personalReminders by remember { mutableStateOf(emptyList<PersonalReminder>()) }
     var doneReceipts by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }

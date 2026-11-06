@@ -73,7 +73,7 @@ class V289SpacesMetadataRecoveryDeviceTest {
         val second = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
         try {
             runBlocking {
-                val owner = V289SpacesRepository(first.spaces())
+                val owner = V289SpacesRepository(app, first.spaces())
                 owner.createSpace(savedSpace)
                 owner.logManualEntry(savedEntry)
                 owner.linkExistingReminder(
@@ -129,7 +129,7 @@ class V289SpacesMetadataRecoveryDeviceTest {
         val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
         try {
             runBlocking {
-                val repo = V289SpacesRepository(db.spaces())
+                val repo = V289SpacesRepository(app, db.spaces())
                 repo.createSpace(savedSpace.copy(title = "Owner's private progress"))
                 val freshSpace = V289PersonalSpacePolicy.newSpace(
                     V289SpaceType.READING, now,

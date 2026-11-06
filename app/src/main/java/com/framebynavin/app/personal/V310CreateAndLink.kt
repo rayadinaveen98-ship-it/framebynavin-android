@@ -93,7 +93,7 @@ internal class V310CreateAndLink(context: Context) {
                     check(current != null && current.archivedAtMillis == null) {
                         "Space was removed or archived while saving"
                     }
-                    val repository = V289SpacesRepository(dao)
+                    val repository = V289SpacesRepository(app, dao)
                     repository.linkExistingReminder(
                         link = V289SpaceReminderLink(
                             spaceId = targets.spaceId,
