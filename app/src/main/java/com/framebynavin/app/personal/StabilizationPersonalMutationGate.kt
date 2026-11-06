@@ -89,6 +89,8 @@ internal object StabilizationPersonalMutationGate {
         val transactionId: String,
         val originalDigest: String,
         val targetDigest: String,
+        val step: StabilizationRestoreWriteStep,
+        val updatedAtMillis: Long,
     ) : AbstractCoroutineContextElement(Key) {
         @Volatile var active = true
         companion object Key : CoroutineContext.Key<InspectionPermit>
@@ -115,6 +117,7 @@ internal object StabilizationPersonalMutationGate {
             val permit = InspectionPermit(
                 journalRoot.absoluteFile.normalize().path,
                 record.transactionId, record.originalDigest, record.targetDigest,
+                record.step, record.updatedAtMillis,
             )
             try { withContext(permit) { action(record) } }
             finally { permit.active = false }
@@ -159,7 +162,9 @@ internal object StabilizationPersonalMutationGate {
             ) { "Pending recovery journal was removed during inspection" }
             check(current.transactionId == inspection.transactionId &&
                 current.originalDigest == inspection.originalDigest &&
-                current.targetDigest == inspection.targetDigest) {
+                current.targetDigest == inspection.targetDigest &&
+                current.step == inspection.step &&
+                current.updatedAtMillis == inspection.updatedAtMillis) {
                 "Recovery journal changed while being inspected"
             }
             return action()
