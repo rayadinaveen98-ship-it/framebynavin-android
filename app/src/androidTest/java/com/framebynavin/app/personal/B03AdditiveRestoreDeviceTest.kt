@@ -146,6 +146,25 @@ class B03AdditiveRestoreDeviceTest {
             }
         }
         assertEquals(listOf(owner, incoming), PersonalReminderStore(app).load())
+        val interrupted = B04InterruptedRecoveryInspector(app).inspectOwnerRequested(
+            escrowId = escrow.id,
+            escrowPassphrase = passphrase,
+            ownerRequested = true,
+        )
+        assertEquals(
+            B04InterruptedRecoveryDisposition.TARGET_PRESENT_AWAITING_OWNER_FINALIZATION,
+            interrupted.disposition,
+        )
+        assertEquals(result.expectedDigest, interrupted.observedSnapshotDigest)
+        assertFalse(interrupted.mayAutoResume)
+        assertFalse(interrupted.mayDeleteJournal)
+        assertThrows(Exception::class.java) {
+            runBlocking {
+                B04InterruptedRecoveryInspector(app).inspectOwnerRequested(
+                    escrow.id, "bad-password-for-synthetic-test".toCharArray(), true,
+                )
+            }
+        }
         // The escrow and journal are retained until B4 owner-mediated recovery,
         // not silently cleared at the end of the test-only B3 transaction.
         assertTrue(journalRoot.exists())
