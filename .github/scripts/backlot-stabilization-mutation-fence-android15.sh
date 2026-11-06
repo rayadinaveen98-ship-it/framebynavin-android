@@ -30,4 +30,18 @@ adb shell am instrument -w -r \
   com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
 grep -Fq 'OK (8 tests)' "$log"
 if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then exit 1; fi
-echo 'PASS: existing Personal, Challenge and Group records survive pending recovery lock'
+echo 'PASS: Personal, Challenge, Group and Room recovery lock regressions'
+
+# Repository constructor now requires Context. Run its existing database,
+# photo-recovery and Space UI device regressions on the *integrated* source.
+# Clear ONLY this disposable emulator's app, never an owner device.
+adb shell pm clear com.framebynavin.app
+spaceLog="$(mktemp)"
+trap 'rm -f "$recoveryLog" "$log" "$spaceLog"' EXIT
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest,com.framebynavin.app.personal.spaces.V290InterruptedPhotoRecoveryDeviceTest,com.framebynavin.app.personal.spaces.V290PrivatePhotoJournalDeviceTest,com.framebynavin.app.ui.V289PersonalSpacesUiTest \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$spaceLog"
+grep -Fq 'OK (20 tests)' "$spaceLog"
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$spaceLog"; then exit 1; fi
+echo 'PASS: all 31 owner-safe Android recovery, Room, photo and Space UI cases'
