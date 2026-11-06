@@ -61,6 +61,7 @@ import kotlinx.coroutines.flow.collect
 internal fun V2232PersonalReminderHub(
     onClose: () -> Unit,
     onCreator: () -> Unit,
+    onOpenActivity: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val store = remember(context) { PersonalReminderStore(context) }
@@ -191,6 +192,12 @@ internal fun V2232PersonalReminderHub(
                 Text("BACKLOT / PERSONAL", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 Text(if (personalPageName == "TODAY") "My day" else "Personal settings",
                     color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            }
+            IconButton(
+                onClick = onOpenActivity,
+                modifier = Modifier.testTag("v306-personal-open-activity"),
+            ) {
+                Icon(Icons.Outlined.NotificationsActive, "Open Activity Center", tint = MutedGold)
             }
             IconButton(
                 onClick = { personalPageName = if (personalPageName == "TODAY") "SETTINGS" else "TODAY" },
