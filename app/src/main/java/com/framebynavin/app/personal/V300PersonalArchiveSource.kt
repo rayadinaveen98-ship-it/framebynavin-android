@@ -71,12 +71,10 @@ internal class V300PersonalArchiveSource(context: Context) {
         // database when none exists. This is NOT an implicit app-home action.
         val db = V289SpacesDatabase.open(app)
         try {
+            val snapshot = V303SpaceSnapshotReader(db).readWithPhotos()
             val metadata = V303SpaceReceiptArchiveCodec.encode(
-                V303SpaceSnapshotReader(db).read(), personal)
-            val dao = db.spaces()
-            val rows = dao.loadSpaces().flatMap { space ->
-                dao.photosForSpace(space.id)
-            }
+                snapshot.state, personal)
+            val rows = snapshot.photos
             check(rows.size <= 500) { "Too many private photos for one archive" }
             val expectedFiles = HashSet<String>()
             val inputs = rows.map { photo ->
