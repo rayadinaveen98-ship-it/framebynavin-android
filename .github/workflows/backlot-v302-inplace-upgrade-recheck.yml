@@ -1,0 +1,67 @@
+name: Backlot V302 - Existing Signed APK In-Place Upgrade Check
+
+on:
+  push:
+    branches: [qa/backlot-v302-signed-owner-installable]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v302-existing-apk-upgrade-recheck
+  cancel-in-progress: true
+
+jobs:
+  signed-inplace-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download ALREADY BUILT signed V302 APK (no rebuild)
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V302-Signed-Owner-Preview-295
+          path: output/v302
+          run-id: 42175337283
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download previously verified signed V294 APK
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V294-Signed-Upgrade-Review-Only
+          path: output/v294
+          run-id: 42048375479
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate both artifact checksums, signers and package versions
+        run: |
+          set -euo pipefail
+          (cd output/v294 && sha256sum -c SHA256SUMS.txt)
+          (cd output/v302 && sha256sum -c SHA256SUMS.txt)
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          "$signer" verify --print-certs output/v294/Backlot-V294-Signed-Upgrade-Candidate.apk > output/v294/SIGNER-CHECK.txt
+          "$signer" verify --print-certs output/v302/Backlot-V302-Signed-Owner-Preview-295.apk > output/v302/SIGNER-CHECK.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/v294/SIGNER-CHECK.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/v302/SIGNER-CHECK.txt
+          "$aapt" dump badging output/v294/Backlot-V294-Signed-Upgrade-Candidate.apk | grep -F "versionCode='294'"
+          "$aapt" dump badging output/v302/Backlot-V302-Signed-Owner-Preview-295.apk | grep -F "versionCode='295'"
+      - name: Enable Android 15 emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install signed V294 then signed V302 with no uninstall
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v302-upgrade-signed-check.sh
