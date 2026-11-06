@@ -84,6 +84,48 @@ internal object StabilizationPersonalMutationGate {
         ensureMatchingRecoveryJournal(root, permit)
     }
 
+    private class InspectionPermit(
+        val root: String,
+        val transactionId: String,
+        val originalDigest: String,
+        val targetDigest: String,
+    ) : AbstractCoroutineContextElement(Key) {
+        @Volatile var active = true
+        companion object Key : CoroutineContext.Key<InspectionPermit>
+    }
+
+    /**
+     * Owner-requested COLD RESTART inspection. Reads may run despite the
+     * journal, but ordinary mutation calls are unconditionally rejected.
+     * Only a fully decoded journal may enter. No rollback/resume authority.
+     */
+    internal suspend fun <T> withPendingRecoveryInspection(
+        journalRoot: File,
+        action: suspend (StabilizationRestoreJournalRecord) -> T,
+    ): T {
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[InspectionPermit] == null) {
+            "Nested recovery inspection or mutation lock is not permitted"
+        }
+        return processMutex.withLock {
+            val record = checkNotNull(
+                StabilizationRestoreWriteAheadJournal(journalRoot).inspectAfterRestart()
+            ) { "No pending recovery transaction" }
+            val permit = InspectionPermit(
+                journalRoot.absoluteFile.normalize().path,
+                record.transactionId, record.originalDigest, record.targetDigest,
+            )
+            try { withContext(permit) { action(record) } }
+            finally { permit.active = false }
+        }
+    }
+
+    internal suspend fun <T> withPendingRecoveryInspection(
+        context: Context,
+        action: suspend (StabilizationRestoreJournalRecord) -> T,
+    ): T = withPendingRecoveryInspection(journalRootFor(context), action)
+
     internal fun journalRootFor(context: Context): File =
         File(context.applicationContext.filesDir, ACTIVE)
 
@@ -93,7 +135,7 @@ internal object StabilizationPersonalMutationGate {
 
     internal suspend fun <T> withOwnerMutation(
         journalRoot: File, action: suspend () -> T,
-    ): T = holdGate(journalRoot, action)
+    ): T = holdGate(journalRoot, true, action)
 
     suspend fun <T> withStableSnapshot(
         context: Context, action: suspend () -> T,
@@ -101,10 +143,27 @@ internal object StabilizationPersonalMutationGate {
 
     internal suspend fun <T> withStableSnapshot(
         journalRoot: File, action: suspend () -> T,
-    ): T = holdGate(journalRoot, action)
+    ): T = holdGate(journalRoot, false, action)
 
-    private suspend fun <T> holdGate(root: File, action: suspend () -> T): T {
+    private suspend fun <T> holdGate(
+        root: File, ordinaryMutation: Boolean, action: suspend () -> T,
+    ): T {
         val path = root.absoluteFile.normalize().path
+        val inspection = currentCoroutineContext()[InspectionPermit]
+        if (inspection != null) {
+            check(!ordinaryMutation && inspection.active && inspection.root == path) {
+                "Recovery inspection is read-only and cannot mutate owner data"
+            }
+            val current = checkNotNull(
+                StabilizationRestoreWriteAheadJournal(root).inspectAfterRestart()
+            ) { "Pending recovery journal was removed during inspection" }
+            check(current.transactionId == inspection.transactionId &&
+                current.originalDigest == inspection.originalDigest &&
+                current.targetDigest == inspection.targetDigest) {
+                "Recovery journal changed while being inspected"
+            }
+            return action()
+        }
         val recovery = currentCoroutineContext()[RecoveryPermit]
         if (recovery != null) {
             check(recovery.active && recovery.root == path) {
