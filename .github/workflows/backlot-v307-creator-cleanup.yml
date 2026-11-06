@@ -1,0 +1,85 @@
+name: Backlot V307 - Compact Creator Reminder UI
+
+on:
+  push:
+    branches: [feature/backlot-v307-compact-creator-reminder-inbox]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v307-creator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  creator-cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Restrict V307 changes to Creator interface and tests
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin refs/heads/feature/backlot-v306-unified-activity-center:refs/remotes/origin/feature/backlot-v306-unified-activity-center
+          git diff --name-only origin/feature/backlot-v306-unified-activity-center HEAD > /tmp/v307-changed.txt
+          cat /tmp/v307-changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/backlot-v307-creator-cleanup.yml|.github/scripts/backlot-v307-android15-creator.sh|docs/product/backlot-v307-compact-creator-reminders.md|app/src/main/java/com/framebynavin/app/ui/V307CompactCreatorActivity.kt|app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/test/java/com/framebynavin/app/ui/V307CreatorActivityPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V307CompactCreatorActivityUiTest.kt) ;;
+              *) echo "FAIL: V307 changed non-allowlisted file: $path" >&2; exit 1;;
+            esac
+          done < /tmp/v307-changed.txt
+          echo 'PASS: original schedules, action receivers, owner stores and V306 core untouched'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Assemble app, test APK and execute full JVM regression
+        run: |
+          set -euo pipefail
+          timeout 80m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Check six V307 safety policy tests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V307CreatorActivityPolicyTest.xml'))
+          assert len(files)==1, 'V307 policy test suite missing'
+          root=ET.parse(files[0]).getroot()
+          assert int(root.get('tests','0'))>=6
+          assert int(root.get('failures','0'))==0
+          assert int(root.get('errors','0'))==0
+          print('PASS: V307 Creator activity policy tests')
+          PY
+      - name: Enable Android 15 emulator acceleration
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify clean Creator screen, navigation and synthetic screenshot
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v307-android15-creator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V307-Android15-Creator-Screenshot
+          path: output/v307-visual-audit/
+          retention-days: 30
+          if-no-files-found: warn
