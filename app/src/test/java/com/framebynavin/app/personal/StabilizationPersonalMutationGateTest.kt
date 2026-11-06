@@ -269,4 +269,48 @@ class StabilizationPersonalMutationGateTest {
     }
 
 
+    @Test fun pendingInspectionRejectsCheckpointAdvanceDuringRead() = sandbox { journal ->
+        prepared(journal)
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) {
+            val updated = StabilizationRestoreWriteAheadJournal(journal).checkpoint(
+                StabilizationRestoreWriteStep.PREPARED,
+                StabilizationRestoreWriteStep.BEFORE_PERSONAL,
+                101L,
+            )
+            assertEquals(StabilizationRestoreWriteStep.BEFORE_PERSONAL, updated.step)
+            var readRan = false
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking {
+                    StabilizationPersonalMutationGate.withStableSnapshot(journal) {
+                        readRan = true
+                    }
+                }
+            }
+            assertFalse("Changed journal must not authorize stale read", readRan)
+        }
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) { "blocked" }
+            }
+        }
+    }
+
+    @Test fun pendingInspectionRejectsSameStepTimestampRewrite() = sandbox { journal ->
+        prepared(journal)
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { original ->
+            val active = File(journal, "active.journal")
+            val updated = original.copy(updatedAtMillis = original.updatedAtMillis + 1L)
+            active.writeBytes(StabilizationRestoreJournalCodec.encode(updated))
+            var readRan = false
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking {
+                    StabilizationPersonalMutationGate.withStableSnapshot(journal) {
+                        readRan = true
+                    }
+                }
+            }
+            assertFalse("A replaced checkpoint must invalidate inspection", readRan)
+        }
+    }
+
 }
