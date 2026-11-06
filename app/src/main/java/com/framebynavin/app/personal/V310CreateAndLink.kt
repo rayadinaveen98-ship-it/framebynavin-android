@@ -87,7 +87,8 @@ internal class V310CreateAndLink(context: Context) {
         var linkedGroup = false
         if (targets.spaceId != null) {
             try {
-                linkedSpace = withSpaceDao { dao ->
+                linkedSpace = StabilizationPersonalMutationGate.withOwnerMutation(app) {
+                    withSpaceDao { dao ->
                     val current = dao.getSpace(targets.spaceId)
                     check(current != null && current.archivedAtMillis == null) {
                         "Space was removed or archived while saving"
@@ -101,6 +102,7 @@ internal class V310CreateAndLink(context: Context) {
                         ),
                         existingReminderIds = setOf(reminder.id),
                     )
+                    }
                 }
                 if (!linkedSpace) problems.add("Space link wasn't added")
             } catch (cancelled: CancellationException) {
