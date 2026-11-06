@@ -9,6 +9,7 @@ import com.framebynavin.app.personal.spaces.V289SpaceReminderLink
 import com.framebynavin.app.personal.spaces.V289SpaceState
 import com.framebynavin.app.personal.spaces.V289SpaceType
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
+import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
 
 /**
  * Explicit owner-export read within one Room transaction. Unlike V289's
@@ -17,8 +18,16 @@ import com.framebynavin.app.personal.spaces.V289SpacesDatabase
  *
  * Does not write entries, infer progress or change the existing V289 codec.
  */
+internal data class V303SpaceSnapshot(
+    val state: V289SpaceState,
+    val photos: List<V290SpacePhotoEntity>,
+)
+
 internal class V303SpaceSnapshotReader(private val db: V289SpacesDatabase) {
-    suspend fun read(): V289SpaceState = db.withTransaction {
+    suspend fun read(): V289SpaceState = readWithPhotos().state
+
+    /** Metadata and photo ROWS share one SQLite revision. Bytes are verified later. */
+    suspend fun readWithPhotos(): V303SpaceSnapshot = db.withTransaction {
         val dao = db.spaces()
         val spaces = dao.loadSpaces().map { row ->
             V289PersonalSpace(
@@ -55,6 +64,12 @@ internal class V303SpaceSnapshotReader(private val db: V289SpacesDatabase) {
                 originalOccurrenceMillis = row.originalOccurrenceMillis,
             )
         }
-        V289SpaceState(spaces, links, entries)
+        val photos = spaces.flatMap { space ->
+            dao.photosForSpace(space.id)
+        }
+        V303SpaceSnapshot(
+            state = V289SpaceState(spaces, links, entries),
+            photos = photos,
+        )
     }
 }
