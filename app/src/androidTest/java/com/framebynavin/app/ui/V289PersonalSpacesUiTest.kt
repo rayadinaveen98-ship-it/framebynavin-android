@@ -196,8 +196,10 @@ class V289PersonalSpacesUiTest {
                 rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
             }
             rule.onNodeWithTag("v289-create-open").performClick()
-            rule.onNodeWithTag("v289-create-save").performClick()
-            rule.waitUntil(12_000) {
+            rule.onNodeWithTag("v289-create-save").assertIsEnabled().performClick()
+            // Room writes and the photo section are asynchronous. On shared
+            // Android 15 CI runners the first composition can exceed 12s.
+            rule.waitUntil(30_000) {
                 rule.onAllNodesWithTag("v290-photo-journal").fetchSemanticsNodes().isNotEmpty()
             }
             rule.onNodeWithTag("v290-photo-empty").assertExists()
