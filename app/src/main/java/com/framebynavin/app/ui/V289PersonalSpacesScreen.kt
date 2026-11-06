@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.spaces.*
+import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.personal.PersonalReminder
 import com.framebynavin.app.personal.PersonalCompletionEvent
@@ -153,7 +154,7 @@ internal fun V289PersonalSpacesScreen(
         busy = true
         coroutineScope.launch {
             try {
-                block()
+                StabilizationPersonalMutationGate.withOwnerMutation(context) { block() }
                 error = null
             } catch (_: Exception) {
                 error = "Action failed. Review the current Space before trying again."
@@ -171,7 +172,7 @@ internal fun V289PersonalSpacesScreen(
         busy = true
         coroutineScope.launch {
             try {
-                block()
+                StabilizationPersonalMutationGate.withOwnerMutation(context) { block() }
                 error = null
             } catch (_: Exception) {
                 error = failureMessage
