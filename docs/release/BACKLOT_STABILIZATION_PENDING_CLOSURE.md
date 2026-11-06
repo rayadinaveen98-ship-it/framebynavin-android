@@ -23,6 +23,12 @@ The V307 Android 15 screenshot `01-creator-clean-empty.png` showed **three large
 
 This branch keeps the original Activity Center action in the toolbar and a standalone History link, but collapses the redundant counts and search/filters while there are no active reminders. Valid reminders still show the full status, search and filtering controls; only active reminders trigger the delivery-permission warning. The empty-state test asserts retained History and Activity Center access and captures an Android 15 screenshot.
 
+## Recovery target planning — additional safety work in this stabilization branch
+
+The separate `StabilizationRestoreTargetPolicy` computes a **non-writing additive merge target** for the existing validated Personal archive domains. It preserves every original phone record and active lease, appends missing imported records, verifies Space/Group reminder references and exact Done receipts, normalizes nonportable incoming alarm tokens/music URIs, and rejects duplicate destination photo paths across distinct photo IDs. It returns only a comparison/digest and has `authorizedToWriteLive = false`.
+
+Nine JVM tests exercise eight-domain additions, local-only preservation, portable same-ID idempotency, unsafe lease stripping, ID collision rejection, unverified local integrity, photo-path collision and unchanged Group membership. This is a prerequisite to safely implementing a journaled commit/rollback flow, **not** a complete restore. The actual transaction writer and crash recovery are still missing. Never expose a Restore button based on this pure target planner alone.
+
 ## Still blocking stable release
 
 1. V309 **populated** Activity Center screenshot evidence and V310 optional Space/Group Android tests, currently running in their own QA branches.
