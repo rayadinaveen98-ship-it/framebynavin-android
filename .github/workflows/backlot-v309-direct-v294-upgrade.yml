@@ -1,0 +1,117 @@
+name: Backlot V309 - Direct V294 Owner Upgrade Data Preservation
+
+on:
+  push:
+    branches: [qa/backlot-v309-direct-v294-upgrade]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v309-direct-v294-upgrade
+  cancel-in-progress: true
+
+jobs:
+  direct-v294-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 125
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require exact V309 source, permit only synthetic upgrade QA
+        run: |
+          set -euo pipefail
+          test "$(grep -c 'versionCode = 309' app/build.gradle.kts)" -eq 1
+          git fetch --depth=1 origin refs/heads/qa/backlot-v308-owner-preservation-309:refs/remotes/origin/qa/backlot-v308-owner-preservation-309
+          original=727d0dd815a622d9b6fcfee9ec64b7ef81b0db92
+          test "$(git rev-parse origin/qa/backlot-v308-owner-preservation-309)" = "$original" || {
+            echo 'FAIL: frozen V309 source changed unexpectedly' >&2
+            exit 1
+          }
+          git diff --name-only "$original" HEAD > /tmp/v309-direct-changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/backlot-v309-direct-v294-upgrade.yml|.github/scripts/backlot-v309-direct-v294-inplace-preservation.sh|docs/product/backlot-v309-direct-v294-upgrade.md|app/src/androidTest/java/com/framebynavin/app/upgrade/V309FromV294CreatorPersonalUpgradeDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/upgrade/V309FromV294SpacePhotoUpgradeDeviceTest.kt) ;;
+              *) echo "FAIL: app source must be identical to frozen V309; found $path" >&2; exit 1;;
+            esac
+          done < /tmp/v309-direct-changed.txt
+          echo 'PASS: no production source, data schema, scheduling, cloud or signer changes'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build identical V309 owner app and instrumentation APK
+        run: |
+          set -euo pipefail
+          timeout 90m gradle :app:assemblePersonalStable :app:assemblePersonalStableAndroidTest \
+            -PbacklotSignedOwnerTest=true -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          mkdir -p output/v309
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/v309/Backlot-V309-Direct-Upgrade-QA.apk
+          cp app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk output/v309/app-personalStable-androidTest.apk
+          (cd output/v309 && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V294-Signed-Upgrade-Review-Only
+          path: output/v294
+          run-id: 42048375479
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify V294 and V309 checksums, V2 certificate and increasing version
+        run: |
+          set -euo pipefail
+          (cd output/v294 && sha256sum -c SHA256SUMS.txt)
+          (cd output/v309 && sha256sum -c SHA256SUMS.txt)
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          "$signer" verify --verbose --print-certs output/v294/Backlot-V294-Signed-Upgrade-Candidate.apk > /tmp/v294-signer.txt
+          "$signer" verify --verbose --print-certs output/v309/Backlot-V309-Direct-Upgrade-QA.apk > /tmp/v309-signer.txt
+          "$aapt" dump badging output/v294/Backlot-V294-Signed-Upgrade-Candidate.apk > /tmp/v294-identity.txt
+          "$aapt" dump badging output/v309/Backlot-V309-Direct-Upgrade-QA.apk > /tmp/v309-identity.txt
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          digests=[]
+          for code,prefix in [(294,'v294'),(309,'v309')]:
+              id_text=Path(f'/tmp/{prefix}-identity.txt').read_text()
+              assert f"package: name='com.framebynavin.app' versionCode='{code}'" in id_text
+              sig=Path(f'/tmp/{prefix}-signer.txt').read_text()
+              assert 'Verified using v2 scheme (APK Signature Scheme v2): true' in sig
+              found=re.search(r'V2 Signer: certificate SHA-256 digest: ([0-9a-f]{64})',sig)
+              assert found
+              digests.append(found.group(1))
+          assert len(set(digests))==1
+          assert digests[0]=='f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0'
+          print('PASS: direct V294 to V309 same-certificate signed upgrade eligible')
+          PY
+      - name: Enable Android 15 emulator acceleration
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Confirm V294 to V309 data-preserving upgrade with two independent fixtures
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v309-direct-v294-inplace-preservation.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V309-Direct-V294-Upgrade-Test-Review
+          path: output/v309/
+          retention-days: 14
+          if-no-files-found: warn
