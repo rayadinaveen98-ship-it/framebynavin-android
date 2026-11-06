@@ -107,7 +107,7 @@ jobs:
               ('V300EncryptedPersonalArchiveTest',9),
               ('V300RestoreReadinessPolicyTest',5),
               ('V300PrivatePhotoInventoryPolicyTest',3),
-              ('V301RestoreDryRunTest',10),
+              ('V301RestoreDryRunTest',11),
               ('V302OwnerArchiveFingerprintTest',3),
               ('V298ReminderGroupTest',7),
           ]
