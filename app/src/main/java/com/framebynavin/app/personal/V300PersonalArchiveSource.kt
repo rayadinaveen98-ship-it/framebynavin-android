@@ -75,6 +75,8 @@ internal class V300PersonalArchiveSource(context: Context) {
             val rows = dao.loadSpaces().flatMap { space ->
                 dao.photosForSpace(space.id)
             }
+            check(rows.size <= 500) { "Too many private photos for one archive" }
+            val expectedFiles = HashSet<String>()
             val inputs = rows.map { photo ->
                 val validated = V290PhotoTimelinePolicy.validate(photo)
                 val root = photoRoot.canonicalFile
@@ -88,12 +90,28 @@ internal class V300PersonalArchiveSource(context: Context) {
                 check(file.isFile && file.canRead()) {
                     "A private photo is missing; no complete archive was produced"
                 }
+                check(expectedFiles.add(file.absolutePath)) {
+                    "Duplicate private photo file reference"
+                }
                 V300PhotoSource(
                     photo = validated,
                     sizeBytes = file.length(),
                     open = { file.inputStream() },
                 )
             }
+            // Do not silently exclude orphan JPEGs or interrupted .partial files.
+            // They may contain the owner's only recoverable private photos.
+            val recordedFiles = HashSet<String>()
+            if (photoRoot.exists()) {
+                for (file in photoRoot.walkTopDown()) {
+                    if (!file.isFile) continue
+                    require(recordedFiles.size < 501) {
+                        "Unexpected number of private photo files"
+                    }
+                    recordedFiles.add(file.canonicalPath)
+                }
+            }
+            V300PrivatePhotoInventoryPolicy.requireExactFiles(expectedFiles, recordedFiles)
             return metadata to inputs
         } finally {
             db.close()
@@ -123,4 +141,17 @@ internal data class V300PersonalArchivePreview(
             "$challenges challenges, $groups groups, $spaces Spaces, " +
             "$journalEntries journal entries, $spaceLinks links, " +
             "$verifiedPhotoFiles verified photos."
+}
+
+/**
+ * Missing files, extra files, and untracked interrupted writes all block a
+ * purported complete archive. No private paths are printed in error copy.
+ */
+internal object V300PrivatePhotoInventoryPolicy {
+    fun requireExactFiles(expected: Set<String>, onDisk: Set<String>) {
+        require(expected == onDisk) {
+            "Private photo inventory does not match its records. " +
+                "Resolve missing or untracked photos before exporting."
+        }
+    }
 }
