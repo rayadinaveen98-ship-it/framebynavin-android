@@ -9,6 +9,7 @@ import com.framebynavin.app.personal.spaces.V289SpaceEntryEntity
 import com.framebynavin.app.personal.spaces.V289SpaceEntryKind
 import com.framebynavin.app.personal.spaces.V289SpaceEntrySource
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
+import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
 import java.time.LocalDate
 import java.time.LocalTime
 import kotlinx.coroutines.runBlocking
@@ -58,8 +59,19 @@ class V303SpaceReceiptDeviceTest {
                     metricUnit = null, reminderId = reminderId,
                     originalOccurrenceMillis = occurrence,
                 ))
-                val snapshot = V303SpaceSnapshotReader(db).read()
+                val syntheticPhoto = V290SpacePhotoEntity(
+                    id = "2072a69b-f03b-420e-a0e3-8d68cb936f44",
+                    spaceId = spaceId,
+                    takenAtMillis = 1500L, addedAtMillis = 1600L,
+                    fileName = "2072a69b-f03b-420e-a0e3-8d68cb936f44.jpg",
+                    sha256Hex = "a".repeat(64), widthPx = 400,
+                    heightPx = 600, note = "",
+                )
+                db.spaces().insertPhoto(syntheticPhoto)
+                val consistent = V303SpaceSnapshotReader(db).readWithPhotos()
+                val snapshot = consistent.state
                 assertEquals(1, snapshot.entries.size)
+                assertEquals(listOf(syntheticPhoto), consistent.photos)
                 val archive = V303SpaceReceiptArchiveCodec.encode(snapshot, evidence)
                 val restored = V303SpaceReceiptArchiveCodec.decode(archive, evidence)
                 assertEquals(snapshot, restored)
