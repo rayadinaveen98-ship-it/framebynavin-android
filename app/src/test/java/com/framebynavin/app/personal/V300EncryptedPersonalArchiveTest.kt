@@ -1,6 +1,9 @@
 package com.framebynavin.app.personal
 
 import com.framebynavin.app.personal.spaces.V289PersonalSpace
+import com.framebynavin.app.personal.spaces.V289SpaceEntry
+import com.framebynavin.app.personal.spaces.V289SpaceEntryKind
+import com.framebynavin.app.personal.spaces.V289SpaceEntrySource
 import com.framebynavin.app.personal.spaces.V289SpaceState
 import com.framebynavin.app.personal.spaces.V289SpaceType
 import com.framebynavin.app.personal.spaces.V289SpacesMetadataCodec
@@ -107,6 +110,53 @@ class V300EncryptedPersonalArchiveTest {
         } finally {
             root.deleteRecursively()
         }
+    }
+
+    @Test fun attestedSpaceDoneEntrySurvivesFullEncryptedArchiveRoundTrip() {
+        val original = components()
+        val reminderSnapshot = PersonalCompletionBackupCodec.decode(original.personal)
+        val record = reminderSnapshot.reminders.single()
+        val completed = PersonalCompletionEvent(
+            reminderId = record.id,
+            occurrenceMillis = 2_000L,
+            doneAtMillis = 2_500L,
+        )
+        val existingSpaces = V289SpacesMetadataCodec.decode(original.spaces)
+        val journal = V289SpaceEntry(
+            id = "c8c4af28-5f48-4ff4-aacd-735cf8466fcb",
+            spaceId = existingSpaces.spaces.single().id,
+            kind = V289SpaceEntryKind.CHECK_IN,
+            source = V289SpaceEntrySource.CONFIRMED_REMINDER_DONE,
+            occurredAtMillis = completed.doneAtMillis,
+            createdAtMillis = completed.doneAtMillis + 10L,
+            reminderId = record.id,
+            originalOccurrenceMillis = completed.occurrenceMillis,
+        )
+        val evidence = PersonalCompletionBackupSnapshot(listOf(record), listOf(completed))
+        val data = original.copy(
+            personal = PersonalCompletionBackupCodec.encode(
+                evidence.reminders, evidence.completions),
+            spaces = V303SpaceReceiptArchiveCodec.encode(
+                existingSpaces.copy(entries = listOf(journal)), evidence),
+        )
+        val output = ByteArrayOutputStream()
+        V300EncryptedPersonalArchive.write(data, emptyList(), passphrase, output)
+        val bytes = output.toByteArray()
+        assertFalse(bytes.toString(Charsets.ISO_8859_1).contains("originalOccurrenceMillis"))
+        val root = File(System.getProperty("java.io.tmpdir"),
+            "v303-done-verified-${System.nanoTime()}")
+        check(root.mkdirs())
+        try {
+            V300EncryptedPersonalArchive.stageAndVerify(
+                ByteArrayInputStream(bytes), passphrase, root,
+            ).use {
+                val proof = PersonalCompletionBackupCodec.decode(it.components.personal)
+                val recovered = V303SpaceReceiptArchiveCodec.decode(it.components.spaces, proof)
+                assertEquals(journal, recovered.entries.single())
+                assertEquals(completed, proof.completions.single())
+            }
+            assertTrue(root.listFiles().orEmpty().isEmpty())
+        } finally { root.deleteRecursively() }
     }
 
     @Test fun wrongPasswordNeverProducesAnyRestorableData() {

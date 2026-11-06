@@ -1,6 +1,5 @@
 package com.framebynavin.app.personal
 
-import com.framebynavin.app.personal.spaces.V289SpacesMetadataCodec
 import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
 import java.io.ByteArrayOutputStream
@@ -80,7 +79,8 @@ internal object V300EncryptedPersonalArchive {
         output: OutputStream,
     ) {
         validateComponents(data)
-        val spaceIds = V289SpacesMetadataCodec.decode(data.spaces).spaces.mapTo(HashSet()) { it.id }
+        val spaceIds = V303SpaceReceiptArchiveCodec.decode(data.spaces,
+            PersonalCompletionBackupCodec.decode(data.personal)).spaces.mapTo(HashSet()) { it.id }
         require(sources.size <= MAX_PHOTOS) { "Too many private photos for one archive" }
         val ids = HashSet<String>()
         var total = 0L
@@ -159,7 +159,8 @@ internal object V300EncryptedPersonalArchive {
                     spaces = manifest.getString("spaces"),
                 )
                 validateComponents(data)
-                val availableSpaces = V289SpacesMetadataCodec.decode(data.spaces).spaces
+                val availableSpaces = V303SpaceReceiptArchiveCodec.decode(data.spaces,
+                    PersonalCompletionBackupCodec.decode(data.personal)).spaces
                     .mapTo(HashSet()) { it.id }
                 val rawPhotos = manifest.getJSONArray("photos")
                 require(rawPhotos.length() <= MAX_PHOTOS) { "Too many photo records" }
@@ -246,7 +247,7 @@ internal object V300EncryptedPersonalArchive {
         val reminders = PersonalCompletionBackupCodec.decode(data.personal)
         V297ChallengeCodec.decode(data.challenges)
         val groups = V298ReminderGroupCodec.decode(data.groups)
-        val spaces = V289SpacesMetadataCodec.decode(data.spaces)
+        val spaces = V303SpaceReceiptArchiveCodec.decode(data.spaces, reminders)
         val ids = reminders.reminders.mapTo(HashSet()) { it.id }
         require(groups.all { group -> group.reminderIds.all { it in ids } }) {
             "A Reminder Group refers to a Personal reminder missing from this archive"

@@ -4,7 +4,6 @@ import android.content.Context
 import com.framebynavin.app.personal.spaces.V289SpaceState
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.personal.spaces.V289SpacesMetadataCodec
-import com.framebynavin.app.personal.spaces.V289SpacesMetadataRecovery
 import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import java.io.File
 import java.io.InputStream
@@ -27,7 +26,8 @@ internal class V300PersonalArchiveSource(context: Context) {
             val personal = PersonalBackupTransfer(app).exportForCloud()
             val challenges = V297ChallengeStore(app).exportJson()
             val groups = V298ReminderGroupStore(app).exportJson()
-            val (spaces, photos) = readLocalSpacesAndPhotoSources()
+            val (spaces, photos) = readLocalSpacesAndPhotoSources(
+                PersonalCompletionBackupCodec.decode(personal))
             val domains = V300PersonalComponents(
                 personal = personal, challenges = challenges, groups = groups, spaces = spaces,
             )
@@ -40,7 +40,7 @@ internal class V300PersonalArchiveSource(context: Context) {
     ): V300PersonalArchivePreview = withContext(Dispatchers.IO) {
         V300EncryptedPersonalArchive.stageAndVerify(input, password, app.cacheDir).use { staged ->
             val reminders = PersonalCompletionBackupCodec.decode(staged.components.personal)
-            val spaces = V289SpacesMetadataCodec.decode(staged.components.spaces)
+            val spaces = V303SpaceReceiptArchiveCodec.decode(staged.components.spaces, reminders)
             V300PersonalArchivePreview(
                 reminders = reminders.reminders.size,
                 completions = reminders.completions.size,
@@ -54,8 +54,9 @@ internal class V300PersonalArchiveSource(context: Context) {
         }
     }
 
-    private suspend fun readLocalSpacesAndPhotoSources():
-        Pair<String, List<V300PhotoSource>> {
+    private suspend fun readLocalSpacesAndPhotoSources(
+        personal: PersonalCompletionBackupSnapshot,
+    ): Pair<String, List<V300PhotoSource>> {
         val existing = app.getDatabasePath(V289SpacesDatabase.FILE_NAME)
         val photoRoot = File(app.filesDir, "backlot-personal-space-photos")
         if (!existing.exists()) {
@@ -70,11 +71,10 @@ internal class V300PersonalArchiveSource(context: Context) {
         // database when none exists. This is NOT an implicit app-home action.
         val db = V289SpacesDatabase.open(app)
         try {
-            val metadata = V289SpacesMetadataRecovery(db).prepareLocalMetadataExport()
-            val dao = db.spaces()
-            val rows = dao.loadSpaces().flatMap { space ->
-                dao.photosForSpace(space.id)
-            }
+            val snapshot = V303SpaceSnapshotReader(db).readWithPhotos()
+            val metadata = V303SpaceReceiptArchiveCodec.encode(
+                snapshot.state, personal)
+            val rows = snapshot.photos
             check(rows.size <= 500) { "Too many private photos for one archive" }
             val expectedFiles = HashSet<String>()
             val inputs = rows.map { photo ->
