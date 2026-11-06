@@ -1,0 +1,84 @@
+name: Backlot V308.1 - Individual Spark Dismissal QA
+
+on:
+  push:
+    branches: [feature/backlot-v3081-spark-individual-dismissal]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v3081-dismissal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  individual-spark-dismissal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 105
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify no reminder or data source was changed
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin refs/heads/feature/backlot-v308-spark-multi-activity:refs/remotes/origin/feature/backlot-v308-spark-multi-activity
+          git diff --name-only origin/feature/backlot-v308-spark-multi-activity HEAD > /tmp/v3081-changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              app/src/main/java/com/framebynavin/app/ui/V308SparkActivityDigest.kt|app/src/main/java/com/framebynavin/app/ui/V2214HomeCompanion.kt|app/src/test/java/com/framebynavin/app/ui/V3081SparkDismissalPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V3081SparkDismissalUiTest.kt|.github/scripts/backlot-v3081-android15-spark-dismissal.sh|.github/workflows/backlot-v3081-spark-dismissal.yml|docs/product/backlot-v3081-spark-dismissal.md) ;;
+              *) echo "FAIL: unreviewed V308.1 source mutation $path" >&2; exit 1;;
+            esac
+          done < /tmp/v3081-changed.txt
+          echo 'PASS: data model, reminder delivery, cloud, existing activity feed and signing unchanged'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile debug app and Android tests, run full JVM unit suite
+        run: |
+          set -euo pipefail
+          timeout 80m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require all six dismissal policy regression cases
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V3081SparkDismissalPolicyTest.xml'))
+          assert len(files)==1, 'Missing V308.1 Spark dismissal suite'
+          root=ET.parse(files[0]).getroot()
+          assert int(root.get('tests', '0'))>=6
+          assert int(root.get('failures','0'))==0
+          assert int(root.get('errors','0'))==0
+          print('PASS: Spark dismissed-row suppression does not alter canonical records')
+          PY
+      - name: Enable Android 15 emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Validate one-item dismissal reflow and screenshot
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v3081-android15-spark-dismissal.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V3081-Spark-Dismissal-Android15-Screenshot
+          path: output/v3081-visual-audit/
+          retention-days: 30
+          if-no-files-found: warn
