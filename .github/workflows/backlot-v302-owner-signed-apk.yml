@@ -1,0 +1,131 @@
+name: Backlot V302 - Signed Owner APK Download
+
+on:
+  push:
+    branches: [qa/backlot-v302-signed-owner-installable]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v302-signed-owner-qa
+  cancel-in-progress: true
+
+jobs:
+  signed-owner-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Require signed preview identity and frozen V302 product code
+        run: |
+          set -euo pipefail
+          grep -Fq 'versionCode = 295' app/build.gradle.kts
+          grep -Fq 'versionName = "2.28.0-owner-qa-encrypted-personal"' app/build.gradle.kts
+          grep -Fq 'create("personalStable")' app/build.gradle.kts
+          git fetch --depth=1 origin refs/heads/feature/backlot-v302-owner-encrypted-archive-ui:refs/remotes/origin/feature/backlot-v302-owner-encrypted-archive-ui
+          git diff --name-only origin/feature/backlot-v302-owner-encrypted-archive-ui HEAD |
+            grep -v -e '^app/build.gradle.kts$' -e '^.github/workflows/backlot-v302-owner-signed-apk.yml$' > /tmp/unexpected.txt || true
+          if test -s /tmp/unexpected.txt; then
+            echo "Unexpected app code changes in signed owner APK branch" >&2
+            cat /tmp/unexpected.txt >&2
+            exit 1
+          fi
+      - name: Build signed owner APK from previously green V302 source
+        run: |
+          set -euo pipefail
+          timeout 85m gradle :app:assemblePersonalStable -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify signing identity, app version and exact file checksums
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          mkdir -p output/v302
+          cp "$apk" output/v302/Backlot-V302-Signed-Owner-Preview-295.apk
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          "$signer" verify --verbose --print-certs "$apk" > output/v302/SIGNATURE.txt
+          "$aapt" dump badging "$apk" > output/v302/IDENTITY.txt
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' output/v302/SIGNATURE.txt
+          grep -Fq 'V2 Signer: certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/v302/SIGNATURE.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='295'" output/v302/IDENTITY.txt
+          (cd output/v302 && sha256sum *.apk > SHA256SUMS.txt)
+          echo 'PASS: signed V302 APK uses same known owner-test certificate with versionCode 295'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V302-Signed-Owner-Preview-295
+          path: output/v302/
+          retention-days: 21
+          if-no-files-found: error
+
+  v294-to-v302-upgrade:
+    needs: signed-owner-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V302-Signed-Owner-Preview-295
+          path: output/v302/
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V294-Signed-Upgrade-Review-Only
+          path: output/v294/
+          run-id: 42048375479
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify both signed binaries before emulator upgrade
+        run: |
+          set -euo pipefail
+          (cd output/v294 && sha256sum -c SHA256SUMS.txt)
+          (cd output/v302 && sha256sum -c SHA256SUMS.txt)
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          old="$(find output/v294 -name 'Backlot-V294-Signed-Upgrade-Candidate.apk' -print -quit)"
+          new=output/v302/Backlot-V302-Signed-Owner-Preview-295.apk
+          "$signer" verify --print-certs "$old" > output/v294/signer-check.txt
+          "$signer" verify --print-certs "$new" > output/v302/signer-check.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/v294/signer-check.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/v302/signer-check.txt
+      - name: Enable Android 15 emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify signed V294 to V302 install-in-place without data clearing
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            adb install output/v294/Backlot-V294-Signed-Upgrade-Candidate.apk
+            before="$(adb shell dumpsys package com.framebynavin.app | sed -n 's/.*userId=\([0-9]*\).*/\1/p' | head -1)"
+            test -n "$before"
+            adb install -r output/v302/Backlot-V302-Signed-Owner-Preview-295.apk
+            after="$(adb shell dumpsys package com.framebynavin.app | sed -n 's/.*userId=\([0-9]*\).*/\1/p' | head -1)"
+            test "$before" = "$after"
+            adb shell dumpsys package com.framebynavin.app | grep -Fq 'versionCode=295'
+            adb shell monkey -p com.framebynavin.app -c android.intent.category.LAUNCHER 1
+            sleep 6
+            adb shell pm list packages | grep -Fq 'com.framebynavin.app'
+            echo 'PASS: V294 to signed V302 in-place upgrade; package userId retained'
