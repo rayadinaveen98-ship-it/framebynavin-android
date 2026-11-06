@@ -51,7 +51,7 @@ class PersonalLinkedReferenceGuardDeviceTest {
                 iconKey = "sparkles", goalText = "Progress",
                 createdAtMillis = 100L, archivedAtMillis = null, displayOrder = 0,
             ))
-            assertTrue(V289SpacesRepository(db.spaces()).linkExistingReminder(
+            assertTrue(V289SpacesRepository(app, db.spaces()).linkExistingReminder(
                 V289SpaceReminderLink(spaceId, stored.id, System.currentTimeMillis()),
                 setOf(stored.id),
             ))
