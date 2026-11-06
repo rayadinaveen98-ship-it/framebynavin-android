@@ -150,11 +150,11 @@ class V290PrivatePhotoJournalDeviceTest {
                 dao.insertPhoto(record)
                 assertNotNull(dao.getPhoto(photoId))
                 assertTrue(runCatching {
-                    V289SpacesRepository(dao).deleteSpaceAfterOwnerConfirmation(id)
+                    V289SpacesRepository(app, dao).deleteSpaceAfterOwnerConfirmation(id)
                 }.isFailure)
                 assertEquals(1, dao.loadSpaces().size)
                 assertEquals(1, dao.deletePhoto(photoId))
-                assertTrue(V289SpacesRepository(dao).deleteSpaceAfterOwnerConfirmation(id))
+                assertTrue(V289SpacesRepository(app, dao).deleteSpaceAfterOwnerConfirmation(id))
             }
         } finally {
             upgraded.close()

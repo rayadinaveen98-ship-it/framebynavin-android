@@ -172,81 +172,90 @@ internal abstract class V289SpacesDatabase : RoomDatabase() {
     }
 }
 
-/** Validation gate: only owner-initiated Space writes, without touching alarms. */
-internal class V289SpacesRepository(private val dao: V289SpacesDao) {
-    suspend fun createSpace(space: V289PersonalSpace) {
-        val checked = V289PersonalSpacePolicy.validateSpace(space)
-        dao.insertSpace(
-            V289SpaceEntity(
-                checked.id, checked.title, checked.type.name, checked.iconKey,
-                checked.goalText, checked.createdAtMillis, checked.archivedAtMillis,
-                checked.displayOrder,
+/** All Space domain mutations participate in the same pending-restore freeze. */
+internal class V289SpacesRepository(
+    context: Context,
+    private val dao: V289SpacesDao,
+) {
+    private val app = context.applicationContext
+
+    suspend fun createSpace(space: V289PersonalSpace) =
+        com.framebynavin.app.personal.StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            val checked = V289PersonalSpacePolicy.validateSpace(space)
+            dao.insertSpace(
+                V289SpaceEntity(
+                    checked.id, checked.title, checked.type.name, checked.iconKey,
+                    checked.goalText, checked.createdAtMillis, checked.archivedAtMillis,
+                    checked.displayOrder,
+                )
             )
-        )
-    }
+        }
 
     suspend fun editSpace(
         original: V289PersonalSpace,
         title: String,
         goalText: String,
         iconKey: String,
-    ): Boolean {
-        val replacement = V289PersonalSpacePolicy.validateSpace(
-            original.copy(title = title, goalText = goalText, iconKey = iconKey)
-        )
-        return dao.updateSpaceDetails(
-            replacement.id, replacement.title, replacement.goalText, replacement.iconKey
-        ) == 1
-    }
+    ): Boolean =
+        com.framebynavin.app.personal.StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            val replacement = V289PersonalSpacePolicy.validateSpace(
+                original.copy(title = title, goalText = goalText, iconKey = iconKey)
+            )
+            dao.updateSpaceDetails(
+                replacement.id, replacement.title, replacement.goalText, replacement.iconKey
+            ) == 1
+        }
 
-    suspend fun archiveSpace(space: V289PersonalSpace, nowMillis: Long): Boolean {
-        val archived = V289PersonalSpacePolicy.archive(space, nowMillis)
-        return dao.setArchivedAt(archived.id, archived.archivedAtMillis) == 1
-    }
+    suspend fun archiveSpace(space: V289PersonalSpace, nowMillis: Long): Boolean =
+        com.framebynavin.app.personal.StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            val archived = V289PersonalSpacePolicy.archive(space, nowMillis)
+            dao.setArchivedAt(archived.id, archived.archivedAtMillis) == 1
+        }
 
     suspend fun unarchiveSpace(id: String): Boolean =
-        dao.setArchivedAt(id, null) == 1
-
-    /**
-     * Fail closed if a Space still has private photo files. The caller must
-     * explicitly delete/clean photo files before deleting the Space record.
-     * Avoid a silent Room FK cascade that would leave untracked private bytes.
-     */
-    suspend fun deleteSpaceAfterOwnerConfirmation(id: String): Boolean {
-        check(dao.photosForSpace(id).isEmpty()) {
-            "Remove and clean up Space photos before deleting this Space"
+        com.framebynavin.app.personal.StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            dao.setArchivedAt(id, null) == 1
         }
-        return dao.deleteSpace(id) == 1
-    }
+
+    /** Never cascade-delete a Space until its private photo rows are absent. */
+    suspend fun deleteSpaceAfterOwnerConfirmation(id: String): Boolean =
+        com.framebynavin.app.personal.StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            check(dao.photosForSpace(id).isEmpty()) {
+                "Remove and clean up Space photos before deleting this Space"
+            }
+            dao.deleteSpace(id) == 1
+        }
 
     suspend fun linkExistingReminder(
         link: V289SpaceReminderLink,
         existingReminderIds: Set<String>,
-    ): Boolean {
-        val checked = V289PersonalSpacePolicy.validateLink(link)
-        require(checked.reminderId in existingReminderIds) {
-            "Only an existing Personal reminder can be linked"
+    ): Boolean =
+        com.framebynavin.app.personal.StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            val checked = V289PersonalSpacePolicy.validateLink(link)
+            require(checked.reminderId in existingReminderIds) {
+                "Only an existing Personal reminder can be linked"
+            }
+            dao.insertLink(
+                V289SpaceReminderLinkEntity(
+                    checked.spaceId, checked.reminderId, checked.linkedAtMillis
+                )
+            ) != -1L
         }
-        return dao.insertLink(
-            V289SpaceReminderLinkEntity(
-                checked.spaceId, checked.reminderId, checked.linkedAtMillis
-            )
-        ) != -1L
-    }
 
-    /** V289 only accepts manual entries; no automatic notification-to-Done import. */
-    suspend fun logManualEntry(entry: V289SpaceEntry): Boolean {
-        require(entry.source == V289SpaceEntrySource.MANUAL) {
-            "Reminder Done receipts are not enabled in V289"
+    /** Manual entries only. Never fabricate Personal Done receipts from a Space. */
+    suspend fun logManualEntry(entry: V289SpaceEntry): Boolean =
+        com.framebynavin.app.personal.StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            require(entry.source == V289SpaceEntrySource.MANUAL) {
+                "Reminder Done receipts are not enabled in V289"
+            }
+            val checked = V289PersonalSpacePolicy.validateEntry(entry)
+            dao.insertEntry(
+                V289SpaceEntryEntity(
+                    checked.id, checked.spaceId, checked.kind.name, checked.source.name,
+                    checked.occurredAtMillis, checked.createdAtMillis, checked.note,
+                    checked.metricName, checked.metricValue, checked.metricUnit,
+                    checked.reminderId, checked.originalOccurrenceMillis,
+                )
+            ) != -1L
         }
-        val checked = V289PersonalSpacePolicy.validateEntry(entry)
-        return dao.insertEntry(
-            V289SpaceEntryEntity(
-                checked.id, checked.spaceId, checked.kind.name, checked.source.name,
-                checked.occurredAtMillis, checked.createdAtMillis, checked.note,
-                checked.metricName, checked.metricValue, checked.metricUnit,
-                checked.reminderId, checked.originalOccurrenceMillis,
-            )
-        ) != -1L
-    }
 }

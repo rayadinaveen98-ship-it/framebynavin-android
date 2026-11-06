@@ -21,7 +21,8 @@ private val Context.v297ChallengesDataStore by preferencesDataStore(
 private val v297ChallengeMutex = Mutex()
 
 internal class V297ChallengeStore(context: Context) {
-    private val data = context.applicationContext.v297ChallengesDataStore
+    private val app = context.applicationContext
+    private val data = app.v297ChallengesDataStore
     private val primary = stringPreferencesKey("challenges21_v1")
     private val lastGood = stringPreferencesKey("challenges21_last_good_v1")
 
@@ -57,7 +58,8 @@ internal class V297ChallengeStore(context: Context) {
 
     suspend fun mutate(
         change: (List<V297Challenge>) -> List<V297Challenge>,
-    ): List<V297Challenge> = v297ChallengeMutex.withLock {
+    ): List<V297Challenge> = StabilizationPersonalMutationGate.withOwnerMutation(app) {
+        v297ChallengeMutex.withLock {
         var result: List<V297Challenge> = emptyList()
         data.edit { prefs ->
             val previousRaw = prefs[primary]
@@ -76,6 +78,7 @@ internal class V297ChallengeStore(context: Context) {
             result = updated
         }
         result
+        }
     }
 
     /** Owner-invoked, copyable, integrity-checked local backup payload. */

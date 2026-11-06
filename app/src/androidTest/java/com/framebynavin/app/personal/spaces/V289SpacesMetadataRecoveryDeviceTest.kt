@@ -5,8 +5,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,6 +42,30 @@ class V289SpacesMetadataRecoveryDeviceTest {
         )
     }
 
+    @Test fun activeRecoveryJournalRejectsDirectRoomMetadataImportAndExport() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val journal = StabilizationPersonalMutationGate.journalRootFor(app)
+        assertFalse("Only on cleared disposable emulator", journal.exists())
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        try {
+            assertTrue(journal.mkdir())
+            val recovery = V289SpacesMetadataRecovery(app, db)
+            val incoming = V289SpacesMetadataCodec.encode(
+                V289SpaceState(spaces = listOf(savedSpace))
+            )
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { recovery.mergeVerifiedMetadata(incoming, emptySet()) }
+            }
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { recovery.prepareLocalMetadataExport() }
+            }
+            assertTrue(runBlocking { db.spaces().loadSpaces().isEmpty() })
+        } finally {
+            journal.deleteRecursively() // Synthetic emulator-only fixture.
+            db.close()
+        }
+    }
+
     @Test fun metadataExportRestoreIsIdempotentWithoutTouchingPersonalReminders() {
         HardeningTestEnvironment.requireCiEmulator()
         val personalBefore = runBlocking { PersonalReminderStore(app).load() }
@@ -46,15 +73,15 @@ class V289SpacesMetadataRecoveryDeviceTest {
         val second = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
         try {
             runBlocking {
-                val owner = V289SpacesRepository(first.spaces())
+                val owner = V289SpacesRepository(app, first.spaces())
                 owner.createSpace(savedSpace)
                 owner.logManualEntry(savedEntry)
                 owner.linkExistingReminder(
                     V289SpaceReminderLink(spaceId, knownReminder, now),
                     existingReminderIds = setOf(knownReminder)
                 )
-                val raw = V289SpacesMetadataRecovery(first).prepareLocalMetadataExport()
-                val recovery = V289SpacesMetadataRecovery(second)
+                val raw = V289SpacesMetadataRecovery(app, first).prepareLocalMetadataExport()
+                val recovery = V289SpacesMetadataRecovery(app, second)
                 val report = recovery.mergeVerifiedMetadata(raw, setOf(knownReminder))
                 assertEquals(1, report.spacesAdded)
                 assertEquals(1, report.linksAdded)
@@ -86,7 +113,7 @@ class V289SpacesMetadataRecoveryDeviceTest {
                 )
                 val raw = V289SpacesMetadataCodec.encode(incoming)
                 assertTrue(runCatching {
-                    V289SpacesMetadataRecovery(db).mergeVerifiedMetadata(raw, emptySet())
+                    V289SpacesMetadataRecovery(app, db).mergeVerifiedMetadata(raw, emptySet())
                 }.isFailure)
                 assertTrue(db.spaces().loadSpaces().isEmpty())
                 assertTrue(db.spaces().allEntries().isEmpty())
@@ -102,7 +129,7 @@ class V289SpacesMetadataRecoveryDeviceTest {
         val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
         try {
             runBlocking {
-                val repo = V289SpacesRepository(db.spaces())
+                val repo = V289SpacesRepository(app, db.spaces())
                 repo.createSpace(savedSpace.copy(title = "Owner's private progress"))
                 val freshSpace = V289PersonalSpacePolicy.newSpace(
                     V289SpaceType.READING, now,
@@ -114,7 +141,7 @@ class V289SpacesMetadataRecoveryDeviceTest {
                 )
                 val raw = V289SpacesMetadataCodec.encode(incoming)
                 assertTrue(runCatching {
-                    V289SpacesMetadataRecovery(db).mergeVerifiedMetadata(raw, emptySet())
+                    V289SpacesMetadataRecovery(app, db).mergeVerifiedMetadata(raw, emptySet())
                 }.isFailure)
                 assertEquals(1, db.spaces().loadSpaces().size)
                 assertEquals("Owner's private progress",
@@ -122,7 +149,7 @@ class V289SpacesMetadataRecoveryDeviceTest {
                 assertTrue(db.spaces().allEntries().isEmpty())
                 val corrupt = JSONObject(raw).put("payloadSha256", "0".repeat(64)).toString()
                 assertTrue(runCatching {
-                    V289SpacesMetadataRecovery(db).mergeVerifiedMetadata(corrupt, emptySet())
+                    V289SpacesMetadataRecovery(app, db).mergeVerifiedMetadata(corrupt, emptySet())
                 }.isFailure)
                 assertEquals(1, db.spaces().loadSpaces().size)
             }

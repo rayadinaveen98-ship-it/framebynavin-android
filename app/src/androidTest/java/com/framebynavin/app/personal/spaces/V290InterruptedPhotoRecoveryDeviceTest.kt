@@ -49,7 +49,7 @@ class V290InterruptedPhotoRecoveryDeviceTest {
         assertTrue(local.setLastModified(System.currentTimeMillis() - 120_000L))
         try {
             runBlocking {
-                V289SpacesRepository(db.spaces()).createSpace(space)
+                V289SpacesRepository(app, db.spaces()).createSpace(space)
                 val recovery = V290InterruptedPhotoRecovery(app, db.spaces())
                 val detected = recovery.find(space.id).single()
                 assertEquals(prepared.id, detected.photoId)
@@ -83,7 +83,7 @@ class V290InterruptedPhotoRecoveryDeviceTest {
         first.setLastModified(System.currentTimeMillis() - 120_000L)
         try {
             runBlocking {
-                V289SpacesRepository(db.spaces()).createSpace(space)
+                V289SpacesRepository(app, db.spaces()).createSpace(space)
                 db.spaces().insertPhoto(V290SpacePhotoEntity(
                     id = tracked.id, spaceId = space.id, takenAtMillis = 1_792_050_000_000,
                     addedAtMillis = 1_792_050_000_000,
@@ -113,7 +113,7 @@ class V290InterruptedPhotoRecoveryDeviceTest {
         privateFile.setLastModified(System.currentTimeMillis() - 180_000)
         try {
             runBlocking {
-                V289SpacesRepository(db.spaces()).createSpace(space)
+                V289SpacesRepository(app, db.spaces()).createSpace(space)
                 val recovery = V290InterruptedPhotoRecovery(app, db.spaces())
                 val item = recovery.find(space.id).single()
                 assertTrue(recovery.discard(item))
@@ -140,7 +140,7 @@ class V290InterruptedPhotoRecoveryDeviceTest {
         unrelated.writeText("not a Backlot temporary photo")
         try {
             runBlocking {
-                V289SpacesRepository(db.spaces()).createSpace(space)
+                V289SpacesRepository(app, db.spaces()).createSpace(space)
                 V290InterruptedPhotoRecovery(app, db.spaces())
                     .removeTemporaryCopiesOnOwnerSpaceDelete(space.id)
             }

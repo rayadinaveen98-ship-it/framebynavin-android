@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
+import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -169,6 +170,7 @@ internal object V290PrivatePhotoFiles {
     internal fun storePrepared(
         context: Context, spaceId: String, photo: PreparedPhoto,
     ): File {
+        StabilizationPersonalMutationGate.requireNoPendingRecovery(context)
         require(photo.fileName == "${photo.id}.jpg" &&
             UUID.fromString(photo.id).toString() == photo.id)
         val dir = photoFolder(context, spaceId)
@@ -196,6 +198,7 @@ internal object V290PrivatePhotoFiles {
     }
 
     internal fun deleteFile(context: Context, photo: V290SpacePhotoEntity): Boolean {
+        StabilizationPersonalMutationGate.requireNoPendingRecovery(context)
         val file = photoFile(context, photo)
         return !file.exists() || file.delete()
     }
@@ -215,7 +218,9 @@ internal class V290PhotoJournal(
         selectedUri: Uri,
         note: String,
         nowMillis: Long = System.currentTimeMillis(),
-    ): V290SpacePhotoEntity = withContext(Dispatchers.IO) {
+    ): V290SpacePhotoEntity =
+        StabilizationPersonalMutationGate.withOwnerMutation(context) {
+        withContext(Dispatchers.IO) {
         require(selectedUri.scheme == "content") {
             "Choose a photo using Android's photo picker"
         }
@@ -249,9 +254,12 @@ internal class V290PhotoJournal(
             throw failure
         }
         row
+        }
     }
 
-    suspend fun removePhoto(id: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun removePhoto(id: String): Boolean =
+        StabilizationPersonalMutationGate.withOwnerMutation(context) {
+        withContext(Dispatchers.IO) {
         val photo = dao.getPhoto(id) ?: return@withContext false
         // Delete bytes FIRST. If that fails the DB record remains visible,
         // rather than silently leaving an inaccessible private file behind.
@@ -261,6 +269,7 @@ internal class V290PhotoJournal(
             "Unable to delete the private photo; its journal record was retained"
         }
         dao.deletePhoto(id) == 1
+        }
     }
 
     suspend fun readVerifiedPhotoBytes(photo: V290SpacePhotoEntity): ByteArray =

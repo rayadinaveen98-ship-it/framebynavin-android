@@ -2,6 +2,7 @@ package com.framebynavin.app.personal.spaces
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
@@ -85,6 +86,7 @@ internal class V290InterruptedPhotoRecovery(
 
     /** Only called after the owner confirms recovery in the UI. */
     suspend fun recover(item: V290InterruptedPhoto): V290SpacePhotoEntity =
+        StabilizationPersonalMutationGate.withOwnerMutation(context) {
         withContext(Dispatchers.IO) {
             checkNotNull(dao.getSpace(item.spaceId)) { "Space no longer exists" }
             require(item.fileName == "${item.photoId}.jpg") { "Unsafe recovery name" }
@@ -124,6 +126,7 @@ internal class V290InterruptedPhotoRecovery(
             dao.insertPhoto(photo)
             photo
         }
+    }
 
     /**
      * The owner confirmed DELETE SPACE. Remove only the exact private temporary
@@ -132,6 +135,7 @@ internal class V290InterruptedPhotoRecovery(
      * files (including non-matching names) are left untouched.
      */
     suspend fun removeTemporaryCopiesOnOwnerSpaceDelete(spaceId: String) =
+        StabilizationPersonalMutationGate.withOwnerMutation(context) {
         withContext(Dispatchers.IO) {
             val folder = checkedFolder(spaceId)
             if (!folder.isDirectory) return@withContext
@@ -148,9 +152,11 @@ internal class V290InterruptedPhotoRecovery(
                 }
             }
         }
+    }
 
     /** Only called after the owner separately confirms permanent discard. */
     suspend fun discard(item: V290InterruptedPhoto): Boolean =
+        StabilizationPersonalMutationGate.withOwnerMutation(context) {
         withContext(Dispatchers.IO) {
             require(item.fileName == "${item.photoId}.jpg")
             require(dao.getPhoto(item.photoId) == null) {
@@ -159,4 +165,5 @@ internal class V290InterruptedPhotoRecovery(
             val file = checkedFile(item.spaceId, item.photoId)
             !file.exists() || file.delete()
         }
+    }
 }

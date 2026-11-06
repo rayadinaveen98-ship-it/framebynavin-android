@@ -33,7 +33,7 @@ class V289SpacesDatabaseTest {
             val first = Room.databaseBuilder(app, V289SpacesDatabase::class.java, file).build()
             try {
                 runBlocking {
-                    V289SpacesRepository(first.spaces()).createSpace(record)
+                    V289SpacesRepository(app, first.spaces()).createSpace(record)
                     assertEquals(1, first.spaces().loadSpaces().size)
                 }
             } finally {
@@ -62,7 +62,7 @@ class V289SpacesDatabaseTest {
         try {
             runBlocking {
                 val dao = db.spaces()
-                val repository = V289SpacesRepository(dao)
+                val repository = V289SpacesRepository(app, dao)
                 val first = V289PersonalSpacePolicy.newSpace(V289SpaceType.FITNESS, now, spaceId)
                 val second = V289PersonalSpacePolicy.newSpace(
                     V289SpaceType.READING, now, "30000000-0000-4000-8000-000000000002"
@@ -100,7 +100,7 @@ class V289SpacesDatabaseTest {
         val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
         try {
             runBlocking {
-                val repository = V289SpacesRepository(db.spaces())
+                val repository = V289SpacesRepository(app, db.spaces())
                 repository.createSpace(
                     V289PersonalSpacePolicy.newSpace(V289SpaceType.EDITING, now, spaceId)
                 )
@@ -135,7 +135,7 @@ class V289SpacesDatabaseTest {
         try {
             runBlocking {
                 val dao = db.spaces()
-                V289SpacesRepository(dao).createSpace(
+                V289SpacesRepository(app, dao).createSpace(
                     V289PersonalSpacePolicy.newSpace(V289SpaceType.CUSTOM, now, spaceId)
                 )
                 val receipt = V289SpaceEntryEntity(

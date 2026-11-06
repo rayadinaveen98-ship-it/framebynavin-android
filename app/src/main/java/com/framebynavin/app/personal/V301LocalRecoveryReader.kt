@@ -27,7 +27,9 @@ import kotlinx.coroutines.withContext
 internal class V301LocalRecoveryReader(context: Context) {
     private val app = context.applicationContext
 
-    suspend fun read(): V301LocalRecoverySnapshot = withContext(Dispatchers.IO) {
+    suspend fun read(): V301LocalRecoverySnapshot =
+        StabilizationPersonalMutationGate.withStableSnapshot(app) {
+        withContext(Dispatchers.IO) {
         val verification = when (val inspected = V299PersonalRecoveryPreflight(app).inspect()) {
             is V299RecoveryPreflightResult.Checked -> inspected.counts
             is V299RecoveryPreflightResult.Unavailable ->
@@ -79,6 +81,7 @@ internal class V301LocalRecoveryReader(context: Context) {
             components = source, photos = photos,
             localIntegrityVerified = true,
         )
+        }
     }
 
     /**

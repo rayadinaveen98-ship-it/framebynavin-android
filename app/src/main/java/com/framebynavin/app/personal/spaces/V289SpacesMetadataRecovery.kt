@@ -1,6 +1,8 @@
 package com.framebynavin.app.personal.spaces
 
 import androidx.room.withTransaction
+import android.content.Context
+import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 
 /**
  * V289 internal opt-in metadata recovery adapter.
@@ -14,17 +16,21 @@ import androidx.room.withTransaction
  * restored as working reminder links.
  */
 internal class V289SpacesMetadataRecovery(
+    private val context: Context,
     private val database: V289SpacesDatabase,
 ) {
     private val dao get() = database.spaces()
 
-    suspend fun prepareLocalMetadataExport(): String = database.withTransaction {
+    suspend fun prepareLocalMetadataExport(): String =
+        StabilizationPersonalMutationGate.withStableSnapshot(context) {
+        database.withTransaction {
         val spaces = dao.loadSpaces().map { it.toDomain() }
         val links = dao.allLinks().map {
             V289SpaceReminderLink(it.spaceId, it.reminderId, it.linkedAtMillis)
         }
         val entries = dao.allEntries().map { it.toDomain() }
         V289SpacesMetadataCodec.encode(V289SpaceState(spaces, links, entries))
+        }
     }
 
     /** A deliberately explicit caller-provided set, never a guess about alarm state. */
@@ -38,7 +44,8 @@ internal class V289SpacesMetadataRecovery(
         require(snapshot.links.all { it.reminderId in existingPersonalReminderIds }) {
             "Restore needs Personal reminders to be restored before their Space links"
         }
-        return database.withTransaction {
+        return StabilizationPersonalMutationGate.withOwnerMutation(context) {
+            database.withTransaction {
             val oldSpaces = dao.loadSpaces().associateBy { it.id }
             val oldLinks = dao.allLinks().associateBy { it.spaceId to it.reminderId }
             val oldEntries = dao.allEntries().associateBy { it.id }
@@ -81,6 +88,7 @@ internal class V289SpacesMetadataRecovery(
                 entriesAdded = pendingEntries.size,
                 alreadyPresent = oldSpaces.size + oldLinks.size + oldEntries.size,
             )
+            }
         }
     }
 }

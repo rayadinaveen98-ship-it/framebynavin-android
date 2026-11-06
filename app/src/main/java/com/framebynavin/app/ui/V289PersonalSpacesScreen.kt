@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.spaces.*
+import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.personal.PersonalReminder
 import com.framebynavin.app.personal.PersonalCompletionEvent
@@ -66,7 +67,7 @@ internal fun V289PersonalSpacesScreen(
         onDispose { if (databaseForTesting == null) database.close() }
     }
     val dao = remember(database) { database.spaces() }
-    val repository = remember(dao) { V289SpacesRepository(dao) }
+    val repository = remember(dao) { V289SpacesRepository(context, dao) }
     val personalStore = remember(context) { PersonalReminderStore(context) }
     var personalReminders by remember { mutableStateOf(emptyList<PersonalReminder>()) }
     var doneReceipts by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
@@ -153,7 +154,7 @@ internal fun V289PersonalSpacesScreen(
         busy = true
         coroutineScope.launch {
             try {
-                block()
+                StabilizationPersonalMutationGate.withOwnerMutation(context) { block() }
                 error = null
             } catch (_: Exception) {
                 error = "Action failed. Review the current Space before trying again."
@@ -171,7 +172,7 @@ internal fun V289PersonalSpacesScreen(
         busy = true
         coroutineScope.launch {
             try {
-                block()
+                StabilizationPersonalMutationGate.withOwnerMutation(context) { block() }
                 error = null
             } catch (_: Exception) {
                 error = failureMessage
@@ -187,7 +188,7 @@ internal fun V289PersonalSpacesScreen(
             failureMessage = "Spaces export could not be verified. A partial file may exist in the chosen location; check or delete that file before retrying. Existing Space notes were unchanged.",
         ) {
             backupNotice = null
-            val raw = V289SpacesMetadataRecovery(database).prepareLocalMetadataExport()
+            val raw = V289SpacesMetadataRecovery(context, database).prepareLocalMetadataExport()
             V289SpacesOwnerBackupFile.writeToSelectedFile(context, uri, raw)
             backupNotice = "Saved and verified Spaces metadata against the chosen file. Keep this plaintext file private."
             backupVisible = false
@@ -827,7 +828,7 @@ internal fun V289PersonalSpacesScreen(
                         backupAction {
                             val existingReminders = PersonalReminderStore(context)
                                 .load().mapTo(HashSet<String>()) { it.id }
-                            val result = V289SpacesMetadataRecovery(database)
+                            val result = V289SpacesMetadataRecovery(context, database)
                                 .mergeVerifiedMetadata(raw, existingReminders)
                             // Refresh currently selected Space history after a merge.
                             entries = selectedSpaceId?.let { dao.entriesForSpace(it) }.orEmpty()

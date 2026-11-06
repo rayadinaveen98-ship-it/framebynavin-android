@@ -222,7 +222,7 @@ class V289PersonalSpacesUiTest {
         val space = V289PersonalSpacePolicy.newSpace(
             V289SpaceType.SKIN_CARE, System.currentTimeMillis(), UUID.randomUUID().toString()
         )
-        runBlocking { V289SpacesRepository(db.spaces()).createSpace(space) }
+        runBlocking { V289SpacesRepository(app, db.spaces()).createSpace(space) }
 
         val original = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
         val output = ByteArrayOutputStream()

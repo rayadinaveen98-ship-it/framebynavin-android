@@ -22,6 +22,7 @@ internal class V300PersonalArchiveSource(context: Context) {
     private val app = context.applicationContext
 
     suspend fun export(password: CharArray, output: OutputStream) =
+        StabilizationPersonalMutationGate.withStableSnapshot(app) {
         withContext(Dispatchers.IO) {
             val personal = PersonalBackupTransfer(app).exportForCloud()
             val challenges = V297ChallengeStore(app).exportJson()
@@ -33,6 +34,7 @@ internal class V300PersonalArchiveSource(context: Context) {
             )
             V300EncryptedPersonalArchive.write(domains, photos, password, output)
         }
+    }
 
     /** Checks and stages the archive. A future restore needs separate owner consent. */
     suspend fun verify(

@@ -20,7 +20,8 @@ internal data class PersonalFollowUpSettings(val enabled: Boolean = false, val d
 }
 
 internal class PersonalFollowUpSettingsStore(context: Context) {
-    private val data = context.applicationContext.personalFollowUpsData
+    private val app = context.applicationContext
+    private val data = app.personalFollowUpsData
     private val enabledKey = booleanPreferencesKey("followups_enabled_v1")
     private val delayKey = intPreferencesKey("followups_delay_minutes_v1")
     val settings: Flow<PersonalFollowUpSettings> = data.data.map {
@@ -30,9 +31,16 @@ internal class PersonalFollowUpSettingsStore(context: Context) {
         )
     }
     suspend fun current() = settings.first()
-    suspend fun setEnabled(value: Boolean) { data.edit { it[enabledKey] = value } }
+    suspend fun setEnabled(value: Boolean) {
+        StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            data.edit { it[enabledKey] = value }
+        }
+    }
+
     suspend fun setDelay(minutes: Int) {
         require(minutes in setOf(30, 60, 120))
-        data.edit { it[delayKey] = minutes }
+        StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            data.edit { it[delayKey] = minutes }
+        }
     }
 }
