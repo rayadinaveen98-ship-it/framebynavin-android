@@ -9,12 +9,14 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.personal.V298ReminderGroup
 import com.framebynavin.app.personal.V310LinkTargets
 import com.framebynavin.app.personal.spaces.V289SpaceEntity
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -79,6 +81,21 @@ class V310ReviewLinksUiTest {
         rule.onNodeWithTag("v310-space-$spaceId").performClick()
         rule.onNodeWithTag("v310-group-$groupId").performClick()
         rule.runOnIdle { assertEquals(V310LinkTargets(), targets) }
+    }
+
+    @Test fun openingPersonalComposerDoesNotCreateAnUnusedSpacesDatabase() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val db = app.getDatabasePath(V289SpacesDatabase.FILE_NAME)
+        assertFalse("Requires a disposable blank emulator", db.exists())
+        rule.setContent {
+            FrameByNavinTheme {
+                V2232PersonalReminderHub(onClose = {}, onCreator = {})
+            }
+        }
+        rule.onNodeWithTag("v2232-personal-add").performClick()
+        rule.onNodeWithTag("v2232-personal-editor").assertExists()
+        rule.waitForIdle()
+        assertFalse("Opening an optional link picker must not create Room", db.exists())
     }
 
     @Test fun unavailableCatalogDoesNotInventEmptyOptionsOrFalseSelections() {
