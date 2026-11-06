@@ -205,4 +205,68 @@ class StabilizationPersonalMutationGateTest {
         }
     }
 
+    @Test fun pendingRecoveryInspectionCanReadButNotWrite() = sandbox { journal ->
+        val receipt = prepared(journal)
+        var inspected = false
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { current ->
+            assertEquals(receipt, current)
+            val value = StabilizationPersonalMutationGate.withStableSnapshot(journal) {
+                inspected = true
+                "read-only"
+            }
+            assertEquals("read-only", value)
+            var refused = false
+            try {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) { "unsafe write" }
+            } catch (_: IllegalStateException) {
+                refused = true
+            }
+            assertTrue("No owner mutation may borrow inspection authority", refused)
+        }
+        assertTrue(inspected)
+        assertEquals(receipt, StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
+    }
+
+    @Test fun pendingRecoveryInspectionRejectsAbsentOrCorruptJournal() = sandbox { journal ->
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { "bad" }
+            }
+        }
+        journal.writeText("corrupted pending transaction")
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { "bad" }
+            }
+        }
+    }
+
+    @Test fun nestedRecoveryInspectionCannotBorrowExistingMutationAuthority() = sandbox { journal ->
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            val receipt = prepared(journal)
+            var rejected = false
+            try {
+                StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { "bad" }
+            } catch (_: IllegalStateException) {
+                rejected = true
+            }
+            assertTrue("A nested scope would risk deadlock", rejected)
+            assertEquals(receipt, StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
+        }
+    }
+
+    @Test fun nestedRecoveryInspectionsAreRejected() = sandbox { journal ->
+        prepared(journal)
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) {
+            var rejected = false
+            try {
+                StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { "bad" }
+            } catch (_: IllegalStateException) {
+                rejected = true
+            }
+            assertTrue(rejected)
+        }
+    }
+
+
 }
