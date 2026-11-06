@@ -68,6 +68,24 @@ jobs:
           assert int(root.get('failures',0)) == 0 and int(root.get('errors',0)) == 0
           print('PASS: durable block, serialized read/write, cancelled action and corruption checks')
           PY
+      - name: Require parent recovery journal and JPEG safety regressions on this exact head
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          for name, expected in (
+              ('StabilizationRestoreWriteAheadJournalTest', 12),
+              ('StabilizationVerifiedPhotoInstallerTest', 12),
+          ):
+              items=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*'+name+'.xml'))
+              assert len(items)==1, f'Integrated {name} suite missing'
+              suite=ET.parse(items[0]).getroot()
+              assert int(suite.get('tests','0')) >= expected, f'{name} cases skipped'
+              assert int(suite.get('failures','0')) == 0
+              assert int(suite.get('errors','0')) == 0
+          print('PASS: 24+ recovery/JPEG tests plus Phase A lock regressions')
+          PY
       - name: Enable Android 15 KVM emulator
         run: |
           set -euo pipefail
