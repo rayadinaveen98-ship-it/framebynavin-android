@@ -28,7 +28,7 @@ jobs:
           cat /tmp/v308-changed.txt
           while IFS= read -r path; do
             case "$path" in
-              .github/workflows/backlot-v308-spark-multi-activity.yml|docs/product/backlot-v308-spark-activity.md|app/src/main/java/com/framebynavin/app/ui/V308SparkActivityDigest.kt|app/src/main/java/com/framebynavin/app/ui/V2214HomeCompanion.kt|app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt|app/src/test/java/com/framebynavin/app/ui/V308SparkActivityPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V308SparkActivityDigestUiTest.kt) ;;
+              .github/workflows/backlot-v308-spark-multi-activity.yml|.github/scripts/backlot-v308-android15-spark.sh|docs/product/backlot-v308-spark-activity.md|app/src/main/java/com/framebynavin/app/ui/V308SparkActivityDigest.kt|app/src/main/java/com/framebynavin/app/ui/V2214HomeCompanion.kt|app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt|app/src/test/java/com/framebynavin/app/ui/V308SparkActivityPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V308SparkActivityDigestUiTest.kt) ;;
               *) echo "FAIL: unreviewed V308 source edit $path" >&2; exit 1;;
             esac
           done < /tmp/v308-changed.txt
@@ -75,23 +75,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -euo pipefail
-            test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = "1"
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell pm clear com.framebynavin.app
-            log="$(mktemp)"
-            adb shell am instrument -w -r \
-              -e hardeningTestEnvironment ci-emulator \
-              -e class com.framebynavin.app.ui.V308SparkActivityDigestUiTest \
-              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
-            grep -Fq "OK (1 test)" "$log"
-            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then exit 1; fi
-            mkdir -p output/v308-visual-audit
-            adb pull /sdcard/Android/data/com.framebynavin.app/files/v308-visual-audit/. output/v308-visual-audit/
-            test "$(find output/v308-visual-audit -maxdepth 1 -name '*.png' | wc -l)" -eq 1
-            (cd output/v308-visual-audit && sha256sum *.png > SHA256SUMS.txt)
+          script: bash .github/scripts/backlot-v308-android15-spark.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
