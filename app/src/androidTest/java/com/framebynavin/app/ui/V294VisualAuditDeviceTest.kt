@@ -134,7 +134,7 @@ class V294VisualAuditDeviceTest {
         val time = System.currentTimeMillis()
         val space = V289PersonalSpacePolicy.newSpace(V289SpaceType.FITNESS, time, id)
         runBlocking {
-            val repo = V289SpacesRepository(db.spaces())
+            val repo = V289SpacesRepository(app, db.spaces())
             repo.createSpace(space)
             repo.logManualEntry(
                 V289SpaceEntry(
