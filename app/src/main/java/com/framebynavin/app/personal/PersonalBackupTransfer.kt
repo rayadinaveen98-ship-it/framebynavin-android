@@ -110,7 +110,20 @@ internal class PersonalBackupTransfer(context: Context) {
             attention = true
             android.util.Log.w("BacklotPersonal", "Post-restore reschedule deferred", error)
         }
-        V224WidgetUpdater.refresh(app)
+        // The Personal DataStore replacement has already committed above.
+        // Widget failure must never look like an uncommitted restore or invite
+        // a second destructive import of the same backup.
+        try {
+            V224WidgetUpdater.refresh(app)
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            attention = true
+            android.util.Log.w(
+                "BacklotPersonal",
+                "Post-restore widget refresh deferred; Personal records are saved",
+            )
+        }
         return PersonalBackupRestoreReceipt(clean.size, attention)
     }
 }
