@@ -1,0 +1,135 @@
+name: Backlot V309 - Signed Owner Activity QA and Data Preservation
+
+on:
+  push:
+    branches: [qa/backlot-v308-owner-preservation-309]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v309-signed-owner-qa
+  cancel-in-progress: true
+
+jobs:
+  signed-owner-activity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 125
+    steps:
+      - uses: actions/checkout@v4
+      - name: Freeze exact V308 UI source, allow only owner QA files
+        run: |
+          set -euo pipefail
+          grep -Fq 'versionCode = 309' app/build.gradle.kts
+          grep -Fq 'versionName = "2.29.0-rc1-activity-owner-qa"' app/build.gradle.kts
+          grep -Fq 'create("personalStable")' app/build.gradle.kts
+          source_sha=552fc74d3cd154bbc3d4fc1fad9ec0af4c559ff0
+          git fetch --depth=1 origin refs/heads/feature/backlot-v308-spark-multi-activity:refs/remotes/origin/feature/backlot-v308-spark-multi-activity
+          test "$(git rev-parse refs/remotes/origin/feature/backlot-v308-spark-multi-activity)" = "$source_sha" || {
+            echo 'FAIL: V308 source has changed; create a new explicitly reviewed owner candidate' >&2
+            exit 1
+          }
+          git diff --name-only "$source_sha" HEAD > /tmp/v309-changed.txt
+          cat /tmp/v309-changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              app/build.gradle.kts|.github/workflows/backlot-v309-signed-owner-preservation.yml|.github/scripts/backlot-v309-signed-inplace-data-preservation.sh|app/src/androidTest/java/com/framebynavin/app/upgrade/V309FromV305CreatorPersonalUpgradeDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/upgrade/V309FromV305SpacePhotoUpgradeDeviceTest.kt|docs/product/backlot-v309-owner-qa.md) ;;
+              *) echo "FAIL: V309 changed unsupported source: $path" >&2; exit 1;;
+            esac
+          done < /tmp/v309-changed.txt
+          echo 'PASS: exact V308 source frozen; no app data, alarm, manifest, cloud or release signing changes'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build signed owner preview with matching Android instrumentation
+        run: |
+          set -euo pipefail
+          timeout 90m gradle :app:assemblePersonalStable :app:assemblePersonalStableAndroidTest \
+            -PbacklotSignedOwnerTest=true -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          mkdir -p output/v309
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk \
+            output/v309/Backlot-V309-Signed-Owner-Activity-Review.apk
+          cp app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk \
+            output/v309/app-personalStable-androidTest.apk
+          (cd output/v309 && sha256sum *.apk > SHA256SUMS.txt)
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V305-Signed-Owner-Preview-296
+          path: output/v305
+          run-id: 42179463286
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify both APK checksums, package versions and exactly matching V2 certificates
+        run: |
+          set -euo pipefail
+          (cd output/v305 && sha256sum -c SHA256SUMS.txt)
+          (cd output/v309 && sha256sum -c SHA256SUMS.txt)
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          old=output/v305/Backlot-V305-Signed-Owner-Preview-296.apk
+          new=output/v309/Backlot-V309-Signed-Owner-Activity-Review.apk
+          "$signer" verify --verbose --print-certs "$old" > output/v305/SIGNATURE-RECHECK.txt
+          "$signer" verify --verbose --print-certs "$new" > output/v309/SIGNATURE.txt
+          "$aapt" dump badging "$old" > output/v305/IDENTITY-RECHECK.txt
+          "$aapt" dump badging "$new" > output/v309/IDENTITY.txt
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          signatures=[]
+          for version, folder, identity_name, sign_name in [
+              (296, 'v305', 'IDENTITY-RECHECK.txt', 'SIGNATURE-RECHECK.txt'),
+              (309, 'v309', 'IDENTITY.txt', 'SIGNATURE.txt'),
+          ]:
+              root=Path('output') / folder
+              identity=(root / identity_name).read_text()
+              assert f"package: name='com.framebynavin.app' versionCode='{version}'" in identity
+              content=(root / sign_name).read_text()
+              assert 'Verified using v2 scheme (APK Signature Scheme v2): true' in content
+              match=re.search(r'V2 Signer: certificate SHA-256 digest: ([0-9a-f]{64})',content)
+              assert match, f'V2 certificate missing: {folder}'
+              signatures.append(match.group(1))
+          assert len(set(signatures)) == 1
+          assert signatures[0] == 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0'
+          print('PASS: same public sideload signer, version 296 -> 309, valid checksums')
+          PY
+
+      - name: Enable Android 15 emulator acceleration
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Verify two synthetic V305 to V309 signed upgrades without clearing seeded owner data
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v309-signed-inplace-data-preservation.sh
+
+      - name: Upload owner test APK for review only
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V309-Signed-Owner-Activity-Review-Only
+          path: output/v309/
+          retention-days: 30
+          if-no-files-found: error
