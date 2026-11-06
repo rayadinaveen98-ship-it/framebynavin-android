@@ -265,4 +265,17 @@ class V294VisualAuditDeviceTest {
         rule.onNodeWithTag("v2232-personal-editor").assertExists()
         rule.onNodeWithContentDescription("Close editor").performClick()
     }
+    @Test fun ownerChallengeStartsWithBlankTemplate() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme { V297ChallengeScreen(onClose = {}) }
+        }
+        rule.waitUntil(15_000) {
+            rule.onAllNodesWithTag("v297-create-open")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithText("21-day challenges").assertExists()
+        screenshot("11-challenges-owner-blank.png")
+    }
+
 }

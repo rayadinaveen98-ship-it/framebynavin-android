@@ -34,6 +34,7 @@ internal fun V295UniversalPersonalRoutines(
     onCreateReminder: () -> Unit,
     onEditReminder: (PersonalReminder) -> Unit,
     onOpenSpaces: () -> Unit,
+    onOpenChallenges: () -> Unit,
 ) {
     val active = reminders.filter { !it.paused }
     val now = System.currentTimeMillis()
@@ -100,6 +101,11 @@ internal fun V295UniversalPersonalRoutines(
                     }
                 }
             }
+            OutlinedButton(
+                enabled = enabled,
+                onClick = onOpenChallenges,
+                modifier = Modifier.fillMaxWidth().testTag("v297-routines-open-challenges"),
+            ) { Text("MY 21-DAY CHALLENGES") }
             TextButton(onClick = onOpenSpaces,
                 modifier = Modifier.fillMaxWidth().testTag("v295-routines-open-spaces")) {
                 Text("MY SPACES · NOTES & PHOTOS", color = MutedGold)

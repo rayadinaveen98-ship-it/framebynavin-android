@@ -87,6 +87,7 @@ internal fun V2232PersonalReminderHub(
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
+    var challengesOpen by rememberSaveable { mutableStateOf(false) }
     // Page switches reset their viewport; the two layouts must never share a scroll offset.
     val personalPageScroll = remember(personalPageName) { ScrollState(0) }
     var completionEvents by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
@@ -264,6 +265,7 @@ internal fun V2232PersonalReminderHub(
                         editorOpen = true
                     },
                     onOpenSpaces = { spacesOpen = true },
+                    onOpenChallenges = { challengesOpen = true },
                 )
             }
             V288PersonalSettingsHeading(
@@ -494,6 +496,10 @@ internal fun V2232PersonalReminderHub(
                     modifier = Modifier.testTag("v2232-personal-feedback"))
             }
         }
+    }
+
+    if (challengesOpen) {
+        V297ChallengeScreen(onClose = { challengesOpen = false })
     }
 
     if (spacesOpen) {
