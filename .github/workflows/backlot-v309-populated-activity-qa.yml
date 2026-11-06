@@ -1,0 +1,82 @@
+name: Backlot V309 - Populated Activity Center Visual QA
+
+on:
+  push:
+    branches: [qa/backlot-v309-populated-activity-visuals]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v309-populated-activity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  populated-visual-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 135
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify exact V309 source plus test-only files
+        run: |
+          set -euo pipefail
+          frozen=727d0dd815a622d9b6fcfee9ec64b7ef81b0db92
+          git fetch --depth=1 origin refs/heads/qa/backlot-v308-owner-preservation-309:refs/remotes/origin/qa/backlot-v308-owner-preservation-309
+          test "$(git rev-parse origin/qa/backlot-v308-owner-preservation-309)" = "$frozen"
+          git diff --name-only "$frozen" HEAD > /tmp/v309-visual-scope.txt
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/backlot-v309-populated-activity-qa.yml|.github/scripts/backlot-v309-populated-activity-audit.sh|app/src/androidTest/java/com/framebynavin/app/ui/V309PopulatedActivityVisualQaTest.kt|docs/product/backlot-v309-populated-activity-visual-qa.md) ;;
+              *) echo "FAIL: changed frozen app source $path" >&2; exit 1;;
+            esac
+          done < /tmp/v309-visual-scope.txt
+          echo 'PASS: V309 UI and all reminder stores are unchanged; only synthetic test fixture added'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile matching debug app and instrumentation APK
+        run: |
+          set -euo pipefail
+          # A parallel V310 QA build confirmed Kotlin compiler Java heap OOM
+          # at 4 GiB on a 16 GiB runner. Use an 8 GiB single compiler here.
+          # Capture resource heartbeats rather than treating OOM as source error.
+          (while sleep 180; do
+            echo '--- Gradle resource heartbeat ---'
+            free -m
+            ps -eo pid,etime,rss,%cpu,comm --sort=-rss | head -9
+          done) &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || true' EXIT
+          timeout 105m gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Enable Android 15 emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run real populated Activity Center Compose visual QA
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v309-populated-activity-audit.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V309-Populated-Activity-Android15-Screenshots
+          path: output/v309-populated-activity/
+          retention-days: 30
+          if-no-files-found: warn
