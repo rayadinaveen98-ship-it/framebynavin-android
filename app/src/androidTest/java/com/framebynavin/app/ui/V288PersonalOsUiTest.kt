@@ -152,8 +152,11 @@ class V288PersonalOsUiTest {
         rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 2 OF 4", substring = true)
         rule.onNodeWithTag("v2232-personal-date").assertExists()
         rule.onNodeWithTag("v296-composer-back").performClick()
+        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 1 OF 4", substring = true)
         rule.onNodeWithTag("v2232-personal-title").assertTextContains("Evening reflection")
         rule.onNodeWithTag("v296-composer-next").performClick()
+        rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 2 OF 4", substring = true)
+        rule.waitForIdle() // Let the staged animation settle before the next tap.
         rule.onNodeWithTag("v296-composer-next").performClick()
         rule.onNodeWithTag("v296-composer-progress").assertTextContains("STEP 3 OF 4", substring = true)
         rule.onNodeWithTag("v296-composer-advanced").assertExists()
