@@ -25,7 +25,7 @@ run_suite() {
   fi
   rm -f "$logfile"
 }
-run_suite com.framebynavin.app.ui.V310ReviewLinksUiTest 2
+run_suite com.framebynavin.app.ui.V310ReviewLinksUiTest 3
 run_suite com.framebynavin.app.personal.V310CreateAndLinkDeviceTest 1
 mkdir -p output/v310-personal-links
 adb pull /sdcard/Android/data/com.framebynavin.app/files/v310-visual-audit/. output/v310-personal-links/
