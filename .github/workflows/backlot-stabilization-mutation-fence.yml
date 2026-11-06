@@ -29,7 +29,7 @@ jobs:
           git diff --name-only "$frozen" HEAD > /tmp/mutation-fence-files.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderStore.kt|app/src/main/java/com/framebynavin/app/personal/V297ChallengeStore.kt|app/src/main/java/com/framebynavin/app/personal/V298ReminderGroupStore.kt|app/src/main/java/com/framebynavin/app/personal/V301LocalRecoveryReader.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V289PersonalSpacesScreen.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateDeviceTest.kt|.github/workflows/backlot-stabilization-mutation-fence.yml|.github/scripts/backlot-stabilization-mutation-fence-android15.sh) ;;
+              app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/PersonalReminderStore.kt|app/src/main/java/com/framebynavin/app/personal/V297ChallengeStore.kt|app/src/main/java/com/framebynavin/app/personal/V298ReminderGroupStore.kt|app/src/main/java/com/framebynavin/app/personal/V301LocalRecoveryReader.kt|app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V289PersonalSpacesScreen.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V290PrivatePhotoFiles.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V290InterruptedPhotoRecovery.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateDeviceTest.kt|.github/workflows/backlot-stabilization-mutation-fence.yml|.github/scripts/backlot-stabilization-mutation-fence-android15.sh|docs/release/BACKLOT_STABILIZATION_MUTATION_FENCE.md) ;;
               *) echo "BLOCKED: change outside mutation-fence stabilization $path" >&2; exit 1;;
             esac
           done < /tmp/mutation-fence-files.txt
@@ -55,7 +55,7 @@ jobs:
             --no-daemon --no-parallel --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
-      - name: Require seven recovery-mutation gate regressions
+      - name: Require ten journal and nested photo gate regressions
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -64,7 +64,7 @@ jobs:
           paths=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*StabilizationPersonalMutationGateTest.xml'))
           assert len(paths)==1, 'Mutation gate suite did not execute'
           root=ET.parse(paths[0]).getroot()
-          assert int(root.get('tests',0)) >= 7
+          assert int(root.get('tests',0)) >= 10
           assert int(root.get('failures',0)) == 0 and int(root.get('errors',0)) == 0
           print('PASS: durable block, serialized read/write, cancelled action and corruption checks')
           PY
