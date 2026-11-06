@@ -13,17 +13,21 @@ import kotlinx.coroutines.withContext
  * This is a READ-ONLY safety check, not a substitute for all-domain restore.
  * Existing custom challenges and private photos are not transferred by cloud.
  */
+internal class PersonalLinkProtectionException : IllegalStateException(
+    "This Personal copy omits reminders linked to local Spaces or Groups. " +
+        "Nothing was restored. Preserve your existing records and use a " +
+        "complete verified backup before replacing Personal reminders."
+)
+
 internal object PersonalLinkedReferencePolicy {
     fun requireRetained(
         incomingReminderIds: Set<String>,
         existingGroupLinks: Set<String>,
         existingSpaceLinks: Set<String>,
     ) {
-        require(existingGroupLinks.all { it in incomingReminderIds } &&
-            existingSpaceLinks.all { it in incomingReminderIds }) {
-            "This Personal copy omits reminders linked to local Spaces or Groups. " +
-                "Nothing was restored. Preserve your existing records and use a " +
-                "complete verified backup before replacing Personal reminders."
+        if (!existingGroupLinks.all { it in incomingReminderIds } ||
+            !existingSpaceLinks.all { it in incomingReminderIds }) {
+            throw PersonalLinkProtectionException()
         }
     }
 }
