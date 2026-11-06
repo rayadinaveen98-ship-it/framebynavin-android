@@ -175,13 +175,15 @@ class StabilizationPersonalMutationGateTest {
     @Test fun recoveryPermitRejectsWrongTransactionOrChangedTarget() = sandbox { journal ->
         StabilizationPersonalMutationGate.withOwnerMutation(journal) {
             val receipt = prepared(journal)
-            assertThrows(IllegalStateException::class.java) {
-                runBlocking {
-                    StabilizationPersonalMutationGate.withPreparedRecovery(
-                        journal, receipt.copy(targetDigest = "e".repeat(64)),
-                    ) { "bad" }
-                }
+            var rejected = false
+            try {
+                StabilizationPersonalMutationGate.withPreparedRecovery(
+                    journal, receipt.copy(targetDigest = "e".repeat(64)),
+                ) { "bad" }
+            } catch (_: IllegalStateException) {
+                rejected = true
             }
+            assertTrue("Changed target must fail even with inherited owner permit", rejected)
             assertEquals(receipt, StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
         }
     }
@@ -190,13 +192,15 @@ class StabilizationPersonalMutationGateTest {
         StabilizationPersonalMutationGate.withOwnerMutation(journal) {
             val receipt = prepared(journal)
             StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
-                assertThrows(IllegalStateException::class.java) {
-                    runBlocking {
-                        StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
-                            "bad"
-                        }
+                var rejected = false
+                try {
+                    StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
+                        "bad"
                     }
+                } catch (_: IllegalStateException) {
+                    rejected = true
                 }
+                assertTrue("Nested authority must fail inside same coroutine", rejected)
             }
         }
     }
