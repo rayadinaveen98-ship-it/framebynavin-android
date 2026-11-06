@@ -97,6 +97,23 @@ class V304RestorePreparationTest {
         } finally { root.deleteRecursively(); inputRoot.deleteRecursively() }
     }
 
+    @Test fun sameSizeUnrelatedPhotoMetadataCannotBeSubstitutedIntoPreparation() {
+        val root = directory("wrong-photo-metadata")
+        val input = directory("input")
+        try {
+            val original = staged(input)
+            val forged = original.copy(photo = original.photo.copy(
+                note = "Different private photo notes",
+            ))
+            val store = V304RestorePreparationStore(root)
+            assertThrows(IllegalArgumentException::class.java) {
+                store.prepare(plan(), listOf(forged), requestedByOwner = true)
+            }
+            assertFalse(root.exists())
+            assertTrue(original.stagedFile.exists())
+        } finally { root.deleteRecursively(); input.deleteRecursively() }
+    }
+
     @Test fun alteredPhotoAfterArchiveVerificationFailsAndRemovesStaging() {
         val root = directory("tamper")
         val inputRoot = directory("input")
