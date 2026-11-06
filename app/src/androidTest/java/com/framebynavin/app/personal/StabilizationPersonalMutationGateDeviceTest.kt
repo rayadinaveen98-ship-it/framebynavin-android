@@ -49,6 +49,29 @@ class StabilizationPersonalMutationGateDeviceTest {
         }
     }
 
+    @Test fun followUpSettingsCannotChangeDuringPendingRecovery() = runBlocking {
+        HardeningTestEnvironment.requireCiEmulator()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val root = StabilizationPersonalMutationGate.journalRootFor(app)
+        check(!root.exists()) { "Only a cleared CI emulator can run this test" }
+        val settings = PersonalFollowUpSettingsStore(app)
+        settings.setEnabled(false)
+        settings.setDelay(60)
+        val before = settings.current()
+        try {
+            check(root.mkdir())
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { settings.setEnabled(true) }
+            }
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { settings.setDelay(120) }
+            }
+            assertEquals(before, settings.current())
+        } finally {
+            root.deleteRecursively() // Synthetic emulator-only recovery marker
+        }
+    }
+
     @Test fun pendingJournalBlocksAllThreeDataStoresAndSnapshotWithoutDataLoss() = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
