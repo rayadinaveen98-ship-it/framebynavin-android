@@ -29,6 +29,14 @@ The separate `StabilizationRestoreTargetPolicy` computes a **non-writing additiv
 
 Nine JVM tests exercise eight-domain additions, local-only preservation, portable same-ID idempotency, unsafe lease stripping, ID collision rejection, unverified local integrity, photo-path collision and unchanged Group membership. This is a prerequisite to safely implementing a journaled commit/rollback flow, **not** a complete restore. The actual transaction writer and crash recovery are still missing. Never expose a Restore button based on this pure target planner alone.
 
+## Personal cloud/manual restore — linked-reference integrity fix
+
+Backlot's existing Personal-only cloud/manual restore replaces Personal reminder IDs and Done receipts but leaves locally stored Reminder Groups and Room Space links untouched. Previously, a cloud copy missing a locally referenced reminder could strand those references.
+
+Now `PersonalLinkedReferenceGuard` reads current Groups and Space link IDs without creating or updating Room tables, and refuses replacement if any referenced reminder ID would disappear. The selected cloud copy, existing reminders, Group memberships and Space links remain unchanged on this rejection. Cloud Sync reports a generic, privacy-preserving actionable explanation rather than silently claiming success.
+
+This safeguard has six pure policy tests and a separate Android emulator test that creates **real** Group, Space and reminder records, rejects an incompatible Personal cloud copy, then permits an explicitly selected same-ID replacement without losing links. It is not all-domain sync and does not transfer media or Spaces to another device.
+
 ## Still blocking stable release
 
 1. V309 **populated** Activity Center screenshot evidence and V310 optional Space/Group Android tests, currently running in their own QA branches.
