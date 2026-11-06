@@ -13,8 +13,10 @@ Phases bracket separate writes to Personal+Done, Challenges, Groups, Room Spaces
 `StabilizationVerifiedPhotoInstaller` accepts an already authenticated staged
 photo and metadata through an **injected sandbox root**. It validates file UUID,
 byte count and SHA-256, rejects symlink sources/destinations and cross-root stages,
-streams into a fresh fsynced partial, then publishes with an atomic **create-only
-hard link** (not a replacing rename). Existing different photos are never
+streams into a fresh fsynced partial, then publishes via **CREATE_NEW** to reserve a destination that cannot
+replace an existing JPEG (not a replacing rename). Android denied hard-link
+creation in the first Android 15 test, so a verified partial is streamed to
+the CREATE_NEW destination and fsynced before the partial is removed. Existing different photos are never
 overwritten; exact existing bytes can be safely recognized as idempotent on
 replay. An interrupted `.restore.pending` is preserved and prevents
 automatic resume, so future owner-driven recovery must review it.
