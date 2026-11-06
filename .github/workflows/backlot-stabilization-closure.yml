@@ -28,11 +28,11 @@ jobs:
           cat /tmp/stabilization-files.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/androidTest/java/com/framebynavin/app/ui/BacklotStabilizationEmptyCreatorUiTest.kt|.github/scripts/backlot-stabilization-creator-empty-android15.sh|.github/workflows/backlot-stabilization-closure.yml|docs/release/BACKLOT_STABILIZATION_PENDING_CLOSURE.md) ;;
+              app/src/main/java/com/framebynavin/app/ui/V157ReminderCenterUi.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicy.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreTargetPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/BacklotStabilizationEmptyCreatorUiTest.kt|.github/scripts/backlot-stabilization-creator-empty-android15.sh|.github/workflows/backlot-stabilization-closure.yml|docs/release/BACKLOT_STABILIZATION_PENDING_CLOSURE.md) ;;
               *) echo "BLOCKED: non-stabilization source change $path" >&2; exit 1;;
             esac
           done < /tmp/stabilization-files.txt
-          echo 'PASS: only empty-state UI, acceptance tests and release tracking changed'
+          echo 'PASS: only empty-state polish, read-only recovery planning, acceptance tests and release tracking changed'
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -47,6 +47,20 @@ jobs:
             --no-daemon --no-parallel --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require nine all-domain recovery target-planning regression cases
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          matches=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*StabilizationRestoreTargetPolicyTest.xml'))
+          assert len(matches)==1, 'Recovery target policy regression suite missing'
+          result=ET.parse(matches[0]).getroot()
+          assert int(result.get('tests','0')) >= 9, 'Recovery target cases were skipped'
+          assert int(result.get('failures','0')) == 0
+          assert int(result.get('errors','0')) == 0
+          print('PASS: all-domain non-destructive merge target, conflict, photo path and idempotency')
+          PY
       - name: Enable Android 15 emulator KVM acceleration
         run: |
           set -euo pipefail
