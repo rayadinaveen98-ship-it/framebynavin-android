@@ -601,13 +601,23 @@ internal fun V2232PersonalReminderHub(
                     val result = personalLinkCreation.create(draft, validated)
                     editorOpen = false
                     editing = null
-                    if (result.linkProblems.isNotEmpty()) {
-                        // Do NOT leave the editor open or imply the reminder
-                        // failed to save. A partial link failure is recoverable
-                        // from existing My Spaces / Reminder Groups screens.
+                    if (result.linkProblems.isNotEmpty() || result.deliveryNeedsAttention) {
+                        // The ID is committed in Personal DataStore. Never
+                        // imply Save failed or invite a duplicate reminder.
+                        val problems = buildList {
+                            if (result.deliveryNeedsAttention)
+                                add("Android alert scheduling or widget refresh needs attention")
+                            addAll(result.linkProblems)
+                        }
+                        val advice = buildList {
+                            if (result.deliveryNeedsAttention)
+                                add("Check the reminder and Android alert permissions.")
+                            if (result.linkProblems.isNotEmpty())
+                                add("Open My Spaces or Reminder Groups to finish linking.")
+                        }
                         throw IllegalStateException(
-                            "Reminder saved, but ${result.linkProblems.joinToString(" and ")}. " +
-                                "Open My Spaces or Reminder Groups to link it manually."
+                            "Reminder saved, but ${problems.joinToString(" and ")}. " +
+                                advice.joinToString(" ")
                         )
                     }
                 } else {
