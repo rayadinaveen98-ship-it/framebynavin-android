@@ -9,6 +9,7 @@ import com.framebynavin.app.personal.PersonalReminderDraft
 import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.personal.V297ChallengeStore
 import com.framebynavin.app.personal.V298ReminderGroupStore
+import com.framebynavin.app.personal.V301LocalRecoveryReader
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.personal.PersonalRepeat
 import com.framebynavin.app.personal.PersonalPurpose
@@ -256,6 +257,20 @@ class V288PersonalOsUiTest {
         }
         assertEquals(original, runBlocking { store.load() })
         assertEquals(originalHistory, runBlocking { store.loadCompletionHistory() })
+        assertEquals(databaseAlreadyExists, spacesDatabase.exists())
+    }
+
+    @Test fun recoveryConflictReaderNeverChangesPersonalRecordsOrCreatesSpacesDb() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val store = PersonalReminderStore(app)
+        val original = runBlocking { store.exportPersonalJson() }
+        val spacesDatabase = app.getDatabasePath(V289SpacesDatabase.FILE_NAME)
+        val databaseAlreadyExists = spacesDatabase.exists()
+        // A failed read must fail closed rather than create or migrate a Space.
+        runBlocking {
+            runCatching { V301LocalRecoveryReader(app).read() }
+        }
+        assertEquals(original, runBlocking { store.exportPersonalJson() })
         assertEquals(databaseAlreadyExists, spacesDatabase.exists())
     }
 
