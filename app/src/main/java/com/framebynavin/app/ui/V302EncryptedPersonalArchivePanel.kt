@@ -22,6 +22,8 @@ import com.framebynavin.app.personal.V301ArchiveConflictPreview
 import com.framebynavin.app.personal.V301DomainDiff
 import com.framebynavin.app.personal.V301RestoreDryRunReport
 import com.framebynavin.app.ui.theme.*
+import java.security.DigestOutputStream
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -65,13 +67,26 @@ internal fun V302EncryptedPersonalArchivePanel() {
                 result = null
                 try {
                     val saved = withContext(Dispatchers.IO) {
+                        val writtenDigest = MessageDigest.getInstance("SHA-256")
                         context.contentResolver.openOutputStream(uri, "wt")?.use { output ->
-                            exporter.export(secret, output)
+                            DigestOutputStream(output, writtenDigest).use { tracked ->
+                                exporter.export(secret, tracked)
+                            }
                         } ?: error("The selected document cannot be written")
-                        // A write acknowledgement is not proof the file persists.
+                        // The document provider may return success for a partial
+                        // or different file. Read EVERY saved byte and compare.
+                        val expected = writtenDigest.digest()
+                        val actual = context.contentResolver.openInputStream(uri)?.use {
+                            V302OwnerArchiveFingerprint.sha256OfAllBytes(it)
+                        } ?: error("The saved file cannot be reopened for verification")
+                        require(V302OwnerArchiveFingerprint.matchesExportedBytes(expected, actual)) {
+                            "Saved archive differs from the exported archive"
+                        }
+                        // Independently authenticate the complete encrypted
+                        // payload, every domain and each recorded private photo.
                         context.contentResolver.openInputStream(uri)?.use { input ->
                             exporter.verify(secret, input)
-                        } ?: error("The saved document cannot be verified")
+                        } ?: error("The saved document cannot be authenticated")
                     }
                     notice = "Encrypted archive saved, reopened and fully authenticated. " +
                         "Verified ${saved.verifiedPhotoFiles} photo files. Keep your passphrase " +
