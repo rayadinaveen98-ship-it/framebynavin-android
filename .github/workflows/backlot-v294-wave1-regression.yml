@@ -110,7 +110,7 @@ jobs:
               ('V299PhotoIntegrityPolicyTest',4),
               ('V300EncryptedPersonalArchiveTest',10),
               ('V303SpaceReceiptArchiveCodecTest',9),
-              ('V304RestorePreparationTest',9),
+              ('V304RestorePreparationTest',10),
               ('V300RestoreReadinessPolicyTest',5),
               ('V300PrivatePhotoInventoryPolicyTest',3),
               ('V301RestoreDryRunTest',11),
