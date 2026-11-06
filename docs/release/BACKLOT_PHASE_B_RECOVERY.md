@@ -49,3 +49,20 @@ The coordinator has real stages, each with BEFORE/AFTER fsynced journal records:
 **Deliberately incomplete:** Even after `VERIFYING`, the durable journal remains active; `B03RestoreExecution.ownerRestoreFinished` remains false. This prevents a false "complete" when B4 owner-recovery/rollback after a process death, exact custom-music/snooze coverage, final retained-escrow verification and owner acknowledgement have not been implemented. **Do not invoke B3 on a real owner phone.** The disposable B03 Android 15 integration test is designed to generate an actual encrypted archive with Personal, Challenge, Group, Space/entry/link and a real JPEG, write those canonical domains and verify the existing owner reminder was preserved. The CI is not proof until the exact newest commit's full emulator and JVM suite is green.
 
 The Phase B workflow's audited source allowlist and full compile + Phase A/B1 regression checks have been extended to include B3's permit, coordinator, Room/JPEG writers and Android fixture.
+
+
+## B4 encrypted escrow reauthentication hardening (unreleased)
+
+Cold-restart owner escrow inspection now binds the **decrypted, independently
+authenticated V300 archive content** to the stored V305 escrow baseline digest,
+not merely the encrypted ZIP's file checksum and metadata. A valid encrypted
+archive whose portable records differ from the escrow's recorded baseline is
+rejected. The existing Android 15 escrow fixture also independently fingerprints
+the live synthetic snapshot and compares it with the escrow receipt before
+verifying the reopened copy. This protects recovery assessment from treating a
+valid but mismatched rollback archive as the owner's pre-restore state.
+
+This is a safety improvement, **not a rollback implementation**. B4 still needs
+durable owner-approved resume/rollback, verified completion and journal release;
+B5/B6 still need crash-injection and exact-head full acceptance. The branch
+remains draft, and the live UI must remain disabled.
