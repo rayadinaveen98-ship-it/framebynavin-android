@@ -79,6 +79,27 @@ class V301RestoreDryRunTest {
         assertFalse(report.approvedToWrite)
     }
 
+    @Test fun volatileAlarmLeaseDifferencesDoNotCreateFalsePortableConflict() {
+        val original = reminder()
+        val withDeliveryLease = original.copy(
+            pendingOccurrenceMillis = 3000L,
+            pendingFireAtMillis = 3200L,
+            pendingToken = "bca17856-6da3-4cdf-84d0-e7a94a301ac3",
+            presentedToken = "bca17856-6da3-4cdf-84d0-e7a94a301ac3",
+            presentedAtMillis = 3250L,
+            autoRetryCount = 1,
+            autoRetryScheduledAtMillis = 3500L,
+        )
+        val onPhone = bundle(reminders = listOf(withDeliveryLease))
+        val portableArchive = bundle(reminders = listOf(original))
+        val report = V301RestoreDryRun.compare(
+            local(onPhone), portableArchive, emptyList(),
+        )
+        assertEquals(1, report.reminders.identical)
+        assertEquals(0, report.reminders.conflicting)
+        assertFalse(report.approvedToWrite)
+    }
+
     @Test fun sameIdButDifferentOwnerTitleIsNeverSilentlyOverwritten() {
         val onPhone = bundle(reminders = listOf(reminder(title = "Keep my phone version")))
         val archived = bundle(reminders = listOf(reminder(title = "Archived version")))
