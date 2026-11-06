@@ -57,3 +57,22 @@ the integrated exact-head run.
 This is only an owner-data safety prerequisite. No live cross-store restore
 or rollback is enabled, and Phase B requires a fully audited global freeze
 for actual restore initiation plus crash-safe final verification.
+
+## Repository-level Space write fence
+
+V289SpacesRepository now requires an explicit application Context and protects
+create, edit, archive, unarchive, owner-confirmed Space delete, reminder link
+and manual entry writes with the persistent mutation gate. Callers in the main
+UI, V310 link coordinator and existing Android device tests were migrated.
+The repository no longer offers a raw DAO-only constructor that would
+silently bypass the freeze.
+
+The integrated emulator gate runs three independent clusters on a cleared,
+disposable Android 15 emulator: 3 crash/JPEG/restart tests, 8 new Personal,
+encrypted-export and Room mutation-fence tests, and 20 existing Space
+database/photo recovery/UI tests. **31 tests total** are required on this
+exact commit before Phase A can be considered verified. Existing UI behavior
+must not regress, and no device/user data is touched.
+
+A fully journaled live restore writer, escrow-bound rollback, and successful
+cloud/full alarm migration remain later phases.
