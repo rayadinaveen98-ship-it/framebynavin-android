@@ -40,8 +40,21 @@ spaceLog="$(mktemp)"
 trap 'rm -f "$recoveryLog" "$log" "$spaceLog"' EXIT
 adb shell am instrument -w -r \
   -e hardeningTestEnvironment ci-emulator \
-  -e class com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest,com.framebynavin.app.personal.spaces.V290InterruptedPhotoRecoveryDeviceTest,com.framebynavin.app.personal.spaces.V290PrivatePhotoJournalDeviceTest,com.framebynavin.app.ui.V289PersonalSpacesUiTest \
+  -e class com.framebynavin.app.personal.spaces.V289SpacesDatabaseTest,com.framebynavin.app.personal.spaces.V290InterruptedPhotoRecoveryDeviceTest,com.framebynavin.app.personal.spaces.V290PrivatePhotoJournalDeviceTest,com.framebynavin.app.ui.V289PersonalSpacesUiTest,com.framebynavin.app.ui.V292SpaceMetricUiTest \
   com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$spaceLog"
-grep -Fq 'OK (20 tests)' "$spaceLog"
+grep -Fq 'OK (21 tests)' "$spaceLog"
 if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$spaceLog"; then exit 1; fi
-echo 'PASS: all 31 owner-safe Android recovery, Room, photo and Space UI cases'
+echo 'PASS: recovery, mutation-lock and existing Space UI regression groups'
+
+# Linked-reference safety is a real Personal-only legacy restore test that
+# requires an empty synthetic emulator DataStore at entry. Test in isolation.
+adb shell pm clear com.framebynavin.app
+linkLog="$(mktemp)"
+trap 'rm -f "$recoveryLog" "$log" "$spaceLog" "$linkLog"' EXIT
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class com.framebynavin.app.personal.PersonalLinkedReferenceGuardDeviceTest \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$linkLog"
+grep -Fq 'OK (1 test)' "$linkLog"
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$linkLog"; then exit 1; fi
+echo 'PASS: all 33 synthetic Android Phase A recovery, Room, Space UI and orphan-link cases'
