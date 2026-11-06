@@ -31,3 +31,11 @@ The phrase "authenticated incoming" in the API is a call-site contract: the futu
 - [ ] B6: all Phase B tests green on one immutable source SHA, security and visual review, no unauthorized user data effects
 
 **Release boundary:** This branch is a draft stacked on Phase A, not merged into stable; it does not enable a Restore button, cloud sync, Play signing or an APK distribution.
+
+## Phase B2 first emulator-backed recovery/journal seam (test-only)
+
+The disposable Android 15 fixture `B02OwnerPrecommitDeviceTest` uses Backlot's **real** V300 encrypted ZIP exporter/validator, V304 private preparation, V305 independent encrypted rollback escrow, V301 current local snapshot, V305 barrier and B1 evidence policy. Inside the original Phase A owner-mutation mutex, it reopens the escrow and *checks archive contents against every current portable domain*, reauthenticates the selected import, computes the additive target, and creates a durable `PREPARED` journal. Afterward it proves ordinary Personal DataStore edits fail closed and confirms no reminders were changed. The suite also reruns all 33 existing Phase A Android fixtures on the new B source head.
+
+This code exists **only in Android instrumentation** and is never a production entrypoint. It deliberately leaves a PREPARED marker on a cleared emulator; the script never runs the test against an owner's device. It is *not* the global owner-approved writer, recovery UI, rollback after power loss, or a finished Phase B.
+
+The next engineering step must add a production-only exclusive restore authority that cannot be forged by a simple data class, plus a sealed source for in-device rollback state. The authenticated escrow currently contains portable records rather than device-local alarm leases or custom media URI grants, so "lossless rollback" remains unproven and must not be promised.
