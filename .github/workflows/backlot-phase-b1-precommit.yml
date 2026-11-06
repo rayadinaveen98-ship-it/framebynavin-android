@@ -1,4 +1,4 @@
-name: Backlot Phase B1-B3 - authenticated journaled restore QA
+name: Backlot Phase B1-B4 - journaled restore and read-only interrupted recovery QA
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - name: Reject changes outside audited B1-B3 gated recovery sources
+      - name: Reject changes outside audited B1-B4 gated recovery sources
         run: |
           set -euo pipefail
           frozen=44f815f94885a25ab80ad4e3bc9f7ff6d97818b6
@@ -28,12 +28,12 @@ jobs:
           git diff --name-only "$frozen" HEAD > /tmp/phase-b1-files.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/personal/B01RestorePrecommitPolicy.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreDomainWriter.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreTransactionCoordinator.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B03AdditiveRestoreDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B01RestorePrecommitPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B02OwnerPrecommitDeviceTest.kt|.github/scripts/backlot-phase-b2-android15.sh|docs/release/BACKLOT_PHASE_B_RECOVERY.md|.github/workflows/backlot-phase-b1-precommit.yml) ;;
+              app/src/main/java/com/framebynavin/app/personal/B01RestorePrecommitPolicy.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreDomainWriter.kt|app/src/main/java/com/framebynavin/app/personal/B04InterruptedRecoveryInspector.kt|app/src/test/java/com/framebynavin/app/personal/B04InterruptedRecoveryPolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreTransactionCoordinator.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B03AdditiveRestoreDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B01RestorePrecommitPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B02OwnerPrecommitDeviceTest.kt|.github/scripts/backlot-phase-b2-android15.sh|docs/release/BACKLOT_PHASE_B_RECOVERY.md|.github/workflows/backlot-phase-b1-precommit.yml) ;;
               *) echo "BLOCKED: unexpected Phase B1 change $path" >&2; exit 1;;
             esac
           done < /tmp/phase-b1-files.txt
           test -s /tmp/phase-b1-files.txt
-          echo 'PASS: only audited B1-B3 recovery permit, writer, fixtures, CI and documentation'
+          echo 'PASS: audited B1-B4 recovery, crash inspection, test fixtures, CI and documentation'
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -57,7 +57,8 @@ jobs:
           root=Path('app/build/test-results/testDebugUnitTest')
           for name,minimum in (
               ('B01RestorePrecommitPolicyTest', 20),
-              ('StabilizationPersonalMutationGateTest', 14),
+              ('StabilizationPersonalMutationGateTest', 18),
+              ('B04InterruptedRecoveryPolicyTest', 16),
               ('StabilizationRestoreWriteAheadJournalTest', 12),
               ('StabilizationVerifiedPhotoInstallerTest', 12),
           ):
