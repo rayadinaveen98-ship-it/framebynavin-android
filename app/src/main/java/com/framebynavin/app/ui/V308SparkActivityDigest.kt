@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.*
+import java.security.MessageDigest
 
 /**
  * Spark reads V306's existing evidence-based feed. These are preview rows, not
@@ -23,12 +25,23 @@ import com.framebynavin.app.ui.theme.*
  */
 internal object V308SparkActivityPolicy {
     private const val LIMIT = 3
-    fun top(items: List<V306ActivityItem>): List<V306ActivityItem> {
-        val actions = items.filter { it.bucket == V306ActivityBucket.NEEDS_ACTION }
+    /** Hashed, domain-scoped key: no reminder title or raw ID in Spark preferences. */
+    fun dismissalId(item: V306ActivityItem): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(item.id.toByteArray(Charsets.UTF_8))
+        return "spark-activity:" + digest.joinToString("") { "%02x".format(it) }
+    }
+
+    fun top(
+        items: List<V306ActivityItem>,
+        suppressed: Set<String> = emptySet(),
+    ): List<V306ActivityItem> {
+        val filtered = items.filterNot { dismissalId(it) in suppressed }
+        val actions = filtered.filter { it.bucket == V306ActivityBucket.NEEDS_ACTION }
         // Real actionable events are more important than historical confirmation.
         // When there is no outstanding action, surface at most two recent receipts.
         return (if (actions.isNotEmpty()) actions.take(LIMIT)
-            else items.filter { it.bucket == V306ActivityBucket.HISTORY }.take(2))
+            else filtered.filter { it.bucket == V306ActivityBucket.HISTORY }.take(2))
             .distinctBy { it.id }
     }
 
@@ -53,8 +66,10 @@ internal fun V308SparkActivityDigest(
     onOpenActivity: () -> Unit,
     onOpenCreator: (String) -> Unit,
     onOpenPersonal: () -> Unit,
+    dismissed: Set<String> = emptySet(),
+    onDismiss: ((V306ActivityItem) -> Unit)? = null,
 ) {
-    val preview = V308SparkActivityPolicy.top(feed)
+    val preview = V308SparkActivityPolicy.top(feed, dismissed)
     if (preview.isEmpty()) return
     val actionCount = feed.count { it.bucket == V306ActivityBucket.NEEDS_ACTION }
     Surface(
@@ -103,7 +118,18 @@ internal fun V308SparkActivityDigest(
                                 color = MutedText, fontSize = 11.sp,
                                 maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                        Icon(Icons.Outlined.ChevronRight, null, tint = MutedGold)
+                        if (onDismiss != null) {
+                            IconButton(
+                                onClick = { onDismiss(item) },
+                                modifier = Modifier.size(40.dp)
+                                    .testTag("v308-spark-dismiss"),
+                            ) {
+                                Icon(Icons.Outlined.Close, "Hide this Spark update",
+                                    tint = MutedText)
+                            }
+                        } else {
+                            Icon(Icons.Outlined.ChevronRight, null, tint = MutedGold)
+                        }
                     }
                 }
             }

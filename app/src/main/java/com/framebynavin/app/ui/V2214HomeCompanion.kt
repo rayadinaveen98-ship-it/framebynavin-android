@@ -210,7 +210,10 @@ internal fun V2214HomeCompanion(
             )
         }.getOrDefault(emptyList())
     }
-    val sparkTop = V308SparkActivityPolicy.top(activityFeed)
+    val dismissedActivityIds = remember(nowMillis, refreshVersion) {
+        store.suppressed(nowMillis)
+    }
+    val sparkTop = V308SparkActivityPolicy.top(activityFeed, dismissedActivityIds)
 
     val identity = V144GuidePrefs.currentGuide
     V2221CompanionPortrait(
@@ -268,6 +271,18 @@ internal fun V2214HomeCompanion(
                 if (sparkTop.isNotEmpty()) {
                     V308SparkActivityDigest(
                         feed = activityFeed,
+                        dismissed = dismissedActivityIds,
+                        onDismiss = { item ->
+                            // Spark-only presentation preference: never acknowledges,
+                            // completes, reschedules or hides the original activity.
+                            if (store.dismiss(
+                                    V308SparkActivityPolicy.dismissalId(item),
+                                    System.currentTimeMillis(),
+                                )) {
+                                nowMillis = System.currentTimeMillis()
+                                refreshVersion++
+                            }
+                        },
                         onOpenActivity = {
                             sheetOpen = false
                             onOpenActivity()
