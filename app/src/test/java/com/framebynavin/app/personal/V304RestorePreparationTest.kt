@@ -157,6 +157,26 @@ class V304RestorePreparationTest {
         } finally { root.deleteRecursively(); inputRoot.deleteRecursively() }
     }
 
+    @Test fun crashInventoryReportsInterruptedOrUnknownFilesWithoutDeletingThem() {
+        val root = directory("crash-list")
+        val source = directory("input")
+        try {
+            val store = V304RestorePreparationStore(root)
+            assertEquals(V304PreparationInventory(0, 0, 0), store.inspectInventory())
+            val prepared = store.prepare(plan(), listOf(staged(source)), true)
+            assertEquals(V304PreparationInventory(1, 0, 0), store.inspectInventory())
+            val journal = File(root, "${prepared.transactionId}/journal.json")
+            journal.writeText(journal.readText().replace("READY", "PREPARING"))
+            val unknown = File(root, "not-a-transaction.partial")
+            unknown.writeText("untracked private preparation file")
+            assertEquals(V304PreparationInventory(0, 1, 1), store.inspectInventory())
+            assertTrue(File(root, "${prepared.transactionId}/part-00000.jpg").exists())
+            assertTrue(unknown.exists())
+            store.discard(prepared.transactionId)
+            assertTrue(unknown.exists())
+        } finally { root.deleteRecursively(); source.deleteRecursively() }
+    }
+
     @Test fun changingDestinationSincePreviewInvalidatesBaseline() {
         val proposed = plan()
         val changed = components().copy(
