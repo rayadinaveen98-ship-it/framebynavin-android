@@ -10,11 +10,15 @@ import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.personal.V297ChallengeStore
 import com.framebynavin.app.personal.V298ReminderGroupStore
 import com.framebynavin.app.personal.V301LocalRecoveryReader
+import com.framebynavin.app.personal.V300PersonalArchiveSource
+import com.framebynavin.app.personal.V301ArchiveConflictPreview
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.personal.PersonalRepeat
 import com.framebynavin.app.personal.PersonalPurpose
 import com.framebynavin.app.personal.V288PersonalTodayPolicy
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.time.ZoneId
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -301,5 +305,29 @@ class V288PersonalOsUiTest {
         rule.onNodeWithTag("v302-archive-result").assertDoesNotExist()
         assertEquals(before, runBlocking { store.exportPersonalJson() })
     }
+
+    @Test fun encryptedExportFromRealPersonalStoresAuthenticatesAndLeavesRemindersUntouched() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val source = V300PersonalArchiveSource(app)
+        val original = runBlocking { PersonalReminderStore(app).exportPersonalJson() }
+        val pass = "synthetic-emulator-passphrase-only".toCharArray()
+        try {
+            val zip = ByteArrayOutputStream()
+            runBlocking { source.export(pass, zip) }
+            val raw = zip.toByteArray()
+            assertTrue(raw.size > 100)
+            val preview = runBlocking { source.verify(pass, ByteArrayInputStream(raw)) }
+            val report = runBlocking {
+                V301ArchiveConflictPreview(app).check(ByteArrayInputStream(raw), pass)
+            }
+            assertEquals(preview.reminders, report.reminders.proposed)
+            assertEquals(preview.verifiedPhotoFiles, report.photos.proposed)
+            assertTrue(!report.approvedToWrite)
+            assertEquals(original, runBlocking { PersonalReminderStore(app).exportPersonalJson() })
+        } finally {
+            pass.fill('\u0000')
+        }
+    }
+
 
 }
