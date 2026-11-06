@@ -1,0 +1,94 @@
+name: Backlot V310 - Guided Personal Space and Group Linking
+
+on:
+  push:
+    branches: [feature/backlot-v310-personal-composer-links]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v310-personal-links-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  personal-composer-links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 140
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Guard V310 source, no migration or reminder delivery changes
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin refs/heads/feature/backlot-v3081-spark-individual-dismissal:refs/remotes/origin/feature/backlot-v3081-spark-individual-dismissal
+          git diff --name-only origin/feature/backlot-v3081-spark-individual-dismissal HEAD > /tmp/v310-changed.txt
+          cat /tmp/v310-changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              app/src/main/java/com/framebynavin/app/personal/V310CreateAndLink.kt|app/src/main/java/com/framebynavin/app/ui/V310ReviewLinks.kt|app/src/main/java/com/framebynavin/app/ui/V2232PersonalReminderHub.kt|app/src/test/java/com/framebynavin/app/personal/V310LinkTargetsTest.kt|app/src/androidTest/java/com/framebynavin/app/ui/V310ReviewLinksUiTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/V310CreateAndLinkDeviceTest.kt|.github/scripts/backlot-v310-personal-links-android15.sh|.github/workflows/backlot-v310-personal-links.yml|docs/product/backlot-v310-personal-review-links.md) ;;
+              *) echo "FAIL: V310 changed a non-allowlisted file: $path" >&2; exit 1;;
+            esac
+          done < /tmp/v310-changed.txt
+          echo 'PASS: no changes to Creator reminders, Personal delivery, DataStore/Room schemas, backup/cloud or signer'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build debug app, instrumentation APK and run full JVM suite
+        run: |
+          set -euo pipefail
+          # Kotlin 2 compilation exceeded a 4 GiB heap on 16 GiB hosted runners.
+          # Keep a single in-process compiler and explicit 8 GiB heap.
+          (while sleep 180; do
+            echo '--- Gradle resource heartbeat ---'
+            free -m
+            ps -eo pid,etime,rss,%cpu,comm --sort=-rss | head -9
+          done) &
+          monitor=$!
+          trap 'kill "$monitor" 2>/dev/null || true' EXIT
+          timeout 110m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require all seven link-selection policy tests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          reports=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*V310LinkTargetsTest.xml'))
+          assert len(reports)==1, 'V310 selection suite missing'
+          xml=ET.parse(reports[0]).getroot()
+          assert int(xml.get('tests', '0')) >= 7
+          assert int(xml.get('errors', '0')) == 0
+          assert int(xml.get('failures', '0')) == 0
+          print('PASS: V310 optional links, missing destinations and data-identity tests')
+          PY
+      - name: Enable Android emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify two Compose tests plus one real-save Room/DataStore test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-v310-personal-links-android15.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V310-Personal-Review-Links-Android15-Screenshot
+          path: output/v310-personal-links/
+          retention-days: 30
+          if-no-files-found: warn
