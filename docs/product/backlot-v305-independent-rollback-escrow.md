@@ -23,6 +23,7 @@ V305 builds that independent recovery *copy* as a separate safety prerequisite, 
 
 - 10 JVM tests verify exact byte survival and reopening, consent requirement, authentication failure, truncated writer cleanup, altered archived bytes, corrupt and extra journal files, crash-incomplete folders remaining for manual review, path traversal, missing local records, and unverified source refusal.
 - 1 Android 15 emulator integration test exercises real Backlot Personal source export, AES archive authentication, wrong passphrase rejection, reopen after creation and explicit discard. It asserts that the Personal DataStore and Spaces DB presence remain unchanged.
+- 6 additional pure barrier unit tests verify that the incoming V304 prepared archive and V305 encrypted old-data escrow match the SAME current phone baseline, refusing stale fingerprints, corrupt local integrity, partial preparations or invalid escrow metadata. A read-only `V305RestoreCommitBarrier` rereads current data, checks all staged photo hashes and authenticates the original ZIP with the owner's password; even success returns `authorizedToCommit = false`.
 - CI source allowlist permits only these two new production Personal files, with all existing cloud, alarm, Creator storage, manifest and Room schema code frozen.
 
 ## Limits — not yet crash-safe COMMIT
