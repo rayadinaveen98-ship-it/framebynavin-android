@@ -5,8 +5,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,6 +40,30 @@ class V289SpacesMetadataRecoveryDeviceTest {
             createdAtMillis = now + 1000,
             note = "Face wash and sunscreen",
         )
+    }
+
+    @Test fun activeRecoveryJournalRejectsDirectRoomMetadataImportAndExport() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val journal = StabilizationPersonalMutationGate.journalRootFor(app)
+        assertFalse("Only on cleared disposable emulator", journal.exists())
+        val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
+        try {
+            assertTrue(journal.mkdir())
+            val recovery = V289SpacesMetadataRecovery(app, db)
+            val incoming = V289SpacesMetadataCodec.encode(
+                V289SpaceState(spaces = listOf(savedSpace))
+            )
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { recovery.mergeVerifiedMetadata(incoming, emptySet()) }
+            }
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { recovery.prepareLocalMetadataExport() }
+            }
+            assertTrue(runBlocking { db.spaces().loadSpaces().isEmpty() })
+        } finally {
+            journal.deleteRecursively() // Synthetic emulator-only fixture.
+            db.close()
+        }
     }
 
     @Test fun metadataExportRestoreIsIdempotentWithoutTouchingPersonalReminders() {
