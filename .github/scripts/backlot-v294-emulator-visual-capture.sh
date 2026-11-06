@@ -8,6 +8,21 @@ test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = "1" || {
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell pm clear com.framebynavin.app # disposable test emulator only
+# Real Android private-filesystem check: only disposable synthetic byte data,
+# no owner's rooms, photos or alarm data are touched by preparation.
+prep_log="$(mktemp)"
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class com.framebynavin.app.personal.V304RestorePreparationDeviceTest \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$prep_log"
+if ! grep -Fq "OK (1 test)" "$prep_log" ||
+   grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$prep_log"; then
+  cat "$prep_log" >&2
+  adb logcat -d -v threadtime | tail -120 || true
+  rm -f "$prep_log"
+  exit 1
+fi
+rm -f "$prep_log"
 logfile="$(mktemp)"
 if ! adb shell am instrument -w -r \
   -e hardeningTestEnvironment ci-emulator \
