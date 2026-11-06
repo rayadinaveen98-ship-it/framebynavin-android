@@ -103,6 +103,7 @@ jobs:
               ('V299PhotoIntegrityPolicyTest',4),
               ('V300EncryptedPersonalArchiveTest',9),
               ('V300RestoreReadinessPolicyTest',5),
+              ('V300PrivatePhotoInventoryPolicyTest',3),
               ('V298ReminderGroupTest',7),
           ]
           for name,minimum in required:
