@@ -3,6 +3,7 @@ package com.framebynavin.app.personal
 import com.framebynavin.app.personal.spaces.V289SpacesMetadataCodec
 import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
+import com.framebynavin.app.reminders.ReminderMusicMode
 
 /**
  * Pure, non-writing preview of an already authenticated V300 archive.
@@ -118,7 +119,8 @@ internal object V301RestoreDryRun {
         }
 
         return V301RestoreDryRunReport(
-            reminders = diff(existingPersonal.reminders, importedPersonal.reminders) { it.id },
+            reminders = diff(portableReminders(existingPersonal.reminders),
+                portableReminders(importedPersonal.reminders)) { it.id },
             completedActions = diff(existingPersonal.completions, importedPersonal.completions) {
                 it.stableKey
             },
@@ -133,6 +135,20 @@ internal object V301RestoreDryRun {
             localIntegrityVerified = local.localIntegrityVerified,
         )
     }
+
+    /**
+     * A ZIP cannot carry this device's scheduled-alarm leases or local song
+     * content URIs. Compare the PORTABLE representation of both sides; do not
+     * flag identical reminders solely because those volatile fields differ.
+     */
+    private fun portableReminders(items: List<PersonalReminder>): List<PersonalReminder> =
+        PersonalBackupPolicy.resetDeviceLeases(items).map { item ->
+            if (item.voiceMusicMode == ReminderMusicMode.CUSTOM) {
+                item.copy(voiceMusicMode = ReminderMusicMode.PIANO, voiceMusicUri = "").checked()
+            } else {
+                item.copy(voiceMusicUri = "").checked()
+            }
+        }
 
     private fun <T, K> diff(
         local: List<T>,
