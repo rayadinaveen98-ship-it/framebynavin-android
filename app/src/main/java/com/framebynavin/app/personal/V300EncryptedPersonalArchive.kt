@@ -243,10 +243,17 @@ internal object V300EncryptedPersonalArchive {
         }).toString()
 
     private fun validateComponents(data: V300PersonalComponents) {
-        PersonalCompletionBackupCodec.decode(data.personal)
+        val reminders = PersonalCompletionBackupCodec.decode(data.personal)
         V297ChallengeCodec.decode(data.challenges)
-        V298ReminderGroupCodec.decode(data.groups)
-        V289SpacesMetadataCodec.decode(data.spaces)
+        val groups = V298ReminderGroupCodec.decode(data.groups)
+        val spaces = V289SpacesMetadataCodec.decode(data.spaces)
+        val ids = reminders.reminders.mapTo(HashSet()) { it.id }
+        require(groups.all { group -> group.reminderIds.all { it in ids } }) {
+            "A Reminder Group refers to a Personal reminder missing from this archive"
+        }
+        require(spaces.links.all { it.reminderId in ids }) {
+            "A Space link refers to a Personal reminder missing from this archive"
+        }
     }
 
     private fun deriveKey(password: CharArray, salt: ByteArray): SecretKeySpec {
