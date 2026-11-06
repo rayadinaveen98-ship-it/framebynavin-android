@@ -2,7 +2,7 @@ name: Backlot V294 - Synthetic Android 15 UX Screenshots
 
 on:
   push:
-    branches: [design/backlot-v294-app-wide-experience-audit, feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings, qa/backlot-v294-wave2-release-candidate, feature/backlot-v295-universal-personal-foundation]
+    branches: [design/backlot-v294-app-wide-experience-audit, feature/backlot-v294-universal-ui-wave1, feature/backlot-v294-wave2-quiet-settings, qa/backlot-v294-wave2-release-candidate, feature/backlot-v295-universal-personal-foundation, feature/backlot-v296-guided-personal-composer]
   workflow_dispatch:
 
 permissions:
