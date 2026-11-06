@@ -108,6 +108,7 @@ jobs:
               ('V300RestoreReadinessPolicyTest',5),
               ('V300PrivatePhotoInventoryPolicyTest',3),
               ('V301RestoreDryRunTest',10),
+              ('V302OwnerArchiveFingerprintTest',3),
               ('V298ReminderGroupTest',7),
           ]
           for name,minimum in required:
