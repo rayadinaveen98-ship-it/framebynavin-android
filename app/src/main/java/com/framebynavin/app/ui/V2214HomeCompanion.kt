@@ -53,7 +53,13 @@ import com.framebynavin.app.ui.theme.ProjectorIvory
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.framebynavin.app.data.*
+import com.framebynavin.app.personal.PersonalReminder
+import com.framebynavin.app.personal.PersonalCompletionEvent
+import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.reminders.ReminderAcknowledgementStore
+import com.framebynavin.app.reminders.ReminderOccurrenceStore
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 
 /**
  * V222.1: the same V221.4 evidence/dismissal/action policy, now hosted inside
@@ -89,6 +95,8 @@ internal fun V2214HomeCompanion(
     onOpenReminders: () -> Unit,
     onOpenProject: (String) -> Unit,
     onOpenIdeas: () -> Unit,
+    onOpenActivity: () -> Unit = onOpenReminders,
+    onOpenPersonal: () -> Unit = onOpenReminders,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
@@ -149,10 +157,65 @@ internal fun V2214HomeCompanion(
     // sheet or unnecessary suggested-action affordance on Home.
     if (!enabled || !store.enabled()) return
 
+    // V308: share the canonical V306 evidence policy; read-only. A companion
+    // preview must never create a new reminder or infer a notification was read.
+    val creatorJournal = remember(context) {
+        ReminderAcknowledgementStore(context.applicationContext)
+    }
+    val creatorTokens = remember(context) {
+        ReminderOccurrenceStore(context.applicationContext)
+    }
+    val personalStore = remember(context) {
+        PersonalReminderStore(context.applicationContext)
+    }
+    var personalRecords by remember { mutableStateOf(emptyList<PersonalReminder>()) }
+    var personalReceipts by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
+    var personalReady by remember { mutableStateOf(false) }
+    var receiptReady by remember { mutableStateOf(false) }
+    LaunchedEffect(personalStore) {
+        try {
+            personalStore.remindersFlow.collect {
+                personalRecords = it
+                personalReady = true
+            }
+        } catch (_: Exception) { personalReady = false }
+    }
+    LaunchedEffect(personalStore) {
+        try {
+            personalStore.completionHistoryFlow.collect {
+                personalReceipts = it
+                receiptReady = true
+            }
+        } catch (_: Exception) { receiptReady = false }
+    }
+    val activityFeed = remember(
+        taskSnapshot, personalRecords, personalReceipts, personalReady,
+        receiptReady, refreshVersion, nowMillis,
+    ) {
+        runCatching {
+            val creator = taskSnapshot.map { task ->
+                val history = creatorJournal.recent(task.id)
+                V306CreatorEvidence(
+                    task = task,
+                    history = history,
+                    latestTokenCurrent = history.lastOrNull()?.let {
+                        creatorTokens.matches(task, it.occurrenceId)
+                    } ?: false,
+                )
+            }
+            V306ActivityCenterPolicy.build(
+                creators = creator,
+                personal = if (personalReady) personalRecords else emptyList(),
+                confirmedDone = if (personalReady && receiptReady) personalReceipts else emptyList(),
+            )
+        }.getOrDefault(emptyList())
+    }
+    val sparkTop = V308SparkActivityPolicy.top(activityFeed)
+
     val identity = V144GuidePrefs.currentGuide
     V2221CompanionPortrait(
         guide = identity,
-        hasSuggestion = decision != null && !quietThisVisit,
+        hasSuggestion = (decision != null && !quietThisVisit) || sparkTop.isNotEmpty(),
         onClick = { talkingToSpark = false; sheetOpen = true },
         modifier = modifier,
     )
@@ -202,7 +265,31 @@ internal fun V2214HomeCompanion(
                 // A suppressed/unavailable decision must never be replaced by
                 // fabricated project or reminder evidence.
                 val visibleDecision = decision?.takeUnless { quietThisVisit }
-                if (visibleDecision != null) {
+                if (sparkTop.isNotEmpty()) {
+                    V308SparkActivityDigest(
+                        feed = activityFeed,
+                        onOpenActivity = {
+                            sheetOpen = false
+                            onOpenActivity()
+                        },
+                        onOpenCreator = { id ->
+                            if (tasks.any {
+                                    it.id == id && it.archivedAtMillis <= 0L &&
+                                    (it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING)
+                                }) {
+                                sheetOpen = false
+                                onOpenProject(id)
+                            } else {
+                                sheetOpen = false
+                                onOpenActivity()
+                            }
+                        },
+                        onOpenPersonal = {
+                            sheetOpen = false
+                            onOpenPersonal()
+                        },
+                    )
+                } else if (visibleDecision != null) {
                     V221CompanionSuggestionCard(
                         decision = visibleDecision,
                         identity = identity,
