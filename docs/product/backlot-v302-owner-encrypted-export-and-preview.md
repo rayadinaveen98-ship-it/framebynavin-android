@@ -22,8 +22,8 @@ A reopened SAF document can be slow or unavailable on some providers. V302 reope
 ## Verification
 
 - `V302OwnerArchiveFingerprintTest`: 3 tests for exact saved-file integrity, truncated/modified provider writes and empty/oversized saved files.
-- `V288PersonalOsUiTest`: two additional Android 15 emulator tests for password-gated actions, no automatic import or saved Personal data changes just by opening the panel.
-- `V294VisualAuditDeviceTest`: one additional synthetic screenshot of the blank encrypted archive panel and its disabled controls, bringing totals to 14 visual tests, 28 Settings/Personal UI tests.
+- `V288PersonalOsUiTest`: three additional Android 15 emulator tests for password-gated actions, no automatic import, and an encrypted export/authenticated preview roundtrip from the actual isolated Personal stores without changing reminders.
+- `V294VisualAuditDeviceTest`: one additional synthetic screenshot of the blank encrypted archive panel and its disabled controls, bringing totals to 14 visual tests, 29 Settings/Personal UI tests.
 - Full existing unit/data preservation, source allowlist and Android 15 UI checks continue.
 - Device acceptance still needs an actual SAF provider roundtrip, long/private photo journals, unavailable provider, wrong password, existing local conflicts, process interruption, storage exhaustion and signed in-place upgrade from V294.
 
