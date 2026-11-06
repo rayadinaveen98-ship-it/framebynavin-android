@@ -25,6 +25,7 @@ internal class B03RestoreDomainWriter(context: Context) {
     private val app = context.applicationContext
 
     suspend fun writeSpaces(attested: V300PersonalComponents) {
+        StabilizationPersonalMutationGate.requireActiveRecovery(app)
         val personal = PersonalCompletionBackupCodec.decode(attested.personal)
         val state = V303SpaceReceiptArchiveCodec.decode(attested.spaces, personal)
         val allPersonalIds = personal.reminders.mapTo(HashSet()) { it.id }
@@ -99,6 +100,7 @@ internal class B03RestoreDomainWriter(context: Context) {
         originals: List<V290SpacePhotoEntity>,
         authenticated: List<V300VerifiedPhoto>,
     ) {
+        StabilizationPersonalMutationGate.requireActiveRecovery(app)
         val oldIds = originals.mapTo(HashSet()) { it.id }
         val authenticatedById = authenticated.associateBy { it.photo.id }
         require(authenticatedById.size == authenticated.size) {
@@ -114,6 +116,7 @@ internal class B03RestoreDomainWriter(context: Context) {
         val db = V289SpacesDatabase.open(app)
         try {
             for (photo in newPhotos) {
+                StabilizationPersonalMutationGate.requireActiveRecovery(app)
                 val source = checkNotNull(authenticatedById[photo.id])
                 require(source.photo == photo) {
                     "Photo metadata differs from the authenticated archive"
