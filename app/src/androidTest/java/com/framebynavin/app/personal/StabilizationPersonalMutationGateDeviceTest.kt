@@ -49,6 +49,28 @@ class StabilizationPersonalMutationGateDeviceTest {
         }
     }
 
+    @Test fun encryptedWholePersonalExportCannotSnapshotIncompleteRecovery() = runBlocking {
+        HardeningTestEnvironment.requireCiEmulator()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val root = StabilizationPersonalMutationGate.journalRootFor(app)
+        check(!root.exists()) { "Only a cleared CI emulator can run this test" }
+        val bytes = java.io.ByteArrayOutputStream()
+        try {
+            check(root.mkdir())
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking {
+                    V300PersonalArchiveSource(app).export(
+                        "only-a-test-passphrase".toCharArray(), bytes,
+                    )
+                }
+            }
+            assertEquals(0, bytes.size())
+            assertTrue(root.exists())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun followUpSettingsCannotChangeDuringPendingRecovery() = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
