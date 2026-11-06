@@ -1,6 +1,7 @@
 package com.framebynavin.app.personal
 
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
+import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.FileVisitResult
@@ -24,6 +25,8 @@ internal data class V304RestorePlan(
     val baselineDigest: String,
     val archiveDigest: String,
     val report: V301RestoreDryRunReport,
+    /** In-memory authenticated photo manifest; never persisted in cleartext. */
+    val expectedPhotoMetadata: List<V290SpacePhotoEntity>,
 ) {
     val canWriteLiveOwnerData: Boolean get() = false
 }
@@ -45,6 +48,7 @@ internal object V304RestorePlanPolicy {
             baselineDigest = fingerprint(local.components, local.photos),
             archiveDigest = fingerprint(incoming, incomingPhotos),
             report = report,
+            expectedPhotoMetadata = incomingPhotos.sortedBy { it.id },
         )
     }
 
@@ -148,6 +152,10 @@ internal class V304RestorePreparationStore(private val privateRoot: File) {
         }
         require(photos.map { it.photo.id }.distinct().size == photos.size) {
             "Repeated private photo identity"
+        }
+        photos.forEach { V290PhotoTimelinePolicy.validate(it.photo) }
+        require(photos.map { it.photo }.sortedBy { it.id } == plan.expectedPhotoMetadata) {
+            "Prepared JPEG metadata does not match the authenticated archive plan"
         }
         var combined = 0L
         photos.forEach {
