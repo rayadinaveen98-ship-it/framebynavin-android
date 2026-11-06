@@ -130,68 +130,59 @@ internal fun V157ReminderCenterUi(
     }
 
     val reminderStatusPanels: @Composable () -> Unit = {
-                    Spacer(Modifier.height(13.dp))
-                    V307CompactCreatorActivity(
-                        tasks = responseTasks,
-                        nowMillis = now,
-                        snoozeMinutes = snoozeMinutes,
-                        onOpenActivityCenter = { activityOpen = true },
-                        onOpenProject = onEdit,
-                        onAcknowledge = onAcknowledge,
-                    )
-                    Spacer(Modifier.height(13.dp))
-                    Surface(
-                        onClick = {
-                            when (launchBlocker) {
-                                V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
-                                    V196ReminderLaunchReadiness.openFullScreenSettings(context)
-                                V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS,
-                                V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
-                                    V196ReminderLaunchReadiness.openNotificationSettings(context)
-                                else -> onOpenReminderSettings()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = CinemaSurface,
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE)
-                                RecRed.copy(alpha = .5f) else CinemaLine,
-                        ),
-                    ) {
-                        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                if (launchBlocker == V196ReminderLaunchReadiness.Blocker.NONE)
-                                    Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber,
-                                null,
-                                tint = if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE)
-                                    RecRed else MutedGold,
-                                modifier = Modifier.size(20.dp),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                when (launchBlocker) {
-                                    V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS ->
-                                        "Notifications off · tap to enable"
-                                    V196ReminderLaunchReadiness.Blocker.EXACT_TIMING ->
-                                        "Precise reminders off · tap to fix"
-                                    V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
-                                        "Full-screen alerts off · tap to enable"
-                                    V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
-                                        "Alarm/voice alerts muted · tap to fix"
-                                    V196ReminderLaunchReadiness.Blocker.NONE ->
-                                        "Reminder alerts ready"
-                                },
-                                color = ProjectorIvory,
-                                fontSize = 11.5.sp,
-                                lineHeight = 17.sp,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Icon(Icons.Outlined.ChevronRight, "Reminder settings", tint = MutedGold)
-                        }
+        V307CompactCreatorActivity(
+            tasks = responseTasks,
+            nowMillis = now,
+            snoozeMinutes = snoozeMinutes,
+            onOpenActivityCenter = { activityOpen = true },
+            onOpenProject = onEdit,
+            onAcknowledge = onAcknowledge,
+        )
+        // No redundant "alerts ready" status card. Real permission problems
+        // remain visible and actionable; history lives in Activity Center.
+        if (launchBlocker != V196ReminderLaunchReadiness.Blocker.NONE) {
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                onClick = {
+                    when (launchBlocker) {
+                        V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
+                            V196ReminderLaunchReadiness.openFullScreenSettings(context)
+                        V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS,
+                        V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
+                            V196ReminderLaunchReadiness.openNotificationSettings(context)
+                        else -> onOpenReminderSettings()
                     }
-
+                },
+                modifier = Modifier.fillMaxWidth().testTag("v307-reminder-permission-warning"),
+                color = CinemaSurface,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, RecRed.copy(alpha = .5f)),
+            ) {
+                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.WarningAmber, null, tint = RecRed,
+                        modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        when (launchBlocker) {
+                            V196ReminderLaunchReadiness.Blocker.NOTIFICATIONS ->
+                                "Notifications off · tap to enable"
+                            V196ReminderLaunchReadiness.Blocker.EXACT_TIMING ->
+                                "Precise reminders off · tap to fix"
+                            V196ReminderLaunchReadiness.Blocker.FULL_SCREEN ->
+                                "Full-screen alerts off · tap to enable"
+                            V196ReminderLaunchReadiness.Blocker.ALERT_CHANNEL ->
+                                "Alarm/voice alerts muted · tap to fix"
+                            V196ReminderLaunchReadiness.Blocker.NONE -> ""
+                        },
+                        color = ProjectorIvory,
+                        fontSize = 11.5.sp,
+                        lineHeight = 17.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(Icons.Outlined.ChevronRight, "Reminder settings", tint = MutedGold)
+                }
+            }
+        }
     }
 
     if (activityOpen) {
