@@ -69,10 +69,28 @@ silently bypass the freeze.
 
 The integrated emulator gate runs three independent clusters on a cleared,
 disposable Android 15 emulator: 3 crash/JPEG/restart tests, 8 new Personal,
-encrypted-export and Room mutation-fence tests, and 20 existing Space
-database/photo recovery/UI tests. **31 tests total** are required on this
+encrypted-export and Room mutation-fence tests, and 21 existing Space
+database/photo recovery/UI tests. **33 tests total** are required on this
 exact commit before Phase A can be considered verified. Existing UI behavior
 must not regress, and no device/user data is touched.
 
 A fully journaled live restore writer, escrow-bound rollback, and successful
 cloud/full alarm migration remain later phases.
+
+## Legacy import preflight race closed
+
+The older Personal-only restore now runs the linked Space/Group orphan
+validation and its canonical DataStore replacement under **one** owner
+mutation gate, preventing a newly created link from appearing after the
+preflight but before replacement. The nested canonical Personal store
+mutation uses the same scoped permit and still retains its independent
+rollback copy before a write. A separate cleared-emulator orphan-reference
+regression is required, along with the existing Space metric UI case.
+
+Exact-head Android requirement: 3 journal/JPEG/interruption + 8 protected
+Personal/Room/settings cases + 21 existing Space/metric/Compose cases +
+1 legacy Personal restore linked-reference case = **33 Android 15 tests**.
+
+Phase A safety prerequisites can be signed off only after the integrated
+exact-head test suite is green. Phase B still must implement and test the
+actual crash-safe, owner-authorized multi-store restore transaction.
