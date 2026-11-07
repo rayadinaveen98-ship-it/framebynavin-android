@@ -165,6 +165,45 @@ class B03AdditiveRestoreDeviceTest {
                 )
             }
         }
+        // The owner can record independently authenticated, immutable
+        // final-target evidence, but NOT complete or unlock the restore.
+        val checkpoint = checkNotNull(
+            StabilizationRestoreWriteAheadJournal(journalRoot).inspectAfterRestart()
+        )
+        val ownerConsent = B04OwnerRecoveryConsent(
+            transactionId = checkpoint.transactionId,
+            preparedId = checkpoint.preparedId,
+            escrowId = checkpoint.escrowId,
+            originalDigest = checkpoint.originalDigest,
+            targetDigest = checkpoint.targetDigest,
+            selectedChoice = B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET,
+            acknowledgedDeviceLocalLimitations = true,
+            ownerConfirmed = true,
+        )
+        val evidenceCoordinator = B04OwnerVerifiedTargetEvidenceCoordinator(app)
+        assertThrows(Exception::class.java) {
+            runBlocking {
+                evidenceCoordinator.recordOwnerVerifiedTarget(
+                    escrow.id, "incorrect-test-passphrase".toCharArray(), ownerConsent,
+                )
+            }
+        }
+        val finalEvidence = evidenceCoordinator.recordOwnerVerifiedTarget(
+            escrow.id, passphrase, ownerConsent,
+        )
+        assertEquals(checkpoint.targetDigest, finalEvidence.targetDigest)
+        assertFalse(finalEvidence.permitsJournalRemoval)
+        assertFalse(finalEvidence.signifiesCompletedRestore)
+        assertEquals(
+            finalEvidence,
+            evidenceCoordinator.recordOwnerVerifiedTarget(
+                escrow.id, passphrase, ownerConsent,
+            ),
+        )
+        assertTrue(journalRoot.exists())
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { PersonalReminderStore(app).delete(incoming.id) }
+        }
         // The escrow and journal are retained until B4 owner-mediated recovery,
         // not silently cleared at the end of the test-only B3 transaction.
         assertTrue(journalRoot.exists())
