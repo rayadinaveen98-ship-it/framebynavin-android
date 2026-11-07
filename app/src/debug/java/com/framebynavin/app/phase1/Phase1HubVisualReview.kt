@@ -43,16 +43,15 @@ import androidx.compose.ui.unit.sp
  * Both workspaces use the same shell, while body information remains specialized.
  * Never ship these synthetic example items or turn them into default user reminders.
  */
-private val HubInk = Color(0xFF0C1016)
-private val HubPanel = Color(0xFF191E26)
-private val HubRaised = Color(0xFF222833)
-private val HubLine = Color(0xFF353D4B)
-private val HubIvory = Color(0xFFF8F3EB)
-private val HubMuted = Color(0xFFA5ADBA)
-private val HubGold = Color(0xFFF3B060)
-private val HubCoral = Color(0xFFE68A7C)
-private val HubWarm = Brush.horizontalGradient(listOf(HubGold, HubCoral))
-private val HubRadius = RoundedCornerShape(18.dp)
+private val HubInk = Phase1OptionAReviewTokens.Ink
+private val HubPanel = Phase1OptionAReviewTokens.Panel
+private val HubRaised = Phase1OptionAReviewTokens.Raised
+private val HubLine = Phase1OptionAReviewTokens.Border
+private val HubIvory = Phase1OptionAReviewTokens.Ivory
+private val HubMuted = Phase1OptionAReviewTokens.Muted
+private val HubGold = Phase1OptionAReviewTokens.Gold
+private val HubWarm = Phase1OptionAReviewTokens.WarmAction
+private val HubRadius = RoundedCornerShape(19.dp)
 
 @Composable
 internal fun Phase1HubVisualReview(scene: String) {
@@ -68,17 +67,18 @@ internal fun Phase1HubVisualReview(scene: String) {
         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(
                 "BACKLOT  /  REMINDERS",
-                color = HubGold, fontSize = 10.sp, letterSpacing = 1.7.sp,
+                color = HubGold, fontSize = 10.sp, letterSpacing = 2.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
                 "Your reminders",
-                color = HubIvory, fontSize = 29.sp, lineHeight = 33.sp,
+                color = HubIvory, fontSize = 31.sp, lineHeight = 35.sp,
+                letterSpacing = (-0.8).sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
                 "Stay organized, without the clutter.",
-                color = HubMuted, fontSize = 13.sp, lineHeight = 19.sp,
+                color = HubMuted, fontSize = 13.sp, lineHeight = 20.sp,
             )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -98,7 +98,7 @@ internal fun Phase1HubVisualReview(scene: String) {
             Text(
                 if (isPersonal) "TODAY'S REMINDERS" else "PROJECT REMINDERS",
                 color = HubMuted, fontWeight = FontWeight.Bold,
-                fontSize = 10.sp, letterSpacing = 1.5.sp,
+                fontSize = 10.sp, letterSpacing = 1.1.sp,
             )
             Spacer(Modifier.weight(1f))
             Text("See all   ›", color = HubGold, fontSize = 12.sp)
@@ -193,7 +193,7 @@ private fun HubWorkspaceTab(label: String, selected: Boolean, modifier: Modifier
     val shape = RoundedCornerShape(13.dp)
     Surface(
         modifier = modifier.height(43.dp),
-        color = if (selected) Color(0xFF302820) else HubPanel,
+        color = if (selected) Phase1OptionAReviewTokens.ActiveChip else HubPanel,
         shape = shape,
         border = BorderStroke(1.dp, if (selected) HubGold else HubLine),
     ) {
@@ -212,7 +212,7 @@ private fun HubSummary(workspace: String, personal: Boolean) {
     Surface(
         shape = HubRadius,
         color = Color(0xFF201F22),
-        border = BorderStroke(1.dp, Color(0xFF796149)),
+        border = BorderStroke(1.dp, Color(0xFF786851)),
     ) {
         Column(
             Modifier.fillMaxWidth().padding(17.dp),
@@ -252,7 +252,7 @@ private fun HubSummary(workspace: String, personal: Boolean) {
 private fun HubFilter(name: String, selected: Boolean) {
     val shape = RoundedCornerShape(25.dp)
     Surface(
-        color = if (selected) HubGold else HubPanel,
+        color = if (selected) Phase1OptionAReviewTokens.ActiveChip else HubPanel,
         shape = shape,
         border = BorderStroke(1.dp, if (selected) HubGold else HubLine),
     ) {
@@ -260,7 +260,7 @@ private fun HubFilter(name: String, selected: Boolean) {
             name,
             modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
             fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-            color = if (selected) HubInk else HubMuted,
+            color = if (selected) HubIvory else HubMuted,
         )
     }
 }
@@ -288,7 +288,7 @@ private fun HubReminderItem(
                     fontSize = 14.sp, lineHeight = 18.sp)
                 Text(subtitle, color = HubMuted, fontSize = 11.sp, lineHeight = 16.sp)
             }
-            Text(state, color = HubGold, fontSize = 10.sp)
+            Text(state, color = if (state == "Today") HubGold else HubMuted, fontSize = 10.sp)
         }
     }
 }
