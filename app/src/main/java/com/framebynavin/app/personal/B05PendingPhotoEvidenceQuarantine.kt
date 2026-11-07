@@ -91,6 +91,9 @@ internal class B05PendingPhotoEvidenceQuarantine(
         check(!Files.exists(retained.toPath(), noLinks)) {
             "Existing photo evidence must never be overwritten"
         }
+        check(!Files.exists(marker.toPath(), noLinks)) {
+            "Earlier review marker requires owner recovery before a new quarantine"
+        }
 
         // The review marker is fsynced BEFORE the pending bytes are moved.
         // If the process dies after the move, the existing root-wide forensic
