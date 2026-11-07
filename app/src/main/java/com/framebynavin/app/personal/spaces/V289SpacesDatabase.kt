@@ -135,6 +135,10 @@ internal interface V289SpacesDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertPhoto(photo: V290SpacePhotoEntity)
 
+    /** Internal B4 rollback only; guarded by a global owner-recovery permit. */
+    @Query("DELETE FROM personal_space_entries WHERE id = :id")
+    suspend fun deleteEntry(id: String): Int
+
     @Query("DELETE FROM personal_space_photos WHERE id = :photoId")
     suspend fun deletePhoto(photoId: String): Int
 
