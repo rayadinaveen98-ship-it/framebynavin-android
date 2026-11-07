@@ -33,6 +33,7 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 echo "Running five shared and real-Hub callback instrumentation tests"
 timeout 12m adb shell am instrument -w \
   -e class com.framebynavin.app.ui.BacklotReminderHubChromeTest \
+  -e hardeningTestEnvironment ci-emulator \
   com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
   > "$out/INSTRUMENTED-HUB-TESTS.txt" 2>&1 || {
   cat "$out/INSTRUMENTED-HUB-TESTS.txt" >&2
