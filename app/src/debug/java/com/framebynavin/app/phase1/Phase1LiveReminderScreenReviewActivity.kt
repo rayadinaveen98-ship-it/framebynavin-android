@@ -1,6 +1,8 @@
 package com.framebynavin.app.phase1
 
 import android.os.Bundle
+import android.os.Build
+import com.framebynavin.app.BuildConfig
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
@@ -28,6 +30,18 @@ import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 class Phase1LiveReminderScreenReviewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Debug-only is not sufficient: refuse to show real Personal data on any
+        // ordinary user phone, even if someone manually installs a debug APK.
+        val isDisposableEmulator =
+            Build.FINGERPRINT.contains("generic", ignoreCase = true) ||
+            Build.PRODUCT.contains("sdk_gphone", ignoreCase = true) ||
+            Build.MODEL.contains("sdk_gphone", ignoreCase = true)
+        if (!BuildConfig.DEBUG || !isDisposableEmulator ||
+            !intent.getBooleanExtra("backlot_ci_visual_review", false)
+        ) {
+            finish()
+            return
+        }
         val initialScene = intent.getStringExtra("phase1_scene") ?: "creator"
         VisualExperiencePrefs.initialize(applicationContext)
         VisualExperiencePrefs.setTheme(
