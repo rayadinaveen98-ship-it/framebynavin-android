@@ -127,6 +127,64 @@ internal object StabilizationPersonalMutationGate {
         finally { permit.active = false }
     }
 
+    /**
+     * Permit precisely one owner-authenticated, journaled ROLLBACK under the
+     * existing read-only inspection mutex. The action journal tracks a reverse
+     * write sequence; the forward blocking journal must not be altered here.
+     */
+    internal suspend fun <T> withOwnerApprovedRollbackRecovery(
+        activeRoot: File,
+        forward: StabilizationRestoreJournalRecord,
+        decision: B04OwnerRecoveryDecision,
+        delta: B04NoPhotoRollbackDelta,
+        actionJournalRoot: File,
+        rollback: B04RollbackJournalRecord,
+        action: suspend () -> T,
+    ): T {
+        val path = activeRoot.absoluteFile.normalize().path
+        val inspection = checkNotNull(currentCoroutineContext()[InspectionPermit]) {
+            "Rollback requires a separate exclusive owner recovery inspection"
+        }
+        check(inspection.active && inspection.root == path &&
+            inspection.transactionId == forward.transactionId &&
+            inspection.originalDigest == forward.originalDigest &&
+            inspection.targetDigest == forward.targetDigest &&
+            inspection.step == forward.step &&
+            inspection.updatedAtMillis == forward.updatedAtMillis) {
+            "Owner rollback inspection is stale or bound to a different transaction"
+        }
+        check(currentCoroutineContext()[RecoveryPermit] == null) {
+            "Rollback authority cannot be borrowed from another restore"
+        }
+        check(StabilizationRestoreWriteAheadJournal(activeRoot).inspectAfterRestart() == forward &&
+            B04NoPhotoRollbackActionJournal(actionJournalRoot).inspect() == rollback) {
+            "Forward or reverse journal changed since the owner's approval"
+        }
+        require(decision.selectedChoice ==
+            B04OwnerRecoveryChoice.ROLLBACK_TO_AUTHENTICATED_ESCROW &&
+            decision.transactionId == forward.transactionId &&
+            decision.escrowId == forward.escrowId &&
+            decision.originalDigest == forward.originalDigest &&
+            decision.targetDigest == forward.targetDigest &&
+            delta.transactionId == forward.transactionId &&
+            delta.originalDigest == forward.originalDigest &&
+            delta.targetDigest == forward.targetDigest &&
+            !delta.grantsWriteAuthority && !delta.mayRemoveOriginalData &&
+            !delta.mayDeletePrivatePhotos &&
+            rollback.transactionId == forward.transactionId &&
+            rollback.escrowId == forward.escrowId &&
+            rollback.forwardStepAtApproval == forward.step &&
+            rollback.originalDigest == forward.originalDigest &&
+            rollback.targetDigest == forward.targetDigest) {
+            "Rollback decision or validated imported delta does not match the journal"
+        }
+        val permit = RecoveryPermit(
+            path, forward.transactionId, forward.originalDigest, forward.targetDigest,
+        )
+        return try { withContext(permit) { action() } }
+        finally { permit.active = false }
+    }
+
     /** Reject any direct restore domain call outside the journaled write scope. */
     internal suspend fun requireActiveRecovery(context: Context) {
         val root = journalRootFor(context)
