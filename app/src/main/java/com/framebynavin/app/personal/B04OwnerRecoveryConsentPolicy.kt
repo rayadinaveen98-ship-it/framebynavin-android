@@ -74,6 +74,54 @@ internal object B04OwnerRecoveryConsentPolicy {
                 "A verified target may be finalized only with fresh matching owner evidence"
             }
         }
+    /**
+     * Separate, narrow owner consent path for an independently validated
+     * forward plan. Unlike general evaluate(), this requires a checkpoint
+     * bound plan and still DOES NOT grant any mutation authority by itself.
+     */
+    fun evaluateVerifiedForwardPlan(
+        journal: StabilizationRestoreJournalRecord,
+        assessment: B04InterruptedRecoveryAssessment,
+        consent: B04OwnerRecoveryConsent,
+        plan: B04ForwardReplayPlan,
+    ): B04OwnerRecoveryDecision {
+        require(consent.selectedChoice == B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET) {
+            "A new explicit owner choice for forward replay is required"
+        }
+        require(consent.ownerConfirmed && consent.acknowledgedDeviceLocalLimitations) {
+            "Owner must approve replay and device-local limitations"
+        }
+        require(assessment.disposition !=
+            B04InterruptedRecoveryDisposition.UNVERIFIABLE_REQUIRES_OWNER_REVIEW &&
+            journal.step != StabilizationRestoreWriteStep.VERIFYING) {
+            "Unverifiable or already verifying state requires separate owner review"
+        }
+        require(consent.transactionId == journal.transactionId &&
+            consent.preparedId == journal.preparedId &&
+            consent.escrowId == journal.escrowId &&
+            consent.originalDigest == journal.originalDigest &&
+            consent.targetDigest == journal.targetDigest &&
+            assessment.transactionId == journal.transactionId &&
+            assessment.escrowId == journal.escrowId &&
+            assessment.lastDurableStep == journal.step &&
+            assessment.journalUpdatedAtMillis == journal.updatedAtMillis &&
+            plan.transactionId == journal.transactionId &&
+            plan.checkpoint == journal.step &&
+            plan.originalDigest == journal.originalDigest &&
+            plan.targetDigest == journal.targetDigest &&
+            plan.remaining.lastOrNull() == B04ForwardReplayStep.VERIFY &&
+            !plan.grantsMutationAuthority && !plan.mayRunWithoutOwnerConsent) {
+            "Forward replay evidence is incomplete or bound to stale journal data"
+        }
+        return B04OwnerRecoveryDecision(
+            transactionId = journal.transactionId,
+            selectedChoice = B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET,
+            originalDigest = journal.originalDigest,
+            targetDigest = journal.targetDigest,
+            escrowId = journal.escrowId,
+        )
+    }
+
         // Forward replay is not yet proven idempotent at each write boundary.
         // In particular, never replay photo CREATE_NEW after an uncertain crash.
         require(consent.selectedChoice != B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET) {

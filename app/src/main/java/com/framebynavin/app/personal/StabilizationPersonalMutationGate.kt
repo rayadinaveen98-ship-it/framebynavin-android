@@ -73,6 +73,59 @@ internal object StabilizationPersonalMutationGate {
         finally { granted.active = false }
     }
 
+    /**
+     * Upgrade the existing cold-restart inspection lock to one SHORT-LIVED
+     * journal-scoped recovery write permit. No second process lock is taken.
+     *
+     * This must only be called after the coordinator reauthenticates BOTH ZIP
+     * archives, matches baseline/target hashes, verifies live per-store
+     * chronology and private photo forensics, and obtains owner consent.
+     * Recovery writers still require this exact scoped permit.
+     */
+    internal suspend fun <T> withOwnerApprovedForwardRecovery(
+        root: File,
+        expected: StabilizationRestoreJournalRecord,
+        decision: B04OwnerRecoveryDecision,
+        plan: B04ForwardReplayPlan,
+        action: suspend () -> T,
+    ): T {
+        val inspection = checkNotNull(currentCoroutineContext()[InspectionPermit]) {
+            "Forward recovery requires the exclusive owner inspection lock"
+        }
+        val path = root.absoluteFile.normalize().path
+        check(inspection.active && inspection.root == path &&
+            inspection.transactionId == expected.transactionId &&
+            inspection.originalDigest == expected.originalDigest &&
+            inspection.targetDigest == expected.targetDigest &&
+            inspection.step == expected.step &&
+            inspection.updatedAtMillis == expected.updatedAtMillis) {
+            "Recovery approval is stale or scoped to another transaction"
+        }
+        check(StabilizationRestoreWriteAheadJournal(root).inspectAfterRestart() == expected) {
+            "Active recovery journal changed after owner consent"
+        }
+        require(
+            decision.selectedChoice == B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET &&
+            decision.transactionId == expected.transactionId &&
+            decision.escrowId == expected.escrowId &&
+            decision.originalDigest == expected.originalDigest &&
+            decision.targetDigest == expected.targetDigest &&
+            plan.transactionId == expected.transactionId &&
+            plan.checkpoint == expected.step &&
+            plan.originalDigest == expected.originalDigest &&
+            plan.targetDigest == expected.targetDigest &&
+            !plan.grantsMutationAuthority && !plan.mayRunWithoutOwnerConsent
+        ) { "Unverified or stale forward replay decision" }
+        val permit = RecoveryPermit(
+            path, expected.transactionId, expected.originalDigest, expected.targetDigest,
+        )
+        // Temporarily remove the READ-ONLY inspection permit so nested
+        // canonical DataStore/Room writers see exactly this recovery permit.
+        val authorContext = currentCoroutineContext().minusKey(InspectionPermit) + permit
+        return try { withContext(authorContext) { action() } }
+        finally { permit.active = false }
+    }
+
     /** Reject any direct restore domain call outside the journaled write scope. */
     internal suspend fun requireActiveRecovery(context: Context) {
         val root = journalRootFor(context)
