@@ -62,3 +62,25 @@ if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
   exit 1
 fi
 echo 'PASS: Android B04 owner-authenticated additive rollback across four canonical stores'
+
+# B5: TWO independent instrumentation invocations with a real Android
+# process stop in between. Never run against a non-disposable emulator.
+adb shell pm clear com.framebynavin.app
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class 'com.framebynavin.app.personal.B05NoPhotoProcessDeathDeviceTest#prepareInterruptedRoomWriteInFirstProcess' \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
+grep -Fq 'OK (1 test)' "$log"
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
+  exit 1
+fi
+adb shell am force-stop com.framebynavin.app
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class 'com.framebynavin.app.personal.B05NoPhotoProcessDeathDeviceTest#inspectAndRollBackFromNewAndroidProcess' \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
+grep -Fq 'OK (1 test)' "$log"
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
+  exit 1
+fi
+echo 'PASS: Android B05 force-stopped two-process Room crash rollback preserves original data'
