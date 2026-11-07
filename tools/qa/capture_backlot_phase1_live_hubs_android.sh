@@ -35,7 +35,7 @@ for scene in creator personal creator-light personal-light; do
   adb shell pm clear com.framebynavin.app > /dev/null
   adb shell am start -W -n \
     com.framebynavin.app/.phase1.Phase1LiveReminderScreenReviewActivity \
-    --es phase1_scene "$scene"
+    --es phase1_scene "$scene" --ez backlot_ci_visual_review true
   sleep 5
   python3 tools/qa/backlot_android_ui_guard.py "$scene" "$out"
   adb shell dumpsys activity activities > "$out/$scene.activity.txt"
