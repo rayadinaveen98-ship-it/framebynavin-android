@@ -108,7 +108,8 @@ private val Rounded = RoundedCornerShape(19.dp)
 @Composable private fun Phase1ApprovedPreview(screen:String){
     Surface(color=Ink,modifier=Modifier.fillMaxSize()){
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            if(screen=="alarm") Alarm()
+            if(screen=="personal-hub" || screen=="creator-hub") Phase1HubVisualReview(screen)
+            else if(screen=="alarm") Alarm()
             else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(horizontal=24.dp).padding(top=20.dp,bottom=28.dp),
                 verticalArrangement=Arrangement.spacedBy(14.dp)){
