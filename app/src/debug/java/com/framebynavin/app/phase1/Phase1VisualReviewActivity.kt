@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.framebynavin.app.ui.theme.FrameTheme
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +53,21 @@ class Phase1VisualReviewActivity : ComponentActivity() {
             isAppearanceLightNavigationBars = lightHub
         }
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(background = Ink)) {
+            val view = LocalView.current
+            // React to Android 15's actual system-bar view flags AFTER setContent.
+            // Dark Director's Cut needs bright nav icons; Light needs dark ones.
+            SideEffect {
+                window.statusBarColor = reviewBackground.toArgb()
+                window.navigationBarColor = reviewBackground.toArgb()
+                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    window.isNavigationBarContrastEnforced = false
+                }
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = lightHub
+                    isAppearanceLightNavigationBars = lightHub
+                }
+            }
+            MaterialTheme(colorScheme = darkColorScheme(background = reviewBackground)) {
                 Phase1ApprovedPreview(scene)
             }
         }
