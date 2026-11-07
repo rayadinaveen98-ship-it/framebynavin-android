@@ -66,3 +66,7 @@ This is a safety improvement, **not a rollback implementation**. B4 still needs
 durable owner-approved resume/rollback, verified completion and journal release;
 B5/B6 still need crash-injection and exact-head full acceptance. The branch
 remains draft, and the live UI must remain disabled.
+
+## B4 independent recovery-consent evidence gate (unreleased)
+
+`B04OwnerRecoveryConsentPolicy` now requires a fresh, explicit recovery-specific owner confirmation and separate acknowledgement of device-local alarms, snooze tokens and external media limitations. It binds the selected operation to the journal's transaction, preparation, escrow, baseline and target fingerprints and to the read-only authenticated inspection's exact durable checkpoint. Stale or substituted evidence is rejected. An unverifiable Room/JPEG inventory cannot be treated as empty. Until a crash-safe, idempotent per-store forward replay exists, forward resume is explicitly refused; a valid rollback *decision* never grants write authority, releases the journal or claims completion. Fourteen JVM negative/positive regressions are mandatory in exact-head CI. This is a consent safety seam, **not** an executable rollback, live UI or B4 completion.
