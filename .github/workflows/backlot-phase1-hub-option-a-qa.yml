@@ -1,13 +1,13 @@
-name: Backlot Phase 1 - Shared Hub Option A native Android review
+name: Backlot Phase 1 - Director's Cut Hub native Android review
 on:
   push:
     branches:
-      - feature/backlot-phase1-hub-option-a-review
+      - feature/backlot-phase1-hub-directors-cut-review
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: backlot-phase1-hub-option-a-review
+  group: backlot-phase1-hub-directors-cut-review
   cancel-in-progress: true
 jobs:
   capture-hubs:
@@ -32,7 +32,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Capture real Personal and Creator Hub screenshots on Android 15
+      - name: Capture Director's Cut and Light Hub previews on Android 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Backlot-Phase1-OptionA-Personal-Creator-Hub-Android15-Review
-          path: output/backlot-phase1-hubs-option-a/
+          name: Backlot-Phase1-Directors-Cut-Reminders-Android15-Review
+          path: output/backlot-phase1-hubs-directors-cut/
           retention-days: 30
           if-no-files-found: warn

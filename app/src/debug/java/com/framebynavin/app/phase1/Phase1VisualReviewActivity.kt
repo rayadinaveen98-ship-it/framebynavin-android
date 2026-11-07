@@ -18,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.view.WindowCompat
+import com.framebynavin.app.ui.theme.FrameTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,11 +36,21 @@ import kotlin.math.sqrt
 class Phase1VisualReviewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        @Suppress("DEPRECATION")
-        window.statusBarColor = android.graphics.Color.rgb(12, 16, 22)
-        @Suppress("DEPRECATION")
-        window.navigationBarColor = android.graphics.Color.rgb(12, 16, 22)
         val scene = intent.getStringExtra("phase1_screen") ?: "cloud"
+        val hubScene = scene.startsWith("personal-hub") || scene.startsWith("creator-hub")
+        val lightHub = hubScene && scene.endsWith("-light")
+        val reviewBackground = if (hubScene) {
+            if (lightHub) FrameTheme.BACKLOT_LIGHT.palette.background
+            else FrameTheme.DIRECTORS_CUT.palette.background
+        } else Ink
+        @Suppress("DEPRECATION")
+        window.statusBarColor = reviewBackground.toArgb()
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = reviewBackground.toArgb()
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = lightHub
+            isAppearanceLightNavigationBars = lightHub
+        }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(background = Ink)) {
                 Phase1ApprovedPreview(scene)
@@ -106,9 +119,14 @@ private val Rounded = RoundedCornerShape(19.dp)
     }
 }
 @Composable private fun Phase1ApprovedPreview(screen:String){
-    Surface(color=Ink,modifier=Modifier.fillMaxSize()){
+    val hubScene = screen.startsWith("personal-hub") || screen.startsWith("creator-hub")
+    val hubBackground = if (!hubScene) Ink else {
+        if (screen.endsWith("-light")) FrameTheme.BACKLOT_LIGHT.palette.background
+        else FrameTheme.DIRECTORS_CUT.palette.background
+    }
+    Surface(color=hubBackground,modifier=Modifier.fillMaxSize()){
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            if(screen=="personal-hub" || screen=="creator-hub") Phase1HubVisualReview(screen)
+            if(hubScene) Phase1HubVisualReview(screen)
             else if(screen=="alarm") Alarm()
             else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(horizontal=24.dp).padding(top=20.dp,bottom=28.dp),
