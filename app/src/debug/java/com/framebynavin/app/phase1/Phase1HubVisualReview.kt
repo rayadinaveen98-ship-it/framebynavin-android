@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -28,282 +28,403 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.FramePalette
+import com.framebynavin.app.ui.theme.FrameTheme
 
 /**
- * Debug-only native Compose screenshot proposal for Backlot's common Reminder Hub.
- * Nothing is wired to app navigation, storage, cloud, alarm receivers or live data.
+ * DEBUG-ONLY native Android design evidence for the Personal & Creator Hubs.
  *
- * This inherits the OWNER-CHOSEN Option A direction from Phase1VisualReviewActivity:
- * charcoal / ivory / restrained warm amber-coral, compact and readable.
- * Both workspaces use the same shell, while body information remains specialized.
- * Never ship these synthetic example items or turn them into default user reminders.
+ * Owner correction: Director's Cut is the primary Backlot language. Always read
+ * the actual shipping theme (FrameTheme.DIRECTORS_CUT / BACKLOT_LIGHT) instead
+ * of using the former warm-gold Option A mockup colors.
+ *
+ * The palette contains a secondary accent, but this screen deliberately does
+ * NOT use it. REC red is the only brand accent here. Main text is foreground,
+ * secondary text is muted. No gold gradients, amber states or custom typography.
+ *
+ * Fixtures are inert; user data, reminders, alarms, cloud, permissions and
+ * app navigation are NEVER read or mutated by this debug-only preview.
  */
-private val HubInk = Phase1OptionAReviewTokens.Ink
-private val HubPanel = Phase1OptionAReviewTokens.Panel
-private val HubRaised = Phase1OptionAReviewTokens.Raised
-private val HubLine = Phase1OptionAReviewTokens.Border
-private val HubIvory = Phase1OptionAReviewTokens.Ivory
-private val HubMuted = Phase1OptionAReviewTokens.Muted
-private val HubGold = Phase1OptionAReviewTokens.Gold
-private val HubWarm = Phase1OptionAReviewTokens.WarmAction
-private val HubRadius = RoundedCornerShape(19.dp)
-
 @Composable
 internal fun Phase1HubVisualReview(scene: String) {
-    val isPersonal = scene == "personal-hub"
-    val workspace = if (isPersonal) "Personal" else "Creator"
+    val personal = scene.startsWith("personal-hub")
+    val light = scene.endsWith("-light")
+    val palette = if (light) FrameTheme.BACKLOT_LIGHT.palette
+                  else FrameTheme.DIRECTORS_CUT.palette
     Column(
-        Modifier.fillMaxSize().background(HubInk).verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp).padding(top = 15.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.fillMaxSize().background(palette.background)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp)
+            .padding(top = 12.dp, bottom = 26.dp),
+        verticalArrangement = Arrangement.spacedBy(15.dp),
     ) {
-        HubNavigation()
-        Spacer(Modifier.height(3.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        DcToolbar(palette)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 "BACKLOT  /  REMINDERS",
-                color = HubGold, fontSize = 10.sp, letterSpacing = 2.sp,
-                fontWeight = FontWeight.Bold,
+                color = palette.primary,
+                fontSize = 10.sp,
+                letterSpacing = 1.6.sp,
+                fontWeight = FontWeight.Black,
             )
             Text(
                 "Your reminders",
-                color = HubIvory, fontSize = 31.sp, lineHeight = 35.sp,
-                letterSpacing = (-0.8).sp,
-                fontWeight = FontWeight.Bold,
+                color = palette.foreground,
+                fontSize = 29.sp,
+                lineHeight = 34.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.7).sp,
             )
             Text(
-                "Stay organized, without the clutter.",
-                color = HubMuted, fontSize = 13.sp, lineHeight = 20.sp,
+                "A clear view of what matters today.",
+                color = palette.muted,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
             )
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HubWorkspaceTab("Personal", selected = isPersonal, Modifier.weight(1f))
-            HubWorkspaceTab("Creator", selected = !isPersonal, Modifier.weight(1f))
-        }
-        HubSummary(workspace, isPersonal)
+        DcWorkspaceTabs(personal, palette)
+        DcTodayPanel(personal, palette)
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            HubFilter("Today", true)
-            HubFilter("Upcoming", false)
-            HubFilter("Paused", false)
+            DcFilter("Today", true, palette)
+            DcFilter("Upcoming", false, palette)
+            DcFilter("Paused", false, palette)
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                if (isPersonal) "TODAY'S REMINDERS" else "PROJECT REMINDERS",
-                color = HubMuted, fontWeight = FontWeight.Bold,
-                fontSize = 10.sp, letterSpacing = 1.1.sp,
+                if (personal) "PERSONAL REMINDERS" else "PROJECT REMINDERS",
+                color = palette.muted,
+                fontSize = 10.sp,
+                letterSpacing = 1.25.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.weight(1f))
-            Text("See all   ›", color = HubGold, fontSize = 12.sp)
+            Text("SEE ALL", color = palette.primary, fontSize = 11.sp,
+                letterSpacing = .5.sp, fontWeight = FontWeight.SemiBold)
         }
-        if (isPersonal) {
-            HubReminderItem(
-                symbol = "◷",
+        if (personal) {
+            DcReminderRow(
                 title = "Water the plants",
-                subtitle = "Every morning  ·  7:30 AM",
-                state = "Upcoming",
+                detail = "Every morning  ·  7:30 AM",
+                status = "Upcoming",
+                urgent = false,
+                palette = palette,
             )
-            HubReminderItem(
-                symbol = "♫",
+            DcReminderRow(
                 title = "Read a chapter",
-                subtitle = "Daily  ·  8:00 PM",
-                state = "Voice",
+                detail = "Daily  ·  8:00 PM",
+                status = "Voice",
+                urgent = false,
+                palette = palette,
             )
-            HubFootnote(
-                heading = "Your personal space",
-                description = "Keep routines, notes, photo journals and challenges together.",
-                action = "View Spaces",
+            DcRelatedPanel(
+                title = "My Spaces",
+                description = "Routines, notes, photo journals and your 21-day challenge.",
+                action = "OPEN SPACES",
+                palette = palette,
             )
         } else {
-            HubReminderItem(
-                symbol = "◉",
+            DcReminderRow(
                 title = "Review rough cut",
-                subtitle = "Project: Film study  ·  3:00 PM",
-                state = "Today",
+                detail = "Film study  ·  3:00 PM",
+                status = "Due today",
+                urgent = true,
+                palette = palette,
             )
-            HubReminderItem(
-                symbol = "◷",
+            DcReminderRow(
                 title = "Publish project update",
-                subtitle = "Project: Weekly series  ·  6:00 PM",
-                state = "Upcoming",
+                detail = "Weekly series  ·  6:00 PM",
+                status = "Upcoming",
+                urgent = false,
+                palette = palette,
             )
-            HubFootnote(
-                heading = "From your projects",
-                description = "Creator reminders keep their project links and check-in actions.",
-                action = "Open projects",
+            DcRelatedPanel(
+                title = "Your projects",
+                description = "Keep each creator reminder linked to its project and next step.",
+                action = "OPEN PROJECTS",
+                palette = palette,
             )
         }
-        HorizontalDivider(color = HubLine)
+        HorizontalDivider(color = palette.line)
         Text(
-            "SAMPLE DATA  ·  VISUAL PROTOTYPE ONLY",
-            color = HubMuted.copy(alpha = .85f),
-            fontSize = 10.sp, letterSpacing = 1.sp,
-            modifier = Modifier.fillMaxWidth().padding(top = 3.dp),
+            "DESIGN PREVIEW  ·  EXAMPLE DATA ONLY",
+            color = palette.muted,
+            fontSize = 10.sp,
+            letterSpacing = 1.sp,
         )
         Text(
-            "No reminders are created, scheduled, completed or changed on this screen.",
-            color = HubMuted, fontSize = 11.sp, lineHeight = 16.sp,
+            "This preview does not create, edit, send, complete or schedule reminders.",
+            color = palette.muted,
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
         )
     }
 }
 
 @Composable
-private fun HubNavigation() {
+private fun DcToolbar(p: FramePalette) {
     Row(
-        Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Outlined.ArrowBack, contentDescription = "Back preview",
-            tint = HubIvory, modifier = Modifier.size(23.dp))
-        Row(verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(
-                color = HubPanel, shape = CircleShape,
-                border = BorderStroke(1.dp, HubLine),
-            ) {
-                Box(Modifier.size(35.dp), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.NotificationsActive,
-                        contentDescription = "Activity Center preview",
-                        tint = HubGold, modifier = Modifier.size(18.dp))
-                }
-            }
-            Surface(
-                color = HubRaised, shape = CircleShape,
-                border = BorderStroke(1.dp, HubLine),
-            ) {
-                Box(Modifier.size(35.dp), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.Add,
-                        contentDescription = "New reminder preview",
-                        tint = HubIvory, modifier = Modifier.size(20.dp))
-                }
-            }
+        Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Outlined.ArrowBack,
+                contentDescription = "Back preview",
+                tint = p.foreground,
+                modifier = Modifier.size(23.dp),
+            )
         }
-    }
-}
-
-@Composable
-private fun HubWorkspaceTab(label: String, selected: Boolean, modifier: Modifier) {
-    val shape = RoundedCornerShape(13.dp)
-    Surface(
-        modifier = modifier.height(43.dp),
-        color = if (selected) Phase1OptionAReviewTokens.ActiveChip else HubPanel,
-        shape = shape,
-        border = BorderStroke(1.dp, if (selected) HubGold else HubLine),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                label,
-                color = if (selected) HubIvory else HubMuted,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DcToolbarIcon(
+                p,
+                icon = { Icon(Icons.Outlined.NotificationsActive,
+                    contentDescription = "Activity Center preview",
+                    tint = p.muted, modifier = Modifier.size(19.dp)) },
+            )
+            DcToolbarIcon(
+                p,
+                icon = { Icon(Icons.Outlined.Add,
+                    contentDescription = "New reminder preview",
+                    tint = p.foreground, modifier = Modifier.size(20.dp)) },
             )
         }
     }
 }
 
 @Composable
-private fun HubSummary(workspace: String, personal: Boolean) {
+private fun DcToolbarIcon(
+    p: FramePalette,
+    icon: @Composable () -> Unit,
+) {
     Surface(
-        shape = HubRadius,
-        color = Color(0xFF201F22),
-        border = BorderStroke(1.dp, Color(0xFF786851)),
+        color = p.surface,
+        shape = CircleShape,
+        border = BorderStroke(1.dp, p.line),
     ) {
-        Column(
-            Modifier.fillMaxWidth().padding(17.dp),
-            verticalArrangement = Arrangement.spacedBy(11.dp),
+        Box(Modifier.size(38.dp), contentAlignment = Alignment.Center) { icon() }
+    }
+}
+
+@Composable
+private fun DcWorkspaceTabs(personal: Boolean, p: FramePalette) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        DcWorkspaceTab("Personal", personal, p, Modifier.weight(1f))
+        DcWorkspaceTab("Creator", !personal, p, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun DcWorkspaceTab(
+    text: String,
+    selected: Boolean,
+    p: FramePalette,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.height(46.dp),
+        color = if (selected) p.primaryDeep else p.surface,
+        shape = RoundedCornerShape(13.dp),
+        border = BorderStroke(1.dp, if (selected) p.primary else p.line),
+    ) {
+        Row(
+            Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "$workspace / TODAY",
-                    color = HubGold, fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp, letterSpacing = 1.2.sp,
+            if (selected) {
+                Box(
+                    Modifier.size(6.dp).background(p.primary, CircleShape)
                 )
-                Spacer(Modifier.weight(1f))
-                Text("◌", color = HubGold, fontSize = 20.sp)
+                Spacer(Modifier.size(8.dp))
             }
             Text(
-                if (personal) "A little progress, every day." else "Keep the next step moving.",
-                color = HubIvory, fontSize = 21.sp, lineHeight = 26.sp,
+                text,
+                color = if (selected) p.foreground else p.muted,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                if (personal) "2 example reminders  ·  1 coming up"
-                    else "2 example project reminders  ·  1 due today",
-                color = HubMuted, fontSize = 12.sp,
-            )
-            Box(
-                Modifier.fillMaxWidth().height(4.dp)
-                    .background(HubLine, RoundedCornerShape(5.dp)),
-            ) {
-                Box(Modifier.fillMaxWidth(.33f).height(4.dp)
-                    .background(HubWarm, RoundedCornerShape(5.dp)))
-            }
         }
     }
 }
 
 @Composable
-private fun HubFilter(name: String, selected: Boolean) {
-    val shape = RoundedCornerShape(25.dp)
+private fun DcTodayPanel(personal: Boolean, p: FramePalette) {
     Surface(
-        color = if (selected) Phase1OptionAReviewTokens.ActiveChip else HubPanel,
-        shape = shape,
-        border = BorderStroke(1.dp, if (selected) HubGold else HubLine),
+        color = p.surfaceRaised,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, p.line),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(11.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(7.dp).background(p.primary, CircleShape))
+                Spacer(Modifier.size(7.dp))
+                Text(
+                    if (personal) "PERSONAL  /  TODAY" else "CREATOR  /  TODAY",
+                    color = p.muted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.35.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("07 NOV", color = p.muted, fontSize = 10.sp)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("02", color = p.foreground, fontSize = 42.sp,
+                    fontWeight = FontWeight.Black, lineHeight = 43.sp)
+                Spacer(Modifier.size(13.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        if (personal) "reminders for today" else "project reminders",
+                        color = p.foreground,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        if (personal) "One routine at a time" else "Keep the next step moving",
+                        color = p.muted,
+                        fontSize = 12.sp,
+                    )
+                }
+            }
+            HorizontalDivider(color = p.line)
+            Text(
+                if (personal) "Next reminder  ·  7:30 AM"
+                else "Next check-in  ·  3:00 PM",
+                color = p.muted, fontSize = 12.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DcFilter(name: String, selected: Boolean, p: FramePalette) {
+    Surface(
+        color = if (selected) p.primaryDeep else p.surface,
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, if (selected) p.primary else p.line),
     ) {
         Text(
             name,
             modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
-            fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-            color = if (selected) HubIvory else HubMuted,
+            color = if (selected) p.foreground else p.muted,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
         )
     }
 }
 
 @Composable
-private fun HubReminderItem(
-    symbol: String, title: String, subtitle: String, state: String,
+private fun DcReminderRow(
+    title: String,
+    detail: String,
+    status: String,
+    urgent: Boolean,
+    palette: FramePalette,
 ) {
     Surface(
-        color = HubPanel, shape = HubRadius,
-        border = BorderStroke(1.dp, HubLine),
+        color = palette.surface,
+        shape = RoundedCornerShape(15.dp),
+        border = BorderStroke(1.dp, palette.line),
     ) {
         Row(
             Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(11.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Surface(color = HubRaised, shape = RoundedCornerShape(12.dp)) {
-                Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-                    Text(symbol, fontSize = 19.sp, color = HubGold)
+            Surface(
+                color = palette.primaryDeep,
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier.size(12.dp).background(
+                            palette.primary.copy(alpha = if (urgent) 1f else .72f),
+                            CircleShape,
+                        )
+                    )
                 }
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(title, color = HubIvory, fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp, lineHeight = 18.sp)
-                Text(subtitle, color = HubMuted, fontSize = 11.sp, lineHeight = 16.sp)
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(
+                    title,
+                    color = palette.foreground,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 18.sp,
+                )
+                Text(detail, color = palette.muted, fontSize = 11.sp,
+                    lineHeight = 16.sp)
             }
-            Text(state, color = if (state == "Today") HubGold else HubMuted, fontSize = 10.sp)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(status,
+                    color = if (urgent) palette.primary else palette.muted,
+                    fontSize = 10.sp,
+                    fontWeight = if (urgent) FontWeight.Bold else FontWeight.Normal)
+                Icon(
+                    Icons.Outlined.ChevronRight, contentDescription = null,
+                    tint = palette.muted, modifier = Modifier.size(15.dp),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun HubFootnote(heading: String, description: String, action: String) {
+private fun DcRelatedPanel(
+    title: String,
+    description: String,
+    action: String,
+    palette: FramePalette,
+) {
     Surface(
-        color = HubPanel, shape = HubRadius,
-        border = BorderStroke(1.dp, HubLine),
+        color = palette.surfaceRaised,
+        shape = RoundedCornerShape(15.dp),
+        border = BorderStroke(1.dp, palette.line),
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(heading, color = HubIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text(description, color = HubMuted, fontSize = 12.sp, lineHeight = 18.sp)
-            Text("$action   ›", color = HubGold, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(title, color = palette.foreground, fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold)
+                Text(description, color = palette.muted, fontSize = 12.sp,
+                    lineHeight = 18.sp)
+                Text(action, color = palette.primary, fontSize = 11.sp,
+                    letterSpacing = .4.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.size(8.dp))
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+                tint = palette.primary, modifier = Modifier.size(21.dp))
         }
     }
 }
