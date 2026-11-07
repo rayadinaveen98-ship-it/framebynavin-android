@@ -35,6 +35,12 @@ class V305RollbackEscrowDeviceTest {
             }
             assertFalse(receipt.canWriteLiveOwnerData)
             assertTrue(receipt.archiveBytes > 100)
+            val current = runBlocking { V301LocalRecoveryReader(app).read() }
+            assertTrue(current.localIntegrityVerified)
+            assertEquals(
+                V304RestorePlanPolicy.fingerprint(current.components, current.photos),
+                receipt.baselineDigest,
+            )
             assertEquals(
                 receipt,
                 runBlocking { coordinator.verifyOwnerEscrow(receipt.id, passphrase) },

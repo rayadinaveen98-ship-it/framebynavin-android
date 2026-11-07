@@ -124,4 +124,265 @@ class StabilizationPersonalMutationGateTest {
         }
         assertEquals("next", StabilizationPersonalMutationGate.withOwnerMutation(journal) { "next" })
     }
+    private fun prepared(journalRoot: File): StabilizationRestoreJournalRecord {
+        val bar = V305CommitBarrierReceipt(
+            preparedId = "e751c74e-8d47-4f69-bd46-c95c45d04c01",
+            rollbackEscrowId = "613c863a-b019-4085-9df3-5f38b84454ea",
+            localBaselineSha256 = "a".repeat(64),
+            incomingArchiveSha256 = "c".repeat(64),
+            rollbackArchiveSha256 = "d".repeat(64),
+        )
+        return StabilizationRestoreWriteAheadJournal(journalRoot)
+            .prepare(bar, "b".repeat(64), true, 100L)
+    }
+
+    @Test fun preparedRecoveryRequiresSameExclusiveOwnerGate() = sandbox { journal ->
+        val receipt = prepared(journal)
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
+                    "unsafe"
+                }
+            }
+        }
+    }
+
+    @Test fun verifiedRecoveryPermitWritesOnlyWithinItsOwnerGate() = sandbox { journal ->
+        var updated = false
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            val receipt = prepared(journal)
+            StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+                    updated = true
+                    StabilizationRestoreWriteAheadJournal(journal).checkpoint(
+                        StabilizationRestoreWriteStep.PREPARED,
+                        StabilizationRestoreWriteStep.BEFORE_PERSONAL,
+                        101L,
+                    )
+                }
+            }
+        }
+        assertTrue(updated)
+        assertEquals(
+            StabilizationRestoreWriteStep.BEFORE_PERSONAL,
+            StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart()!!.step,
+        )
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { StabilizationPersonalMutationGate.withOwnerMutation(journal) { "blocked" } }
+        }
+    }
+
+    @Test fun recoveryPermitRejectsWrongTransactionOrChangedTarget() = sandbox { journal ->
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            val receipt = prepared(journal)
+            var rejected = false
+            try {
+                StabilizationPersonalMutationGate.withPreparedRecovery(
+                    journal, receipt.copy(targetDigest = "e".repeat(64)),
+                ) { "bad" }
+            } catch (_: IllegalStateException) {
+                rejected = true
+            }
+            assertTrue("Changed target must fail even with inherited owner permit", rejected)
+            assertEquals(receipt, StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
+        }
+    }
+
+    @Test fun nestedRecoveryPermitCannotBeReusedAsDifferentAuthority() = sandbox { journal ->
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            val receipt = prepared(journal)
+            StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
+                var rejected = false
+                try {
+                    StabilizationPersonalMutationGate.withPreparedRecovery(journal, receipt) {
+                        "bad"
+                    }
+                } catch (_: IllegalStateException) {
+                    rejected = true
+                }
+                assertTrue("Nested authority must fail inside same coroutine", rejected)
+            }
+        }
+    }
+
+    @Test fun pendingRecoveryInspectionCanReadButNotWrite() = sandbox { journal ->
+        val receipt = prepared(journal)
+        var inspected = false
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { current ->
+            assertEquals(receipt, current)
+            val value = StabilizationPersonalMutationGate.withStableSnapshot(journal) {
+                inspected = true
+                "read-only"
+            }
+            assertEquals("read-only", value)
+            var refused = false
+            try {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) { "unsafe write" }
+            } catch (_: IllegalStateException) {
+                refused = true
+            }
+            assertTrue("No owner mutation may borrow inspection authority", refused)
+        }
+        assertTrue(inspected)
+        assertEquals(receipt, StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
+    }
+
+    @Test fun pendingRecoveryInspectionRejectsAbsentOrCorruptJournal() = sandbox { journal ->
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { "bad" }
+            }
+        }
+        journal.writeText("corrupted pending transaction")
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { "bad" }
+            }
+        }
+    }
+
+    @Test fun nestedRecoveryInspectionCannotBorrowExistingMutationAuthority() = sandbox { journal ->
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            val receipt = prepared(journal)
+            var rejected = false
+            try {
+                StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { "bad" }
+            } catch (_: IllegalStateException) {
+                rejected = true
+            }
+            assertTrue("A nested scope would risk deadlock", rejected)
+            assertEquals(receipt, StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
+        }
+    }
+
+    @Test fun nestedRecoveryInspectionsAreRejected() = sandbox { journal ->
+        prepared(journal)
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) {
+            var rejected = false
+            try {
+                StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { "bad" }
+            } catch (_: IllegalStateException) {
+                rejected = true
+            }
+            assertTrue(rejected)
+        }
+    }
+
+
+    @Test fun pendingInspectionRejectsCheckpointAdvanceDuringRead() = sandbox { journal ->
+        prepared(journal)
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) {
+            val updated = StabilizationRestoreWriteAheadJournal(journal).checkpoint(
+                StabilizationRestoreWriteStep.PREPARED,
+                StabilizationRestoreWriteStep.BEFORE_PERSONAL,
+                101L,
+            )
+            assertEquals(StabilizationRestoreWriteStep.BEFORE_PERSONAL, updated.step)
+            var readRan = false
+            var rejected = false
+            try {
+                // Inherit the owner inspection coroutine context; a fresh
+                // runBlocking job would lose its permit and deadlock on the
+                // processMutex already held by this very test.
+                StabilizationPersonalMutationGate.withStableSnapshot(journal) {
+                    readRan = true
+                }
+            } catch (_: IllegalStateException) {
+                rejected = true
+            }
+            assertTrue("Changed journal must invalidate inspection", rejected)
+            assertFalse("Changed journal must not authorize stale read", readRan)
+        }
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) { "blocked" }
+            }
+        }
+    }
+
+    @Test fun pendingInspectionRejectsSameStepTimestampRewrite() = sandbox { journal ->
+        prepared(journal)
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { original ->
+            val active = File(journal, "active.journal")
+            val updated = original.copy(updatedAtMillis = original.updatedAtMillis + 1L)
+            active.writeBytes(StabilizationRestoreJournalCodec.encode(updated))
+            var readRan = false
+            var rejected = false
+            try {
+                // Inherit the owner inspection coroutine context; a fresh
+                // runBlocking job would lose its permit and deadlock on the
+                // processMutex already held by this very test.
+                StabilizationPersonalMutationGate.withStableSnapshot(journal) {
+                    readRan = true
+                }
+            } catch (_: IllegalStateException) {
+                rejected = true
+            }
+            assertTrue("Changed journal must invalidate inspection", rejected)
+            assertFalse("A replaced checkpoint must invalidate inspection", readRan)
+        }
+    }
+
+    @Test fun forwardResumePermitUpgradesReadOnlyInspectionOnlyInsideScope() = sandbox { journal ->
+        val original = prepared(journal)
+        val active = StabilizationRestoreWriteAheadJournal(journal)
+            .checkpoint(StabilizationRestoreWriteStep.PREPARED,
+                StabilizationRestoreWriteStep.BEFORE_PERSONAL, 101L)
+        val decision = B04OwnerRecoveryDecision(
+            transactionId = active.transactionId,
+            selectedChoice = B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET,
+            originalDigest = active.originalDigest,
+            targetDigest = active.targetDigest,
+            escrowId = active.escrowId,
+        )
+        val plan = B04ForwardReplayPlan(
+            active.transactionId, active.step, listOf(B04ForwardReplayStep.VERIFY),
+            active.originalDigest, active.targetDigest,
+        )
+        var recovered = false
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { read ->
+            assertEquals(active, read)
+            StabilizationPersonalMutationGate.withOwnerApprovedForwardRecovery(
+                journal, read, decision, plan,
+            ) {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+                    recovered = true
+                }
+            }
+            var blocked = false
+            try {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) { "unsafe" }
+            } catch (_: IllegalStateException) { blocked = true }
+            assertTrue("Inspection must return to read-only after write permit", blocked)
+        }
+        assertTrue(recovered)
+        assertEquals(active, StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { StabilizationPersonalMutationGate.withOwnerMutation(journal) { "no" } }
+        }
+    }
+
+    @Test fun forwardedResumeCannotBorrowUnrelatedOrRollbackDecision() = sandbox { journal ->
+        val original = prepared(journal)
+        val plan = B04ForwardReplayPlan(
+            original.transactionId, original.step,
+            listOf(B04ForwardReplayStep.VERIFY),
+            original.originalDigest, original.targetDigest,
+        )
+        val wrongChoice = B04OwnerRecoveryDecision(
+            original.transactionId,
+            B04OwnerRecoveryChoice.ROLLBACK_TO_AUTHENTICATED_ESCROW,
+            original.originalDigest, original.targetDigest, original.escrowId,
+        )
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { checked ->
+            var refused = false
+            try {
+                StabilizationPersonalMutationGate.withOwnerApprovedForwardRecovery(
+                    journal, checked, wrongChoice, plan,
+                ) { "wrong" }
+            } catch (_: IllegalArgumentException) { refused = true }
+            assertTrue("Rollback consent cannot grant forward authority", refused)
+        }
+    }
+
 }

@@ -1,0 +1,171 @@
+package com.framebynavin.app.personal
+
+import org.junit.Assert.*
+import org.junit.Test
+
+class B04OwnerRecoveryConsentPolicyTest {
+    private val tx = "e751c74e-8d47-4f69-bd46-c95c45d04c01"
+    private val escrow = "613c863a-b019-4085-9df3-5f38b84454ea"
+    private val old = "a".repeat(64)
+    private val target = "b".repeat(64)
+    private fun journal() = StabilizationRestoreJournalRecord(
+        tx, tx, escrow, old, target, StabilizationRestoreWriteStep.PERSONAL_WRITTEN,
+        100L, 101L,
+    )
+    private fun assessment(
+        disposition: B04InterruptedRecoveryDisposition =
+            B04InterruptedRecoveryDisposition.INTERRUPTED_REQUIRES_AUTHENTICATED_REPAIR,
+    ) = B04InterruptedRecoveryAssessment(
+        tx, escrow, StabilizationRestoreWriteStep.PERSONAL_WRITTEN,
+        101L, disposition, old,
+    )
+    private fun consent(
+        choice: B04OwnerRecoveryChoice = B04OwnerRecoveryChoice.ROLLBACK_TO_AUTHENTICATED_ESCROW,
+    ) = B04OwnerRecoveryConsent(tx, tx, escrow, old, target, choice, true, true)
+
+    private fun rejected(
+        j: StabilizationRestoreJournalRecord = journal(),
+        a: B04InterruptedRecoveryAssessment = assessment(),
+        c: B04OwnerRecoveryConsent = consent(),
+    ) {
+        assertThrows(IllegalArgumentException::class.java) {
+            B04OwnerRecoveryConsentPolicy.evaluate(j, a, c)
+        }
+    }
+
+    @Test fun matchingRollbackChoiceNeverGrantsWritesOrFinalization() {
+        val d = B04OwnerRecoveryConsentPolicy.evaluate(journal(), assessment(), consent())
+        assertEquals(tx, d.transactionId)
+        assertEquals(escrow, d.escrowId)
+        assertEquals(old, d.originalDigest)
+        assertEquals(target, d.targetDigest)
+        assertEquals(B04OwnerRecoveryChoice.ROLLBACK_TO_AUTHENTICATED_ESCROW, d.selectedChoice)
+        assertFalse(d.grantsMutationAuthority)
+        assertFalse(d.mayDiscardJournal)
+        assertFalse(d.recoveryCompleted)
+    }
+
+    @Test fun noOwnerConfirmationIsRejected() = rejected(c = consent().copy(ownerConfirmed = false))
+    @Test fun noDeviceLimitationsAcknowledgementIsRejected() =
+        rejected(c = consent().copy(acknowledgedDeviceLocalLimitations = false))
+    @Test fun inspectionIsNotARecoveryChoice() =
+        rejected(c = consent(B04OwnerRecoveryChoice.INSPECT_ONLY))
+    @Test fun unprovenForwardResumeIsRejected() =
+        rejected(c = consent(B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET))
+    @Test fun unverifiableDataIsNotTreatedAsEmpty() =
+        rejected(a = assessment(B04InterruptedRecoveryDisposition.UNVERIFIABLE_REQUIRES_OWNER_REVIEW))
+    @Test fun transactionSubstitutionIsRejected() =
+        rejected(c = consent().copy(transactionId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"))
+    @Test fun preparedIdentitySubstitutionIsRejected() =
+        rejected(c = consent().copy(preparedId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"))
+    @Test fun escrowSubstitutionIsRejected() =
+        rejected(c = consent().copy(escrowId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"))
+    @Test fun originalDigestSubstitutionIsRejected() =
+        rejected(c = consent().copy(originalDigest = "c".repeat(64)))
+    @Test fun targetDigestSubstitutionIsRejected() =
+        rejected(c = consent().copy(targetDigest = "c".repeat(64)))
+    @Test fun inspectionTransactionMismatchIsRejected() =
+        rejected(a = assessment().copy(transactionId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"))
+    @Test fun inspectionEscrowMismatchIsRejected() =
+        rejected(a = assessment().copy(escrowId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"))
+    @Test fun sameCheckpointButNewTimestampIsRejected() =
+        rejected(j = journal().copy(updatedAtMillis = 102L))
+    @Test fun staleAssessmentTimestampIsRejected() =
+        rejected(a = assessment().copy(journalUpdatedAtMillis = 100L))
+    @Test fun staleCheckpointAssessmentIsRejected() =
+        rejected(a = assessment().copy(lastDurableStep = StabilizationRestoreWriteStep.BEFORE_PERSONAL))
+    @Test fun finalizationRequiresMatchingTargetVerifyingJournal() {
+        val j = journal().copy(step = StabilizationRestoreWriteStep.VERIFYING)
+        val a = assessment(
+            B04InterruptedRecoveryDisposition.TARGET_PRESENT_AWAITING_OWNER_FINALIZATION,
+        ).copy(
+            lastDurableStep = StabilizationRestoreWriteStep.VERIFYING,
+            observedSnapshotDigest = target,
+        )
+        val c = consent(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET)
+        val decision = B04OwnerRecoveryConsentPolicy.evaluate(j, a, c)
+        assertEquals(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET, decision.selectedChoice)
+        assertFalse(decision.grantsMutationAuthority)
+        assertFalse(decision.recoveryCompleted)
+    }
+
+    @Test fun partialTransactionCannotBeFinalizedWithoutExactTarget() {
+        val j = journal().copy(step = StabilizationRestoreWriteStep.VERIFYING)
+        val a = assessment().copy(lastDurableStep = StabilizationRestoreWriteStep.VERIFYING)
+        rejected(j, a, consent(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET))
+    }
+
+    @Test fun exactTargetAtEarlierCheckpointCannotSkipVerifyingState() {
+        val a = assessment(
+            B04InterruptedRecoveryDisposition.TARGET_PRESENT_AWAITING_OWNER_FINALIZATION
+        ).copy(observedSnapshotDigest = target)
+        rejected(journal(), a, consent(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET))
+    }
+
+    @Test fun staleTargetDigestCannotBeFinalized() {
+        val j = journal().copy(step = StabilizationRestoreWriteStep.VERIFYING)
+        val a = assessment(
+            B04InterruptedRecoveryDisposition.TARGET_PRESENT_AWAITING_OWNER_FINALIZATION
+        ).copy(
+            lastDurableStep = StabilizationRestoreWriteStep.VERIFYING,
+            observedSnapshotDigest = old,
+        )
+        rejected(j, a, consent(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET))
+    }
+
+    private fun replayPlan() = B04ForwardReplayPlan(
+        transactionId = tx,
+        checkpoint = StabilizationRestoreWriteStep.PERSONAL_WRITTEN,
+        remaining = listOf(B04ForwardReplayStep.CHALLENGES, B04ForwardReplayStep.VERIFY),
+        originalDigest = old,
+        targetDigest = target,
+    )
+
+    private fun forwardDecision(
+        c: B04OwnerRecoveryConsent = consent(
+            B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET),
+        p: B04ForwardReplayPlan = replayPlan(),
+        j: StabilizationRestoreJournalRecord = journal(),
+        a: B04InterruptedRecoveryAssessment = assessment(),
+    ) = B04OwnerRecoveryConsentPolicy.evaluateVerifiedForwardPlan(j,a,c,p)
+
+    @Test fun explicitVerifiedForwardChoiceCanBeValidatedButGrantsNoPermit() {
+        val r = forwardDecision()
+        assertEquals(B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET,r.selectedChoice)
+        assertFalse(r.grantsMutationAuthority)
+        assertFalse(r.recoveryCompleted)
+    }
+    @Test fun forwardChoiceCannotReuseRollbackConsent() {
+        assertThrows(IllegalArgumentException::class.java) {
+            forwardDecision(c=consent())
+        }
+    }
+    @Test fun staleForwardCheckpointCannotReuseConsent() {
+        assertThrows(IllegalArgumentException::class.java) {
+            forwardDecision(p=replayPlan().copy(checkpoint=StabilizationRestoreWriteStep.BEFORE_GROUPS))
+        }
+    }
+    @Test fun forgedForwardTargetDigestFails() {
+        assertThrows(IllegalArgumentException::class.java) {
+            forwardDecision(p=replayPlan().copy(targetDigest="c".repeat(64)))
+        }
+    }
+    @Test fun unconfirmedForwardOwnerFails() {
+        assertThrows(IllegalArgumentException::class.java) {
+            forwardDecision(c=consent(B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET)
+                .copy(ownerConfirmed=false))
+        }
+    }
+    @Test fun verifyingTargetMustUseSeparateFinalization() {
+        val j=journal().copy(step=StabilizationRestoreWriteStep.VERIFYING)
+        val a=assessment(
+            B04InterruptedRecoveryDisposition.TARGET_PRESENT_AWAITING_OWNER_FINALIZATION
+        ).copy(lastDurableStep=StabilizationRestoreWriteStep.VERIFYING,
+            observedSnapshotDigest=target)
+        assertThrows(IllegalArgumentException::class.java) {
+            forwardDecision(j=j,a=a,p=replayPlan().copy(
+                checkpoint=StabilizationRestoreWriteStep.VERIFYING))
+        }
+    }
+
+}

@@ -80,7 +80,8 @@ internal class V305RollbackEscrowCoordinator(context: Context) {
         id: String,
         passphrase: CharArray,
     ): V305EscrowReceipt = withContext(Dispatchers.IO) {
-        escrow.verify(id) { input ->
+        var authenticatedArchiveDigest: String? = null
+        val receipt = escrow.verify(id) { input ->
             V300EncryptedPersonalArchive.stageAndVerify(
                 input, passphrase, app.cacheDir,
             ).use { verified ->
@@ -88,10 +89,19 @@ internal class V305RollbackEscrowCoordinator(context: Context) {
                     verified.components.personal,
                 )
                 V303SpaceReceiptArchiveCodec.decode(verified.components.spaces, personal)
-                // Full staged verification includes all photo bytes, receipts,
-                // groups, challenges and cross-domain reminder links.
+                // Bind the actual decrypted portable content to the escrow
+                // baseline, not just the encrypted file's checksum or metadata.
+                // Otherwise a valid but unrelated encrypted ZIP could be
+                // accepted for an interrupted transaction.
+                authenticatedArchiveDigest = V304RestorePlanPolicy.fingerprint(
+                    verified.components, verified.photos.map { it.photo },
+                )
             }
         }
+        require(authenticatedArchiveDigest == receipt.baselineDigest) {
+            "Authenticated rollback archive does not match its recorded baseline"
+        }
+        receipt
     }
 
     suspend fun inspectEscrowCandidates(): V305EscrowInventory =

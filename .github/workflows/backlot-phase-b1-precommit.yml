@@ -1,0 +1,145 @@
+name: Backlot Phase B1-B4 - journaled restore and read-only interrupted recovery QA
+
+on:
+  push:
+    branches: [stabilization/phase-b-restore-transaction]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-phase-b-authenticated-precommit
+  cancel-in-progress: true
+
+jobs:
+  b1-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 200
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Reject changes outside audited B1-B4 gated recovery sources
+        run: |
+          set -euo pipefail
+          frozen=44f815f94885a25ab80ad4e3bc9f7ff6d97818b6
+          git fetch --depth=1 origin "$frozen"
+          git diff --name-only "$frozen" HEAD > /tmp/phase-b1-files.txt
+          while IFS= read -r path; do
+            case "$path" in
+              app/src/main/java/com/framebynavin/app/personal/B01RestorePrecommitPolicy.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreDomainWriter.kt|app/src/main/java/com/framebynavin/app/personal/B04InterruptedRecoveryInspector.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerRecoveryConsentPolicy.kt|app/src/main/java/com/framebynavin/app/personal/B04VerifiedCompletionEvidence.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerVerifiedTargetEvidenceCoordinator.kt|app/src/main/java/com/framebynavin/app/personal/B04VerifiedJournalRelease.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerFinalizedRecoveryCoordinator.kt|app/src/main/java/com/framebynavin/app/personal/B04RecoveryDomainCheckpointPolicy.kt|app/src/main/java/com/framebynavin/app/personal/B04PrivatePhotoForensicPolicy.kt|app/src/main/java/com/framebynavin/app/personal/B04ForwardReplayPlanPolicy.kt|app/src/main/java/com/framebynavin/app/personal/B04NoPhotoForwardResumeCoordinator.kt|app/src/main/java/com/framebynavin/app/personal/B04NoPhotoRollbackDeltaPolicy.kt|app/src/main/java/com/framebynavin/app/personal/B04NoPhotoRollbackActionJournal.kt|app/src/main/java/com/framebynavin/app/personal/B05PhotoCrashEvidencePolicy.kt|app/src/main/java/com/framebynavin/app/personal/B05VerifiedPhotoForwardResumeCoordinator.kt|app/src/androidTest/java/com/framebynavin/app/personal/B05VerifiedPhotoForwardResumeDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B05PhotoCrashEvidencePolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/B04NoPhotoRollbackDomainWriter.kt|app/src/main/java/com/framebynavin/app/personal/B04NoPhotoOwnerRollbackCoordinator.kt|app/src/main/java/com/framebynavin/app/personal/B04VerifiedNoPhotoRollbackRelease.kt|app/src/test/java/com/framebynavin/app/personal/B04VerifiedNoPhotoRollbackReleaseTest.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerNoPhotoRollbackReleaseCoordinator.kt|app/src/androidTest/java/com/framebynavin/app/personal/B04NoPhotoOwnerRollbackDeviceTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B05NoPhotoProcessDeathDeviceTest.kt|app/src/main/java/com/framebynavin/app/personal/spaces/V289SpacesDatabase.kt|app/src/test/java/com/framebynavin/app/personal/B04NoPhotoRollbackActionJournalTest.kt|app/src/test/java/com/framebynavin/app/personal/B04NoPhotoRollbackDeltaPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B04NoPhotoForwardResumeDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B04ForwardReplayPlanPolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/V301LocalRecoveryReader.kt|app/src/test/java/com/framebynavin/app/personal/B04PrivatePhotoForensicPolicyTest.kt|app/src/test/java/com/framebynavin/app/personal/B04RecoveryDomainCheckpointPolicyTest.kt|app/src/test/java/com/framebynavin/app/personal/B04VerifiedJournalReleaseTest.kt|app/src/test/java/com/framebynavin/app/personal/B04VerifiedCompletionEvidenceTest.kt|app/src/test/java/com/framebynavin/app/personal/B04OwnerRecoveryConsentPolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournal.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalTest.kt|app/src/main/java/com/framebynavin/app/personal/V305RollbackEscrowCoordinator.kt|app/src/androidTest/java/com/framebynavin/app/personal/V305RollbackEscrowDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B04InterruptedRecoveryPolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreTransactionCoordinator.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B03AdditiveRestoreDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B01RestorePrecommitPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B02OwnerPrecommitDeviceTest.kt|.github/scripts/backlot-phase-b2-android15.sh|docs/release/BACKLOT_PHASE_B_RECOVERY.md|app/build.gradle.kts|.github/workflows/backlot-phase-b1-precommit.yml) ;;
+              *) echo "BLOCKED: unexpected Phase B1 change $path" >&2; exit 1;;
+            esac
+          done < /tmp/phase-b1-files.txt
+          test -s /tmp/phase-b1-files.txt
+          echo 'PASS: audited B1-B4 recovery, crash inspection, test fixtures, CI and documentation'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile all Android sources and run complete JVM regressions
+        run: |
+          set -euo pipefail
+          timeout 95m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require B1 precommit rejection suite and inherited Phase A regressions
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=Path('app/build/test-results/testDebugUnitTest')
+          for name,minimum in (
+              ('B01RestorePrecommitPolicyTest', 20),
+              ('StabilizationPersonalMutationGateTest', 22),
+              ('B04InterruptedRecoveryPolicyTest', 16),
+              ('B04OwnerRecoveryConsentPolicyTest', 26),
+              ('B04VerifiedCompletionEvidenceTest', 16),
+              ('B04VerifiedJournalReleaseTest', 12),
+              ('B04RecoveryDomainCheckpointPolicyTest', 25),
+              ('B04PrivatePhotoForensicPolicyTest', 15),
+              ('B04ForwardReplayPlanPolicyTest', 19),
+              ('B04NoPhotoRollbackDeltaPolicyTest', 12),
+              ('B04NoPhotoRollbackActionJournalTest', 15),
+              ('B05PhotoCrashEvidencePolicyTest', 14),
+              ('B04VerifiedNoPhotoRollbackReleaseTest', 13),
+              ('StabilizationRestoreWriteAheadJournalTest', 17),
+              ('StabilizationVerifiedPhotoInstallerTest', 12),
+          ):
+              items=list(root.glob('TEST-*'+name+'.xml'))
+              assert len(items)==1, 'Missing expected suite '+name
+              suite=ET.parse(items[0]).getroot()
+              assert int(suite.get('tests','0'))>=minimum, 'Skipped '+name
+              assert int(suite.get('failures','0'))==0, 'Failed '+name
+              assert int(suite.get('errors','0'))==0, 'Error '+name
+              print('PASS:',name,suite.get('tests'))
+          PY
+      - name: Enable Android 15 KVM emulator
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Authenticate and test five-domain restore on disposable Android 15 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/backlot-phase-b2-android15.sh
+
+      # Release packaging runs ONLY if every full JVM and Android 15 test
+      # above has passed. This APK uses the existing public preview signer,
+      # so it is for personal sideload/testing, NEVER Play Store publishing.
+      - name: Assemble non-debuggable signed Backlot personal-install APK
+        run: |
+          set -euo pipefail
+          timeout 70m gradle :app:assemblePersonalStable \
+            -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify signed APK install identity and immutable SHA256
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          mkdir -p output/phase-b-personal
+          cp "$apk" output/phase-b-personal/Backlot-PhaseB-Personal-Stable-Candidate.apk
+          "$signer" verify --verbose --print-certs "$apk" > output/phase-b-personal/APK-SIGNATURE.txt
+          "$aapt" dump badging "$apk" > output/phase-b-personal/APK-IDENTITY.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          signature=Path('output/phase-b-personal/APK-SIGNATURE.txt').read_text()
+          identity=Path('output/phase-b-personal/APK-IDENTITY.txt').read_text()
+          assert "Verified using v2 scheme (APK Signature Scheme v2): true" in signature
+          assert "package: name='com.framebynavin.app' versionCode='320'" in identity
+          assert "certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0" in signature
+          print("PASS: non-debuggable personalStable preview signer and Backlot package identity")
+          PY
+          printf '%s\n' "HEAD_SHA=$GITHUB_SHA" \
+            "BUILD_VARIANT=personalStable (public preview signer)" \
+            "NOT_A_PLAY_STORE_RELEASE=1" > output/phase-b-personal/BUILD-PROVENANCE.txt
+          (cd output/phase-b-personal && sha256sum Backlot-PhaseB-Personal-Stable-Candidate.apk > SHA256SUMS.txt)
+          (cd output/phase-b-personal && sha256sum -c SHA256SUMS.txt)
+      - name: Upload Backlot personal stable candidate after complete green CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-PhaseB-Verified-PersonalStable-320
+          path: output/phase-b-personal/
+          retention-days: 30
+          if-no-files-found: error
