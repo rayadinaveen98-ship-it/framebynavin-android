@@ -37,6 +37,12 @@ for scene in cloud challenge-create challenge-dashboard alarm delete-account per
     adb logcat -d -t 400 > "$out/$scene.logcat.txt" || true
     exit 1
   fi
+  # Android 15's 3-button navigation icons can auto-dim after prolonged
+  # emulator/UIAutomator inactivity. Wake their visual state with one harmless
+  # edge touch (outside our 18dp content gutter), immediately before capture.
+  # Do NOT simulate Back/Home or tap actual reminder actions.
+  adb shell input tap 2 1200
+  sleep 0.2
   adb exec-out screencap -p > "$out/$scene.png"
   python3 tools/qa/backlot_android_ui_guard.py "$scene" "$out" --strict
   rm -f "$out/$scene.system-dialog.xml"
