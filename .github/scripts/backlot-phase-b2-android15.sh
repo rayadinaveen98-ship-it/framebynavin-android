@@ -36,3 +36,16 @@ if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
   exit 1
 fi
 echo 'PASS: Android B3 synthetic additive Personal/Challenge/Group/Space/JPEG transaction'
+
+# B4: a different disposable profile simulates process death after the
+# Personal write and BEFORE_CHALLENGES checkpoint; no owner phone is touched.
+adb shell pm clear com.framebynavin.app
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class com.framebynavin.app.personal.B04NoPhotoForwardResumeDeviceTest \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
+grep -Fq 'OK (1 test)' "$log"
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
+  exit 1
+fi
+echo 'PASS: B04 no-photo owner-authenticated forward replay and journal finalization'
