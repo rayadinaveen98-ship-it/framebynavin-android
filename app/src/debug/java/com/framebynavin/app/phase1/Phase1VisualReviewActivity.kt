@@ -46,17 +46,17 @@ class Phase1VisualReviewActivity : ComponentActivity() {
     }
 }
 
-private val Ink = Color(0xFF0C1016)
-private val Panel = Color(0xFF191E26)
-private val Raised = Color(0xFF222833)
-private val Border = Color(0xFF353D4B)
-private val Ivory = Color(0xFFF8F3EB)
-private val Muted = Color(0xFFA5ADBA)
-private val Gold = Color(0xFFF3B060)
-private val Peach = Color(0xFFF3B374)
-private val Coral = Color(0xFFE68A7C)
-private val Warm = Brush.horizontalGradient(listOf(Peach,Coral))
-private val WarmPanel = Brush.horizontalGradient(listOf(Color(0xFF1C1F25),Color(0xFF28211E)))
+private val Ink = Phase1OptionAReviewTokens.Ink
+private val Panel = Phase1OptionAReviewTokens.Panel
+private val Raised = Phase1OptionAReviewTokens.Raised
+private val Border = Phase1OptionAReviewTokens.Border
+private val Ivory = Phase1OptionAReviewTokens.Ivory
+private val Muted = Phase1OptionAReviewTokens.Muted
+private val Gold = Phase1OptionAReviewTokens.Gold
+private val Peach = Phase1OptionAReviewTokens.Peach
+private val Coral = Phase1OptionAReviewTokens.Coral
+private val Warm = Phase1OptionAReviewTokens.WarmAction
+private val WarmPanel = Phase1OptionAReviewTokens.WarmPanel
 private val Rounded = RoundedCornerShape(19.dp)
 
 @Composable private fun Label(s:String){
