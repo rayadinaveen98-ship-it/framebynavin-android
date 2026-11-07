@@ -100,15 +100,16 @@ internal class B05PendingPhotoEvidenceQuarantine(
         // scan sees this unrecognized marker and refuses automatic replay.
         // Only a separate verified owner recovery action may resolve it.
         val markerData = (
-            "backlot.pending-photo-review.v1\\n" +
-                journal.transactionId + "\\n" + imported.id + "\\n" +
-                length + "\\n" + checksum + "\\n"
+            "backlot.pending-photo-review.v1\n" +
+                journal.transactionId + "\n" + imported.id + "\n" +
+                length + "\n" + checksum + "\n"
         ).toByteArray(Charsets.UTF_8)
         FileChannel.open(marker.toPath(),
             StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE,
             LinkOption.NOFOLLOW_LINKS,
         ).use { channel ->
-            channel.write(ByteBuffer.wrap(markerData))
+            val buffer = ByteBuffer.wrap(markerData)
+            while (buffer.hasRemaining()) channel.write(buffer)
             channel.force(true)
         }
         FileChannel.open(folder.toPath(), StandardOpenOption.READ).use { it.force(true) }
