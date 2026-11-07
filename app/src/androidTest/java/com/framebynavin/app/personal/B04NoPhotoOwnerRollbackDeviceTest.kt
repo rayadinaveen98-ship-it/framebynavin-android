@@ -151,10 +151,15 @@ class B04NoPhotoOwnerRollbackDeviceTest {
             ByteArrayInputStream(zip),password,password,consent,
         )
         assertEquals(B04RollbackWriteStep.VERIFIED,result.actionState)
-        assertEquals(original.components,
-            V301LocalRecoveryReader(app).read().components)
-        assertEquals(original.photos,
-            V301LocalRecoveryReader(app).read().photos)
+        // The blocking forward journal must remain active after rollback.
+        // Read parity under the exclusive read-only inspection permit rather
+        // than using an ordinary snapshot, which correctly fails closed.
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(forwardRoot) { active ->
+            assertEquals(interrupted, active)
+            val restored = V301LocalRecoveryReader(app).read()
+            assertEquals(original.components, restored.components)
+            assertEquals(original.photos, restored.photos)
+        }
         assertEquals(listOf(originalReminder), PersonalReminderStore(app).load())
         assertEquals(emptyList<V297Challenge>(),V297ChallengeStore(app).load())
         assertEquals(emptyList<V298ReminderGroup>(),V298ReminderGroupStore(app).load())
