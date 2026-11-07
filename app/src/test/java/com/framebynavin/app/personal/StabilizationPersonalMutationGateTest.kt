@@ -279,13 +279,18 @@ class StabilizationPersonalMutationGateTest {
             )
             assertEquals(StabilizationRestoreWriteStep.BEFORE_PERSONAL, updated.step)
             var readRan = false
-            assertThrows(IllegalStateException::class.java) {
-                runBlocking {
-                    StabilizationPersonalMutationGate.withStableSnapshot(journal) {
-                        readRan = true
-                    }
+            var rejected = false
+            try {
+                // Inherit the owner inspection coroutine context; a fresh
+                // runBlocking job would lose its permit and deadlock on the
+                // processMutex already held by this very test.
+                StabilizationPersonalMutationGate.withStableSnapshot(journal) {
+                    readRan = true
                 }
+            } catch (_: IllegalStateException) {
+                rejected = true
             }
+            assertTrue("Changed journal must invalidate inspection", rejected)
             assertFalse("Changed journal must not authorize stale read", readRan)
         }
         assertThrows(IllegalStateException::class.java) {
@@ -302,13 +307,18 @@ class StabilizationPersonalMutationGateTest {
             val updated = original.copy(updatedAtMillis = original.updatedAtMillis + 1L)
             active.writeBytes(StabilizationRestoreJournalCodec.encode(updated))
             var readRan = false
-            assertThrows(IllegalStateException::class.java) {
-                runBlocking {
-                    StabilizationPersonalMutationGate.withStableSnapshot(journal) {
-                        readRan = true
-                    }
+            var rejected = false
+            try {
+                // Inherit the owner inspection coroutine context; a fresh
+                // runBlocking job would lose its permit and deadlock on the
+                // processMutex already held by this very test.
+                StabilizationPersonalMutationGate.withStableSnapshot(journal) {
+                    readRan = true
                 }
+            } catch (_: IllegalStateException) {
+                rejected = true
             }
+            assertTrue("Changed journal must invalidate inspection", rejected)
             assertFalse("A replaced checkpoint must invalidate inspection", readRan)
         }
     }
