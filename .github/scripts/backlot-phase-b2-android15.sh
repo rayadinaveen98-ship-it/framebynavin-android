@@ -49,3 +49,16 @@ if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
   exit 1
 fi
 echo 'PASS: B04 no-photo owner-authenticated forward replay and journal finalization'
+
+# B4: fully separate disposable app profile; inject synthetic crash after
+# forward SPACES_WRITTEN, then perform four-store owner-confirmed rollback.
+adb shell pm clear com.framebynavin.app
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class com.framebynavin.app.personal.B04NoPhotoOwnerRollbackDeviceTest \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
+grep -Fq 'OK (1 test)' "$log"
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
+  exit 1
+fi
+echo 'PASS: Android B04 owner-authenticated additive rollback across four canonical stores'
