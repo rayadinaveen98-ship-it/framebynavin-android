@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: backlot-phase-b-authenticated-precommit
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   b1-safety:
