@@ -43,11 +43,27 @@ internal class B05PendingPhotoEvidenceQuarantine(
     fun preserve(
         journal: StabilizationRestoreJournalRecord,
         imported: V290SpacePhotoEntity,
+        originalComponents: V300PersonalComponents,
+        originalPhotos: List<V290SpacePhotoEntity>,
+        targetComponents: V300PersonalComponents,
+        targetPhotos: List<V290SpacePhotoEntity>,
         ownerConfirmed: Boolean,
-        isOriginalOwnerPhoto: Boolean,
     ): B05QuarantinedPendingPhoto {
         require(ownerConfirmed) { "Owner must explicitly approve evidence preservation" }
-        require(!isOriginalOwnerPhoto) { "Owner's original photo must never be moved" }
+        require(V304RestorePlanPolicy.fingerprint(originalComponents, originalPhotos) ==
+            journal.originalDigest &&
+            V304RestorePlanPolicy.fingerprint(targetComponents, targetPhotos) ==
+                journal.targetDigest) {
+            "Photo preservation requires source and target bound to the recovery journal"
+        }
+        require(originalPhotos.none { it.id == imported.id }) {
+            "Owner's original photo must never be moved"
+        }
+        require(targetPhotos.count { it.id == imported.id && it == imported } == 1 &&
+            targetPhotos.distinctBy { it.id }.size == targetPhotos.size &&
+            originalPhotos.all { old -> targetPhotos.any { it == old } }) {
+            "Photo does not belong to the authenticated additive import"
+        }
         require(journal.step == StabilizationRestoreWriteStep.BEFORE_PHOTOS) {
             "Only an interrupted photo write can be quarantined"
         }

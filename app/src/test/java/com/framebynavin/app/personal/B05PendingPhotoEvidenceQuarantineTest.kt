@@ -18,10 +18,17 @@ class B05PendingPhotoEvidenceQuarantineTest {
         fileName=photoId + ".jpg", sha256Hex="a".repeat(64),
         widthPx=16, heightPx=16, note="",
     )
+    private val originalComponents = V300PersonalComponents(
+        "owner-personal", "owner-challenges", "owner-groups", "owner-spaces"
+    )
+    private val targetComponents = V300PersonalComponents(
+        "target-personal", "target-challenges", "target-groups", "target-spaces"
+    )
     private val journal = StabilizationRestoreJournalRecord(
         transactionId=txId, preparedId=txId,
         escrowId="613c863a-b019-4085-9df3-5f38b84454ea",
-        originalDigest="a".repeat(64), targetDigest="b".repeat(64),
+        originalDigest=V304RestorePlanPolicy.fingerprint(originalComponents,emptyList()),
+        targetDigest=V304RestorePlanPolicy.fingerprint(targetComponents,listOf(photo)),
         step=StabilizationRestoreWriteStep.BEFORE_PHOTOS,
         createdAtMillis=100L, updatedAtMillis=200L,
     )
@@ -42,7 +49,9 @@ class B05PendingPhotoEvidenceQuarantineTest {
         pending(folder).writeBytes(bytes)
         val original=File(folder,photo.fileName)
         original.writeBytes(byteArrayOf(7,8,9))
-        val kept=sut(root,history).preserve(journal,photo,true,false)
+        val kept=sut(root,history).preserve(
+            journal,photo,originalComponents,emptyList(),targetComponents,listOf(photo),true
+        )
         assertFalse(pending(folder).exists())
         assertArrayEquals(bytes,kept.evidencePath.readBytes())
         assertArrayEquals(byteArrayOf(7,8,9),original.readBytes())
@@ -63,7 +72,8 @@ class B05PendingPhotoEvidenceQuarantineTest {
     @Test fun rejectsMissingOwnerConfirmationWithoutMovingFile() = sandbox { root,history,folder ->
         pending(folder).writeBytes(bytes)
         assertThrows(IllegalArgumentException::class.java) {
-            sut(root,history).preserve(journal,photo,false,false)
+            sut(root,history).preserve(
+                journal,photo,originalComponents,emptyList(),targetComponents,listOf(photo),false)
         }
         assertArrayEquals(bytes,pending(folder).readBytes())
         assertFalse(history.exists())
@@ -71,7 +81,10 @@ class B05PendingPhotoEvidenceQuarantineTest {
     @Test fun rejectsOriginalOwnerPhoto() = sandbox { root,history,folder ->
         pending(folder).writeBytes(bytes)
         assertThrows(IllegalArgumentException::class.java) {
-            sut(root,history).preserve(journal,photo,true,true)
+            sut(root,history).preserve(
+                journal.copy(originalDigest=V304RestorePlanPolicy.fingerprint(
+                    originalComponents,listOf(photo))),
+                photo,originalComponents,listOf(photo),targetComponents,listOf(photo),true)
         }
         assertTrue(pending(folder).exists())
     }
@@ -80,7 +93,7 @@ class B05PendingPhotoEvidenceQuarantineTest {
         assertThrows(IllegalArgumentException::class.java) {
             sut(root,history).preserve(
                 journal.copy(step=StabilizationRestoreWriteStep.VERIFYING),
-                photo,true,false)
+                photo,originalComponents,emptyList(),targetComponents,listOf(photo),true)
         }
     }
     @Test fun cannotEraseExistingForensicCopy() = sandbox { root,history,folder ->
@@ -90,7 +103,9 @@ class B05PendingPhotoEvidenceQuarantineTest {
         val retained=File(retainedFolder,photoId + ".restore.pending")
         retained.writeBytes(byteArrayOf(9))
         assertThrows(IllegalStateException::class.java) {
-            sut(root,history).preserve(journal,photo,true,false)
+            sut(root,history).preserve(
+            journal,photo,originalComponents,emptyList(),targetComponents,listOf(photo),true
+        )
         }
         assertArrayEquals(bytes,pending(folder).readBytes())
         assertArrayEquals(byteArrayOf(9),retained.readBytes())
@@ -100,7 +115,9 @@ class B05PendingPhotoEvidenceQuarantineTest {
         outside.writeBytes(bytes)
         Files.createSymbolicLink(pending(folder).toPath(),outside.toPath())
         assertThrows(IllegalStateException::class.java) {
-            sut(root,history).preserve(journal,photo,true,false)
+            sut(root,history).preserve(
+            journal,photo,originalComponents,emptyList(),targetComponents,listOf(photo),true
+        )
         }
         assertArrayEquals(bytes,outside.readBytes())
     }
@@ -111,14 +128,18 @@ class B05PendingPhotoEvidenceQuarantineTest {
         check(elsewhere.mkdir())
         Files.createSymbolicLink(File(history,txId).toPath(),elsewhere.toPath())
         assertThrows(IllegalStateException::class.java) {
-            sut(root,history).preserve(journal,photo,true,false)
+            sut(root,history).preserve(
+            journal,photo,originalComponents,emptyList(),targetComponents,listOf(photo),true
+        )
         }
         assertTrue(pending(folder).exists())
     }
     @Test fun emptyPendingCopyRequiresManualReview() = sandbox { root,history,folder ->
         pending(folder).writeBytes(byteArrayOf())
         assertThrows(IllegalStateException::class.java) {
-            sut(root,history).preserve(journal,photo,true,false)
+            sut(root,history).preserve(
+            journal,photo,originalComponents,emptyList(),targetComponents,listOf(photo),true
+        )
         }
         assertTrue(pending(folder).exists())
     }
@@ -132,13 +153,17 @@ class B05PendingPhotoEvidenceQuarantineTest {
     }
     @Test fun missingPendingCopyCannotBePretendedPreserved() = sandbox { root,history,_ ->
         assertThrows(IllegalStateException::class.java) {
-            sut(root,history).preserve(journal,photo,true,false)
+            sut(root,history).preserve(
+            journal,photo,originalComponents,emptyList(),targetComponents,listOf(photo),true
+        )
         }
     }
     @Test fun preservedEvidenceCannotMakeInterruptedRestoreAutoResume() = sandbox {
         root,history,folder ->
         pending(folder).writeBytes(bytes)
-        val kept=sut(root,history).preserve(journal,photo,true,false)
+        val kept=sut(root,history).preserve(
+            journal,photo,originalComponents,emptyList(),targetComponents,listOf(photo),true
+        )
         assertTrue(kept.evidencePath.isFile)
         assertTrue(kept.blockingMarkerPath.isFile)
         val forensic=B04PrivatePhotoForensicPolicy.inspect(
@@ -156,7 +181,9 @@ class B05PendingPhotoEvidenceQuarantineTest {
         val marker=File(folder,"." + photoId + ".restore.review")
         marker.writeText("owner evidence")
         assertThrows(IllegalStateException::class.java) {
-            sut(root,history).preserve(journal,photo,true,false)
+            sut(root,history).preserve(
+            journal,photo,originalComponents,emptyList(),targetComponents,listOf(photo),true
+        )
         }
         assertEquals("owner evidence",marker.readText())
         assertArrayEquals(bytes,pending(folder).readBytes())
