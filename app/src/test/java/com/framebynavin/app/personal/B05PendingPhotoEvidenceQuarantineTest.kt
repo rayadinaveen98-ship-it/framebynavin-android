@@ -147,7 +147,8 @@ class B05PendingPhotoEvidenceQuarantineTest {
         pending(folder).writeBytes(bytes)
         assertThrows(IllegalArgumentException::class.java) {
             sut(root,history).preserve(
-                journal.copy(transactionId="../untrusted"),photo,true,false)
+                journal.copy(transactionId="../untrusted"),photo,
+                originalComponents,emptyList(),targetComponents,listOf(photo),true)
         }
         assertArrayEquals(bytes,pending(folder).readBytes())
     }
