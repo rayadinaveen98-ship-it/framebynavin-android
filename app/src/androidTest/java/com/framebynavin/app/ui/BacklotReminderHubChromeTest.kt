@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -94,7 +95,8 @@ class BacklotReminderHubChromeTest {
     }
 
     @Test fun realPersonalHubRoutesToCreatorWithoutCreatingAReminder() {
-        // Runs solely in the disposable Android CI emulator. No user records.
+        // Refuse to even mount a real Personal store outside a marked CI emulator.
+        HardeningTestEnvironment.requireCiEmulator()
         var navigations = 0
         rule.setContent {
             FrameByNavinTheme {
