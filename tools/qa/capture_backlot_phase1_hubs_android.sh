@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Run all commands in a single Bash process (emulator runner executes script lines separately).
-# Four native Android 15 screenshots: Director's Cut primary + Light compatibility.
+# Nine native Android 15 screenshots: Director's Cut Phase 1 plus Light Hubs.
 set -euo pipefail
 
-out="output/backlot-phase1-hubs-directors-cut"
+out="output/backlot-phase1-directors-cut-all-screens"
 mkdir -p "$out"
 adb wait-for-device
 adb shell getprop sys.boot_completed | grep -qx '1'
@@ -14,13 +14,18 @@ assert "FrameTheme.DIRECTORS_CUT.palette" in hub, "Director's Cut source palette
 assert "FrameTheme.BACKLOT_LIGHT.palette" in hub, "Light compatibility source palette absent"
 assert "palette.secondary" not in hub, "Do not make secondary gold a main Hub accent"
 assert "HubGold" not in hub and "Phase1OptionAReviewTokens" not in hub, "Old gold mockup leaked into Hub"
-print("Director's Cut primary theme reference verified; no gold mockup accents")
+five = Path("app/src/debug/java/com/framebynavin/app/phase1/Phase1VisualReviewActivity.kt").read_text()
+assert "FrameTheme.DIRECTORS_CUT.palette.background" in five, "Primary Director's Cut background absent"
+assert "Phase1OptionAReviewTokens" not in five, "Five other screens still use gold mockup tokens"
+assert "private val RecRed = FrameTheme.DIRECTORS_CUT.palette.primary" in five
+assert 'Primary("Start my 21 days     →")' in five, "Challenge sticky CTA missing"
+print("Complete nine-screen source uses Director's Cut; no gold mockup accents")
 PY
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell wm size > "$out/DEVICE-DISPLAY.txt"
 adb shell wm density >> "$out/DEVICE-DISPLAY.txt"
 
-for scene in personal-hub creator-hub personal-hub-light creator-hub-light; do
+for scene in cloud challenge-create challenge-dashboard alarm delete-account personal-hub creator-hub personal-hub-light creator-hub-light; do
   echo "Capturing Android 15 Director\x27s Cut/Light hub: $scene"
   adb shell am force-stop com.framebynavin.app || true
   adb shell am start -W -n com.framebynavin.app/.phase1.Phase1VisualReviewActivity --es phase1_screen "$scene"
@@ -53,4 +58,4 @@ done
 printf '%s\n' "$GITHUB_SHA" > "$out/SOURCE-COMMIT.txt"
 printf '%s\n' "Director\x27s Cut primary, Light compatibility; native Android debug-only synthetic fixture; no release approval" > "$out/REVIEW-LIMITS.txt"
 (cd "$out" && sha256sum *.png > SHA256SUMS.txt)
-echo "Four native Android theme-correct hub preview screenshots captured and hashed."
+echo "Nine native Android theme-correct Phase 1 previews captured and hashed."
