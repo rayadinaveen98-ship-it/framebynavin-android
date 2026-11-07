@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: backlot-phase-b-authenticated-precommit
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   b1-safety:
@@ -28,7 +28,7 @@ jobs:
           git diff --name-only "$frozen" HEAD > /tmp/phase-b1-files.txt
           while IFS= read -r path; do
             case "$path" in
-              app/src/main/java/com/framebynavin/app/personal/B01RestorePrecommitPolicy.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreDomainWriter.kt|app/src/main/java/com/framebynavin/app/personal/B04InterruptedRecoveryInspector.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerRecoveryConsentPolicy.kt|app/src/main/java/com/framebynavin/app/personal/B04VerifiedCompletionEvidence.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerVerifiedTargetEvidenceCoordinator.kt|app/src/main/java/com/framebynavin/app/personal/B04VerifiedJournalRelease.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerFinalizedRecoveryCoordinator.kt|app/src/test/java/com/framebynavin/app/personal/B04VerifiedJournalReleaseTest.kt|app/src/test/java/com/framebynavin/app/personal/B04VerifiedCompletionEvidenceTest.kt|app/src/test/java/com/framebynavin/app/personal/B04OwnerRecoveryConsentPolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournal.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalTest.kt|app/src/main/java/com/framebynavin/app/personal/V305RollbackEscrowCoordinator.kt|app/src/androidTest/java/com/framebynavin/app/personal/V305RollbackEscrowDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B04InterruptedRecoveryPolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreTransactionCoordinator.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B03AdditiveRestoreDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B01RestorePrecommitPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B02OwnerPrecommitDeviceTest.kt|.github/scripts/backlot-phase-b2-android15.sh|docs/release/BACKLOT_PHASE_B_RECOVERY.md|.github/workflows/backlot-phase-b1-precommit.yml) ;;
+              app/src/main/java/com/framebynavin/app/personal/B01RestorePrecommitPolicy.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationPersonalMutationGate.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreDomainWriter.kt|app/src/main/java/com/framebynavin/app/personal/B04InterruptedRecoveryInspector.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerRecoveryConsentPolicy.kt|app/src/main/java/com/framebynavin/app/personal/B04VerifiedCompletionEvidence.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerVerifiedTargetEvidenceCoordinator.kt|app/src/main/java/com/framebynavin/app/personal/B04VerifiedJournalRelease.kt|app/src/main/java/com/framebynavin/app/personal/B04OwnerFinalizedRecoveryCoordinator.kt|app/src/main/java/com/framebynavin/app/personal/B04RecoveryDomainCheckpointPolicy.kt|app/src/test/java/com/framebynavin/app/personal/B04RecoveryDomainCheckpointPolicyTest.kt|app/src/test/java/com/framebynavin/app/personal/B04VerifiedJournalReleaseTest.kt|app/src/test/java/com/framebynavin/app/personal/B04VerifiedCompletionEvidenceTest.kt|app/src/test/java/com/framebynavin/app/personal/B04OwnerRecoveryConsentPolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournal.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationRestoreWriteAheadJournalTest.kt|app/src/main/java/com/framebynavin/app/personal/V305RollbackEscrowCoordinator.kt|app/src/androidTest/java/com/framebynavin/app/personal/V305RollbackEscrowDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B04InterruptedRecoveryPolicyTest.kt|app/src/main/java/com/framebynavin/app/personal/B03RestoreTransactionCoordinator.kt|app/src/test/java/com/framebynavin/app/personal/StabilizationPersonalMutationGateTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B03AdditiveRestoreDeviceTest.kt|app/src/test/java/com/framebynavin/app/personal/B01RestorePrecommitPolicyTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/B02OwnerPrecommitDeviceTest.kt|.github/scripts/backlot-phase-b2-android15.sh|docs/release/BACKLOT_PHASE_B_RECOVERY.md|.github/workflows/backlot-phase-b1-precommit.yml) ;;
               *) echo "BLOCKED: unexpected Phase B1 change $path" >&2; exit 1;;
             esac
           done < /tmp/phase-b1-files.txt
@@ -62,6 +62,7 @@ jobs:
               ('B04OwnerRecoveryConsentPolicyTest', 20),
               ('B04VerifiedCompletionEvidenceTest', 16),
               ('B04VerifiedJournalReleaseTest', 12),
+              ('B04RecoveryDomainCheckpointPolicyTest', 17),
               ('StabilizationRestoreWriteAheadJournalTest', 17),
               ('StabilizationVerifiedPhotoInstallerTest', 12),
           ):
