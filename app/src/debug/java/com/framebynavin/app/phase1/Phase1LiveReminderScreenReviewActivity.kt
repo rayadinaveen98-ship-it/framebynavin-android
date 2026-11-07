@@ -33,9 +33,8 @@ class Phase1LiveReminderScreenReviewActivity : ComponentActivity() {
         // Debug-only is not sufficient: refuse to show real Personal data on any
         // ordinary user phone, even if someone manually installs a debug APK.
         val isDisposableEmulator =
-            Build.FINGERPRINT.contains("generic", ignoreCase = true) ||
-            Build.PRODUCT.contains("sdk_gphone", ignoreCase = true) ||
-            Build.MODEL.contains("sdk_gphone", ignoreCase = true)
+            Build.HARDWARE.equals("ranchu", ignoreCase = true) ||
+            Build.HARDWARE.equals("goldfish", ignoreCase = true)
         if (!BuildConfig.DEBUG || !isDisposableEmulator ||
             !intent.getBooleanExtra("backlot_ci_visual_review", false)
         ) {

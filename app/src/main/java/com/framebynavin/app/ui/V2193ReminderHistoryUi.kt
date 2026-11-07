@@ -30,7 +30,8 @@ import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.reminders.ReminderAcknowledgementStore
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
-import com.framebynavin.app.ui.theme.MutedGold
+import com.framebynavin.app.ui.theme.RecRed
+import com.framebynavin.app.ui.theme.SuccessGreen
 import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
 
@@ -57,7 +58,7 @@ internal fun V2193ReminderHistorySection(
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.History, null, tint = MutedGold)
+            Icon(Icons.Outlined.History, null, tint = MutedText)
             Spacer(Modifier.width(8.dp))
             Text("RECORDED HISTORY", color = ProjectorIvory,
                 fontWeight = FontWeight.Black, fontSize = 15.sp)
@@ -68,7 +69,7 @@ internal fun V2193ReminderHistorySection(
             color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
         )
 
-        Text("CONFIRMED REMINDER RESPONSES", color = MutedGold,
+        Text("CONFIRMED REMINDER RESPONSES", color = MutedText,
             fontWeight = FontWeight.Bold, fontSize = 11.sp)
         Surface(
             modifier = Modifier.fillMaxWidth().testTag("v2193-confirmed-responses"),
@@ -91,9 +92,9 @@ internal fun V2193ReminderHistorySection(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.CheckCircleOutline, null, tint = MutedGold)
+            Icon(Icons.Outlined.CheckCircleOutline, null, tint = SuccessGreen)
             Spacer(Modifier.width(7.dp))
-            Text("COMPLETED PROJECTS", color = MutedGold,
+            Text("COMPLETED PROJECTS", color = MutedText,
                 fontWeight = FontWeight.Bold, fontSize = 11.sp)
         }
         Surface(

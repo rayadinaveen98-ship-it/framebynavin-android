@@ -10,19 +10,37 @@ adb wait-for-device
 adb shell getprop sys.boot_completed | grep -qx '1'
 adb shell wm size > "$out/DEVICE-DISPLAY.txt"
 adb shell wm density >> "$out/DEVICE-DISPLAY.txt"
+python3 - <<'PY'
+from pathlib import Path
+root = Path("app/src/main/java/com/framebynavin/app/ui")
+for filename in [
+    "V2232PersonalReminderHub.kt", "V157ReminderCenterUi.kt",
+    "V295UniversalPersonalRoutines.kt", "V307CompactCreatorActivity.kt",
+    "V2193ReminderHistoryUi.kt",
+]:
+    raw = (root / filename).read_text()
+    assert "MutedGold" not in raw, f"Legacy gold accent in {filename}"
+for filename, action in [
+    ("V2232PersonalReminderHub.kt", "onOpenCreator = onCreator"),
+    ("V157ReminderCenterUi.kt", "onOpenPersonal = onPersonal"),
+]:
+    assert action in (root / filename).read_text(), f"Navigation callback lost: {filename}"
+print("PASS: real Hubs and nested screens use no legacy gold; both navigation callbacks retained")
+PY
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
-echo "Running three shared Hub callback instrumentation tests"
+echo "Running five shared and real-Hub callback instrumentation tests"
 timeout 12m adb shell am instrument -w \
   -e class com.framebynavin.app.ui.BacklotReminderHubChromeTest \
+  -e hardeningTestEnvironment ci-emulator \
   com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
   > "$out/INSTRUMENTED-HUB-TESTS.txt" 2>&1 || {
   cat "$out/INSTRUMENTED-HUB-TESTS.txt" >&2
   exit 1
 }
 cat "$out/INSTRUMENTED-HUB-TESTS.txt"
-if ! grep -q 'OK (3 tests)' "$out/INSTRUMENTED-HUB-TESTS.txt"; then
+if ! grep -q 'OK (5 tests)' "$out/INSTRUMENTED-HUB-TESTS.txt"; then
   echo "Hub callback test count/result was not confirmed" >&2
   exit 1
 fi

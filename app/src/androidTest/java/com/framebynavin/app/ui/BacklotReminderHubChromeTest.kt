@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -57,4 +58,57 @@ class BacklotReminderHubChromeTest {
         rule.onNodeWithText("BACKLOT / REMINDERS").assertIsDisplayed()
         rule.onNodeWithText("My day").assertIsDisplayed()
     }
+    @Test fun realCreatorHubRoutesToPersonalWithoutChangingReminderData() {
+        val demo = com.framebynavin.app.data.CreatorTask(
+            id = "test-creator-workspace",
+            title = "Review rough cut",
+            platform = "YouTube",
+            contentType = "Film",
+            dueLabel = "Today",
+            reminderEnabled = true,
+            reminderAtMillis = System.currentTimeMillis() + 3_600_000L,
+            attentionPlan = com.framebynavin.app.data.ProjectAttentionPlan.CUSTOM,
+        )
+        var navigations = 0
+        rule.setContent {
+            FrameByNavinTheme {
+                V157ReminderCenterUi(
+                    tasks = listOf(demo),
+                    onDismiss = {},
+                    onNew = {},
+                    onEdit = {},
+                    onDeleteReminders = {},
+                    onOpenReminderSettings = {},
+                    onSnooze = null,
+                    onPause = null,
+                    onReschedule = null,
+                    snoozeMinutes = 10,
+                    onPersonal = { navigations++ },
+                )
+            }
+        }
+        rule.onNodeWithTag("v2232-open-personal").assertIsDisplayed().performClick()
+        rule.runOnIdle {
+            assertEquals(1, navigations)
+            assertEquals("test-creator-workspace", demo.id)
+        }
+    }
+
+    @Test fun realPersonalHubRoutesToCreatorWithoutCreatingAReminder() {
+        // Refuse to even mount a real Personal store outside a marked CI emulator.
+        HardeningTestEnvironment.requireCiEmulator()
+        var navigations = 0
+        rule.setContent {
+            FrameByNavinTheme {
+                V2232PersonalReminderHub(
+                    onClose = {},
+                    onCreator = { navigations++ },
+                    onOpenActivity = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("v2232-open-creator").assertIsDisplayed().performClick()
+        rule.runOnIdle { assertEquals(1, navigations) }
+    }
+
 }
