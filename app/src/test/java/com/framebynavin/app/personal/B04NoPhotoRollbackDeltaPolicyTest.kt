@@ -131,12 +131,12 @@ class B04NoPhotoRollbackDeltaPolicyTest {
         }
     }
     @Test fun refusesUnverifiedArchiveWithMissingSpaceLink() {
-        val spaces=V303SpaceReceiptArchiveCodec.encode(V289SpaceState(
-            spaces=listOf(space),
-            links=listOf(V289SpaceReminderLink(spaceId,"missing-reminder",400L)),
-        ),newPersonal)
-        val corrupt=target.copy(spaces=spaces)
         assertThrows(IllegalArgumentException::class.java) {
+            val spaces=V303SpaceReceiptArchiveCodec.encode(V289SpaceState(
+                spaces=listOf(space),
+                links=listOf(V289SpaceReminderLink(spaceId,"missing-reminder",400L)),
+            ),newPersonal)
+            val corrupt=target.copy(spaces=spaces)
             plan(after=corrupt,j=journal().copy(
                 targetDigest=V304RestorePlanPolicy.fingerprint(corrupt,emptyList())))
         }
@@ -154,9 +154,9 @@ class B04NoPhotoRollbackDeltaPolicyTest {
         }
     }
     @Test fun refusesDuplicateReminderIdentity() {
-        val bad=target.copy(personal=PersonalCompletionBackupCodec.encode(
-            listOf(owner,owner,incoming),emptyList()))
         assertThrows(Exception::class.java) {
+            val bad=target.copy(personal=PersonalCompletionBackupCodec.encode(
+                listOf(owner,owner,incoming),emptyList()))
             plan(after=bad,j=journal().copy(
                 targetDigest=V304RestorePlanPolicy.fingerprint(bad,emptyList())))
         }
