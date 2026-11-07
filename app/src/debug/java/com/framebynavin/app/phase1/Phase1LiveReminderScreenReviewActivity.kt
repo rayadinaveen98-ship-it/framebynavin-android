@@ -15,6 +15,7 @@ import com.framebynavin.app.data.ProjectAttentionPlan
 import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.ui.V157ReminderCenterUi
 import com.framebynavin.app.ui.V2232PersonalReminderHub
+import com.framebynavin.app.ui.V2232PersonalEditor
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.ui.theme.FrameTheme
 import com.framebynavin.app.ui.theme.VisualExperiencePrefs
@@ -49,7 +50,18 @@ class Phase1LiveReminderScreenReviewActivity : ComponentActivity() {
         )
         setContent {
             FrameByNavinTheme {
-                Phase1LiveHubReview(initialScene.startsWith("personal"))
+                if (initialScene.startsWith("personal-editor")) {
+                    // The real editor with an inert save callback: no alarm,
+                    // persistent record, or external action can be created here.
+                    V2232PersonalEditor(
+                        existing = null,
+                        saving = false,
+                        onDismiss = {},
+                        onSave = {},
+                    )
+                } else {
+                    Phase1LiveHubReview(initialScene.startsWith("personal"))
+                }
             }
         }
     }
