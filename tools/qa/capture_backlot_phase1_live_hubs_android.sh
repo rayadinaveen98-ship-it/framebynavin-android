@@ -80,9 +80,62 @@ width, height = struct.unpack('>II', data[16:24])
 assert width >= 600 and height >= 1000, (file, width, height)
 print(f'VALID real-hub screenshot: {file}, {width}x{height}, {len(data)} bytes')
 PY
+  if [[ "$scene" == personal-editor* ]]; then
+    # Review BOTH states of the real editor; never add fixture-only behavior
+    # or alter the production editor to force it open.
+    adb shell uiautomator dump /sdcard/backlot-phase1-review-ui.xml >/dev/null
+    adb exec-out cat /sdcard/backlot-phase1-review-ui.xml > "$out/$scene.before-expansion.xml"
+    tap="$(python3 - "$out/$scene.before-expansion.xml" <<'PY'
+import re, sys
+from xml.etree import ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+for node in root.iter("node"):
+    label = " ".join((node.attrib.get("text", ""), node.attrib.get("content-desc", "")))
+    if "Show Suggestions" not in label:
+        continue
+    match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
+    if match:
+        x0, y0, x1, y1 = map(int, match.groups())
+        if x1 > x0 and y1 > y0:
+            print((x0+x1)//2, (y0+y1)//2)
+            break
+else:
+    raise SystemExit("ERROR: Cannot locate visible Show Suggestions control; refusing blind tap")
+PY
+)"
+    read -r tap_x tap_y <<< "$tap"
+    adb shell input tap "$tap_x" "$tap_y"
+    sleep 3
+    expanded="$scene-expanded"
+    adb exec-out screencap -p > "$out/$expanded.png"
+    python3 tools/qa/backlot_android_ui_guard.py "$expanded" "$out" --strict
+    adb shell uiautomator dump /sdcard/backlot-phase1-review-ui.xml >/dev/null
+    adb exec-out cat /sdcard/backlot-phase1-review-ui.xml > "$out/$expanded.xml"
+    python3 - "$out/$expanded.xml" <<'PY'
+import sys
+from xml.etree import ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+labels = " ".join(" ".join((n.attrib.get("text", ""), n.attrib.get("content-desc", ""))) for n in root.iter("node"))
+assert "Hide Suggestions" in labels, "Expansion not visually confirmed in Android UI hierarchy"
+print("PASS: expanded editor with Hide Suggestions visible")
+PY
+  fi
 done
+
+python3 - "$out" <<'PY'
+from pathlib import Path
+import struct, sys
+images = sorted(Path(sys.argv[1]).glob("*.png"))
+assert len(images) == 8, f"Expected six baseline and two expanded screenshots, got {len(images)}"
+for file in images:
+    data = file.read_bytes()
+    assert data.startswith(b"\x89PNG\r\n\x1a\n") and data[-8:-4] == b"IEND", file
+    width, height = struct.unpack(">II", data[16:24])
+    assert width >= 600 and height >= 1000, (file, width, height)
+print("PASS: all eight real Android screenshots have valid dimensions and PNG bounds")
+PY
 
 printf '%s\n' "$GITHUB_SHA" > "$out/SOURCE-COMMIT.txt"
 printf '%s\n' "Real production Hub Composables in debug-only Activity; synthetic Creator fixtures, empty fresh Personal data; not a release build or owner approval" > "$out/REVIEW-LIMITS.txt"
 (cd "$out" && sha256sum *.png > SHA256SUMS.txt)
-echo "Six live Hub/editor screenshots captured, guarded and checksum-verified."
+echo "Eight live Hub/editor screenshots (including expanded suggestions) captured, guarded and checksum-verified."
