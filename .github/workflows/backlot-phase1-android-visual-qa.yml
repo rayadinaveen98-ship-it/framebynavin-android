@@ -1,0 +1,62 @@
+name: Backlot Phase 1 - Option A actual Android screenshots (debug-only)
+on:
+  push:
+    branches: [feature/backlot-phase1-trust-review]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backlot-phase1-android-screenshot-qa
+  cancel-in-progress: true
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 105
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build isolated debug visual review Activity
+        run: |
+          set -euo pipefail
+          timeout 75m gradle :app:assembleDebug --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Enable Android emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Capture five Android 15 screen screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            mkdir -p output/backlot-phase1-option-A
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            for scene in cloud challenge-create challenge-dashboard alarm delete-account; do
+              adb shell am force-stop com.framebynavin.app || true
+              adb shell am start -W -n 'com.framebynavin.app/.phase1.Phase1VisualReviewActivity' --es phase1_screen "$scene"
+              sleep 3
+              adb shell dumpsys activity activities | grep -q 'Phase1VisualReviewActivity'
+              adb exec-out screencap -p > "output/backlot-phase1-option-A/$scene.png"
+              test -s "output/backlot-phase1-option-A/$scene.png"
+            done
+            echo "$GITHUB_SHA" > output/backlot-phase1-option-A/SOURCE-COMMIT.txt
+            (cd output/backlot-phase1-option-A && sha256sum *.png > SHA256SUMS.txt)
+      - name: Upload real Android screenshot bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Phase1-OptionA-Actual-Android-15-Screenshots
+          path: output/backlot-phase1-option-A/
+          retention-days: 30
+          if-no-files-found: error
