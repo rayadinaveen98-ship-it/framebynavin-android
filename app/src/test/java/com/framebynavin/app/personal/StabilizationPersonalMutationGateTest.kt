@@ -313,4 +313,66 @@ class StabilizationPersonalMutationGateTest {
         }
     }
 
+    @Test fun forwardResumePermitUpgradesReadOnlyInspectionOnlyInsideScope() = sandbox { journal ->
+        val original = prepared(journal)
+        val active = StabilizationRestoreWriteAheadJournal(journal)
+            .checkpoint(StabilizationRestoreWriteStep.PREPARED,
+                StabilizationRestoreWriteStep.BEFORE_PERSONAL, 101L)
+        val decision = B04OwnerRecoveryDecision(
+            transactionId = active.transactionId,
+            selectedChoice = B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET,
+            originalDigest = active.originalDigest,
+            targetDigest = active.targetDigest,
+            escrowId = active.escrowId,
+        )
+        val plan = B04ForwardReplayPlan(
+            active.transactionId, active.step, listOf(B04ForwardReplayStep.VERIFY),
+            active.originalDigest, active.targetDigest,
+        )
+        var recovered = false
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { read ->
+            assertEquals(active, read)
+            StabilizationPersonalMutationGate.withOwnerApprovedForwardRecovery(
+                journal, read, decision, plan,
+            ) {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+                    recovered = true
+                }
+            }
+            var blocked = false
+            try {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) { "unsafe" }
+            } catch (_: IllegalStateException) { blocked = true }
+            assertTrue("Inspection must return to read-only after write permit", blocked)
+        }
+        assertTrue(recovered)
+        assertEquals(active, StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { StabilizationPersonalMutationGate.withOwnerMutation(journal) { "no" } }
+        }
+    }
+
+    @Test fun forwardedResumeCannotBorrowUnrelatedOrRollbackDecision() = sandbox { journal ->
+        val original = prepared(journal)
+        val plan = B04ForwardReplayPlan(
+            original.transactionId, original.step,
+            listOf(B04ForwardReplayStep.VERIFY),
+            original.originalDigest, original.targetDigest,
+        )
+        val wrongChoice = B04OwnerRecoveryDecision(
+            original.transactionId,
+            B04OwnerRecoveryChoice.ROLLBACK_TO_AUTHENTICATED_ESCROW,
+            original.originalDigest, original.targetDigest, original.escrowId,
+        )
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) { checked ->
+            var refused = false
+            try {
+                StabilizationPersonalMutationGate.withOwnerApprovedForwardRecovery(
+                    journal, checked, wrongChoice, plan,
+                ) { "wrong" }
+            } catch (_: IllegalArgumentException) { refused = true }
+            assertTrue("Rollback consent cannot grant forward authority", refused)
+        }
+    }
+
 }

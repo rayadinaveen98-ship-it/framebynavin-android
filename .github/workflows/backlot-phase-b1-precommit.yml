@@ -57,7 +57,7 @@ jobs:
           root=Path('app/build/test-results/testDebugUnitTest')
           for name,minimum in (
               ('B01RestorePrecommitPolicyTest', 20),
-              ('StabilizationPersonalMutationGateTest', 20),
+              ('StabilizationPersonalMutationGateTest', 22),
               ('B04InterruptedRecoveryPolicyTest', 16),
               ('B04OwnerRecoveryConsentPolicyTest', 26),
               ('B04VerifiedCompletionEvidenceTest', 16),

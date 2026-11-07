@@ -119,10 +119,11 @@ internal object StabilizationPersonalMutationGate {
         val permit = RecoveryPermit(
             path, expected.transactionId, expected.originalDigest, expected.targetDigest,
         )
-        // Temporarily remove the READ-ONLY inspection permit so nested
-        // canonical DataStore/Room writers see exactly this recovery permit.
-        val authorContext = currentCoroutineContext().minusKey(InspectionPermit) + permit
-        return try { withContext(authorContext) { action() } }
+        // Kotlin withContext merges with the parent context, so a caller
+        // cannot remove the inherited inspection permit by minusKey alone.
+        // holdGate explicitly prioritizes THIS validated RecoveryPermit;
+        // after the permit expires, its inspection scope becomes read-only.
+        return try { withContext(permit) { action() } }
         finally { permit.active = false }
     }
 
@@ -205,6 +206,14 @@ internal object StabilizationPersonalMutationGate {
         root: File, ordinaryMutation: Boolean, action: suspend () -> T,
     ): T {
         val path = root.absoluteFile.normalize().path
+        val recovery = currentCoroutineContext()[RecoveryPermit]
+        if (recovery != null) {
+            check(recovery.active && recovery.root == path) {
+                "Expired or unrelated restore authority"
+            }
+            ensureMatchingRecoveryJournal(root, recovery)
+            return action()
+        }
         val inspection = currentCoroutineContext()[InspectionPermit]
         if (inspection != null) {
             check(!ordinaryMutation && inspection.active && inspection.root == path) {
@@ -220,14 +229,6 @@ internal object StabilizationPersonalMutationGate {
                 current.updatedAtMillis == inspection.updatedAtMillis) {
                 "Recovery journal changed while being inspected"
             }
-            return action()
-        }
-        val recovery = currentCoroutineContext()[RecoveryPermit]
-        if (recovery != null) {
-            check(recovery.active && recovery.root == path) {
-                "Expired or unrelated restore authority"
-            }
-            ensureMatchingRecoveryJournal(root, recovery)
             return action()
         }
         val inherited = currentCoroutineContext()[Permit]
