@@ -36,6 +36,12 @@ def identify_overlay(xml: str):
         ('wait' in t or 'responding' in t) for t in labels)
     if not (anr or system_modal):
         return False, None
+    # Never dismiss an ANR from Backlot or an unrelated process.
+    # Only the disposable emulator's own Quickstep/launcher is safe to close.
+    quickstep_anr = any(("quickstep" in t or "launcher" in t) and
+                        ("responding" in t) for t in labels)
+    if not quickstep_anr:
+        return True, None
     close = next((n for n in nodes if label(n) == 'close app'), None)
     if close is None:
         close = next((n for n in nodes if 'close app' in label(n)), None)
