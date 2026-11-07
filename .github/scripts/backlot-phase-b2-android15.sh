@@ -84,3 +84,16 @@ if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
   exit 1
 fi
 echo 'PASS: Android B05 force-stopped two-process Room crash rollback preserves original data'
+
+# B5: independent disposable profile, real verified JPEG has reached disk
+# but the Room photo row is absent at BEFORE_PHOTOS durable checkpoint.
+adb shell pm clear com.framebynavin.app
+adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class com.framebynavin.app.personal.B05VerifiedPhotoForwardResumeDeviceTest \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
+grep -Fq 'OK (1 test)' "$log"
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$log"; then
+  exit 1
+fi
+echo 'PASS: B05 Android authenticated photo bytes reattach exact Room row after checkpoint crash'
