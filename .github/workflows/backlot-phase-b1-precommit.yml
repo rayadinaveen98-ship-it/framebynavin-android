@@ -10,12 +10,12 @@ permissions:
 
 concurrency:
   group: backlot-phase-b-authenticated-precommit
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   b1-safety:
     runs-on: ubuntu-latest
-    timeout-minutes: 110
+    timeout-minutes: 200
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,3 +95,51 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: bash .github/scripts/backlot-phase-b2-android15.sh
+
+      # Release packaging runs ONLY if every full JVM and Android 15 test
+      # above has passed. This APK uses the existing public preview signer,
+      # so it is for personal sideload/testing, NEVER Play Store publishing.
+      - name: Assemble non-debuggable signed Backlot personal-install APK
+        run: |
+          set -euo pipefail
+          timeout 70m gradle :app:assemblePersonalStable \
+            -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify signed APK install identity and immutable SHA256
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          mkdir -p output/phase-b-personal
+          cp "$apk" output/phase-b-personal/Backlot-PhaseB-Personal-Stable-Candidate.apk
+          "$signer" verify --verbose --print-certs "$apk" > output/phase-b-personal/APK-SIGNATURE.txt
+          "$aapt" dump badging "$apk" > output/phase-b-personal/APK-IDENTITY.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          signature=Path('output/phase-b-personal/APK-SIGNATURE.txt').read_text()
+          identity=Path('output/phase-b-personal/APK-IDENTITY.txt').read_text()
+          assert "Verified using v2 scheme (APK Signature Scheme v2): true" in signature
+          assert "package: name='com.framebynavin.app' versionCode='294'" in identity
+          assert "certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0" in signature
+          print("PASS: non-debuggable personalStable preview signer and Backlot package identity")
+          PY
+          printf '%s\n' "HEAD_SHA=$GITHUB_SHA" \
+            "BUILD_VARIANT=personalStable (public preview signer)" \
+            "NOT_A_PLAY_STORE_RELEASE=1" > output/phase-b-personal/BUILD-PROVENANCE.txt
+          (cd output/phase-b-personal && sha256sum Backlot-PhaseB-Personal-Stable-Candidate.apk > SHA256SUMS.txt)
+          (cd output/phase-b-personal && sha256sum -c SHA256SUMS.txt)
+      - name: Upload Backlot personal stable candidate after complete green CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-PhaseB-Verified-PersonalStable-294
+          path: output/phase-b-personal/
+          retention-days: 30
+          if-no-files-found: error
