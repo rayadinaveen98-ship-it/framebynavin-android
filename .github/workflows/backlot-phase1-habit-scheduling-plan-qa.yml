@@ -1,0 +1,52 @@
+name: Backlot Phase 1 - Single-habit alarm intent policy QA
+on:
+  push:
+    branches:
+      - feature/backlot-phase1-habit-scheduling-plan
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backlot-phase1-habit-scheduling-plan-qa
+  cancel-in-progress: true
+jobs:
+  habit-alarm-planner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Run single-activity domain, archive and alarm-plan JUnit tests
+        run: |
+          set -euo pipefail
+          timeout 65m gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.Phase1HabitPolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitCodecTest' --tests 'com.framebynavin.app.personal.Phase1HabitMergePolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitAlarmPlanTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Confirm planner does not call alarm or owner-data APIs
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          file = Path('app/src/main/java/com/framebynavin/app/personal/Phase1HabitAlarmPlan.kt')
+          src = file.read_text()
+          for forbidden in ['android.', 'AlarmManager', 'PendingIntent', 'PersonalReminderStore(', 'Phase1HabitStore(', 'V297ChallengeStore(', 'NotificationManager', 'Firebase']:
+              if forbidden == 'android.':
+                  assert 'import android.' not in src
+              else:
+                  assert forbidden not in src.replace('Android\'s', '').replace('Android.', ''), forbidden
+          print('PASS: alarm intent planner has no live Android, owner data, or cloud side effects')
+          PY
+      - name: Upload policy test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-Phase1-Habit-AlarmPlanner-JUnit-Evidence
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn
