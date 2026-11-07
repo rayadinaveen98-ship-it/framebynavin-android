@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.PersonalPurpose
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
-import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
 import com.framebynavin.app.ui.theme.RecRed
@@ -42,7 +41,7 @@ internal fun V274PersonalPurposePicker(
         modifier = Modifier.fillMaxWidth().testTag("v274-personal-purpose-picker"),
         verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        Text("01  WHAT MATTERS?", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text("CHOOSE A PURPOSE", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Text(
             "Start with something personal, or write your own.",
             color = MutedText, fontSize = 12.sp,
