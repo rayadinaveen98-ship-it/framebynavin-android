@@ -3,6 +3,7 @@ package com.framebynavin.app.personal
 import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
 import java.io.File
+import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -24,6 +25,7 @@ internal data class B05QuarantinedPendingPhoto(
     val bytes: Long,
     val sha256: String,
     val evidencePath: File,
+    val blockingMarkerPath: File,
 ) {
     val authorizesRestore: Boolean get() = false
     val permitsDeletingEvidence: Boolean get() = false
@@ -59,6 +61,7 @@ internal class B05PendingPhotoEvidenceQuarantine(
         val pending = File(folder, "." + imported.id + ".restore.pending")
         val evidenceFolder = File(historyRoot, journal.transactionId)
         val retained = File(evidenceFolder, imported.id + ".restore.pending")
+        val marker = File(folder, "." + imported.id + ".restore.review")
         for (directory in listOf(liveRoot, folder)) {
             check(Files.isDirectory(directory.toPath(), noLinks) &&
                 !Files.isSymbolicLink(directory.toPath())) {
@@ -89,21 +92,40 @@ internal class B05PendingPhotoEvidenceQuarantine(
             "Existing photo evidence must never be overwritten"
         }
 
-        // No REPLACE_EXISTING and no delete. Both file bytes and the final
-        // SHA receipt remain verifiable even after an interrupted fsync.
+        // The review marker is fsynced BEFORE the pending bytes are moved.
+        // If the process dies after the move, the existing root-wide forensic
+        // scan sees this unrecognized marker and refuses automatic replay.
+        // Only a separate verified owner recovery action may resolve it.
+        val markerData = (
+            "backlot.pending-photo-review.v1\\n" +
+                journal.transactionId + "\\n" + imported.id + "\\n" +
+                length + "\\n" + checksum + "\\n"
+        ).toByteArray(Charsets.UTF_8)
+        FileChannel.open(marker.toPath(),
+            StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE,
+            LinkOption.NOFOLLOW_LINKS,
+        ).use { channel ->
+            channel.write(ByteBuffer.wrap(markerData))
+            channel.force(true)
+        }
+        FileChannel.open(folder.toPath(), StandardOpenOption.READ).use { it.force(true) }
+
+        // No REPLACE_EXISTING and no delete. Bytes are preserved in immutable
+        // evidence history; a crash never silently authorizes new photo writes.
         Files.move(pending.toPath(), retained.toPath(), StandardCopyOption.ATOMIC_MOVE)
         FileChannel.open(folder.toPath(), StandardOpenOption.READ).use { it.force(true) }
         FileChannel.open(evidenceFolder.toPath(), StandardOpenOption.READ).use { it.force(true) }
         FileChannel.open(historyRoot.toPath(), StandardOpenOption.READ).use { it.force(true) }
 
         check(!Files.exists(pending.toPath(), noLinks) &&
+            Files.isRegularFile(marker.toPath(), noLinks) &&
             Files.isRegularFile(retained.toPath(), noLinks) &&
             !Files.isSymbolicLink(retained.toPath()) &&
             retained.length() == length && sha256(retained) == checksum) {
             "Preserved photo evidence failed independent verification"
         }
         return B05QuarantinedPendingPhoto(
-            journal.transactionId, imported.id, length, checksum, retained,
+            journal.transactionId, imported.id, length, checksum, retained, marker,
         )
     }
 
